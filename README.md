@@ -97,3 +97,4 @@ Run a single app with a filter, for example `pnpm --filter @suskii/api dev`.
 - **Scripts blocked in PowerShell** (`running scripts is disabled`): run
   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
 - **Docker commands hang**: make sure Docker Desktop is running and uses the WSL 2 backend.
+- **ui-web tests say Chromium is missing**: run `pnpm --filter @suskii/ui-web exec playwright install chromium` once.

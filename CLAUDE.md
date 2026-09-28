@@ -34,8 +34,8 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 
 | Phase | Name                                             | Status                |
 | ----- | ------------------------------------------------ | --------------------- |
-| 0     | Foundation and repo bootstrap                    | Done, awaiting review |
-| 1     | Design tokens and component libraries            | Not started           |
+| 0     | Foundation and repo bootstrap                    | Done                  |
+| 1     | Design tokens and component libraries            | Done, awaiting review |
 | 2     | Backend core                                     | Not started           |
 | 3     | Search, catalog and supplier adapters            | Not started           |
 | 4     | Web homepage                                     | Not started           |
@@ -57,11 +57,14 @@ apps/
   worker/     Node ESM worker process (Vitest)
   web/        Next.js 16 App Router
   admin/      Next.js 16 App Router (noindex)
-  mobile/     Expo SDK 57 + Expo Router
+  mobile/     Expo SDK 57 + Expo Router + NativeWind 4 (Jest)
 packages/
-  config/     Shared TSConfig presets, ESLint flat-config factories, Prettier, Vitest base
-  shared/     Domain constants, Zod schemas, types, money/date utils (dual ESM/CJS via tsup)
-  design-tokens/ ui-web/ ui-native/ api-client/ i18n/   README only until their phase
+  config/         Shared TSConfig presets, ESLint flat-config factories, Prettier, Vitest base
+  shared/         Domain constants, traveller rules, Zod schemas (dual ESM/CJS via tsup)
+  design-tokens/  Single token source -> Tailwind v4 theme (web), v3 preset (NativeWind), CSS vars
+  ui-web/         Radix-based web components (TS source), Storybook 10, Vitest browser + axe tests
+  ui-native/      NativeWind components (TS source), bottom sheets, Jest + RNTL tests
+  api-client/ i18n/   README only until their phase (2 and 4)
 infra/        Terraform + Helm (phase 12). Local infra lives in the root docker-compose.yml
 docs/         decisions/ (ADRs), phases/ (phase plans), runbooks and security docs later
 ```
@@ -70,19 +73,21 @@ docs/         decisions/ (ADRs), phases/ (phase plans), runbooks and security do
 
 Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 
-| Command                         | What it does                                                      |
-| ------------------------------- | ----------------------------------------------------------------- |
-| `pnpm install`                  | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced) |
-| `pnpm infra:up`                 | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)     |
-| `pnpm infra:down`               | Stop local infra (data kept in named volumes)                     |
-| `pnpm dev`                      | Run every app in watch mode through Turborepo                     |
-| `pnpm build`                    | Build every workspace (dependencies first)                        |
-| `pnpm lint`                     | ESLint (type-aware) in every workspace                            |
-| `pnpm typecheck`                | `tsc --noEmit` in every workspace                                 |
-| `pnpm test`                     | Unit tests (Vitest for packages and worker, Jest for API)         |
-| `pnpm test:e2e`                 | API e2e tests (Nest testing module + supertest)                   |
-| `pnpm format` / `format:check`  | Prettier write / check                                            |
-| `pnpm --filter @suskii/api dev` | Run a single workspace                                            |
+| Command                            | What it does                                                        |
+| ---------------------------------- | ------------------------------------------------------------------- |
+| `pnpm install`                     | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)   |
+| `pnpm infra:up`                    | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)       |
+| `pnpm infra:down`                  | Stop local infra (data kept in named volumes)                       |
+| `pnpm dev`                         | Run every app in watch mode through Turborepo                       |
+| `pnpm build`                       | Build every workspace (dependencies first)                          |
+| `pnpm lint`                        | ESLint (type-aware) in every workspace                              |
+| `pnpm typecheck`                   | `tsc --noEmit` in every workspace                                   |
+| `pnpm test`                        | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native) |
+| `pnpm build:storybook`             | Static Storybook for ui-web                                         |
+| `pnpm --filter @suskii/ui-web dev` | Storybook dev server on port 6006                                   |
+| `pnpm test:e2e`                    | API e2e tests (Nest testing module + supertest)                     |
+| `pnpm format` / `format:check`     | Prettier write / check                                              |
+| `pnpm --filter @suskii/api dev`    | Run a single workspace                                              |
 
 Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, Expo Metro `8081`,
 Postgres `5432`, Redis `6379`, Mailpit SMTP `1025` and UI `8025`. Docker ports bind to `127.0.0.1` only.
@@ -96,6 +101,9 @@ Tooling notes for agents:
   single agent guide.
 - The API's Jest runs need `node --experimental-vm-modules` on Node >= 24.9 (NestJS 12 is ESM-only).
   Use the package scripts rather than calling `jest` directly.
+- ui-web tests need Chromium: `pnpm --filter @suskii/ui-web exec playwright install chromium`, or
+  set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an existing binary.
+- React Native Testing Library 14 APIs are async: `await render(...)`, `await fireEvent.press(...)`.
 
 ## Conventions
 
@@ -131,9 +139,18 @@ Tooling notes for agents:
 
 ### Design system
 
-Tokens in `PROJECT_SPEC.json#/design_system/tokens` are the single source of truth. They land in
-`packages/design-tokens` in phase 1. Components must not hardcode colors, radii or font sizes, which
-is why the phase 0 app shells are deliberately unstyled.
+- `packages/design-tokens/src/tokens.ts` is the only place visual values live. Spec values must stay
+  identical to `PROJECT_SPEC.json` (tested); derived tokens are documented in ADR-003/ADR-004.
+- Style with token utilities only: `bg-primary`, `text-foreground`, `text-muted`, `text-h2`,
+  `p-4` (4px scale), `rounded-lg`, `shadow-card-hover`, `focus-visible:focus-ring`. Tailwind's default
+  palette and scales are removed, so `bg-red-500` or `p-7` simply do not exist.
+- Never write hex/rgb colours, px/rem lengths, arbitrary values (`w-[13px]`) or literal inline styles
+  in components; guard tests fail the build. Native icons take `iconColor` / `iconSize`.
+- Orange (`accent`) fills take dark `on-accent` text; inputs use `border-strong` (ADR-004).
+- Components contain no user-facing copy: labels are props, so apps pass localised strings.
+- New or changed pairings of text and background go in `contrast-contract.ts`.
+- New ui-web component = component + story (with a play function for open states) + an entry in
+  `src/index.ts`; the story is then axe-checked at mobile and desktop widths automatically.
 
 ### Git
 
@@ -147,6 +164,8 @@ is why the phase 0 app shells are deliberately unstyled.
 
 - [ADR-001: Architecture](docs/decisions/ADR-001-architecture.md)
 - [ADR-002: Toolchain and versions](docs/decisions/ADR-002-toolchain-and-versions.md)
+- [ADR-003: UI stack and design-token pipeline](docs/decisions/ADR-003-ui-stack-and-token-pipeline.md)
+- [ADR-004: Accessible derived colour tokens](docs/decisions/ADR-004-accessible-derived-colour-tokens.md)
 
 ## Open questions for the owner
 

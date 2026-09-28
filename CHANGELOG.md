@@ -6,6 +6,33 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 1: Design tokens and component libraries (2026-09-28)
+
+#### Added
+
+- `@suskii/design-tokens`: spec tokens (asserted equal to `PROJECT_SPEC.json`) plus WCAG-driven
+  derived tokens; generated Tailwind v4 theme (web), Tailwind v3 preset (NativeWind) and CSS
+  variables; WCAG contrast utilities and a 30-pairing contrast contract; compile tests proving only
+  token utilities exist on both platforms.
+- `@suskii/ui-web`: Button, Input, Tabs, SegmentedControl, Combobox, DateRangePicker,
+  PassengerPicker, Card, DealCard, DestinationCard, Badge, TrustBar, Skeleton, Dialog (modal, sheet,
+  fullscreen), Popover, Toast. Storybook 10 with the a11y addon. Vitest browser tests: axe on every
+  story at mobile and desktop widths, keyboard interaction tests, tokens-only guard.
+- `@suskii/ui-native`: native equivalents with NativeWind, `@gorhom/bottom-sheet` sheets, tested
+  calendar logic, Reanimated skeleton with reduced-motion support; Jest + RNTL tests and a
+  tokens-only guard.
+- `@suskii/shared`: traveller rules (adults 1-9, infants <= adults, total <= 9) with Zod schema and
+  stepper helpers.
+- Web and admin apps styled through Tailwind v4 + tokens, fonts via `next/font` (latin + latin-ext).
+- Mobile app wired for NativeWind, token fonts, gesture/bottom-sheet/safe-area providers, Jest.
+- CI: Playwright Chromium (cached) for browser tests, Storybook build step.
+- ADR-003 (UI stack and token pipeline), ADR-004 (accessible derived colour tokens).
+
+#### Changed
+
+- Spec's white-on-orange buttons use dark text; inputs use `border-strong`; focus uses a solid
+  primary outline with the spec ring as a halo (ADR-004).
+
 ### Phase 0: Foundation and repo bootstrap (2026-09-28)
 
 #### Added
