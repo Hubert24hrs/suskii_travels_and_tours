@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Suskii Travels",
+    "slug": "suskii-travels",
+    "scheme": "suskii",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["ios", "android"],
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

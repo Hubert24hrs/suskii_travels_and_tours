@@ -1,0 +1,38 @@
+{
+  "name": "@suskii/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Suskii Travels mobile app (Expo Router, iOS and Android via EAS)",
+  "license": "UNLICENSED",
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "build": "expo export --platform android --platform ios --output-dir dist",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist .expo .turbo"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "catalog:",
+    "@suskii/shared": "workspace:*",
+    "expo": "catalog:",
+    "expo-constants": "catalog:",
+    "expo-linking": "catalog:",
+    "expo-router": "catalog:",
+    "expo-status-bar": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-native": "catalog:",
+    "react-native-safe-area-context": "catalog:",
+    "react-native-screens": "catalog:"
+  },
+  "devDependencies": {
+    "@suskii/config": "workspace:*",
+    "@types/react": "catalog:",
+    "eslint": "catalog:",
+    "rimraf": "catalog:",
+    "typescript": "catalog:"
+  }
+}

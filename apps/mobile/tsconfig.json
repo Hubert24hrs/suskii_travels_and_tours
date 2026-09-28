@@ -1,0 +1,7 @@
+{
+  "extends": ["@suskii/config/tsconfig/base.json", "expo/tsconfig.base"],
+  "compilerOptions": {
+    "types": ["react-native", "expo/types"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}
