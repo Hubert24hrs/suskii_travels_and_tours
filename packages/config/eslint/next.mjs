@@ -18,6 +18,8 @@ export function nextConfig(options) {
       languageOptions: {
         globals: { ...globals.browser, ...globals.node },
       },
+      // Lets the Next plugin find the app when ESLint runs from the repo root (lint-staged).
+      settings: { next: { rootDir: options.tsconfigRootDir } },
     },
   ];
 }
