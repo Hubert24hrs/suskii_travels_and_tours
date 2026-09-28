@@ -17,6 +17,7 @@ env:
   TURBO_TELEMETRY_DISABLED: 1
   NEXT_TELEMETRY_DISABLED: 1
   EXPO_NO_TELEMETRY: 1
+  STORYBOOK_DISABLE_TELEMETRY: 1
   # Pull requests only run tasks for workspaces affected by the diff against the base
   # branch (plus their dependents). Pushes to main and manual runs check everything.
   AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
@@ -54,6 +55,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # ui-web component tests run in real Chromium (axe colour-contrast needs a browser).
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @suskii/ui-web exec playwright install --with-deps chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @suskii/ui-web exec playwright install-deps chromium
+
       - name: Check formatting
         run: pnpm format:check
 
@@ -71,3 +88,6 @@ jobs:
 
       - name: Build
         run: pnpm build ${{ env.AFFECTED }}
+
+      - name: Build Storybook
+        run: pnpm build:storybook ${{ env.AFFECTED }}
