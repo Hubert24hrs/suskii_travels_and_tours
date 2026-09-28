@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+@import '@suskii/design-tokens/theme.css';
+@import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource-variable/dm-sans';
+
+@source '../src';
+
+:root {
+  --font-plus-jakarta-sans: 'Plus Jakarta Sans Variable';
+  --font-dm-sans: 'DM Sans Variable';
+}
+
+body {
+  @apply bg-background font-body text-foreground;
+}
