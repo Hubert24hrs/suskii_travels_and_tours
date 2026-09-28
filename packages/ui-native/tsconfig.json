@@ -1,0 +1,13 @@
+{
+  "extends": "@suskii/config/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "customConditions": ["react-native"],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "types": ["react-native", "jest", "node"]
+  },
+  "include": ["src", "nativewind-env.d.ts"]
+}

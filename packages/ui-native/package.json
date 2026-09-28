@@ -1,0 +1,65 @@
+{
+  "name": "@suskii/ui-native",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Suskii React Native component library: accessible components styled with NativeWind from the shared design tokens",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "clean": "rimraf .turbo coverage"
+  },
+  "dependencies": {
+    "@suskii/design-tokens": "workspace:*",
+    "@suskii/shared": "workspace:*",
+    "clsx": "catalog:",
+    "tailwind-merge": "catalog:"
+  },
+  "peerDependencies": {
+    "@gorhom/bottom-sheet": "^5.2.0",
+    "lucide-react-native": "^1.0.0",
+    "nativewind": "^4.2.0",
+    "react": "^19.2.0",
+    "react-native": ">=0.86.0",
+    "react-native-css-interop": "^0.2.7",
+    "react-native-gesture-handler": "^2.32.0",
+    "react-native-reanimated": "^4.5.0",
+    "react-native-safe-area-context": "^5.7.0",
+    "react-native-svg": "^15.0.0"
+  },
+  "devDependencies": {
+    "@gorhom/bottom-sheet": "catalog:",
+    "@suskii/config": "workspace:*",
+    "@testing-library/react-native": "catalog:",
+    "@types/jest": "catalog:expo-jest",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "babel-preset-expo": "catalog:",
+    "eslint": "catalog:",
+    "expo": "catalog:",
+    "globals": "catalog:",
+    "jest": "catalog:expo-jest",
+    "jest-expo": "catalog:",
+    "lucide-react-native": "catalog:",
+    "nativewind": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-native": "catalog:",
+    "react-native-css-interop": "catalog:",
+    "react-native-gesture-handler": "catalog:",
+    "react-native-reanimated": "catalog:",
+    "react-native-safe-area-context": "catalog:",
+    "react-native-svg": "catalog:",
+    "react-native-worklets": "0.10.1",
+    "rimraf": "catalog:",
+    "tailwindcss": "catalog:tailwind3",
+    "test-renderer": "catalog:",
+    "typescript": "catalog:"
+  }
+}
