@@ -18,6 +18,9 @@ catalog:
   eslint-config-next: 16.3.6
   eslint-config-expo: ~57.0.2
   globals: ^17.12.0
+  eslint-plugin-react: ^7.37.5
+  eslint-plugin-react-hooks: ^7.1.1
+  eslint-plugin-jsx-a11y: ^6.10.2
   husky: ^9.1.7
   lint-staged: ^17.6.0
   '@commitlint/cli': ^21.2.3
@@ -31,6 +34,38 @@ catalog:
   # Runtime libraries
   zod: ^4.6.5
   pino: ^10.3.1
+
+  # Styling (web: Tailwind v4; mobile: NativeWind 4 on Tailwind v3, see the tailwind3 catalog)
+  tailwindcss: ^4.3.3
+  '@tailwindcss/postcss': ^4.3.3
+  '@tailwindcss/vite': ^4.3.3
+  postcss: ^8.5.28
+
+  # Web UI (packages/ui-web)
+  radix-ui: ^1.6.7
+  downshift: ^9.4.0
+  '@daypicker/react': ^10.0.1
+  date-fns: ^4.4.0
+  clsx: ^2.1.1
+  tailwind-merge: ^3.7.0
+  class-variance-authority: ^0.7.1
+  lucide-react: ^1.48.0
+  '@fontsource-variable/plus-jakarta-sans': ^5.3.0
+  '@fontsource-variable/dm-sans': ^5.3.0
+
+  # Storybook and browser tests (packages/ui-web)
+  storybook: ^10.6.0
+  '@storybook/react': ^10.6.0
+  '@storybook/react-vite': ^10.6.0
+  '@storybook/addon-a11y': ^10.6.0
+  '@storybook/addon-docs': ^10.6.0
+  eslint-plugin-storybook: ^10.6.0
+  vite: ^8.3.1
+  '@vitejs/plugin-react': ^6.1.1
+  '@vitest/browser-playwright': ^5.0.2
+  vitest-browser-react: ^2.3.0
+  playwright: ^1.63.0
+  axe-core: ^4.13.0
 
   # Backend (NestJS)
   '@nestjs/common': ^12.1.1
@@ -65,6 +100,37 @@ catalog:
   react-native: 0.86.3
   react-native-safe-area-context: ~5.7.0
   react-native-screens: ~4.26.0
+  react-native-reanimated: 4.5.1
+  react-native-gesture-handler: ~2.32.0
+  react-native-svg: 15.15.4
+  expo-font: ~57.0.4
+  babel-preset-expo: ~57.0.13
+  '@expo-google-fonts/plus-jakarta-sans': ^0.4.2
+  '@expo-google-fonts/dm-sans': ^0.4.2
+
+  # Native UI (packages/ui-native)
+  nativewind: ^4.2.7
+  # NativeWind's Babel transform injects imports of this package into app and ui-native files.
+  react-native-css-interop: 0.2.7
+  '@gorhom/bottom-sheet': ^5.2.14
+  lucide-react-native: ^1.48.0
+  jest-expo: ~57.0.5
+  '@testing-library/react-native': ^14.0.1
+  # 1.3 needs React 19.3 (react-reconciler 0.34); Expo SDK 57 pins React 19.2.3.
+  test-renderer: ~1.2.0
+
+# Named catalogs for the rare case where two majors must coexist.
+catalogs:
+  # NativeWind 4.2 (stable) requires Tailwind v3; NativeWind 5 (Tailwind v4) is still RC. ADR-003.
+  tailwind3:
+    tailwindcss: ^3.4.19
+    # Alias used by @suskii/design-tokens to compile-test the NativeWind preset next to Tailwind v4.
+    tailwindcss-v3: npm:tailwindcss@^3.4.19
+
+  # jest-expo 57 is built on Jest 29; the API stays on Jest 30.
+  expo-jest:
+    jest: ^29.7.0
+    '@types/jest': ^29.5.14
 
 # pnpm 10 blocks dependency lifecycle scripts by default. Only packages listed
 # here may run install scripts (native binaries only).
@@ -83,6 +149,8 @@ ignoredBuiltDependencies:
 overrides:
   react-native-worklets: 0.10.1
   '@react-native/metro-config': 0.86.3
+  # test-renderer 1.3 requires React 19.3; expo-router's optional RNTL peer would pull it in.
+  test-renderer: ~1.2.0
 
 # Fail fast on the wrong Node.js version (the API's Jest setup needs Node >= 24.9
 # for require(esm); see ADR-002) instead of failing later with confusing errors.

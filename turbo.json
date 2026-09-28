@@ -4,6 +4,11 @@
   "agentGuidance": false,
   "globalDependencies": [".nvmrc", "packages/config/**"],
   "globalEnv": ["NODE_ENV", "CI"],
+  "globalPassThroughEnv": [
+    "NEXT_TELEMETRY_DISABLED",
+    "EXPO_NO_TELEMETRY",
+    "STORYBOOK_DISABLE_TELEMETRY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -19,7 +24,8 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"]
+      "outputs": ["coverage/**"],
+      "passThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"]
     },
     "test:e2e": {
       "dependsOn": ["^build"]
@@ -31,6 +37,10 @@
     },
     "clean": {
       "cache": false
+    },
+    "build:storybook": {
+      "dependsOn": ["^build"],
+      "outputs": ["storybook-static/**"]
     }
   }
 }
