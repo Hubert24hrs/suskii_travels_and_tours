@@ -1,0 +1,15 @@
+# Normalise line endings to LF on every platform (Windows included) so Prettier,
+# Husky hooks and CI see identical files.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

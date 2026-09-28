@@ -1,0 +1,15 @@
+# Generated or vendored
+pnpm-lock.yaml
+**/dist/
+**/.next/
+**/.expo/
+**/coverage/
+**/.turbo/
+**/next-env.d.ts
+**/expo-env.d.ts
+
+# The spec is the owner's source document: keep it byte-for-byte as provided.
+PROJECT_SPEC.json
+
+# Changelog entries are generated/edited by hand in a fixed format.
+CHANGELOG.md

@@ -1,0 +1,49 @@
+{
+  "name": "@suskii/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared TSConfig presets, ESLint flat configs, Prettier and Vitest config for the Suskii monorepo",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    "./eslint/base": "./eslint/base.mjs",
+    "./eslint/node": "./eslint/node.mjs",
+    "./eslint/nest": "./eslint/nest.mjs",
+    "./eslint/next": "./eslint/next.mjs",
+    "./eslint/expo": "./eslint/expo.mjs",
+    "./prettier": "./prettier/index.mjs",
+    "./vitest": {
+      "types": "./vitest/base.d.mts",
+      "default": "./vitest/base.mjs"
+    },
+    "./tsconfig/*": "./tsconfig/*"
+  },
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@eslint/js": "catalog:",
+    "eslint-config-expo": "catalog:",
+    "eslint-config-next": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "globals": "catalog:",
+    "typescript-eslint": "catalog:"
+  },
+  "devDependencies": {
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "eslint": "^9.39.0",
+    "prettier": "^3.0.0",
+    "typescript": ">=6.0.0 <6.1.0",
+    "vitest": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  }
+}
