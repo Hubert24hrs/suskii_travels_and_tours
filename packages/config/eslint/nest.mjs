@@ -23,6 +23,11 @@ export function nestConfig(options) {
       rules: {
         // Jest matchers and mocks reference methods unbound by design.
         '@typescript-eslint/unbound-method': 'off',
+        // supertest types response bodies as `any`; assertions on them are the point of the test.
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/no-unsafe-argument': 'off',
       },
     },
   ];
