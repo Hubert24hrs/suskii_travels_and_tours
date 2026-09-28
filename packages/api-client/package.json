@@ -1,0 +1,40 @@
+{
+  "name": "@suskii/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Typed Suskii API client generated from the OpenAPI 3.1 document, with TanStack Query hooks",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "generate": "openapi-typescript ../../apps/api/openapi.json --output src/schema.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rimraf .turbo coverage"
+  },
+  "dependencies": {
+    "openapi-fetch": "catalog:",
+    "openapi-react-query": "catalog:"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@suskii/config": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "eslint": "catalog:",
+    "openapi-typescript": "catalog:",
+    "react": "catalog:",
+    "rimraf": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

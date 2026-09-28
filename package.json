@@ -11,6 +11,7 @@
   "scripts": {
     "build": "turbo run build",
     "build:storybook": "turbo run build:storybook",
+    "generate:api": "pnpm --filter @suskii/api openapi && pnpm --filter @suskii/api-client generate",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

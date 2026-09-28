@@ -1,0 +1,317 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Suskii Travels API",
+    "version": "1.0.0",
+    "description": "One API for the Suskii website, mobile app and admin console. Browser clients authenticate with httpOnly cookies plus an X-CSRF-Token header; mobile clients send a bearer access token. Errors use RFC 9457 problem details."
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Liveness probe",
+        "tags": [
+          "Health"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Readiness probe (Postgres and Redis reachable)",
+        "tags": [
+          "Health"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "description": "Service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "description": "RFC 9457 problem details (application/problem+json).",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Problem type URN, e.g. urn:suskii:problem:validation-failed"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Quote this when contacting support."
+          },
+          "errors": {
+            "type": "array",
+            "description": "Field-level validation issues (validation-failed only).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "location": {
+                  "type": "string",
+                  "enum": [
+                    "body",
+                    "query",
+                    "params"
+                  ]
+                },
+                "path": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "location",
+                "path",
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status"
+        ]
+      },
+      "ReadinessStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ]
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "redis": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              }
+            },
+            "required": [
+              "database",
+              "redis"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "checks"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Secure-suskii_at"
+      }
+    },
+    "responses": {
+      "Problem400": {
+        "description": "Validation failed",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Problem401": {
+        "description": "Authentication required",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Problem403": {
+        "description": "Forbidden",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Problem404": {
+        "description": "Not found",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Problem409": {
+        "description": "Conflict",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Problem422": {
+        "description": "Unprocessable content",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Problem429": {
+        "description": "Too many requests",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Problem500": {
+        "description": "Internal server error",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Problem503": {
+        "description": "Service unavailable",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "cookieAuth": []
+    }
+  ]
+}

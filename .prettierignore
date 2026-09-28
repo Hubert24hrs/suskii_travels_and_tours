@@ -13,3 +13,7 @@ PROJECT_SPEC.json
 
 # Changelog entries are generated/edited by hand in a fixed format.
 CHANGELOG.md
+
+# Generated API contract artefacts (regenerate with `pnpm generate:api`)
+apps/api/openapi.json
+packages/api-client/src/schema.ts
