@@ -1,0 +1,389 @@
+// Suskii Travels database schema. Conventions: UUIDv7 ids, snake_case tables and columns,
+// timestamptz everywhere (UTC), no floats for money (money arrives in phase 3 as BIGINT minor units).
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "cjs"
+  generatedFileExtension = "ts"
+  importFileExtension    = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Identity and access
+// ---------------------------------------------------------------------------
+
+enum UserStatus {
+  active
+  disabled
+}
+
+enum RoleKey {
+  customer
+  super_admin
+  operations
+  finance
+  support
+  content_manager
+  visa_officer
+}
+
+model User {
+  id              String     @id @default(uuid(7)) @db.Uuid
+  /// Lower-cased and trimmed before storage.
+  email           String?    @unique
+  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(3)
+  /// E.164, e.g. +2348012345678.
+  phone           String?    @unique
+  phoneVerifiedAt DateTime?  @map("phone_verified_at") @db.Timestamptz(3)
+  /// argon2id; null for OTP-only and social-only accounts.
+  passwordHash    String?    @map("password_hash")
+  displayName     String?    @map("display_name")
+  status          UserStatus @default(active)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  roles              UserRole[]          @relation("UserRoles")
+  sessions           Session[]
+  mfaFactors         MfaFactor[]
+  recoveryCodes      MfaRecoveryCode[]
+  socialIdentities   SocialIdentity[]
+  verificationTokens VerificationToken[]
+
+  @@map("users")
+}
+
+model Role {
+  key         RoleKey          @id
+  description String
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  /// e.g. "bookings:read". The catalog lives in @suskii/shared and is synced by the seed.
+  key         String           @id
+  description String
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleKey       RoleKey    @map("role_key")
+  permissionKey String     @map("permission_key")
+  role          Role       @relation(fields: [roleKey], references: [key], onDelete: Cascade)
+  permission    Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleKey, permissionKey])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId      String   @map("user_id") @db.Uuid
+  roleKey     RoleKey  @map("role_key")
+  grantedAt   DateTime @default(now()) @map("granted_at") @db.Timestamptz(3)
+  grantedById String?  @map("granted_by_id") @db.Uuid
+  user        User     @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
+  role        Role     @relation(fields: [roleKey], references: [key])
+
+  @@id([userId, roleKey])
+  @@map("user_roles")
+}
+
+enum AuthMethod {
+  password
+  otp
+  google
+  apple
+}
+
+/// One signed-in device. Its refresh tokens form a rotation family.
+model Session {
+  id            String         @id @default(uuid(7)) @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  authMethod    AuthMethod     @map("auth_method")
+  userAgent     String?        @map("user_agent")
+  /// HMAC of the client IP (never the raw address).
+  ipHash        String?        @map("ip_hash")
+  /// Set when MFA was completed for this session.
+  mfaVerifiedAt DateTime?      @map("mfa_verified_at") @db.Timestamptz(3)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt    DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  expiresAt     DateTime       @map("expires_at") @db.Timestamptz(3)
+  revokedAt     DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  revokedReason String?        @map("revoked_reason")
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  sessionId String    @map("session_id") @db.Uuid
+  /// SHA-256 of the opaque token; the token itself is never stored.
+  tokenHash String    @unique @map("token_hash")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  /// Set when the token was exchanged for a new one; presenting it again is reuse.
+  rotatedAt DateTime? @map("rotated_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  session   Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("refresh_tokens")
+}
+
+enum MfaFactorType {
+  totp
+}
+
+model MfaFactor {
+  id               String        @id @default(uuid(7)) @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  type             MfaFactorType
+  /// AES-256-GCM envelope (field encryption); never the plain secret.
+  secretCiphertext String        @map("secret_ciphertext")
+  confirmedAt      DateTime?     @map("confirmed_at") @db.Timestamptz(3)
+  /// Last accepted TOTP time step, to reject replays.
+  lastUsedStep     BigInt?       @map("last_used_step")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@map("mfa_factors")
+}
+
+model MfaRecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mfa_recovery_codes")
+}
+
+enum SocialProvider {
+  google
+  apple
+}
+
+model SocialIdentity {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  provider  SocialProvider
+  /// The provider's stable subject id (`sub` claim).
+  subject   String
+  email     String?
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@index([userId])
+  @@map("social_identities")
+}
+
+enum VerificationPurpose {
+  email_verification
+  password_reset
+}
+
+model VerificationToken {
+  id        String              @id @default(uuid(7)) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  purpose   VerificationPurpose
+  tokenHash String              @unique @map("token_hash")
+  expiresAt DateTime            @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime?           @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("verification_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Audit (append-only: UPDATE, DELETE and TRUNCATE are rejected by a trigger)
+// ---------------------------------------------------------------------------
+
+enum ActorType {
+  user
+  system
+  anonymous
+}
+
+model AuditLog {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  occurredAt  DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorType   ActorType @map("actor_type")
+  /// No foreign key: audit history must outlive user deletion or anonymisation.
+  actorUserId String?   @map("actor_user_id") @db.Uuid
+  /// Dotted event name, e.g. "auth.login.succeeded".
+  action      String
+  targetType  String?   @map("target_type")
+  targetId    String?   @map("target_id")
+  requestId   String?   @map("request_id")
+  ipHash      String?   @map("ip_hash")
+  userAgent   String?   @map("user_agent")
+  metadata    Json      @default("{}")
+
+  @@index([actorUserId, occurredAt])
+  @@index([action, occurredAt])
+  @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// Idempotency (Idempotency-Key header on write endpoints, kept 24 hours)
+// ---------------------------------------------------------------------------
+
+enum IdempotencyStatus {
+  in_progress
+  completed
+}
+
+model IdempotencyKey {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  /// Who owns the key: "user:<id>" or "anon:<ip hash>". Keys never collide across callers.
+  scope          String
+  key            String
+  /// SHA-256 of method, route and canonical body; a different payload under the same key is rejected.
+  requestHash    String            @map("request_hash")
+  status         IdempotencyStatus @default(in_progress)
+  responseStatus Int?              @map("response_status")
+  responseBody   Json?             @map("response_body")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt      DateTime          @map("expires_at") @db.Timestamptz(3)
+
+  @@unique([scope, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+// ---------------------------------------------------------------------------
+// Catalog (reference data)
+// ---------------------------------------------------------------------------
+
+enum AirportType {
+  large_airport
+  medium_airport
+  small_airport
+}
+
+model Country {
+  /// ISO 3166-1 alpha-2.
+  code      String    @id @db.Char(2)
+  name      String
+  /// Two-letter continent code (AF, AN, AS, EU, NA, OC, SA).
+  continent String    @db.Char(2)
+  cities    City[]
+  airports  Airport[]
+
+  @@map("countries")
+}
+
+model City {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  name        String
+  countryCode String    @map("country_code") @db.Char(2)
+  latitude    Float?
+  longitude   Float?
+  /// IANA time zone, e.g. Africa/Lagos.
+  timezone    String?
+  country     Country   @relation(fields: [countryCode], references: [code])
+  airports    Airport[]
+
+  @@unique([countryCode, name])
+  @@map("cities")
+}
+
+model Airport {
+  iataCode         String      @id @map("iata_code") @db.Char(3)
+  icaoCode         String?     @map("icao_code") @db.VarChar(4)
+  name             String
+  type             AirportType
+  municipality     String?
+  cityId           String?     @map("city_id") @db.Uuid
+  countryCode      String      @map("country_code") @db.Char(2)
+  latitude         Float
+  longitude        Float
+  /// IANA time zone; flight times are stored in UTC plus this zone.
+  timezone         String
+  scheduledService Boolean     @default(true) @map("scheduled_service")
+  city             City?       @relation(fields: [cityId], references: [id])
+  country          Country     @relation(fields: [countryCode], references: [code])
+
+  @@index([countryCode])
+  @@index([cityId])
+  @@map("airports")
+}
+
+/// Populated from the flight supplier's reference data (phase 3, ADR-006).
+model Airline {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  iataCode    String   @unique @map("iata_code") @db.VarChar(3)
+  icaoCode    String?  @map("icao_code") @db.VarChar(4)
+  name        String
+  countryCode String?  @map("country_code") @db.Char(2)
+  logoUrl     String?  @map("logo_url")
+  active      Boolean  @default(true)
+  /// Where the record came from, e.g. "duffel".
+  source      String
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("airlines")
+}
+
+// ---------------------------------------------------------------------------
+// CMS
+// ---------------------------------------------------------------------------
+
+/// Marketing trust claims. Only rows with verified = true may ever be rendered (brand guardrails).
+model TrustSignal {
+  key         String    @id
+  label       String
+  value       String?
+  verified    Boolean   @default(false)
+  evidenceUrl String?   @map("evidence_url")
+  verifiedAt  DateTime? @map("verified_at") @db.Timestamptz(3)
+  verifiedBy  String?   @map("verified_by") @db.Uuid
+  sortOrder   Int       @default(0) @map("sort_order")
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("trust_signals")
+}
+
+model CmsBlock {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  key         String
+  locale      String    @default("en-NG")
+  content     Json
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([key, locale])
+  @@map("cms_blocks")
+}
+
+model Faq {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  locale      String    @default("en-NG")
+  question    String
+  answer      String
+  sortOrder   Int       @default(0) @map("sort_order")
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([locale, sortOrder])
+  @@map("faqs")
+}

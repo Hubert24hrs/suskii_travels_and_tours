@@ -49,3 +49,6 @@ Thumbs.db
 *.mobileprovision
 *.jks
 *.keystore
+
+# Generated Prisma client (`prisma generate` runs on install)
+apps/api/src/generated/
