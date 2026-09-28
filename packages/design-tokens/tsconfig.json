@@ -1,0 +1,7 @@
+{
+  "extends": "@suskii/config/tsconfig/library.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["src", "scripts", "tsup.config.ts", "vitest.config.ts"]
+}
