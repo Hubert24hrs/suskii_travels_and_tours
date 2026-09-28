@@ -12,27 +12,50 @@
     "build": "expo export --platform android --platform ios --output-dir dist",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist .expo .turbo"
+    "clean": "rimraf dist .expo .turbo",
+    "test": "jest"
   },
   "dependencies": {
+    "@expo-google-fonts/dm-sans": "catalog:",
+    "@expo-google-fonts/plus-jakarta-sans": "catalog:",
     "@expo/metro-runtime": "catalog:",
+    "@gorhom/bottom-sheet": "catalog:",
+    "@suskii/design-tokens": "workspace:*",
     "@suskii/shared": "workspace:*",
+    "@suskii/ui-native": "workspace:*",
     "expo": "catalog:",
     "expo-constants": "catalog:",
+    "expo-font": "catalog:",
     "expo-linking": "catalog:",
     "expo-router": "catalog:",
     "expo-status-bar": "catalog:",
+    "lucide-react-native": "catalog:",
+    "nativewind": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-native": "catalog:",
+    "react-native-css-interop": "catalog:",
+    "react-native-gesture-handler": "catalog:",
+    "react-native-reanimated": "catalog:",
     "react-native-safe-area-context": "catalog:",
-    "react-native-screens": "catalog:"
+    "react-native-screens": "catalog:",
+    "react-native-svg": "catalog:",
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "@suskii/config": "workspace:*",
+    "@testing-library/react-native": "catalog:",
+    "@types/jest": "catalog:expo-jest",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
+    "babel-preset-expo": "catalog:",
     "eslint": "catalog:",
+    "globals": "catalog:",
+    "jest": "catalog:expo-jest",
+    "jest-expo": "catalog:",
     "rimraf": "catalog:",
+    "tailwindcss": "catalog:tailwind3",
+    "test-renderer": "catalog:",
     "typescript": "catalog:"
   }
 }
