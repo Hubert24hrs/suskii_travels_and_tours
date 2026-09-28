@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # Keep CI actions patched. npm dependency automation (Dependabot vs Renovate)
+  # is decided with the rest of the supply-chain tooling in phase 11.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+  EXPO_NO_TELEMETRY: 1
+  # Pull requests only run tasks for workspaces affected by the diff against the base
+  # branch (plus their dependents). Pushes to main and manual runs check everything.
+  AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # Full history so `turbo --affected` can find the merge base.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint ${{ env.AFFECTED }}
+
+      - name: Typecheck
+        run: pnpm typecheck ${{ env.AFFECTED }}
+
+      - name: Unit tests
+        run: pnpm test ${{ env.AFFECTED }}
+
+      - name: E2E tests (API)
+        run: pnpm test:e2e ${{ env.AFFECTED }}
+
+      - name: Build
+        run: pnpm build ${{ env.AFFECTED }}
