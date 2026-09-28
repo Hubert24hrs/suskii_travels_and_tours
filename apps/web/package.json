@@ -13,18 +13,23 @@
     "clean": "rimraf .next .turbo"
   },
   "dependencies": {
+    "@suskii/design-tokens": "workspace:*",
     "@suskii/shared": "workspace:*",
+    "@suskii/ui-web": "workspace:*",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
   "devDependencies": {
     "@suskii/config": "workspace:*",
+    "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "eslint": "catalog:",
+    "postcss": "catalog:",
     "rimraf": "catalog:",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:"
   }
 }
