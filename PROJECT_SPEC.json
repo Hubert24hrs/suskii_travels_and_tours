@@ -1,0 +1,672 @@
+{
+  "meta": {
+    "prompt_version": "1.0.0",
+    "target_agent": "Claude Code",
+    "project_name": "Suskii Travels and Tour",
+    "project_slug": "suskii-travels",
+    "author": "Hubert Labs",
+    "created": "2026-09-28",
+    "how_to_use": "Save this file at the repo root as PROJECT_SPEC.json. In Claude Code, run: 'Read PROJECT_SPEC.json in full. Follow execution_protocol exactly. Start with phase 0 and stop at the end of each phase for my review.'"
+  },
+
+  "role": "You are a principal full-stack engineer and solutions architect building a production-grade travel booking platform (web + mobile + admin) on one shared backend. You write strict TypeScript, clean architecture, tested code, and you treat security, payments and money handling as first-class concerns.",
+
+  "objective": "Build 'Suskii Travels and Tour', a fast, trustworthy, deal-focused one-stop travel shop (flights, hotels, packages, tours, visa, travel add-ons) delivered as a Next.js website, an Expo React Native app for iOS and Android, and a Next.js admin console, all consuming a single NestJS API backed by PostgreSQL and Redis.",
+
+  "execution_protocol": {
+    "mode": "phased, step-by-step, gated",
+    "rules": [
+      "Before writing code, create CLAUDE.md at the repo root summarising this spec, the architecture, conventions and commands. Keep it updated at the end of every phase.",
+      "Execute phases strictly in order (see 'phases'). Never start phase N+1 until phase N meets all its acceptance_criteria.",
+      "At the start of each phase, write a short plan (files to create or change, risks) to docs/phases/phase-<n>.md, then implement.",
+      "At the end of each phase: run lint, typecheck, unit tests and build for every affected workspace; fix all failures; update CHANGELOG.md; make one conventional commit per logical unit (feat:, fix:, chore:, etc.); then STOP and print a phase report: what was built, how to run it, test results, open issues, and decisions that need my input.",
+      "Never invent supplier credentials, API keys or business facts. Use .env.example placeholders and mock adapters until real credentials are provided.",
+      "Never hardcode secrets. Never commit .env files. Never log PII, tokens, passport numbers or payment data.",
+      "If a requirement is ambiguous, pick the most secure and conventional option, record it in docs/decisions/ADR-<nnn>-<title>.md, and continue.",
+      "Prefer small, reviewable diffs. No placeholder 'TODO: implement' code in completed phases; stubs are allowed only behind clearly named mock adapters.",
+      "Use the design tokens in 'design_system' as the single source of truth. Do not hardcode colors, radii or font sizes in components."
+    ],
+    "developer_environment_notes": [
+      "Primary dev machine is Windows (PowerShell). All scripts must be cross-platform (use Node scripts or pnpm scripts, not bash-only). Provide docker-compose for local Postgres and Redis.",
+      "iOS builds must go through Expo EAS Build cloud runners (no local Xcode)."
+    ]
+  },
+
+  "product": {
+    "name": "Suskii Travels and Tour",
+    "short_name": "Suskii Travels",
+    "positioning": "Your one-stop travel shop: flights, hotels, packages, tours, visas and add-ons with honest prices and flexible payment.",
+    "hero_headline": "Your one-stop travel shop",
+    "hero_subheadline": "Cheap flights, great hotels, holiday packages and visa support, all in one place, with flexible payment on every booking.",
+    "primary_market": "Nigeria, then wider Africa, then global",
+    "currencies": { "default": "NGN", "supported": ["NGN", "USD", "GBP", "EUR", "GHS", "KES", "ZAR"] },
+    "locales": { "default": "en-NG", "supported": ["en-NG", "en-GB", "en-US"], "note": "i18n-ready from day one (all strings in message catalogs); add fr and pcm later." },
+    "verticals": ["flights", "hotels", "packages", "tours", "visa", "travel_addons"]
+  },
+
+  "brand_and_compliance_guardrails": {
+    "summary": "The visual language is inspired by the provided design system reference. The product is Suskii, not Wakanow.",
+    "rules": [
+      "Never use the Wakanow name, logo, imagery, copy, 'Wakanow Prime' naming or any of their trademarks. The membership program is 'Suskii Prime'.",
+      "Trust signals must be config-driven, never hardcoded: store them in the CMS/settings table with fields {label, value, verified: boolean, evidence_url}. Only render items where verified=true.",
+      "Seed trust signals as: '24/7 support' (verified=true), 'Flexible payment on every booking' (verified=true), 'Secure payments' (verified=true), 'Travellers served' (value='2M+', verified=false), 'IATA accredited' (verified=false). IATA accreditation and traveller counts are regulated or factual claims; they stay hidden until the business provides proof.",
+      "All prices shown on deal cards must come from a real or clearly-labelled mock quote with a 'from' qualifier and a 'last updated' timestamp; never show fabricated fares in production.",
+      "Comply with the Nigeria Data Protection Act 2023 (NDPA) and GDPR for EU users: consent capture, privacy policy, data subject request endpoints (export, delete), data retention policy.",
+      "PCI DSS: the platform must never see or store raw card data. Use provider-hosted checkout or tokenised fields (target SAQ-A scope)."
+    ]
+  },
+
+  "tech_stack": {
+    "monorepo": {
+      "tool": "Turborepo + pnpm workspaces",
+      "why": "One repo, shared TypeScript types, Zod schemas, API client, design tokens and i18n across web, mobile and admin; cached builds in CI."
+    },
+    "web": {
+      "framework": "Next.js 15+ (App Router, React Server Components, TypeScript strict)",
+      "styling": "Tailwind CSS with a shared preset generated from design tokens",
+      "ui_primitives": "Radix UI primitives wrapped in own components (accessible, unstyled)",
+      "data": "TanStack Query for client state from the API; RSC fetches for SEO pages",
+      "forms": "React Hook Form + Zod (shared schemas)",
+      "why": "SSR/ISR for SEO-heavy deal and destination pages, edge caching, strong Core Web Vitals."
+    },
+    "mobile": {
+      "framework": "Expo (latest SDK) + Expo Router + React Native, TypeScript strict",
+      "styling": "NativeWind using the same Tailwind preset from packages/design-tokens",
+      "storage": "expo-secure-store for tokens; MMKV for non-sensitive cache",
+      "notifications": "expo-notifications (FCM/APNs)",
+      "builds": "EAS Build + EAS Submit + EAS Update (OTA for JS-only fixes)",
+      "why": "Maximum code sharing with web (types, schemas, API client, tokens), OTA updates, cloud iOS builds."
+    },
+    "admin": {
+      "framework": "Next.js (separate app: apps/admin) with RBAC-gated routes",
+      "why": "Operations, bookings, refunds, content and deals management without touching the database directly."
+    },
+    "backend": {
+      "framework": "NestJS (TypeScript, modular monolith with clear bounded-context modules)",
+      "orm": "Prisma with PostgreSQL",
+      "cache_and_queues": "Redis + BullMQ",
+      "api_style": "REST, versioned under /v1, OpenAPI 3.1 spec generated and used to generate the typed client in packages/api-client",
+      "validation": "Zod schemas from packages/shared (nestjs-zod) so web, mobile and API validate identically",
+      "search_autocomplete": "PostgreSQL pg_trgm + unaccent over an airports/cities table (IATA codes); upgrade to Typesense only if latency requires",
+      "why": "Modular monolith is the fastest path to production with clean seams to split services later (search, booking, payments) if scale demands."
+    },
+    "data": {
+      "primary_db": "PostgreSQL 16",
+      "cache": "Redis 7",
+      "object_storage": "S3-compatible (AWS S3 or GCS) for images, e-tickets, visa documents; signed URLs only",
+      "cdn_images": "Next/Image + CDN; mobile uses expo-image with caching"
+    },
+    "integrations": {
+      "flights": "Adapter pattern: FlightSupplier interface. Implement MockFlightSupplier first, then DuffelFlightSupplier. Leave AmadeusFlightSupplier and a GDS/consolidator adapter as pluggable options.",
+      "hotels": "HotelSupplier interface. MockHotelSupplier first, then one real provider (e.g. Duffel Stays or Hotelbeds) chosen via ADR.",
+      "tours_packages_visa_addons": "Managed in-house via admin (inventory owned by Suskii); add-ons include travel insurance, airport transfer, eSIM, lounge access, extra baggage, seat selection.",
+      "payments": "PaymentProvider interface. Paystack and Flutterwave for NGN/African cards, bank transfer and USSD; Stripe for international cards. Webhook-driven confirmation.",
+      "fx": "Exchange-rate provider behind an FxProvider interface, cached in Redis with timestamp; always charge in a single settled currency per booking.",
+      "email": "Resend or AWS SES via EmailProvider interface; React Email templates",
+      "sms_whatsapp": "Termii (Nigeria) and/or Twilio via MessagingProvider interface",
+      "maps": "Optional; only for hotel detail pages",
+      "support": "Live chat widget slot + WhatsApp click-to-chat; ticketing handled in admin"
+    },
+    "infra": {
+      "containers": "Docker multi-stage builds for api, web, admin; distroless or alpine runtime, non-root user",
+      "default_hosting": "API on GCP Cloud Run or AWS ECS Fargate; web and admin on Vercel or as containers; managed Postgres (Cloud SQL / RDS) and managed Redis (Memorystore / ElastiCache)",
+      "kubernetes_option": "Provide a Helm chart under infra/helm for teams that prefer GKE/EKS; not required for launch",
+      "iac": "Terraform modules under infra/terraform, cloud-agnostic variables where possible",
+      "edge": "Cloudflare in front of web and API: WAF, bot management, DDoS protection, Turnstile"
+    }
+  },
+
+  "architecture": {
+    "repo_layout": {
+      "apps/web": "Next.js public website",
+      "apps/mobile": "Expo React Native app (iOS + Android)",
+      "apps/admin": "Next.js admin console",
+      "apps/api": "NestJS API (single shared backend)",
+      "apps/worker": "BullMQ workers (fare refresh, deal generation, ticketing reconciliation, notifications, installment reminders)",
+      "packages/design-tokens": "Tokens as TS + generated Tailwind preset + CSS variables",
+      "packages/ui-web": "Web component library built on tokens",
+      "packages/ui-native": "React Native component library built on tokens",
+      "packages/shared": "Zod schemas, domain types, money utilities, date/timezone helpers, constants",
+      "packages/api-client": "Typed client generated from OpenAPI + TanStack Query hooks shared by web and mobile",
+      "packages/i18n": "Message catalogs and formatting helpers",
+      "packages/config": "Shared ESLint, TSConfig, Prettier, Jest/Vitest configs",
+      "infra": "docker-compose, Terraform, Helm, GitHub Actions reusable workflows",
+      "docs": "ADRs, phase plans, runbooks, API docs"
+    },
+    "backend_modules": [
+      "auth", "users", "rbac", "catalog (airports, cities, airlines, countries)", "flight-search", "hotel-search",
+      "packages", "tours", "visa", "addons", "pricing (markups, promos, fees)", "deals", "cart", "bookings",
+      "payments", "installments", "refunds", "prime-membership", "referrals-and-wallet", "notifications",
+      "cms (banners, trust signals, destination content, FAQs)", "reviews", "support-tickets", "audit-log", "admin", "health"
+    ],
+    "key_principles": [
+      "Supplier adapters isolate third-party APIs; domain code never imports vendor SDKs directly.",
+      "Money is stored as integer minor units (BIGINT) with an ISO-4217 currency code; never use floats.",
+      "All timestamps stored in UTC; flight departure/arrival also store the airport's IANA timezone and local time.",
+      "Every write endpoint that creates bookings, payments or refunds requires an Idempotency-Key header (stored in Redis/Postgres for 24h).",
+      "Bookings are driven by an explicit state machine; transitions are persisted and audited.",
+      "Search results are cached in Redis by a normalised query hash with short TTLs; offers carry an expiry and are re-priced before payment."
+    ],
+    "booking_state_machine": {
+      "states": ["DRAFT", "PRICED", "HELD", "AWAITING_PAYMENT", "PARTIALLY_PAID", "PAID", "TICKETING", "CONFIRMED", "FAILED", "CANCELLED", "REFUND_PENDING", "REFUNDED", "EXPIRED"],
+      "critical_rules": [
+        "Re-price with the supplier immediately before payment; if price changed, show the difference and require explicit re-consent.",
+        "If payment succeeds but supplier ticketing/confirmation fails or times out, move to TICKETING and let the reconciliation worker retry with backoff; after the retry budget, auto-initiate a refund and notify the customer and ops.",
+        "Webhooks are the source of truth for payment status; client redirects only trigger a status poll.",
+        "Hold deadlines from suppliers drive automatic EXPIRED transitions and customer reminders."
+      ]
+    },
+    "data_model_entities": [
+      "User, Session, RefreshToken, MfaFactor, Role, Permission",
+      "Traveller (saved passengers: names as on passport, DOB, nationality, passport number encrypted, expiry)",
+      "Airport, City, Country, Airline",
+      "SearchLog (anonymised), Offer (supplier offer snapshot with expiry)",
+      "Booking, BookingItem (flight | hotel | package | tour | visa | addon), BookingPassenger, BookingStatusHistory",
+      "Payment, PaymentAttempt, InstallmentPlan, Installment, Refund",
+      "Package, Tour, TourDeparture, VisaProduct, VisaApplication, VisaDocument, Addon",
+      "Deal, Promotion, PromoCode, PromoRedemption, MarkupRule",
+      "PrimeMembership, PrimePlan, Wallet, WalletTransaction, Referral",
+      "Notification, NotificationPreference, PushToken",
+      "CmsBlock, TrustSignal, Banner, DestinationContent, Faq",
+      "Review, SupportTicket, SupportMessage",
+      "AuditLog, IdempotencyKey, WebhookEvent (deduplicated by provider event id)"
+    ]
+  },
+
+  "design_system": {
+    "source": "https://gitreverse.com/designs/wakanow-com (visual inspiration only; apply to the Suskii brand)",
+    "feel": "Clean, fast, commercial, trust-first, deal-focused. Utility-first booking UI. Medium-to-high density but scannable. No heavy gradients, glassmorphism or decorative effects.",
+    "tokens": {
+      "color": {
+        "primary": "#004BBE",
+        "primary_hover": "#003C98",
+        "primary_pressed": "#00327F",
+        "accent": "#F7941D",
+        "accent_hover": "#E0820F",
+        "background": "#F2F6F9",
+        "surface": "#FFFFFF",
+        "text_heading": "#004BBE",
+        "text_body": "#0D1520",
+        "text_muted": "#5B6B7B",
+        "border": "#BFD0DC",
+        "success": "#12805C",
+        "warning": "#B25E00",
+        "danger": "#C62828",
+        "focus_ring": "rgba(0, 75, 190, 0.45)",
+        "notes": "Derived hover/pressed/muted/status shades must pass WCAG 2.2 AA contrast; verify with an automated contrast test. White text on #F7941D is below 4.5:1 for small text, so orange buttons use bold text at >=16px or dark text (#0D1520) where needed."
+      },
+      "typography": {
+        "heading_font": "Plus Jakarta Sans (700/800)",
+        "body_font": "DM Sans (400/500/700)",
+        "loading": "next/font on web (self-hosted, no layout shift); expo-font on mobile",
+        "scale_px": { "hero": 54, "hero_mobile": 34, "h2": 28, "h3": 22, "h4": 18, "body": 16, "body_sm": 14, "caption": 12 },
+        "note": "Reference shows ~11px body; use 16px body for readability and accessibility, 14px for dense metadata."
+      },
+      "spacing": { "base_unit_px": 4, "scale": [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80] },
+      "radius_px": { "sm": 8, "md": 10, "lg": 12, "xl": 16, "pill": 9999 },
+      "shadow": {
+        "primary_button": "0 4px 14px 0 rgba(0, 75, 190, 0.32)",
+        "card_hover": "0 6px 20px 0 rgba(13, 21, 32, 0.08)",
+        "none": "none"
+      },
+      "breakpoints_px": { "sm": 640, "md": 768, "lg": 1024, "xl": 1280, "container_max": 1200 },
+      "motion": { "duration_ms": { "fast": 120, "base": 200 }, "easing": "cubic-bezier(0.2, 0, 0, 1)", "respect_prefers_reduced_motion": true }
+    },
+    "components": {
+      "button_primary": "Blue fill, white text, radius lg, primary_button shadow, min height 48px, full width on mobile inside forms",
+      "button_secondary": "Orange fill, used for promos and secondary CTAs only (e.g. 'Join Suskii Prime', 'View deal')",
+      "button_ghost": "Transparent, blue text, for tertiary actions",
+      "input": "White fill, 1px border token, radius md, no shadow, visible 2px focus ring, 48px height, icon slot left",
+      "tabs": "Vertical-category tabs with icon + label; active tab has blue text and 3px blue underline; horizontally scrollable on mobile",
+      "segmented_control": "Pill-style for trip type (Round trip / One way / Multi-city)",
+      "card": "White surface, radius lg, 1px border or flat, hover lifts with card_hover shadow on desktop only",
+      "deal_card": "Image top (16:9), route 'LOS → LHR', airline logo + name, dates, cabin, strong price 'from ₦X' in primary, optional orange discount badge, 'last updated' meta, CTA",
+      "destination_card": "Image with dark bottom scrim, city + country, 'N hotels', 'from ₦X/night'",
+      "badge": "Orange for promo/savings, blue-tint for info, green for 'Free cancellation'",
+      "trust_bar": "Icon + short label row, 2x2 grid on mobile, single row on desktop",
+      "skeleton": "Shimmer-free subtle pulse skeletons for every async card and result list"
+    },
+    "icons": "lucide-react (web) and lucide-react-native (mobile)",
+    "imagery": "Licensed or royalty-free destination photography only (e.g. Unsplash/Pexels with attribution where required); served as AVIF/WebP with blur placeholders."
+  },
+
+  "homepage_spec": {
+    "goals": ["Feel fast (LCP < 2.0s on 4G mid-tier Android)", "Establish trust above the fold", "Drive users into search", "Surface deals"],
+    "sections_in_order": [
+      {
+        "id": "header",
+        "content": "Logo (text wordmark 'Suskii Travels' until brand assets exist), primary nav (Flights, Hotels, Packages, Tours, Visa, Add-ons), currency selector, 'Manage booking', support phone/WhatsApp, Sign in / Account. Sticky on scroll with compact state. Hamburger drawer on mobile."
+      },
+      {
+        "id": "hero",
+        "content": "Light sky background (#F2F6F9) with a subtle destination image or illustration on desktop right side. Headline 'Your one-stop travel shop' (Plus Jakarta Sans, bold). Subheadline. Trust bar directly beneath: verified trust signals from CMS (see guardrails).",
+        "mobile": "Headline 34px, image hidden or reduced, search card immediately visible without scrolling past fold."
+      },
+      {
+        "id": "search_module",
+        "content": "White card overlapping the hero. Tabs: Flights, Hotels, Packages, Tours, Visa, Travel Add-ons. Each tab renders its own form.",
+        "flights_form": {
+          "fields": [
+            "trip_type: round_trip | one_way | multi_city (segmented control)",
+            "from: airport/city autocomplete (IATA code, city, airport name, country; recent searches; nearby airport suggestion)",
+            "swap button between from and to",
+            "to: airport/city autocomplete",
+            "dates: depart and return date range picker (two months on desktop, full-screen sheet on mobile); return hidden for one_way",
+            "multi_city: 2 to 5 legs, add/remove leg",
+            "travellers: adults (1-9), children 2-11, infants under 2 (infants <= adults, total <= 9)",
+            "cabin_class: economy | premium_economy | business | first",
+            "optional: direct flights only, flexible dates +/- 3 days"
+          ],
+          "primary_cta": "'Search flights' in strong blue, full width on mobile",
+          "validation": "Shared Zod schema: origin != destination, depart >= today (origin local date), return >= depart, infants <= adults, passenger max 9, multi-city legs chronological.",
+          "behaviour": "Persist last search locally; serialise search to URL query params for shareable/SEO-friendly results pages."
+        },
+        "hotels_form": "Destination/hotel autocomplete, check-in/check-out, rooms (1-8) each with adults and children with child ages, optional 'free cancellation only'.",
+        "packages_form": "Destination, month or date range, travellers, budget range.",
+        "tours_form": "Destination or tour keyword, date, travellers.",
+        "visa_form": "Nationality, destination country, purpose (tourism, business, study, transit), travel date; outputs eligibility and product options.",
+        "addons_form": "Add-on type (insurance, airport transfer, eSIM, lounge, extra baggage), destination, dates, travellers; or 'Add to an existing booking' with booking reference + last name."
+      },
+      {
+        "id": "trust_strip",
+        "content": "Row of payment method logos the platform actually supports (Paystack, Flutterwave, Stripe, Visa, Mastercard, Verve, bank transfer), 'Secure checkout' note, and verified trust signals."
+      },
+      {
+        "id": "fresh_flight_offers",
+        "content": "Heading 'Fresh flight offers' + 'See all deals' link. Filter chips by origin city (Lagos, Abuja, Port Harcourt, Accra, Nairobi). Horizontal scroll carousel on mobile, 4-column grid on desktop. Deal cards per design_system.deal_card, sourced from the deals service (worker refreshes cached lowest fares on popular routes). Each card links to a pre-filled search."
+      },
+      {
+        "id": "top_hotel_destinations",
+        "content": "Heading 'Top hotel destinations' + 'See all'. Destination cards (Dubai, London, Accra, Nairobi, Cape Town, Istanbul, Zanzibar, Lagos, Abuja). 2 columns mobile, 3-4 desktop."
+      },
+      {
+        "id": "suskii_prime_promo",
+        "content": "Simple orange-accented block: 'Save more with Suskii Prime', 3 benefits (member-only fares, fee waivers, priority support), price per month/year from CMS, orange 'Join Suskii Prime' CTA, 'Learn more' ghost link."
+      },
+      {
+        "id": "flexible_payment_explainer",
+        "content": "Three-step explainer of how flexible payment / book-on-hold works, with honest terms (see features.flexible_payment)."
+      },
+      { "id": "packages_and_tours_teaser", "content": "Curated holiday packages and tours cards with 'from' price per person." },
+      { "id": "why_book_with_us", "content": "4 value props with icons: best-price focus, flexible payment, 24/7 human support, secure payments." },
+      { "id": "app_download", "content": "App Store / Google Play badges (only link when live), QR code on desktop." },
+      { "id": "newsletter", "content": "Email + optional WhatsApp opt-in for deal alerts; double opt-in; consent checkbox; Turnstile protection." },
+      { "id": "seo_content", "content": "Collapsible FAQ and popular routes/destinations link grid (internal links to programmatic SEO pages)." },
+      { "id": "footer", "content": "Company, support, legal (Terms, Privacy, Cookie policy, Refund policy), social links, currency/locale, © Suskii Travels and Tour." }
+    ],
+    "mobile_app_home": "Same content hierarchy adapted natively: search card with tab pills at top, bottom tab bar (Home, Trips, Deals, Prime, Account), pull-to-refresh deals, native date and passenger bottom sheets."
+  },
+
+  "features": {
+    "flights": [
+      "Search (one-way, round-trip, multi-city), results list with filters (stops, airlines, times, price, duration, baggage, refundable) and sort (cheapest, fastest, best)",
+      "Fare calendar / flexible dates strip",
+      "Fare details: baggage, fare rules, change/refund conditions, layover warnings (short connection, airport change, overnight, visa-required transit)",
+      "Passenger details with saved travellers, name validation against passport rules",
+      "Seat selection and extra baggage where supplier supports it",
+      "Book, hold (where supplier supports it), pay, ticket, e-ticket PDF + email + in-app",
+      "Manage booking: view, cancel, request change, request refund, add-ons"
+    ],
+    "hotels": [
+      "Search by city/hotel with rooms and child ages; map/list view; filters (price, stars, rating, free cancellation, amenities, area)",
+      "Hotel detail: gallery, rooms and rates, cancellation policy clearly shown, taxes and fees breakdown",
+      "Book, pay, voucher"
+    ],
+    "packages": ["Admin-curated packages (flight + hotel + extras) with departures, inclusions/exclusions, itinerary, per-person pricing, deposit + installment options"],
+    "tours": ["Tours and activities catalogue with dates, capacity, meeting point, cancellation rules, booking and QR voucher"],
+    "visa": [
+      "Eligibility checker (nationality x destination x purpose) from an admin-maintained rules table",
+      "Visa assistance products with required documents checklist, secure document upload (virus-scanned, encrypted, signed URLs), application status tracking, officer notes",
+      "Clear disclaimer: Suskii provides assistance; approval is by the issuing government"
+    ],
+    "travel_addons": ["Travel insurance, airport transfers, eSIM, lounge access, extra baggage, seat selection; purchasable standalone or attached to a booking"],
+    "flexible_payment": {
+      "modes": [
+        "Book on hold: reserve where the supplier allows a hold, pay in full before the hold deadline",
+        "Installments: deposit + scheduled installments for packages, tours and visa services (inventory Suskii controls)"
+      ],
+      "rules": [
+        "Airline tickets are only issued after full payment; installment flights are only offered when a supplier hold or a Suskii-managed fare guarantee covers the gap. Record this in an ADR and surface it honestly in UI copy.",
+        "Show the full schedule, total cost and any fees before commitment; send reminders 3 days and 1 day before each due date; configurable grace period; automatic cancellation and refund policy applied on default.",
+        "Installment charges use saved payment authorisations only where the provider supports it; otherwise send payment links."
+      ]
+    },
+    "pricing_and_deals": [
+      "MarkupRule engine (by vertical, route, airline, channel, user tier) managed in admin",
+      "Promo codes (percentage/fixed, caps, validity, usage limits per user and global, eligible verticals) with abuse protection",
+      "Deals worker: refresh cheapest fares for top routes every few hours, store snapshots with timestamps, drop stale deals automatically",
+      "Price alerts: user subscribes to a route; worker notifies on drop"
+    ],
+    "suskii_prime": [
+      "Plans (monthly/annual) sold via recurring billing on the payment provider",
+      "Benefits: member-only markups, service fee waivers, priority support queue, bonus wallet credit",
+      "Member badge in app; benefits applied in pricing module"
+    ],
+    "accounts": [
+      "Sign up/sign in with email + password, phone OTP, Google and Apple sign-in (Apple required on iOS if social login exists)",
+      "Guest checkout with booking lookup by reference + last name + email OTP",
+      "Profile, saved travellers, saved payment methods (provider tokens only), notification preferences, wallet, referrals, Prime status",
+      "Trips: upcoming, past, cancelled; downloadable documents; add to calendar"
+    ],
+    "referrals_and_wallet": ["Referral codes, reward credit on referee's first completed trip, wallet ledger (double-entry), wallet usable at checkout, fraud checks on self-referrals"],
+    "notifications": ["Transactional email, SMS/WhatsApp, push: booking confirmed, e-ticket ready, payment due, flight/schedule change, check-in reminder, refund status, price alert"],
+    "support": ["Help center/FAQ from CMS, contact form, WhatsApp link, support tickets tied to bookings, SLA timers in admin"],
+    "reviews": ["Verified-stay/trip reviews for hotels, tours and packages; moderation queue"],
+    "admin_console": [
+      "RBAC roles: super_admin, operations, finance, support, content_manager, visa_officer",
+      "Dashboards: bookings, revenue, conversion funnel, payment success rate, supplier error rate",
+      "Booking management: search, view timeline, resend documents, manual ticketing retry, cancel, refund (maker-checker approval for refunds above threshold)",
+      "Catalogue management: packages, tours, visa products and rules, add-ons, deals, promo codes, markups",
+      "CMS: banners, trust signals (with verified flag and evidence), destination content, FAQs",
+      "Users and Prime memberships, wallets, referrals",
+      "Audit log viewer (immutable)"
+    ],
+    "seo_and_growth": [
+      "Programmatic SEO pages: /flights/{origin}-to-{destination}, /hotels/{city}, /visa/{country} with ISR and real cached data",
+      "Structured data (JSON-LD: Organization, WebSite SearchAction, FAQPage, Product/Offer where valid, BreadcrumbList)",
+      "Sitemaps, robots, canonical URLs, Open Graph images",
+      "Analytics: privacy-friendly product analytics (PostHog) with consent; server-side conversion events"
+    ],
+    "ai_features_optional_phase": [
+      "Natural-language search box ('cheap flight to Dubai in December for 2 adults') parsed by an LLM into the shared FlightSearch Zod schema via structured output/tool calling; always shown to the user as editable form fields before searching",
+      "Model choice: a fast, low-cost LLM behind an LlmProvider interface (cloud-agnostic); temperature 0; strict schema validation; fallback to the manual form on any parse failure",
+      "Guardrails: no PII sent to the LLM, prompt-injection-safe (LLM output is data, never executed), per-user rate limit and cost cap"
+    ]
+  },
+
+  "security": {
+    "standard": "OWASP ASVS Level 2 as the baseline checklist; OWASP MASVS for the mobile app",
+    "authentication": [
+      "Passwords hashed with argon2id; breached-password check (k-anonymity HIBP range API); minimum length 10",
+      "Short-lived access JWT (10-15 min, asymmetric signing, key rotation via JWKS) + rotating refresh tokens with reuse detection and family revocation",
+      "Web: tokens in httpOnly, Secure, SameSite=Lax cookies + CSRF token for state-changing requests. Mobile: tokens in expo-secure-store only",
+      "Optional TOTP MFA for users; mandatory MFA for all admin accounts; admin console behind IP allowlist or SSO",
+      "Account lockout with exponential backoff; generic auth error messages; email and phone verification",
+      "Session/device management page with remote sign-out"
+    ],
+    "authorization": [
+      "RBAC + resource ownership checks on every booking/traveller/document endpoint (prevent IDOR); use non-sequential public IDs (UUIDv7 / ULID) and short booking references",
+      "Deny-by-default guards in NestJS; permissions tested in e2e suite"
+    ],
+    "input_and_output": [
+      "Zod validation on every request body, query and param; strip unknown fields",
+      "Prisma parameterised queries only; no raw SQL without tagged templates",
+      "Output encoding by React; sanitise any CMS rich text with DOMPurify server-side",
+      "File uploads: type sniffing, size limits, antivirus scan (ClamAV worker), stored private, served via short-lived signed URLs"
+    ],
+    "transport_and_headers": [
+      "TLS 1.2+ everywhere, HSTS with preload",
+      "Strict CSP with nonces (Next.js middleware), frame-ancestors none, X-Content-Type-Options, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy",
+      "CORS allowlist per environment"
+    ],
+    "abuse_and_fraud": [
+      "Rate limiting (Redis sliding window) per IP, user and route; stricter on auth, OTP, search and promo endpoints",
+      "Cloudflare Turnstile on sign-up, guest checkout, newsletter and booking lookup",
+      "Search scraping protection: per-IP search quotas, cache-first responses, bot scoring",
+      "Payment fraud signals: velocity, BIN country vs IP/geo mismatch, many cards per account, high-risk routes; flag for manual review in admin; 3-D Secure enforced by provider",
+      "Promo and referral abuse detection (device fingerprint hash, phone/email reuse)"
+    ],
+    "payments": [
+      "Hosted checkout / tokenised fields only (SAQ-A); never log payment payloads",
+      "Verify every webhook signature; store WebhookEvent by provider event id to deduplicate; process idempotently",
+      "Server-side amount verification: the amount paid must equal the server-computed amount for that booking and currency",
+      "Refunds require admin role + maker-checker above threshold; all money movements in a double-entry ledger"
+    ],
+    "data_protection": [
+      "Field-level encryption (envelope encryption with cloud KMS) for passport numbers, national IDs and visa documents",
+      "Encryption at rest for DB and storage; automated encrypted backups with tested restore runbook; PITR enabled",
+      "PII minimisation in logs (structured logger with redaction paths); SearchLog stores no personal data",
+      "Data retention jobs; DSAR export and deletion endpoints; cookie consent manager"
+    ],
+    "secrets_and_supply_chain": [
+      "Secrets in AWS Secrets Manager / GCP Secret Manager; injected at runtime; never in images or the mobile bundle",
+      "Dependabot/Renovate, pnpm audit, CodeQL or Semgrep SAST, Gitleaks secret scanning, Trivy container scanning, SBOM (CycloneDX) per release",
+      "Pinned base images by digest; non-root containers; read-only filesystem where possible"
+    ],
+    "mobile_specific": [
+      "No API secrets in the app; all supplier calls go through the backend",
+      "Play Integrity / App Attest verification on sensitive endpoints (login, payment init)",
+      "Disable screenshots on payment and document screens (Android FLAG_SECURE), clear sensitive state on background",
+      "Deep links validated (universal links / app links) with allowlisted paths; no tokens in URLs"
+    ],
+    "audit": "Immutable audit log for auth events, admin actions, booking state transitions, refunds and permission changes"
+  },
+
+  "performance": {
+    "web_targets": { "LCP_ms": 2000, "INP_ms": 200, "CLS": 0.1, "js_budget_kb_homepage_gz": 170 },
+    "tactics": [
+      "RSC for static sections; client components only for interactive search module",
+      "ISR for deals and destination pages; Redis cache for search results (TTL 5-15 min per supplier guidance)",
+      "Streaming search results where suppliers return progressively",
+      "Image optimisation (AVIF/WebP, responsive sizes, priority only on LCP image)",
+      "Airport autocomplete served from an edge-cached static index for the top 500 airports, API fallback for the long tail",
+      "Mobile: Hermes, FlashList for results, lazy-load heavy screens, prefetch on intent"
+    ],
+    "api_targets": { "p95_non_search_ms": 300, "search_timeout_ms": 12000, "note": "Supplier searches run in parallel with per-supplier timeouts and circuit breakers; partial results are returned if one supplier fails." }
+  },
+
+  "accessibility": [
+    "WCAG 2.2 AA: keyboard navigable search module, visible focus rings, labelled inputs, ARIA for comboboxes and date pickers (use accessible patterns)",
+    "Touch targets >= 44x44; dynamic type support on mobile; screen reader labels on icon buttons",
+    "Automated axe checks in Playwright; manual VoiceOver/TalkBack pass before release"
+  ],
+
+  "observability": [
+    "Structured JSON logs (pino) with request IDs propagated web -> API -> workers",
+    "OpenTelemetry traces and metrics; export to Grafana Cloud / Datadog / cloud-native (configurable)",
+    "Sentry for web, mobile and API errors with PII scrubbing and source maps",
+    "Business metrics: search-to-book conversion, payment success rate, ticketing failure rate, supplier latency/error rate",
+    "Alerts: payment webhook failures, ticketing backlog, error-rate spikes, queue depth, DB connections"
+  ],
+
+  "testing": {
+    "unit": "Vitest (packages, web) and Jest (API, mobile) with >= 80% coverage on pricing, money, booking state machine, installments, auth",
+    "integration": "API integration tests with Testcontainers (Postgres + Redis) and mocked supplier/payment adapters",
+    "contract": "OpenAPI schema diff check in CI; generated client must compile",
+    "e2e_web": "Playwright: search -> results -> passenger details -> mock payment -> confirmation; auth flows; accessibility scans",
+    "e2e_mobile": "Maestro flows for the same critical path",
+    "security": "OWASP ZAP baseline scan against staging; authz tests for IDOR on every resource",
+    "load": "k6 scenarios for search and checkout endpoints with thresholds",
+    "visual": "Storybook for ui-web with Chromatic or Playwright screenshot tests for key components"
+  },
+
+  "ci_cd": {
+    "platform": "GitHub Actions",
+    "pipelines": [
+      "PR: install (pnpm, cached) -> lint -> typecheck -> unit -> integration -> build affected (turbo --filter=...[origin/main]) -> SAST + secret scan -> preview deploy for web/admin",
+      "Main: all above + e2e against ephemeral environment -> build and sign Docker images -> Trivy scan -> push -> deploy to staging -> smoke tests",
+      "Release (tag): manual approval -> Prisma migrate deploy (backwards-compatible migrations only, expand/contract pattern) -> deploy to production with canary or rolling strategy -> automated rollback on failed health checks",
+      "Mobile: EAS Build on tag (preview profile for internal testers, production profile for stores), EAS Submit to TestFlight / Play internal track, EAS Update channels per environment"
+    ],
+    "environments": ["local", "preview (per PR)", "staging", "production"],
+    "branch_protection": "Required reviews, required checks, signed commits, no force-push to main"
+  },
+
+  "environment_variables_example": [
+    "DATABASE_URL", "REDIS_URL", "JWT_PRIVATE_KEY", "JWT_PUBLIC_KEY", "ENCRYPTION_KMS_KEY_ID",
+    "DUFFEL_API_TOKEN", "HOTEL_PROVIDER_API_KEY", "HOTEL_PROVIDER_SECRET",
+    "PAYSTACK_SECRET_KEY", "PAYSTACK_WEBHOOK_SECRET", "FLUTTERWAVE_SECRET_KEY", "FLUTTERWAVE_WEBHOOK_HASH", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
+    "FX_PROVIDER_API_KEY", "EMAIL_PROVIDER_API_KEY", "SMS_PROVIDER_API_KEY",
+    "S3_BUCKET", "S3_REGION", "TURNSTILE_SECRET_KEY", "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+    "SENTRY_DSN", "POSTHOG_KEY", "NEXT_PUBLIC_API_BASE_URL", "EXPO_PUBLIC_API_BASE_URL",
+    "LLM_PROVIDER", "LLM_API_KEY"
+  ],
+
+  "phases": [
+    {
+      "id": 0,
+      "name": "Foundation and repo bootstrap",
+      "tasks": [
+        "Init Turborepo + pnpm workspaces with the repo_layout above",
+        "Shared configs (TS strict, ESLint flat config, Prettier), Husky + lint-staged + commitlint",
+        "docker-compose with Postgres 16, Redis 7, Mailpit (local email)",
+        "CLAUDE.md, README with Windows-friendly setup, docs/decisions/ADR-001-architecture.md",
+        "Base GitHub Actions PR workflow (lint, typecheck, test, build)"
+      ],
+      "acceptance_criteria": ["pnpm install && pnpm build succeeds on a clean clone", "docker compose up starts services", "CI passes on an empty PR"]
+    },
+    {
+      "id": 1,
+      "name": "Design tokens and component libraries",
+      "tasks": [
+        "packages/design-tokens: tokens as TS, generated Tailwind preset and CSS variables, contrast test",
+        "packages/ui-web: Button, Input, Tabs, SegmentedControl, Combobox (autocomplete), DateRangePicker, PassengerPicker, Card, DealCard, DestinationCard, Badge, TrustBar, Skeleton, Modal/Sheet, Toast",
+        "packages/ui-native: equivalents with NativeWind and bottom sheets",
+        "Storybook for ui-web"
+      ],
+      "acceptance_criteria": ["All components consume tokens only", "axe checks pass in Storybook", "Contrast test passes"]
+    },
+    {
+      "id": 2,
+      "name": "Backend core",
+      "tasks": [
+        "NestJS app with config validation (Zod), pino logging, OpenTelemetry, health/readiness endpoints, global exception filter with problem+json errors",
+        "Prisma schema for core entities, seed script (airports/cities/airlines dataset from an open source like OurAirports, countries, sample CMS, trust signals per guardrails)",
+        "Auth module (email/password, phone OTP, Google/Apple, refresh rotation, MFA), RBAC, rate limiting, idempotency middleware, audit log",
+        "OpenAPI generation + packages/api-client generation script"
+      ],
+      "acceptance_criteria": ["Auth e2e tests pass incl. refresh reuse detection", "OpenAPI spec generated and client compiles", "Security headers and rate limits verified by tests"]
+    },
+    {
+      "id": 3,
+      "name": "Search, catalog and supplier adapters",
+      "tasks": [
+        "Catalog endpoints: airport/city autocomplete with pg_trgm",
+        "FlightSupplier and HotelSupplier interfaces, Mock adapters with realistic fixtures, Duffel flight adapter behind feature flag",
+        "Search orchestration: parallel supplier calls, timeouts, circuit breaker, normalisation, Redis caching, offer expiry",
+        "Pricing module: markups, fees, promos, currency conversion with money utilities"
+      ],
+      "acceptance_criteria": ["Search works end-to-end with mock suppliers", "Money utilities have property-based tests", "Supplier failure returns partial results gracefully"]
+    },
+    {
+      "id": 4,
+      "name": "Web homepage",
+      "tasks": [
+        "Build every section in homepage_spec.sections_in_order with real API data (mock suppliers) and CMS-driven trust signals",
+        "Flights search form fully functional with shared Zod validation and URL-serialised queries; other tabs functional forms routed to their search pages",
+        "Deals worker generating fresh flight offers; top hotel destinations from CMS + hotel search minimum prices",
+        "SEO metadata, JSON-LD, OG image, sitemap"
+      ],
+      "acceptance_criteria": ["Lighthouse mobile >= 90 performance, 100 accessibility, 100 SEO on homepage", "Responsive at 360, 768, 1024, 1440 widths", "Playwright homepage tests pass"]
+    },
+    {
+      "id": 5,
+      "name": "Flight and hotel booking flow (web)",
+      "tasks": [
+        "Results pages with filters, sort, fare details",
+        "Checkout: passenger details, saved travellers, add-ons, price re-check, promo code, terms consent",
+        "Booking state machine + BookingStatusHistory; confirmation page; e-ticket/voucher generation (PDF) and email"
+      ],
+      "acceptance_criteria": ["Full search-to-confirmation Playwright test passes with mock payment", "Price-change re-consent path tested", "State machine transitions 100% unit-tested"]
+    },
+    {
+      "id": 6,
+      "name": "Payments, flexible payment and refunds",
+      "tasks": [
+        "PaymentProvider adapters: Paystack, Flutterwave, Stripe (test mode), webhook handlers with signature verification and deduplication",
+        "Double-entry ledger, wallet",
+        "Book-on-hold and installment plans with reminders and default handling",
+        "Refund flows with maker-checker; ticketing reconciliation worker with auto-refund"
+      ],
+      "acceptance_criteria": ["Webhook replay does not double-credit", "Amount tampering test fails safely", "Payment-success-but-ticketing-failure scenario ends in refund + notifications"]
+    },
+    {
+      "id": 7,
+      "name": "Mobile app",
+      "tasks": [
+        "Expo Router app with tabs (Home, Trips, Deals, Prime, Account), shared api-client and schemas",
+        "Native search, results, checkout (payment via provider SDK/hosted page), trips, documents offline access",
+        "Push notifications, deep links, secure storage, Play Integrity/App Attest hooks",
+        "EAS config: development, preview, production profiles"
+      ],
+      "acceptance_criteria": ["Maestro critical path passes on Android emulator", "EAS preview builds succeed for iOS and Android", "No secrets in bundle (scan)"]
+    },
+    {
+      "id": 8,
+      "name": "Packages, tours, visa and add-ons",
+      "tasks": [
+        "Catalog, detail, booking flows for packages and tours (web + mobile)",
+        "Visa eligibility checker, application flow, secure document upload with AV scanning, status tracking",
+        "Add-ons standalone and attached to bookings"
+      ],
+      "acceptance_criteria": ["Each vertical bookable end-to-end with mock payment", "Visa documents encrypted and only accessible via signed URLs by owner and visa_officer"]
+    },
+    {
+      "id": 9,
+      "name": "Accounts, Suskii Prime, referrals, notifications",
+      "tasks": [
+        "Profile, saved travellers, preferences, trips, device sessions, DSAR export/delete",
+        "Suskii Prime plans and benefits applied in pricing",
+        "Referrals with fraud checks; price alerts; notification preferences across email/SMS/WhatsApp/push"
+      ],
+      "acceptance_criteria": ["Prime pricing benefits covered by tests", "DSAR export returns all user data; delete anonymises while retaining legally required financial records"]
+    },
+    {
+      "id": 10,
+      "name": "Admin console",
+      "tasks": [
+        "RBAC-gated Next.js admin with MFA enforcement",
+        "Bookings, refunds, catalog, deals, promos, markups, CMS (incl. trust signal verification), users, audit log, dashboards"
+      ],
+      "acceptance_criteria": ["Every admin route has permission tests", "All admin mutations appear in audit log"]
+    },
+    {
+      "id": 11,
+      "name": "Hardening: security, performance, accessibility, observability",
+      "tasks": [
+        "Walk the ASVS L2 and MASVS checklists; fix gaps; record results in docs/security/checklist.md",
+        "ZAP baseline, k6 load tests, bundle budgets, Sentry + OTel dashboards and alerts",
+        "Threat model (STRIDE) for auth, payments, bookings, documents in docs/security/threat-model.md"
+      ],
+      "acceptance_criteria": ["No high/critical findings open", "Performance budgets met", "Runbooks written for payment outage, supplier outage, ticketing backlog, DB restore"]
+    },
+    {
+      "id": 12,
+      "name": "Deployment and release",
+      "tasks": [
+        "Dockerfiles, Terraform for chosen cloud (default GCP Cloud Run + Cloud SQL + Memorystore, AWS equivalent documented), optional Helm chart",
+        "Full CI/CD per ci_cd section, staging and production environments, Cloudflare WAF config",
+        "Store listing assets checklist, privacy nutrition labels / Data safety form content"
+      ],
+      "acceptance_criteria": ["Tag release deploys to staging then production with approval", "Rollback tested", "Mobile builds submitted to TestFlight and Play internal track"]
+    },
+    {
+      "id": 13,
+      "name": "Optional: AI trip search",
+      "tasks": ["Implement features.ai_features_optional_phase behind a feature flag with evals (a fixed set of 50 NL queries with expected parsed structs)"],
+      "acceptance_criteria": [">= 95% exact-match parse accuracy on the eval set", "Graceful fallback on failure", "Per-user cost cap enforced"]
+    }
+  ],
+
+  "edge_cases_to_handle": [
+    "Offer expires between results and checkout -> re-search prompt with preserved inputs",
+    "Price increases or decreases at re-price -> explicit consent screen",
+    "Payment succeeds, redirect lost (user closes tab/app) -> webhook completes booking; user sees it in Trips and gets email",
+    "Duplicate payment attempts -> idempotency key + auto-refund of duplicates",
+    "Supplier timeout during ticketing -> reconciliation worker, never double-issue",
+    "Dates across timezones and date line; overnight arrivals shown as +1",
+    "Infant must be under 2 on the return date, not only on departure",
+    "Name length and character rules per airline; transliteration of non-ASCII names",
+    "Passport expiring within 6 months of travel -> warning",
+    "Currency switch mid-session -> re-price, charge only in the booking's settled currency",
+    "Installment default -> policy-driven cancellation with transparent refund calculation",
+    "Supplier schedule change after ticketing -> notify customer with accept/refund options"
+  ],
+
+  "definition_of_done": [
+    "All phases' acceptance criteria met",
+    "Web, mobile and admin share one API and one set of schemas/types",
+    "Zero hardcoded secrets; all scans clean of high/critical issues",
+    "Docs complete: CLAUDE.md, README, ADRs, API docs, runbooks, threat model",
+    "A new developer can run the whole stack locally on Windows with docker compose and pnpm dev in under 15 minutes"
+  ],
+
+  "open_questions_for_owner": [
+    "Which flight and hotel suppliers will we contract with (affects adapters and hold/installment capability)?",
+    "Is Suskii IATA accredited or ticketing through a consolidator? (Controls the IATA trust signal and ticketing flow.)",
+    "Should Suskii Travels share user identity (single sign-on) with Suskii Errands, or remain a separate account system?",
+    "Target cloud: GCP or AWS?",
+    "Brand assets (logo, wordmark, photography) and legal entity details for footer and policies",
+    "Suskii Prime pricing and exact benefits"
+  ]
+}
