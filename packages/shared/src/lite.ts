@@ -57,7 +57,9 @@ export {
   type BookingStatus,
 } from './booking-rules';
 export {
+  FULL_NAME_MAX_LENGTH,
   GENDERS,
+  NAME_MAX_LENGTH,
   PASSENGER_ISSUES,
   PASSENGER_TITLES,
   PASSENGER_TYPES,
@@ -66,6 +68,8 @@ export {
   passengerTypeForAge,
   transliterateName,
   type Gender,
+  type ItineraryFacts,
+  type PassengerIssue,
   type PassengerTitle,
   type PassengerType,
 } from './passenger-rules';
