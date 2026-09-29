@@ -24,6 +24,10 @@ const WEB_DIR = join(ROOT, 'apps/web');
 const LOG_DIR = join(WEB_DIR, 'test-results/stack');
 
 export const WEB_PORT = 3000;
+/** The mock supplier raises this route's fare at the payment re-check (see booking.spec.ts). */
+export const PRICE_CHANGE_ROUTE = { origin: 'LOS', destination: 'DXB' } as const;
+const PRICE_CHANGE_ROUTE_RULE = `${PRICE_CHANGE_ROUTE.origin}-${PRICE_CHANGE_ROUTE.destination}:500`;
+
 export const API_PORT = Number(
   new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000').port || 80,
 );
@@ -172,6 +176,9 @@ export async function startStack(): Promise<Stack> {
       WEB_APP_URL: webUrl,
       EMAIL_PROVIDER: 'mock',
       HIBP_ENABLED: 'false',
+      // Lagos-Dubai fares rise 5% at the re-check before payment (price-change consent test).
+      MOCK_REPRICE_RULES: PRICE_CHANGE_ROUTE_RULE,
+      OBJECT_STORAGE_DIR: join(LOG_DIR, 'objects'),
     });
     children.push(api);
     await waitFor(`${apiUrl}/ready`, api, 'api');

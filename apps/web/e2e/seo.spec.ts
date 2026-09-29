@@ -18,12 +18,12 @@ test.describe('crawling and sharing', () => {
     expect(xml).not.toContain('/newsletter/');
   });
 
-  test('robots.txt points to the sitemap and keeps email-link pages private', async ({
-    request,
-  }) => {
+  test('robots.txt points to the sitemap and keeps private pages out', async ({ request }) => {
     const text = await (await request.get('/robots.txt')).text();
     expect(text).toMatch(/Sitemap: https?:\/\/[^\s]+\/sitemap\.xml/);
-    expect(text).toContain('Disallow: /newsletter/');
+    for (const path of ['/newsletter/', '/checkout/', '/bookings/']) {
+      expect(text).toContain(`Disallow: ${path}`);
+    }
   });
 
   test('serves 1200x630 social images and a manifest', async ({ request }) => {
