@@ -13,4 +13,6 @@ export const tailwindMergeTheme = {
   spacing: Object.keys(spacing),
   font: [...new Set([...Object.keys(fontFamily.web), ...Object.keys(fontFamily.native)])],
   'font-weight': Object.keys(fontWeight),
+  // The --container-* keys of the Tailwind v4 theme (tailwind-theme.ts): `max-w-page`, `max-w-dialog`.
+  container: ['page', 'popover', 'dialog'],
 };
