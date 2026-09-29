@@ -6,6 +6,68 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 4: Web homepage (2026-09-29)
+
+#### Added
+
+- Web homepage with every section of the spec in order, on live API data: hero with verified trust
+  bar, search card, trust strip, fresh flight offers (origin chips, carousel on mobile, grid on
+  desktop, each card a pre-filled search), top hotel destinations with "from" prices, Suskii Prime,
+  flexible payment, packages and tours, why book with us, app download, deal alerts, FAQ and
+  popular routes and destinations.
+- Search card with six tabs. Flights: round trip, one way and multi-city (2-5 legs), airport
+  autocomplete (edge-cached popular index with API fallback, recent places), swap, date range
+  (two months on desktop, full-screen on mobile), travellers, cabin, direct only, flexible dates,
+  last search restored. Hotels, packages, tours, visa and add-ons are validated forms that route to
+  their pages. All forms use the shared Zod schemas and serialise to shareable URLs; the add-ons
+  booking mode keeps the last name out of the URL.
+- Pages: vertical landing pages, flight and hotel search entry pages (noindex, ready for phase 5
+  results), programmatic `/flights/{origin}-to-{destination}` and `/hotels/{city}` pages, `/deals`,
+  CMS info pages, newsletter confirm and unsubscribe, a helpful 404 and an error page.
+- SEO: per-page metadata and canonical URLs, Open Graph and Twitter images, JSON-LD
+  (TravelAgency, WebSite, FAQPage, BreadcrumbList), sitemap from the API's routes and destinations,
+  robots.txt, web manifest and icons. Card illustrations served as cached SVG images from `/art`.
+- Nonce-based CSP per request (`proxy.ts`) with `strict-dynamic`, HSTS, nosniff, frame and
+  referrer policies (ADR-010). Currency and locale preferences in functional cookies.
+- `@suskii/i18n`: typed catalogs (en-NG, en-GB, en-US), plural-aware translator and `Intl`
+  formatters shared by web and, later, mobile.
+- `@suskii/shared`: search URL serialisation for flights and hotels, form schemas for packages,
+  tours, visa and add-ons, and a Zod-free `@suskii/shared/lite` entry for browser rendering.
+- API: homepage content (`/v1/content/site`, `/home`, `/pages/{slug}`; verified trust signals and
+  published blocks only), flight deals and routes, hotel destinations, city lookup, token-guarded
+  internal refresh routes, and double opt-in deal alerts with Turnstile (ADR-011, ADR-012).
+  Migration 3 adds deal routes and snapshots, destination content and snapshots, and newsletter
+  subscriptions; the seed adds 22 starter routes and 9 destinations.
+- Worker: BullMQ job schedulers refresh deals every 3 hours and destinations every 6 hours with
+  retries, backoff and a rate limit, prune old snapshots daily; `refresh:once` for local setup.
+- ui-web: filter chips, status badges on deal and destination cards, validation errors on the
+  date and traveller pickers, `useDeferredOverlay` with lazily loaded popover and dialog panels.
+- Web e2e suite (Playwright, 36 tests plus the Lighthouse gate) against the real API, worker and
+  web builds: section order, trust guardrails, flight form validation, URL serialisation and
+  persistence, multi-city, every tab's routing, deals filter and links, currency and locale,
+  newsletter, 360/768/1024/1440 layouts with axe, metadata, JSON-LD, sitemap, robots, social
+  images, `/art` input validation, CSP and security headers, the homepage JavaScript budget.
+- Lighthouse script (median of three mobile runs, thresholds from the acceptance criteria) and a
+  Tailwind class check that fails when a used utility generates no CSS.
+- CI: Postgres and Redis service containers, web e2e and Lighthouse step, report artifacts, class
+  check; the worker's BullMQ test now runs in CI.
+
+#### Changed
+
+- Homepage performance (ADR-013): schemas load on form interaction, overlays and the calendar on
+  first open, only latin fonts are preloaded. JavaScript 328 kB to 202 kB gzip, Lighthouse
+  performance 78 to 97 (median). The spec's 170 kB target is tracked for phase 11 behind a 210 kB
+  ratchet.
+- Shared code imports Zod as a namespace for tree shaking and runs it jitless in browsers, so the
+  strict CSP reports no eval attempts.
+- Mock hotel rates scale by country price level.
+
+#### Fixed
+
+- Hotel search reports malformed dates as validation issues instead of throwing.
+- `cn()` merges container widths (`max-w-page` with `max-w-dialog`).
+- Segmented controls wrap on small screens; deal cards contain their overlay link text.
+
 ### Phase 3: Search, catalog and supplier adapters (2026-09-29)
 
 #### Added

@@ -53,7 +53,8 @@ receive only the strings they need as props, which also keeps the component libr
 Only interactive parts are client components: the search module, header controls, deals filter and
 newsletter form. The flights form ships with the page; the other five tab forms load on demand. No
 data-fetching library on the homepage (autocomplete uses the edge-cached popular index plus a small
-abortable fetch); TanStack Query arrives with the results pages in phase 5.
+abortable fetch); TanStack Query arrives with the results pages in phase 5. Schemas, overlays and
+the calendar also load on demand, and the budget is measured in e2e (ADR-013).
 
 ### Search pages that later phases complete
 
@@ -68,8 +69,8 @@ offers search and navigation until phases 5-9 build them.
 The spec requires licensed or royalty-free photography. No brand assets exist yet (open owner
 question) and the photo hosts are blocked from the build sandbox, so the site ships original SVG
 illustrations built from design tokens (route art on deal cards, city art on destination cards, a
-light hero illustration on desktop). They weigh almost nothing, so they never become the LCP
-bottleneck. `DestinationContent.imageUrl` (CMS) switches a card to a real photo served by
+light hero illustration on desktop). Card art is served as cached SVG images from `/art` and loads
+lazily, which keeps it out of the HTML and hydration (ADR-013). `DestinationContent.imageUrl` (CMS) switches a card to a real photo served by
 `next/image` as AVIF/WebP; allowed image hosts come from `IMAGE_REMOTE_HOSTS`.
 
 ### Structured data

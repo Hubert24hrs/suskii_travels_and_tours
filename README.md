@@ -60,7 +60,14 @@ pnpm --filter @suskii/api db:seed
 
 # 5. Run every app in watch mode
 pnpm dev
+
+# 6. In a second terminal, once the API is up: fill the homepage deals and hotel prices
+pnpm --filter @suskii/worker refresh:once
 ```
+
+The worker also refreshes deals every 3 hours and hotel destinations every 6 hours while it runs.
+It calls the API's internal routes with `INTERNAL_API_TOKEN`; the value in `.env.example` works
+locally and is refused in production (generate one with `keys:generate`).
 
 To get a local super admin, set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `.env` before
 seeding, sign in, then enrol an authenticator app (`POST /v1/me/mfa/totp`): admin routes require an
@@ -97,11 +104,18 @@ Run a single app with a filter, for example `pnpm --filter @suskii/api dev`.
 | `pnpm lint`              | Type-aware ESLint everywhere                         |
 | `pnpm typecheck`         | TypeScript checks everywhere                         |
 | `pnpm test`              | Unit tests                                           |
-| `pnpm test:e2e`          | API end-to-end tests (needs Docker running)          |
+| `pnpm test:e2e`          | API and web end-to-end tests (needs Docker running)  |
 | `pnpm generate:api`      | Regenerate the OpenAPI document and typed API client |
 | `pnpm format`            | Format with Prettier                                 |
 | `pnpm infra:down`        | Stop local services (data is kept in Docker volumes) |
 | `docker compose down -v` | Stop local services and delete their data            |
+
+The web end-to-end suite (`apps/web/e2e`, Playwright) builds and starts its own API, worker refresh
+and web app on ports 4000 and 3000, so stop `pnpm dev` first, then run
+`pnpm --filter @suskii/web test:e2e`. It finishes with the Lighthouse gate (mobile performance 90+,
+accessibility and SEO 100). Set `E2E_BASE_URL` to test a stack that is already running instead,
+and `CHROME_PATH` if Lighthouse cannot find Chromium. Reports land in `apps/web/playwright-report`
+and `apps/web/lighthouse-report`.
 
 ## Contributing
 

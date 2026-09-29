@@ -37,8 +37,8 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | 0     | Foundation and repo bootstrap                    | Done                  |
 | 1     | Design tokens and component libraries            | Done                  |
 | 2     | Backend core                                     | Done                  |
-| 3     | Search, catalog and supplier adapters            | Done, awaiting review |
-| 4     | Web homepage                                     | Not started           |
+| 3     | Search, catalog and supplier adapters            | Done                  |
+| 4     | Web homepage                                     | Done, awaiting review |
 | 5     | Flight and hotel booking flow (web)              | Not started           |
 | 6     | Payments, flexible payment and refunds           | Not started           |
 | 7     | Mobile app                                       | Not started           |
@@ -55,7 +55,7 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 apps/
   api/        NestJS 12 API (CJS output, URI versioning /v1, Jest), Prisma 7, openapi.json
   worker/     Node ESM worker process (Vitest)
-  web/        Next.js 16 App Router
+  web/        Next.js 16 App Router (nonce CSP, Playwright e2e + Lighthouse in e2e/)
   admin/      Next.js 16 App Router (noindex)
   mobile/     Expo SDK 57 + Expo Router + NativeWind 4 (Jest)
 packages/
@@ -65,7 +65,7 @@ packages/
   ui-web/         Radix-based web components (TS source), Storybook 10, Vitest browser + axe tests
   ui-native/      NativeWind components (TS source), bottom sheets, Jest + RNTL tests
   api-client/     Generated OpenAPI types + openapi-fetch client + TanStack Query hooks (TS source)
-  i18n/           README only until phase 4
+  i18n/           Typed message catalogs (en-NG/GB/US), translator, Intl formatters (TS source)
 infra/        Terraform + Helm (phase 12). Local infra lives in the root docker-compose.yml
 docs/         decisions/ (ADRs), phases/ (phase plans), runbooks and security docs later
 ```
@@ -86,7 +86,11 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native) |
 | `pnpm build:storybook`                            | Static Storybook for ui-web                                         |
 | `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                   |
-| `pnpm test:e2e`                                   | API e2e tests: real app + Postgres/Redis in Testcontainers (Docker) |
+| `pnpm test:e2e`                                   | API and web e2e suites, one after the other (Docker or E2E_* URLs)  |
+| `pnpm --filter @suskii/web test:e2e`              | Web e2e + Lighthouse against built web, API and worker (see notes)  |
+| `pnpm --filter @suskii/web lighthouse [url]`      | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)     |
+| `pnpm --filter @suskii/web check:classes`         | Fail if a Tailwind class used in web/ui-web generates no CSS        |
+| `pnpm --filter @suskii/worker refresh:once`       | Refresh every deal route and destination once (API must run)        |
 | `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema           |
 | `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                 |
 | `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`             |
@@ -117,6 +121,12 @@ Tooling notes for agents:
   use `prisma migrate diff` instead.
 - E2E tests reuse running services when `E2E_DATABASE_URL` / `E2E_REDIS_URL` are set (the database
   is truncated, so never point them at data you care about).
+- Web e2e (`apps/web/e2e`) runs from build output: build web, API and worker first (turbo does this
+  for `test:e2e`). The global setup boots Postgres and Redis (Testcontainers, or
+  `WEB_E2E_DATABASE_URL` / `WEB_E2E_REDIS_URL`), migrates, seeds, starts the API on 4000 and web on
+  3000 (stop dev servers first) and runs one worker refresh. `E2E_BASE_URL` targets a running stack
+  instead. Lighthouse uses `CHROME_PATH` (Playwright's headless shell works best) or Playwright's
+  Chromium.
 
 ## Conventions
 
@@ -180,6 +190,23 @@ Tooling notes for agents:
 - Times: store local wall time + IANA zone + UTC instant (`localToUtc`, `utcToLocal` in shared).
 - `X-Suskii-Client: web/<version>` or `mobile-<platform>/<version>` selects the sales channel.
 
+### Web (apps/web)
+
+- Pages render per request (nonce CSP, ADR-010); cache API reads through `lib/api.ts`
+  (`revalidate` + tags). Never read `localStorage` during render; restore it in an effect.
+- Copy comes from `@suskii/i18n`: server components use `getI18n()`; client components get a
+  message subset through `I18nProvider` or labels as props. E2E tests use the catalog too.
+- Only the spacing scale exists (0-6, 8, 10, 12, 16, 20) plus named sizes (`max-w-page`,
+  `max-w-dialog`, `max-w-popover`, `max-h-menu`). Unknown classes produce no CSS silently: run
+  `check:classes` after a build.
+- Keep the homepage JavaScript small (ADR-013): client code imports `@suskii/shared/lite`, loads
+  schemas with `loadShared()`, opens popovers and dialogs through `useDeferredOverlay`, and puts
+  heavy or rarely used code behind `lazy()`/`next/dynamic`. The e2e budget test fails above 210 kB.
+- Use `AppLink` for string hrefs (typed routes). Card art comes from `/art`; real photos go through
+  `next/image` with hosts from `IMAGE_REMOTE_HOSTS`.
+- New pages need metadata (`pageMetadata`), a canonical path and, for inner pages, breadcrumbs;
+  add them to the sitemap when indexable.
+
 ### Security guardrails
 
 - Never commit `.env` files, secrets, or real supplier credentials. Use `.env.example` placeholders.
@@ -223,10 +250,16 @@ Tooling notes for agents:
 - [ADR-007: Authentication, sessions and abuse controls](docs/decisions/ADR-007-authentication-and-sessions.md)
 - [ADR-008: Money, pricing rules and exchange rates](docs/decisions/ADR-008-money-pricing-and-fx.md)
 - [ADR-009: Supplier adapters and search orchestration](docs/decisions/ADR-009-suppliers-and-search-orchestration.md)
+- [ADR-010: Web rendering, CSP, preferences, i18n and imagery](docs/decisions/ADR-010-web-rendering-csp-i18n-and-imagery.md)
+- [ADR-011: Deals, hotel destinations and the internal API](docs/decisions/ADR-011-deals-destinations-and-internal-api.md)
+- [ADR-012: Newsletter consent, double opt-in and bot protection](docs/decisions/ADR-012-newsletter-consent-and-bot-protection.md)
+- [ADR-013: Homepage performance and the JavaScript budget](docs/decisions/ADR-013-homepage-performance-and-js-budget.md)
 
 ## Open questions for the owner
 
 Tracked in `PROJECT_SPEC.json#/open_questions_for_owner` and repeated in each phase report until they
 are answered: suppliers, IATA or consolidator, SSO with Suskii Errands, GCP or AWS, brand assets and legal
 entity, Suskii Prime pricing. Added in phase 3: FX source for the naira and any FX margin (ADR-008),
-hotel provider (Duffel Stays recommended, ADR-009), Duffel sandbox token.
+hotel provider (Duffel Stays recommended, ADR-009), Duffel sandbox token. Added in phase 4:
+support contacts, social and app store links, legal texts and privacy policy, licensed photography,
+WhatsApp/SMS provider for deal alerts, Cloudflare Turnstile keys.
