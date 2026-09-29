@@ -19,7 +19,8 @@ export const HOTEL_SUPPLIERS = Symbol('HOTEL_SUPPLIERS');
 @Module({
   imports: [CatalogModule],
   providers: [
-    { provide: CircuitBreakerRegistry, useValue: new CircuitBreakerRegistry() },
+    // A factory, not a value: each application instance gets its own breakers.
+    { provide: CircuitBreakerRegistry, useFactory: () => new CircuitBreakerRegistry() },
     {
       provide: MockFlightSupplier,
       inject: [CatalogService],
