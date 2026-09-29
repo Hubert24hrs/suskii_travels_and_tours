@@ -20,6 +20,13 @@ export {
   DialogTrigger,
   type DialogContentProps,
 } from './components/dialog';
+export {
+  DeferredDialog,
+  DeferredPopover,
+  prefetchOverlay,
+  useDeferredOverlay,
+  type DeferredOverlay,
+} from './components/deferred-overlay';
 export { FieldButton, FieldLabel, type FieldButtonProps } from './components/field-trigger';
 export { FilterChip, type FilterChipProps } from './components/filter-chip';
 export { Input, inputClasses, type InputProps } from './components/input';

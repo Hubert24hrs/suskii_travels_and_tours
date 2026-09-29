@@ -1,6 +1,7 @@
 'use client';
 
 import { RadioGroup } from 'radix-ui';
+import { useId } from 'react';
 
 import { cn } from '../lib/cn';
 
@@ -12,6 +13,8 @@ export interface SegmentedControlOption<T extends string> {
 export interface SegmentedControlProps<T extends string> {
   /** Accessible name for the group, e.g. "Trip type". */
   label: string;
+  /** Form field name of the hidden radio inputs; generated when omitted. */
+  name?: string;
   options: readonly SegmentedControlOption<T>[];
   value: T;
   onValueChange: (value: T) => void;
@@ -24,14 +27,17 @@ export interface SegmentedControlProps<T extends string> {
  */
 export function SegmentedControl<T extends string>({
   label,
+  name,
   options,
   value,
   onValueChange,
   className,
 }: SegmentedControlProps<T>) {
+  const generatedName = useId();
   return (
     <RadioGroup.Root
       aria-label={label}
+      name={name ?? generatedName}
       value={value}
       onValueChange={(next) => {
         const option = options.find((candidate) => candidate.value === next);

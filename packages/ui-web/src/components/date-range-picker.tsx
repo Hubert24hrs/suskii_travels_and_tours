@@ -1,15 +1,21 @@
 'use client';
 
-import { DayPicker, type ClassNames, type DateRange, type DayPickerLocale } from '@daypicker/react';
+import type { DateRange, DayPickerLocale } from '@daypicker/react';
 import { CalendarDays } from 'lucide-react';
-import { useId, useState } from 'react';
+import { lazy, Suspense, useId } from 'react';
 
 import { useIsDesktop } from '../lib/use-media-query';
 
 import { Button } from './button';
-import { Dialog, DialogContent, DialogTrigger } from './dialog';
+import { DeferredDialog, DeferredPopover, useDeferredOverlay } from './deferred-overlay';
 import { FieldButton, FieldLabel } from './field-trigger';
-import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from './popover';
+
+const loadCalendar = () => import('./date-range-calendar');
+const DateRangeCalendar = lazy(loadCalendar);
+/** Fetches the calendar code ahead of opening (hover or focus on the trigger). */
+const prefetchCalendar = () => {
+  loadCalendar().catch(() => undefined);
+};
 
 export type { DateRange };
 
@@ -43,38 +49,6 @@ export interface DateRangePickerProps {
   className?: string;
 }
 
-// Selected cells are highlighted on the <td>; `group` lets the day button react to that state.
-const classNames: Partial<ClassNames> = {
-  root: 'relative font-body text-foreground',
-  months: 'flex flex-col gap-6 md:flex-row',
-  month: 'flex flex-col gap-2',
-  month_caption:
-    'flex h-12 items-center justify-center font-heading text-body font-bold text-heading',
-  nav: 'absolute inset-x-0 top-0 flex items-center justify-between',
-  button_previous:
-    'inline-flex size-12 items-center justify-center rounded-pill text-primary hover:bg-primary-subtle focus-visible:focus-ring disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-transparent',
-  button_next:
-    'inline-flex size-12 items-center justify-center rounded-pill text-primary hover:bg-primary-subtle focus-visible:focus-ring disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-transparent',
-  chevron: 'size-5 fill-current',
-  month_grid: 'border-collapse',
-  weekday: 'size-12 font-body text-caption font-bold text-muted',
-  day: 'group p-0 text-center',
-  day_button: [
-    'inline-flex size-12 items-center justify-center rounded-pill font-body text-body',
-    'transition-colors duration-fast hover:bg-primary-subtle focus-visible:focus-ring',
-    'group-aria-selected:hover:bg-transparent disabled:cursor-not-allowed disabled:hover:bg-transparent',
-  ].join(' '),
-  selected: 'rounded-pill bg-primary text-on-primary',
-  // `!` so range shapes never depend on stylesheet order against `selected`.
-  range_start: 'rounded-r-none!',
-  range_end: 'rounded-l-none!',
-  range_middle: 'rounded-none! bg-primary-subtle! text-foreground!',
-  today: 'font-bold',
-  disabled: 'text-muted',
-  outside: 'text-muted',
-  hidden: 'invisible',
-};
-
 /**
  * Date or date-range picker: two months in a popover on desktop, one month in a full-screen
  * dialog on mobile. Keyboard navigation and day labels come from DayPicker (WCAG 2.1 AA).
@@ -96,35 +70,29 @@ export function DateRangePicker({
 }: DateRangePickerProps) {
   const labelId = useId();
   const isDesktop = useIsDesktop();
-  const [open, setOpen] = useState(false);
-
-  const shared = {
-    numberOfMonths: isDesktop && mode === 'range' ? 2 : 1,
-    classNames,
-    autoFocus: true,
-    labels: { labelPrevious: () => labels.previousMonth, labelNext: () => labels.nextMonth },
-    ...(minDate ? { disabled: { before: minDate }, startMonth: minDate } : {}),
-    ...(locale ? { locale } : {}),
-    ...(weekStartsOn === undefined ? {} : { weekStartsOn }),
+  const overlay = useDeferredOverlay();
+  const close = () => overlay.setOpen(false);
+  // Hover or focus on the field fetches the overlay and calendar code before the first open.
+  const prefetch = () => {
+    overlay.triggerProps.onPointerEnter();
+    prefetchCalendar();
   };
 
-  const calendar =
-    mode === 'range' ? (
-      <DayPicker
-        {...shared}
-        mode="range"
-        excludeDisabled
-        selected={value}
-        onSelect={(range) => onChange(range ?? { from: undefined })}
+  const calendar = (
+    <Suspense fallback={<div aria-hidden="true" className="h-20" />}>
+      <DateRangeCalendar
+        mode={mode}
+        value={value}
+        onChange={onChange}
+        numberOfMonths={isDesktop && mode === 'range' ? 2 : 1}
+        minDate={minDate}
+        locale={locale}
+        weekStartsOn={weekStartsOn}
+        previousMonthLabel={labels.previousMonth}
+        nextMonthLabel={labels.nextMonth}
       />
-    ) : (
-      <DayPicker
-        {...shared}
-        mode="single"
-        selected={value.from}
-        onSelect={(day) => onChange({ from: day, to: undefined })}
-      />
-    );
+    </Suspense>
+  );
 
   const errorId = error ? `${labelId}-error` : undefined;
   const trigger = (
@@ -137,6 +105,9 @@ export function DateRangePicker({
       aria-invalid={error ? true : undefined}
       aria-describedby={errorId}
       className={error ? 'border-danger' : undefined}
+      {...overlay.triggerProps}
+      onPointerEnter={prefetch}
+      onFocus={prefetch}
     />
   );
 
@@ -144,38 +115,35 @@ export function DateRangePicker({
     <div className={className}>
       <div className="flex flex-col gap-1">
         <FieldLabel id={labelId}>{label}</FieldLabel>
+        {trigger}
         {isDesktop ? (
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-            <PopoverContent
-              aria-label={label}
-              className="flex flex-col gap-4"
-              // DayPicker focuses the selected day (or today) itself.
-              onOpenAutoFocus={(event) => event.preventDefault()}
-            >
-              {calendar}
-              <PopoverClose asChild>
-                <Button className="self-end">{labels.done}</Button>
-              </PopoverClose>
-            </PopoverContent>
-          </Popover>
+          <DeferredPopover
+            overlay={overlay}
+            label={label}
+            className="flex flex-col gap-4"
+            // DayPicker focuses the selected day (or today) itself.
+            skipAutoFocus
+          >
+            {calendar}
+            <Button className="self-end" onClick={close}>
+              {labels.done}
+            </Button>
+          </DeferredPopover>
         ) : (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{trigger}</DialogTrigger>
-            <DialogContent
-              title={label}
-              closeLabel={labels.close}
-              variant="fullscreen"
-              onOpenAutoFocus={(event) => event.preventDefault()}
-              footer={
-                <Button fullWidth onClick={() => setOpen(false)}>
-                  {labels.done}
-                </Button>
-              }
-            >
-              <div className="flex justify-center">{calendar}</div>
-            </DialogContent>
-          </Dialog>
+          <DeferredDialog
+            overlay={overlay}
+            title={label}
+            closeLabel={labels.close}
+            variant="fullscreen"
+            skipAutoFocus
+            footer={
+              <Button fullWidth onClick={close}>
+                {labels.done}
+              </Button>
+            }
+          >
+            <div className="flex justify-center">{calendar}</div>
+          </DeferredDialog>
         )}
         {error ? (
           <p id={errorId} className="font-body text-caption text-danger">

@@ -7,16 +7,15 @@ import {
   stepTravellers,
   type TravellerCounts,
   type TravellerType,
-} from '@suskii/shared';
+} from '@suskii/shared/lite';
 import { Minus, Plus, Users } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useId } from 'react';
 
 import { useIsDesktop } from '../lib/use-media-query';
 
 import { Button } from './button';
-import { Dialog, DialogContent, DialogTrigger } from './dialog';
+import { DeferredDialog, DeferredPopover, useDeferredOverlay } from './deferred-overlay';
 import { FieldButton, FieldLabel } from './field-trigger';
-import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from './popover';
 
 export interface PassengerPickerLabels {
   /** Row title and age band, e.g. { title: "Children", description: "Ages 2-11" }. */
@@ -115,7 +114,8 @@ export function PassengerPicker({
 }: PassengerPickerProps) {
   const labelId = useId();
   const isDesktop = useIsDesktop();
-  const [open, setOpen] = useState(false);
+  const overlay = useDeferredOverlay();
+  const close = () => overlay.setOpen(false);
   const errorId = error ? `${labelId}-error` : undefined;
   const trigger = (
     <FieldButton
@@ -126,6 +126,7 @@ export function PassengerPicker({
       aria-invalid={error ? true : undefined}
       aria-describedby={errorId}
       className={error ? 'border-danger' : undefined}
+      {...overlay.triggerProps}
     />
   );
   const steppers = <TravellerSteppers value={value} onChange={onChange} labels={labels} />;
@@ -134,34 +135,28 @@ export function PassengerPicker({
     <div className={className}>
       <div className="flex flex-col gap-1">
         <FieldLabel id={labelId}>{label}</FieldLabel>
+        {trigger}
         {isDesktop ? (
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-            <PopoverContent aria-label={label} className="w-full max-w-popover">
-              {steppers}
-              <PopoverClose asChild>
-                <Button fullWidth className="mt-2">
-                  {labels.done}
-                </Button>
-              </PopoverClose>
-            </PopoverContent>
-          </Popover>
+          <DeferredPopover overlay={overlay} label={label} className="w-full max-w-popover">
+            {steppers}
+            <Button fullWidth className="mt-2" onClick={close}>
+              {labels.done}
+            </Button>
+          </DeferredPopover>
         ) : (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{trigger}</DialogTrigger>
-            <DialogContent
-              title={label}
-              closeLabel={labels.close}
-              variant="sheet"
-              footer={
-                <Button fullWidth onClick={() => setOpen(false)}>
-                  {labels.done}
-                </Button>
-              }
-            >
-              {steppers}
-            </DialogContent>
-          </Dialog>
+          <DeferredDialog
+            overlay={overlay}
+            title={label}
+            closeLabel={labels.close}
+            variant="sheet"
+            footer={
+              <Button fullWidth onClick={close}>
+                {labels.done}
+              </Button>
+            }
+          >
+            {steppers}
+          </DeferredDialog>
         )}
         {error ? (
           <p id={errorId} className="font-body text-caption text-danger">
