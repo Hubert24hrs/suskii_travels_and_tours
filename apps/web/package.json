@@ -23,6 +23,7 @@
     "@suskii/ui-web": "workspace:*",
     "lucide-react": "catalog:",
     "next": "catalog:",
+    "openapi-fetch": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "uqr": "catalog:"

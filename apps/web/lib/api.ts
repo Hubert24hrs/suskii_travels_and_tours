@@ -90,6 +90,11 @@ export const api = {
     apiGet<Schemas['City']>(`/v1/catalog/cities/${encodeURIComponent(cityId)}`, {
       revalidate: ONE_DAY,
     }),
+  countries: () =>
+    apiGet<Schemas['Countries']>('/v1/catalog/countries', {
+      revalidate: ONE_DAY,
+      tags: ['catalog'],
+    }),
   airport: (code: string) =>
     apiGet<Schemas['Airport']>(`/v1/catalog/airports/${encodeURIComponent(code)}`, {
       revalidate: ONE_DAY,

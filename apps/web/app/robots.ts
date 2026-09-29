@@ -2,10 +2,13 @@ import type { MetadataRoute } from 'next';
 
 import { publicEnv } from '../lib/env';
 
-/** Search result pages stay crawlable but carry noindex; email-link pages are private. */
+/**
+ * Search result pages stay crawlable but carry noindex; email-link pages, checkout, payment and
+ * booking pages are private (they also carry noindex).
+ */
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: '*', allow: '/', disallow: ['/newsletter/'] }],
+    rules: [{ userAgent: '*', allow: '/', disallow: ['/newsletter/', '/checkout/', '/bookings/'] }],
     sitemap: `${publicEnv.siteUrl}/sitemap.xml`,
     host: publicEnv.siteUrl,
   };
