@@ -110,6 +110,9 @@ catalog:
   '@testcontainers/redis': ^12.2.0
   csv-parse: ^7.0.3
   csv-stringify: ^6.9.0
+  fast-check: ^4.10.2
+  '@opentelemetry/exporter-metrics-otlp-http': ^0.222.0
+  '@opentelemetry/sdk-metrics': ^2.11.0
   '@photostructure/tz-lookup': ^11.7.0
 
   # Generated API client (packages/api-client)
