@@ -124,6 +124,17 @@ export const flightSliceSchema = named(
   }),
 );
 
+export const flightServiceSchema = named(
+  'FlightService',
+  z.object({
+    id: z.string(),
+    type: z.enum(['checked_bag']),
+    weightKg: z.number().int(),
+    maxQuantity: z.number().int().meta({ description: 'Per passenger; infants cannot add bags.' }),
+    price: moneySchema.meta({ description: 'Per unit, in the display currency.' }),
+  }),
+);
+
 export const flightOfferSchema = named(
   'FlightOffer',
   z.object({
@@ -151,6 +162,7 @@ export const flightOfferSchema = named(
     price: priceSchema,
     expiresAt: timestamp,
     hold: z.object({ available: z.boolean(), paymentRequiredBy: timestamp.nullable() }),
+    services: z.array(flightServiceSchema),
   }),
 );
 

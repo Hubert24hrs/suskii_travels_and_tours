@@ -40,3 +40,9 @@ export class SeededRandom {
 export function stableId(prefix: string, ...parts: string[]): string {
   return `${prefix}_${createHash('sha256').update(parts.join('|')).digest('base64url').slice(0, 20)}`;
 }
+
+/** A deterministic code from `alphabet`, e.g. a PNR: the same seed always gives the same code. */
+export function stableCode(seed: string, length: number, alphabet: string): string {
+  const random = new SeededRandom(seed);
+  return Array.from({ length }, () => random.pick([...alphabet])).join('');
+}

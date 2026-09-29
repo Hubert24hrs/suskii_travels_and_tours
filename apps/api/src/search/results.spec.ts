@@ -81,6 +81,7 @@ const flight = (
     price: { base: money(total, 'NGN'), taxes: money(0, 'NGN') },
     expiresAt: '2030-01-01T00:00:00.000Z',
     hold: { available: false, paymentRequiredBy: null },
+    services: [],
   } as SupplierFlightOffer;
   return { id, offer, price: price(total) };
 };

@@ -23,6 +23,9 @@ apps/mobile/android/
 coverage/
 .eslintcache
 
+# Local object storage (e-tickets, vouchers) for development and tests
+.data/
+
 # Test output (Playwright, Lighthouse)
 test-results/
 playwright-report/

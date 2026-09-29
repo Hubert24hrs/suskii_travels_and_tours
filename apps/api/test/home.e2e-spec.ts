@@ -1,6 +1,10 @@
 import { PricingService } from '../src/pricing/pricing.service';
 import { SupplierUnavailableError } from '../src/suppliers/supplier.errors';
-import { FlightSupplier, type SupplierFlightOffer } from '../src/suppliers/supplier.types';
+import {
+  FlightSupplier,
+  type FlightBookingResult,
+  type SupplierFlightOffer,
+} from '../src/suppliers/supplier.types';
 import { FLIGHT_SUPPLIERS } from '../src/suppliers/suppliers.module';
 
 import {
@@ -12,10 +16,14 @@ import {
 
 class BrokenSupplier extends FlightSupplier {
   readonly name = 'broken';
+  readonly idempotentBooking = true;
   search(): Promise<SupplierFlightOffer[]> {
     return Promise.reject(new SupplierUnavailableError(this.name, 'HTTP 503'));
   }
   reprice(): Promise<SupplierFlightOffer> {
+    return Promise.reject(new SupplierUnavailableError(this.name, 'HTTP 503'));
+  }
+  book(): Promise<FlightBookingResult> {
     return Promise.reject(new SupplierUnavailableError(this.name, 'HTTP 503'));
   }
 }

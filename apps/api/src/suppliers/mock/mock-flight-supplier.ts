@@ -9,10 +9,12 @@ import {
 
 import type { AirportInfo } from '../../catalog/catalog.service';
 import { buildSlice } from '../itinerary';
-import { OfferUnavailableError } from '../supplier.errors';
+import { OfferUnavailableError, SupplierUnavailableError } from '../supplier.errors';
 import {
   FlightSupplier,
   type AirportPoint,
+  type FlightBookingRequest,
+  type FlightBookingResult,
   type FlightSearchQuery,
   type FlightSegment,
   type FlightSlice,
@@ -26,7 +28,7 @@ import {
   MOCK_HUBS,
   type MockCarrier,
 } from './carriers';
-import { SeededRandom, stableId } from './random';
+import { SeededRandom, stableCode, stableId } from './random';
 
 /** Airport facts the mock needs (implemented by CatalogService). */
 export interface AirportDirectory {
@@ -217,12 +219,20 @@ function servesLeg(carrier: MockCarrier, from: AirportInfo, to: AirportInfo, km:
  */
 export class MockFlightSupplier extends FlightSupplier {
   readonly name = 'mock';
+  readonly idempotentBooking = true;
   /** Test hook: basis points applied to prices on re-pricing (simulates a fare change). */
   repriceDriftBps = 0;
+  /** Test hook: this many upcoming `book()` calls fail as if the airline were unavailable. */
+  failNextBookings = 0;
 
+  /**
+   * @param repriceRules basis points added on re-pricing per outbound route ("LOS-DXB"), from
+   *   MOCK_REPRICE_RULES, so end-to-end tests can walk through a price change.
+   */
   constructor(
     private readonly airports: AirportDirectory,
     private readonly now: () => Date = () => new Date(),
+    private readonly repriceRules: ReadonlyMap<string, number> = new Map(),
   ) {
     super();
   }
@@ -290,12 +300,45 @@ export class MockFlightSupplier extends FlightSupplier {
     ) {
       return Promise.reject(new OfferUnavailableError(this.name, 'Offer is no longer available'));
     }
-    const drift = (amount: Money): Money =>
-      multiplyRatio(amount, 10_000 + this.repriceDriftBps, 10_000, 'half-up');
+    const outbound = offer.slices[0];
+    const bps =
+      this.repriceDriftBps +
+      (outbound
+        ? (this.repriceRules.get(`${outbound.origin.code}-${outbound.destination.code}`) ?? 0)
+        : 0);
+    const drift = (amount: Money): Money => multiplyRatio(amount, 10_000 + bps, 10_000, 'half-up');
     return Promise.resolve({
       ...offer,
       price: { base: drift(offer.price.base), taxes: offer.price.taxes },
       expiresAt: new Date(now + OFFER_TTL_MS).toISOString(),
+    });
+  }
+  /**
+   * Issues deterministic references from the idempotency key, so retrying a booking returns the
+   * same PNR and ticket numbers instead of booking twice.
+   */
+  book(request: FlightBookingRequest, signal: AbortSignal): Promise<FlightBookingResult> {
+    signal.throwIfAborted();
+    if (this.failNextBookings > 0) {
+      this.failNextBookings -= 1;
+      return Promise.reject(new SupplierUnavailableError(this.name, 'Mock ticketing is down'));
+    }
+    const firstDeparture = request.offer.slices[0]?.departureUtc;
+    if (firstDeparture && Date.parse(firstDeparture) <= this.now().getTime()) {
+      return Promise.reject(new OfferUnavailableError(this.name, 'The flight has departed'));
+    }
+    const seed = `mock-booking|${request.idempotencyKey}`;
+    return Promise.resolve({
+      supplierReference: stableCode(seed, 6, 'ABCDEFGHJKLMNPQRSTUVWXYZ'),
+      tickets: request.passengers.map((_, passengerIndex) => ({
+        passengerIndex,
+        // Airline ticket numbers: a 3-digit accounting code and 10 digits.
+        number: `${stableCode(`${seed}|airline`, 3, '0123456789')}${stableCode(
+          `${seed}|${passengerIndex}`,
+          10,
+          '0123456789',
+        )}`,
+      })),
     });
   }
 
@@ -458,15 +501,16 @@ export class MockFlightSupplier extends FlightSupplier {
 
     const firstDeparture = Date.parse(slices[0]?.departureUtc ?? '');
     const holdable = daysAhead >= 7 && random.chance(0.6);
+    const supplierOfferId = stableId(
+      'mockoff',
+      seed,
+      carrier.code,
+      brand.name,
+      ...slices.flatMap((s) => s.segments.map((g) => `${g.flightNumber}@${g.departureUtc}`)),
+    );
     return {
       supplier: this.name,
-      supplierOfferId: stableId(
-        'mockoff',
-        seed,
-        carrier.code,
-        brand.name,
-        ...slices.flatMap((s) => s.segments.map((g) => `${g.flightNumber}@${g.departureUtc}`)),
-      ),
+      supplierOfferId,
       owner: { code: carrier.code, name: carrier.name },
       slices,
       baggage: { carryOn: brand.carryOn, checked: brand.checked },
@@ -488,6 +532,16 @@ export class MockFlightSupplier extends FlightSupplier {
             ).toISOString()
           : null,
       },
+      // One extra 23 kg bag per passenger (two at most) for the whole trip.
+      services: [
+        {
+          id: `${supplierOfferId}.bag23`,
+          type: 'checked_bag',
+          weightKg: 23,
+          maxQuantity: 2,
+          price: money(domestic ? 1_500_000n : 6_000n, currency),
+        },
+      ],
     };
   }
 }

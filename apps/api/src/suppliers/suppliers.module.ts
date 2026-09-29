@@ -23,8 +23,9 @@ export const HOTEL_SUPPLIERS = Symbol('HOTEL_SUPPLIERS');
     { provide: CircuitBreakerRegistry, useFactory: () => new CircuitBreakerRegistry() },
     {
       provide: MockFlightSupplier,
-      inject: [CatalogService],
-      useFactory: (catalog: CatalogService) => new MockFlightSupplier(catalog),
+      inject: [CatalogService, APP_CONFIG],
+      useFactory: (catalog: CatalogService, config: AppConfig) =>
+        new MockFlightSupplier(catalog, undefined, config.MOCK_REPRICE_RULES),
     },
     { provide: MockHotelSupplier, useFactory: () => new MockHotelSupplier() },
     {

@@ -72,9 +72,25 @@ export const duffelOfferSchema = z.looseObject({
       payment_required_by: z.string().nullish(),
     })
     .nullish(),
+  /** In the order they were requested; orders must reference these ids. */
+  passengers: z.array(z.looseObject({ id: z.string(), type: z.string().nullish() })).default([]),
 });
 
 export type DuffelOffer = z.infer<typeof duffelOfferSchema>;
+
+export const duffelOrderSchema = z.looseObject({
+  id: z.string(),
+  booking_reference: z.string().min(1),
+  documents: z
+    .array(
+      z.looseObject({
+        type: z.string(),
+        unique_identifier: z.string(),
+        passenger_ids: z.array(z.string()).default([]),
+      }),
+    )
+    .default([]),
+});
 
 export const duffelErrorSchema = z.looseObject({
   errors: z.array(

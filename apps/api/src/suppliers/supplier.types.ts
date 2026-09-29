@@ -1,4 +1,11 @@
-import type { CabinClass, Money, TravellerCounts } from '@suskii/shared';
+import type {
+  CabinClass,
+  Gender,
+  Money,
+  PassengerTitle,
+  PassengerType,
+  TravellerCounts,
+} from '@suskii/shared';
 
 import type { SupplierPrice } from '../pricing/pricing-engine';
 
@@ -79,6 +86,17 @@ export interface FlightSearchQuery {
   maxConnections: number | null;
 }
 
+/** An extra the supplier sells with the offer, e.g. a checked bag for the whole trip. */
+export interface FlightService {
+  id: string;
+  type: 'checked_bag';
+  weightKg: number;
+  /** Per passenger (infants cannot take extra bags). */
+  maxQuantity: number;
+  /** Per unit, in the supplier's currency. */
+  price: Money;
+}
+
 export interface SupplierFlightOffer {
   supplier: string;
   supplierOfferId: string;
@@ -94,6 +112,8 @@ export interface SupplierFlightOffer {
   price: SupplierPrice;
   expiresAt: string;
   hold: { available: boolean; paymentRequiredBy: string | null };
+  /** Extras bookable with this offer; empty when the supplier returns none. */
+  services: FlightService[];
 }
 
 export interface HotelSearchQuery {
@@ -143,19 +163,75 @@ export interface SupplierHotel {
   rates: SupplierHotelRate[];
 }
 
+export interface SupplierPassenger {
+  type: PassengerType;
+  title: PassengerTitle;
+  gender: Gender;
+  /** Passport (machine-readable) form. */
+  givenNames: string;
+  surname: string;
+  dateOfBirth: string;
+  nationality: string;
+  document: { number: string; issuingCountry: string; expiryDate: string } | null;
+}
+
+export interface SupplierContact {
+  email: string;
+  phone: string;
+}
+
+export interface FlightBookingRequest {
+  offer: SupplierFlightOffer;
+  /** In the offer's order: adults, then children, then infants. */
+  passengers: SupplierPassenger[];
+  contact: SupplierContact;
+  services: { serviceId: string; passengerIndex: number; quantity: number }[];
+  /** Stable per booking item: repeating a request with it never books twice. */
+  idempotencyKey: string;
+}
+
+export interface FlightBookingResult {
+  /** Airline booking reference (PNR). */
+  supplierReference: string;
+  tickets: { passengerIndex: number; number: string }[];
+}
+
+export interface HotelBookingRequest {
+  hotel: SupplierHotel;
+  rate: SupplierHotelRate;
+  query: HotelSearchQuery;
+  /** Lead guest per room. */
+  guests: { givenNames: string; surname: string }[];
+  contact: SupplierContact;
+  idempotencyKey: string;
+}
+
+export interface HotelBookingResult {
+  confirmationNumber: string;
+}
+
 /**
  * Flight supplier adapter (Mock, Duffel; Amadeus or a GDS/consolidator can plug in later).
  * Implementations must honour `signal` and throw `SupplierError` subclasses.
  */
 export abstract class FlightSupplier {
   abstract readonly name: string;
+  /**
+   * Whether repeating `book()` with the same idempotency key is safe after an ambiguous failure
+   * (timeout). When false, such failures go to manual review instead of an automatic retry.
+   */
+  abstract readonly idempotentBooking: boolean;
   abstract search(query: FlightSearchQuery, signal: AbortSignal): Promise<SupplierFlightOffer[]>;
   /** Confirms the current price and availability of an offer this supplier returned. */
   abstract reprice(offer: SupplierFlightOffer, signal: AbortSignal): Promise<SupplierFlightOffer>;
+  /** Books and tickets a paid offer. Must be idempotent by `request.idempotencyKey`. */
+  abstract book(request: FlightBookingRequest, signal: AbortSignal): Promise<FlightBookingResult>;
 }
 
 export abstract class HotelSupplier {
   abstract readonly name: string;
+  /** See `FlightSupplier.idempotentBooking`. */
+  abstract readonly idempotentBooking: boolean;
   abstract search(query: HotelSearchQuery, signal: AbortSignal): Promise<SupplierHotel[]>;
   abstract reprice(
     hotel: SupplierHotel,
@@ -163,4 +239,6 @@ export abstract class HotelSupplier {
     query: HotelSearchQuery,
     signal: AbortSignal,
   ): Promise<SupplierHotelRate>;
+  /** Confirms a paid stay. Must be idempotent by `request.idempotencyKey`. */
+  abstract book(request: HotelBookingRequest, signal: AbortSignal): Promise<HotelBookingResult>;
 }

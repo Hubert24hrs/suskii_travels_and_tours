@@ -216,6 +216,126 @@ describe('DuffelFlightSupplier', () => {
     await expect(gone.reprice(original, signal)).rejects.toBeInstanceOf(OfferUnavailableError);
   });
 
+  it('books an instant order with the offer passenger ids, infants attached to adults', async () => {
+    const original = (
+      await supplierWith(
+        fakeFetch(json(201, { data: { offers: [duffelOffer('off_1')] } })).fn,
+      ).search(query, signal)
+    )[0];
+    if (!original) throw new Error('no offer');
+    const offerPassengers = [
+      { id: 'pas_1', type: 'adult' },
+      { id: 'pas_2', type: 'child' },
+      { id: 'pas_3', type: 'infant_without_seat' },
+    ];
+    const person = (
+      type: 'adult' | 'child' | 'infant',
+      givenNames: string,
+      withPassport: boolean,
+    ) => ({
+      type,
+      title: type === 'adult' ? ('ms' as const) : ('miss' as const),
+      gender: 'f' as const,
+      givenNames,
+      surname: 'EZE',
+      dateOfBirth: type === 'adult' ? '1990-01-01' : type === 'child' ? '2018-01-01' : '2026-01-01',
+      nationality: 'NG',
+      document: withPassport
+        ? { number: 'A1234567', issuingCountry: 'NG', expiryDate: '2031-01-01' }
+        : null,
+    });
+    const request = {
+      offer: original,
+      passengers: [
+        person('adult', 'NGOZI', true),
+        person('child', 'ADA', false),
+        person('infant', 'OBI', false),
+      ],
+      contact: { email: 'ngozi@example.com', phone: '+2348012345678' },
+      services: [],
+      idempotencyKey: 'item-1',
+    };
+    const { fn, calls } = fakeFetch(
+      json(200, { data: duffelOffer('off_1', { passengers: offerPassengers }) }),
+      json(201, {
+        data: {
+          id: 'ord_1',
+          booking_reference: 'RZPNX8',
+          documents: [
+            {
+              type: 'electronic_ticket',
+              unique_identifier: '0712345678901',
+              passenger_ids: ['pas_1'],
+            },
+            {
+              type: 'electronic_ticket',
+              unique_identifier: '0712345678902',
+              passenger_ids: ['pas_2'],
+            },
+            {
+              type: 'electronic_ticket',
+              unique_identifier: '0712345678903',
+              passenger_ids: ['pas_3'],
+            },
+          ],
+        },
+      }),
+    );
+    const result = await supplierWith(fn).book(request, signal);
+    expect(result).toEqual({
+      supplierReference: 'RZPNX8',
+      tickets: [
+        { passengerIndex: 0, number: '0712345678901' },
+        { passengerIndex: 1, number: '0712345678902' },
+        { passengerIndex: 2, number: '0712345678903' },
+      ],
+    });
+    expect(calls[1]?.url).toBe('https://api.duffel.test/air/orders');
+    const body = JSON.parse(calls[1]?.init?.body as string) as {
+      data: {
+        type: string;
+        selected_offers: string[];
+        passengers: Record<string, unknown>[];
+        payments: unknown[];
+      };
+    };
+    expect(body.data.type).toBe('instant');
+    expect(body.data.selected_offers).toEqual(['off_1']);
+    expect(body.data.payments).toEqual([{ type: 'balance', currency: 'USD', amount: '812.45' }]);
+    expect(body.data.passengers[0]).toMatchObject({
+      id: 'pas_1',
+      given_name: 'NGOZI',
+      family_name: 'EZE',
+      born_on: '1990-01-01',
+      infant_passenger_id: 'pas_3',
+      identity_documents: [
+        {
+          type: 'passport',
+          unique_identifier: 'A1234567',
+          issuing_country_code: 'NG',
+          expires_on: '2031-01-01',
+        },
+      ],
+    });
+    expect(body.data.passengers[1]).not.toHaveProperty('identity_documents');
+
+    // A fare that moved after payment is refused, not charged; extras are not supported yet.
+    const moved = supplierWith(
+      fakeFetch(
+        json(200, {
+          data: duffelOffer('off_1', { total_amount: '900.00', passengers: offerPassengers }),
+        }),
+      ).fn,
+    );
+    await expect(moved.book(request, signal)).rejects.toBeInstanceOf(SupplierRequestError);
+    await expect(
+      supplierWith(fakeFetch().fn).book(
+        { ...request, services: [{ serviceId: 'x', passengerIndex: 0, quantity: 1 }] },
+        signal,
+      ),
+    ).rejects.toBeInstanceOf(SupplierRequestError);
+  });
+
   it('maps transport and HTTP failures to supplier errors without leaking the token', async () => {
     const cases: [Response | Error, new (...args: never[]) => Error][] = [
       [json(429, { errors: [{ code: 'rate_limit_exceeded' }] }), SupplierUnavailableError],

@@ -3,7 +3,11 @@ import { addDays, localDate } from '@suskii/shared';
 import { PricingService } from '../src/pricing/pricing.service';
 import { MockFlightSupplier } from '../src/suppliers/mock/mock-flight-supplier';
 import { SupplierUnavailableError } from '../src/suppliers/supplier.errors';
-import { FlightSupplier, type SupplierFlightOffer } from '../src/suppliers/supplier.types';
+import {
+  FlightSupplier,
+  type FlightBookingResult,
+  type SupplierFlightOffer,
+} from '../src/suppliers/supplier.types';
 import { FLIGHT_SUPPLIERS } from '../src/suppliers/suppliers.module';
 
 import { bearer, signUp } from './helpers/flows';
@@ -24,6 +28,7 @@ const roundTrip = (outbound = 40, back = 50) => ({
 /** Always fails, like a supplier returning 5xx. */
 class BrokenSupplier extends FlightSupplier {
   readonly name = 'broken';
+  readonly idempotentBooking = true;
   calls = 0;
   search(): Promise<SupplierFlightOffer[]> {
     this.calls += 1;
@@ -32,15 +37,22 @@ class BrokenSupplier extends FlightSupplier {
   reprice(): Promise<SupplierFlightOffer> {
     return Promise.reject(new SupplierUnavailableError(this.name, 'HTTP 503'));
   }
+  book(): Promise<FlightBookingResult> {
+    return Promise.reject(new SupplierUnavailableError(this.name, 'HTTP 503'));
+  }
 }
 
 /** Never answers and ignores its abort signal: only our timeout can stop it. */
 class HangingSupplier extends FlightSupplier {
   readonly name = 'slow';
+  readonly idempotentBooking = true;
   search(): Promise<SupplierFlightOffer[]> {
     return new Promise(() => undefined);
   }
   reprice(): Promise<SupplierFlightOffer> {
+    return new Promise(() => undefined);
+  }
+  book(): Promise<FlightBookingResult> {
     return new Promise(() => undefined);
   }
 }

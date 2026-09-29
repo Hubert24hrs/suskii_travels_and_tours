@@ -1,8 +1,8 @@
 import { daysBetween, utcToLocal } from '@suskii/shared';
 
 import type { AirportInfo } from '../../catalog/catalog.service';
-import { OfferUnavailableError } from '../supplier.errors';
-import type { FlightSearchQuery, HotelSearchQuery } from '../supplier.types';
+import { OfferUnavailableError, SupplierUnavailableError } from '../supplier.errors';
+import type { FlightSearchQuery, HotelSearchQuery, SupplierPassenger } from '../supplier.types';
 
 import { MOCK_HUBS } from './carriers';
 import { distanceKm, MockFlightSupplier, type AirportDirectory } from './mock-flight-supplier';
@@ -281,6 +281,91 @@ describe('MockFlightSupplier', () => {
     const later = new MockFlightSupplier(directory, () => new Date(NOW.getTime() + 60 * 60_000));
     await expect(later.reprice(offer, signal)).rejects.toBeInstanceOf(OfferUnavailableError);
   });
+
+  it('applies re-price rules to their outbound route only', async () => {
+    const ruled = new MockFlightSupplier(directory, () => NOW, new Map([['LOS-LHR', 1000]]));
+    const [offer] = await ruled.search(query(), signal);
+    if (!offer) throw new Error('no offer');
+    const repriced = await ruled.reprice(offer, signal);
+    expect(repriced.price.base.minor).toBe((offer.price.base.minor * 110n + 50n) / 100n);
+    const [other] = await ruled.search(
+      query({ slices: [{ origin: 'LOS', destination: 'ACC', departureDate: '2026-11-20' }] }),
+      signal,
+    );
+    if (!other) throw new Error('no offer');
+    expect((await ruled.reprice(other, signal)).price.base).toEqual(other.price.base);
+  });
+
+  it('sells one extra 23 kg bag per passenger, priced in the fare currency', async () => {
+    const [international] = await supplier.search(query(), signal);
+    expect(international?.services).toEqual([
+      {
+        id: `${international?.supplierOfferId}.bag23`,
+        type: 'checked_bag',
+        weightKg: 23,
+        maxQuantity: 2,
+        price: { minor: 6_000n, currency: 'USD' },
+      },
+    ]);
+    const [domestic] = await supplier.search(
+      query({ slices: [{ origin: 'LOS', destination: 'ABV', departureDate: '2026-11-20' }] }),
+      signal,
+    );
+    expect(domestic?.services[0]?.price).toEqual({ minor: 1_500_000n, currency: 'NGN' });
+  });
+
+  it('books idempotently: the same key gives the same PNR and tickets', async () => {
+    const [offer] = await supplier.search(
+      query({ passengers: { adults: 1, children: 0, infants: 1 } }),
+      signal,
+    );
+    if (!offer) throw new Error('no offer');
+    const passengers: SupplierPassenger[] = [
+      {
+        type: 'adult',
+        title: 'ms',
+        gender: 'f',
+        givenNames: 'NGOZI',
+        surname: 'EZE',
+        dateOfBirth: '1990-01-01',
+        nationality: 'NG',
+        document: null,
+      },
+      {
+        type: 'infant',
+        title: 'miss',
+        gender: 'f',
+        givenNames: 'ADA',
+        surname: 'EZE',
+        dateOfBirth: '2026-01-01',
+        nationality: 'NG',
+        document: null,
+      },
+    ];
+    const request = {
+      offer,
+      passengers,
+      contact: { email: 'ngozi@example.com', phone: '+2348012345678' },
+      services: [],
+      idempotencyKey: 'item-1',
+    };
+    const first = await supplier.book(request, signal);
+    expect(first.supplierReference).toMatch(/^[A-Z]{6}$/);
+    expect(first.tickets.map((ticket) => ticket.passengerIndex)).toEqual([0, 1]);
+    expect(first.tickets[0]?.number).toMatch(/^\d{13}$/);
+    await expect(supplier.book(request, signal)).resolves.toEqual(first);
+    expect(
+      (await supplier.book({ ...request, idempotencyKey: 'item-2' }, signal)).supplierReference,
+    ).not.toBe(first.supplierReference);
+
+    const failing = new MockFlightSupplier(directory, () => NOW);
+    failing.failNextBookings = 1;
+    await expect(failing.book(request, signal)).rejects.toBeInstanceOf(SupplierUnavailableError);
+    await expect(failing.book(request, signal)).resolves.toEqual(first);
+
+    const departed = new MockFlightSupplier(directory, () => new Date('2026-12-01T00:00:00Z'));
+    await expect(departed.book(request, signal)).rejects.toBeInstanceOf(OfferUnavailableError);
+  });
 });
 
 describe('MockHotelSupplier', () => {
@@ -360,5 +445,28 @@ describe('MockHotelSupplier', () => {
     await expect(later.reprice(hotel, rate, hotelQuery(), signal)).rejects.toBeInstanceOf(
       OfferUnavailableError,
     );
+  });
+
+  it('confirms stays idempotently and refuses them after check-in', async () => {
+    const [hotel] = await supplier.search(hotelQuery(), signal);
+    const rate = hotel?.rates[0];
+    if (!hotel || !rate) throw new Error('no rate');
+    const request = {
+      hotel,
+      rate,
+      query: hotelQuery(),
+      guests: [{ givenNames: 'NGOZI', surname: 'EZE' }],
+      contact: { email: 'ngozi@example.com', phone: '+2348012345678' },
+      idempotencyKey: 'stay-1',
+    };
+    const confirmed = await supplier.book(request, signal);
+    expect(confirmed.confirmationNumber).toMatch(/^MH[0-9A-Z]{8}$/);
+    await expect(supplier.book(request, signal)).resolves.toEqual(confirmed);
+
+    const failing = new MockHotelSupplier(() => NOW);
+    failing.failNextBookings = 1;
+    await expect(failing.book(request, signal)).rejects.toBeInstanceOf(SupplierUnavailableError);
+    const late = new MockHotelSupplier(() => new Date('2026-11-21T00:00:00Z'));
+    await expect(late.book(request, signal)).rejects.toBeInstanceOf(OfferUnavailableError);
   });
 });

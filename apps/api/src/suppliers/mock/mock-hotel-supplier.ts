@@ -8,16 +8,18 @@ import {
   type Money,
 } from '@suskii/shared';
 
-import { OfferUnavailableError } from '../supplier.errors';
+import { OfferUnavailableError, SupplierUnavailableError } from '../supplier.errors';
 import {
   HotelSupplier,
   type BoardType,
+  type HotelBookingRequest,
+  type HotelBookingResult,
   type HotelSearchQuery,
   type SupplierHotel,
   type SupplierHotelRate,
 } from '../supplier.types';
 
-import { SeededRandom, stableId } from './random';
+import { SeededRandom, stableCode, stableId } from './random';
 
 const OFFER_TTL_MS = 30 * 60_000;
 
@@ -110,8 +112,11 @@ const DEFAULT_PRICE_LEVEL = 1.3;
  */
 export class MockHotelSupplier extends HotelSupplier {
   readonly name = 'mock';
+  readonly idempotentBooking = true;
   /** Test hook: basis points applied to rates on re-pricing. */
   repriceDriftBps = 0;
+  /** Test hook: this many upcoming `book()` calls fail as if the property were unreachable. */
+  failNextBookings = 0;
 
   constructor(private readonly now: () => Date = () => new Date()) {
     super();
@@ -152,6 +157,23 @@ export class MockHotelSupplier extends HotelSupplier {
       ...rate,
       price: { base: drift(rate.price.base), taxes: drift(rate.price.taxes) },
       expiresAt: new Date(now + OFFER_TTL_MS).toISOString(),
+    });
+  }
+
+  /** Deterministic confirmation number from the idempotency key: retries never book twice. */
+  book(request: HotelBookingRequest, signal: AbortSignal): Promise<HotelBookingResult> {
+    signal.throwIfAborted();
+    if (this.failNextBookings > 0) {
+      this.failNextBookings -= 1;
+      return Promise.reject(new SupplierUnavailableError(this.name, 'Mock property is offline'));
+    }
+    const { query } = request;
+    const checkIn = localToUtc(`${query.checkIn}T14:00`, query.city.timeZone ?? 'UTC').getTime();
+    if (checkIn <= this.now().getTime()) {
+      return Promise.reject(new OfferUnavailableError(this.name, 'Check-in has passed'));
+    }
+    return Promise.resolve({
+      confirmationNumber: `MH${stableCode(`mock-stay|${request.idempotencyKey}`, 8, '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ')}`,
     });
   }
 

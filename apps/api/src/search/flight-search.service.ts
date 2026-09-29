@@ -17,14 +17,15 @@ import { APP_CONFIG, type AppConfig } from '../config/config';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { FxService, type Converter } from '../pricing/fx.service';
-import type { PriceBreakdown, PricingContext } from '../pricing/pricing-engine';
-import { toPriceDto } from '../pricing/pricing.schemas';
+import type { PricingContext } from '../pricing/pricing-engine';
+import { toPriceDto, type PriceDto } from '../pricing/pricing.schemas';
 import { PricingService } from '../pricing/pricing.service';
 import { itineraryKey } from '../suppliers/itinerary';
 import { OfferUnavailableError } from '../suppliers/supplier.errors';
 import type {
   FlightSearchQuery,
   FlightSupplier,
+  FlightService,
   SupplierFlightOffer,
 } from '../suppliers/supplier.types';
 import { FLIGHT_SUPPLIERS } from '../suppliers/suppliers.module';
@@ -107,10 +108,15 @@ export function flightPricingContext(
   };
 }
 
+/** A supplier extra in `currency`: converted without markup, rounded up so it never sells below cost. */
+export function servicePrice(fx: Converter, service: FlightService, currency: string): Money {
+  return fx.convert(service.price, currency, 'ceil');
+}
+
 export function toFlightOfferDto(
   id: string,
   offer: SupplierFlightOffer,
-  price: PriceBreakdown,
+  price: PriceDto,
   fx: Converter,
 ): FlightOfferDto {
   const display = (amount: Money | null) =>
@@ -129,9 +135,16 @@ export function toFlightOfferDto(
     },
     cabinClass: offer.cabinClass,
     passengers: offer.passengers,
-    price: toPriceDto(price),
+    price,
     expiresAt: offer.expiresAt,
     hold: offer.hold,
+    services: offer.services.map((service) => ({
+      id: service.id,
+      type: service.type,
+      weightKg: service.weightKg,
+      maxQuantity: service.maxQuantity,
+      price: toWire(servicePrice(fx, service, price.currency)),
+    })),
   };
 }
 
@@ -233,7 +246,7 @@ export class FlightSearchService {
       item.offer.price,
       flightPricingContext(item.offer, client, new Date()),
     );
-    return toFlightOfferDto(item.id, item.offer, breakdown, fx);
+    return toFlightOfferDto(item.id, item.offer, toPriceDto(breakdown), fx);
   }
 
   /** Re-prices with the supplier, persists a quote and reports any price change explicitly. */
@@ -265,7 +278,11 @@ export class FlightSearchService {
         vertical: 'flights',
         supplier: supplier.name,
         supplierOfferId: fresh.supplierOfferId,
-        payload: toJsonValue({ kind: 'flight', offer: fresh }) as Prisma.InputJsonValue,
+        payload: toJsonValue({
+          kind: 'flight',
+          offer: fresh,
+          request: meta.request,
+        }) as Prisma.InputJsonValue,
         supplierTotalMinor: current.supplierTotal.minor,
         supplierCurrency: current.supplierTotal.currency,
         price: toPriceDto(current),
@@ -278,7 +295,7 @@ export class FlightSearchService {
     });
     return {
       quoteId: quote.id,
-      offer: toFlightOfferDto(item.id, fresh, current, fx),
+      offer: toFlightOfferDto(item.id, fresh, toPriceDto(current), fx),
       priceChange: equals(previous.total, current.total)
         ? null
         : {
@@ -452,7 +469,7 @@ export class FlightSearchService {
       resultsExpireAt: meta.resultsExpireAt,
       total: filtered.length,
       nextCursor,
-      offers: page.map((item) => toFlightOfferDto(item.id, item.offer, item.price, fx)),
+      offers: page.map((item) => toFlightOfferDto(item.id, item.offer, toPriceDto(item.price), fx)),
       facets: {
         ...facets,
         airlines: facets.airlines.map((entry) => ({ ...entry, minPrice: toWire(entry.minPrice) })),

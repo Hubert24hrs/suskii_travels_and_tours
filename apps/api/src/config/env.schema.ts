@@ -108,6 +108,31 @@ export const envSchema = z
     SNAPSHOT_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
     /** Cloudflare Turnstile secret; unset outside production means the mock verifier. */
     TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+
+    /** Payment provider behind hosted checkout (ADR-014). Real providers arrive in phase 6. */
+    PAYMENT_PROVIDER: z.enum(['mock']).default('mock'),
+    /** How long a hosted checkout session stays payable. */
+    PAYMENT_SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
+    /** Automatic ticketing attempts before a paid booking goes to REFUND_PENDING. */
+    TICKETING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(6),
+    /** E-tickets and vouchers. `filesystem` is for development and tests (S3/GCS in phase 12). */
+    OBJECT_STORAGE: z.enum(['filesystem']).default('filesystem'),
+    OBJECT_STORAGE_DIR: z.string().min(1).default('.data/objects'),
+    /**
+     * Mock flight supplier only: basis points added when re-pricing chosen outbound routes, e.g.
+     * `LOS-DXB:500`, so tests can walk through the price-change consent path.
+     */
+    MOCK_REPRICE_RULES: csv(
+      z
+        .string()
+        .regex(/^[A-Z]{3}-[A-Z]{3}:-?\d{1,5}$/, 'use ORIGIN-DESTINATION:basisPoints')
+        .transform((rule) => {
+          const [route = '', bps = '0'] = rule.split(':');
+          return [route, Number(bps)] as const;
+        }),
+    )
+      .transform((rules) => new Map(rules))
+      .default(new Map()),
   })
   .superRefine((env, ctx) => {
     const require = (key: keyof typeof env, message: string): void => {
@@ -148,6 +173,10 @@ export const envSchema = z
       require('HOTEL_SUPPLIERS', 'the mock supplier is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.FX_PROVIDER === 'mock')
       require('FX_PROVIDER', 'mock exchange rates are not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.PAYMENT_PROVIDER === 'mock')
+      require('PAYMENT_PROVIDER', 'mock payments are not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.OBJECT_STORAGE === 'filesystem')
+      require('OBJECT_STORAGE', 'filesystem storage is not allowed in production');
   });
 
 export type Env = z.output<typeof envSchema>;

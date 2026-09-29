@@ -1,19 +1,29 @@
 import { Logger } from '@nestjs/common';
 
-import { localToUtc, parseMoney, subtract, type CabinClass, type Money } from '@suskii/shared';
+import {
+  equals,
+  localToUtc,
+  parseMoney,
+  subtract,
+  add,
+  type CabinClass,
+  type Money,
+} from '@suskii/shared';
 
 import { buildSlice } from '../itinerary';
-import { SupplierUnavailableError } from '../supplier.errors';
+import { SupplierRequestError, SupplierUnavailableError } from '../supplier.errors';
 import {
   FlightSupplier,
   type AirportPoint,
+  type FlightBookingRequest,
+  type FlightBookingResult,
   type FlightSearchQuery,
   type FlightSegment,
   type SupplierFlightOffer,
 } from '../supplier.types';
 
 import type { DuffelClient } from './duffel.client';
-import { duffelOfferSchema, type DuffelOffer } from './duffel.schemas';
+import { duffelOfferSchema, duffelOrderSchema, type DuffelOffer } from './duffel.schemas';
 
 type DuffelPlace = DuffelOffer['slices'][number]['segments'][number]['origin'];
 
@@ -37,6 +47,8 @@ const amount = (value: string, currency: string): Money => parseMoney(value, cur
  */
 export class DuffelFlightSupplier extends FlightSupplier {
   readonly name = 'duffel';
+  /** Duffel cannot deduplicate order creation, so an ambiguous failure is never retried blindly. */
+  readonly idempotentBooking = false;
   private readonly logger = new Logger(DuffelFlightSupplier.name);
 
   constructor(
@@ -108,6 +120,93 @@ export class DuffelFlightSupplier extends FlightSupplier {
       : null;
     if (!fresh) throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid offer');
     return fresh;
+  }
+
+  /**
+   * Creates an instant order paid from the Duffel balance. The offer is fetched again for its
+   * passenger ids; a total that no longer matches what the traveller paid is refused rather than
+   * charged. Extras are not requested from Duffel yet, so none can be booked.
+   */
+  async book(request: FlightBookingRequest, signal: AbortSignal): Promise<FlightBookingResult> {
+    if (request.services.length > 0) {
+      throw new SupplierRequestError(this.name, 'Duffel extras are not supported yet');
+    }
+    const response = await this.client.request(
+      'GET',
+      `/air/offers/${encodeURIComponent(request.offer.supplierOfferId)}?return_available_services=false`,
+      signal,
+    );
+    const parsed = duffelOfferSchema.safeParse((response as { data?: unknown } | null)?.data);
+    if (!parsed.success)
+      throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid offer');
+    const offer = parsed.data;
+    const total = amount(offer.total_amount, offer.total_currency);
+    const agreed = add(request.offer.price.base, request.offer.price.taxes);
+    if (!equals(total, agreed)) {
+      throw new SupplierRequestError(this.name, 'The fare changed after payment');
+    }
+    if (offer.passengers.length !== request.passengers.length) {
+      throw new SupplierRequestError(this.name, 'Passengers do not match the offer');
+    }
+
+    const passengers: Record<string, unknown>[] = request.passengers.map((passenger, index) => ({
+      id: offer.passengers[index]?.id,
+      title: passenger.title,
+      gender: passenger.gender,
+      given_name: passenger.givenNames,
+      family_name: passenger.surname,
+      born_on: passenger.dateOfBirth,
+      email: request.contact.email,
+      phone_number: request.contact.phone,
+      ...(passenger.document
+        ? {
+            identity_documents: [
+              {
+                type: 'passport',
+                unique_identifier: passenger.document.number,
+                issuing_country_code: passenger.document.issuingCountry,
+                expires_on: passenger.document.expiryDate,
+              },
+            ],
+          }
+        : {}),
+    }));
+    // Each lap infant travels with one adult, in order.
+    const adultIndexes = request.passengers.flatMap((p, index) =>
+      p.type === 'adult' ? [index] : [],
+    );
+    request.passengers.forEach((passenger, index) => {
+      if (passenger.type !== 'infant') return;
+      const adult = passengers[adultIndexes.shift() ?? -1];
+      if (adult) adult.infant_passenger_id = offer.passengers[index]?.id;
+    });
+
+    const created = await this.client.request('POST', '/air/orders', signal, {
+      data: {
+        type: 'instant',
+        selected_offers: [offer.id],
+        passengers,
+        payments: [{ type: 'balance', currency: offer.total_currency, amount: offer.total_amount }],
+        metadata: { suskii_booking_item: request.idempotencyKey },
+      },
+    });
+    const order = duffelOrderSchema.safeParse((created as { data?: unknown } | null)?.data);
+    if (!order.success)
+      throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid order');
+    const indexById = new Map(offer.passengers.map((passenger, index) => [passenger.id, index]));
+    return {
+      supplierReference: order.data.booking_reference,
+      tickets: order.data.documents
+        .filter((document) => document.type === 'electronic_ticket')
+        .flatMap((document) =>
+          document.passenger_ids.flatMap((id) => {
+            const passengerIndex = indexById.get(id);
+            return passengerIndex === undefined
+              ? []
+              : [{ passengerIndex, number: document.unique_identifier }];
+          }),
+        ),
+    };
   }
 
   /** Maps one validated Duffel offer; returns null when it cannot be represented faithfully. */
@@ -206,6 +305,7 @@ export class DuffelFlightSupplier extends FlightSupplier {
             ? new Date(payment.payment_required_by).toISOString()
             : null,
         },
+        services: [],
       };
     } catch (error) {
       this.logger.warn({ err: error, offerId: offer.id }, 'Could not map Duffel offer');
