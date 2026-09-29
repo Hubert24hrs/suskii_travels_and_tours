@@ -36,8 +36,8 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | ----- | ------------------------------------------------ | --------------------- |
 | 0     | Foundation and repo bootstrap                    | Done                  |
 | 1     | Design tokens and component libraries            | Done                  |
-| 2     | Backend core                                     | Done, awaiting review |
-| 3     | Search, catalog and supplier adapters            | Not started           |
+| 2     | Backend core                                     | Done                  |
+| 3     | Search, catalog and supplier adapters            | Done, awaiting review |
 | 4     | Web homepage                                     | Not started           |
 | 5     | Flight and hotel booking flow (web)              | Not started           |
 | 6     | Payments, flexible payment and refunds           | Not started           |
@@ -60,7 +60,7 @@ apps/
   mobile/     Expo SDK 57 + Expo Router + NativeWind 4 (Jest)
 packages/
   config/         Shared TSConfig presets, ESLint flat-config factories, Prettier, Vitest base
-  shared/         Domain constants, traveller rules, Zod schemas (dual ESM/CJS via tsup)
+  shared/         Domain constants, money, time zones, traveller rules, Zod schemas (ESM/CJS)
   design-tokens/  Single token source -> Tailwind v4 theme (web), v3 preset (NativeWind), CSS vars
   ui-web/         Radix-based web components (TS source), Storybook 10, Vitest browser + axe tests
   ui-native/      NativeWind components (TS source), bottom sheets, Jest + RNTL tests
@@ -92,6 +92,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`             |
 | `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                |
 | `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)            |
+| `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)              |
 | `pnpm format` / `format:check`                    | Prettier write / check                                              |
 | `pnpm --filter @suskii/api dev`                   | Run a single workspace                                              |
 
@@ -159,7 +160,25 @@ Tooling notes for agents:
 - Hash low-entropy or personal values with `HmacService` (per-purpose keys); encrypt stored secrets
   with `FieldEncryption` using a record-bound context string.
 - External providers sit behind abstract classes (`EmailProvider`, `SmsProvider`,
-  `BreachedPasswordChecker`) with mock adapters for tests and local development.
+  `BreachedPasswordChecker`, `FxProvider`, `FlightSupplier`, `HotelSupplier`) with mock adapters for
+  tests and local development. Production refuses mock adapters unless `ALLOW_MOCK_PROVIDERS=true`.
+
+### Money, pricing and search (apps/api, packages/shared)
+
+- Money is `Money = { minor: bigint, currency }` from `@suskii/shared` (`money()`, `add`,
+  `multiplyRatio`, `allocate`, `convert`, `formatMoney`). Every operation that can create a fraction
+  takes an explicit rounding mode. On the wire it is `{ amountMinor, currency }` (`moneySchema` /
+  `priceSchema` in `src/pricing/pricing.schemas.ts`); never send floats or decimal strings.
+- Prices come from `PricingService.pricer()` (markup, conversion, fees, promo). Markup and supplier
+  cost are internal and never leave the API. No pricing rule or promo is seeded.
+- Supplier adapters live in `src/suppliers/<vendor>` and map vendor payloads to the domain types in
+  `supplier.types.ts`; vendor types never leave the adapter. Enable them with `FLIGHT_SUPPLIERS` /
+  `HOTEL_SUPPLIERS` (comma-separated). Adapters throw the `SupplierError` subclasses and honour the
+  `AbortSignal`; the runner adds timeouts and circuit breakers.
+- Search state lives in Redis (`SearchStore`); result ids embed a fresh search id and expire after
+  30 minutes (`410` with the original request). Quotes persist an `Offer` row, which bookings use.
+- Times: store local wall time + IANA zone + UTC instant (`localToUtc`, `utcToLocal` in shared).
+- `X-Suskii-Client: web/<version>` or `mobile-<platform>/<version>` selects the sales channel.
 
 ### Security guardrails
 
@@ -202,9 +221,12 @@ Tooling notes for agents:
 - [ADR-005: Zod route contracts and OpenAPI 3.1](docs/decisions/ADR-005-zod-contracts-and-openapi.md)
 - [ADR-006: Reference data sources](docs/decisions/ADR-006-reference-data-sources.md)
 - [ADR-007: Authentication, sessions and abuse controls](docs/decisions/ADR-007-authentication-and-sessions.md)
+- [ADR-008: Money, pricing rules and exchange rates](docs/decisions/ADR-008-money-pricing-and-fx.md)
+- [ADR-009: Supplier adapters and search orchestration](docs/decisions/ADR-009-suppliers-and-search-orchestration.md)
 
 ## Open questions for the owner
 
 Tracked in `PROJECT_SPEC.json#/open_questions_for_owner` and repeated in each phase report until they
 are answered: suppliers, IATA or consolidator, SSO with Suskii Errands, GCP or AWS, brand assets and legal
-entity, Suskii Prime pricing.
+entity, Suskii Prime pricing. Added in phase 3: FX source for the naira and any FX margin (ADR-008),
+hotel provider (Duffel Stays recommended, ADR-009), Duffel sandbox token.

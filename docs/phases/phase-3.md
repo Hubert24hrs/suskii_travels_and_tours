@@ -1,6 +1,6 @@
 # Phase 3: Search, catalog and supplier adapters
 
-Status: in progress
+Status: complete, awaiting owner review
 
 ## Goal
 
@@ -121,3 +121,32 @@ price changes, pricing with rules, FX and promos, rate limits.
 | Float drift in prices                                            | bigint minor units everywhere internally, rational FX, explicit rounding modes, property tests                                    |
 | Result sets are large                                            | Offers stored once per search in Redis hashes; pages and facets computed from the stored set                                      |
 | No traffic data for a "top 500 airports" index                   | Index = OurAirports large airports + all Nigerian airports (about 1,170 entries, roughly 25 kB gzipped)                           |
+
+## Implementation notes (what changed versus the plan)
+
+- **Autocomplete ranking** is computed in SQL (so `LIMIT` keeps the best rows): exact IATA code,
+  then prefix, then word prefix, then trigram similarity, plus boosts for major airports, the
+  primary market (Nigeria, then Africa) and multi-airport metros. Trigram thresholds are looser than
+  pg_trgm's defaults so single typos match ("lagso", "nairobbi"); the tables are small enough that
+  the resulting scan takes milliseconds. Search logs can later feed real popularity.
+- **City names**: the seed strips OurAirports locality suffixes ("Paris (Roissy-en-France, ...)"),
+  so CDG and ORY group under one "Paris".
+- **E2E runs the real seed** (about 13 s once per run), so catalog and search tests exercise the
+  actual reference data.
+- **Re-pricing receives the stored offer** instead of an id, so adapters stay stateless across
+  instances (the mock recomputes; Duffel fetches by its offer id).
+- **Overnight layovers**: a wait of 4 hours or more that crosses local midnight or starts before
+  05:00 (found by a unit test: the first rule missed early-morning connections).
+- **Timeouts** reject before aborting, so a task that settles synchronously on abort cannot beat
+  the timeout (found by a unit test).
+- **OpenAPI problem responses** are generated for every status an operation references; the new
+  `410` responses exposed a dangling `$ref` that the client generator rejected. A test now resolves
+  every `$ref`.
+- **Circuit breakers** are created per application instance (a module-level singleton would have
+  leaked state between app instances in tests).
+- **Promo validation** runs against a persisted quote (`Offer` row), recomputing the price with the
+  caller's current tier; redemption is recorded at payment (phase 6).
+- **Hotel "recommended"** sort balances review score and stars against price (the first version
+  was too price-heavy and ranked 2-star hotels first in the live smoke test).
+- **Live smoke test** (local Postgres + Redis, mock suppliers): LOS-LHR return search in 178 ms,
+  16 ms from cache; hotel search in Lagos in 128 ms; quotes, filters, promo and search logs verified.

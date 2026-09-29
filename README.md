@@ -67,6 +67,15 @@ seeding, sign in, then enrol an authenticator app (`POST /v1/me/mfa/totp`): admi
 MFA-verified session. Emails (verification, password reset) appear in Mailpit; SMS codes use a mock
 adapter until an SMS provider is contracted.
 
+Search runs against mock suppliers by default (`FLIGHT_SUPPLIERS=mock`); their offers are synthetic
+and labelled `supplier: "mock"`. Try it once the API is up:
+
+```bash
+curl -s "http://localhost:4000/v1/catalog/places?q=lagos"
+curl -s -X POST http://localhost:4000/v1/flights/searches -H 'Content-Type: application/json' \
+  -d '{"slices":[{"origin":"LOS","destination":"LHR","departureDate":"2026-12-10"}],"passengers":{"adults":1,"children":0,"infants":0},"cabinClass":"economy"}'
+```
+
 | Service            | URL                                                   |
 | ------------------ | ----------------------------------------------------- |
 | Web                | http://localhost:3000                                 |

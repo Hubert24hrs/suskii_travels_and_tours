@@ -6,6 +6,53 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 3: Search, catalog and supplier adapters (2026-09-29)
+
+#### Added
+
+- `@suskii/shared` money utilities (ADR-008): bigint minor units with ISO 4217 exponents, strict
+  decimal parsing, explicit rounding modes, basis-point and ratio maths, largest-remainder
+  allocation, exact rational FX and cross rates, `Intl` formatting and the `{ amountMinor, currency }`
+  wire format. fast-check property tests against exact rational references.
+- `@suskii/shared` time-zone helpers (local wall time to UTC with DST gap/overlap handling, day
+  offsets) and flight/hotel search schemas (1-5 legs, spec traveller rules, 1-8 rooms, child ages).
+- Migration 2: accent-folded `search_text` with GIN `pg_trgm` indexes on airports and cities;
+  `markup_rules`, `fee_rules`, `promo_codes`, `promo_redemptions`, `offers` (quote snapshots) and
+  anonymised `search_logs`.
+- Catalog: `GET /v1/catalog/places` autocomplete ranked in SQL (IATA code, prefix, word prefix,
+  typo-tolerant trigram similarity, boosts for major airports, Nigeria/Africa and multi-airport
+  cities), `places/popular` (edge-cacheable index of about 1,170 airports), `airports/{iataCode}`,
+  `countries`.
+- Pricing engine: first matching markup rule by priority, stacking fee rules, promo codes (validity,
+  verticals, minimum spend, caps, global and per-user limits, never discounting taxes), line-by-line
+  conversion so breakdowns always sum. `FxProvider` with `MockFxProvider`, Redis cache and a 24 h
+  last-known-good fallback. `POST /v1/pricing/promos/validate` with a single generic failure.
+- Suppliers (ADR-009): Suskii-owned domain types, `FlightSupplier` / `HotelSupplier` interfaces,
+  deterministic geographically plausible `MockFlightSupplier` and `MockHotelSupplier`, Zod-validated
+  Duffel v2 flight adapter behind `FLIGHT_SUPPLIERS=duffel`, per-supplier circuit breakers and
+  abort-aware timeouts, `pnpm --filter @suskii/api airlines:sync`.
+- Search orchestration: `POST /v1/flights/searches` and `/v1/hotels/searches` call every enabled
+  supplier in parallel inside a 12 s budget, return partial results with per-supplier outcomes (503
+  only when all fail), de-duplicate itineraries, cache by normalised query in Redis and share
+  concurrent identical fetches. Result pages with spec sorts, filters, facets, cursor pagination and
+  display currency; offer and hotel detail; `410` with the original request once results expire.
+- Quotes: `POST /v1/flights/offers/{offerId}/quote` and `/v1/hotels/rates/{rateId}/quote` re-price
+  with the supplier, persist an `Offer` snapshot and report price changes.
+- Search rate limits (per IP per minute and per day, per user), `X-Suskii-Client` sales channel,
+  OpenTelemetry supplier latency/outcome and search metrics.
+- Tests: 72 shared unit tests (money properties, time zones, schemas), 82 API unit tests (pricing
+  engine properties, circuit breaker, timeouts, mock determinism, Duffel mapping and errors, result
+  sorting/filters/facets) and 86 e2e tests (catalog, search end to end, caching, partial results
+  with failing and hanging suppliers, circuit breaker, pricing rules, promos, quotes, expiry).
+
+#### Changed
+
+- The e2e harness runs the real reference-data seed; `resetState` also truncates pricing, offer and
+  search tables.
+- OpenAPI problem responses are generated for every referenced status; a test resolves every `$ref`.
+- The seed strips OurAirports locality suffixes from city names (CDG and ORY group under Paris).
+- `.env.example`: supplier flags, search timeouts and cache TTL, FX provider and cache TTL.
+
 ### Phase 2: Backend core (2026-09-29)
 
 #### Added
