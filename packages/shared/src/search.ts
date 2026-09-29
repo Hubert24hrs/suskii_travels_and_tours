@@ -206,6 +206,8 @@ export function createHotelSearchRequestSchema(options: SearchSchemaOptions = {}
       freeCancellationOnly: z.boolean().default(false),
     })
     .superRefine((request, ctx) => {
+      // Zod still runs object refinements after a field refinement failed; skip date maths then.
+      if (!isValidDate(request.checkIn) || !isValidDate(request.checkOut)) return;
       const today = earliestToday(now());
       const report = (path: string, message: string) =>
         ctx.addIssue({ code: 'custom', path: [path], message });

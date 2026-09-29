@@ -145,6 +145,19 @@ describe('flight search form', () => {
 describe('hotel search request', () => {
   const cityId = '0192f0e0-0000-7000-8000-000000000010';
 
+  it('reports malformed dates as issues instead of throwing', () => {
+    const result = hotelSchema.safeParse({
+      destination: { type: 'city', cityId },
+      checkIn: 'soon',
+      checkOut: '2026-13-45',
+      rooms: [{ adults: 2 }],
+    });
+    expect(issues(result)).toEqual([
+      'checkIn:Use a valid YYYY-MM-DD date',
+      'checkOut:Use a valid YYYY-MM-DD date',
+    ]);
+  });
+
   it('accepts rooms with child ages and applies defaults', () => {
     const parsed = hotelSchema.parse({
       destination: { type: 'city', cityId },
