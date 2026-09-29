@@ -22,6 +22,11 @@ export const REDACT_PATHS = [
   '*.otp',
   '*.secret',
   '*.idToken',
+  '*.mfaToken',
+  '*.recoveryCode',
+  '*.csrfToken',
+  '*.email',
+  '*.phone',
   '*.passportNumber',
 ];
 

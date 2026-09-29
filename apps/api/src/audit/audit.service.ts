@@ -1,0 +1,76 @@
+import { Injectable, Logger } from '@nestjs/common';
+
+import type { RequestContext } from '../common/request-context';
+import { HmacService } from '../crypto/hmac.service';
+import type { Prisma } from '../generated/prisma/client';
+import { PrismaService } from '../infra/prisma.service';
+
+/** Every audited event. Adding one here is the only way to write it. */
+export type AuditAction =
+  | 'auth.registered'
+  | 'auth.login.succeeded'
+  | 'auth.login.failed'
+  | 'auth.login.locked'
+  | 'auth.mfa.challenge_failed'
+  | 'auth.mfa.enabled'
+  | 'auth.mfa.disabled'
+  | 'auth.mfa.recovery_code_used'
+  | 'auth.mfa.recovery_codes_regenerated'
+  | 'auth.otp.failed'
+  | 'auth.refresh_token.reused'
+  | 'auth.session.revoked'
+  | 'auth.sessions.revoked_all'
+  | 'auth.logout'
+  | 'auth.password.changed'
+  | 'auth.password.reset'
+  | 'auth.email.verified'
+  | 'auth.phone.verified'
+  | 'auth.social.linked'
+  | 'rbac.roles.changed'
+  | 'rbac.access_denied';
+
+export interface AuditEvent {
+  action: AuditAction;
+  /** Omit for anonymous actors (e.g. a failed login for an unknown account). */
+  actorUserId?: string | null;
+  actorType?: 'user' | 'system' | 'anonymous';
+  targetType?: string;
+  targetId?: string;
+  context?: RequestContext;
+  /** Identifiers and reasons only. Never PII, credentials or tokens. */
+  metadata?: Prisma.InputJsonObject;
+}
+
+type AuditWriter = Pick<PrismaService, 'auditLog'>;
+
+/**
+ * Writes the append-only audit log (UPDATE and DELETE are rejected by a database trigger). IPs
+ * are stored as keyed hashes. Pass a transaction client to make the record atomic with the change.
+ */
+@Injectable()
+export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly hmac: HmacService,
+  ) {}
+
+  async record(event: AuditEvent, writer: AuditWriter = this.prisma): Promise<void> {
+    const actorType = event.actorType ?? (event.actorUserId ? 'user' : 'anonymous');
+    await writer.auditLog.create({
+      data: {
+        action: event.action,
+        actorType,
+        actorUserId: event.actorUserId ?? null,
+        targetType: event.targetType ?? null,
+        targetId: event.targetId ?? null,
+        requestId: event.context?.requestId ?? null,
+        ipHash: event.context ? this.hmac.digest('ip', event.context.ip) : null,
+        userAgent: event.context?.userAgent ?? null,
+        metadata: event.metadata ?? {},
+      },
+    });
+    this.logger.log({ audit: event.action, targetType: event.targetType }, 'audit event');
+  }
+}
