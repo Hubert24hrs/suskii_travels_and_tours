@@ -6,6 +6,47 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 2: Backend core (2026-09-29)
+
+#### Added
+
+- API platform: Zod-validated environment (production-only requirements, values never echoed),
+  nestjs-pino with request ids and PII/credential redaction, OpenTelemetry (opt-in via OTLP
+  endpoint), RFC 9457 problem details, strict security headers (CSP, HSTS preload,
+  Permissions-Policy, no-store), CORS allowlist, 100 kB body cap, `/health` and `/ready`.
+- Prisma 7 schema and init migration: identity, sessions and refresh-token families, MFA, social
+  identities, verification tokens, idempotency keys, append-only audit log (database trigger),
+  countries, cities, airports, airlines, trust signals, CMS blocks, FAQs. UUIDv7 ids.
+- `@Contract()` route contracts (Zod): input validation, response filtering and a native OpenAPI 3.1
+  generator; `apps/api/openapi.json` committed (ADR-005).
+- `@suskii/api-client`: openapi-typescript schema, openapi-fetch client (bearer or CSRF header) and
+  TanStack Query hooks; `pnpm generate:api`.
+- Authentication (ADR-007): email + password (argon2id, HIBP k-anonymity check, enumeration-safe
+  registration and reset, email verification), phone OTP, Google and Apple ID tokens with
+  pre-hijacking defence, EdDSA access JWTs with JWKS and key rotation, rotating refresh tokens with
+  reuse detection and family revocation, web cookies with session-bound CSRF tokens, device list and
+  remote sign-out, TOTP MFA with encrypted secrets, replay protection and recovery codes.
+- Authorisation: deny-by-default global guard, RBAC catalog in `@suskii/shared`, `@AdminRoute()`
+  (staff role + MFA session + optional IP allowlist), admin endpoints for users, roles and the audit
+  log.
+- Abuse controls: lockout with exponential backoff, Redis sliding-window rate limits per IP, user,
+  route, phone and email with `RateLimit-*` / `Retry-After`; `Idempotency-Key` interceptor
+  (Postgres, 24 h: replay, in-flight conflict, payload mismatch).
+- Audit log service for auth, session, MFA and RBAC events (hashed IPs, no PII).
+- Email (SMTP/Mailpit, mock) and SMS (mock) providers behind interfaces.
+- Reference data from OurAirports (249 countries, 4,008 airports with IANA zones, derived cities),
+  idempotent seed with the five guardrail trust signals (three verified), draft CMS content and an
+  optional local admin (ADR-006).
+- Tests: 43 API unit tests (RFC 4226/6238 vectors, crypto, JWT rotation, contracts, config) and 65
+  e2e tests against Postgres and Redis in Testcontainers.
+- CI: e2e with Testcontainers, OpenAPI document and client drift check.
+- `pnpm --filter @suskii/api keys:generate` (secrets), `data:build` (reference data).
+
+#### Changed
+
+- `.env.example`: new auth, cookie, CORS, email, SMS and telemetry variables; `KEY=` means unset.
+- `registerRequestSchema` no longer takes a transport (registration never signs in directly).
+
 ### Phase 1: Design tokens and component libraries (2026-09-28)
 
 #### Added

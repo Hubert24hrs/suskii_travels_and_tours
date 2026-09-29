@@ -35,8 +35,8 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | Phase | Name                                             | Status                |
 | ----- | ------------------------------------------------ | --------------------- |
 | 0     | Foundation and repo bootstrap                    | Done                  |
-| 1     | Design tokens and component libraries            | Done, awaiting review |
-| 2     | Backend core                                     | Not started           |
+| 1     | Design tokens and component libraries            | Done                  |
+| 2     | Backend core                                     | Done, awaiting review |
 | 3     | Search, catalog and supplier adapters            | Not started           |
 | 4     | Web homepage                                     | Not started           |
 | 5     | Flight and hotel booking flow (web)              | Not started           |
@@ -53,7 +53,7 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 
 ```
 apps/
-  api/        NestJS 12 API (CJS output, URI versioning /v1, Jest)
+  api/        NestJS 12 API (CJS output, URI versioning /v1, Jest), Prisma 7, openapi.json
   worker/     Node ESM worker process (Vitest)
   web/        Next.js 16 App Router
   admin/      Next.js 16 App Router (noindex)
@@ -64,7 +64,8 @@ packages/
   design-tokens/  Single token source -> Tailwind v4 theme (web), v3 preset (NativeWind), CSS vars
   ui-web/         Radix-based web components (TS source), Storybook 10, Vitest browser + axe tests
   ui-native/      NativeWind components (TS source), bottom sheets, Jest + RNTL tests
-  api-client/ i18n/   README only until their phase (2 and 4)
+  api-client/     Generated OpenAPI types + openapi-fetch client + TanStack Query hooks (TS source)
+  i18n/           README only until phase 4
 infra/        Terraform + Helm (phase 12). Local infra lives in the root docker-compose.yml
 docs/         decisions/ (ADRs), phases/ (phase plans), runbooks and security docs later
 ```
@@ -73,21 +74,26 @@ docs/         decisions/ (ADRs), phases/ (phase plans), runbooks and security do
 
 Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 
-| Command                            | What it does                                                        |
-| ---------------------------------- | ------------------------------------------------------------------- |
-| `pnpm install`                     | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)   |
-| `pnpm infra:up`                    | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)       |
-| `pnpm infra:down`                  | Stop local infra (data kept in named volumes)                       |
-| `pnpm dev`                         | Run every app in watch mode through Turborepo                       |
-| `pnpm build`                       | Build every workspace (dependencies first)                          |
-| `pnpm lint`                        | ESLint (type-aware) in every workspace                              |
-| `pnpm typecheck`                   | `tsc --noEmit` in every workspace                                   |
-| `pnpm test`                        | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native) |
-| `pnpm build:storybook`             | Static Storybook for ui-web                                         |
-| `pnpm --filter @suskii/ui-web dev` | Storybook dev server on port 6006                                   |
-| `pnpm test:e2e`                    | API e2e tests (Nest testing module + supertest)                     |
-| `pnpm format` / `format:check`     | Prettier write / check                                              |
-| `pnpm --filter @suskii/api dev`    | Run a single workspace                                              |
+| Command                                           | What it does                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| `pnpm install`                                    | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)   |
+| `pnpm infra:up`                                   | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)       |
+| `pnpm infra:down`                                 | Stop local infra (data kept in named volumes)                       |
+| `pnpm dev`                                        | Run every app in watch mode through Turborepo                       |
+| `pnpm build`                                      | Build every workspace (dependencies first)                          |
+| `pnpm lint`                                       | ESLint (type-aware) in every workspace                              |
+| `pnpm typecheck`                                  | `tsc --noEmit` in every workspace                                   |
+| `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native) |
+| `pnpm build:storybook`                            | Static Storybook for ui-web                                         |
+| `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                   |
+| `pnpm test:e2e`                                   | API e2e tests: real app + Postgres/Redis in Testcontainers (Docker) |
+| `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema           |
+| `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                 |
+| `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`             |
+| `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                |
+| `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)            |
+| `pnpm format` / `format:check`                    | Prettier write / check                                              |
+| `pnpm --filter @suskii/api dev`                   | Run a single workspace                                              |
 
 Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, Expo Metro `8081`,
 Postgres `5432`, Redis `6379`, Mailpit SMTP `1025` and UI `8025`. Docker ports bind to `127.0.0.1` only.
@@ -104,6 +110,12 @@ Tooling notes for agents:
 - ui-web tests need Chromium: `pnpm --filter @suskii/ui-web exec playwright install chromium`, or
   set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an existing binary.
 - React Native Testing Library 14 APIs are async: `await render(...)`, `await fireEvent.press(...)`.
+- Prisma 7: the client is generated into `apps/api/src/generated/prisma` (gitignored, `postinstall`)
+  and uses the `pg` driver adapter; `prisma.config.ts` loads the root `.env` for CLI commands.
+  Prisma blocks `migrate reset` from agents without the user's consent; create a fresh database or
+  use `prisma migrate diff` instead.
+- E2E tests reuse running services when `E2E_DATABASE_URL` / `E2E_REDIS_URL` are set (the database
+  is truncated, so never point them at data you care about).
 
 ## Conventions
 
@@ -127,6 +139,27 @@ Tooling notes for agents:
 - Bookings are driven by an explicit, audited state machine.
 - Webhooks are the source of truth for payment status.
 - REST under `/v1` (Nest URI versioning); infra probes such as `/health` are version-neutral.
+
+### API conventions (apps/api)
+
+- Every route has a `@Contract()` (Zod params/query/body/responses, `operationId`, documented
+  errors). Responses are filtered through their schema, so return plain objects with ISO date
+  strings. Register reusable schemas with `named('Name', schema)`. Run `pnpm generate:api` after
+  any contract change and commit both generated files (an e2e test and CI check them).
+- Routes are authenticated by default. `@Public()` opts out; `@RequirePermissions(...)` and
+  `@AdminRoute(...)` (staff + MFA session + IP allowlist) authorise. Inject the caller with
+  `@CurrentAuth()`. Permissions come from `ROLE_PERMISSIONS` in `@suskii/shared`.
+- Always check resource ownership (answer 404 for other users' resources, never 403).
+- Throw `ProblemDetailsException(status, slug, title, detail?)` for client errors; auth helpers
+  live in `src/auth/errors.ts`. Never put values, tokens or PII in details.
+- Writes that create bookings, payments or refunds set `idempotent: true` in the contract.
+- Add stricter limits with `@RateLimit(...)` (policies in `rate-limit.decorator.ts`).
+- Record security-relevant actions with `AuditService.record()` (add the action to `AuditAction`),
+  inside the same transaction as the change when possible. Metadata: ids and reasons only.
+- Hash low-entropy or personal values with `HmacService` (per-purpose keys); encrypt stored secrets
+  with `FieldEncryption` using a record-bound context string.
+- External providers sit behind abstract classes (`EmailProvider`, `SmsProvider`,
+  `BreachedPasswordChecker`) with mock adapters for tests and local development.
 
 ### Security guardrails
 
@@ -166,6 +199,9 @@ Tooling notes for agents:
 - [ADR-002: Toolchain and versions](docs/decisions/ADR-002-toolchain-and-versions.md)
 - [ADR-003: UI stack and design-token pipeline](docs/decisions/ADR-003-ui-stack-and-token-pipeline.md)
 - [ADR-004: Accessible derived colour tokens](docs/decisions/ADR-004-accessible-derived-colour-tokens.md)
+- [ADR-005: Zod route contracts and OpenAPI 3.1](docs/decisions/ADR-005-zod-contracts-and-openapi.md)
+- [ADR-006: Reference data sources](docs/decisions/ADR-006-reference-data-sources.md)
+- [ADR-007: Authentication, sessions and abuse controls](docs/decisions/ADR-007-authentication-and-sessions.md)
 
 ## Open questions for the owner
 

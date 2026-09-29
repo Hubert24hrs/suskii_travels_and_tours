@@ -46,21 +46,34 @@ cd suskii_travels_and_tours
 corepack enable
 pnpm install
 
-# 2. Optional: local environment overrides (defaults work out of the box)
+# 2. Local environment (the defaults work with docker compose)
 Copy-Item .env.example .env      # bash/zsh: cp .env.example .env
+# Optional: stable keys so sessions and MFA survive API restarts; paste the output into .env
+pnpm --filter @suskii/api keys:generate
 
 # 3. Start Postgres 16, Redis 7 and Mailpit (waits until all are healthy)
 pnpm infra:up
 
-# 4. Run every app in watch mode
+# 4. Create the database schema and load reference data (airports, roles, starter content)
+pnpm --filter @suskii/api db:deploy
+pnpm --filter @suskii/api db:seed
+
+# 5. Run every app in watch mode
 pnpm dev
 ```
+
+To get a local super admin, set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `.env` before
+seeding, sign in, then enrol an authenticator app (`POST /v1/me/mfa/totp`): admin routes require an
+MFA-verified session. Emails (verification, password reset) appear in Mailpit; SMS codes use a mock
+adapter until an SMS provider is contracted.
 
 | Service            | URL                                                   |
 | ------------------ | ----------------------------------------------------- |
 | Web                | http://localhost:3000                                 |
 | Admin              | http://localhost:3001                                 |
 | API health         | http://localhost:4000/health                          |
+| API readiness      | http://localhost:4000/ready                           |
+| API contract       | `apps/api/openapi.json` (OpenAPI 3.1)                 |
 | Worker health      | http://localhost:4100/health                          |
 | Mailpit (email UI) | http://localhost:8025                                 |
 | Expo dev server    | http://localhost:8081 (scan the QR code with Expo Go) |
@@ -75,7 +88,8 @@ Run a single app with a filter, for example `pnpm --filter @suskii/api dev`.
 | `pnpm lint`              | Type-aware ESLint everywhere                         |
 | `pnpm typecheck`         | TypeScript checks everywhere                         |
 | `pnpm test`              | Unit tests                                           |
-| `pnpm test:e2e`          | API end-to-end tests                                 |
+| `pnpm test:e2e`          | API end-to-end tests (needs Docker running)          |
+| `pnpm generate:api`      | Regenerate the OpenAPI document and typed API client |
 | `pnpm format`            | Format with Prettier                                 |
 | `pnpm infra:down`        | Stop local services (data is kept in Docker volumes) |
 | `docker compose down -v` | Stop local services and delete their data            |
@@ -84,7 +98,9 @@ Run a single app with a filter, for example `pnpm --filter @suskii/api dev`.
 
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`,
   `chore:`, ...). A Git hook checks the message and formats and lints staged files.
-- Every pull request runs CI: format check, lint, typecheck, unit tests, API e2e tests and build.
+- Every pull request runs CI: format check, lint, typecheck, unit tests, API e2e tests, an OpenAPI
+  drift check and build. After changing an API endpoint, run `pnpm generate:api` and commit the
+  regenerated files.
 - Never commit `.env` files or credentials. Add new variables to `.env.example` with an empty or
   local-only value.
 

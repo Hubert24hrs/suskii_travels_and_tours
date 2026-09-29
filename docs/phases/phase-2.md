@@ -1,6 +1,6 @@
 # Phase 2: Backend core
 
-Status: in progress
+Status: complete, awaiting owner review
 
 ## Goal
 
@@ -84,3 +84,33 @@ rate limits, idempotency, security headers and readiness.
 | Prisma 7 changed engines and config (driver adapters, `prisma.config.ts`, new generator) | Follow the bundled docs; generate the client as CommonJS to match the API build                             |
 | No public airline dataset that is both current and permissively licensed                 | Airline table now, supplier reference data in phase 3 (ADR-006)                                             |
 | Docker needed for e2e tests                                                              | Testcontainers works with Docker Desktop (Windows) and GitHub runners; CI already has Docker                |
+
+## Implementation notes (what changed versus the plan)
+
+- **Auth design details** are recorded in ADR-007: registration always answers 202 (account
+  privacy), CSRF tokens are HMAC-bound to the session instead of plain double-submit, the refresh
+  cookie is `SameSite=Strict` and scoped to `/v1/auth`, and a concurrent refresh with the same token
+  counts as reuse.
+- **Idempotency keys live in Postgres** (`idempotency_keys`, the spec's `IdempotencyKey` entity), not
+  Redis: a unique constraint gives an atomic claim, and payment retries must survive a Redis flush.
+  Failed requests release their key. Expired rows are purged opportunistically; a scheduled purge
+  arrives with the worker jobs (phase 7).
+- **Secrets**: one `HMAC_SECRET` (HKDF subkeys per purpose) replaces the planned `IP_HASH_SECRET`;
+  `FIELD_ENCRYPTION_KEY` must decode to 32 bytes. `pnpm --filter @suskii/api keys:generate` prints
+  fresh values for every secret. Empty `KEY=` lines in `.env` count as unset.
+- **RBAC catalog sync**: roles and permissions are upserted from `@suskii/shared` at boot (and by the
+  seed), so foreign keys always exist; permission checks use the code catalog.
+- **Admin endpoints** shipped to prove RBAC end to end: `GET /v1/admin/users/:id`,
+  `PUT /v1/admin/users/:id/roles` (audited, revokes the target's sessions, never your own roles) and
+  `GET /v1/admin/audit-logs` (keyset pagination). The admin console UI is phase 10.
+- **Emails** run after the response through a small `BackgroundTasks` helper (timing privacy) until
+  BullMQ notifications land in the worker (phase 7). Links carry tokens in the URL fragment.
+- **Middleware errors**: malformed JSON and oversized bodies (100 kB cap) now return 400/413 problem
+  details instead of a generic 500 (found by the e2e suite).
+- **Reference data**: 249 countries, 4,008 airports (IATA + scheduled service) and 3,858 derived
+  cities with IANA time zones, from OurAirports via `pnpm --filter @suskii/api data:build`, committed
+  under `apps/api/prisma/data`. Airlines wait for supplier data (ADR-006).
+- **Token rotation tests** are e2e (real Postgres transactions and Redis) rather than unit tests with
+  mocks: rotation, replay, concurrent refresh, cookie replay and revocation of live access tokens.
+- **Coverage** (e2e run): `src/auth` 95% statements, 97% lines, 79% branches; unit tests add the
+  crypto, TOTP and JWT rotation paths.
