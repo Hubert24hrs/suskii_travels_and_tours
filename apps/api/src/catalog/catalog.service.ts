@@ -228,6 +228,25 @@ export class CatalogService {
     });
   }
 
+  /** City with its country name, for labelling a city chosen in a shared search link. */
+  async cityDetail(id: string): Promise<{
+    id: string;
+    name: string;
+    countryCode: string;
+    countryName: string;
+    timeZone: string | null;
+  } | null> {
+    const row = await this.prisma.city.findUnique({ where: { id }, include: { country: true } });
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      countryCode: row.countryCode,
+      countryName: row.country.name,
+      timeZone: row.timezone,
+    };
+  }
+
   /** Airport facts for search (time zones, coordinates), cached in memory for an hour. */
   async airportInfo(codes: readonly string[]): Promise<Map<string, AirportInfo>> {
     const now = Date.now();

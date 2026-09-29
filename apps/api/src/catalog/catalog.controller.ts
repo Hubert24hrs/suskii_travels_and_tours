@@ -7,6 +7,8 @@ import { Contract } from '../contract/contract';
 import {
   airportParamsSchema,
   airportSchema,
+  cityDetailSchema,
+  cityParamsSchema,
   countriesSchema,
   placesQuerySchema,
   placeSuggestionsSchema,
@@ -69,6 +71,22 @@ export class CatalogController {
     const airport = await this.catalog.airport(iataCode);
     if (!airport) throw new NotFoundException();
     return airport;
+  }
+
+  @Get('cities/:cityId')
+  @Header('Cache-Control', CACHE_ONE_DAY)
+  @Contract({
+    operationId: 'getCity',
+    summary: 'City by id',
+    tags: TAGS,
+    params: cityParamsSchema,
+    responses: { 200: cityDetailSchema },
+    errors: [404],
+  })
+  async city(@Param('cityId') cityId: string): Promise<z.infer<typeof cityDetailSchema>> {
+    const city = await this.catalog.cityDetail(cityId);
+    if (!city) throw new NotFoundException();
+    return city;
   }
 
   @Get('countries')

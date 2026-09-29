@@ -1002,6 +1002,51 @@
         }
       }
     },
+    "/v1/catalog/cities/{cityId}": {
+      "get": {
+        "operationId": "getCity",
+        "summary": "City by id",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "cityId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/City"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/catalog/countries": {
       "get": {
         "operationId": "listCountries",
@@ -3885,6 +3930,40 @@
           "currentPassword",
           "newPassword"
         ]
+      },
+      "City": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "countryName": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "countryCode",
+          "countryName",
+          "timeZone"
+        ],
+        "additionalProperties": false
       },
       "CitySuggestion": {
         "type": "object",

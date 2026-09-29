@@ -99,4 +99,18 @@ describe('catalog (e2e, seeded reference data)', () => {
     expect(countries.body.items).toContainEqual({ code: 'NG', name: 'Nigeria', continent: 'AF' });
     expect(countries.body.items.length).toBe(249);
   });
+
+  it('looks up a city by id for shared search links', async () => {
+    const { cityId } = await ctx.prisma.airport.findUniqueOrThrow({ where: { iataCode: 'LOS' } });
+    const city = await ctx.http().get(`/v1/catalog/cities/${cityId}`).expect(200);
+    expect(city.body).toEqual({
+      id: cityId,
+      name: 'Lagos',
+      countryCode: 'NG',
+      countryName: 'Nigeria',
+      timeZone: 'Africa/Lagos',
+    });
+    await ctx.http().get('/v1/catalog/cities/0192f0e0-0000-7000-8000-000000000000').expect(404);
+    await ctx.http().get('/v1/catalog/cities/lagos').expect(400);
+  });
 });

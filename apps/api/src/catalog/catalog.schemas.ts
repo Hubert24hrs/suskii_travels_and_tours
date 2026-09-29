@@ -86,6 +86,19 @@ export const airportParamsSchema = z.object({
     .transform((value) => value.toUpperCase()),
 });
 
+export const cityParamsSchema = z.object({ cityId: z.uuid() });
+
+export const cityDetailSchema = named(
+  'City',
+  z.object({
+    id: z.uuid(),
+    name: z.string(),
+    countryCode: z.string().length(2),
+    countryName: z.string(),
+    timeZone: z.string().nullable(),
+  }),
+);
+
 export const countriesSchema = named(
   'Countries',
   z.object({

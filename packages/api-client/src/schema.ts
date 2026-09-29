@@ -351,6 +351,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalog/cities/{cityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** City by id */
+        get: operations["getCity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalog/countries": {
         parameters: {
             query?: never;
@@ -1157,6 +1174,14 @@ export interface components {
         ChangePasswordRequestInput: {
             currentPassword: string;
             newPassword: string;
+        };
+        City: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            countryCode: string;
+            countryName: string;
+            timeZone: string | null;
         };
         CitySuggestion: {
             /** @constant */
@@ -2566,6 +2591,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Airport"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getCity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["City"];
                 };
             };
             400: components["responses"]["Problem400"];
