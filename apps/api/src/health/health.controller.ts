@@ -13,6 +13,7 @@ import { Redis } from 'ioredis';
 import { z } from 'zod';
 
 import { Public } from '../auth/decorators';
+import { SkipRateLimit } from '../rate-limit/rate-limit.decorator';
 import { Contract, named } from '../contract/contract';
 import { PrismaService } from '../infra/prisma.service';
 import { REDIS } from '../infra/redis';
@@ -45,6 +46,7 @@ const withTimeout = <T>(promise: Promise<T>): Promise<T> =>
  * `/health`: the process is alive. `/ready`: it can serve traffic (Postgres and Redis reachable).
  */
 @Public()
+@SkipRateLimit()
 @Controller({ version: VERSION_NEUTRAL })
 export class HealthController {
   constructor(

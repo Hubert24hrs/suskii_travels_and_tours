@@ -49,6 +49,22 @@ describe('toProblemDetails', () => {
       status: 500,
     });
   });
+
+  it('maps exposable middleware errors (malformed JSON, oversized body) to their 4xx status', () => {
+    const tooLarge = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      expose: true,
+    });
+    expect(toProblemDetails(tooLarge)).toStrictEqual({
+      type: 'urn:suskii:problem:payload-too-large',
+      title: 'Payload too large',
+      status: 413,
+    });
+    const malformed = Object.assign(new Error('Unexpected token'), { status: 400, expose: true });
+    expect(toProblemDetails(malformed)).toMatchObject({ status: 400, title: 'Bad request' });
+    const internal = Object.assign(new Error('boom'), { status: 503, expose: false });
+    expect(toProblemDetails(internal).status).toBe(500);
+  });
 });
 
 describe('resolveRequestId', () => {

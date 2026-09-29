@@ -30,6 +30,8 @@ export class ProblemDetailsException extends HttpException {
     readonly title: string,
     readonly detail?: string,
     readonly extensions: Record<string, unknown> = {},
+    /** Response headers, e.g. Retry-After. Never part of the body. */
+    readonly headers: Record<string, string> = {},
   ) {
     super({ slug, title, detail, ...extensions }, status);
   }
@@ -75,11 +77,24 @@ export function toProblemDetails(exception: unknown): ProblemDetails {
     const detail = status < 500 && status !== 404 ? message : undefined;
     return { type: problemType(slugify(title)), title, status, ...(detail ? { detail } : {}) };
   }
+  if (isClientHttpError(exception)) {
+    // body-parser and other Express middleware (malformed JSON, payload too large): the status is
+    // meaningful, the message is not needed.
+    const title = TITLES[exception.status] ?? 'Bad request';
+    return { type: problemType(slugify(title)), title, status: exception.status };
+  }
   return {
     type: problemType('internal-server-error'),
     title: 'Internal server error',
     status: 500,
   };
+}
+
+/** `http-errors` objects that are safe to expose (4xx raised by Express middleware). */
+function isClientHttpError(value: unknown): value is { status: number } {
+  if (typeof value !== 'object' || value === null) return false;
+  const { status, expose } = value as { status?: unknown; expose?: unknown };
+  return typeof status === 'number' && status >= 400 && status < 500 && expose === true;
 }
 
 /**
@@ -101,6 +116,11 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         { err: exception, requestId: request.id },
         exception instanceof Error ? exception.message : 'Unhandled exception',
       );
+    }
+
+    if (exception instanceof ProblemDetailsException) {
+      for (const [name, value] of Object.entries(exception.headers))
+        response.setHeader(name, value);
     }
 
     response

@@ -58,6 +58,9 @@ export function configureApp<T extends NestExpressApplication>(app: T, config: A
     next();
   });
   app.use(cookieParser());
+  // Explicit JSON body cap (Nest's default is the same, but it is a security control): larger
+  // payloads get 413 before any parsing work.
+  app.useBodyParser('json', { limit: '100kb' });
 
   app.enableCors({
     // Only allowlisted browser origins get CORS headers; server-to-server calls send no Origin.

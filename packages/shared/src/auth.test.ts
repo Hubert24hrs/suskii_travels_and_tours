@@ -25,20 +25,20 @@ describe('auth schemas', () => {
     expect(phoneSchema.safeParse('08012345678').success).toBe(false);
   });
 
-  it('defaults the transport to token (mobile) and strips unknown fields', () => {
+  it('strips unknown fields from registrations (no mass assignment)', () => {
     const parsed = registerRequestSchema.parse({
       email: 'a@b.co',
       password: 'correct horse',
       isAdmin: true,
     });
-    expect(parsed).toStrictEqual({
-      email: 'a@b.co',
-      password: 'correct horse',
-      transport: 'token',
-    });
+    expect(parsed).toStrictEqual({ email: 'a@b.co', password: 'correct horse' });
   });
 
-  it('does not apply the password policy on login', () => {
-    expect(loginRequestSchema.safeParse({ email: 'a@b.co', password: 'x' }).success).toBe(true);
+  it('does not apply the password policy on login and defaults the transport to token', () => {
+    expect(loginRequestSchema.parse({ email: 'a@b.co', password: 'x' })).toStrictEqual({
+      email: 'a@b.co',
+      password: 'x',
+      transport: 'token',
+    });
   });
 });

@@ -23,11 +23,11 @@ export const displayNameSchema = z.string().trim().min(1).max(100);
 export const authTransportSchema = z.enum(['cookie', 'token']);
 export type AuthTransport = z.infer<typeof authTransportSchema>;
 
+/** Registration never signs in directly (account privacy): the client signs in afterwards. */
 export const registerRequestSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   displayName: displayNameSchema.optional(),
-  transport: authTransportSchema.default('token'),
 });
 export type RegisterRequest = z.input<typeof registerRequestSchema>;
 
