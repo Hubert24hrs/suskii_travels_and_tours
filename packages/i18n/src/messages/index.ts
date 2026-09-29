@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, isSupportedLocale, type LocaleCode } from '@suskii/shared';
+import { DEFAULT_LOCALE, isSupportedLocale, type LocaleCode } from '@suskii/shared/lite';
 
 import { mergeMessages } from '../translator';
 

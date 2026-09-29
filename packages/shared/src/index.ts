@@ -1,3 +1,6 @@
+// Side effect first: configures Zod before any schema below is constructed.
+import './zod-setup';
+
 export { BRAND, NEWSLETTER_CONSENT_VERSION } from './brand';
 export {
   DEFAULT_CURRENCY,
@@ -76,7 +79,6 @@ export {
   maxOf,
   minOf,
   money,
-  moneyWireSchema,
   multiply,
   multiplyRatio,
   negate,
@@ -94,6 +96,7 @@ export {
   type MoneyWire,
   type RoundingMode,
 } from './money';
+export { moneyWireSchema } from './money-schema';
 export {
   EARLIEST_TIME_ZONE,
   addDays,

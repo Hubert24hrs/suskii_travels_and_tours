@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 /** Credential rules shared by the API and every sign-up / sign-in form. */
 export const PASSWORD_MIN_LENGTH = 10;

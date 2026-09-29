@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 // Dual ESM + CJS output: Next.js, Metro and the ESM worker import the ESM build;
 // the NestJS API (CommonJS) and Jest require the CJS build.
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/lite.ts'],
   format: ['esm', 'cjs'],
   dts: {
     compilerOptions: {

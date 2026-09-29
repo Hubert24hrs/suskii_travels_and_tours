@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 /**
  * Exact money arithmetic. Amounts are integer minor units held as `bigint` (kobo for NGN, cents
  * for USD) with an ISO 4217 currency code. Floats never touch an amount: every operation that can
@@ -49,7 +47,8 @@ const EXPONENT_OVERRIDES: Readonly<Record<string, number>> = {
   UYW: 4,
 };
 
-const CURRENCY_PATTERN = /^[A-Z]{3}$/;
+/** ISO 4217 shape; shared with the wire schema in money-schema.ts. */
+export const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const DECIMAL_PATTERN = /^(-)?(\d+)(?:\.(\d+))?$/;
 
 export function assertCurrency(currency: string): void {
@@ -342,14 +341,6 @@ export interface MoneyWire {
   amountMinor: number;
   currency: string;
 }
-
-export const moneyWireSchema = z.object({
-  amountMinor: z
-    .number()
-    .int()
-    .refine(Number.isSafeInteger, 'Amount exceeds the safe integer range'),
-  currency: z.string().regex(CURRENCY_PATTERN),
-});
 
 export function toWire(amount: Money): MoneyWire {
   const value = Number(amount.minor);

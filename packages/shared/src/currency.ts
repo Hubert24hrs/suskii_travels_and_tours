@@ -1,14 +1,12 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
-/** ISO 4217 codes the platform can display and settle in. Order drives UI selectors. */
-export const SUPPORTED_CURRENCIES = ['NGN', 'USD', 'GBP', 'EUR', 'GHS', 'KES', 'ZAR'] as const;
+import { SUPPORTED_CURRENCIES } from './currency-codes';
 
-export type CurrencyCode = (typeof SUPPORTED_CURRENCIES)[number];
-
-export const DEFAULT_CURRENCY: CurrencyCode = 'NGN';
+export {
+  DEFAULT_CURRENCY,
+  SUPPORTED_CURRENCIES,
+  isSupportedCurrency,
+  type CurrencyCode,
+} from './currency-codes';
 
 export const currencyCodeSchema = z.enum(SUPPORTED_CURRENCIES);
-
-export function isSupportedCurrency(value: string): value is CurrencyCode {
-  return (SUPPORTED_CURRENCIES as readonly string[]).includes(value);
-}

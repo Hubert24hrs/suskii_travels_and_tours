@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 /** Product verticals. Values are stable identifiers used in URLs, analytics and the database. */
 export const VERTICALS = [

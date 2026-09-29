@@ -5,7 +5,7 @@ import {
   currencyExponent,
   type Money,
   type MoneyWire,
-} from '@suskii/shared';
+} from '@suskii/shared/lite';
 
 export type DateStyle = 'short' | 'medium' | 'long' | 'weekday';
 
