@@ -334,6 +334,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book a quote
+         * @description Validates travellers against the offer and itinerary (422 `passengers-invalid` with issue codes), prices extras and the promo code, and creates the booking as PRICED. Guests must send a Turnstile token and receive a one-time access token.
+         */
+        post: operations["createBooking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A booking
+         * @description Poll while the status is AWAITING_PAYMENT, PAID or TICKETING.
+         */
+        get: operations["getBooking"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel an unpaid booking */
+        post: operations["cancelBooking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/documents/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download an e-ticket or hotel voucher (PDF) */
+        get: operations["downloadBookingDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-check the price and open a hosted checkout
+         * @description Re-prices with the supplier first. A changed total answers 409 `price-changed` with `priceChange` (previous, current, difference, price); accept it with `price-consent`, then call this again. An offer that sold out answers 410 with the original search.
+         */
+        post: operations["startBookingPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/price-consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a changed price
+         * @description Send the new total exactly as shown; if it moved again the answer is 409.
+         */
+        post: operations["consentToBookingPrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalog/airports/{iataCode}": {
         parameters: {
             query?: never;
@@ -712,6 +826,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/bookings/expire-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Expire unpaid bookings past their payment deadline */
+        post: operations["expireDueBookings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/bookings/ticket-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ticket paid bookings and retry due ticketing attempts */
+        post: operations["ticketDueBookings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/deals/routes/{routeId}/refresh": {
         parameters: {
             query?: never;
@@ -994,6 +1142,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/travellers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Saved travellers */
+        get: operations["listTravellers"];
+        put?: never;
+        /**
+         * Save a traveller
+         * @description At most 20 per account (409 `traveller-limit`).
+         */
+        post: operations["createTraveller"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/travellers/{travellerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a saved traveller
+         * @description A `document` without `number` keeps the stored passport number (clients only see its last three characters).
+         */
+        put: operations["updateTraveller"];
+        post?: never;
+        /** Delete a saved traveller */
+        delete: operations["deleteTraveller"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/newsletter/confirm": {
         parameters: {
             query?: never;
@@ -1048,6 +1238,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/mock/{reference}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mock hosted checkout: the payment to show
+         * @description Exists only while the API uses the mock payment provider (never in production).
+         */
+        get: operations["getMockPayment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/mock/{reference}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mock hosted checkout: pay or decline
+         * @description Sends a signed mock webhook through the normal webhook pipeline, then returns where to send the traveller.
+         */
+        post: operations["completeMockPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/webhooks/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Payment provider webhook
+         * @description The provider-signed JSON event is verified over the raw body; duplicates are acknowledged without effect. Called by payment providers only.
+         */
+        post: operations["receivePaymentWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/pricing/promos/validate": {
         parameters: {
             query?: never;
@@ -1062,6 +1312,26 @@ export interface paths {
          * @description Returns the discounted price. Invalid, expired or ineligible codes all answer the same 422.
          */
         post: operations["validatePromoCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/quotes/{quoteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A quote to check out from
+         * @description Priced for the caller. An expired quote answers 410 with the original search request.
+         */
+        get: operations["getQuote"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1167,6 +1437,144 @@ export interface components {
             mfaEnabled: boolean;
             hasPassword: boolean;
         };
+        Booking: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+            /** @enum {string} */
+            vertical: "flights" | "hotels";
+            /** Format: date-time */
+            createdAt: string;
+            paymentDeadline: string | null;
+            confirmedAt: string | null;
+            contact: {
+                email: string;
+                phone: string;
+            };
+            price: components["schemas"]["BookingPrice"];
+            pendingPriceChange: components["schemas"]["BookingPriceChange"] | null;
+            flight: {
+                owner: {
+                    code: string;
+                    name: string;
+                };
+                slices: components["schemas"]["FlightSlice"][];
+                baggage: {
+                    carryOn: number;
+                    checked: number;
+                };
+                conditions: {
+                    refundable: boolean;
+                    changeable: boolean;
+                };
+                /** @enum {string} */
+                cabinClass: "economy" | "premium_economy" | "business" | "first";
+                airlineReference: string | null;
+                request: components["schemas"]["FlightSearchRequest"];
+            } | null;
+            hotel: {
+                name: string;
+                stars: number;
+                area: string | null;
+                cityName: string;
+                countryCode: string;
+                checkIn: string;
+                checkOut: string;
+                nights: number;
+                rooms: number;
+                roomName: string;
+                /** @enum {string} */
+                board: "room_only" | "breakfast_included" | "half_board" | "full_board";
+                refundable: boolean;
+                freeCancellationUntil: string | null;
+                payAtProperty: components["schemas"]["Money"] | null;
+                confirmationNumber: string | null;
+                request: components["schemas"]["HotelSearchRequest"];
+            } | null;
+            passengers: components["schemas"]["BookingPassenger"][];
+            warnings: components["schemas"]["PassengerIssue"][];
+            payment: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                status: "pending" | "succeeded" | "failed" | "cancelled" | "expired";
+                amount: components["schemas"]["Money"];
+                checkoutUrl: string | null;
+                /** Format: date-time */
+                expiresAt: string;
+            } | null;
+            documents: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                type: "e_ticket" | "hotel_voucher";
+                fileName: string;
+                sizeBytes: number;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        BookingExpiryRun: {
+            expired: number;
+        };
+        BookingExtra: {
+            serviceId: string;
+            /** @constant */
+            type: "checked_bag";
+            weightKg: number;
+            quantity: number;
+            unitPrice: components["schemas"]["Money"];
+            amount: components["schemas"]["Money"];
+        };
+        BookingPassenger: {
+            position: number;
+            /** @enum {string} */
+            type: "adult" | "child" | "infant";
+            title: ("mr" | "ms" | "mrs" | "miss" | "dr") | null;
+            givenNames: string;
+            surname: string;
+            dateOfBirth: string | null;
+            roomIndex: number | null;
+            document: {
+                hint: string;
+                issuingCountry: string;
+                expiryDate: string;
+            } | null;
+            ticketNumber: string | null;
+            extraBags: number;
+        };
+        BookingPrice: {
+            currency: string;
+            fare: components["schemas"]["Money"];
+            taxes: components["schemas"]["Money"];
+            fees: {
+                code: string;
+                label: string;
+                amount: components["schemas"]["Money"];
+            }[];
+            discount: {
+                code: string;
+                amount: components["schemas"]["Money"];
+            } | null;
+            total: components["schemas"]["Money"];
+            fx: {
+                from: string;
+                to: string;
+                rate: string;
+                /** Format: date-time */
+                asOf: string;
+                provider: string;
+            } | null;
+            extras: components["schemas"]["BookingExtra"][];
+        };
+        BookingPriceChange: {
+            previous: components["schemas"]["Money"];
+            current: components["schemas"]["Money"];
+            difference: components["schemas"]["Money"];
+            price: components["schemas"]["BookingPrice"];
+        };
         Carrier: {
             code: string;
             name: string;
@@ -1215,6 +1623,57 @@ export interface components {
                 continent: string;
             }[];
         };
+        CreateBookingRequestInput: {
+            /** Format: uuid */
+            quoteId: string;
+            contact: {
+                email: string;
+                phone: string;
+            };
+            passengers?: {
+                /** @enum {string} */
+                type: "adult" | "child" | "infant";
+                /** @enum {string} */
+                title: "mr" | "ms" | "mrs" | "miss" | "dr";
+                /** @enum {string} */
+                gender: "m" | "f";
+                givenNames: string;
+                surname: string;
+                dateOfBirth: string;
+                nationality: string;
+                document?: {
+                    number?: string | null;
+                    issuingCountry: string;
+                    expiryDate: string;
+                } | null;
+                /** @default null */
+                travellerId: string | null;
+                /** @default false */
+                saveTraveller: boolean;
+            }[];
+            guests?: {
+                givenNames: string;
+                surname: string;
+            }[];
+            /** @default [] */
+            extras: components["schemas"]["ExtraSelectionInput"][];
+            /** @default null */
+            promoCode: string | null;
+            termsVersion: string;
+            /** @constant */
+            acceptTerms: true;
+            /**
+             * @default en-NG
+             * @enum {string}
+             */
+            locale: "en-NG" | "en-GB" | "en-US";
+            /** @default null */
+            turnstileToken: string | null;
+        };
+        CreatedBooking: {
+            booking: components["schemas"]["Booking"];
+            accessToken: string | null;
+        };
         DealRouteDetail: {
             slug: string;
             origin: {
@@ -1260,6 +1719,11 @@ export interface components {
                     countryCode: string;
                 };
             }[];
+        };
+        ExtraSelectionInput: {
+            serviceId: string;
+            passengerIndex: number;
+            quantity: number;
         };
         FlightDeal: {
             id: string;
@@ -1354,6 +1818,7 @@ export interface components {
                 available: boolean;
                 paymentRequiredBy: string | null;
             };
+            services: components["schemas"]["FlightService"][];
         };
         FlightQuote: {
             /** Format: uuid */
@@ -1431,6 +1896,14 @@ export interface components {
             aircraft: string | null;
             /** @enum {string} */
             cabinClass: "economy" | "premium_economy" | "business" | "first";
+        };
+        FlightService: {
+            id: string;
+            /** @enum {string} */
+            type: "checked_bag";
+            weightKg: number;
+            maxQuantity: number;
+            price: components["schemas"]["Money"];
         };
         FlightSlice: {
             origin: components["schemas"]["AirportPoint"];
@@ -1537,6 +2010,10 @@ export interface components {
             boards: {
                 /** @enum {string} */
                 board: "room_only" | "breakfast_included" | "half_board" | "full_board";
+                count: number;
+            }[];
+            areas: {
+                area: string;
                 count: number;
             }[];
             freeCancellation: number;
@@ -1681,7 +2158,30 @@ export interface components {
              */
             transport: "cookie" | "token";
         };
+        MockPayment: {
+            reference: string;
+            bookingReference: string;
+            amount: components["schemas"]["Money"];
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed" | "cancelled" | "expired";
+            /** Format: date-time */
+            expiresAt: string;
+            returnUrl: string;
+        };
+        MockPaymentCompleteRequestInput: {
+            /** @enum {string} */
+            outcome: "succeeded" | "failed";
+        };
+        MockPaymentResult: {
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed" | "cancelled" | "expired";
+            returnUrl: string;
+        };
         Money: {
+            amountMinor: number;
+            currency: string;
+        };
+        MoneyInput: {
             amountMinor: number;
             currency: string;
         };
@@ -1732,6 +2232,20 @@ export interface components {
              */
             transport: "cookie" | "token";
         };
+        PassengerIssue: {
+            index: number | null;
+            path: string[];
+            /** @enum {string} */
+            code: "name_not_latin" | "name_too_long" | "passenger_count_mismatch" | "passenger_type_mismatch" | "born_after_travel" | "infants_exceed_adults" | "passport_required" | "passport_expired" | "passport_expires_soon" | "traveller_not_found";
+        };
+        PaymentSession: {
+            /** Format: uuid */
+            paymentId: string;
+            checkoutUrl: string;
+            amount: components["schemas"]["Money"];
+            /** Format: date-time */
+            expiresAt: string;
+        };
         PhoneRequestInput: {
             phone: string;
         };
@@ -1781,6 +2295,9 @@ export interface components {
             current: components["schemas"]["Money"];
             difference: components["schemas"]["Money"];
         } | null;
+        PriceConsentRequestInput: {
+            total: components["schemas"]["MoneyInput"];
+        };
         /** @description RFC 9457 problem details (application/problem+json). */
         ProblemDetails: {
             /** @description Problem type URN, e.g. urn:suskii:problem:validation-failed */
@@ -1813,6 +2330,31 @@ export interface components {
         PruneResult: {
             deletedDeals: number;
             deletedDestinations: number;
+        };
+        Quote: {
+            /** Format: uuid */
+            quoteId: string;
+            /** @enum {string} */
+            vertical: "flights" | "hotels";
+            currency: string;
+            /** Format: date-time */
+            expiresAt: string;
+            termsVersion: string;
+            flight: {
+                offer: components["schemas"]["FlightOffer"];
+                request: components["schemas"]["FlightSearchRequest"];
+            } | null;
+            hotel: {
+                name: string;
+                stars: number;
+                area: string | null;
+                cityName: string;
+                countryCode: string;
+                amenities: string[];
+                rate: components["schemas"]["HotelRate"];
+                nights: number;
+                request: components["schemas"]["HotelSearchRequest"];
+            } | null;
         };
         ReadinessStatus: {
             /** @enum {string} */
@@ -1917,12 +2459,57 @@ export interface components {
             resultCount: number;
             durationMs: number;
         };
+        TicketingRun: {
+            attempted: number;
+            confirmed: number;
+            retrying: number;
+            exhausted: number;
+        };
         TotpConfirmRequestInput: {
             code: string;
         };
         TotpSetup: {
             secret: string;
             otpauthUri: string;
+        };
+        Traveller: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            title: "mr" | "ms" | "mrs" | "miss" | "dr";
+            /** @enum {string} */
+            gender: "m" | "f";
+            givenNames: string;
+            surname: string;
+            dateOfBirth: string;
+            nationality: string;
+            document: {
+                hint: string;
+                issuingCountry: string;
+                expiryDate: string;
+            } | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TravellerList: {
+            travellers: components["schemas"]["Traveller"][];
+        };
+        TravellerRequestInput: {
+            /** @enum {string} */
+            title: "mr" | "ms" | "mrs" | "miss" | "dr";
+            /** @enum {string} */
+            gender: "m" | "f";
+            givenNames: string;
+            surname: string;
+            dateOfBirth: string;
+            nationality: string;
+            document?: {
+                number?: string | null;
+                issuingCountry: string;
+                expiryDate: string;
+            } | null;
         };
         TrustSignal: {
             key: string;
@@ -1934,6 +2521,10 @@ export interface components {
         };
         VerificationTokenRequestInput: {
             token: string;
+        };
+        WebhookReceipt: {
+            /** @constant */
+            received: true;
         };
     };
     responses: {
@@ -2573,6 +3164,205 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    createBooking: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBookingRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedBooking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            410: components["responses"]["Problem410"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getBooking: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    cancelBooking: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    downloadBookingDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    startBookingPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSession"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    consentToBookingPrice: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceConsentRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getAirport: {
         parameters: {
             query?: never;
@@ -3145,6 +3935,7 @@ export interface operations {
                 minRating?: number;
                 freeCancellation?: "true" | "false";
                 amenities?: string;
+                areas?: string;
                 board?: "room_only" | "breakfast_included" | "half_board" | "full_board";
                 maxPrice?: number;
                 cursor?: string;
@@ -3170,6 +3961,56 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    expireDueBookings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingExpiryRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    ticketDueBookings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketingRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -3654,6 +4495,124 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    listTravellers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TravellerList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    createTraveller: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TravellerRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Traveller"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    updateTraveller: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                travellerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TravellerRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Traveller"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    deleteTraveller: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                travellerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     confirmNewsletter: {
         parameters: {
             query?: never;
@@ -3744,6 +4703,95 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getMockPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockPayment"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    completeMockPayment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MockPaymentCompleteRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockPaymentResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    receivePaymentWebhook: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookReceipt"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     validatePromoCode: {
         parameters: {
             query?: never;
@@ -3773,6 +4821,33 @@ export interface operations {
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
             422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            410: components["responses"]["Problem410"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

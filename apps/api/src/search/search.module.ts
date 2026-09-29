@@ -25,6 +25,6 @@ import { SupplierRunner } from './supplier-runner';
     SearchStore,
     SupplierRunner,
   ],
-  exports: [FlightSearchService, HotelSearchService],
+  exports: [FlightSearchService, HotelSearchService, SupplierRunner],
 })
 export class SearchModule {}

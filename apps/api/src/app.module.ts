@@ -5,6 +5,7 @@ import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
+import { BookingsModule } from './bookings/bookings.module';
 import { BotProtectionModule } from './bot-protection/bot-protection.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ContentModule } from './content/content.module';
@@ -50,6 +51,7 @@ export class AppModule {
         ContentModule,
         DealsModule,
         NewsletterModule,
+        BookingsModule,
         HealthModule,
       ],
       providers: [

@@ -12,6 +12,8 @@ import { APP_CONFIG, type AppConfig } from './config/config';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(), {
     bufferLogs: true,
+    // Payment webhooks verify signatures over the exact request bytes.
+    rawBody: true,
   });
   app.useLogger(app.get(Logger));
   const config = app.get<AppConfig>(APP_CONFIG);

@@ -67,3 +67,12 @@ export const NEWSLETTER_LIMITS = {
   },
   tokenIp: { name: 'newsletter-token-ip', limit: 20, windowSeconds: 600, by: 'ip' },
 } as const satisfies Record<string, RateLimitPolicy>;
+
+/** Checkout: booking creation and payment starts call suppliers and hold inventory. */
+export const BOOKING_LIMITS = {
+  createIp: { name: 'booking-create-ip', limit: 20, windowSeconds: 600, by: 'ip' },
+  createUser: { name: 'booking-create-user', limit: 20, windowSeconds: 600, by: 'user' },
+  paymentIp: { name: 'booking-payment-ip', limit: 30, windowSeconds: 600, by: 'ip' },
+  mockPaymentIp: { name: 'mock-payment-ip', limit: 30, windowSeconds: 600, by: 'ip' },
+  travellersUser: { name: 'travellers-user', limit: 60, windowSeconds: 600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;

@@ -17,6 +17,7 @@ export const CORS_ALLOWED_HEADERS = [
   'X-CSRF-Token',
   'X-Request-Id',
   'X-Suskii-Client',
+  'X-Booking-Token',
 ];
 export const CORS_EXPOSED_HEADERS = [
   'X-Request-Id',
@@ -60,7 +61,8 @@ export function configureApp<T extends NestExpressApplication>(app: T, config: A
   });
   app.use(cookieParser());
   // Explicit JSON body cap (Nest's default is the same, but it is a security control): larger
-  // payloads get 413 before any parsing work.
+  // payloads get 413 before any parsing work. With `rawBody: true` on the application (main.ts,
+  // tests), the exact bytes are kept for webhook signature checks.
   app.useBodyParser('json', { limit: '100kb' });
 
   app.enableCors({

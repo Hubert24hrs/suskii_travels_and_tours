@@ -27,7 +27,18 @@ export type AuditAction =
   | 'auth.phone.verified'
   | 'auth.social.linked'
   | 'rbac.roles.changed'
-  | 'rbac.access_denied';
+  | 'rbac.access_denied'
+  | 'booking.created'
+  | 'booking.status_changed'
+  | 'booking.price_changed'
+  | 'booking.price_consented'
+  | 'booking.ticketing_failed'
+  | 'payment.created'
+  | 'payment.amount_mismatch'
+  | 'payment.requires_refund'
+  | 'traveller.created'
+  | 'traveller.updated'
+  | 'traveller.deleted';
 
 export interface AuditEvent {
   action: AuditAction;

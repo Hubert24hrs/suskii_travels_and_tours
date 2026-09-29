@@ -1,0 +1,383 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { Redis } from 'ioredis';
+
+import { money, type ContactDetails, type Gender, type PassengerTitle } from '@suskii/shared';
+
+import { AuditService } from '../audit/audit.service';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import { FieldEncryption } from '../crypto/field-encryption';
+import { randomToken } from '../crypto/random';
+import { documentDateTime, documentMoney } from '../documents/booking-pdf';
+import { Prisma } from '../generated/prisma/client';
+import { PrismaService } from '../infra/prisma.service';
+import { REDIS } from '../infra/redis';
+import { EmailProvider } from '../notifications/email';
+import { bookingConfirmedTemplate } from '../notifications/templates';
+import { SupplierRunner } from '../search/supplier-runner';
+import {
+  CircuitOpenError,
+  OfferUnavailableError,
+  SupplierError,
+  SupplierRequestError,
+  SupplierTimeoutError,
+  SupplierUnavailableError,
+} from '../suppliers/supplier.errors';
+import type { FlightSupplier, HotelSupplier, SupplierPassenger } from '../suppliers/supplier.types';
+import { FLIGHT_SUPPLIERS, HOTEL_SUPPLIERS } from '../suppliers/suppliers.module';
+
+import { BookingDocumentsService } from './booking-documents.service';
+import {
+  itemPayload,
+  itemServices,
+  type BookingItemRecord,
+  type BookingRecord,
+} from './booking-presenter';
+import { bookedRate, type ItemPayload } from './booking-pricing';
+import { BookingTransitions, SYSTEM_ACTOR } from './booking-transitions';
+import { BookingsService, passportContext } from './bookings.service';
+import { bookingUrl } from './checkout.service';
+
+export type TicketingOutcome = 'confirmed' | 'retrying' | 'exhausted' | 'skipped';
+
+const LOCK_TTL_MS = 5 * 60_000;
+/** PAID bookings are normally ticketed right after the webhook; the worker picks up stragglers. */
+const PAID_PICKUP_AFTER_MS = 60_000;
+/** A TICKETING booking without a retry time and untouched this long lost its worker mid-attempt. */
+const STALLED_AFTER_MS = 10 * 60_000;
+/** A sweep starts no new attempt after this long (one attempt can still take a booking timeout). */
+const SWEEP_BUDGET_MS = 20_000;
+
+const RELEASE_LOCK = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end`;
+
+/** Reason codes for the audit log; never supplier messages (they can echo passenger data). */
+function failureReason(error: unknown): string {
+  if (error instanceof CircuitOpenError) return 'circuit_open';
+  if (error instanceof SupplierTimeoutError) return 'timeout';
+  if (error instanceof SupplierUnavailableError) return 'supplier_unavailable';
+  if (error instanceof OfferUnavailableError) return 'offer_unavailable';
+  if (error instanceof SupplierRequestError) return 'supplier_rejected';
+  return 'internal_error';
+}
+
+/**
+ * Books paid bookings with the supplier (ADR-014 step 5). The booking item id is the supplier
+ * idempotency key, so a retry can never issue twice. Transient failures retry with exponential
+ * backoff (1, 2, 4, 8, 16 minutes); definitive failures, an exhausted budget, or an ambiguous
+ * failure with a supplier that cannot retry safely move the booking to REFUND_PENDING.
+ */
+@Injectable()
+export class TicketingService {
+  private readonly logger = new Logger(TicketingService.name);
+
+  constructor(
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    @Inject(REDIS) private readonly redis: Redis,
+    @Inject(FLIGHT_SUPPLIERS) private readonly flightSuppliers: FlightSupplier[],
+    @Inject(HOTEL_SUPPLIERS) private readonly hotelSuppliers: HotelSupplier[],
+    private readonly prisma: PrismaService,
+    private readonly runner: SupplierRunner,
+    private readonly encryption: FieldEncryption,
+    private readonly bookings: BookingsService,
+    private readonly transitions: BookingTransitions,
+    private readonly audit: AuditService,
+    private readonly documents: BookingDocumentsService,
+    private readonly email: EmailProvider,
+  ) {}
+
+  /** One ticketing attempt for a booking, if it is due. Safe to call concurrently. */
+  async process(bookingId: string, now = new Date()): Promise<TicketingOutcome> {
+    const key = `lock:booking-ticketing:${bookingId}`;
+    const token = randomToken(16);
+    const acquired = await this.redis.set(key, token, 'PX', LOCK_TTL_MS, 'NX');
+    if (acquired !== 'OK') return 'skipped';
+    try {
+      return await this.attempt(bookingId, now);
+    } finally {
+      await this.redis.eval(RELEASE_LOCK, 1, key, token);
+    }
+  }
+
+  /** Every booking due for a (re)try; used by the worker every minute. */
+  async processDue(now = new Date()): Promise<Record<TicketingOutcome | 'attempted', number>> {
+    const due = await this.prisma.booking.findMany({
+      where: {
+        OR: [
+          { status: 'PAID', updatedAt: { lt: new Date(now.getTime() - PAID_PICKUP_AFTER_MS) } },
+          { status: 'TICKETING', nextTicketingAt: { lte: now } },
+          {
+            status: 'TICKETING',
+            nextTicketingAt: null,
+            updatedAt: { lt: new Date(now.getTime() - STALLED_AFTER_MS) },
+          },
+        ],
+      },
+      select: { id: true },
+      orderBy: { updatedAt: 'asc' },
+      take: 20,
+    });
+    const counts = { attempted: 0, confirmed: 0, retrying: 0, exhausted: 0, skipped: 0 };
+    // Keeps the worker's HTTP call bounded: what is left waits for the next sweep a minute later.
+    const stopStartingAt = Date.now() + SWEEP_BUDGET_MS;
+    for (const { id } of due) {
+      if (Date.now() > stopStartingAt) break;
+      const outcome = await this.process(id);
+      counts[outcome] += 1;
+      if (outcome !== 'skipped') counts.attempted += 1;
+    }
+    return counts;
+  }
+
+  private async attempt(bookingId: string, now: Date): Promise<TicketingOutcome> {
+    let booking = await this.bookings.reload(bookingId);
+    if (booking.status === 'PAID') {
+      const paid = booking;
+      await this.prisma.$transaction((tx) =>
+        this.transitions.apply(tx, paid, 'start_ticketing', SYSTEM_ACTOR),
+      );
+      booking = await this.bookings.reload(bookingId);
+    }
+    if (booking.status !== 'TICKETING') return 'skipped';
+    if (booking.nextTicketingAt && booking.nextTicketingAt > now) return 'skipped';
+
+    const attempt = booking.ticketingAttempts + 1;
+    await this.prisma.booking.update({
+      where: { id: booking.id },
+      data: { ticketingAttempts: attempt, nextTicketingAt: null },
+    });
+    const contact = this.bookings.contact(booking);
+    for (const item of booking.items) {
+      if (item.supplierReference) continue;
+      try {
+        const result = await this.bookItem(booking, item, contact);
+        await this.prisma.bookingItem.update({
+          where: { id: item.id },
+          data: {
+            supplierReference: result.reference,
+            ticketNumbers: result.tickets ?? Prisma.DbNull,
+            bookedAt: new Date(),
+          },
+        });
+      } catch (error) {
+        return this.failed(booking, item, attempt, error, now);
+      }
+    }
+
+    await this.prisma.$transaction((tx) =>
+      this.transitions.apply(
+        tx,
+        { id: booking.id, status: 'TICKETING' },
+        'ticketed',
+        SYSTEM_ACTOR,
+        {
+          data: { confirmedAt: new Date(), nextTicketingAt: null },
+        },
+      ),
+    );
+    await this.confirm(booking.id);
+    return 'confirmed';
+  }
+
+  private async bookItem(
+    booking: BookingRecord,
+    item: BookingItemRecord,
+    contact: ContactDetails,
+  ): Promise<{ reference: string; tickets: { passengerIndex: number; number: string }[] | null }> {
+    const payload = itemPayload(item);
+    const timeout = this.config.SUPPLIER_BOOKING_TIMEOUT_MS;
+    if (payload.kind === 'flight') {
+      const supplier = this.flightSupplier(payload);
+      const passengers = booking.passengers.map((passenger) => this.supplierPassenger(passenger));
+      const result = await this.runner.call(
+        'flights',
+        supplier.name,
+        'book',
+        (signal) =>
+          supplier.book(
+            {
+              offer: payload.offer,
+              passengers,
+              contact,
+              services: itemServices(item).map(({ serviceId, passengerIndex, quantity }) => ({
+                serviceId,
+                passengerIndex,
+                quantity,
+              })),
+              idempotencyKey: item.id,
+            },
+            signal,
+          ),
+        timeout,
+      );
+      return { reference: result.supplierReference, tickets: result.tickets };
+    }
+    const supplier = this.hotelSupplier(payload);
+    const result = await this.runner.call(
+      'hotels',
+      supplier.name,
+      'book',
+      (signal) =>
+        supplier.book(
+          {
+            hotel: payload.hotel,
+            rate: bookedRate(payload),
+            query: payload.query,
+            guests: booking.passengers.map(({ givenNames, surname }) => ({ givenNames, surname })),
+            contact,
+            idempotencyKey: item.id,
+          },
+          signal,
+        ),
+      timeout,
+    );
+    return { reference: result.confirmationNumber, tickets: null };
+  }
+
+  private supplierPassenger(passenger: BookingRecord['passengers'][number]): SupplierPassenger {
+    const date = (value: Date | null): string => value?.toISOString().slice(0, 10) ?? '';
+    return {
+      type: passenger.type,
+      title: passenger.title as PassengerTitle,
+      gender: passenger.gender as Gender,
+      givenNames: passenger.givenNames,
+      surname: passenger.surname,
+      dateOfBirth: date(passenger.dateOfBirth),
+      nationality: passenger.nationality ?? '',
+      document:
+        passenger.passportEncrypted && passenger.issuingCountry && passenger.documentExpiry
+          ? {
+              number: this.encryption.decrypt(
+                passenger.passportEncrypted,
+                passportContext('booking-passenger', passenger.id),
+              ),
+              issuingCountry: passenger.issuingCountry,
+              expiryDate: date(passenger.documentExpiry),
+            }
+          : null,
+    };
+  }
+
+  private flightSupplier(payload: Extract<ItemPayload, { kind: 'flight' }>): FlightSupplier {
+    const supplier = this.flightSuppliers.find((s) => s.name === payload.offer.supplier);
+    if (!supplier) throw new SupplierRequestError(payload.offer.supplier, 'Supplier is disabled');
+    return supplier;
+  }
+
+  private hotelSupplier(payload: Extract<ItemPayload, { kind: 'hotel' }>): HotelSupplier {
+    const supplier = this.hotelSuppliers.find((s) => s.name === payload.hotel.supplier);
+    if (!supplier) throw new SupplierRequestError(payload.hotel.supplier, 'Supplier is disabled');
+    return supplier;
+  }
+
+  private async failed(
+    booking: BookingRecord,
+    item: BookingItemRecord,
+    attempt: number,
+    error: unknown,
+    now: Date,
+  ): Promise<TicketingOutcome> {
+    const payload = itemPayload(item);
+    const idempotent =
+      payload.kind === 'flight'
+        ? this.flightSuppliers.find((s) => s.name === payload.offer.supplier)?.idempotentBooking
+        : this.hotelSuppliers.find((s) => s.name === payload.hotel.supplier)?.idempotentBooking;
+    const transient =
+      error instanceof SupplierUnavailableError || error instanceof CircuitOpenError;
+    // A timeout or an internal failure may have booked anyway: retry only when that is harmless.
+    const ambiguous = error instanceof SupplierTimeoutError || !(error instanceof SupplierError);
+    const retryable = transient || (ambiguous && idempotent === true);
+    const reason =
+      ambiguous && !retryable ? `${failureReason(error)}_needs_review` : failureReason(error);
+    this.logger.warn({ bookingId: booking.id, attempt, reason }, 'ticketing attempt failed');
+
+    if (retryable && attempt < this.config.TICKETING_MAX_ATTEMPTS) {
+      const retryAt = new Date(now.getTime() + 2 ** (attempt - 1) * 60_000);
+      await this.prisma.$transaction(async (tx) => {
+        await tx.booking.update({ where: { id: booking.id }, data: { nextTicketingAt: retryAt } });
+        await this.audit.record(
+          {
+            action: 'booking.ticketing_failed',
+            actorType: 'system',
+            targetType: 'booking',
+            targetId: booking.id,
+            metadata: { attempt, reason, retryAt: retryAt.toISOString() },
+          },
+          tx,
+        );
+      });
+      return 'retrying';
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.transitions.apply(
+        tx,
+        { id: booking.id, status: 'TICKETING' },
+        'ticketing_exhausted',
+        SYSTEM_ACTOR,
+        { reason, data: { nextTicketingAt: null } },
+      );
+      // Operations pick these up from the audit log until the admin console exists (phase 10).
+      await this.audit.record(
+        {
+          action: 'booking.ticketing_failed',
+          actorType: 'system',
+          targetType: 'booking',
+          targetId: booking.id,
+          metadata: { attempt, reason, final: true },
+        },
+        tx,
+      );
+    });
+    return 'exhausted';
+  }
+
+  /** Documents and the confirmation email. Failures are logged; the booking stays confirmed. */
+  private async confirm(bookingId: string): Promise<void> {
+    try {
+      const documents = await this.documents.ensure(bookingId);
+      const booking = await this.bookings.reload(bookingId);
+      const item = booking.items[0];
+      if (!item) return;
+      const payload = itemPayload(item);
+      const contact = this.bookings.contact(booking);
+      const template = bookingConfirmedTemplate({
+        reference: booking.reference,
+        vertical: payload.kind === 'flight' ? 'flights' : 'hotels',
+        summary: summaryOf(payload),
+        supplierLabel:
+          payload.kind === 'flight' ? 'Airline booking reference' : 'Hotel confirmation number',
+        supplierReference: item.supplierReference ?? '',
+        total: documentMoney(money(booking.totalMinor, booking.currency)),
+        bookingUrl: booking.userId ? bookingUrl(this.config, booking.id) : null,
+      });
+      await this.email.send({
+        to: contact.email,
+        ...template,
+        attachments: documents.map((document) => ({
+          filename: document.fileName,
+          content: document.bytes,
+          contentType: document.contentType,
+        })),
+      });
+    } catch (error) {
+      this.logger.error(
+        { bookingId, reason: (error as Error).name },
+        'booking documents or confirmation email failed',
+      );
+    }
+  }
+}
+
+function summaryOf(payload: ItemPayload): string {
+  if (payload.kind === 'hotel') {
+    return `${payload.hotel.name}, ${payload.hotel.cityName}, ${documentDateTime(
+      payload.request.checkIn,
+    )} to ${documentDateTime(payload.request.checkOut)}`;
+  }
+  const first = payload.offer.slices[0];
+  if (!first) return '';
+  const place = (point: { code: string; cityName: string | null }) =>
+    `${point.cityName ?? point.code} (${point.code})`;
+  return `${place(first.origin)} to ${place(first.destination)}, ${documentDateTime(
+    first.departureLocal,
+  )}`;
+}
