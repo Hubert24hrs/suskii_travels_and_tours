@@ -24,6 +24,30 @@ describe('parseEnv', () => {
     expect(env.COOKIE_SECURE).toBe(false);
   });
 
+  it('treats empty values from .env files as unset', () => {
+    const env = parseEnv({
+      ...base,
+      JWT_PRIVATE_KEY: '',
+      OTEL_EXPORTER_OTLP_ENDPOINT: '',
+      GOOGLE_CLIENT_IDS: '',
+      COOKIE_DOMAIN: '',
+    });
+    expect(env.JWT_PRIVATE_KEY).toBeUndefined();
+    expect(env.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+    expect(env.GOOGLE_CLIENT_IDS).toEqual([]);
+    expect(env.COOKIE_DOMAIN).toBeUndefined();
+  });
+
+  it('validates the field encryption key length', () => {
+    expect(() => parseEnv({ ...base, FIELD_ENCRYPTION_KEY: 'c2hvcnQ=' })).toThrow(
+      /FIELD_ENCRYPTION_KEY: must be 32 bytes/,
+    );
+    expect(
+      parseEnv({ ...base, FIELD_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64') })
+        .FIELD_ENCRYPTION_KEY,
+    ).toBeDefined();
+  });
+
   it('keeps access tokens between 10 and 15 minutes', () => {
     expect(() => parseEnv({ ...base, ACCESS_TOKEN_TTL_SECONDS: '3600' })).toThrow(
       /ACCESS_TOKEN_TTL_SECONDS/,
@@ -49,7 +73,7 @@ describe('parseEnv', () => {
     for (const key of [
       'JWT_PRIVATE_KEY',
       'FIELD_ENCRYPTION_KEY',
-      'IP_HASH_SECRET',
+      'HMAC_SECRET',
       'COOKIE_SECURE',
       'CORS_ORIGINS',
       'EMAIL_PROVIDER',

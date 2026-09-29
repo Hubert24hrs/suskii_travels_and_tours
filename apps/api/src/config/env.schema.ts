@@ -46,9 +46,15 @@ export const envSchema = z
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
 
     /** 32-byte key (base64) for field-level encryption until the KMS adapter lands (phase 12). */
-    FIELD_ENCRYPTION_KEY: z.string().min(1).optional(),
-    /** Secret for pseudonymising IP addresses in logs and the audit trail. */
-    IP_HASH_SECRET: z.string().min(32).optional(),
+    FIELD_ENCRYPTION_KEY: z
+      .string()
+      .refine((value) => Buffer.from(value, 'base64').length === 32, 'must be 32 bytes, base64')
+      .optional(),
+    /**
+     * Server secret (>= 32 chars) from which purpose-specific HMAC keys are derived (HKDF): IP
+     * pseudonymisation, CSRF tokens, OTP and recovery-code hashes.
+     */
+    HMAC_SECRET: z.string().min(32).optional(),
 
     HIBP_ENABLED: booleanish.default(true),
     EMAIL_PROVIDER: z.enum(['smtp', 'mock']).default('smtp'),
@@ -80,7 +86,7 @@ export const envSchema = z
     if (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)
       require('JWT_PRIVATE_KEY', 'signing keys are required in production');
     if (!env.FIELD_ENCRYPTION_KEY) require('FIELD_ENCRYPTION_KEY', 'is required in production');
-    if (!env.IP_HASH_SECRET) require('IP_HASH_SECRET', 'is required in production');
+    if (!env.HMAC_SECRET) require('HMAC_SECRET', 'is required in production');
     if (!env.COOKIE_SECURE) require('COOKIE_SECURE', 'must be true in production');
     if (env.CORS_ORIGINS.length === 0)
       require('CORS_ORIGINS', 'must list the web and admin origins in production');
@@ -94,7 +100,9 @@ export type Env = z.output<typeof envSchema>;
 
 /** Parses the environment, failing fast with key names and rules only (never values). */
 export function parseEnv(source: NodeJS.ProcessEnv): Env {
-  const result = envSchema.safeParse(source);
+  // `KEY=` in a .env file means "not set" (the .env.example convention for unset secrets).
+  const defined = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== ''));
+  const result = envSchema.safeParse(defined);
   if (!result.success) {
     const issues = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
