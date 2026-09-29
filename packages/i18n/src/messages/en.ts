@@ -6,8 +6,6 @@
 export const en = {
   common: {
     skipToContent: 'Skip to main content',
-    seeAll: 'See all',
-    learnMore: 'Learn more',
     close: 'Close',
     done: 'Done',
     required: 'Required',
@@ -39,6 +37,7 @@ export const en = {
   header: {
     homeLink: '{brand} home',
     primaryNav: 'Main',
+    utilityNav: 'Support and preferences',
     openMenu: 'Open menu',
     menuTitle: 'Menu',
     manageBooking: 'Manage booking',
@@ -255,7 +254,6 @@ export const en = {
       priceMonthly: '{price} per month',
       priceYearly: '{price} per year',
       join: 'Join Suskii Prime',
-      learnMore: 'Learn more',
     },
     flexiblePayment: {
       heading: 'Flexible payment, honest terms',

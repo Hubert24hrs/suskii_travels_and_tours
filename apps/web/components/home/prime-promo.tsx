@@ -1,5 +1,4 @@
-import { BRAND } from '@suskii/shared';
-import { buttonVariants, cn } from '@suskii/ui-web';
+import { buttonVariants } from '@suskii/ui-web';
 import { Check } from 'lucide-react';
 
 import type { HomeContent } from '../../lib/api';
@@ -60,13 +59,6 @@ export async function PrimePromo({ prime }: { prime: HomeContent['prime'] | unde
               className={buttonVariants({ variant: 'secondary', fullWidth: 'mobile' })}
             >
               {t('sections.prime.join')}
-            </AppLink>
-            <AppLink
-              href="/prime"
-              aria-label={`${t('sections.prime.learnMore')}: ${BRAND.membershipProgram}`}
-              className={cn(buttonVariants({ variant: 'ghost', fullWidth: 'mobile' }))}
-            >
-              {t('sections.prime.learnMore')}
             </AppLink>
           </div>
         </div>

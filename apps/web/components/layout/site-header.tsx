@@ -71,7 +71,10 @@ async function SupportLinks({ site, className }: { site: SiteContent | null; cla
 export async function UtilityBar({ site }: { site: SiteContent | null }) {
   const { t } = await getI18n();
   return (
-    <div className="hidden border-b border-border bg-background lg:block">
+    <nav
+      aria-label={t('header.utilityNav')}
+      className="hidden border-b border-border bg-background lg:block"
+    >
       <Container className="flex min-h-12 items-center justify-end gap-6">
         <SupportLinks site={site} />
         <AppLink
@@ -82,7 +85,7 @@ export async function UtilityBar({ site }: { site: SiteContent | null }) {
         </AppLink>
         <CurrencySelect />
       </Container>
-    </div>
+    </nav>
   );
 }
 

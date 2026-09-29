@@ -1,12 +1,15 @@
 import type { MetadataRoute } from 'next';
+import { connection } from 'next/server';
 
 import { api } from '../lib/api';
 import { absoluteUrl } from '../lib/seo';
 
-export const revalidate = 3600;
-
-/** Landing pages plus the programmatic route and city pages and published CMS pages. */
+/**
+ * Landing pages plus the programmatic route and city pages and published CMS pages. Rendered on
+ * request (the API is not reachable at build time); the API reads come from the data cache.
+ */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  await connection();
   const [routes, destinations, site] = await Promise.all([
     api.dealRoutes(),
     api.hotelDestinations('NGN'),
