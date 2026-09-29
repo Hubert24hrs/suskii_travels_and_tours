@@ -336,6 +336,19 @@ describe('search (e2e): mock suppliers end to end', () => {
       ...extra,
     });
 
+    it('answers 400, not 500, for malformed dates', async () => {
+      const cityId = await lagosCity();
+      const { body } = await ctx
+        .http()
+        .post('/v1/hotels/searches')
+        .send(hotelSearch(cityId, { checkIn: 'soon', checkOut: '2026-13-45' }))
+        .expect(400);
+      expect(body.errors.map((issue: { path: string }) => issue.path)).toEqual([
+        'checkIn',
+        'checkOut',
+      ]);
+    });
+
     it('searches a city, filters, shows a hotel and quotes a rate', async () => {
       const cityId = await lagosCity();
       const search = await ctx

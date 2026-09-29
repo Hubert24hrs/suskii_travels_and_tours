@@ -28,6 +28,8 @@ import { SmsProvider, type MockSmsProvider } from '../../src/notifications/sms';
 export const WEB_ORIGIN = 'https://web.suskii.test';
 export const GOOGLE_CLIENT_ID = 'google-client-id.apps.googleusercontent.com';
 export const APPLE_CLIENT_ID = 'com.suskii.travels';
+/** Service token for /v1/internal routes in tests. */
+export const E2E_INTERNAL_TOKEN = 'e2e-internal-token-0123456789abcdefghij';
 /** Passwords the fake breach checker reports as compromised. */
 export const BREACHED_PASSWORD = 'password1234';
 
@@ -112,6 +114,7 @@ export async function createTestApp(
       APPLE_CLIENT_IDS: APPLE_CLIENT_ID,
       HMAC_SECRET: 'e2e-hmac-secret-that-is-at-least-32-chars',
       FIELD_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'),
+      INTERNAL_API_TOKEN: E2E_INTERNAL_TOKEN,
     }),
     ...overrides,
   };
@@ -163,7 +166,7 @@ export async function createTestApp(
  */
 export async function resetState(ctx: TestContext): Promise<void> {
   await ctx.prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE users, idempotency_keys, offers, search_logs, markup_rules, fee_rules, promo_codes, promo_redemptions RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE users, idempotency_keys, offers, search_logs, markup_rules, fee_rules, promo_codes, promo_redemptions, deal_snapshots, destination_hotel_snapshots, newsletter_subscriptions RESTART IDENTITY CASCADE',
   );
   await ctx.redis.flushdb();
   ctx.emails.outbox.length = 0;

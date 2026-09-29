@@ -56,6 +56,22 @@ export function passwordResetTemplate(url: string): Template {
   };
 }
 
+export function newsletterConfirmTemplate(confirmUrl: string, unsubscribeUrl: string): Template {
+  const intro = `Confirm that you want deal alerts from ${BRAND.name}: fresh fares and offers, a few times a month.`;
+  const expiry =
+    'This link expires in 48 hours. If you did not sign up, ignore this email and nothing will be sent.';
+  const leave = `Changed your mind later? Unsubscribe any time: ${unsubscribeUrl}`;
+  return {
+    template: 'newsletter-confirm',
+    subject: `Confirm your deal alerts from ${BRAND.name}`,
+    text: `${intro}\n\n${confirmUrl}\n\n${expiry}\n\n${leave}`,
+    html: layout('Confirm your deal alerts', [intro, expiry, leave], {
+      label: 'Confirm subscription',
+      url: confirmUrl,
+    }),
+  };
+}
+
 export function otpSmsBody(code: string): string {
   return `${code} is your ${BRAND.name} verification code. It expires in 5 minutes. Never share it.`;
 }

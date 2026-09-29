@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { IS_PUBLIC } from '../auth/decorators';
 import { CONTRACT, schemaRegistry, type RouteContract } from '../contract/contract';
+import { IS_INTERNAL } from '../internal/internal-route';
 
 import { PROBLEM_DETAILS_SCHEMA } from './problem.schema';
 
@@ -159,12 +160,15 @@ function parameters(
   }));
 }
 
+type Access = 'user' | 'public' | 'internal';
+
 function operation(
   collector: SchemaCollector,
   contract: RouteContract,
   method: string,
-  isPublic: boolean,
+  access: Access,
 ): OperationObject {
+  const isPublic = access === 'public';
   const responses: Record<string, ResponseObject> = {};
   for (const [status, schema] of Object.entries(contract.responses).sort(
     ([a], [b]) => Number(a) - Number(b),
@@ -197,7 +201,7 @@ function operation(
           },
         ]
       : []),
-    ...(UNSAFE_METHODS.has(method)
+    ...(UNSAFE_METHODS.has(method) && access !== 'internal'
       ? [
           {
             name: 'X-CSRF-Token',
@@ -217,6 +221,7 @@ function operation(
     ...(contract.description ? { description: contract.description } : {}),
     tags: contract.tags,
     ...(isPublic ? { security: [] } : {}),
+    ...(access === 'internal' ? { security: [{ internalToken: [] }] } : {}),
     parameters: [
       ...parameters(collector, contract.params, 'path'),
       ...parameters(collector, contract.query, 'query'),
@@ -271,7 +276,11 @@ export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
       );
       const isPublic =
         controllerPublic || reflector.get<boolean | undefined>(IS_PUBLIC, handler) === true;
-      paths[path] = { ...paths[path], [method]: operation(collector, contract, method, isPublic) };
+      const isInternal =
+        reflector.get<boolean | undefined>(IS_INTERNAL, metatype) === true ||
+        reflector.get<boolean | undefined>(IS_INTERNAL, handler) === true;
+      const access: Access = isInternal ? 'internal' : isPublic ? 'public' : 'user';
+      paths[path] = { ...paths[path], [method]: operation(collector, contract, method, access) };
     }
   }
 
@@ -306,6 +315,11 @@ export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
       securitySchemes: {
         bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
         cookieAuth: { type: 'apiKey', in: 'cookie', name: ACCESS_TOKEN_COOKIE },
+        internalToken: {
+          type: 'http',
+          scheme: 'bearer',
+          description: 'Service token for /v1/internal routes (worker only, ADR-011).',
+        },
       },
       responses: problemResponses,
     },

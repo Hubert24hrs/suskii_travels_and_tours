@@ -262,20 +262,28 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
       }
     });
 
-    it('documents 401 on every protected operation and CSRF on every write', () => {
+    it('documents 401 on every protected operation and CSRF on every browser write', () => {
       const doc = buildOpenApiDocument(ctx.app);
+      let internalOperations = 0;
       for (const [path, operations] of Object.entries(doc.paths)) {
         for (const [method, operation] of Object.entries(operations)) {
-          if (!operation.security)
+          // Service-to-service routes use the internal token, never cookies (ADR-011).
+          const internal = path.startsWith('/v1/internal/');
+          if (internal) {
+            internalOperations += 1;
+            expect([path, operation.security]).toEqual([path, [{ internalToken: [] }]]);
+          }
+          if (!operation.security || internal)
             expect([path, method, operation.responses['401']]).toEqual([
               path,
               method,
               { $ref: '#/components/responses/Problem401' },
             ]);
-          if (method !== 'get')
+          if (method !== 'get' && !internal)
             expect(operation.parameters.map((p) => p.name)).toContain('X-CSRF-Token');
         }
       }
+      expect(internalOperations).toBe(4);
     });
 
     it('resolves every $ref (generated clients refuse dangling references)', () => {

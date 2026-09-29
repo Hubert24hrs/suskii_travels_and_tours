@@ -8,7 +8,9 @@
  * - The five trust signals from the brand guardrails. Created once, never overwritten, so admin
  *   verification decisions survive re-seeding. Only three are verified; the traveller count and
  *   IATA accreditation stay hidden until the business provides evidence.
- * - Draft CMS blocks and FAQs (unpublished) for the homepage build in phase 4.
+ * - Homepage CMS blocks and FAQs with the spec copy (published). Business facts (Prime price,
+ *   support contacts, social and app store links) are left empty; the web hides them until set.
+ * - Starter deal routes and featured hotel destinations from the homepage spec (ADR-011).
  * - Optional local super admin from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (never in production).
  */
 import { readFileSync } from 'node:fs';
@@ -167,13 +169,14 @@ const TRUST_SIGNALS: Prisma.TrustSignalCreateInput[] = [
   { key: 'iata_accredited', label: 'IATA accredited', verified: false, sortOrder: 50 },
 ];
 
-/** Draft copy taken from the homepage spec; prices and business facts are left for the owner. */
+/** Copy from the homepage spec; prices and business facts are left for the owner. */
 const CMS_BLOCKS: { key: string; content: Prisma.InputJsonObject }[] = [
   {
     key: 'home.hero',
     content: {
       headline: 'Your one-stop travel shop',
-      subheadline: 'Flights, hotels, packages, tours, visa help and travel add-ons in one place.',
+      subheadline:
+        'Cheap flights, great hotels, holiday packages and visa support, all in one place, with flexible payment on every booking.',
     },
   },
   {
@@ -197,6 +200,10 @@ const CMS_BLOCKS: { key: string; content: Prisma.InputJsonObject }[] = [
       ],
     },
   },
+  // Business facts: empty until the owner provides them (the web hides empty values).
+  { key: 'site.contact', content: { phone: null, whatsapp: null, email: null } },
+  { key: 'site.social', content: { links: [] } },
+  { key: 'site.apps', content: { iosUrl: null, androidUrl: null } },
 ];
 
 const FAQS: { question: string; answer: string }[] = [
@@ -216,7 +223,41 @@ const FAQS: { question: string; answer: string }[] = [
   },
 ];
 
+/**
+ * Starter deal routes: the five origin cities of the homepage filter chips to popular
+ * destinations. Configuration managed in the admin console from phase 10 (ADR-011).
+ */
+const DEAL_ROUTES: Record<string, string[]> = {
+  LOS: ['LHR', 'DXB', 'JFK', 'ACC', 'ABV', 'JNB'],
+  ABV: ['LHR', 'DXB', 'LOS', 'IST'],
+  PHC: ['LOS', 'ABV', 'DXB', 'LHR'],
+  ACC: ['LHR', 'LOS', 'DXB', 'JFK'],
+  NBO: ['DXB', 'LHR', 'JNB', 'ZNZ'],
+};
+
+/** Top hotel destinations listed in the homepage spec, in display order. */
+const HOTEL_DESTINATIONS: [city: string, countryCode: string][] = [
+  ['Dubai', 'AE'],
+  ['London', 'GB'],
+  ['Accra', 'GH'],
+  ['Nairobi', 'KE'],
+  ['Cape Town', 'ZA'],
+  ['Istanbul', 'TR'],
+  ['Zanzibar', 'TZ'],
+  ['Lagos', 'NG'],
+  ['Abuja', 'NG'],
+];
+
+const slugify = (value: string): string =>
+  value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
 async function seedContent(prisma: PrismaClient): Promise<void> {
+  const now = new Date();
   for (const signal of TRUST_SIGNALS) {
     // Create-only: re-seeding must never flip a verification decision made in the admin console.
     await prisma.trustSignal.upsert({ where: { key: signal.key }, create: signal, update: {} });
@@ -224,15 +265,81 @@ async function seedContent(prisma: PrismaClient): Promise<void> {
   for (const block of CMS_BLOCKS) {
     await prisma.cmsBlock.upsert({
       where: { key_locale: { key: block.key, locale: 'en-NG' } },
-      create: { key: block.key, locale: 'en-NG', content: block.content },
+      create: { key: block.key, locale: 'en-NG', content: block.content, publishedAt: now },
       update: {},
     });
   }
   if ((await prisma.faq.count()) === 0) {
     await prisma.faq.createMany({
-      data: FAQS.map((faq, index) => ({ ...faq, locale: 'en-NG', sortOrder: (index + 1) * 10 })),
+      data: FAQS.map((faq, index) => ({
+        ...faq,
+        locale: 'en-NG',
+        sortOrder: (index + 1) * 10,
+        publishedAt: now,
+      })),
     });
   }
+}
+
+async function seedDealsAndDestinations(prisma: PrismaClient): Promise<void> {
+  const codes = [...new Set(Object.entries(DEAL_ROUTES).flat(2))];
+  const airports = await prisma.airport.findMany({
+    where: { iataCode: { in: codes } },
+    include: { city: true },
+  });
+  const byCode = new Map(airports.map((airport) => [airport.iataCode, airport]));
+  const cityOf = (code: string): string => {
+    const airport = byCode.get(code);
+    if (!airport) throw new Error(`deal route airport ${code} is missing from the reference data`);
+    return airport.city?.name ?? airport.municipality ?? airport.name;
+  };
+  let sortOrder = 0;
+  for (const [origin, destinations] of Object.entries(DEAL_ROUTES)) {
+    for (const destination of destinations) {
+      sortOrder += 10;
+      const domestic = byCode.get(origin)?.countryCode === byCode.get(destination)?.countryCode;
+      // Create-only: routes edited or deactivated in the admin console stay as they are.
+      await prisma.dealRoute.upsert({
+        where: {
+          originCode_destinationCode_cabinClass: {
+            originCode: origin,
+            destinationCode: destination,
+            cabinClass: 'economy',
+          },
+        },
+        create: {
+          slug: `${slugify(cityOf(origin))}-to-${slugify(cityOf(destination))}`,
+          originCode: origin,
+          destinationCode: destination,
+          stayNights: domestic ? 3 : 7,
+          sortOrder,
+        },
+        update: {},
+      });
+    }
+  }
+
+  const now = new Date();
+  for (const [index, [name, countryCode]] of HOTEL_DESTINATIONS.entries()) {
+    const city = await prisma.city.findUnique({
+      where: { countryCode_name: { countryCode, name } },
+    });
+    if (!city) throw new Error(`hotel destination ${name} (${countryCode}) is missing`);
+    await prisma.destinationContent.upsert({
+      where: { cityId: city.id },
+      create: {
+        cityId: city.id,
+        slug: slugify(name),
+        featured: true,
+        sortOrder: (index + 1) * 10,
+        publishedAt: now,
+      },
+      update: {},
+    });
+  }
+  process.stdout.write(
+    `deals and destinations: ${sortOrder / 10} routes, ${HOTEL_DESTINATIONS.length} destinations\n`,
+  );
 }
 
 async function seedLocalAdmin(prisma: PrismaClient): Promise<void> {
@@ -271,6 +378,7 @@ async function main(): Promise<void> {
     await seedReferenceData(prisma);
     await syncRbacCatalog(prisma);
     await seedContent(prisma);
+    await seedDealsAndDestinations(prisma);
     await seedLocalAdmin(prisma);
   } finally {
     await prisma.$disconnect();

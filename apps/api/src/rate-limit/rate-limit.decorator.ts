@@ -55,3 +55,15 @@ export const SEARCH_LIMITS = {
   promoIp: { name: 'promo-ip', limit: 10, windowSeconds: 600, by: 'ip' },
   promoUser: { name: 'promo-user', limit: 10, windowSeconds: 600, by: 'user' },
 } as const satisfies Record<string, RateLimitPolicy>;
+
+/** Newsletter sign-up and email-link endpoints (ADR-012). */
+export const NEWSLETTER_LIMITS = {
+  subscribeIp: { name: 'newsletter-ip', limit: 5, windowSeconds: 600, by: 'ip' },
+  subscribeEmail: {
+    name: 'newsletter-email',
+    limit: 3,
+    windowSeconds: 3600,
+    by: { body: 'email' },
+  },
+  tokenIp: { name: 'newsletter-token-ip', limit: 20, windowSeconds: 600, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;

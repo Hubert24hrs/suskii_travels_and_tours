@@ -17,5 +17,7 @@ const lines = [
   `FIELD_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}`,
   '# Master secret for HMAC subkeys (IP hashing, CSRF, OTP and recovery-code hashes).',
   `HMAC_SECRET=${randomBytes(48).toString('base64url')}`,
+  '# Service token shared by the API and the worker for /v1/internal routes.',
+  `INTERNAL_API_TOKEN=${randomBytes(32).toString('base64url')}`,
 ];
 process.stdout.write(`${lines.join('\n')}\n`);

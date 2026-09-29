@@ -1,4 +1,4 @@
-export { BRAND } from './brand';
+export { BRAND, NEWSLETTER_CONSENT_VERSION } from './brand';
 export {
   DEFAULT_CURRENCY,
   SUPPORTED_CURRENCIES,

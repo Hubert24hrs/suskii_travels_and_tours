@@ -65,7 +65,10 @@ the domain and exposes token-guarded internal routes under `/v1/internal`:
 - Internal routes are documented in the OpenAPI document (tag `internal`) so the worker uses the
   generated types; the edge (Cloudflare) should block `/v1/internal/*` from the internet in phase
   12 as defence in depth.
-- A generous dedicated rate limit applies, so a leaked token cannot be used to hammer suppliers.
+- The API's default limits (120 requests per minute per route, 600 per minute per IP) apply, and
+  refreshes reuse the search cache, so even a leaked token cannot make the API hammer suppliers.
+- Without `INTERNAL_API_TOKEN` the routes answer 404. `.env.example` ships a clearly named local
+  development token (`local-dev-only-…`) so the stack works out of the box; production refuses it.
 
 ## Consequences
 

@@ -73,6 +73,17 @@ export interface FlightListOptions extends FlightFilters {
 
 const FIRST_PAGE = 20;
 
+/** Supplier total (base + taxes) converted for comparisons across suppliers and currencies. */
+function supplierTotalIn(fx: Converter, offer: SupplierFlightOffer, currency: string): Money {
+  return fx.convert(
+    {
+      minor: offer.price.base.minor + offer.price.taxes.minor,
+      currency: offer.price.base.currency,
+    },
+    currency,
+  );
+}
+
 export function flightPricingContext(
   offer: SupplierFlightOffer,
   client: ClientContext,
@@ -152,28 +163,10 @@ export class FlightSearchService {
   ): Promise<FlightSearchResultDto> {
     const started = performance.now();
     await this.validate(request);
-    const query: FlightSearchQuery = {
-      slices: request.slices,
-      passengers: request.passengers,
-      cabinClass: request.cabinClass,
-      maxConnections: request.directOnly ? 0 : null,
-    };
-    const hash = queryHash({ version: 1, query });
-
-    const cachedId = await this.store.cachedSearchId('flights', hash);
-    let meta = cachedId ? await this.store.meta<FlightSearchRequest>('flights', cachedId) : null;
-    let items = meta ? await this.store.items<StoredOffer>('flights', meta.searchId) : null;
-    const cacheHit = Boolean(meta && (items !== null || meta.resultCount === 0));
-    if (!cacheHit) {
-      const searchId = await this.fetchOnce(hash, query, request);
-      meta = await this.store.meta<FlightSearchRequest>('flights', searchId);
-      items = await this.store.items<StoredOffer>('flights', searchId);
-    }
-    if (!meta) throw searchUnavailable();
-
+    const { meta, items, cacheHit } = await this.resolve(request);
     const result = await this.view(
       meta,
-      items ?? new Map(),
+      items,
       { sort: 'best', currency, limit: FIRST_PAGE },
       client,
     );
@@ -197,6 +190,24 @@ export class FlightSearchService {
       supplierOutcomes: meta.suppliers,
     });
     return result;
+  }
+
+  /**
+   * The cheapest current offer for a request, compared on the supplier total in USD. Used by the
+   * deals refresh (ADR-011); shares the cache and single-flight with customer searches.
+   */
+  async cheapestOffer(request: FlightSearchRequest): Promise<SupplierFlightOffer | null> {
+    await this.validate(request);
+    const { items } = await this.resolve(request);
+    const fx = await this.fx.converter();
+    const now = Date.now();
+    let best: { offer: SupplierFlightOffer; usd: Money } | null = null;
+    for (const { offer } of items.values()) {
+      if (Date.parse(offer.expiresAt) <= now) continue;
+      const usd = supplierTotalIn(fx, offer, 'USD');
+      if (!best || compare(usd, best.usd) < 0) best = { offer, usd };
+    }
+    return best?.offer ?? null;
   }
 
   async list(
@@ -322,6 +333,33 @@ export class FlightSearchService {
     if (issues.length > 0) throw invalidSearch(issues);
   }
 
+  /** The cached result set for the normalised query, or a fresh supplier fetch. */
+  private async resolve(request: FlightSearchRequest): Promise<{
+    meta: SearchMeta<FlightSearchRequest>;
+    items: Map<string, StoredOffer>;
+    cacheHit: boolean;
+  }> {
+    const query: FlightSearchQuery = {
+      slices: request.slices,
+      passengers: request.passengers,
+      cabinClass: request.cabinClass,
+      maxConnections: request.directOnly ? 0 : null,
+    };
+    const hash = queryHash({ version: 1, query });
+
+    const cachedId = await this.store.cachedSearchId('flights', hash);
+    let meta = cachedId ? await this.store.meta<FlightSearchRequest>('flights', cachedId) : null;
+    let items = meta ? await this.store.items<StoredOffer>('flights', meta.searchId) : null;
+    const cacheHit = Boolean(meta && (items !== null || meta.resultCount === 0));
+    if (!cacheHit) {
+      const searchId = await this.fetchOnce(hash, query, request);
+      meta = await this.store.meta<FlightSearchRequest>('flights', searchId);
+      items = await this.store.items<StoredOffer>('flights', searchId);
+    }
+    if (!meta) throw searchUnavailable();
+    return { meta, items: items ?? new Map<string, StoredOffer>(), cacheHit };
+  }
+
   /** Identical concurrent searches share one supplier fetch (per process). */
   private fetchOnce(
     hash: string,
@@ -350,14 +388,7 @@ export class FlightSearchService {
 
     const now = Date.now();
     const fx = await this.fx.converter();
-    const toUsd = (offer: SupplierFlightOffer): Money =>
-      fx.convert(
-        {
-          minor: offer.price.base.minor + offer.price.taxes.minor,
-          currency: offer.price.base.currency,
-        },
-        'USD',
-      );
+    const toUsd = (offer: SupplierFlightOffer): Money => supplierTotalIn(fx, offer, 'USD');
     // The same itinerary from two suppliers: keep the cheaper one.
     const unique = new Map<string, SupplierFlightOffer>();
     for (const offer of results.flatMap((result) => result.items)) {

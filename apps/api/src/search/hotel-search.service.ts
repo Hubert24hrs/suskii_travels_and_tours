@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
 import {
+  compare,
   daysBetween,
   equals,
   localDate,
@@ -9,6 +10,7 @@ import {
   subtract,
   toWire,
   type HotelSearchRequest,
+  type Money,
 } from '@suskii/shared';
 
 import { CatalogService } from '../catalog/catalog.service';
@@ -173,23 +175,10 @@ export class HotelSearchService {
     client: ClientContext,
   ): Promise<HotelSearchResultDto> {
     const started = performance.now();
-    const query = await this.supplierQuery(request, true);
-    const hash = queryHash({ version: 1, query });
-
-    const cachedId = await this.store.cachedSearchId('hotels', hash);
-    let meta = cachedId ? await this.store.meta<HotelSearchRequest>('hotels', cachedId) : null;
-    let items = meta ? await this.store.items<StoredHotel>('hotels', meta.searchId) : null;
-    const cacheHit = Boolean(meta && (items !== null || meta.resultCount === 0));
-    if (!cacheHit) {
-      const searchId = await this.fetchOnce(hash, query, request);
-      meta = await this.store.meta<HotelSearchRequest>('hotels', searchId);
-      items = await this.store.items<StoredHotel>('hotels', searchId);
-    }
-    if (!meta) throw searchUnavailable();
-
+    const { meta, items, cacheHit } = await this.resolve(request);
     const result = await this.view(
       meta,
-      items ?? new Map(),
+      items,
       { sort: 'recommended', currency, limit: FIRST_PAGE },
       client,
     );
@@ -210,6 +199,37 @@ export class HotelSearchService {
       supplierOutcomes: meta.suppliers,
     });
     return result;
+  }
+
+  /**
+   * Hotel count and the cheapest bookable rate for a stay, compared on the supplier total in USD.
+   * Used by the hotel destinations refresh (ADR-011); shares the customer search cache.
+   */
+  async stayAvailability(request: HotelSearchRequest): Promise<{
+    hotelCount: number;
+    cheapest: { hotel: SupplierHotel; rate: SupplierHotelRate } | null;
+  }> {
+    const { items } = await this.resolve(request);
+    const fx = await this.fx.converter();
+    const now = Date.now();
+    let best: { hotel: SupplierHotel; rate: SupplierHotelRate; usd: Money } | null = null;
+    for (const { hotel } of items.values()) {
+      for (const rate of hotel.rates) {
+        if (Date.parse(rate.expiresAt) <= now) continue;
+        const usd = fx.convert(
+          {
+            minor: rate.price.base.minor + rate.price.taxes.minor,
+            currency: rate.price.base.currency,
+          },
+          'USD',
+        );
+        if (!best || compare(usd, best.usd) < 0) best = { hotel, rate, usd };
+      }
+    }
+    return {
+      hotelCount: items.size,
+      cheapest: best ? { hotel: best.hotel, rate: best.rate } : null,
+    };
   }
 
   async list(
@@ -320,6 +340,28 @@ export class HotelSearchService {
     const item = await this.store.item<StoredHotel>('hotels', searchId, hotelId);
     if (!item) throw offerUnavailable(meta.request);
     return { meta, item };
+  }
+
+  /** The cached result set for the normalised query, or a fresh supplier fetch. */
+  private async resolve(request: HotelSearchRequest): Promise<{
+    meta: SearchMeta<HotelSearchRequest>;
+    items: Map<string, StoredHotel>;
+    cacheHit: boolean;
+  }> {
+    const query = await this.supplierQuery(request, true);
+    const hash = queryHash({ version: 1, query });
+
+    const cachedId = await this.store.cachedSearchId('hotels', hash);
+    let meta = cachedId ? await this.store.meta<HotelSearchRequest>('hotels', cachedId) : null;
+    let items = meta ? await this.store.items<StoredHotel>('hotels', meta.searchId) : null;
+    const cacheHit = Boolean(meta && (items !== null || meta.resultCount === 0));
+    if (!cacheHit) {
+      const searchId = await this.fetchOnce(hash, query, request);
+      meta = await this.store.meta<HotelSearchRequest>('hotels', searchId);
+      items = await this.store.items<StoredHotel>('hotels', searchId);
+    }
+    if (!meta) throw searchUnavailable();
+    return { meta, items: items ?? new Map<string, StoredHotel>(), cacheHit };
   }
 
   /** Resolves the city; on a new search, check-in may not be before today in the city's zone. */

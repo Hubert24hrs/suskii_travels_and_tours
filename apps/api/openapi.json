@@ -1132,6 +1132,444 @@
         }
       }
     },
+    "/v1/content/home": {
+      "get": {
+        "operationId": "getHomeContent",
+        "summary": "Homepage CMS blocks and FAQs",
+        "tags": [
+          "Content"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "en-NG",
+              "type": "string",
+              "enum": [
+                "en-NG",
+                "en-GB",
+                "en-US"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeContent"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/content/pages/{slug}": {
+      "get": {
+        "operationId": "getContentPage",
+        "summary": "Published CMS page (terms, privacy, about...)",
+        "tags": [
+          "Content"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "en-NG",
+              "type": "string",
+              "enum": [
+                "en-NG",
+                "en-GB",
+                "en-US"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/content/site": {
+      "get": {
+        "operationId": "getSiteContent",
+        "summary": "Header and footer content",
+        "description": "Support contacts, social and app store links, published pages, verified trust signals and supported payment methods. Empty values mean the business has not provided them yet.",
+        "tags": [
+          "Content"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "en-NG",
+              "type": "string",
+              "enum": [
+                "en-NG",
+                "en-GB",
+                "en-US"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteContent"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/deals/flights": {
+      "get": {
+        "operationId": "listFlightDeals",
+        "summary": "Fresh flight deals on popular routes",
+        "description": "Latest cheapest fare per route found by the deals worker within DEALS_MAX_AGE_HOURS, priced with current rules. Mock supplier fares are flagged `sample`.",
+        "tags": [
+          "Deals"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "origin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 48
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlightDeals"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/deals/routes": {
+      "get": {
+        "operationId": "listDealRoutes",
+        "summary": "Popular routes (SEO route pages and sitemap)",
+        "tags": [
+          "Deals"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealRoutes"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/deals/routes/{slug}": {
+      "get": {
+        "operationId": "getDealRoute",
+        "summary": "A popular route with its latest fresh fare",
+        "tags": [
+          "Deals"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 80,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealRouteDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/destinations/hotels": {
+      "get": {
+        "operationId": "listHotelDestinations",
+        "summary": "Featured hotel destinations with \"from\" nightly prices",
+        "tags": [
+          "Destinations"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotelDestinations"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/destinations/hotels/{slug}": {
+      "get": {
+        "operationId": "getHotelDestination",
+        "summary": "A published hotel destination",
+        "tags": [
+          "Destinations"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 80,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotelDestination"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/flights/offers/{offerId}": {
       "get": {
         "operationId": "getFlightOffer",
@@ -1906,6 +2344,201 @@
         }
       }
     },
+    "/v1/internal/deals/routes/{routeId}/refresh": {
+      "post": {
+        "operationId": "refreshDealRoute",
+        "summary": "Search a deal route now and store the cheapest fare",
+        "description": "Answers 503 when every supplier search failed; the worker retries with backoff.",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "routeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/internal/destinations/{destinationId}/refresh": {
+      "post": {
+        "operationId": "refreshHotelDestination",
+        "summary": "Search a hotel destination now and store the cheapest rate",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "destinationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/internal/refresh-targets": {
+      "get": {
+        "operationId": "listRefreshTargets",
+        "summary": "Deal routes and hotel destinations to refresh",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshTargets"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/internal/snapshots/prune": {
+      "post": {
+        "operationId": "pruneSnapshots",
+        "summary": "Delete deal and destination snapshots past the retention window",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PruneResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/me": {
       "get": {
         "operationId": "getMe",
@@ -2520,6 +3153,163 @@
           },
           "401": {
             "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/newsletter/confirm": {
+      "post": {
+        "operationId": "confirmNewsletter",
+        "summary": "Confirm a deal-alert subscription from the email link",
+        "tags": [
+          "Newsletter"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewsletterTokenRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewsletterConfirmResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/newsletter/subscriptions": {
+      "post": {
+        "operationId": "subscribeNewsletter",
+        "summary": "Sign up for deal alerts (double opt-in)",
+        "description": "Requires explicit consent and a Cloudflare Turnstile token. Always answers 202 with the same body; a confirmation email is sent to new or pending addresses.",
+        "tags": [
+          "Newsletter"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewsletterSubscribeRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewsletterSubscribeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/newsletter/unsubscribe": {
+      "post": {
+        "operationId": "unsubscribeNewsletter",
+        "summary": "Stop deal alerts from the email link",
+        "tags": [
+          "Newsletter"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewsletterTokenRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewsletterUnsubscribeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
           },
           "429": {
             "$ref": "#/components/responses/Problem429"
@@ -3157,6 +3947,57 @@
         ],
         "additionalProperties": false
       },
+      "ContentPage": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "paragraphs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "heading",
+                "paragraphs"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "group",
+          "sections",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
       "Countries": {
         "type": "object",
         "properties": {
@@ -3190,6 +4031,381 @@
         },
         "required": [
           "items"
+        ],
+        "additionalProperties": false
+      },
+      "DealRouteDetail": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "cityName": {
+                "type": "string"
+              },
+              "countryCode": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "cityName",
+              "countryCode"
+            ],
+            "additionalProperties": false
+          },
+          "destination": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "cityName": {
+                "type": "string"
+              },
+              "countryCode": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "cityName",
+              "countryCode"
+            ],
+            "additionalProperties": false
+          },
+          "cabinClass": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "stayNights": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "type": "string"
+          },
+          "deal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlightDeal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relatedRoutes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "origin": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "cityName": {
+                      "type": "string"
+                    },
+                    "countryCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "cityName",
+                    "countryCode"
+                  ],
+                  "additionalProperties": false
+                },
+                "destination": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "cityName": {
+                      "type": "string"
+                    },
+                    "countryCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "cityName",
+                    "countryCode"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "slug",
+                "origin",
+                "destination"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "origin",
+          "destination",
+          "cabinClass",
+          "stayNights",
+          "currency",
+          "deal",
+          "relatedRoutes"
+        ],
+        "additionalProperties": false
+      },
+      "DealRoutes": {
+        "type": "object",
+        "properties": {
+          "routes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "origin": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "cityName": {
+                      "type": "string"
+                    },
+                    "countryCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "cityName",
+                    "countryCode"
+                  ],
+                  "additionalProperties": false
+                },
+                "destination": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "cityName": {
+                      "type": "string"
+                    },
+                    "countryCode": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "cityName",
+                    "countryCode"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "slug",
+                "origin",
+                "destination"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "routes"
+        ],
+        "additionalProperties": false
+      },
+      "FlightDeal": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "routeSlug": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "cityName": {
+                "type": "string"
+              },
+              "countryCode": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "cityName",
+              "countryCode"
+            ],
+            "additionalProperties": false
+          },
+          "destination": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "cityName": {
+                "type": "string"
+              },
+              "countryCode": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "cityName",
+              "countryCode"
+            ],
+            "additionalProperties": false
+          },
+          "departureDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "returnDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "carrier": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "cabinClass": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "stops": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "price": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "sample": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "routeSlug",
+          "origin",
+          "destination",
+          "departureDate",
+          "returnDate",
+          "carrier",
+          "cabinClass",
+          "stops",
+          "durationMinutes",
+          "price",
+          "sample",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "FlightDeals": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "origins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "cityName": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "cityName"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "deals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlightDeal"
+            }
+          }
+        },
+        "required": [
+          "currency",
+          "origins",
+          "deals"
         ],
         "additionalProperties": false
       },
@@ -3949,6 +5165,276 @@
         },
         "required": [
           "status"
+        ],
+        "additionalProperties": false
+      },
+      "HomeContent": {
+        "type": "object",
+        "properties": {
+          "hero": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "headline": {
+                    "type": "string"
+                  },
+                  "subheadline": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "headline",
+                  "subheadline"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prime": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "benefits": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "priceMonthly": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/Money"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "priceYearly": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/Money"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "title",
+                  "benefits",
+                  "priceMonthly",
+                  "priceYearly"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "whyBook": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "icon": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "body": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "icon",
+                        "title",
+                        "body"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "items"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "faqs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "answer": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "question",
+                "answer"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "hero",
+          "prime",
+          "whyBook",
+          "faqs"
+        ],
+        "additionalProperties": false
+      },
+      "HotelDestination": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "city": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "country": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hotelCount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fromPricePerNight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sample": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "city",
+          "country",
+          "imageUrl",
+          "hotelCount",
+          "fromPricePerNight",
+          "sample",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HotelDestinations": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "destinations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HotelDestination"
+            }
+          }
+        },
+        "required": [
+          "currency",
+          "destinations"
         ],
         "additionalProperties": false
       },
@@ -4747,6 +6233,101 @@
         ],
         "additionalProperties": false
       },
+      "NewsletterConfirmResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "confirmed"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "NewsletterSubscribeRequestInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "consent": {
+            "type": "boolean",
+            "const": true
+          },
+          "whatsapp": {
+            "type": "object",
+            "properties": {
+              "phone": {
+                "type": "string",
+                "pattern": "^\\+[1-9]\\d{6,14}$"
+              }
+            },
+            "required": [
+              "phone"
+            ]
+          },
+          "locale": {
+            "default": "en-NG",
+            "type": "string",
+            "enum": [
+              "en-NG",
+              "en-GB",
+              "en-US"
+            ]
+          },
+          "turnstileToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "email",
+          "consent",
+          "turnstileToken"
+        ]
+      },
+      "NewsletterSubscribeResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "pending_confirmation"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "NewsletterTokenRequestInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "NewsletterUnsubscribeResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "unsubscribed"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
       "OtpDispatched": {
         "type": "object",
         "properties": {
@@ -5149,6 +6730,26 @@
         ],
         "additionalProperties": false
       },
+      "PruneResult": {
+        "type": "object",
+        "properties": {
+          "deletedDeals": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "deletedDestinations": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "deletedDeals",
+          "deletedDestinations"
+        ],
+        "additionalProperties": false
+      },
       "ReadinessStatus": {
         "type": "object",
         "properties": {
@@ -5213,6 +6814,90 @@
             "maxLength": 256
           }
         }
+      },
+      "RefreshResult": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "refreshed",
+              "no_results",
+              "inactive"
+            ]
+          },
+          "snapshotId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fetchedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "snapshotId",
+          "fetchedAt"
+        ],
+        "additionalProperties": false
+      },
+      "RefreshTargets": {
+        "type": "object",
+        "properties": {
+          "dealRoutes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "slug"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "hotelDestinations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "slug"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "dealRoutes",
+          "hotelDestinations"
+        ],
+        "additionalProperties": false
       },
       "RegisterRequestInput": {
         "type": "object",
@@ -5353,6 +7038,138 @@
           }
         ]
       },
+      "SiteContent": {
+        "type": "object",
+        "properties": {
+          "contact": {
+            "type": "object",
+            "properties": {
+              "phone": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "whatsapp": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "phone",
+              "whatsapp",
+              "email"
+            ],
+            "additionalProperties": false
+          },
+          "social": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "network": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "network",
+                "url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "apps": {
+            "type": "object",
+            "properties": {
+              "iosUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "androidUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "iosUrl",
+              "androidUrl"
+            ],
+            "additionalProperties": false
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "group": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "slug",
+                "title",
+                "group"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "trustSignals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustSignal"
+            }
+          },
+          "paymentMethods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "label"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "contact",
+          "social",
+          "apps",
+          "pages",
+          "trustSignals",
+          "paymentMethods"
+        ],
+        "additionalProperties": false
+      },
       "SocialSignInRequestInput": {
         "type": "object",
         "properties": {
@@ -5446,6 +7263,29 @@
         ],
         "additionalProperties": false
       },
+      "TrustSignal": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value"
+        ],
+        "additionalProperties": false
+      },
       "UpdateProfileRequestInput": {
         "type": "object",
         "properties": {
@@ -5483,6 +7323,11 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "__Secure-suskii_at"
+      },
+      "internalToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Service token for /v1/internal routes (worker only, ADR-011)."
       }
     },
     "responses": {

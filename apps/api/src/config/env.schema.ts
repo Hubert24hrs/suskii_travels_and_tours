@@ -15,6 +15,9 @@ const csv = <T extends z.ZodType<unknown, string>>(item: T) =>
     )
     .pipe(z.array(item));
 
+/** Prefix of the local development internal token in .env.example; refused in production. */
+export const LOCAL_INTERNAL_TOKEN_PREFIX = 'local-dev-only-';
+
 /** Every environment variable the API reads. Values are never echoed in validation errors. */
 export const envSchema = z
   .object({
@@ -90,6 +93,21 @@ export const envSchema = z
     SEARCH_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(600),
     FX_PROVIDER: z.enum(['mock']).default('mock'),
     FX_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3600),
+
+    /** Service token for /v1/internal routes (the worker). Unset: internal routes answer 404. */
+    INTERNAL_API_TOKEN: z.string().min(32).optional(),
+    /** Deals and destination prices older than this are never shown (ADR-011). */
+    DEALS_MAX_AGE_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+    /** Departure dates searched per deal route, in days from today at the origin. */
+    DEALS_DEPARTURE_OFFSETS_DAYS: csv(
+      z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(330)),
+    ).default([21, 45]),
+    /** Check-in date of the hotel search behind "from" prices, in days from today. */
+    DESTINATIONS_CHECK_IN_OFFSET_DAYS: z.coerce.number().int().min(1).max(330).default(30),
+    /** Deal and destination snapshots are kept this long for price history, then pruned. */
+    SNAPSHOT_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
+    /** Cloudflare Turnstile secret; unset outside production means the mock verifier. */
+    TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     const require = (key: keyof typeof env, message: string): void => {
@@ -105,7 +123,13 @@ export const envSchema = z
     if (env.SUPPLIER_TIMEOUT_MS > env.SEARCH_TIMEOUT_MS) {
       require('SUPPLIER_TIMEOUT_MS', 'must not exceed SEARCH_TIMEOUT_MS');
     }
+    if (env.DEALS_DEPARTURE_OFFSETS_DAYS.length === 0)
+      require('DEALS_DEPARTURE_OFFSETS_DAYS', 'list at least one offset');
     if (env.NODE_ENV !== 'production') return;
+    if (!env.INTERNAL_API_TOKEN) require('INTERNAL_API_TOKEN', 'is required in production');
+    else if (env.INTERNAL_API_TOKEN.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
+      require('INTERNAL_API_TOKEN', 'the local development token is not allowed in production');
+    if (!env.TURNSTILE_SECRET_KEY) require('TURNSTILE_SECRET_KEY', 'is required in production');
     if (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)
       require('JWT_PRIVATE_KEY', 'signing keys are required in production');
     if (!env.FIELD_ENCRYPTION_KEY) require('FIELD_ENCRYPTION_KEY', 'is required in production');

@@ -5,7 +5,10 @@ import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
+import { BotProtectionModule } from './bot-protection/bot-protection.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { ContentModule } from './content/content.module';
+import { DealsModule } from './deals/deals.module';
 import { PermissionsGuard } from './auth/permissions.guard';
 import { ProblemDetailsFilter } from './common/problem-details';
 import type { AppConfig } from './config/config';
@@ -16,6 +19,7 @@ import { HealthModule } from './health/health.module';
 import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor';
 import { InfraModule } from './infra/redis';
 import { LoggingModule } from './logging/logging.module';
+import { NewsletterModule } from './newsletter/newsletter.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PricingModule } from './pricing/pricing.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
@@ -36,12 +40,16 @@ export class AppModule {
         CryptoModule,
         AuditModule,
         NotificationsModule,
+        BotProtectionModule,
         RbacModule,
         AuthModule,
         AdminModule,
         CatalogModule,
         PricingModule,
         SearchModule,
+        ContentModule,
+        DealsModule,
+        NewsletterModule,
         HealthModule,
       ],
       providers: [

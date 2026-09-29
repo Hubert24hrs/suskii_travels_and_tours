@@ -408,6 +408,148 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/content/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Homepage CMS blocks and FAQs */
+        get: operations["getHomeContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/content/pages/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published CMS page (terms, privacy, about...) */
+        get: operations["getContentPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/content/site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Header and footer content
+         * @description Support contacts, social and app store links, published pages, verified trust signals and supported payment methods. Empty values mean the business has not provided them yet.
+         */
+        get: operations["getSiteContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deals/flights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fresh flight deals on popular routes
+         * @description Latest cheapest fare per route found by the deals worker within DEALS_MAX_AGE_HOURS, priced with current rules. Mock supplier fares are flagged `sample`.
+         */
+        get: operations["listFlightDeals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deals/routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Popular routes (SEO route pages and sitemap) */
+        get: operations["listDealRoutes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deals/routes/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A popular route with its latest fresh fare */
+        get: operations["getDealRoute"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/destinations/hotels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Featured hotel destinations with "from" nightly prices */
+        get: operations["listHotelDestinations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/destinations/hotels/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A published hotel destination */
+        get: operations["getHotelDestination"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/flights/offers/{offerId}": {
         parameters: {
             query?: never;
@@ -547,6 +689,77 @@ export interface paths {
         get: operations["listHotels"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/deals/routes/{routeId}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search a deal route now and store the cheapest fare
+         * @description Answers 503 when every supplier search failed; the worker retries with backoff.
+         */
+        post: operations["refreshDealRoute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/destinations/{destinationId}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Search a hotel destination now and store the cheapest rate */
+        post: operations["refreshHotelDestination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/refresh-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deal routes and hotel destinations to refresh */
+        get: operations["listRefreshTargets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/snapshots/prune": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete deal and destination snapshots past the retention window */
+        post: operations["pruneSnapshots"];
         delete?: never;
         options?: never;
         head?: never;
@@ -764,6 +977,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/newsletter/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a deal-alert subscription from the email link */
+        post: operations["confirmNewsletter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/newsletter/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign up for deal alerts (double opt-in)
+         * @description Requires explicit consent and a Cloudflare Turnstile token. Always answers 202 with the same body; a confirmation email is sent to new or pending addresses.
+         */
+        post: operations["subscribeNewsletter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/newsletter/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop deal alerts from the email link */
+        post: operations["unsubscribeNewsletter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/pricing/promos/validate": {
         parameters: {
             query?: never;
@@ -905,12 +1172,105 @@ export interface components {
                 name: string;
             }[];
         };
+        ContentPage: {
+            slug: string;
+            title: string;
+            group: string;
+            sections: {
+                heading: string | null;
+                paragraphs: string[];
+            }[];
+            /** Format: date-time */
+            updatedAt: string;
+        };
         Countries: {
             items: {
                 code: string;
                 name: string;
                 continent: string;
             }[];
+        };
+        DealRouteDetail: {
+            slug: string;
+            origin: {
+                code: string;
+                cityName: string;
+                countryCode: string;
+            };
+            destination: {
+                code: string;
+                cityName: string;
+                countryCode: string;
+            };
+            /** @enum {string} */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            stayNights: number;
+            currency: string;
+            deal: components["schemas"]["FlightDeal"] | null;
+            relatedRoutes: {
+                slug: string;
+                origin: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+                destination: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+            }[];
+        };
+        DealRoutes: {
+            routes: {
+                slug: string;
+                origin: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+                destination: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+            }[];
+        };
+        FlightDeal: {
+            id: string;
+            routeSlug: string;
+            origin: {
+                code: string;
+                cityName: string;
+                countryCode: string;
+            };
+            destination: {
+                code: string;
+                cityName: string;
+                countryCode: string;
+            };
+            departureDate: string;
+            returnDate: string | null;
+            carrier: {
+                code: string;
+                name: string;
+            };
+            /** @enum {string} */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            stops: number;
+            durationMinutes: number;
+            price: components["schemas"]["Money"];
+            sample: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        FlightDeals: {
+            currency: string;
+            origins: {
+                code: string;
+                cityName: string;
+            }[];
+            deals: components["schemas"]["FlightDeal"][];
         };
         FlightFacets: {
             airlines: {
@@ -1073,6 +1433,51 @@ export interface components {
         HealthStatus: {
             /** @constant */
             status: "ok";
+        };
+        HomeContent: {
+            hero: {
+                headline: string;
+                subheadline: string | null;
+            } | null;
+            prime: {
+                title: string;
+                benefits: string[];
+                priceMonthly: components["schemas"]["Money"] | null;
+                priceYearly: components["schemas"]["Money"] | null;
+            } | null;
+            whyBook: {
+                items: {
+                    icon: string;
+                    title: string;
+                    body: string | null;
+                }[];
+            } | null;
+            faqs: {
+                id: string;
+                question: string;
+                answer: string;
+            }[];
+        };
+        HotelDestination: {
+            id: string;
+            slug: string;
+            city: {
+                id: string;
+                name: string;
+            };
+            country: {
+                code: string;
+                name: string;
+            };
+            imageUrl: string | null;
+            hotelCount: number | null;
+            fromPricePerNight: components["schemas"]["Money"] | null;
+            sample: boolean | null;
+            updatedAt: string | null;
+        };
+        HotelDestinations: {
+            currency: string;
+            destinations: components["schemas"]["HotelDestination"][];
         };
         HotelDetail: {
             id: string;
@@ -1255,6 +1660,35 @@ export interface components {
             amountMinor: number;
             currency: string;
         };
+        NewsletterConfirmResponse: {
+            /** @constant */
+            status: "confirmed";
+        };
+        NewsletterSubscribeRequestInput: {
+            email: string;
+            /** @constant */
+            consent: true;
+            whatsapp?: {
+                phone: string;
+            };
+            /**
+             * @default en-NG
+             * @enum {string}
+             */
+            locale: "en-NG" | "en-GB" | "en-US";
+            turnstileToken: string;
+        };
+        NewsletterSubscribeResponse: {
+            /** @constant */
+            status: "pending_confirmation";
+        };
+        NewsletterTokenRequestInput: {
+            token: string;
+        };
+        NewsletterUnsubscribeResponse: {
+            /** @constant */
+            status: "unsubscribed";
+        };
         OtpDispatched: {
             /** @constant */
             status: "accepted";
@@ -1351,6 +1785,10 @@ export interface components {
             discount: components["schemas"]["Money"];
             price: components["schemas"]["Price"];
         };
+        PruneResult: {
+            deletedDeals: number;
+            deletedDestinations: number;
+        };
         ReadinessStatus: {
             /** @enum {string} */
             status: "ok" | "unavailable";
@@ -1366,6 +1804,22 @@ export interface components {
         };
         RefreshRequestInput: {
             refreshToken?: string;
+        };
+        RefreshResult: {
+            /** @enum {string} */
+            status: "refreshed" | "no_results" | "inactive";
+            snapshotId: string | null;
+            fetchedAt: string | null;
+        };
+        RefreshTargets: {
+            dealRoutes: {
+                id: string;
+                slug: string;
+            }[];
+            hotelDestinations: {
+                id: string;
+                slug: string;
+            }[];
         };
         RegisterRequestInput: {
             email: string;
@@ -1396,6 +1850,31 @@ export interface components {
             roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer")[];
         };
         SignInResult: components["schemas"]["AuthSession"] | components["schemas"]["MfaChallenge"];
+        SiteContent: {
+            contact: {
+                phone: string | null;
+                whatsapp: string | null;
+                email: string | null;
+            };
+            social: {
+                network: string;
+                url: string;
+            }[];
+            apps: {
+                iosUrl: string | null;
+                androidUrl: string | null;
+            };
+            pages: {
+                slug: string;
+                title: string;
+                group: string;
+            }[];
+            trustSignals: components["schemas"]["TrustSignal"][];
+            paymentMethods: {
+                key: string;
+                label: string;
+            }[];
+        };
         SocialSignInRequestInput: {
             idToken: string;
             nonce?: string;
@@ -1419,6 +1898,11 @@ export interface components {
         TotpSetup: {
             secret: string;
             otpauthUri: string;
+        };
+        TrustSignal: {
+            key: string;
+            label: string;
+            value: string | null;
         };
         UpdateProfileRequestInput: {
             displayName: string;
@@ -2163,6 +2647,215 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getHomeContent: {
+        parameters: {
+            query?: {
+                locale?: "en-NG" | "en-GB" | "en-US";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeContent"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getContentPage: {
+        parameters: {
+            query?: {
+                locale?: "en-NG" | "en-GB" | "en-US";
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getSiteContent: {
+        parameters: {
+            query?: {
+                locale?: "en-NG" | "en-GB" | "en-US";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteContent"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listFlightDeals: {
+        parameters: {
+            query?: {
+                origin?: string;
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightDeals"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listDealRoutes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealRoutes"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getDealRoute: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealRouteDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listHotelDestinations: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotelDestinations"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getHotelDestination: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotelDestination"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getFlightOffer: {
         parameters: {
             query?: {
@@ -2426,6 +3119,112 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    refreshDealRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                routeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefreshResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    refreshHotelDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                destinationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefreshResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    listRefreshTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefreshTargets"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    pruneSnapshots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PruneResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -2800,6 +3599,96 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    confirmNewsletter: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewsletterTokenRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewsletterConfirmResponse"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    subscribeNewsletter: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewsletterSubscribeRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewsletterSubscribeResponse"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    unsubscribeNewsletter: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewsletterTokenRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewsletterUnsubscribeResponse"];
+                };
+            };
+            400: components["responses"]["Problem400"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

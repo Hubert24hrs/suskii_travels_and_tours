@@ -293,17 +293,18 @@ model Country {
 }
 
 model City {
-  id          String    @id @default(uuid(7)) @db.Uuid
+  id          String              @id @default(uuid(7)) @db.Uuid
   name        String
-  countryCode String    @map("country_code") @db.Char(2)
+  countryCode String              @map("country_code") @db.Char(2)
   latitude    Float?
   longitude   Float?
   /// IANA time zone, e.g. Africa/Lagos.
   timezone    String?
   /// Accent-folded, lower-case "name country" for trigram autocomplete (set by the seed).
-  searchText  String    @default("") @map("search_text")
-  country     Country   @relation(fields: [countryCode], references: [code])
+  searchText  String              @default("") @map("search_text")
+  country     Country             @relation(fields: [countryCode], references: [code])
   airports    Airport[]
+  destination DestinationContent?
 
   @@unique([countryCode, name])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "cities_search_text_trgm_idx")
@@ -327,6 +328,8 @@ model Airport {
   searchText       String      @default("") @map("search_text")
   city             City?       @relation(fields: [cityId], references: [id])
   country          Country     @relation(fields: [countryCode], references: [code])
+  dealOrigins      DealRoute[] @relation("DealRouteOrigin")
+  dealDestinations DealRoute[] @relation("DealRouteDestination")
 
   @@index([countryCode])
   @@index([cityId])
@@ -587,4 +590,140 @@ model Faq {
 
   @@index([locale, sortOrder])
   @@map("faqs")
+}
+
+// ---------------------------------------------------------------------------
+// Deals and hotel destinations (phase 4, ADR-011)
+// ---------------------------------------------------------------------------
+
+/// Popular routes the deals worker keeps fresh. Configuration, managed in the admin console.
+model DealRoute {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  /// URL slug of the SEO route page, e.g. lagos-to-london.
+  slug            String         @unique
+  originCode      String         @map("origin_code") @db.Char(3)
+  destinationCode String         @map("destination_code") @db.Char(3)
+  cabinClass      CabinClass     @default(economy) @map("cabin_class")
+  /// Nights between the outbound and return flights.
+  stayNights      Int            @default(7) @map("stay_nights")
+  active          Boolean        @default(true)
+  sortOrder       Int            @default(0) @map("sort_order")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  origin          Airport        @relation("DealRouteOrigin", fields: [originCode], references: [iataCode])
+  destination     Airport        @relation("DealRouteDestination", fields: [destinationCode], references: [iataCode])
+  snapshots       DealSnapshot[]
+
+  @@unique([originCode, destinationCode, cabinClass])
+  @@index([active, sortOrder])
+  @@map("deal_routes")
+}
+
+/// Cheapest fare found by one refresh. Supplier price plus the context markup rules need; the
+/// customer price is computed on read (current rules, display currency, channel).
+model DealSnapshot {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  routeId            String    @map("route_id") @db.Uuid
+  supplier           String
+  departureDate      DateTime  @map("departure_date") @db.Date
+  returnDate         DateTime? @map("return_date") @db.Date
+  carrierCode        String    @map("carrier_code") @db.VarChar(3)
+  carrierName        String    @map("carrier_name")
+  /// Outbound slice.
+  stops              Int
+  durationMinutes    Int       @map("duration_minutes")
+  baseMinor          BigInt    @map("base_minor")
+  taxesMinor         BigInt    @map("taxes_minor")
+  currency           String    @db.Char(3)
+  originCountry      String    @map("origin_country") @db.Char(2)
+  destinationCountry String    @map("destination_country") @db.Char(2)
+  fetchedAt          DateTime  @default(now()) @map("fetched_at") @db.Timestamptz(3)
+  route              DealRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@index([routeId, fetchedAt(sort: Desc)])
+  @@index([fetchedAt])
+  @@map("deal_snapshots")
+}
+
+/// CMS destination content (spec entity DestinationContent). Featured ones appear on the homepage.
+model DestinationContent {
+  id             String                     @id @default(uuid(7)) @db.Uuid
+  cityId         String                     @unique @map("city_id") @db.Uuid
+  /// URL slug of the SEO city page, e.g. cape-town.
+  slug           String                     @unique
+  featured       Boolean                    @default(false)
+  sortOrder      Int                        @default(0) @map("sort_order")
+  /// Licensed photo URL; the web shows an illustration while it is empty.
+  imageUrl       String?                    @map("image_url")
+  publishedAt    DateTime?                  @map("published_at") @db.Timestamptz(3)
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  city           City                       @relation(fields: [cityId], references: [id])
+  hotelSnapshots DestinationHotelSnapshot[]
+
+  @@index([featured, sortOrder])
+  @@map("destination_contents")
+}
+
+/// Hotel availability and the cheapest rate found by one refresh (supplier price for the stay).
+model DestinationHotelSnapshot {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  destinationId String             @map("destination_id") @db.Uuid
+  supplier      String
+  checkIn       DateTime           @map("check_in") @db.Date
+  checkOut      DateTime           @map("check_out") @db.Date
+  hotelCount    Int                @map("hotel_count")
+  baseMinor     BigInt             @map("base_minor")
+  taxesMinor    BigInt             @map("taxes_minor")
+  currency      String             @db.Char(3)
+  countryCode   String             @map("country_code") @db.Char(2)
+  fetchedAt     DateTime           @default(now()) @map("fetched_at") @db.Timestamptz(3)
+  destination   DestinationContent @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+
+  @@index([destinationId, fetchedAt(sort: Desc)])
+  @@index([fetchedAt])
+  @@map("destination_hotel_snapshots")
+}
+
+// ---------------------------------------------------------------------------
+// Newsletter (phase 4, ADR-012)
+// ---------------------------------------------------------------------------
+
+enum NewsletterStatus {
+  pending
+  confirmed
+  unsubscribed
+}
+
+enum WhatsappOptInStatus {
+  pending_verification
+  verified
+}
+
+/// Deal-alert subscription with a provable consent record and double opt-in.
+model NewsletterSubscription {
+  id                    String               @id @default(uuid(7)) @db.Uuid
+  /// Lower-cased and trimmed before storage.
+  email                 String               @unique
+  status                NewsletterStatus     @default(pending)
+  locale                String               @default("en-NG")
+  /// E.164. Stored only with an explicit opt-in; nothing is sent until it is verified.
+  whatsappPhone         String?              @map("whatsapp_phone")
+  whatsappStatus        WhatsappOptInStatus? @map("whatsapp_status")
+  consentVersion        String               @map("consent_version")
+  consentedAt           DateTime             @map("consented_at") @db.Timestamptz(3)
+  /// Keyed hash of the IP the consent came from (proof without keeping the address).
+  consentIpHash         String?              @map("consent_ip_hash")
+  source                String               @default("homepage")
+  /// SHA-256 of the confirmation token; the token itself only exists in the email.
+  confirmTokenHash      String?              @unique @map("confirm_token_hash")
+  confirmTokenExpiresAt DateTime?            @map("confirm_token_expires_at") @db.Timestamptz(3)
+  confirmationSentAt    DateTime?            @map("confirmation_sent_at") @db.Timestamptz(3)
+  confirmedAt           DateTime?            @map("confirmed_at") @db.Timestamptz(3)
+  unsubscribedAt        DateTime?            @map("unsubscribed_at") @db.Timestamptz(3)
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status])
+  @@map("newsletter_subscriptions")
 }

@@ -1,4 +1,4 @@
-import { parseEnv } from './env.schema';
+import { LOCAL_INTERNAL_TOKEN_PREFIX, parseEnv } from './env.schema';
 
 const base = {
   DATABASE_URL: 'postgresql://suskii:pw@localhost:5432/suskii',
@@ -96,8 +96,36 @@ describe('parseEnv', () => {
       'FLIGHT_SUPPLIERS',
       'HOTEL_SUPPLIERS',
       'FX_PROVIDER',
+      'INTERNAL_API_TOKEN',
+      'TURNSTILE_SECRET_KEY',
     ]) {
       expect(message).toContain(key);
     }
+  });
+
+  it('refuses the local development internal token in production', () => {
+    expect(() =>
+      parseEnv({
+        ...base,
+        NODE_ENV: 'production',
+        INTERNAL_API_TOKEN: `${LOCAL_INTERNAL_TOKEN_PREFIX}0123456789abcdefghij`,
+      }),
+    ).toThrow(/INTERNAL_API_TOKEN: the local development token is not allowed in production/);
+  });
+
+  it('parses deal refresh settings with sensible defaults', () => {
+    expect(parseEnv(base)).toMatchObject({
+      DEALS_MAX_AGE_HOURS: 24,
+      DEALS_DEPARTURE_OFFSETS_DAYS: [21, 45],
+      DESTINATIONS_CHECK_IN_OFFSET_DAYS: 30,
+      SNAPSHOT_RETENTION_DAYS: 7,
+    });
+    expect(parseEnv({ ...base, DEALS_DEPARTURE_OFFSETS_DAYS: '14, 30,60' })).toMatchObject({
+      DEALS_DEPARTURE_OFFSETS_DAYS: [14, 30, 60],
+    });
+    expect(() => parseEnv({ ...base, DEALS_DEPARTURE_OFFSETS_DAYS: 'soon' })).toThrow(
+      /DEALS_DEPARTURE_OFFSETS_DAYS/,
+    );
+    expect(() => parseEnv({ ...base, INTERNAL_API_TOKEN: 'short' })).toThrow(/INTERNAL_API_TOKEN/);
   });
 });
