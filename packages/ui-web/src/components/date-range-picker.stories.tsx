@@ -57,3 +57,20 @@ export const OpenWithRange: Story = {
     await expect((await screen.findAllByRole('grid')).length).toBeGreaterThan(0);
   },
 };
+
+export const WithError: Story = {
+  render: () => (
+    <div className="max-w-popover">
+      <DateRangePicker
+        mode="range"
+        label="Depart - Return"
+        placeholder="Add dates"
+        value={{ from: undefined }}
+        onChange={() => undefined}
+        formatValue={() => undefined}
+        labels={dateLabels}
+        error="Choose a date from today"
+      />
+    </div>
+  ),
+};

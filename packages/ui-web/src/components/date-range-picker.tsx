@@ -36,6 +36,10 @@ export interface DateRangePickerProps {
   locale?: Partial<DayPickerLocale>;
   weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   labels: DateRangePickerLabels;
+  /** Validation message; marks the field invalid and is announced with it. */
+  error?: string | undefined;
+  /** Id of the trigger button (for focusing the first invalid field). */
+  id?: string;
   className?: string;
 }
 
@@ -86,6 +90,8 @@ export function DateRangePicker({
   locale,
   weekStartsOn,
   labels,
+  error,
+  id,
   className,
 }: DateRangePickerProps) {
   const labelId = useId();
@@ -120,12 +126,17 @@ export function DateRangePicker({
       />
     );
 
+  const errorId = error ? `${labelId}-error` : undefined;
   const trigger = (
     <FieldButton
+      id={id}
       labelId={labelId}
       value={formatValue(value)}
       placeholder={placeholder}
       icon={<CalendarDays className="size-5" />}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={errorId}
+      className={error ? 'border-danger' : undefined}
     />
   );
 
@@ -166,6 +177,11 @@ export function DateRangePicker({
             </DialogContent>
           </Dialog>
         )}
+        {error ? (
+          <p id={errorId} className="font-body text-caption text-danger">
+            {error}
+          </p>
+        ) : null}
       </div>
     </div>
   );

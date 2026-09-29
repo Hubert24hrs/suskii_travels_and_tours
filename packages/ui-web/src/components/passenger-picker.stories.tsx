@@ -68,3 +68,18 @@ export const FullParty: Story = {
     await expect(await screen.findByRole('button', { name: 'Add a child' })).toBeDisabled();
   },
 };
+
+export const WithError: Story = {
+  render: () => (
+    <div className="max-w-popover">
+      <PassengerPicker
+        label="Travellers"
+        summary="1 adult, 2 infants"
+        value={{ adults: 1, children: 0, infants: 2 }}
+        onChange={() => undefined}
+        labels={passengerLabels}
+        error="Each infant must travel with an adult"
+      />
+    </div>
+  ),
+};

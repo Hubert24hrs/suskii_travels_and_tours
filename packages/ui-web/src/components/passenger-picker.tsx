@@ -36,6 +36,10 @@ export interface PassengerPickerProps {
   value: TravellerCounts;
   onChange: (value: TravellerCounts) => void;
   labels: PassengerPickerLabels;
+  /** Validation message; marks the field invalid and is announced with it. */
+  error?: string | undefined;
+  /** Id of the trigger button (for focusing the first invalid field). */
+  id?: string;
   className?: string;
 }
 
@@ -105,13 +109,24 @@ export function PassengerPicker({
   value,
   onChange,
   labels,
+  error,
+  id,
   className,
 }: PassengerPickerProps) {
   const labelId = useId();
   const isDesktop = useIsDesktop();
   const [open, setOpen] = useState(false);
+  const errorId = error ? `${labelId}-error` : undefined;
   const trigger = (
-    <FieldButton labelId={labelId} value={summary} icon={<Users className="size-5" />} />
+    <FieldButton
+      id={id}
+      labelId={labelId}
+      value={summary}
+      icon={<Users className="size-5" />}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={errorId}
+      className={error ? 'border-danger' : undefined}
+    />
   );
   const steppers = <TravellerSteppers value={value} onChange={onChange} labels={labels} />;
 
@@ -148,6 +163,11 @@ export function PassengerPicker({
             </DialogContent>
           </Dialog>
         )}
+        {error ? (
+          <p id={errorId} className="font-body text-caption text-danger">
+            {error}
+          </p>
+        ) : null}
       </div>
     </div>
   );
