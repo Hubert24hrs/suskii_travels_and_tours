@@ -5,6 +5,7 @@ import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { PermissionsGuard } from './auth/permissions.guard';
 import { ProblemDetailsFilter } from './common/problem-details';
 import type { AppConfig } from './config/config';
@@ -36,6 +37,7 @@ export class AppModule {
         RbacModule,
         AuthModule,
         AdminModule,
+        CatalogModule,
         HealthModule,
       ],
       providers: [

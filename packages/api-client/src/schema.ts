@@ -334,6 +334,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalog/airports/{iataCode}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Airport by IATA code */
+        get: operations["getAirport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Countries (ISO 3166-1) */
+        get: operations["listCountries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Airport and city autocomplete
+         * @description Matches IATA codes exactly and names by prefix and typo-tolerant trigram similarity, ignoring accents. Cities list their airports.
+         */
+        get: operations["suggestPlaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/places/popular": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compact airport index for instant client-side suggestions
+         * @description Large airports worldwide plus every airport in Nigeria. Cache at the edge; use /catalog/places for the long tail.
+         */
+        get: operations["getPopularPlaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -566,6 +640,31 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        Airport: {
+            code: string;
+            icaoCode: string | null;
+            name: string;
+            /** @enum {string} */
+            type: "large_airport" | "medium_airport" | "small_airport";
+            municipality: string | null;
+            cityId: string | null;
+            countryCode: string;
+            countryName: string;
+            latitude: number;
+            longitude: number;
+            timeZone: string;
+        };
+        AirportSuggestion: {
+            /** @constant */
+            type: "airport";
+            code: string;
+            name: string;
+            cityId: string | null;
+            cityName: string | null;
+            countryCode: string;
+            countryName: string;
+            timeZone: string;
+        };
         AuditLogEntry: {
             /** Format: uuid */
             id: string;
@@ -615,6 +714,27 @@ export interface components {
         ChangePasswordRequestInput: {
             currentPassword: string;
             newPassword: string;
+        };
+        CitySuggestion: {
+            /** @constant */
+            type: "city";
+            /** Format: uuid */
+            id: string;
+            name: string;
+            countryCode: string;
+            countryName: string;
+            timeZone: string | null;
+            airports: {
+                code: string;
+                name: string;
+            }[];
+        };
+        Countries: {
+            items: {
+                code: string;
+                name: string;
+                continent: string;
+            }[];
         };
         ForgotPasswordRequestInput: {
             email: string;
@@ -694,6 +814,20 @@ export interface components {
         PhoneVerifyRequestInput: {
             phone: string;
             code: string;
+        };
+        PlaceSuggestion: components["schemas"]["AirportSuggestion"] | components["schemas"]["CitySuggestion"];
+        PlaceSuggestions: {
+            items: components["schemas"]["PlaceSuggestion"][];
+        };
+        PopularPlaces: {
+            version: string;
+            fields: string[];
+            airports: [
+                string,
+                string,
+                string,
+                string
+            ][];
         };
         /** @description RFC 9457 problem details (application/problem+json). */
         ProblemDetails: {
@@ -1407,6 +1541,105 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getAirport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                iataCode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Airport"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listCountries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Countries"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    suggestPlaces: {
+        parameters: {
+            query: {
+                q: string;
+                types?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceSuggestions"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getPopularPlaces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PopularPlaces"];
+                };
+            };
+            400: components["responses"]["Problem400"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

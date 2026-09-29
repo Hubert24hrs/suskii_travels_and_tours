@@ -957,6 +957,181 @@
         }
       }
     },
+    "/v1/catalog/airports/{iataCode}": {
+      "get": {
+        "operationId": "getAirport",
+        "summary": "Airport by IATA code",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "iataCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z]{3}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Airport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/catalog/countries": {
+      "get": {
+        "operationId": "listCountries",
+        "summary": "Countries (ISO 3166-1)",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Countries"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/catalog/places": {
+      "get": {
+        "operationId": "suggestPlaces",
+        "summary": "Airport and city autocomplete",
+        "description": "Matches IATA codes exactly and names by prefix and typo-tolerant trigram similarity, ignoring accents. Cities list their airports.",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "types",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "airport,city",
+              "type": "string",
+              "pattern": "^(airport|city)(,(airport|city))?$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaceSuggestions"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/catalog/places/popular": {
+      "get": {
+        "operationId": "getPopularPlaces",
+        "summary": "Compact airport index for instant client-side suggestions",
+        "description": "Large airports worldwide plus every airport in Nigeria. Cache at the edge; use /catalog/places for the long tail.",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PopularPlaces"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/me": {
       "get": {
         "operationId": "getMe",
@@ -1669,6 +1844,137 @@
         ],
         "additionalProperties": false
       },
+      "Airport": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "icaoCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "large_airport",
+              "medium_airport",
+              "small_airport"
+            ]
+          },
+          "municipality": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cityId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "countryName": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "icaoCode",
+          "name",
+          "type",
+          "municipality",
+          "cityId",
+          "countryCode",
+          "countryName",
+          "latitude",
+          "longitude",
+          "timeZone"
+        ],
+        "additionalProperties": false
+      },
+      "AirportSuggestion": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "airport"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "name": {
+            "type": "string"
+          },
+          "cityId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cityName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "countryName": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "code",
+          "name",
+          "cityId",
+          "cityName",
+          "countryCode",
+          "countryName",
+          "timeZone"
+        ],
+        "additionalProperties": false
+      },
       "AuditLogEntry": {
         "type": "object",
         "properties": {
@@ -1898,6 +2204,103 @@
           "currentPassword",
           "newPassword"
         ]
+      },
+      "CitySuggestion": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "city"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "countryName": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "airports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 3
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "countryCode",
+          "countryName",
+          "timeZone",
+          "airports"
+        ],
+        "additionalProperties": false
+      },
+      "Countries": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                },
+                "name": {
+                  "type": "string"
+                },
+                "continent": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                }
+              },
+              "required": [
+                "code",
+                "name",
+                "continent"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
       },
       "ForgotPasswordRequestInput": {
         "type": "object",
@@ -2167,6 +2570,74 @@
           "phone",
           "code"
         ]
+      },
+      "PlaceSuggestion": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AirportSuggestion"
+          },
+          {
+            "$ref": "#/components/schemas/CitySuggestion"
+          }
+        ]
+      },
+      "PlaceSuggestions": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlaceSuggestion"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "PopularPlaces": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "airports": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "items": false,
+              "minItems": 4,
+              "maxItems": 4
+            }
+          }
+        },
+        "required": [
+          "version",
+          "fields",
+          "airports"
+        ],
+        "additionalProperties": false
       },
       "ProblemDetails": {
         "type": "object",

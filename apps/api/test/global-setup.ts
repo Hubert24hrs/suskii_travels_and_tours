@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { RedisContainer, type StartedRedisContainer } from '@testcontainers/redis';
@@ -31,10 +31,21 @@ export default async function globalSetup(): Promise<void> {
   }
   globalThis.__E2E_CONTAINERS__ = containers;
 
-  // Cross-platform: run the Prisma CLI with the current Node binary.
-  execFileSync(process.execPath, [require.resolve('prisma/build/index.js'), 'migrate', 'deploy'], {
-    cwd: join(__dirname, '..'),
-    env: { ...process.env, DATABASE_URL: process.env.E2E_DATABASE_URL },
-    stdio: 'pipe',
-  });
+  // Cross-platform: run the Prisma CLI with the current Node binary. The real seed loads the
+  // reference data (countries, airports, cities, roles) that catalog and search tests rely on.
+  const prisma = (...args: string[]) =>
+    execFileSync(process.execPath, [require.resolve('prisma/build/index.js'), ...args], {
+      cwd: join(__dirname, '..'),
+      env: {
+        ...process.env,
+        DATABASE_URL: process.env.E2E_DATABASE_URL,
+        // The seed runs through `tsx`, which lives in the package's .bin directory.
+        PATH: `${join(__dirname, '..', 'node_modules', '.bin')}${delimiter}${process.env.PATH ?? ''}`,
+        SEED_ADMIN_EMAIL: '',
+        SEED_ADMIN_PASSWORD: '',
+      },
+      stdio: 'pipe',
+    });
+  prisma('migrate', 'deploy');
+  prisma('db', 'seed');
 }

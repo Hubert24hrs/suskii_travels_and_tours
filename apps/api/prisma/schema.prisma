@@ -300,10 +300,13 @@ model City {
   longitude   Float?
   /// IANA time zone, e.g. Africa/Lagos.
   timezone    String?
+  /// Accent-folded, lower-case "name country" for trigram autocomplete (set by the seed).
+  searchText  String    @default("") @map("search_text")
   country     Country   @relation(fields: [countryCode], references: [code])
   airports    Airport[]
 
   @@unique([countryCode, name])
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "cities_search_text_trgm_idx")
   @@map("cities")
 }
 
@@ -320,11 +323,14 @@ model Airport {
   /// IANA time zone; flight times are stored in UTC plus this zone.
   timezone         String
   scheduledService Boolean     @default(true) @map("scheduled_service")
+  /// Accent-folded, lower-case "code name municipality country" for trigram autocomplete.
+  searchText       String      @default("") @map("search_text")
   city             City?       @relation(fields: [cityId], references: [id])
   country          Country     @relation(fields: [countryCode], references: [code])
 
   @@index([countryCode])
   @@index([cityId])
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "airports_search_text_trgm_idx")
   @@map("airports")
 }
 
@@ -342,6 +348,201 @@ model Airline {
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("airlines")
+}
+
+// ---------------------------------------------------------------------------
+// Pricing (rules are managed in the admin console, phase 10; none are seeded)
+// ---------------------------------------------------------------------------
+
+enum Vertical {
+  flights
+  hotels
+  packages
+  tours
+  visa
+  travel_addons
+}
+
+enum CabinClass {
+  economy
+  premium_economy
+  business
+  first
+}
+
+enum SalesChannel {
+  web
+  mobile
+}
+
+enum UserTier {
+  guest
+  member
+  prime
+}
+
+enum AdjustmentType {
+  percentage
+  fixed
+}
+
+enum FeeBasis {
+  per_booking
+  per_passenger
+}
+
+/// Hidden margin on the supplier fare. The first active rule that matches (lowest priority
+/// number) applies; rules never stack. Null conditions match anything.
+model MarkupRule {
+  id                 String         @id @default(uuid(7)) @db.Uuid
+  name               String
+  vertical           Vertical
+  priority           Int            @default(100)
+  active             Boolean        @default(true)
+  channel            SalesChannel?
+  userTier           UserTier?      @map("user_tier")
+  supplier           String?
+  originCode         String?        @map("origin_code") @db.VarChar(3)
+  destinationCode    String?        @map("destination_code") @db.VarChar(3)
+  originCountry      String?        @map("origin_country") @db.Char(2)
+  destinationCountry String?        @map("destination_country") @db.Char(2)
+  carrierCode        String?        @map("carrier_code") @db.VarChar(3)
+  cabinClass         CabinClass?    @map("cabin_class")
+  type               AdjustmentType
+  /// Basis points for percentages (250 = 2.5%), minor units of `currency` for fixed amounts.
+  value              BigInt
+  /// Currency of a fixed value and of the caps.
+  currency           String?        @db.Char(3)
+  minAmountMinor     BigInt?        @map("min_amount_minor")
+  maxAmountMinor     BigInt?        @map("max_amount_minor")
+  validFrom          DateTime?      @map("valid_from") @db.Timestamptz(3)
+  validTo            DateTime?      @map("valid_to") @db.Timestamptz(3)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([vertical, active, priority])
+  @@map("markup_rules")
+}
+
+/// Customer-visible fees (e.g. service fee). Every active matching rule applies.
+model FeeRule {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  /// Stable machine code, e.g. "service_fee".
+  code           String
+  /// Customer-facing label.
+  label          String
+  vertical       Vertical
+  active         Boolean        @default(true)
+  sortOrder      Int            @default(0) @map("sort_order")
+  channel        SalesChannel?
+  userTier       UserTier?      @map("user_tier")
+  type           AdjustmentType
+  value          BigInt
+  currency       String?        @db.Char(3)
+  basis          FeeBasis       @default(per_booking)
+  minAmountMinor BigInt?        @map("min_amount_minor")
+  maxAmountMinor BigInt?        @map("max_amount_minor")
+  validFrom      DateTime?      @map("valid_from") @db.Timestamptz(3)
+  validTo        DateTime?      @map("valid_to") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([vertical, active])
+  @@map("fee_rules")
+}
+
+model PromoCode {
+  id                    String            @id @default(uuid(7)) @db.Uuid
+  /// Stored upper-case; matched case-insensitively.
+  code                  String            @unique
+  description           String?
+  type                  AdjustmentType
+  /// Basis points for percentages, minor units of `currency` for fixed discounts.
+  value                 BigInt
+  /// Currency of a fixed value, the cap and the minimum spend.
+  currency              String?           @db.Char(3)
+  maxDiscountMinor      BigInt?           @map("max_discount_minor")
+  minSpendMinor         BigInt?           @map("min_spend_minor")
+  /// Empty means every vertical.
+  verticals             Vertical[]
+  validFrom             DateTime?         @map("valid_from") @db.Timestamptz(3)
+  validTo               DateTime?         @map("valid_to") @db.Timestamptz(3)
+  maxRedemptions        Int?              @map("max_redemptions")
+  maxRedemptionsPerUser Int?              @map("max_redemptions_per_user")
+  requiresAccount       Boolean           @default(false) @map("requires_account")
+  active                Boolean           @default(true)
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  redemptions           PromoRedemption[]
+
+  @@map("promo_codes")
+}
+
+/// Written when a booking is paid (phase 6); counted for usage limits.
+model PromoRedemption {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  promoCodeId String    @map("promo_code_id") @db.Uuid
+  userId      String?   @map("user_id") @db.Uuid
+  bookingId   String?   @map("booking_id") @db.Uuid
+  amountMinor BigInt    @map("amount_minor")
+  currency    String    @db.Char(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Restrict)
+
+  @@index([promoCodeId, userId])
+  @@map("promo_redemptions")
+}
+
+// ---------------------------------------------------------------------------
+// Search and offers
+// ---------------------------------------------------------------------------
+
+/// A supplier offer re-priced for checkout. Bookings (phase 5) are created from these.
+model Offer {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  vertical           Vertical
+  supplier           String
+  supplierOfferId    String   @map("supplier_offer_id")
+  /// Normalised offer in our domain shape (never raw vendor JSON).
+  payload            Json
+  supplierTotalMinor BigInt   @map("supplier_total_minor")
+  supplierCurrency   String   @map("supplier_currency") @db.Char(3)
+  /// Customer price breakdown at quote time.
+  price              Json
+  totalMinor         BigInt   @map("total_minor")
+  currency           String   @db.Char(3)
+  searchId           String?  @map("search_id")
+  userId             String?  @map("user_id") @db.Uuid
+  expiresAt          DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([supplier, supplierOfferId])
+  @@index([expiresAt])
+  @@map("offers")
+}
+
+/// Anonymised search analytics: no user, session or IP; only what was searched and how it went.
+model SearchLog {
+  id               String        @id @default(uuid(7)) @db.Uuid
+  occurredAt       DateTime      @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  vertical         Vertical
+  origin           String?       @db.VarChar(3)
+  destination      String?       @db.VarChar(64)
+  departureDate    DateTime?     @map("departure_date") @db.Date
+  returnDate       DateTime?     @map("return_date") @db.Date
+  sliceCount       Int?          @map("slice_count")
+  travellers       Int
+  cabinClass       CabinClass?   @map("cabin_class")
+  channel          SalesChannel?
+  cacheHit         Boolean       @map("cache_hit")
+  partial          Boolean
+  resultCount      Int           @map("result_count")
+  durationMs       Int           @map("duration_ms")
+  supplierOutcomes Json          @map("supplier_outcomes")
+
+  @@index([vertical, occurredAt])
+  @@index([origin, destination])
+  @@map("search_logs")
 }
 
 // ---------------------------------------------------------------------------

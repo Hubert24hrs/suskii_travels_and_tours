@@ -141,10 +141,13 @@ export async function createTestApp(
   };
 }
 
-/** Empties every table the tests write to (the audit log is append-only by design) and Redis. */
+/**
+ * Empties every table the tests write to and Redis. The audit log is append-only by design, and
+ * the seeded reference data (countries, airports, cities, roles) stays.
+ */
 export async function resetState(ctx: TestContext): Promise<void> {
   await ctx.prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE users, idempotency_keys RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE users, idempotency_keys, offers, search_logs, markup_rules, fee_rules, promo_codes, promo_redemptions RESTART IDENTITY CASCADE',
   );
   await ctx.redis.flushdb();
   ctx.emails.outbox.length = 0;

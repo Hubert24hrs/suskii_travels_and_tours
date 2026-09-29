@@ -20,6 +20,7 @@ import { parse } from 'csv-parse/sync';
 
 import { emailSchema, passwordSchema } from '@suskii/shared';
 
+import { airportSearchText, citySearchText } from '../src/catalog/search-text';
 import { PrismaClient, type AirportType, type Prisma } from '../src/generated/prisma/client';
 import { syncRbacCatalog } from '../src/rbac/rbac-catalog';
 
@@ -46,6 +47,12 @@ interface AirportCsv {
 
 const readCsv = <T>(file: string): T[] =>
   parse<T>(readFileSync(join(DATA_DIR, file), 'utf8'), { columns: true, skip_empty_lines: true });
+
+/**
+ * OurAirports municipalities sometimes carry a locality suffix, e.g. "Paris (Roissy-en-France,
+ * Val-d'Oise)" for CDG; dropping it groups CDG and ORY under one "Paris".
+ */
+const cityName = (municipality: string): string => municipality.replace(/\s*\(.*\)\s*$/, '').trim();
 
 const chunks = <T>(items: T[], size: number): T[][] =>
   Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
@@ -76,13 +83,13 @@ async function seedReferenceData(prisma: PrismaClient): Promise<void> {
   const cityByKey = new Map<string, AirportCsv>();
   for (const airport of airports) {
     if (!airport.municipality) continue;
-    const key = `${airport.country_code}|${airport.municipality}`;
+    const key = `${airport.country_code}|${cityName(airport.municipality)}`;
     const current = cityByKey.get(key);
     if (!current || rank[airport.type] < rank[current.type]) cityByKey.set(key, airport);
   }
   await prisma.city.createMany({
     data: [...cityByKey.values()].map((airport) => ({
-      name: airport.municipality,
+      name: cityName(airport.municipality),
       countryCode: airport.country_code,
       latitude: Number(airport.latitude),
       longitude: Number(airport.longitude),
@@ -90,10 +97,19 @@ async function seedReferenceData(prisma: PrismaClient): Promise<void> {
     })),
     skipDuplicates: true,
   });
+  const countryName = new Map(countries.map((country) => [country.code, country.name]));
   const cities = await prisma.city.findMany({
     select: { id: true, name: true, countryCode: true },
   });
   const cityId = new Map(cities.map((city) => [`${city.countryCode}|${city.name}`, city.id]));
+  // Autocomplete text for every city in one statement.
+  const citySearchTexts = cities.map((city) =>
+    citySearchText({ name: city.name, countryName: countryName.get(city.countryCode) ?? '' }),
+  );
+  await prisma.$executeRaw`
+    UPDATE cities AS c SET search_text = v.search_text
+    FROM unnest(${cities.map((city) => city.id)}::uuid[], ${citySearchTexts}::text[]) AS v(id, search_text)
+    WHERE c.id = v.id`;
 
   for (const batch of chunks(airports, BATCH)) {
     await prisma.$transaction(
@@ -103,12 +119,20 @@ async function seedReferenceData(prisma: PrismaClient): Promise<void> {
           name: airport.name,
           type: airport.type,
           municipality: airport.municipality || null,
-          cityId: cityId.get(`${airport.country_code}|${airport.municipality}`) ?? null,
+          cityId: airport.municipality
+            ? (cityId.get(`${airport.country_code}|${cityName(airport.municipality)}`) ?? null)
+            : null,
           countryCode: airport.country_code,
           latitude: Number(airport.latitude),
           longitude: Number(airport.longitude),
           timezone: airport.timezone,
           scheduledService: true,
+          searchText: airportSearchText({
+            iataCode: airport.iata_code,
+            name: airport.name,
+            municipality: airport.municipality || null,
+            countryName: countryName.get(airport.country_code) ?? '',
+          }),
         };
         return prisma.airport.upsert({
           where: { iataCode: airport.iata_code },
