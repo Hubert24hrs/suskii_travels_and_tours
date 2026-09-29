@@ -63,6 +63,21 @@ describe('passengerInputSchema', () => {
     });
   });
 
+  it('lets a saved traveller supply the passport number', () => {
+    const document = { issuingCountry: 'NG', expiryDate: '2031-01-31' };
+    const missing = passengerInputSchema.safeParse({ ...adult, document });
+    expect(missing.error?.issues[0]).toMatchObject({
+      path: ['document', 'number'],
+      message: PASSENGER_ISSUES.documentRequired,
+    });
+    const saved = passengerInputSchema.parse({
+      ...adult,
+      document,
+      travellerId: '0199a0f0-0000-7000-8000-000000000001',
+    });
+    expect(saved.document).toEqual({ ...document, number: null });
+  });
+
   it('rejects unknown titles, genders and malformed dates', () => {
     for (const change of [{ title: 'sir' }, { gender: 'x' }, { dateOfBirth: '1990-02-30' }]) {
       expect(passengerInputSchema.safeParse({ ...adult, ...change }).success).toBe(false);

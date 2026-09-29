@@ -34,6 +34,7 @@ export const PASSENGER_ISSUES = {
   documentRequired: 'passport_required',
   passportExpired: 'passport_expired',
   passportExpiresSoon: 'passport_expires_soon',
+  travellerNotFound: 'traveller_not_found',
 } as const;
 
 const SPECIAL_LETTERS: Readonly<Record<string, string>> = {

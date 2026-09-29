@@ -58,21 +58,44 @@ const fullNameFits = (person: { givenNames: string; surname: string }) =>
   person.givenNames.length + person.surname.length <= FULL_NAME_MAX_LENGTH;
 const fullNameIssue = { message: PASSENGER_ISSUES.nameTooLong, path: ['surname'] };
 
-/** A flight passenger at checkout. `travellerId` reuses a saved traveller's stored passport. */
+/**
+ * A flight passenger at checkout. With `travellerId`, the passport number may be left out: the
+ * saved traveller's stored number is used, so it never travels back to the browser.
+ */
 export const passengerInputSchema = z
   .object({
     type: z.enum(PASSENGER_TYPES),
     ...personShape,
-    document: travelDocumentSchema.nullable().default(null),
+    document: travelDocumentSchema
+      .extend({ number: passportNumberSchema.nullable().default(null) })
+      .nullable()
+      .default(null),
     travellerId: z.uuid().nullable().default(null),
     saveTraveller: z.boolean().default(false),
   })
-  .refine(fullNameFits, fullNameIssue);
+  .refine(fullNameFits, fullNameIssue)
+  .refine(
+    // No document at all is fine here (checkPassengers decides whether one is required).
+    (passenger) => passenger.document?.number !== null || passenger.travellerId !== null,
+    {
+      message: PASSENGER_ISSUES.documentRequired,
+      path: ['document', 'number'],
+    },
+  );
 export type PassengerInput = z.output<typeof passengerInputSchema>;
 
-/** A saved traveller (account holders keep up to MAX_SAVED_TRAVELLERS). */
+/**
+ * A saved traveller (account holders keep up to MAX_SAVED_TRAVELLERS). On update, a document
+ * without a number keeps the stored passport number (clients only ever see it masked).
+ */
 export const travellerInputSchema = z
-  .object({ ...personShape, document: travelDocumentSchema.nullable().default(null) })
+  .object({
+    ...personShape,
+    document: travelDocumentSchema
+      .extend({ number: passportNumberSchema.nullable().default(null) })
+      .nullable()
+      .default(null),
+  })
   .refine(fullNameFits, fullNameIssue);
 export type TravellerInput = z.output<typeof travellerInputSchema>;
 
