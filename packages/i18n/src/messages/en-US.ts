@@ -30,6 +30,25 @@ export const enUS: MessageOverlay<Messages> = {
       installmentsBody: 'Hold eligible fares or pay for vacations in installments.',
     },
   },
+  results: {
+    flights: {
+      total: { one: 'Total for {count} traveler', other: 'Total for {count} travelers' },
+    },
+  },
+  checkout: {
+    travellers: 'Travelers',
+    issues: {
+      passenger_type_mismatch: 'This date of birth does not match the traveler type',
+      passenger_count_mismatch: 'The travelers do not match the selected fare',
+      traveller_not_found: 'This saved traveler is no longer available',
+    },
+    priceChange: {
+      body: 'The supplier changed the price since you started. Review the new total before you pay.',
+    },
+  },
+  booking: {
+    travellers: 'Travelers',
+  },
   pages: {
     verticals: {
       packages: {
