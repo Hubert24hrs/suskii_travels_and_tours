@@ -25,7 +25,11 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
-      "passThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"]
+      "passThroughEnv": [
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH",
+        "TEST_REDIS_URL"
+      ]
     },
     "test:e2e": {
       "dependsOn": ["^build"],
@@ -42,6 +46,21 @@
     "build:storybook": {
       "dependsOn": ["^build"],
       "outputs": ["storybook-static/**"]
+    },
+    "@suskii/web#test:e2e": {
+      "dependsOn": ["build", "@suskii/api#build", "@suskii/worker#build"],
+      "cache": false,
+      "passThroughEnv": [
+        "DOCKER_HOST",
+        "TESTCONTAINERS_*",
+        "WEB_E2E_DATABASE_URL",
+        "WEB_E2E_REDIS_URL",
+        "E2E_BASE_URL",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH",
+        "CHROME_PATH",
+        "LIGHTHOUSE_RUNS"
+      ]
     }
   }
 }

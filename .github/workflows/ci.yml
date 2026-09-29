@@ -26,7 +26,26 @@ jobs:
   verify:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    # Throwaway services for the web e2e stack and the worker's BullMQ test. The API e2e suite
+    # starts its own containers (Testcontainers). Credentials are CI-only, never real ones.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: suskii
+          POSTGRES_PASSWORD: suskii_ci
+          POSTGRES_DB: suskii_web_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U suskii" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -82,10 +101,37 @@ jobs:
 
       - name: Unit tests
         run: pnpm test ${{ env.AFFECTED }}
+        env:
+          TEST_REDIS_URL: redis://localhost:6379/1
 
       # Testcontainers starts Postgres and Redis on the runner's Docker daemon.
       - name: E2E tests (API)
-        run: pnpm test:e2e ${{ env.AFFECTED }}
+        run: pnpm exec turbo run test:e2e --filter=@suskii/api ${{ env.AFFECTED }}
+
+      # Builds web, API and worker, boots them against the service containers (seed plus one
+      # worker refresh), runs the Playwright suite, then the Lighthouse gate on its own.
+      - name: E2E and Lighthouse tests (web)
+        run: |
+          # Lighthouse drives Playwright's headless shell (installed with Chromium).
+          CHROME_PATH="$(find ~/.cache/ms-playwright -type f \( -name chrome-headless-shell -o -name headless_shell \) | head -n 1)"
+          export CHROME_PATH
+          pnpm exec turbo run test:e2e --filter=@suskii/web ${{ env.AFFECTED }}
+        env:
+          WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_web_e2e
+          WEB_E2E_REDIS_URL: redis://localhost:6379/2
+          LIGHTHOUSE_RUNS: 3
+
+      - name: Upload web test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-e2e-reports
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+            apps/web/lighthouse-report/
+          if-no-files-found: ignore
+          retention-days: 14
 
       # The OpenAPI document and the generated client are committed; both must match the code.
       - name: Check OpenAPI document and API client are up to date
@@ -95,6 +141,12 @@ jobs:
 
       - name: Build
         run: pnpm build ${{ env.AFFECTED }}
+
+      # Tailwind drops unknown classes silently; fail when a class used in the web app has no CSS.
+      - name: Check Tailwind classes (web)
+        # Needs the web build, which pull requests skip when the web app is unaffected.
+        run: |
+          if [ -d apps/web/.next ]; then pnpm --filter @suskii/web check:classes; fi
 
       - name: Build Storybook
         run: pnpm build:storybook ${{ env.AFFECTED }}
