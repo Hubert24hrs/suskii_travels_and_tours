@@ -33,7 +33,9 @@ export function NativeSelect({
         {...props}
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          // Labels are often Intl-formatted (months, prices), and Node and the browser can ship
+          // different CLDR data: keep the server's text instead of failing hydration.
+          <option key={option.value} value={option.value} suppressHydrationWarning>
             {option.label}
           </option>
         ))}

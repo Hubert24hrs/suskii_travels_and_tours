@@ -53,6 +53,13 @@ All notable changes to this project are documented here. The format follows
 - The generated API client keeps defaulted request fields optional.
 - Checkout, payment and booking pages are noindex and disallowed in robots.txt.
 
+#### Fixed
+
+- Pre-filled search pages (flights, hotels, packages, tours, visa) no longer fail hydration when
+  the browser's ICU/CLDR data formats dates differently from Node's: field values and select
+  labels keep the server's text, and the packages month list starts from the UTC month until
+  hydrated. A Playwright test alters the browser's `Intl` output to guard every such page.
+
 ### Phase 4: Web homepage (2026-09-29)
 
 #### Added

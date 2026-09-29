@@ -45,7 +45,14 @@ export function FieldButton({
           {icon}
         </span>
       ) : null}
-      <span id={valueId} className={cn('truncate', !value && 'text-muted')}>
+      {/* Values are localised by the app (dates via Intl), and Node and the browser can ship
+          different CLDR data, so the text may legitimately differ during hydration. React then
+          keeps the server's text until the value changes. */}
+      <span
+        id={valueId}
+        className={cn('truncate', !value && 'text-muted')}
+        suppressHydrationWarning
+      >
         {value ?? placeholder}
       </span>
     </button>

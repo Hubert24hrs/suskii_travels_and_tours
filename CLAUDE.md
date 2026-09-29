@@ -213,6 +213,10 @@ Tooling notes for agents:
 
 - Pages render per request (nonce CSP, ADR-010); cache API reads through `lib/api.ts`
   (`revalidate` + tags). Never read `localStorage` during render; restore it in an effect.
+- Node and browsers ship different CLDR data, so `Intl` text in a server-rendered client component
+  can differ at hydration. Render it in an element with `suppressHydrationWarning` (as
+  `FieldButton` and `NativeSelect` do) and switch browser-only values (the visitor's time zone)
+  after `useHydrated()`. `e2e/hydration.spec.ts` alters the browser's `Intl`: add new pages there.
 - Copy comes from `@suskii/i18n`: server components use `getI18n()`; client components get a
   message subset through `I18nProvider` or labels as props. E2E tests use the catalog too.
 - Only the spacing scale exists (0-6, 8, 10, 12, 16, 20) plus named sizes (`max-w-page`,

@@ -12,6 +12,8 @@ import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type FormEvent } from 'react';
 
+import { useHydrated } from '../../lib/use-hydrated';
+
 import { CityField, type CityOption } from './city-field';
 import { DateField } from './date-field';
 import { FormFooter } from './form-footer';
@@ -19,6 +21,25 @@ import { focusFirstError, toFieldErrors, type FieldErrors } from './issues';
 import { NativeSelect } from './native-select';
 import { useTravellerLabels } from './traveller-labels';
 import { useSearchT } from './use-search-t';
+
+/**
+ * The next 12 months. The server cannot know the visitor's time zone, so the list starts at the
+ * UTC month until hydration (server and browser render the same options), then at the visitor's.
+ */
+function monthOptions(locale: string, visitorTime: boolean): { value: string; label: string }[] {
+  const formatter = new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  const now = new Date();
+  const year = visitorTime ? now.getFullYear() : now.getUTCFullYear();
+  const month = visitorTime ? now.getMonth() : now.getUTCMonth();
+  return Array.from({ length: 12 }, (_, offset) => {
+    const date = new Date(Date.UTC(year, month + offset, 1));
+    return { value: date.toISOString().slice(0, 7), label: formatter.format(date) };
+  });
+}
 
 export interface PackagesFormProps {
   apiBaseUrl: string;
@@ -60,18 +81,8 @@ export default function PackagesForm({
   const update = (patch: Partial<PackagesFormDraft>) =>
     setDraft((current) => ({ ...current, ...patch }));
 
-  const months = useMemo(() => {
-    const formatter = new Intl.DateTimeFormat(locale, {
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'UTC',
-    });
-    const now = new Date();
-    return Array.from({ length: 12 }, (_, offset) => {
-      const date = new Date(Date.UTC(now.getFullYear(), now.getMonth() + offset, 1));
-      return { value: date.toISOString().slice(0, 7), label: formatter.format(date) };
-    });
-  }, [locale]);
+  const hydrated = useHydrated();
+  const months = useMemo(() => monthOptions(locale, hydrated), [locale, hydrated]);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
