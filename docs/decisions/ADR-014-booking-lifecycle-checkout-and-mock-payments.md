@@ -94,6 +94,19 @@ Extra checked baggage is sold where the supplier returns it (the mock does; Duff
 arrive when the adapter requests them). Seat maps wait for a supplier that supports them. Service
 prices are converted to the booking currency without markup; fees and markups apply to the fare.
 
+### Implementation notes (end of phase 5)
+
+- `MOCK_REPRICE_RULES` (mock supplier only) change a route's fare once, at the re-price right
+  before payment, so tests walk the consent path deterministically.
+- A new payment attempt closes the previous checkout session (`payment_abandoned`, then
+  `request_payment`); a late success for the closed session is still honoured when its amount
+  equals the booking total.
+- The worker sweeps every minute: `expire-due` (unpaid bookings past the deadline; ten minutes'
+  grace while a checkout is open) and `ticket-due` (paid bookings not yet started, due retries, and
+  attempts that stalled for ten minutes). Ticketing takes a Redis lock per booking.
+- Idempotent responses are stored encrypted, so a replayed booking creation does not leave the
+  guest access token readable in the database.
+
 ## Consequences
 
 - Phase 6 adds Paystack, Flutterwave and Stripe adapters behind the same interface, holds,

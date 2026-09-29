@@ -1,6 +1,6 @@
 # Phase 5: Flight and hotel booking flow (web)
 
-Status: in progress
+Status: done, awaiting review
 
 ## Goal
 
@@ -80,7 +80,7 @@ confirmation page, e-ticket or hotel voucher PDF and confirmation email.
   (pdf-lib, QR code of the reference) stored through an `ObjectStorage` interface (filesystem
   adapter locally, refused in production like other mocks); confirmation email with the PDF
   attached.
-- **Saved travellers**: `GET/POST /v1/me/travellers`, `PATCH/DELETE /v1/me/travellers/{id}`;
+- **Saved travellers**: `GET/POST /v1/me/travellers`, `PUT/DELETE /v1/me/travellers/{id}`;
   passport numbers encrypted with a record-bound context and returned masked.
 - **Internal routes** for the worker: bookings due for ticketing retries, retry one, expire
   unpaid bookings past their deadline.
@@ -129,3 +129,26 @@ expiry, both through the internal API.
 | Guests losing access after closing the tab              | Confirmation email with reference and documents; booking lookup arrives with accounts (phase 9) |
 | Mock payment reaching production                        | Mock adapters refused in production unless explicitly allowed (existing guard)                  |
 | Results and checkout bundles creeping onto the homepage | Route-level code splitting; the homepage budget test keeps running                              |
+
+## Outcome
+
+All three acceptance criteria are met:
+
+1. `apps/web/e2e/booking.spec.ts` walks a flight from results through checkout and the mock
+   payment to a confirmed, ticketed booking with its e-ticket, and a hotel stay to its voucher.
+2. The same spec and `apps/api/test/bookings.e2e-spec.ts` cover the price-change consent path
+   (409 with the difference, consent, payment at the new total).
+3. `booking-state-machine.spec.ts` checks every state x event pair (182).
+
+### Deviations from the plan
+
+- Saved travellers are replaced with `PUT` rather than patched: the form always sends the whole
+  traveller, and a document without a number keeps the stored passport number.
+- `MOCK_REPRICE_RULES` apply on an offer's second re-price (the check before payment), so the
+  consent path is deterministic and a consented price does not move again.
+- Stored idempotent responses are encrypted, because a replayed booking creation returns the guest
+  access token.
+- Flight filters for journey time and checked baggage already existed from phase 3; hotels gained
+  the area filter and facet.
+- The worker's ticketing sweep is bounded: the API starts no new attempt after 20 seconds and the
+  rest wait for the next minute.

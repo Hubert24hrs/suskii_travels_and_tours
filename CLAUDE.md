@@ -32,22 +32,22 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 
 ## Phase status
 
-| Phase | Name                                             | Status      |
-| ----- | ------------------------------------------------ | ----------- |
-| 0     | Foundation and repo bootstrap                    | Done        |
-| 1     | Design tokens and component libraries            | Done        |
-| 2     | Backend core                                     | Done        |
-| 3     | Search, catalog and supplier adapters            | Done        |
-| 4     | Web homepage                                     | Done        |
-| 5     | Flight and hotel booking flow (web)              | In progress |
-| 6     | Payments, flexible payment and refunds           | Not started |
-| 7     | Mobile app                                       | Not started |
-| 8     | Packages, tours, visa and add-ons                | Not started |
-| 9     | Accounts, Suskii Prime, referrals, notifications | Not started |
-| 10    | Admin console                                    | Not started |
-| 11    | Hardening                                        | Not started |
-| 12    | Deployment and release                           | Not started |
-| 13    | Optional: AI trip search                         | Not started |
+| Phase | Name                                             | Status                |
+| ----- | ------------------------------------------------ | --------------------- |
+| 0     | Foundation and repo bootstrap                    | Done                  |
+| 1     | Design tokens and component libraries            | Done                  |
+| 2     | Backend core                                     | Done                  |
+| 3     | Search, catalog and supplier adapters            | Done                  |
+| 4     | Web homepage                                     | Done                  |
+| 5     | Flight and hotel booking flow (web)              | Done, awaiting review |
+| 6     | Payments, flexible payment and refunds           | Not started           |
+| 7     | Mobile app                                       | Not started           |
+| 8     | Packages, tours, visa and add-ons                | Not started           |
+| 9     | Accounts, Suskii Prime, referrals, notifications | Not started           |
+| 10    | Admin console                                    | Not started           |
+| 11    | Hardening                                        | Not started           |
+| 12    | Deployment and release                           | Not started           |
+| 13    | Optional: AI trip search                         | Not started           |
 
 ## Repository layout
 
@@ -126,7 +126,8 @@ Tooling notes for agents:
   `WEB_E2E_DATABASE_URL` / `WEB_E2E_REDIS_URL`), migrates, seeds, starts the API on 4000 and web on
   3000 (stop dev servers first) and runs one worker refresh. `E2E_BASE_URL` targets a running stack
   instead. Lighthouse uses `CHROME_PATH` (Playwright's headless shell works best) or Playwright's
-  Chromium.
+  Chromium. The stack makes Lagos-Dubai fares change at the payment re-check
+  (`MOCK_REPRICE_RULES`) for the price-consent test.
 
 ## Conventions
 
@@ -190,6 +191,24 @@ Tooling notes for agents:
 - Times: store local wall time + IANA zone + UTC instant (`localToUtc`, `utcToLocal` in shared).
 - `X-Suskii-Client: web/<version>` or `mobile-<platform>/<version>` selects the sales channel.
 
+### Bookings and payments (apps/api, ADR-014, ADR-015)
+
+- Booking status changes only through `BookingTransitions.apply()` (state machine check, optimistic
+  guard on the current status, `booking_status_history` row and audit entry in the caller's
+  transaction). Never update `bookings.status` directly.
+- Load bookings with `BookingsService.load(id, caller)`: owners by session, guests by the
+  `X-Booking-Token` header (stored as an HMAC); everyone else gets 404.
+- Rows whose encrypted fields bind to their id get it from `uuidv7()` before the insert. Contexts:
+  `booking:{id}:contact`, `booking-passenger:{id}:passport`, `traveller:{id}:passport`. Responses
+  only ever show masked contact details and the last three passport characters.
+- Payment outcomes come only from verified webhooks (`PaymentEventsService`); the mock provider's
+  page completes through the same signed-webhook path. Money the booking cannot take is flagged
+  `requiresRefund` and audited, never silently applied.
+- Supplier `book()` calls use the booking item id as idempotency key; `idempotentBooking` decides
+  whether an ambiguous failure (timeout) may be retried or goes to REFUND_PENDING for review.
+- Binary responses (PDFs) use `fileResponse()` in the contract and return a `StreamableFile`.
+  Stored idempotent responses are encrypted (they can contain guest tokens).
+
 ### Web (apps/web)
 
 - Pages render per request (nonce CSP, ADR-010); cache API reads through `lib/api.ts`
@@ -206,6 +225,12 @@ Tooling notes for agents:
   `next/image` with hosts from `IMAGE_REMOTE_HOSTS`.
 - New pages need metadata (`pageMetadata`), a canonical path and, for inner pages, breadcrumbs;
   add them to the sitemap when indexable.
+- Client components call the API with `browserApi()` (typed openapi-fetch, `lib/browser-api.ts`);
+  documented headers such as `Idempotency-Key` go in `params.header`. Guest booking tokens live in
+  session storage through `lib/booking-token.ts`.
+- Result filters and sort live in the URL (`useUrlParams`). Fetched state is keyed by its inputs
+  instead of being reset inside effects (the React Compiler lint rejects `setState` in effects).
+- Checkout, payment and booking pages are private: `noIndex` metadata and robots.txt disallow.
 
 ### Security guardrails
 
@@ -254,6 +279,8 @@ Tooling notes for agents:
 - [ADR-011: Deals, hotel destinations and the internal API](docs/decisions/ADR-011-deals-destinations-and-internal-api.md)
 - [ADR-012: Newsletter consent, double opt-in and bot protection](docs/decisions/ADR-012-newsletter-consent-and-bot-protection.md)
 - [ADR-013: Homepage performance and the JavaScript budget](docs/decisions/ADR-013-homepage-performance-and-js-budget.md)
+- [ADR-014: Booking lifecycle, checkout and mock payments](docs/decisions/ADR-014-booking-lifecycle-checkout-and-mock-payments.md)
+- [ADR-015: Passenger data, saved travellers and guest access](docs/decisions/ADR-015-passenger-data-saved-travellers-and-guest-access.md)
 
 ## Open questions for the owner
 
@@ -262,4 +289,7 @@ are answered: suppliers, IATA or consolidator, SSO with Suskii Errands, GCP or A
 entity, Suskii Prime pricing. Added in phase 3: FX source for the naira and any FX margin (ADR-008),
 hotel provider (Duffel Stays recommended, ADR-009), Duffel sandbox token. Added in phase 4:
 support contacts, social and app store links, legal texts and privacy policy, licensed photography,
-WhatsApp/SMS provider for deal alerts, Cloudflare Turnstile keys.
+WhatsApp/SMS provider for deal alerts, Cloudflare Turnstile keys. Added in phase 5: which payment
+provider comes first (Paystack, Flutterwave, Stripe) and test keys, booking conditions and fare
+rules text, the refund and REFUND_PENDING operations process, and support contacts for failed
+bookings.

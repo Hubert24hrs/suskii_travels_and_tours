@@ -43,7 +43,8 @@ booking so the traveller can check it.
 
 ### Saved travellers
 
-Signed-in users can keep up to 20 travellers (`/v1/me/travellers`). A checkout passenger can
+Signed-in users can keep up to 20 travellers (`/v1/me/travellers`; `PUT` replaces one, and a
+document without a number keeps the stored passport number). A checkout passenger can
 reference a saved traveller; the API copies the encrypted passport server-side, so the full number
 never travels back to the browser. "Save this traveller" at checkout creates or updates one.
 

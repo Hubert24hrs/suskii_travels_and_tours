@@ -83,6 +83,14 @@ curl -s -X POST http://localhost:4000/v1/flights/searches -H 'Content-Type: appl
   -d '{"slices":[{"origin":"LOS","destination":"LHR","departureDate":"2026-12-10"}],"passengers":{"adults":1,"children":0,"infants":0},"cabinClass":"economy"}'
 ```
 
+To book end to end locally, open a search such as
+`http://localhost:3000/flights/search?trip=one_way&from=LOS&to=ABV&depart=2026-12-10&adults=1`,
+pick a fare and complete checkout. Payments use the mock provider: its test page takes no card and
+sends a signed webhook to the API. The confirmation email with the e-ticket or voucher appears in
+Mailpit, and documents are stored under `.data/objects`. Set `MOCK_REPRICE_RULES=LOS-DXB:500` to
+see the price-change consent step on Lagos-Dubai fares. With the worker running, unpaid bookings
+expire at their deadline and failed ticketing attempts are retried every minute.
+
 | Service            | URL                                                   |
 | ------------------ | ----------------------------------------------------- |
 | Web                | http://localhost:3000                                 |

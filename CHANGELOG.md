@@ -6,6 +6,53 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 5: Flight and hotel booking flow (2026-09-29)
+
+#### Added
+
+- Web booking flow on live API data. Flight and hotel results with filters and sort in the URL
+  (stops, airlines, departure time, price, journey time, refundable, checked bag; stars, rating,
+  free cancellation, amenities, area, meals), facets with prices, load more, fare details with
+  layover warnings and conditions, and expired-results recovery; a hotel page with every rate,
+  board, cancellation terms and charges paid at the hotel.
+- Checkout: travellers with a passport-form name preview, passports (required abroad), extra
+  bags, contact details, promo code, terms consent and Turnstile for guests. The price is checked
+  with the supplier right before payment; a change opens a consent dialog with the previous and
+  new totals and the difference.
+- Mock payment provider with a hosted page on the web app and HMAC-signed webhooks through the
+  real webhook pipeline; booking page that polls until confirmed, then shows the itinerary or
+  stay, ticket numbers or confirmation number, price paid and PDF downloads.
+- API: `POST /v1/bookings` (idempotent), `GET /v1/bookings/{id}` (owner or `X-Booking-Token`, 404
+  otherwise), payments with the price re-check (409 `price-changed`), price consent, cancel,
+  document download, `GET /v1/quotes/{id}`, payment webhooks, mock checkout endpoints, saved
+  travellers (`/v1/me/travellers`) and worker routes for expiry and ticketing (ADR-014, ADR-015).
+- Booking state machine with the spec's 13 statuses; every transition is guarded, recorded in
+  `booking_status_history` and audited in the same transaction (all state x event pairs tested).
+- Migration 4: bookings, items, passengers, status history (append-only), saved travellers,
+  payments, webhook events and documents. Contact details and passport numbers are encrypted with
+  record-bound contexts and only returned masked; guest access tokens are stored as HMACs.
+- Supplier booking: `book()` for flights (mock, Duffel orders) and hotels (mock), idempotent by
+  booking item id, extra baggage services on mock offers. Ticketing retries transient failures
+  with backoff (1, 2, 4, 8, 16 minutes) and moves exhausted or ambiguous cases to REFUND_PENDING.
+- E-ticket and hotel voucher PDFs (pdf-lib, QR code of the reference) in private object storage
+  (filesystem adapter for development) and the confirmation email with the PDF attached.
+- Worker: a bookings queue expires unpaid bookings and runs due ticketing attempts every minute.
+- Shared: passenger and contact schemas, transliteration of accented names, age and passport
+  rules against the itinerary, booking constants.
+- Tests: state machine matrix, passenger rules, PDFs, mock payment signatures, Duffel orders,
+  worker jobs; API e2e for full flight and hotel flows, price consent, webhooks (signature,
+  duplicates, amount mismatch, refund flags), ownership, idempotency, retries, exhaustion and
+  expiry; Playwright for search to confirmation, the price-change consent path, hotels to voucher
+  and phone layouts, all axe-checked.
+
+#### Changed
+
+- Stored idempotent responses are encrypted, since they can carry a guest booking token.
+- `MOCK_REPRICE_RULES` apply once, at the re-price right before payment.
+- Hotel results gain an area filter and facet; hotel quotes keep the supplier query.
+- The generated API client keeps defaulted request fields optional.
+- Checkout, payment and booking pages are noindex and disallowed in robots.txt.
+
 ### Phase 4: Web homepage (2026-09-29)
 
 #### Added
