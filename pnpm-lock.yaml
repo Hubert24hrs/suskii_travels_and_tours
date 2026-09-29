@@ -165,6 +165,9 @@ catalogs:
     csv-parse:
       specifier: ^7.0.3
       version: 7.0.3
+    csv-stringify:
+      specifier: ^6.9.0
+      version: 6.9.0
     date-fns:
       specifier: ^4.4.0
       version: 4.4.0
@@ -596,6 +599,9 @@ importers:
       csv-parse:
         specifier: 'catalog:'
         version: 7.0.3
+      csv-stringify:
+        specifier: 'catalog:'
+        version: 6.9.0
       eslint:
         specifier: 'catalog:'
         version: 9.39.5(jiti@2.7.0)
@@ -6991,6 +6997,9 @@ packages:
 
   csv-parse@7.0.3:
     resolution: {integrity: sha512-YFd3QM/yo17vH91L1IOZuvl09zM0zEEtdfTcOCKWcMdM++MNaQSyp09slXyFCLaPXvHstQFx/xC8myiFHSMUvw==}
+
+  csv-stringify@6.9.0:
+    resolution: {integrity: sha512-6b3e29CILFfSQ2nDRuZMRROzQOpPuJ+s8zPB5H7eK5ncXBbFOyVuRLU5Sx/zAUmVri3Ly49GyC8NEme4SVSAbA==}
 
   d3-array@3.2.1:
     resolution: {integrity: sha512-gUY/qeHq/yNqqoCKNq4vtpFLdoCdvyNpWoC/KNjhGbhDuQpAM9sIQQKkXSNpXa9h5KySs/gzm7R88WkUutgwWQ==}
@@ -18160,6 +18169,8 @@ snapshots:
   csstype@3.2.3: {}
 
   csv-parse@7.0.3: {}
+
+  csv-stringify@6.9.0: {}
 
   d3-array@3.2.1:
     dependencies:

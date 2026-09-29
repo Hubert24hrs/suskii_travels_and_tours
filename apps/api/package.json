@@ -20,7 +20,9 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "openapi": "nest build && node dist/openapi/generate.js"
+    "openapi": "nest build && node dist/openapi/generate.js",
+    "data:build": "tsx scripts/build-reference-data.ts",
+    "keys:generate": "tsx scripts/generate-secrets.ts"
   },
   "dependencies": {
     "@nestjs/common": "catalog:",
@@ -64,6 +66,7 @@
     "@types/pg": "catalog:",
     "@types/supertest": "catalog:",
     "csv-parse": "catalog:",
+    "csv-stringify": "catalog:",
     "eslint": "catalog:",
     "jest": "catalog:",
     "pino-pretty": "catalog:",
