@@ -14,6 +14,7 @@ export const BOOKING_EVENTS = [
   'fail',
   'cancel',
   'expire',
+  'default',
   'request_refund',
   'refunded',
 ] as const;
@@ -24,6 +25,8 @@ const UNPAID: readonly BookingStatus[] = ['DRAFT', 'PRICED', 'HELD', 'AWAITING_P
 /**
  * The only allowed moves. `payment_succeeded` also applies to PRICED and HELD: a late webhook for
  * an abandoned checkout session is real money and confirms the booking when the amount matches.
+ * Payment plans (ADR-018) pay HELD and PARTIALLY_PAID bookings without AWAITING_PAYMENT; a missed
+ * installment defaults the plan (refund per policy), or cancels it when nothing is refundable.
  */
 const TRANSITIONS: Readonly<
   Record<BookingEvent, { from: readonly BookingStatus[]; to: BookingStatus }>
@@ -32,7 +35,7 @@ const TRANSITIONS: Readonly<
   hold: { from: ['PRICED'], to: 'HELD' },
   request_payment: { from: ['PRICED', 'HELD'], to: 'AWAITING_PAYMENT' },
   payment_abandoned: { from: ['AWAITING_PAYMENT'], to: 'PRICED' },
-  partial_payment: { from: ['AWAITING_PAYMENT', 'PARTIALLY_PAID'], to: 'PARTIALLY_PAID' },
+  partial_payment: { from: ['HELD', 'AWAITING_PAYMENT', 'PARTIALLY_PAID'], to: 'PARTIALLY_PAID' },
   payment_succeeded: {
     from: ['PRICED', 'HELD', 'AWAITING_PAYMENT', 'PARTIALLY_PAID'],
     to: 'PAID',
@@ -41,8 +44,9 @@ const TRANSITIONS: Readonly<
   ticketed: { from: ['TICKETING'], to: 'CONFIRMED' },
   ticketing_exhausted: { from: ['TICKETING'], to: 'REFUND_PENDING' },
   fail: { from: ['DRAFT', 'PRICED', 'HELD'], to: 'FAILED' },
-  cancel: { from: UNPAID, to: 'CANCELLED' },
+  cancel: { from: [...UNPAID, 'PARTIALLY_PAID'], to: 'CANCELLED' },
   expire: { from: UNPAID, to: 'EXPIRED' },
+  default: { from: ['PARTIALLY_PAID'], to: 'REFUND_PENDING' },
   request_refund: { from: ['PAID', 'PARTIALLY_PAID', 'CONFIRMED'], to: 'REFUND_PENDING' },
   refunded: { from: ['REFUND_PENDING'], to: 'REFUNDED' },
 };

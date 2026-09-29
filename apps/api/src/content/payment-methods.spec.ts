@@ -1,9 +1,13 @@
-import { IMPLEMENTED_PAYMENT_PROVIDERS, paymentMethodsFor } from './payment-methods';
+import { enabledPaymentProviders, paymentMethodsFor } from './payment-methods';
 
 describe('payment methods', () => {
-  it('lists nothing until a payment adapter exists (phase 6)', () => {
-    expect(IMPLEMENTED_PAYMENT_PROVIDERS).toEqual([]);
-    expect(paymentMethodsFor(IMPLEMENTED_PAYMENT_PROVIDERS)).toEqual([]);
+  it('lists nothing while only the mock provider is enabled', () => {
+    expect(enabledPaymentProviders(['mock'])).toEqual([]);
+    expect(paymentMethodsFor(enabledPaymentProviders(['mock']))).toEqual([]);
+  });
+
+  it('keeps the configured order of real providers', () => {
+    expect(enabledPaymentProviders(['stripe', 'mock', 'paystack'])).toEqual(['stripe', 'paystack']);
   });
 
   it('lists enabled providers and their distinct methods', () => {

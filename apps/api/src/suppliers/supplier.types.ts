@@ -9,6 +9,8 @@ import type {
 
 import type { SupplierPrice } from '../pricing/pricing-engine';
 
+import { SupplierRequestError } from './supplier.errors';
+
 // Domain shapes owned by Suskii. Adapters translate vendor payloads into these; nothing outside
 // `src/suppliers/<vendor>` ever sees a vendor type (PROJECT_SPEC.json#/architecture/key_principles).
 
@@ -111,7 +113,15 @@ export interface SupplierFlightOffer {
   /** Total for all passengers, in the supplier's currency. */
   price: SupplierPrice;
   expiresAt: string;
-  hold: { available: boolean; paymentRequiredBy: string | null };
+  /**
+   * Whether the airline can reserve this offer unpaid (Duffel `pay_later`), until when, and until
+   * when it guarantees the price of the held order (ADR-018).
+   */
+  hold: {
+    available: boolean;
+    paymentRequiredBy: string | null;
+    priceGuaranteedUntil: string | null;
+  };
   /** Extras bookable with this offer; empty when the supplier returns none. */
   services: FlightService[];
 }
@@ -196,6 +206,41 @@ export interface FlightBookingResult {
   tickets: { passengerIndex: number; number: string }[];
 }
 
+export interface FlightHoldRequest {
+  offer: SupplierFlightOffer;
+  passengers: SupplierPassenger[];
+  contact: SupplierContact;
+  /** Stable per booking item: repeating a request with it never holds twice. */
+  idempotencyKey: string;
+}
+
+/** An unpaid order the airline keeps until `paymentRequiredBy` (ADR-018). */
+export interface FlightHold {
+  orderId: string;
+  /** Airline booking reference (PNR), known once the space is held. */
+  supplierReference: string;
+  paymentRequiredBy: string;
+  priceGuaranteedUntil: string | null;
+  /** Total of the held order, in the supplier's currency. */
+  price: SupplierPrice;
+}
+
+export interface HeldOrder {
+  awaitingPayment: boolean;
+  paymentRequiredBy: string | null;
+  priceGuaranteedUntil: string | null;
+  /** Current total: may differ from the held price once the guarantee has lapsed. */
+  price: SupplierPrice;
+}
+
+export interface PayHeldRequest {
+  orderId: string;
+  /** The supplier total the traveller paid for; a different current total is refused. */
+  price: SupplierPrice;
+  /** Idempotency key (the booking item id). */
+  idempotencyKey: string;
+}
+
 export interface HotelBookingRequest {
   hotel: SupplierHotel;
   rate: SupplierHotelRate;
@@ -226,6 +271,26 @@ export abstract class FlightSupplier {
   abstract reprice(offer: SupplierFlightOffer, signal: AbortSignal): Promise<SupplierFlightOffer>;
   /** Books and tickets a paid offer. Must be idempotent by `request.idempotencyKey`. */
   abstract book(request: FlightBookingRequest, signal: AbortSignal): Promise<FlightBookingResult>;
+
+  /** Reserves an offer unpaid (only when `offer.hold.available`). */
+  hold(_request: FlightHoldRequest, _signal: AbortSignal): Promise<FlightHold> {
+    return Promise.reject(new SupplierRequestError(this.name, 'Holds are not supported'));
+  }
+
+  /** The current state of a held order, including its latest price. */
+  heldOrder(_orderId: string, _signal: AbortSignal): Promise<HeldOrder> {
+    return Promise.reject(new SupplierRequestError(this.name, 'Holds are not supported'));
+  }
+
+  /** Pays a held order and tickets it. Must be idempotent by `request.idempotencyKey`. */
+  payHeld(_request: PayHeldRequest, _signal: AbortSignal): Promise<FlightBookingResult> {
+    return Promise.reject(new SupplierRequestError(this.name, 'Holds are not supported'));
+  }
+
+  /** Releases a held order (unpaid holds cancel free of charge). */
+  cancelHold(_orderId: string, _signal: AbortSignal): Promise<void> {
+    return Promise.reject(new SupplierRequestError(this.name, 'Holds are not supported'));
+  }
 }
 
 export abstract class HotelSupplier {

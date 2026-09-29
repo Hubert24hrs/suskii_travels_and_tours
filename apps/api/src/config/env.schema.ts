@@ -109,10 +109,47 @@ export const envSchema = z
     /** Cloudflare Turnstile secret; unset outside production means the mock verifier. */
     TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
 
-    /** Payment provider behind hosted checkout (ADR-014). Real providers arrive in phase 6. */
-    PAYMENT_PROVIDER: z.enum(['mock']).default('mock'),
+    /**
+     * Hosted-checkout providers in preference order (ADR-016). The checkout offers those that
+     * settle the booking's currency; the first is the default.
+     */
+    PAYMENT_PROVIDERS: csv(z.enum(['mock', 'paystack', 'flutterwave', 'stripe'])).default(['mock']),
+    PAYSTACK_SECRET_KEY: z.string().min(16).optional(),
+    PAYSTACK_API_URL: z.url().default('https://api.paystack.co'),
+    FLUTTERWAVE_SECRET_KEY: z.string().min(16).optional(),
+    /** The "secret hash" set on the Flutterwave dashboard, sent back in `verif-hash`. */
+    FLUTTERWAVE_WEBHOOK_HASH: z.string().min(16).optional(),
+    FLUTTERWAVE_API_URL: z.url().default('https://api.flutterwave.com'),
+    STRIPE_SECRET_KEY: z.string().min(16).optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().min(16).optional(),
+    STRIPE_API_URL: z.url().default('https://api.stripe.com'),
+    /** Timeout of one call to a payment provider's API. */
+    PAYMENT_PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(15_000),
     /** How long a hosted checkout session stays payable. */
     PAYMENT_SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
+    /** Pending payments older than this are verified with the provider (lost webhooks). */
+    PAYMENT_RECONCILE_AFTER_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+
+    /** Holds and installments (ADR-018); fees and the default policy are owner decisions. */
+    HOLD_MIN_WINDOW_HOURS: z.coerce.number().int().min(1).max(168).default(6),
+    HOLD_SAFETY_MARGIN_MINUTES: z.coerce.number().int().min(15).max(1440).default(120),
+    HOLD_MAX_ACTIVE: z.coerce.number().int().min(1).max(20).default(2),
+    INSTALLMENT_DEPOSIT_BPS: z.coerce.number().int().min(500).max(9000).default(3000),
+    INSTALLMENT_MAX_COUNT: z.coerce.number().int().min(1).max(12).default(3),
+    INSTALLMENT_MIN_SPACING_HOURS: z.coerce.number().int().min(1).max(720).default(24),
+    INSTALLMENT_FEE_BPS: z.coerce.number().int().min(0).max(2000).default(0),
+    INSTALLMENT_DEFAULT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(0),
+    INSTALLMENT_GRACE_HOURS: z.coerce.number().int().min(0).max(168).default(24),
+
+    /**
+     * Staff refunds worth more than this (NGN minor units) need a second approver (ADR-019).
+     * 0 means every staff refund needs one.
+     */
+    REFUND_APPROVAL_THRESHOLD_NGN: z.coerce.number().int().min(0).default(0),
+    /** Refunds still pending at a provider without a lookup API go to review after this. */
+    REFUND_REVIEW_AFTER_HOURS: z.coerce.number().int().min(1).max(720).default(72),
+    /** Operations mailbox for money alerts (automatic refunds, failures, reviews). */
+    OPS_ALERT_EMAIL: z.email().optional(),
     /** Booking with a supplier can take far longer than a search or a re-price. */
     SUPPLIER_BOOKING_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(45_000),
     /** Automatic ticketing attempts before a paid booking goes to REFUND_PENDING. */
@@ -153,6 +190,24 @@ export const envSchema = z
     }
     if (env.DEALS_DEPARTURE_OFFSETS_DAYS.length === 0)
       require('DEALS_DEPARTURE_OFFSETS_DAYS', 'list at least one offset');
+    if (env.PAYMENT_PROVIDERS.length === 0)
+      require('PAYMENT_PROVIDERS', 'enable at least one payment provider');
+    if (new Set(env.PAYMENT_PROVIDERS).size !== env.PAYMENT_PROVIDERS.length)
+      require('PAYMENT_PROVIDERS', 'list each provider once');
+    if (env.PAYMENT_PROVIDERS.includes('paystack') && !env.PAYSTACK_SECRET_KEY)
+      require('PAYSTACK_SECRET_KEY', 'is required when PAYMENT_PROVIDERS includes paystack');
+    if (env.PAYMENT_PROVIDERS.includes('flutterwave')) {
+      if (!env.FLUTTERWAVE_SECRET_KEY)
+        require('FLUTTERWAVE_SECRET_KEY', 'is required when PAYMENT_PROVIDERS includes flutterwave');
+      if (!env.FLUTTERWAVE_WEBHOOK_HASH)
+        require('FLUTTERWAVE_WEBHOOK_HASH', 'is required when PAYMENT_PROVIDERS includes flutterwave');
+    }
+    if (env.PAYMENT_PROVIDERS.includes('stripe')) {
+      if (!env.STRIPE_SECRET_KEY)
+        require('STRIPE_SECRET_KEY', 'is required when PAYMENT_PROVIDERS includes stripe');
+      if (!env.STRIPE_WEBHOOK_SECRET)
+        require('STRIPE_WEBHOOK_SECRET', 'is required when PAYMENT_PROVIDERS includes stripe');
+    }
     if (env.NODE_ENV !== 'production') return;
     if (!env.INTERNAL_API_TOKEN) require('INTERNAL_API_TOKEN', 'is required in production');
     else if (env.INTERNAL_API_TOKEN.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
@@ -176,8 +231,12 @@ export const envSchema = z
       require('HOTEL_SUPPLIERS', 'the mock supplier is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.FX_PROVIDER === 'mock')
       require('FX_PROVIDER', 'mock exchange rates are not allowed in production');
-    if (!env.ALLOW_MOCK_PROVIDERS && env.PAYMENT_PROVIDER === 'mock')
-      require('PAYMENT_PROVIDER', 'mock payments are not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.PAYMENT_PROVIDERS.includes('mock'))
+      require('PAYMENT_PROVIDERS', 'mock payments are not allowed in production');
+    // Real providers must be called over TLS with their production hosts' defaults or overrides.
+    for (const key of ['PAYSTACK_API_URL', 'FLUTTERWAVE_API_URL', 'STRIPE_API_URL'] as const) {
+      if (!env[key].startsWith('https://')) require(key, 'must use https in production');
+    }
     if (!env.ALLOW_MOCK_PROVIDERS && env.OBJECT_STORAGE === 'filesystem')
       require('OBJECT_STORAGE', 'filesystem storage is not allowed in production');
   });

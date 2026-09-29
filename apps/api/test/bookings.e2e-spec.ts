@@ -647,29 +647,44 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
       ).toBe(1);
     });
 
-    it('never applies a success for the wrong amount and flags money it cannot take', async () => {
-      const { id, token, reference, total, checkoutUrl } = await awaitingPayment();
+    it('never applies a success for the wrong amount and refunds money it cannot take', async () => {
+      const { id, token, reference, total } = await awaitingPayment();
       const mock = ctx.app.get(MockPaymentProvider);
       const short = mock.signedEvent(reference, 'succeeded', {
         minor: BigInt(total.amountMinor - 100),
         currency: total.currency,
       });
       await post(short.rawBody, short.headers).expect(200);
+      await ctx.background.drain();
       const payment = await ctx.prisma.payment.findUniqueOrThrow({
         where: { providerReference: reference },
       });
+      // The provider did take money: recorded, never applied, and given back automatically.
       expect(payment).toMatchObject({
-        status: 'pending',
+        status: 'succeeded',
         requiresRefund: true,
         failureReason: 'amount_mismatch',
       });
+      const refunds = await ctx.prisma.refund.findMany({ where: { paymentId: payment.id } });
+      expect(refunds).toEqual([
+        expect.objectContaining({
+          amountMinor: BigInt(total.amountMinor - 100),
+          reason: 'amount_mismatch',
+          source: 'unapplied',
+          automatic: true,
+          status: 'succeeded',
+        }),
+      ]);
       const still = await ctx.http().get(`/v1/bookings/${id}`).set(token);
-      expect(still.body.status).toBe('AWAITING_PAYMENT');
+      expect(still.body).toMatchObject({ status: 'AWAITING_PAYMENT', paid: { amountMinor: 0 } });
 
-      await payWithMock(checkoutUrl);
-      // A second successful session for a booking that is already paid: flagged for refund.
-      const cancelled = await ctx.prisma.booking.findUniqueOrThrow({ where: { id } });
-      expect(cancelled.status).toBe('CONFIRMED');
+      // The traveller pays again with a new checkout.
+      const again = await startPayment(id, token).expect(201);
+      await payWithMock(again.body.checkoutUrl as string);
+      const confirmed = await ctx.prisma.booking.findUniqueOrThrow({ where: { id } });
+      expect(confirmed.status).toBe('CONFIRMED');
+
+      // A second successful session for a booking that is already paid: refunded as a duplicate.
       const extraPayment = await ctx.prisma.payment.create({
         data: {
           bookingId: id,
@@ -686,6 +701,7 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
         currency: total.currency,
       });
       await post(second.rawBody, second.headers).expect(200);
+      await ctx.background.drain();
       const flagged = await ctx.prisma.payment.findUniqueOrThrow({
         where: { id: extraPayment.id },
       });
@@ -695,6 +711,16 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
           where: { action: 'payment.requires_refund', targetId: extraPayment.id },
         }),
       ).toBe(1);
+      expect(
+        await ctx.prisma.refund.findFirstOrThrow({ where: { paymentId: extraPayment.id } }),
+      ).toMatchObject({ reason: 'duplicate_payment', status: 'succeeded' });
+      // Nothing is left in the unapplied pool, and the confirmed booking keeps exactly its total.
+      const unapplied = await ctx.prisma.ledgerAccount.findUnique({
+        where: { code: `unapplied:${total.currency}` },
+      });
+      expect(unapplied?.balanceMinor).toBe(0n);
+      const after = await ctx.http().get(`/v1/bookings/${id}`).set(token);
+      expect(after.body.paid).toEqual(total);
     });
 
     it('returns a declined booking to PRICED so the traveller can pay again', async () => {
@@ -772,8 +798,8 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
       ).toBe(2);
     });
 
-    it('moves a booking to REFUND_PENDING when the retry budget runs out', async () => {
-      const { id, token } = await guestBooking();
+    it('refunds a paid booking automatically when the retry budget runs out', async () => {
+      const { id, token, total } = await guestBooking();
       ctx.app.get(MockFlightSupplier).failNextBookings = 100;
       const payment = await startPayment(id, token).expect(201);
       await payWithMock(payment.body.checkoutUrl);
@@ -781,9 +807,10 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
         await due(id);
         await ctx.http().post('/v1/internal/bookings/ticket-due').set(INTERNAL).expect(200);
       }
+      await ctx.background.drain();
       const row = await ctx.prisma.booking.findUniqueOrThrow({ where: { id } });
       expect(row).toMatchObject({
-        status: 'REFUND_PENDING',
+        status: 'REFUNDED',
         ticketingAttempts: ctx.config.TICKETING_MAX_ATTEMPTS,
         nextTicketingAt: null,
       });
@@ -791,6 +818,15 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
         where: { bookingId: id, toStatus: 'REFUND_PENDING' },
       });
       expect(final).toMatchObject({ event: 'ticketing_exhausted', reason: 'supplier_unavailable' });
+      const refund = await ctx.prisma.refund.findFirstOrThrow({ where: { bookingId: id } });
+      expect(refund).toMatchObject({
+        reason: 'ticketing_failed',
+        automatic: true,
+        status: 'succeeded',
+        amountMinor: BigInt(total.amountMinor),
+      });
+      const templates = ctx.emails.outbox.map((message) => message.template);
+      expect(templates).toEqual(expect.arrayContaining(['refund-started', 'refund-completed']));
     });
 
     it('expires unpaid bookings after their payment deadline', async () => {

@@ -57,7 +57,9 @@ import {
   termsOutdated,
 } from './booking.errors';
 import type { BookingDto, CreateBookingRequest } from './bookings.schemas';
+import { BookingAccessLinks } from './booking-access-links';
 import { BookingDocumentsService } from './booking-documents.service';
+import { BookingFundsService } from './booking-funds.service';
 
 /** Prices are held for at most this long after pricing (ADR-014). */
 export const PRICE_HOLD_MS = 30 * 60_000;
@@ -112,6 +114,8 @@ export class BookingsService {
     private readonly audit: AuditService,
     private readonly documents: BookingDocumentsService,
     private readonly background: BackgroundTasks,
+    private readonly accessLinks: BookingAccessLinks,
+    private readonly funds: BookingFundsService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -127,19 +131,24 @@ export class BookingsService {
       where: { id: bookingId },
       include: BOOKING_INCLUDE,
     });
-    if (!booking || !this.canAccess(booking, caller)) throw new NotFoundException();
+    if (!booking || !(await this.canAccess(booking, caller))) throw new NotFoundException();
     return booking;
   }
 
-  private canAccess(
-    booking: { userId: string | null; accessTokenHash: string | null },
+  /** Owner by session; guests by the checkout token or a live access link from an email. */
+  private async canAccess(
+    booking: { id: string; userId: string | null; accessTokenHash: string | null },
     caller: Pick<BookingCaller, 'client' | 'token'>,
-  ): boolean {
+  ): Promise<boolean> {
     if (booking.userId && caller.client.userId === booking.userId) return true;
-    if (booking.accessTokenHash && caller.token) {
-      return this.hmac.verify('booking-access', caller.token, booking.accessTokenHash);
+    if (!caller.token || booking.userId) return false;
+    if (
+      booking.accessTokenHash &&
+      this.hmac.verify('booking-access', caller.token, booking.accessTokenHash)
+    ) {
+      return true;
     }
-    return false;
+    return this.accessLinks.valid(booking.id, caller.token);
   }
 
   contact(booking: { id: string; contactEncrypted: string }): ContactDetails {
@@ -149,8 +158,12 @@ export class BookingsService {
   }
 
   async present(booking: BookingRecord): Promise<BookingDto> {
-    const fx = await this.fx.converter();
-    return toBookingDto(booking, this.contact(booking), fx, new Date());
+    const now = new Date();
+    const [fx, funds] = await Promise.all([
+      this.fx.converter(),
+      this.funds.forBooking(booking, now),
+    ]);
+    return toBookingDto(booking, this.contact(booking), fx, now, funds);
   }
 
   async get(bookingId: string, caller: BookingCaller): Promise<BookingDto> {
@@ -555,6 +568,11 @@ export class BookingsService {
         item.payload.kind === 'flight' ? new Date(item.payload.offer.expiresAt) : null,
       )
       .filter((date): date is Date => date !== null);
+    // A held booking keeps its plan's deadline; its single payment becomes the new total.
+    const hold =
+      booking.paymentPlan?.status === 'active' && booking.paymentPlan.kind === 'hold'
+        ? booking.paymentPlan
+        : null;
     await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.booking.updateMany({
         where: { id: booking.id, status: booking.status },
@@ -562,10 +580,21 @@ export class BookingsService {
           price: pending.price,
           totalMinor: agreed.minor,
           pendingPrice: Prisma.DbNull,
-          paymentDeadline: earliest(new Date(now.getTime() + PRICE_HOLD_MS), ...offerExpiry),
+          ...(hold
+            ? {}
+            : {
+                paymentDeadline: earliest(new Date(now.getTime() + PRICE_HOLD_MS), ...offerExpiry),
+              }),
         },
       });
       if (count !== 1) throw bookingConflict();
+      if (hold) {
+        await tx.paymentPlan.update({ where: { id: hold.id }, data: { totalMinor: agreed.minor } });
+        await tx.installment.updateMany({
+          where: { planId: hold.id, status: 'pending' },
+          data: { amountMinor: agreed.minor },
+        });
+      }
       for (const item of pending.items) {
         await tx.bookingItem.update({
           where: { id: item.id },

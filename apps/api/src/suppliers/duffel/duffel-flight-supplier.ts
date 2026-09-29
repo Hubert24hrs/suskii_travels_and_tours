@@ -12,18 +12,30 @@ import {
 
 import { buildSlice } from '../itinerary';
 import { SupplierRequestError, SupplierUnavailableError } from '../supplier.errors';
+import type { SupplierPrice } from '../../pricing/pricing-engine';
 import {
   FlightSupplier,
   type AirportPoint,
   type FlightBookingRequest,
   type FlightBookingResult,
+  type FlightHold,
+  type FlightHoldRequest,
   type FlightSearchQuery,
   type FlightSegment,
+  type HeldOrder,
+  type PayHeldRequest,
+  type SupplierContact,
   type SupplierFlightOffer,
+  type SupplierPassenger,
 } from '../supplier.types';
 
 import type { DuffelClient } from './duffel.client';
-import { duffelOfferSchema, duffelOrderSchema, type DuffelOffer } from './duffel.schemas';
+import {
+  duffelOfferSchema,
+  duffelOrderSchema,
+  type DuffelOffer,
+  type DuffelOrder,
+} from './duffel.schemas';
 
 type DuffelPlace = DuffelOffer['slices'][number]['segments'][number]['origin'];
 
@@ -131,9 +143,121 @@ export class DuffelFlightSupplier extends FlightSupplier {
     if (request.services.length > 0) {
       throw new SupplierRequestError(this.name, 'Duffel extras are not supported yet');
     }
+    const offer = await this.freshOffer(request.offer, request.passengers.length, signal);
+    const created = await this.client.request('POST', '/air/orders', signal, {
+      data: {
+        type: 'instant',
+        selected_offers: [offer.id],
+        passengers: this.orderPassengers(offer, request.passengers, request.contact),
+        payments: [{ type: 'balance', currency: offer.total_currency, amount: offer.total_amount }],
+        metadata: { suskii_booking_item: request.idempotencyKey },
+      },
+    });
+    const order = this.parseOrder(created);
+    return { supplierReference: order.booking_reference, tickets: this.tickets(order, offer) };
+  }
+
+  /** Creates a `pay_later` order: the airline holds the space until `payment_required_by`. */
+  override async hold(request: FlightHoldRequest, signal: AbortSignal): Promise<FlightHold> {
+    const offer = await this.freshOffer(request.offer, request.passengers.length, signal);
+    if (offer.payment_requirements?.requires_instant_payment !== false) {
+      throw new SupplierRequestError(this.name, 'This offer cannot be held');
+    }
+    const created = await this.client.request('POST', '/air/orders', signal, {
+      data: {
+        type: 'pay_later',
+        selected_offers: [offer.id],
+        passengers: this.orderPassengers(offer, request.passengers, request.contact),
+        metadata: { suskii_booking_item: request.idempotencyKey },
+      },
+    });
+    const order = this.parseOrder(created);
+    const status = order.payment_status;
+    if (!status?.awaiting_payment || !status.payment_required_by) {
+      throw new SupplierUnavailableError(this.name, 'Duffel did not return a held order');
+    }
+    return {
+      orderId: order.id,
+      supplierReference: order.booking_reference,
+      paymentRequiredBy: new Date(status.payment_required_by).toISOString(),
+      priceGuaranteedUntil: status.price_guarantee_expires_at
+        ? new Date(status.price_guarantee_expires_at).toISOString()
+        : null,
+      price: this.orderPrice(order),
+    };
+  }
+
+  /** Fetching a held order returns its latest price once the guarantee has lapsed. */
+  override async heldOrder(orderId: string, signal: AbortSignal): Promise<HeldOrder> {
+    const order = this.parseOrder(
+      await this.client.request('GET', `/air/orders/${encodeURIComponent(orderId)}`, signal),
+    );
+    const status = order.payment_status;
+    return {
+      awaitingPayment: status?.awaiting_payment ?? false,
+      paymentRequiredBy: status?.payment_required_by
+        ? new Date(status.payment_required_by).toISOString()
+        : null,
+      priceGuaranteedUntil: status?.price_guarantee_expires_at
+        ? new Date(status.price_guarantee_expires_at).toISOString()
+        : null,
+      price: this.orderPrice(order),
+    };
+  }
+
+  /**
+   * Pays a held order from the Duffel balance (`POST /air/payments`) after checking that its
+   * current total is what the traveller paid for, then reads the tickets from the order.
+   */
+  override async payHeld(
+    request: PayHeldRequest,
+    signal: AbortSignal,
+  ): Promise<FlightBookingResult> {
+    const path = `/air/orders/${encodeURIComponent(request.orderId)}`;
+    const before = this.parseOrder(await this.client.request('GET', path, signal));
+    if (before.payment_status && !before.payment_status.awaiting_payment) {
+      // Paid already (a retry after an ambiguous failure): just read the tickets.
+      return { supplierReference: before.booking_reference, tickets: this.tickets(before, null) };
+    }
+    const current = this.orderPrice(before);
+    const agreed = add(request.price.base, request.price.taxes);
+    if (!equals(add(current.base, current.taxes), agreed)) {
+      throw new SupplierRequestError(this.name, 'The held fare changed before payment');
+    }
+    await this.client.request('POST', '/air/payments', signal, {
+      data: {
+        order_id: request.orderId,
+        payment: { type: 'balance', amount: before.total_amount, currency: before.total_currency },
+      },
+    });
+    const after = this.parseOrder(await this.client.request('GET', path, signal));
+    return { supplierReference: after.booking_reference, tickets: this.tickets(after, null) };
+  }
+
+  /** Unpaid holds cancel free of charge: create the cancellation, then confirm it. */
+  override async cancelHold(orderId: string, signal: AbortSignal): Promise<void> {
+    const created = (await this.client.request('POST', '/air/order_cancellations', signal, {
+      data: { order_id: orderId },
+    })) as { data?: { id?: unknown } } | null;
+    const id = created?.data?.id;
+    if (typeof id !== 'string') {
+      throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid cancellation');
+    }
+    await this.client.request(
+      'POST',
+      `/air/order_cancellations/${encodeURIComponent(id)}/actions/confirm`,
+      signal,
+    );
+  }
+
+  private async freshOffer(
+    known: SupplierFlightOffer,
+    passengerCount: number,
+    signal: AbortSignal,
+  ): Promise<DuffelOffer> {
     const response = await this.client.request(
       'GET',
-      `/air/offers/${encodeURIComponent(request.offer.supplierOfferId)}?return_available_services=false`,
+      `/air/offers/${encodeURIComponent(known.supplierOfferId)}?return_available_services=false`,
       signal,
     );
     const parsed = duffelOfferSchema.safeParse((response as { data?: unknown } | null)?.data);
@@ -141,23 +265,29 @@ export class DuffelFlightSupplier extends FlightSupplier {
       throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid offer');
     const offer = parsed.data;
     const total = amount(offer.total_amount, offer.total_currency);
-    const agreed = add(request.offer.price.base, request.offer.price.taxes);
-    if (!equals(total, agreed)) {
+    if (!equals(total, add(known.price.base, known.price.taxes))) {
       throw new SupplierRequestError(this.name, 'The fare changed after payment');
     }
-    if (offer.passengers.length !== request.passengers.length) {
+    if (offer.passengers.length !== passengerCount) {
       throw new SupplierRequestError(this.name, 'Passengers do not match the offer');
     }
+    return offer;
+  }
 
-    const passengers: Record<string, unknown>[] = request.passengers.map((passenger, index) => ({
+  private orderPassengers(
+    offer: DuffelOffer,
+    travellers: SupplierPassenger[],
+    contact: SupplierContact,
+  ): Record<string, unknown>[] {
+    const passengers: Record<string, unknown>[] = travellers.map((passenger, index) => ({
       id: offer.passengers[index]?.id,
       title: passenger.title,
       gender: passenger.gender,
       given_name: passenger.givenNames,
       family_name: passenger.surname,
       born_on: passenger.dateOfBirth,
-      email: request.contact.email,
-      phone_number: request.contact.phone,
+      email: contact.email,
+      phone_number: contact.phone,
       ...(passenger.document
         ? {
             identity_documents: [
@@ -172,41 +302,56 @@ export class DuffelFlightSupplier extends FlightSupplier {
         : {}),
     }));
     // Each lap infant travels with one adult, in order.
-    const adultIndexes = request.passengers.flatMap((p, index) =>
-      p.type === 'adult' ? [index] : [],
-    );
-    request.passengers.forEach((passenger, index) => {
+    const adultIndexes = travellers.flatMap((p, index) => (p.type === 'adult' ? [index] : []));
+    travellers.forEach((passenger, index) => {
       if (passenger.type !== 'infant') return;
       const adult = passengers[adultIndexes.shift() ?? -1];
       if (adult) adult.infant_passenger_id = offer.passengers[index]?.id;
     });
+    return passengers;
+  }
 
-    const created = await this.client.request('POST', '/air/orders', signal, {
-      data: {
-        type: 'instant',
-        selected_offers: [offer.id],
-        passengers,
-        payments: [{ type: 'balance', currency: offer.total_currency, amount: offer.total_amount }],
-        metadata: { suskii_booking_item: request.idempotencyKey },
-      },
-    });
-    const order = duffelOrderSchema.safeParse((created as { data?: unknown } | null)?.data);
+  private parseOrder(response: unknown): DuffelOrder {
+    const order = duffelOrderSchema.safeParse((response as { data?: unknown } | null)?.data);
     if (!order.success)
       throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid order');
-    const indexById = new Map(offer.passengers.map((passenger, index) => [passenger.id, index]));
-    return {
-      supplierReference: order.data.booking_reference,
-      tickets: order.data.documents
-        .filter((document) => document.type === 'electronic_ticket')
-        .flatMap((document) =>
-          document.passenger_ids.flatMap((id) => {
-            const passengerIndex = indexById.get(id);
-            return passengerIndex === undefined
-              ? []
-              : [{ passengerIndex, number: document.unique_identifier }];
-          }),
-        ),
-    };
+    return order.data;
+  }
+
+  private orderPrice(order: DuffelOrder): SupplierPrice {
+    if (!order.total_amount || !order.total_currency) {
+      throw new SupplierUnavailableError(this.name, 'Duffel returned an order without a total');
+    }
+    const total = amount(order.total_amount, order.total_currency);
+    const taxes =
+      order.tax_amount && (order.tax_currency ?? order.total_currency) === order.total_currency
+        ? amount(order.tax_amount, order.total_currency)
+        : amount('0', order.total_currency);
+    return { base: subtract(total, taxes), taxes };
+  }
+
+  /**
+   * E-tickets by passenger position. Offer passenger ids give the order when known; otherwise
+   * the order's own passenger list (same order as requested) does.
+   */
+  private tickets(
+    order: DuffelOrder,
+    offer: DuffelOffer | null,
+  ): { passengerIndex: number; number: string }[] {
+    const ids =
+      offer?.passengers.map((passenger) => passenger.id) ??
+      order.passengers.map((passenger) => passenger.id);
+    const indexById = new Map(ids.map((id, index) => [id, index]));
+    return order.documents
+      .filter((document) => document.type === 'electronic_ticket')
+      .flatMap((document) =>
+        document.passenger_ids.flatMap((id) => {
+          const passengerIndex = indexById.get(id);
+          return passengerIndex === undefined
+            ? []
+            : [{ passengerIndex, number: document.unique_identifier }];
+        }),
+      );
   }
 
   /** Maps one validated Duffel offer; returns null when it cannot be represented faithfully. */
@@ -303,6 +448,9 @@ export class DuffelFlightSupplier extends FlightSupplier {
           available: payment ? !payment.requires_instant_payment : false,
           paymentRequiredBy: payment?.payment_required_by
             ? new Date(payment.payment_required_by).toISOString()
+            : null,
+          priceGuaranteedUntil: payment?.price_guarantee_expires_at
+            ? new Date(payment.price_guarantee_expires_at).toISOString()
             : null,
         },
         services: [],

@@ -3,40 +3,43 @@ import type { z } from 'zod';
 
 import { money, toWire } from '@suskii/shared';
 
-import { AuditService } from '../audit/audit.service';
 import { BackgroundTasks } from '../common/background-tasks';
 import { APP_CONFIG, type AppConfig } from '../config/config';
-import { Prisma, type BookingStatus } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { MockPaymentProvider } from '../payments/mock-payment-provider';
 import {
-  PaymentProvider,
+  PaymentProviderUnavailableError,
+  WebhookVerificationError,
   type PaymentEvent,
   type WebhookHeaders,
 } from '../payments/payment-provider';
+import { PaymentProviders } from '../payments/payment-providers';
 
-import { bookingPrice } from './booking-presenter';
+import { BookingPaymentsService } from './booking-payments.service';
 import { BookingTransitions, WEBHOOK_ACTOR } from './booking-transitions';
-import { invalidWebhook, paymentClosed } from './booking.errors';
+import { invalidWebhook, paymentClosed, paymentProviderDown } from './booking.errors';
 import type { mockPaymentResultSchema, mockPaymentSchema } from './bookings.schemas';
-import { bookingUrl } from './checkout.service';
+import { bookingUrl } from './booking-urls';
+import { RefundsService } from './refunds.service';
 import { TicketingService } from './ticketing.service';
 
 type Tx = Prisma.TransactionClient;
 
-/** Statuses a successful payment can still apply to (see the state machine). */
-const PAYABLE: readonly BookingStatus[] = ['PRICED', 'HELD', 'AWAITING_PAYMENT', 'PARTIALLY_PAID'];
-
 interface Processed {
   outcome: string;
   paidBookingId: string | null;
+  refundIds: string[];
+  settledRefundId: string | null;
 }
 
+const NOTHING = { paidBookingId: null, refundIds: [], settledRefundId: null };
+
 /**
- * Payment webhooks, the source of truth for payment status (ADR-014). Events are verified over
- * the raw body, stored once per provider event id and applied under a row lock on the booking. A
- * success is applied only when its amount equals the payment's; money that the booking cannot
- * take (a second payment, a stale amount, a closed booking) is flagged for refund.
+ * Payment and refund webhooks, the source of truth for money (ADR-014, ADR-016). Events are
+ * verified over the raw body, confirmed with the provider where its signature proves little,
+ * stored once per provider event id and applied under a row lock on the booking. Reconciliation
+ * feeds provider lookups through the same pipeline, so every outcome is applied exactly once.
  */
 @Injectable()
 export class PaymentEventsService {
@@ -45,10 +48,11 @@ export class PaymentEventsService {
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly prisma: PrismaService,
-    private readonly provider: PaymentProvider,
+    private readonly providers: PaymentProviders,
     private readonly mock: MockPaymentProvider,
+    private readonly payments: BookingPaymentsService,
+    private readonly refunds: RefundsService,
     private readonly transitions: BookingTransitions,
-    private readonly audit: AuditService,
     private readonly ticketing: TicketingService,
     private readonly background: BackgroundTasks,
   ) {}
@@ -58,11 +62,12 @@ export class PaymentEventsService {
     rawBody: Buffer | undefined,
     headers: WebhookHeaders,
   ): Promise<string> {
-    if (providerName !== this.provider.name) throw new NotFoundException();
+    const provider = this.providers.find(providerName);
+    if (!provider) throw new NotFoundException();
     if (!rawBody) throw invalidWebhook();
-    let event: PaymentEvent;
+    let event: PaymentEvent | null;
     try {
-      event = this.provider.parseWebhook(rawBody, headers);
+      event = provider.parseWebhook(rawBody, headers);
     } catch (error) {
       this.logger.warn(
         { provider: providerName, reason: (error as Error).name },
@@ -70,10 +75,25 @@ export class PaymentEventsService {
       );
       throw invalidWebhook();
     }
+    if (!event) return 'ignored';
+    try {
+      event = await provider.confirm(event);
+    } catch (error) {
+      if (error instanceof WebhookVerificationError) {
+        this.logger.warn(
+          { provider: providerName, type: event.type },
+          'webhook not confirmed by provider',
+        );
+        throw invalidWebhook();
+      }
+      if (error instanceof PaymentProviderUnavailableError) throw paymentProviderDown();
+      throw error;
+    }
     return this.apply(providerName, event);
   }
 
-  private async apply(provider: string, event: PaymentEvent): Promise<string> {
+  /** Stores and applies a verified event once per provider event id. */
+  async apply(provider: string, event: PaymentEvent): Promise<string> {
     let processed: Processed;
     try {
       processed = await this.prisma.$transaction(async (tx) => {
@@ -82,16 +102,19 @@ export class PaymentEventsService {
             provider,
             eventId: event.eventId,
             type: event.type,
-            providerReference: event.providerReference,
-            // Normalised fields only; providers never send card data to hosted-checkout webhooks.
+            providerReference: event.providerReference ?? event.providerRefundId,
+            // Normalised fields only; hosted-checkout providers never send card data.
             payload: {
-              amount: { ...toWire(event.amount) },
+              amount: event.amount ? { ...toWire(event.amount) } : null,
               occurredAt: event.occurredAt,
               failureReason: event.failureReason,
+              method: event.method,
             },
           },
         });
-        const result = await this.process(tx, provider, event);
+        const result = event.type.startsWith('refund.')
+          ? await this.processRefund(tx, provider, event)
+          : await this.processPayment(tx, provider, event);
         await tx.webhookEvent.update({
           where: { id: stored.id },
           data: { outcome: result.outcome, processedAt: new Date() },
@@ -106,28 +129,38 @@ export class PaymentEventsService {
     }
     this.logger.log(
       { provider, type: event.type, outcome: processed.outcome },
-      'webhook processed',
+      'payment event processed',
     );
     const paid = processed.paidBookingId;
     if (paid) this.background.run('ticketing', () => this.ticketing.process(paid));
+    if (processed.refundIds.length > 0) this.refunds.executeLater(processed.refundIds);
     return processed.outcome;
   }
 
-  private async process(tx: Tx, provider: string, event: PaymentEvent): Promise<Processed> {
-    const found = await tx.payment.findUnique({
-      where: { providerReference: event.providerReference },
-    });
-    if (found?.provider !== provider) return { outcome: 'unknown_payment', paidBookingId: null };
+  private async processRefund(tx: Tx, provider: string, event: PaymentEvent): Promise<Processed> {
+    const { refundId, outcome } = await this.refunds.applyProviderEvent(tx, provider, event);
+    return { ...NOTHING, outcome, settledRefundId: refundId };
+  }
+
+  private async processPayment(tx: Tx, provider: string, event: PaymentEvent): Promise<Processed> {
+    const found = event.providerReference
+      ? await tx.payment.findUnique({ where: { providerReference: event.providerReference } })
+      : null;
+    if (found?.provider !== provider) return { ...NOTHING, outcome: 'unknown_payment' };
     // One payment event at a time per booking.
     await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${found.bookingId}::uuid FOR UPDATE`;
     const booking = await tx.booking.findUniqueOrThrow({ where: { id: found.bookingId } });
     const payment = await tx.payment.findUniqueOrThrow({ where: { id: found.id } });
 
-    if (event.type === 'payment.failed') {
-      if (payment.status !== 'pending') return { outcome: 'ignored', paidBookingId: null };
+    if (event.type === 'payment.failed' || event.type === 'checkout.expired') {
+      if (payment.status !== 'pending') return { ...NOTHING, outcome: 'ignored' };
+      const failed = event.type === 'payment.failed';
       await tx.payment.update({
         where: { id: payment.id },
-        data: { status: 'failed', failureReason: event.failureReason ?? 'failed' },
+        data: {
+          status: failed ? 'failed' : 'expired',
+          failureReason: event.failureReason ?? (failed ? 'failed' : 'expired'),
+        },
       });
       const latest = await tx.payment.findFirst({
         where: { bookingId: booking.id },
@@ -136,88 +169,31 @@ export class PaymentEventsService {
       });
       if (booking.status === 'AWAITING_PAYMENT' && latest?.id === payment.id) {
         await this.transitions.apply(tx, booking, 'payment_abandoned', WEBHOOK_ACTOR, {
-          reason: 'payment_failed',
+          reason: failed ? 'payment_failed' : 'checkout_expired',
         });
       }
-      return { outcome: 'failed', paidBookingId: null };
+      return { ...NOTHING, outcome: failed ? 'failed' : 'expired' };
     }
 
-    if (payment.status === 'succeeded')
-      return { outcome: 'already_succeeded', paidBookingId: null };
-    if (event.amount.minor !== payment.amountMinor || event.amount.currency !== payment.currency) {
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: { failureReason: 'amount_mismatch', requiresRefund: true },
-      });
-      await this.audit.record(
-        {
-          action: 'payment.amount_mismatch',
-          actorType: 'system',
-          targetType: 'payment',
-          targetId: payment.id,
-          metadata: {
-            bookingId: booking.id,
-            expectedMinor: payment.amountMinor.toString(),
-            receivedMinor: event.amount.minor.toString(),
-            expectedCurrency: payment.currency,
-            receivedCurrency: event.amount.currency,
-          },
-        },
-        tx,
-      );
-      return { outcome: 'amount_mismatch', paidBookingId: null };
-    }
-
-    await tx.payment.update({
-      where: { id: payment.id },
-      data: { status: 'succeeded', succeededAt: new Date(event.occurredAt) },
-    });
-    const payable = PAYABLE.includes(booking.status);
-    const matchesTotal =
-      payment.amountMinor === booking.totalMinor && payment.currency === booking.currency;
-    if (!payable || !matchesTotal) {
-      await tx.payment.update({ where: { id: payment.id }, data: { requiresRefund: true } });
-      await this.audit.record(
-        {
-          action: 'payment.requires_refund',
-          actorType: 'system',
-          targetType: 'payment',
-          targetId: payment.id,
-          metadata: {
-            bookingId: booking.id,
-            bookingStatus: booking.status,
-            reason: payable ? 'amount_differs_from_booking' : 'booking_not_payable',
-          },
-        },
-        tx,
-      );
-      return { outcome: 'requires_refund', paidBookingId: null };
-    }
-
-    await tx.payment.updateMany({
-      where: { bookingId: booking.id, status: 'pending', id: { not: payment.id } },
-      data: { status: 'cancelled' },
-    });
-    await this.transitions.apply(tx, booking, 'payment_succeeded', WEBHOOK_ACTOR, {
-      data: { pendingPrice: Prisma.DbNull, paymentDeadline: null },
-    });
-    const discount = bookingPrice(booking).discount;
-    if (booking.promoCodeId && discount) {
-      await tx.promoRedemption.create({
-        data: {
-          promoCodeId: booking.promoCodeId,
-          userId: booking.userId,
-          bookingId: booking.id,
-          amountMinor: BigInt(discount.amount.amountMinor),
-          currency: discount.amount.currency,
-        },
-      });
-    }
-    return { outcome: 'paid', paidBookingId: booking.id };
+    const amount = event.amount ?? money(payment.amountMinor, payment.currency);
+    const result = await this.payments.applyReceived(
+      tx,
+      booking,
+      payment,
+      {
+        amount,
+        providerTransactionId: event.providerTransactionId,
+        method: event.method,
+        occurredAt: new Date(event.occurredAt),
+      },
+      { kind: 'psp', provider, currency: amount.currency },
+      WEBHOOK_ACTOR,
+    );
+    return { ...NOTHING, ...result };
   }
 
   // -------------------------------------------------------------------------
-  // Mock hosted checkout (PAYMENT_PROVIDER=mock only)
+  // Mock hosted checkout (PAYMENT_PROVIDERS includes mock)
   // -------------------------------------------------------------------------
 
   async mockPayment(reference: string): Promise<z.infer<typeof mockPaymentSchema>> {
@@ -239,18 +215,21 @@ export class PaymentEventsService {
   ): Promise<z.infer<typeof mockPaymentResultSchema>> {
     const payment = await this.mockPaymentRow(reference);
     if (payment.status !== 'pending' || payment.expiresAt <= new Date()) throw paymentClosed();
-    const { rawBody, headers } = this.mock.signedEvent(
-      reference,
-      outcome,
-      money(payment.amountMinor, payment.currency),
-    );
-    await this.receive(this.mock.name, rawBody, headers);
+    const amount = money(payment.amountMinor, payment.currency);
+    this.mock.recordOutcome(reference, outcome, amount);
+    if (this.mock.dropNextWebhooks > 0) {
+      // Test hook: the provider took the money but its webhook never arrives (reconciliation).
+      this.mock.dropNextWebhooks -= 1;
+    } else {
+      const { rawBody, headers } = this.mock.signedEvent(reference, outcome, amount);
+      await this.receive(this.mock.name, rawBody, headers);
+    }
     const after = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
     return { status: after.status, returnUrl: bookingUrl(this.config, payment.bookingId) };
   }
 
   private async mockPaymentRow(reference: string) {
-    if (this.provider.name !== this.mock.name) throw new NotFoundException();
+    if (!this.providers.find(this.mock.name)) throw new NotFoundException();
     const payment = await this.prisma.payment.findUnique({
       where: { providerReference: reference },
       include: { booking: { select: { reference: true } } },

@@ -70,6 +70,7 @@ export const duffelOfferSchema = z.looseObject({
     .looseObject({
       requires_instant_payment: z.boolean(),
       payment_required_by: z.string().nullish(),
+      price_guarantee_expires_at: z.string().nullish(),
     })
     .nullish(),
   /** In the order they were requested; orders must reference these ids. */
@@ -81,6 +82,17 @@ export type DuffelOffer = z.infer<typeof duffelOfferSchema>;
 export const duffelOrderSchema = z.looseObject({
   id: z.string(),
   booking_reference: z.string().min(1),
+  total_amount: decimal.nullish(),
+  total_currency: currency.nullish(),
+  tax_amount: decimal.nullish(),
+  tax_currency: currency.nullish(),
+  payment_status: z
+    .looseObject({
+      awaiting_payment: z.boolean(),
+      payment_required_by: z.string().nullish(),
+      price_guarantee_expires_at: z.string().nullish(),
+    })
+    .nullish(),
   documents: z
     .array(
       z.looseObject({
@@ -90,7 +102,10 @@ export const duffelOrderSchema = z.looseObject({
       }),
     )
     .default([]),
+  passengers: z.array(z.looseObject({ id: z.string() })).default([]),
 });
+
+export type DuffelOrder = z.infer<typeof duffelOrderSchema>;
 
 export const duffelErrorSchema = z.looseObject({
   errors: z.array(

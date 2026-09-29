@@ -1,9 +1,11 @@
 import {
   checkPassengers,
   daysBetween,
+  money,
   subtract,
   toWire,
   type ContactDetails,
+  type Money,
   type PassengerIssue,
 } from '@suskii/shared';
 
@@ -19,13 +21,15 @@ import {
   type ExtraSelection,
   type ItemPayload,
 } from './booking-pricing';
-import type { BookingDto, BookingPriceDto } from './bookings.schemas';
+import type { BookingDto, BookingPriceDto, PaymentOptionsDto } from './bookings.schemas';
 
 export const BOOKING_INCLUDE = {
   items: { orderBy: { createdAt: 'asc' } },
   passengers: { orderBy: { position: 'asc' } },
   payments: { orderBy: { createdAt: 'desc' }, take: 1 },
   documents: { orderBy: { type: 'asc' } },
+  paymentPlan: { include: { installments: { orderBy: { sequence: 'asc' } } } },
+  refunds: { orderBy: { createdAt: 'asc' } },
 } satisfies Prisma.BookingInclude;
 
 export type BookingRecord = Prisma.BookingGetPayload<{ include: typeof BOOKING_INCLUDE }>;
@@ -66,12 +70,29 @@ function passengerWarnings(booking: BookingRecord, payload: ItemPayload): Passen
   return checkPassengers(facts, itineraryFacts(payload)).warnings;
 }
 
+/** Money facts the presenter cannot derive from the row: they come from the ledger and config. */
+export interface BookingMoney {
+  paid: Money;
+  amountDue: Money | null;
+  options: PaymentOptionsDto | null;
+}
+
+const REFUND_VIEW = {
+  pending_approval: 'in_progress',
+  approved: 'in_progress',
+  processing: 'in_progress',
+  needs_review: 'in_progress',
+  succeeded: 'completed',
+  failed: 'failed',
+} as const;
+
 /** The customer view of a booking: contact details and passports masked, costs internal. */
 export function toBookingDto(
   booking: BookingRecord,
   contact: ContactDetails,
   fx: Converter,
   now: Date,
+  funds: BookingMoney,
 ): BookingDto {
   const item = booking.items[0];
   if (!item) throw new Error(`Booking ${booking.id} has no items`);
@@ -171,7 +192,7 @@ export function toBookingDto(
           amount: { amountMinor: Number(payment.amountMinor), currency: payment.currency },
           checkoutUrl:
             payment.status === 'pending' &&
-            booking.status === 'AWAITING_PAYMENT' &&
+            ['AWAITING_PAYMENT', 'HELD', 'PARTIALLY_PAID'].includes(booking.status) &&
             payment.expiresAt > now
               ? payment.checkoutUrl
               : null,
@@ -185,5 +206,41 @@ export function toBookingDto(
       sizeBytes: document.sizeBytes,
       createdAt: document.createdAt.toISOString(),
     })),
+    paid: toWire(funds.paid),
+    amountDue: funds.amountDue ? toWire(funds.amountDue) : null,
+    paymentPlan: booking.paymentPlan
+      ? {
+          kind: booking.paymentPlan.kind,
+          status: booking.paymentPlan.status,
+          deadline: booking.paymentPlan.deadline.toISOString(),
+          total: toWire(money(booking.paymentPlan.totalMinor, booking.paymentPlan.currency)),
+          fee: toWire(money(booking.paymentPlan.feeMinor, booking.paymentPlan.currency)),
+          graceHours: booking.paymentPlan.graceHours,
+          defaultFeeBps: booking.paymentPlan.defaultFeeBps,
+          installments: booking.paymentPlan.installments.map((installment) => ({
+            id: installment.id,
+            sequence: installment.sequence,
+            dueAt: installment.dueAt.toISOString(),
+            amount: toWire(money(installment.amountMinor, installment.currency)),
+            status: installment.status,
+            paidAt: installment.paidAt?.toISOString() ?? null,
+          })),
+        }
+      : null,
+    paymentOptions: funds.options,
+    refunds: booking.refunds.flatMap((refund) =>
+      refund.status === 'rejected'
+        ? []
+        : [
+            {
+              id: refund.id,
+              amount: toWire(money(refund.amountMinor, refund.currency)),
+              destination: refund.destination,
+              status: REFUND_VIEW[refund.status],
+              createdAt: refund.createdAt.toISOString(),
+              settledAt: refund.settledAt?.toISOString() ?? null,
+            },
+          ],
+    ),
   };
 }

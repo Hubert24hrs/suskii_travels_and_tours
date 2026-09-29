@@ -87,7 +87,7 @@ const flight = (
     passengers: { adults: 1, children: 0, infants: 0 },
     price: { base: money(total, 'NGN'), taxes: money(0, 'NGN') },
     expiresAt: '2030-01-01T00:00:00.000Z',
-    hold: { available: false, paymentRequiredBy: null },
+    hold: { available: false, paymentRequiredBy: null, priceGuaranteedUntil: null },
     services: [],
   } as SupplierFlightOffer;
   return { id, offer, price: price(total) };

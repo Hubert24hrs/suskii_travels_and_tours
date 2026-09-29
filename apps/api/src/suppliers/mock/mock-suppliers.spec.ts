@@ -1,7 +1,11 @@
 import { daysBetween, utcToLocal } from '@suskii/shared';
 
 import type { AirportInfo } from '../../catalog/catalog.service';
-import { OfferUnavailableError, SupplierUnavailableError } from '../supplier.errors';
+import {
+  OfferUnavailableError,
+  SupplierRequestError,
+  SupplierUnavailableError,
+} from '../supplier.errors';
 import type { FlightSearchQuery, HotelSearchQuery, SupplierPassenger } from '../supplier.types';
 
 import { MOCK_HUBS } from './carriers';
@@ -376,6 +380,100 @@ describe('MockFlightSupplier', () => {
 
     const departed = new MockFlightSupplier(directory, () => new Date('2026-12-01T00:00:00Z'));
     await expect(departed.book(request, signal)).rejects.toBeInstanceOf(OfferUnavailableError);
+  });
+});
+
+describe('MockFlightSupplier holds (ADR-018)', () => {
+  const DAY = 86_400_000;
+  const passenger: SupplierPassenger = {
+    type: 'adult',
+    title: 'ms',
+    gender: 'f',
+    givenNames: 'NGOZI',
+    surname: 'EZE',
+    dateOfBirth: '1990-01-01',
+    nationality: 'NG',
+    document: null,
+  };
+  const contact = { email: 'ngozi@example.com', phone: '+2348012345678' };
+
+  it('holds by fare: none for non-refundable fares, 72 hours for refundable, 10 days for Flex', async () => {
+    const offers = await new MockFlightSupplier(directory, () => NOW).search(query(), signal);
+    for (const offer of offers) {
+      const brand = offer.slices[0]?.fareBrand ?? '';
+      if (!offer.conditions.refundable) {
+        expect(offer.hold).toEqual({
+          available: false,
+          paymentRequiredBy: null,
+          priceGuaranteedUntil: null,
+        });
+        continue;
+      }
+      expect(offer.hold.available).toBe(true);
+      const deadline = Date.parse(offer.hold.paymentRequiredBy ?? '');
+      const guarantee = Date.parse(offer.hold.priceGuaranteedUntil ?? '');
+      if (brand.includes('Flex')) {
+        expect(deadline).toBe(NOW.getTime() + 10 * DAY);
+        expect(guarantee).toBe(deadline);
+      } else {
+        expect(deadline).toBe(NOW.getTime() + 3 * DAY);
+        expect(guarantee).toBe(NOW.getTime() + DAY);
+      }
+    }
+    // Close to departure nothing can be held.
+    const late = await new MockFlightSupplier(
+      directory,
+      () => new Date('2026-11-16T00:00:00Z'),
+    ).search(query(), signal);
+    expect(late.every((offer) => !offer.hold.available)).toBe(true);
+  });
+
+  it('holds idempotently, pays the held order at the held price and releases it', async () => {
+    const supplier = new MockFlightSupplier(directory, () => NOW);
+    const offer = (await supplier.search(query(), signal)).find(
+      (candidate) => candidate.hold.available,
+    );
+    if (!offer) throw new Error('no holdable offer');
+    const request = { offer, passengers: [passenger], contact, idempotencyKey: 'item-h' };
+    const held = await supplier.hold(request, signal);
+    await expect(supplier.hold(request, signal)).resolves.toEqual(held);
+    expect(held.supplierReference).toMatch(/^[A-Z]{6}$/);
+
+    const state = await supplier.heldOrder(held.orderId, signal);
+    expect(state).toMatchObject({ awaitingPayment: true, price: offer.price });
+    const paid = await supplier.payHeld(
+      { orderId: held.orderId, price: offer.price, idempotencyKey: 'item-h' },
+      signal,
+    );
+    expect(paid.supplierReference).toBe(held.supplierReference);
+    expect(paid.tickets).toHaveLength(1);
+    // Paid holds are not released.
+    await supplier.cancelHold(held.orderId, signal);
+    expect(supplier.holds.get(held.orderId)).toMatchObject({ paid: true, cancelled: false });
+
+    const other = await supplier.hold({ ...request, idempotencyKey: 'item-x' }, signal);
+    const changed = {
+      base: { ...offer.price.base, minor: offer.price.base.minor + 100n },
+      taxes: offer.price.taxes,
+    };
+    await expect(
+      supplier.payHeld(
+        { orderId: other.orderId, price: changed, idempotencyKey: 'item-x' },
+        signal,
+      ),
+    ).rejects.toBeInstanceOf(SupplierRequestError);
+    await supplier.cancelHold(other.orderId, signal);
+    await expect(supplier.heldOrder(other.orderId, signal)).rejects.toBeInstanceOf(
+      OfferUnavailableError,
+    );
+
+    const plain = (await supplier.search(query(), signal)).find(
+      (candidate) => !candidate.hold.available,
+    );
+    if (!plain) throw new Error('no non-holdable offer');
+    await expect(supplier.hold({ ...request, offer: plain }, signal)).rejects.toBeInstanceOf(
+      SupplierRequestError,
+    );
   });
 });
 

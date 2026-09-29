@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { z } from 'zod';
 
 import { DEFAULT_LOCALE } from '@suskii/shared';
 
+import { APP_CONFIG, type AppConfig } from '../config/config';
 import { PrismaService } from '../infra/prisma.service';
 
 import {
@@ -14,7 +15,7 @@ import {
   type homeContentSchema,
   type siteContentSchema,
 } from './content.schemas';
-import { IMPLEMENTED_PAYMENT_PROVIDERS, paymentMethodsFor } from './payment-methods';
+import { enabledPaymentProviders, paymentMethodsFor } from './payment-methods';
 
 type SiteContentDto = z.infer<typeof siteContentSchema>;
 type HomeContentDto = z.infer<typeof homeContentSchema>;
@@ -34,7 +35,10 @@ interface Block {
 export class ContentService {
   private readonly logger = new Logger(ContentService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async site(locale: string): Promise<SiteContentDto> {
     const [blocks, pages, trustSignals] = await Promise.all([
@@ -64,7 +68,7 @@ export class ContentService {
         .map(({ slug, page }) => ({ slug, title: page?.title ?? slug, group: page?.group ?? '' }))
         .sort((a, b) => a.slug.localeCompare(b.slug)),
       trustSignals,
-      paymentMethods: paymentMethodsFor(IMPLEMENTED_PAYMENT_PROVIDERS),
+      paymentMethods: paymentMethodsFor(enabledPaymentProviders(this.config.PAYMENT_PROVIDERS)),
     };
   }
 

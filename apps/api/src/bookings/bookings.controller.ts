@@ -30,10 +30,13 @@ import {
   priceConsentRequestSchema,
   quoteIdParamsSchema,
   quoteSchema,
+  startPaymentRequestSchema,
   type CreateBookingRequest,
+  type StartPaymentRequest,
 } from './bookings.schemas';
 import { BookingsService, type BookingCaller } from './bookings.service';
 import { CheckoutService } from './checkout.service';
+import { PaymentPlansService } from './payment-plans.service';
 import { QuotesService } from './quotes.service';
 
 const TAGS = ['Bookings'];
@@ -60,6 +63,7 @@ export class BookingsController {
     private readonly checkout: CheckoutService,
     private readonly quotes: QuotesService,
     private readonly documents: BookingDocumentsService,
+    private readonly plans: PaymentPlansService,
   ) {}
 
   @Get('quotes/:quoteId')
@@ -123,21 +127,67 @@ export class BookingsController {
   @RateLimit(BOOKING_LIMITS.paymentIp)
   @Contract({
     operationId: 'startBookingPayment',
-    summary: 'Re-check the price and open a hosted checkout',
+    summary: 'Re-check the price and open a hosted checkout (or pay from the wallet)',
     description:
-      'Re-prices with the supplier first. A changed total answers 409 `price-changed` with `priceChange` (previous, current, difference, price); accept it with `price-consent`, then call this again. An offer that sold out answers 410 with the original search.',
+      'Re-prices with the supplier first. A changed total answers 409 `price-changed` with `priceChange` (previous, current, difference, price); accept it with `price-consent`, then call this again. An offer that sold out answers 410 with the original search. Payment plans pay the next installment unless `installmentId` or `payInFull` says otherwise. `provider` picks one of `paymentOptions.providers` (422 when it cannot take this currency); `useWallet` pays at once when the wallet covers the amount (409 `wallet-insufficient` otherwise).',
     tags: TAGS,
     params: bookingIdParamsSchema,
     headers: [BOOKING_TOKEN_HEADER],
+    body: startPaymentRequestSchema,
     responses: { 201: paymentSessionSchema },
-    errors: [404, 409, 410, 503],
+    errors: [404, 409, 410, 422, 503],
     idempotent: true,
   })
   pay(
     @Param('bookingId') bookingId: string,
+    @Body() body: StartPaymentRequest,
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof paymentSessionSchema>> {
-    return this.checkout.startPayment(bookingId, caller(request));
+    return this.checkout.startPayment(bookingId, caller(request), body);
+  }
+
+  @Post('bookings/:bookingId/hold')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit(BOOKING_LIMITS.holdIp)
+  @Contract({
+    operationId: 'holdBooking',
+    summary: 'Reserve now, pay later',
+    description:
+      'Holds the seats with the airline until `paymentOptions.hold.deadline` (flights whose fare allows it, without paid extras). Re-checks the price first (409 `price-changed`). 409 `hold-unavailable` when the airline will not hold it, `hold-limit` with too many unpaid reservations. Tickets are issued only after full payment.',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: bookingSchema },
+    errors: [404, 409, 410, 503],
+    idempotent: true,
+  })
+  hold(
+    @Param('bookingId') bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.plans.create(bookingId, caller(request), 'hold');
+  }
+
+  @Post('bookings/:bookingId/installment-plan')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit(BOOKING_LIMITS.holdIp)
+  @Contract({
+    operationId: 'createInstallmentPlan',
+    summary: 'Pay in installments',
+    description:
+      'Holds the seats and sets up the schedule from `paymentOptions.installments`; then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: bookingSchema },
+    errors: [404, 409, 410, 503],
+    idempotent: true,
+  })
+  installments(
+    @Param('bookingId') bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.plans.create(bookingId, caller(request), 'installments');
   }
 
   @Post('bookings/:bookingId/price-consent')
@@ -165,7 +215,9 @@ export class BookingsController {
   @HttpCode(HttpStatus.OK)
   @Contract({
     operationId: 'cancelBooking',
-    summary: 'Cancel an unpaid booking',
+    summary: 'Cancel an unpaid or partly paid booking',
+    description:
+      'A reservation is released at the airline. A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`).',
     tags: TAGS,
     params: bookingIdParamsSchema,
     headers: [BOOKING_TOKEN_HEADER],
@@ -176,7 +228,7 @@ export class BookingsController {
     @Param('bookingId') bookingId: string,
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof bookingSchema>> {
-    return this.bookings.cancel(bookingId, caller(request));
+    return this.plans.cancel(bookingId, caller(request));
   }
 
   @Get('bookings/:bookingId/documents/:documentId')

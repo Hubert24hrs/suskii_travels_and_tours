@@ -358,6 +358,151 @@ describe('DuffelFlightSupplier', () => {
   });
 });
 
+describe('DuffelFlightSupplier holds (ADR-018)', () => {
+  const signal = new AbortController().signal;
+  const holdable = () =>
+    duffelOffer('off_h', {
+      payment_requirements: {
+        requires_instant_payment: false,
+        payment_required_by: '2026-11-03T17:00:00Z',
+        price_guarantee_expires_at: '2026-11-02T17:00:00Z',
+      },
+    });
+  const heldOrder = (overrides: Record<string, unknown> = {}) => ({
+    data: {
+      id: 'ord_h',
+      booking_reference: 'HLDPNR',
+      total_amount: '812.45',
+      total_currency: 'USD',
+      tax_amount: '122.45',
+      tax_currency: 'USD',
+      payment_status: {
+        awaiting_payment: true,
+        payment_required_by: '2026-11-03T17:00:00Z',
+        price_guarantee_expires_at: '2026-11-02T17:00:00Z',
+      },
+      passengers: [{ id: 'pas_1' }],
+      documents: [],
+      ...overrides,
+    },
+  });
+  const passenger = {
+    type: 'adult' as const,
+    title: 'ms' as const,
+    gender: 'f' as const,
+    givenNames: 'NGOZI',
+    surname: 'EZE',
+    dateOfBirth: '1990-01-01',
+    nationality: 'NG',
+    document: null,
+  };
+
+  async function offer() {
+    const found = (
+      await supplierWith(fakeFetch(json(201, { data: { offers: [holdable()] } })).fn).search(
+        { ...query, passengers: { adults: 1, children: 0, infants: 0 } },
+        signal,
+      )
+    )[0];
+    if (!found) throw new Error('no offer');
+    return found;
+  }
+
+  it('maps the price guarantee and creates a pay_later order', async () => {
+    const original = await offer();
+    expect(original.hold).toEqual({
+      available: true,
+      paymentRequiredBy: '2026-11-03T17:00:00.000Z',
+      priceGuaranteedUntil: '2026-11-02T17:00:00.000Z',
+    });
+    const { fn, calls } = fakeFetch(json(200, { data: holdable() }), json(201, heldOrder()));
+    const held = await supplierWith(fn).hold(
+      {
+        offer: original,
+        passengers: [passenger],
+        contact: { email: 'ngozi@example.com', phone: '+2348012345678' },
+        idempotencyKey: 'item-h',
+      },
+      signal,
+    );
+    expect(held).toMatchObject({
+      orderId: 'ord_h',
+      supplierReference: 'HLDPNR',
+      paymentRequiredBy: '2026-11-03T17:00:00.000Z',
+      priceGuaranteedUntil: '2026-11-02T17:00:00.000Z',
+    });
+    const body = JSON.parse(calls[1]?.init?.body as string) as { data: Record<string, unknown> };
+    expect(body.data.type).toBe('pay_later');
+    expect(body.data).not.toHaveProperty('payments');
+  });
+
+  it('pays a held order only at the agreed total, then reads its tickets', async () => {
+    const original = await offer();
+    const { fn, calls } = fakeFetch(
+      json(200, heldOrder()),
+      json(201, { data: { id: 'pay_1', amount: '812.45', currency: 'USD', type: 'balance' } }),
+      json(
+        200,
+        heldOrder({
+          payment_status: { awaiting_payment: false },
+          documents: [
+            {
+              type: 'electronic_ticket',
+              unique_identifier: '0719876543210',
+              passenger_ids: ['pas_1'],
+            },
+          ],
+        }),
+      ),
+    );
+    const result = await supplierWith(fn).payHeld(
+      { orderId: 'ord_h', price: original.price, idempotencyKey: 'item-h' },
+      signal,
+    );
+    expect(result).toEqual({
+      supplierReference: 'HLDPNR',
+      tickets: [{ passengerIndex: 0, number: '0719876543210' }],
+    });
+    expect(calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url}`)).toEqual([
+      'GET https://api.duffel.test/air/orders/ord_h',
+      'POST https://api.duffel.test/air/payments',
+      'GET https://api.duffel.test/air/orders/ord_h',
+    ]);
+    expect(JSON.parse(calls[1]?.init?.body as string)).toEqual({
+      data: { order_id: 'ord_h', payment: { type: 'balance', amount: '812.45', currency: 'USD' } },
+    });
+
+    // The guarantee lapsed and the airline raised the fare: refused, nothing is paid.
+    const moved = fakeFetch(json(200, heldOrder({ total_amount: '900.00' })));
+    await expect(
+      supplierWith(moved.fn).payHeld(
+        { orderId: 'ord_h', price: original.price, idempotencyKey: 'item-h' },
+        signal,
+      ),
+    ).rejects.toBeInstanceOf(SupplierRequestError);
+    expect(moved.calls).toHaveLength(1);
+  });
+
+  it('cancels a held order by creating and confirming a cancellation', async () => {
+    const { fn, calls } = fakeFetch(
+      json(201, {
+        data: {
+          id: 'ore_1',
+          order_id: 'ord_h',
+          refund_amount: '0.00',
+          refund_to: 'awaiting_payment',
+        },
+      }),
+      json(200, { data: { id: 'ore_1', confirmed_at: '2026-10-01T10:00:00Z' } }),
+    );
+    await supplierWith(fn).cancelHold('ord_h', signal);
+    expect(calls.map((call) => call.url)).toEqual([
+      'https://api.duffel.test/air/order_cancellations',
+      'https://api.duffel.test/air/order_cancellations/ore_1/actions/confirm',
+    ]);
+  });
+});
+
 describe('syncDuffelAirlines', () => {
   it('pages through airlines and upserts those with IATA codes', async () => {
     const { fn, calls } = fakeFetch(

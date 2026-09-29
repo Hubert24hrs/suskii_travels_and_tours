@@ -9,8 +9,8 @@ import {
   type BookingEvent,
 } from './booking-state-machine';
 
-// Written out by hand from ADR-014 rather than derived from the implementation, so a change to
-// either side fails this test. Every one of the 13 x 14 state/event pairs is checked.
+// Written out by hand from ADR-014 and ADR-018 rather than derived from the implementation, so a
+// change to either side fails this test. Every one of the 13 x 15 state/event pairs is checked.
 const EXPECTED: Record<BookingStatus, Partial<Record<BookingEvent, BookingStatus>>> = {
   DRAFT: { price: 'PRICED', fail: 'FAILED', cancel: 'CANCELLED', expire: 'EXPIRED' },
   PRICED: {
@@ -23,6 +23,7 @@ const EXPECTED: Record<BookingStatus, Partial<Record<BookingEvent, BookingStatus
   },
   HELD: {
     request_payment: 'AWAITING_PAYMENT',
+    partial_payment: 'PARTIALLY_PAID',
     payment_succeeded: 'PAID',
     fail: 'FAILED',
     cancel: 'CANCELLED',
@@ -38,6 +39,8 @@ const EXPECTED: Record<BookingStatus, Partial<Record<BookingEvent, BookingStatus
   PARTIALLY_PAID: {
     partial_payment: 'PARTIALLY_PAID',
     payment_succeeded: 'PAID',
+    cancel: 'CANCELLED',
+    default: 'REFUND_PENDING',
     request_refund: 'REFUND_PENDING',
   },
   PAID: { start_ticketing: 'TICKETING', request_refund: 'REFUND_PENDING' },
@@ -56,7 +59,7 @@ const pairs = BOOKING_STATUSES.flatMap((status) =>
 
 describe('booking state machine', () => {
   it('covers every state and event', () => {
-    expect(pairs).toHaveLength(13 * 14);
+    expect(pairs).toHaveLength(13 * 15);
     expect(Object.keys(EXPECTED).sort()).toEqual([...BOOKING_STATUSES].sort());
   });
 

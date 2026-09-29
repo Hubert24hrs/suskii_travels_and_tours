@@ -19,6 +19,7 @@ import { CryptoModule } from './crypto/crypto.module';
 import { HealthModule } from './health/health.module';
 import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor';
 import { InfraModule } from './infra/redis';
+import { LedgerModule } from './ledger/ledger.module';
 import { LoggingModule } from './logging/logging.module';
 import { NewsletterModule } from './newsletter/newsletter.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -40,6 +41,7 @@ export class AppModule {
         InfraModule,
         CryptoModule,
         AuditModule,
+        LedgerModule,
         NotificationsModule,
         BotProtectionModule,
         RbacModule,

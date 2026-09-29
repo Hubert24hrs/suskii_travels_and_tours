@@ -74,5 +74,7 @@ export const BOOKING_LIMITS = {
   createUser: { name: 'booking-create-user', limit: 20, windowSeconds: 600, by: 'user' },
   paymentIp: { name: 'booking-payment-ip', limit: 30, windowSeconds: 600, by: 'ip' },
   mockPaymentIp: { name: 'mock-payment-ip', limit: 30, windowSeconds: 600, by: 'ip' },
+  /** Holds tie up airline inventory: a tighter budget against seat spinning (ADR-018). */
+  holdIp: { name: 'booking-hold-ip', limit: 6, windowSeconds: 3600, by: 'ip' },
   travellersUser: { name: 'travellers-user', limit: 60, windowSeconds: 600, by: 'user' },
 } as const satisfies Record<string, RateLimitPolicy>;

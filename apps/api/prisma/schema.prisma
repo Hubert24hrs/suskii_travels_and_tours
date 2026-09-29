@@ -815,12 +815,15 @@ model Booking {
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user       User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  items      BookingItem[]
-  passengers BookingPassenger[]
-  history    BookingStatusHistory[]
-  payments   Payment[]
-  documents  BookingDocument[]
+  user        User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items       BookingItem[]
+  passengers  BookingPassenger[]
+  history     BookingStatusHistory[]
+  payments    Payment[]
+  documents   BookingDocument[]
+  paymentPlan PaymentPlan?
+  refunds     Refund[]
+  accessLinks BookingAccessLink[]
 
   @@index([userId, createdAt])
   @@index([status, paymentDeadline])
@@ -830,24 +833,30 @@ model Booking {
 }
 
 model BookingItem {
-  id                String          @id @default(uuid(7)) @db.Uuid
-  bookingId         String          @map("booking_id") @db.Uuid
-  type              BookingItemType
-  offerId           String          @map("offer_id") @db.Uuid
-  supplier          String
-  supplierOfferId   String          @map("supplier_offer_id")
+  id                   String          @id @default(uuid(7)) @db.Uuid
+  bookingId            String          @map("booking_id") @db.Uuid
+  type                 BookingItemType
+  offerId              String          @map("offer_id") @db.Uuid
+  supplier             String
+  supplierOfferId      String          @map("supplier_offer_id")
   /// Offer snapshot in our domain shape, as priced for this booking.
-  payload           Json
+  payload              Json
   /// Extras chosen at checkout: [{ serviceId, passengerIndex, quantity }].
-  services          Json            @default("[]")
-  totalMinor        BigInt          @map("total_minor")
-  currency          String          @db.Char(3)
-  /// Airline PNR or hotel confirmation number, once booked with the supplier.
-  supplierReference String?         @map("supplier_reference")
+  services             Json            @default("[]")
+  totalMinor           BigInt          @map("total_minor")
+  currency             String          @db.Char(3)
+  /// Airline PNR or hotel confirmation number, once booked (or held) with the supplier.
+  supplierReference    String?         @map("supplier_reference")
+  /// Supplier order id of a held booking (Duffel `pay_later` order), paid at ticketing.
+  supplierOrderId      String?         @map("supplier_order_id")
+  /// The supplier releases the held space at this instant.
+  heldUntil            DateTime?       @map("held_until") @db.Timestamptz(3)
+  /// The supplier guarantees the held price until this instant.
+  priceGuaranteedUntil DateTime?       @map("price_guaranteed_until") @db.Timestamptz(3)
   /// [{ passengerIndex, number }] for flights.
-  ticketNumbers     Json?           @map("ticket_numbers")
-  bookedAt          DateTime?       @map("booked_at") @db.Timestamptz(3)
-  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  ticketNumbers        Json?           @map("ticket_numbers")
+  bookedAt             DateTime?       @map("booked_at") @db.Timestamptz(3)
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   offer   Offer   @relation(fields: [offerId], references: [id], onDelete: Restrict)
@@ -926,26 +935,44 @@ model Traveller {
   @@map("travellers")
 }
 
-model Payment {
-  id                String        @id @default(uuid(7)) @db.Uuid
-  bookingId         String        @map("booking_id") @db.Uuid
-  provider          String
-  providerReference String        @unique @map("provider_reference")
-  status            PaymentStatus @default(pending)
-  amountMinor       BigInt        @map("amount_minor")
-  currency          String        @db.Char(3)
-  checkoutUrl       String        @map("checkout_url")
-  expiresAt         DateTime      @map("expires_at") @db.Timestamptz(3)
-  succeededAt       DateTime?     @map("succeeded_at") @db.Timestamptz(3)
-  failureReason     String?       @map("failure_reason")
-  /// Money received that the booking could not take (duplicate, mismatch, too late): refunded in phase 6.
-  requiresRefund    Boolean       @default(false) @map("requires_refund")
-  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+enum PaymentKind {
+  checkout
+  wallet
+}
 
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+model Payment {
+  id                    String        @id @default(uuid(7)) @db.Uuid
+  bookingId             String        @map("booking_id") @db.Uuid
+  kind                  PaymentKind   @default(checkout)
+  provider              String
+  providerReference     String        @unique @map("provider_reference")
+  /// Provider's own id for the charge (refunds and verification use it).
+  providerTransactionId String?       @map("provider_transaction_id")
+  status                PaymentStatus @default(pending)
+  amountMinor           BigInt        @map("amount_minor")
+  currency              String        @db.Char(3)
+  /// Hosted checkout page; null for wallet payments.
+  checkoutUrl           String?       @map("checkout_url")
+  expiresAt             DateTime      @map("expires_at") @db.Timestamptz(3)
+  succeededAt           DateTime?     @map("succeeded_at") @db.Timestamptz(3)
+  failureReason         String?       @map("failure_reason")
+  /// Channel reported by the provider (card, bank_transfer, ussd...). Never card details.
+  method                String?
+  /// The installment this payment pays, for payment plans.
+  installmentId         String?       @map("installment_id") @db.Uuid
+  /// Money received that the booking could not take (duplicate, mismatch, too late); refunded automatically.
+  requiresRefund        Boolean       @default(false) @map("requires_refund")
+  /// Last time the worker asked the provider about this pending payment.
+  reconciledAt          DateTime?     @map("reconciled_at") @db.Timestamptz(3)
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  installment Installment? @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  refunds     Refund[]
 
   @@index([bookingId])
+  @@index([status, expiresAt])
   @@map("payments")
 }
 
@@ -979,4 +1006,224 @@ model BookingDocument {
 
   @@unique([bookingId, type])
   @@map("booking_documents")
+}
+
+// ---------------------------------------------------------------------------
+// Ledger, payment plans, refunds and access links (phase 6, ADR-016 to ADR-019)
+// ---------------------------------------------------------------------------
+
+enum LedgerAccountType {
+  asset
+  liability
+  income
+  expense
+}
+
+enum LedgerDirection {
+  debit
+  credit
+}
+
+/// A ledger account (ADR-017). The balance is maintained by a trigger on `ledger_entries`, in the
+/// account's normal direction, and can only go negative when `allowNegative` is set.
+model LedgerAccount {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  /// e.g. `booking:{id}:NGN`, `wallet:{userId}:NGN`, `psp:paystack:NGN`.
+  code          String            @unique
+  type          LedgerAccountType
+  currency      String            @db.Char(3)
+  allowNegative Boolean           @default(false) @map("allow_negative")
+  balanceMinor  BigInt            @default(0) @map("balance_minor")
+  userId        String?           @map("user_id") @db.Uuid
+  bookingId     String?           @map("booking_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime          @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  entries LedgerEntry[]
+
+  @@index([userId])
+  @@index([bookingId])
+  @@map("ledger_accounts")
+}
+
+/// One balanced money movement, posted once per idempotency key. Append-only.
+model LedgerTransaction {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  idempotencyKey String   @unique @map("idempotency_key")
+  kind           String
+  bookingId      String?  @map("booking_id") @db.Uuid
+  paymentId      String?  @map("payment_id") @db.Uuid
+  refundId       String?  @map("refund_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  entries LedgerEntry[]
+
+  @@index([bookingId])
+  @@index([paymentId])
+  @@map("ledger_transactions")
+}
+
+/// Append-only. Debits equal credits per transaction and currency (checked at commit).
+model LedgerEntry {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  transactionId String          @map("transaction_id") @db.Uuid
+  accountId     String          @map("account_id") @db.Uuid
+  direction     LedgerDirection
+  amountMinor   BigInt          @map("amount_minor")
+  currency      String          @db.Char(3)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  transaction LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  account     LedgerAccount     @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([accountId, createdAt])
+  @@index([transactionId])
+  @@map("ledger_entries")
+}
+
+enum PaymentPlanKind {
+  hold
+  installments
+}
+
+enum PaymentPlanStatus {
+  active
+  completed
+  defaulted
+  cancelled
+  expired
+}
+
+enum InstallmentStatus {
+  pending
+  paid
+  cancelled
+}
+
+/// Reserve now and pay later, or a deposit plus installments, on a held booking (ADR-018).
+model PaymentPlan {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  bookingId     String            @unique @map("booking_id") @db.Uuid
+  kind          PaymentPlanKind
+  status        PaymentPlanStatus @default(active)
+  currency      String            @db.Char(3)
+  /// Everything the traveller pays over the plan, fee included.
+  totalMinor    BigInt            @map("total_minor")
+  feeMinor      BigInt            @default(0) @map("fee_minor")
+  graceHours    Int               @map("grace_hours")
+  /// Policy fee kept on default, in basis points of the amount paid.
+  defaultFeeBps Int               @map("default_fee_bps")
+  /// Our deadline for full payment (the supplier's minus a safety margin).
+  deadline      DateTime          @db.Timestamptz(3)
+  closedAt      DateTime?         @map("closed_at") @db.Timestamptz(3)
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking      Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  installments Installment[]
+
+  @@index([status, deadline])
+  @@map("payment_plans")
+}
+
+model Installment {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  planId           String            @map("plan_id") @db.Uuid
+  /// 0 is the deposit (or the whole amount of a hold).
+  sequence         Int
+  dueAt            DateTime          @map("due_at") @db.Timestamptz(3)
+  amountMinor      BigInt            @map("amount_minor")
+  currency         String            @db.Char(3)
+  status           InstallmentStatus @default(pending)
+  paidAt           DateTime?         @map("paid_at") @db.Timestamptz(3)
+  reminder3dSentAt DateTime?         @map("reminder_3d_sent_at") @db.Timestamptz(3)
+  reminder1dSentAt DateTime?         @map("reminder_1d_sent_at") @db.Timestamptz(3)
+
+  plan     PaymentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@unique([planId, sequence])
+  @@index([status, dueAt])
+  @@map("installments")
+}
+
+enum RefundStatus {
+  pending_approval
+  approved
+  processing
+  succeeded
+  failed
+  rejected
+  needs_review
+}
+
+enum RefundDestination {
+  original
+  wallet
+}
+
+enum RefundReason {
+  duplicate_payment
+  amount_mismatch
+  late_payment
+  ticketing_failed
+  installment_default
+  customer_cancellation
+  goodwill
+  supplier_cancellation
+  other
+}
+
+/// Money going back for one payment (ADR-019).
+model Refund {
+  id                String            @id @default(uuid(7)) @db.Uuid
+  bookingId         String            @map("booking_id") @db.Uuid
+  paymentId         String            @map("payment_id") @db.Uuid
+  provider          String
+  amountMinor       BigInt            @map("amount_minor")
+  currency          String            @db.Char(3)
+  destination       RefundDestination
+  reason            RefundReason
+  status            RefundStatus
+  /// Computed by the system (no discretion) rather than requested by staff.
+  automatic         Boolean           @default(false)
+  /// Ledger source: `booking` (customer money for the booking) or `unapplied`.
+  source            String
+  cancelsBooking    Boolean           @default(false) @map("cancels_booking")
+  /// Staff note; never copied to logs or audit metadata.
+  note              String?
+  requestedByUserId String?           @map("requested_by_user_id") @db.Uuid
+  approvedByUserId  String?           @map("approved_by_user_id") @db.Uuid
+  approvedAt        DateTime?         @map("approved_at") @db.Timestamptz(3)
+  rejectionReason   String?           @map("rejection_reason")
+  providerRefundId  String?           @map("provider_refund_id")
+  failureReason     String?           @map("failure_reason")
+  attempts          Int               @default(0)
+  processedAt       DateTime?         @map("processed_at") @db.Timestamptz(3)
+  settledAt         DateTime?         @map("settled_at") @db.Timestamptz(3)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerRefundId])
+  @@index([status, updatedAt])
+  @@index([bookingId])
+  @@map("refunds")
+}
+
+/// Expiring links that open a guest booking from an email (ADR-018). Only the HMAC is stored.
+model BookingAccessLink {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  bookingId String   @map("booking_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  purpose   String
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_access_links")
 }

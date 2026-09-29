@@ -103,6 +103,32 @@ describe('parseEnv', () => {
     }
   });
 
+  it('requires each enabled payment provider keys, and no mock payments in production', () => {
+    expect(parseEnv(base).PAYMENT_PROVIDERS).toEqual(['mock']);
+    expect(() => parseEnv({ ...base, PAYMENT_PROVIDERS: 'paystack,stripe' })).toThrow(
+      /PAYSTACK_SECRET_KEY.*STRIPE_SECRET_KEY.*STRIPE_WEBHOOK_SECRET/s,
+    );
+    expect(() => parseEnv({ ...base, PAYMENT_PROVIDERS: 'flutterwave,flutterwave' })).toThrow(
+      /list each provider once/,
+    );
+    const env = parseEnv({
+      ...base,
+      PAYMENT_PROVIDERS: 'paystack, mock',
+      PAYSTACK_SECRET_KEY: 'sk_test_0123456789abcdef',
+    });
+    expect(env.PAYMENT_PROVIDERS).toEqual(['paystack', 'mock']);
+    expect(env.INSTALLMENT_DEPOSIT_BPS).toBe(3000);
+    expect(env.REFUND_APPROVAL_THRESHOLD_NGN).toBe(0);
+    let message = '';
+    try {
+      parseEnv({ ...base, NODE_ENV: 'production', PAYSTACK_API_URL: 'http://paystack.local' });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain('PAYMENT_PROVIDERS: mock payments are not allowed in production');
+    expect(message).toContain('PAYSTACK_API_URL: must use https in production');
+  });
+
   it('refuses the local development internal token in production', () => {
     expect(() =>
       parseEnv({

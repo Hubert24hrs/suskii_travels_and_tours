@@ -9,13 +9,22 @@ import {
 
 import type { AirportInfo } from '../../catalog/catalog.service';
 import { buildSlice } from '../itinerary';
-import { OfferUnavailableError, SupplierUnavailableError } from '../supplier.errors';
+import type { SupplierPrice } from '../../pricing/pricing-engine';
+import {
+  OfferUnavailableError,
+  SupplierRequestError,
+  SupplierUnavailableError,
+} from '../supplier.errors';
 import {
   FlightSupplier,
   type AirportPoint,
   type FlightBookingRequest,
   type FlightBookingResult,
+  type FlightHold,
+  type FlightHoldRequest,
   type FlightSearchQuery,
+  type HeldOrder,
+  type PayHeldRequest,
   type FlightSegment,
   type FlightSlice,
   type SupplierFlightOffer,
@@ -226,6 +235,11 @@ export class MockFlightSupplier extends FlightSupplier {
   repriceDriftBps = 0;
   /** Test hook: this many upcoming `book()` calls fail as if the airline were unavailable. */
   failNextBookings = 0;
+  /** Held orders by id (in memory: a restart forgets them, like an airline losing a PNR). */
+  readonly holds = new Map<
+    string,
+    { offer: SupplierFlightOffer; price: SupplierPrice; cancelled: boolean; paid: boolean }
+  >();
 
   /**
    * @param repriceRules basis points added per outbound route ("LOS-DXB"), from
@@ -348,6 +362,89 @@ export class MockFlightSupplier extends FlightSupplier {
         )}`,
       })),
     });
+  }
+
+  /** Holds as the offer promised; the order id is stable per booking item (idempotent). */
+  override hold(request: FlightHoldRequest, signal: AbortSignal): Promise<FlightHold> {
+    signal.throwIfAborted();
+    const { offer } = request;
+    if (!offer.hold.available || !offer.hold.paymentRequiredBy) {
+      return Promise.reject(new SupplierRequestError(this.name, 'This offer cannot be held'));
+    }
+    if (Date.parse(offer.hold.paymentRequiredBy) <= this.now().getTime()) {
+      return Promise.reject(new OfferUnavailableError(this.name, 'The hold window has closed'));
+    }
+    const seed = `mock-booking|${request.idempotencyKey}`;
+    const orderId = `mockord_${stableCode(seed, 16, 'abcdefghijklmnopqrstuvwxyz0123456789')}`;
+    if (!this.holds.has(orderId)) {
+      this.holds.set(orderId, { offer, price: offer.price, cancelled: false, paid: false });
+    }
+    return Promise.resolve({
+      orderId,
+      supplierReference: stableCode(seed, 6, 'ABCDEFGHJKLMNPQRSTUVWXYZ'),
+      paymentRequiredBy: offer.hold.paymentRequiredBy,
+      priceGuaranteedUntil: offer.hold.priceGuaranteedUntil,
+      price: offer.price,
+    });
+  }
+
+  override heldOrder(orderId: string, signal: AbortSignal): Promise<HeldOrder> {
+    signal.throwIfAborted();
+    const held = this.holds.get(orderId);
+    if (!held || held.cancelled) {
+      return Promise.reject(
+        new OfferUnavailableError(this.name, 'The held order no longer exists'),
+      );
+    }
+    const guarantee = held.offer.hold.priceGuaranteedUntil;
+    const lapsed = !guarantee || Date.parse(guarantee) <= this.now().getTime();
+    const drift = (amount: Money): Money =>
+      multiplyRatio(amount, 10_000 + (lapsed ? this.repriceDriftBps : 0), 10_000, 'half-up');
+    return Promise.resolve({
+      awaitingPayment: !held.paid,
+      paymentRequiredBy: held.offer.hold.paymentRequiredBy,
+      priceGuaranteedUntil: guarantee,
+      price: { base: drift(held.price.base), taxes: held.price.taxes },
+    });
+  }
+
+  /** Tickets a held order with the same deterministic references as `book()`. */
+  override payHeld(request: PayHeldRequest, signal: AbortSignal): Promise<FlightBookingResult> {
+    signal.throwIfAborted();
+    if (this.failNextBookings > 0) {
+      this.failNextBookings -= 1;
+      return Promise.reject(new SupplierUnavailableError(this.name, 'Mock ticketing is down'));
+    }
+    const held = this.holds.get(request.orderId);
+    if (!held || held.cancelled) {
+      return Promise.reject(
+        new OfferUnavailableError(this.name, 'The held order no longer exists'),
+      );
+    }
+    const total = (price: SupplierPrice) => price.base.minor + price.taxes.minor;
+    if (total(held.price) !== total(request.price)) {
+      return Promise.reject(new SupplierRequestError(this.name, 'The held fare changed'));
+    }
+    held.paid = true;
+    const seed = `mock-booking|${request.idempotencyKey}`;
+    return Promise.resolve({
+      supplierReference: stableCode(seed, 6, 'ABCDEFGHJKLMNPQRSTUVWXYZ'),
+      tickets: Array.from({ length: totalPassengers(held.offer) }, (_, passengerIndex) => ({
+        passengerIndex,
+        number: `${stableCode(`${seed}|airline`, 3, '0123456789')}${stableCode(
+          `${seed}|${passengerIndex}`,
+          10,
+          '0123456789',
+        )}`,
+      })),
+    });
+  }
+
+  override cancelHold(orderId: string, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    const held = this.holds.get(orderId);
+    if (held && !held.paid) held.cancelled = true;
+    return Promise.resolve();
   }
 
   private routes(
@@ -508,7 +605,7 @@ export class MockFlightSupplier extends FlightSupplier {
       value === null ? null : money(BigInt(domestic ? value[1] : value[0]) * 100n, currency);
 
     const firstDeparture = Date.parse(slices[0]?.departureUtc ?? '');
-    const holdable = daysAhead >= 7 && random.chance(0.6);
+    const hold = mockHold(brand, now, firstDeparture, daysAhead);
     const supplierOfferId = stableId(
       'mockoff',
       seed,
@@ -532,14 +629,7 @@ export class MockFlightSupplier extends FlightSupplier {
       passengers: query.passengers,
       price: { base: total(baseUnit, 75, 10), taxes: total(taxUnit, 100, 10) },
       expiresAt: new Date(now + OFFER_TTL_MS).toISOString(),
-      hold: {
-        available: holdable,
-        paymentRequiredBy: holdable
-          ? new Date(
-              Math.min(now + 48 * 60 * MINUTE_MS, firstDeparture - 72 * 60 * MINUTE_MS),
-            ).toISOString()
-          : null,
-      },
+      hold,
       // One extra 23 kg bag per passenger (two at most) for the whole trip.
       services: [
         {
@@ -555,6 +645,41 @@ export class MockFlightSupplier extends FlightSupplier {
 }
 
 const pad = (value: number): string => String(value).padStart(2, '0');
+
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+/**
+ * Hold rules of the mock, by fare (ADR-018): refundable fares at least a week out can be held for
+ * up to 72 hours with the price guaranteed for 24; free-refund ("Flex") fares three weeks out, like
+ * consolidator time-limit fares, for up to 10 days with the price guaranteed throughout, which is
+ * long enough for installments. Non-refundable fares must be paid at once.
+ */
+function mockHold(
+  brand: Brand,
+  now: number,
+  firstDeparture: number,
+  daysAhead: number,
+): SupplierFlightOffer['hold'] {
+  if (!brand.refundable || daysAhead < 7) {
+    return { available: false, paymentRequiredBy: null, priceGuaranteedUntil: null };
+  }
+  const freeRefund = brand.refundPenalty?.[0] === 0 && brand.refundPenalty[1] === 0;
+  if (freeRefund && daysAhead >= 21) {
+    const deadline = Math.min(now + 10 * DAY_MS, firstDeparture - 7 * DAY_MS);
+    const iso = new Date(deadline).toISOString();
+    return { available: true, paymentRequiredBy: iso, priceGuaranteedUntil: iso };
+  }
+  const deadline = Math.min(now + 72 * HOUR_MS, firstDeparture - 72 * HOUR_MS);
+  return {
+    available: true,
+    paymentRequiredBy: new Date(deadline).toISOString(),
+    priceGuaranteedUntil: new Date(Math.min(now + 24 * HOUR_MS, deadline)).toISOString(),
+  };
+}
+
+const totalPassengers = (offer: SupplierFlightOffer): number =>
+  offer.passengers.adults + offer.passengers.children + offer.passengers.infants;
 
 function cartesian<T>(lists: T[][]): T[][] {
   return lists.reduce<T[][]>(

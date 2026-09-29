@@ -169,7 +169,7 @@ export async function createTestApp(
  */
 export async function resetState(ctx: TestContext): Promise<void> {
   await ctx.prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE users, idempotency_keys, offers, search_logs, markup_rules, fee_rules, promo_codes, promo_redemptions, deal_snapshots, destination_hotel_snapshots, newsletter_subscriptions, bookings, booking_items, booking_passengers, booking_status_history, travellers, payments, webhook_events, booking_documents RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE users, idempotency_keys, offers, search_logs, markup_rules, fee_rules, promo_codes, promo_redemptions, deal_snapshots, destination_hotel_snapshots, newsletter_subscriptions, bookings, booking_items, booking_passengers, booking_status_history, travellers, payments, webhook_events, booking_documents, ledger_entries, ledger_transactions, ledger_accounts, payment_plans, installments, refunds, booking_access_links RESTART IDENTITY CASCADE',
   );
   await ctx.redis.flushdb();
   ctx.emails.outbox.length = 0;

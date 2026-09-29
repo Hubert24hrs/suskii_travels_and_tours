@@ -188,6 +188,426 @@
         }
       }
     },
+    "/v1/admin/bookings/{bookingId}/refunds": {
+      "post": {
+        "operationId": "adminCreateRefund",
+        "summary": "Request a refund for a payment",
+        "description": "Above REFUND_APPROVAL_THRESHOLD_NGN (converted to NGN) the refund waits for a second approver; below it runs at once. The amount can never exceed what the payment can still return. `cancelBooking` applies to confirmed bookings (after the airline side is handled) and moves them to REFUND_PENDING.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRefundRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRefund"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/refunds": {
+      "get": {
+        "operationId": "adminListRefunds",
+        "summary": "List refunds",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending_approval",
+                "approved",
+                "processing",
+                "succeeded",
+                "failed",
+                "rejected",
+                "needs_review"
+              ]
+            }
+          },
+          {
+            "name": "bookingId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRefundList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/refunds/{refundId}": {
+      "get": {
+        "operationId": "adminGetRefund",
+        "summary": "Get a refund",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "refundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRefund"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/refunds/{refundId}/approve": {
+      "post": {
+        "operationId": "adminApproveRefund",
+        "summary": "Approve a refund (maker-checker)",
+        "description": "The person who requested a refund cannot approve it (403 `maker-checker`).",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "refundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRefund"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/refunds/{refundId}/reject": {
+      "post": {
+        "operationId": "adminRejectRefund",
+        "summary": "Reject a refund waiting for approval",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "refundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectRefundRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRefund"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/refunds/{refundId}/resolve": {
+      "post": {
+        "operationId": "adminResolveRefund",
+        "summary": "Settle a refund in review from the provider dashboard",
+        "description": "For refunds whose provider outcome is unknown (`needs_review`): record what the provider shows. `failed` returns the money to the booking in the ledger so it can be refunded again.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "refundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRefundRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRefund"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/admin/users/{id}": {
       "get": {
         "operationId": "adminGetUser",
@@ -1091,7 +1511,8 @@
     "/v1/bookings/{bookingId}/cancel": {
       "post": {
         "operationId": "cancelBooking",
-        "summary": "Cancel an unpaid booking",
+        "summary": "Cancel an unpaid or partly paid booking",
+        "description": "A reservation is released at the airline. A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`).",
         "tags": [
           "Bookings"
         ],
@@ -1218,11 +1639,11 @@
         }
       }
     },
-    "/v1/bookings/{bookingId}/payments": {
+    "/v1/bookings/{bookingId}/hold": {
       "post": {
-        "operationId": "startBookingPayment",
-        "summary": "Re-check the price and open a hosted checkout",
-        "description": "Re-prices with the supplier first. A changed total answers 409 `price-changed` with `priceChange` (previous, current, difference, price); accept it with `price-consent`, then call this again. An offer that sold out answers 410 with the original search.",
+        "operationId": "holdBooking",
+        "summary": "Reserve now, pay later",
+        "description": "Holds the seats with the airline until `paymentOptions.hold.deadline` (flights whose fare allows it, without paid extras). Re-checks the price first (409 `price-changed`). 409 `hold-unavailable` when the airline will not hold it, `hold-limit` with too many unpaid reservations. Tickets are issued only after full payment.",
         "tags": [
           "Bookings"
         ],
@@ -1268,6 +1689,184 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem410"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/bookings/{bookingId}/installment-plan": {
+      "post": {
+        "operationId": "createInstallmentPlan",
+        "summary": "Pay in installments",
+        "description": "Holds the seats and sets up the schedule from `paymentOptions.installments`; then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem410"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/bookings/{bookingId}/payments": {
+      "post": {
+        "operationId": "startBookingPayment",
+        "summary": "Re-check the price and open a hosted checkout (or pay from the wallet)",
+        "description": "Re-prices with the supplier first. A changed total answers 409 `price-changed` with `priceChange` (previous, current, difference, price); accept it with `price-consent`, then call this again. An offer that sold out answers 410 with the original search. Payment plans pay the next installment unless `installmentId` or `payInFull` says otherwise. `provider` picks one of `paymentOptions.providers` (422 when it cannot take this currency); `useWallet` pays at once when the wallet covers the amount (409 `wallet-insufficient` otherwise).",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPaymentRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
           "201": {
             "description": "Created",
             "content": {
@@ -1289,6 +1888,9 @@
           },
           "410": {
             "$ref": "#/components/responses/Problem410"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
           },
           "429": {
             "$ref": "#/components/responses/Problem429"
@@ -2862,6 +3464,132 @@
         }
       }
     },
+    "/v1/internal/bookings/payment-plans-due": {
+      "post": {
+        "operationId": "processDuePaymentPlans",
+        "summary": "Send payment reminders and close plans that missed a payment",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentPlanRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/internal/bookings/reconcile-payments": {
+      "post": {
+        "operationId": "reconcileBookingPayments",
+        "summary": "Verify stale pending payments with their provider (lost webhooks)",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentReconciliationRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/internal/bookings/refunds-due": {
+      "post": {
+        "operationId": "processDueRefunds",
+        "summary": "Execute approved refunds and follow up pending ones",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/bookings/ticket-due": {
       "post": {
         "operationId": "ticketDueBookings",
@@ -3927,6 +4655,40 @@
         }
       }
     },
+    "/v1/me/wallet": {
+      "get": {
+        "operationId": "getWallet",
+        "summary": "Wallet balances and latest movements",
+        "tags": [
+          "Wallet"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wallet"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/newsletter/confirm": {
       "post": {
         "operationId": "confirmNewsletter",
@@ -4377,6 +5139,192 @@
         },
         "required": [
           "status"
+        ],
+        "additionalProperties": false
+      },
+      "AdminRefund": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bookingReference": {
+            "type": "string"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "destination": {
+            "type": "string",
+            "enum": [
+              "original",
+              "wallet"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "duplicate_payment",
+              "amount_mismatch",
+              "late_payment",
+              "ticketing_failed",
+              "installment_default",
+              "customer_cancellation",
+              "goodwill",
+              "supplier_cancellation",
+              "other"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_approval",
+              "approved",
+              "processing",
+              "succeeded",
+              "failed",
+              "rejected",
+              "needs_review"
+            ]
+          },
+          "automatic": {
+            "type": "boolean"
+          },
+          "cancelsBooking": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedByUserId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvedByUserId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approvedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejectionReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "providerRefundId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failureReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "settledAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "bookingId",
+          "bookingReference",
+          "paymentId",
+          "provider",
+          "amount",
+          "destination",
+          "reason",
+          "status",
+          "automatic",
+          "cancelsBooking",
+          "note",
+          "requestedByUserId",
+          "approvedByUserId",
+          "approvedAt",
+          "rejectionReason",
+          "providerRefundId",
+          "failureReason",
+          "attempts",
+          "createdAt",
+          "updatedAt",
+          "settledAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminRefundList": {
+        "type": "object",
+        "properties": {
+          "refunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRefund"
+            }
+          }
+        },
+        "required": [
+          "refunds"
         ],
         "additionalProperties": false
       },
@@ -5234,6 +6182,45 @@
               ],
               "additionalProperties": false
             }
+          },
+          "paid": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "amountDue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "paymentPlan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "paymentOptions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentOptions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingRefund"
+            }
           }
         },
         "required": [
@@ -5252,7 +6239,12 @@
           "passengers",
           "warnings",
           "payment",
-          "documents"
+          "documents",
+          "paid",
+          "amountDue",
+          "paymentPlan",
+          "paymentOptions",
+          "refunds"
         ],
         "additionalProperties": false
       },
@@ -5568,6 +6560,57 @@
           "current",
           "difference",
           "price"
+        ],
+        "additionalProperties": false
+      },
+      "BookingRefund": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "destination": {
+            "type": "string",
+            "enum": [
+              "original",
+              "wallet"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "in_progress",
+              "completed",
+              "failed"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "settledAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "amount",
+          "destination",
+          "status",
+          "createdAt",
+          "settledAt"
         ],
         "additionalProperties": false
       },
@@ -6017,6 +7060,58 @@
           "accessToken"
         ],
         "additionalProperties": false
+      },
+      "CreateRefundRequestInput": {
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/MoneyInput"
+          },
+          "destination": {
+            "default": "original",
+            "type": "string",
+            "enum": [
+              "original",
+              "wallet"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "customer_cancellation",
+              "goodwill",
+              "supplier_cancellation",
+              "ticketing_failed",
+              "duplicate_payment",
+              "other"
+            ]
+          },
+          "note": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelBooking": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "paymentId",
+          "amount",
+          "reason"
+        ]
       },
       "DealRouteDetail": {
         "type": "object",
@@ -8604,6 +9699,287 @@
         ],
         "additionalProperties": false
       },
+      "PaymentOptions": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentProviderOption"
+            }
+          },
+          "hold": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "deadline": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "total": {
+                    "$ref": "#/components/schemas/Money"
+                  }
+                },
+                "required": [
+                  "deadline",
+                  "total"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "installments": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "deadline": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "total": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "fee": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "graceHours": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "defaultFeeBps": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "schedule": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ScheduledPayment"
+                    }
+                  }
+                },
+                "required": [
+                  "deadline",
+                  "total",
+                  "fee",
+                  "graceHours",
+                  "defaultFeeBps",
+                  "schedule"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wallet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "providers",
+          "hold",
+          "installments",
+          "wallet"
+        ],
+        "additionalProperties": false
+      },
+      "PaymentPlan": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "hold",
+              "installments"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "completed",
+              "defaulted",
+              "cancelled",
+              "expired"
+            ]
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "fee": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "graceHours": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "defaultFeeBps": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "installments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "sequence": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "dueAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "paid",
+                    "cancelled"
+                  ]
+                },
+                "paidAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "sequence",
+                "dueAt",
+                "amount",
+                "status",
+                "paidAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "status",
+          "deadline",
+          "total",
+          "fee",
+          "graceHours",
+          "defaultFeeBps",
+          "installments"
+        ],
+        "additionalProperties": false
+      },
+      "PaymentPlanRun": {
+        "type": "object",
+        "properties": {
+          "reminders": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "defaulted": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "expired": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "reminders",
+          "defaulted",
+          "expired"
+        ],
+        "additionalProperties": false
+      },
+      "PaymentProviderOption": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "mock",
+              "paystack",
+              "flutterwave",
+              "stripe"
+            ]
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "card",
+                "bank_transfer",
+                "ussd",
+                "mobile_money"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name",
+          "methods"
+        ],
+        "additionalProperties": false
+      },
+      "PaymentReconciliationRun": {
+        "type": "object",
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "settled": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "checked",
+          "settled"
+        ],
+        "additionalProperties": false
+      },
       "PaymentSession": {
         "type": "object",
         "properties": {
@@ -8611,8 +9987,18 @@
             "type": "string",
             "format": "uuid"
           },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "succeeded"
+            ]
+          },
           "checkoutUrl": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "amount": {
             "$ref": "#/components/schemas/Money"
@@ -8624,6 +10010,7 @@
         },
         "required": [
           "paymentId",
+          "status",
           "checkoutUrl",
           "amount",
           "expiresAt"
@@ -9112,6 +10499,9 @@
                 "type": "null"
               }
             ]
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentOptions"
           }
         },
         "required": [
@@ -9121,7 +10511,8 @@
           "expiresAt",
           "termsVersion",
           "flight",
-          "hotel"
+          "hotel",
+          "payment"
         ],
         "additionalProperties": false
       },
@@ -9274,6 +10665,32 @@
         ],
         "additionalProperties": false
       },
+      "RefundRun": {
+        "type": "object",
+        "properties": {
+          "executed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "settled": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "review": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "executed",
+          "settled",
+          "review"
+        ],
+        "additionalProperties": false
+      },
       "RegisterRequestInput": {
         "type": "object",
         "properties": {
@@ -9296,6 +10713,19 @@
           "password"
         ]
       },
+      "RejectRefundRequestInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
       "ResetPasswordRequestInput": {
         "type": "object",
         "properties": {
@@ -9314,6 +10744,57 @@
           "token",
           "password"
         ]
+      },
+      "ResolveRefundRequestInput": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          },
+          "providerRefundId": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "ScheduledPayment": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "sequence",
+          "dueAt",
+          "amount"
+        ],
+        "additionalProperties": false
       },
       "SessionList": {
         "type": "object",
@@ -9575,6 +11056,48 @@
         "required": [
           "idToken"
         ]
+      },
+      "StartPaymentRequestInput": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "mock",
+                  "paystack",
+                  "flutterwave",
+                  "stripe"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "installmentId": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payInFull": {
+            "default": false,
+            "type": "boolean"
+          },
+          "useWallet": {
+            "default": false,
+            "type": "boolean"
+          }
+        }
       },
       "SupplierOutcome": {
         "type": "object",
@@ -9901,6 +11424,73 @@
         "required": [
           "token"
         ]
+      },
+      "Wallet": {
+        "type": "object",
+        "properties": {
+          "balances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Money"
+            }
+          },
+          "movements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "payment_captured",
+                    "payment_unapplied",
+                    "wallet_payment",
+                    "refund_initiated",
+                    "refund_settled",
+                    "refund_failed",
+                    "refund_to_wallet",
+                    "cancellation_fee"
+                  ]
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "bookingId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "occurredAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "amount",
+                "bookingId",
+                "occurredAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "balances",
+          "movements"
+        ],
+        "additionalProperties": false
       },
       "WebhookReceipt": {
         "type": "object",

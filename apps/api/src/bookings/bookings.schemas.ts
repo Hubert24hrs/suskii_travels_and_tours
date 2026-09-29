@@ -12,6 +12,11 @@ import {
   PASSENGER_ISSUES,
   PASSENGER_TITLES,
   PASSENGER_TYPES,
+  PAYMENT_PLAN_KINDS,
+  PAYMENT_PROVIDER_NAMES,
+  REFUND_DESTINATIONS,
+  REFUND_REASONS,
+  REFUND_STATUSES,
   passengerInputSchema,
   travellerInputSchema,
 } from '@suskii/shared';
@@ -42,6 +47,67 @@ export const BOOKING_TOKEN_HEADER = {
 };
 
 // ---------------------------------------------------------------------------
+// Payment options (ADR-016, ADR-018)
+// ---------------------------------------------------------------------------
+
+export const PAYMENT_METHODS = ['card', 'bank_transfer', 'ussd', 'mobile_money'] as const;
+
+export const paymentProviderOptionSchema = named(
+  'PaymentProviderOption',
+  z.object({
+    name: z.enum(PAYMENT_PROVIDER_NAMES),
+    methods: z.array(z.enum(PAYMENT_METHODS)),
+  }),
+);
+
+export const scheduledPaymentSchema = named(
+  'ScheduledPayment',
+  z.object({
+    sequence: z.number().int().meta({ description: '0 is the deposit.' }),
+    dueAt: timestamp,
+    amount: moneySchema,
+  }),
+);
+
+export const paymentOptionsSchema = named(
+  'PaymentOptions',
+  z.object({
+    providers: z
+      .array(paymentProviderOptionSchema)
+      .meta({ description: 'Enabled providers for this currency; the first is the default.' }),
+    hold: z
+      .object({
+        deadline: timestamp.meta({
+          description: 'Pay in full by then, or the seats are released.',
+        }),
+        total: moneySchema,
+      })
+      .nullable()
+      .meta({ description: 'Reserve now, pay later. Not offered with paid extras.' }),
+    installments: z
+      .object({
+        deadline: timestamp,
+        total: moneySchema.meta({ description: 'Price plus fee.' }),
+        fee: moneySchema,
+        graceHours: z.number().int(),
+        defaultFeeBps: z
+          .number()
+          .int()
+          .meta({ description: 'Kept on a missed payment, in basis points of the amount paid.' }),
+        schedule: z.array(scheduledPaymentSchema),
+      })
+      .nullable()
+      .meta({
+        description: 'Deposit now and installments; tickets are issued after the last one.',
+      }),
+    wallet: moneySchema
+      .nullable()
+      .meta({ description: 'Signed-in travellers: wallet balance in the booking currency.' }),
+  }),
+);
+export type PaymentOptionsDto = z.infer<typeof paymentOptionsSchema>;
+
+// ---------------------------------------------------------------------------
 // Quotes (checkout)
 // ---------------------------------------------------------------------------
 
@@ -67,6 +133,7 @@ export const quoteSchema = named(
         request: hotelSearchRequestSchema,
       })
       .nullable(),
+    payment: paymentOptionsSchema,
   }),
 );
 
@@ -183,6 +250,43 @@ export const bookingPassengerSchema = named(
   }),
 );
 
+export const paymentPlanSchema = named(
+  'PaymentPlan',
+  z.object({
+    kind: z.enum(PAYMENT_PLAN_KINDS),
+    status: z.enum(['active', 'completed', 'defaulted', 'cancelled', 'expired']),
+    deadline: timestamp,
+    total: moneySchema,
+    fee: moneySchema,
+    graceHours: z.number().int(),
+    defaultFeeBps: z.number().int(),
+    installments: z.array(
+      z.object({
+        id: z.uuid(),
+        sequence: z.number().int(),
+        dueAt: timestamp,
+        amount: moneySchema,
+        status: z.enum(['pending', 'paid', 'cancelled']),
+        paidAt: timestamp.nullable(),
+      }),
+    ),
+  }),
+);
+
+export const bookingRefundSchema = named(
+  'BookingRefund',
+  z.object({
+    id: z.uuid(),
+    amount: moneySchema,
+    destination: z.enum(REFUND_DESTINATIONS),
+    status: z
+      .enum(['in_progress', 'completed', 'failed'])
+      .meta({ description: 'Customer view; staff see the full lifecycle.' }),
+    createdAt: timestamp,
+    settledAt: timestamp.nullable(),
+  }),
+);
+
 export const bookingSchema = named(
   'Booking',
   z.object({
@@ -253,6 +357,15 @@ export const bookingSchema = named(
         createdAt: timestamp,
       }),
     ),
+    paid: moneySchema.meta({ description: 'Received so far and not refunded.' }),
+    amountDue: moneySchema.nullable().meta({
+      description: 'What the next payment would be (installment or balance), if payable.',
+    }),
+    paymentPlan: paymentPlanSchema.nullable(),
+    paymentOptions: paymentOptionsSchema
+      .nullable()
+      .meta({ description: 'How the booking can be paid now; null when nothing is payable.' }),
+    refunds: z.array(bookingRefundSchema),
   }),
 );
 export type BookingDto = z.infer<typeof bookingSchema>;
@@ -268,11 +381,41 @@ export const createdBookingSchema = named(
   }),
 );
 
+export const startPaymentRequestSchema = named(
+  'StartPaymentRequest',
+  z.object({
+    provider: z
+      .enum(PAYMENT_PROVIDER_NAMES)
+      .nullable()
+      .default(null)
+      .meta({ description: 'One of `paymentOptions.providers`; the default when null.' }),
+    installmentId: z
+      .uuid()
+      .nullable()
+      .default(null)
+      .meta({ description: 'Payment plans: the installment to pay (default: the next one).' }),
+    payInFull: z
+      .boolean()
+      .default(false)
+      .meta({ description: 'Payment plans: pay the whole remaining balance now.' }),
+    useWallet: z
+      .boolean()
+      .default(false)
+      .meta({ description: 'Pay from the wallet; it must cover the whole amount.' }),
+  }),
+);
+export type StartPaymentRequest = z.output<typeof startPaymentRequestSchema>;
+
 export const paymentSessionSchema = named(
   'PaymentSession',
   z.object({
     paymentId: z.uuid(),
-    checkoutUrl: z.string().meta({ description: 'Send the traveller here (hosted checkout).' }),
+    status: z
+      .enum(['pending', 'succeeded'])
+      .meta({ description: '`succeeded` when the wallet paid at once (no checkout).' }),
+    checkoutUrl: z.string().nullable().meta({
+      description: 'Send the traveller here (hosted checkout); null for wallet payments.',
+    }),
     amount: moneySchema,
     expiresAt: timestamp,
   }),
@@ -360,5 +503,109 @@ export const ticketingRunSchema = named(
     confirmed: z.number().int(),
     retrying: z.number().int(),
     exhausted: z.number().int(),
+  }),
+);
+
+export const paymentRunSchema = named(
+  'PaymentReconciliationRun',
+  z.object({ checked: z.number().int(), settled: z.number().int() }),
+);
+
+export const planRunSchema = named(
+  'PaymentPlanRun',
+  z.object({
+    reminders: z.number().int(),
+    defaulted: z.number().int(),
+    expired: z.number().int(),
+  }),
+);
+
+export const refundRunSchema = named(
+  'RefundRun',
+  z.object({ executed: z.number().int(), settled: z.number().int(), review: z.number().int() }),
+);
+
+// ---------------------------------------------------------------------------
+// Admin refunds (ADR-019)
+// ---------------------------------------------------------------------------
+
+export const refundIdParamsSchema = z.object({ refundId: z.uuid() });
+
+export const adminRefundSchema = named(
+  'AdminRefund',
+  z.object({
+    id: z.uuid(),
+    bookingId: z.uuid(),
+    bookingReference: z.string(),
+    paymentId: z.uuid(),
+    provider: z.string(),
+    amount: moneySchema,
+    destination: z.enum(REFUND_DESTINATIONS),
+    reason: z.enum(REFUND_REASONS),
+    status: z.enum(REFUND_STATUSES),
+    automatic: z.boolean(),
+    cancelsBooking: z.boolean(),
+    note: z.string().nullable(),
+    requestedByUserId: z.uuid().nullable(),
+    approvedByUserId: z.uuid().nullable(),
+    approvedAt: timestamp.nullable(),
+    rejectionReason: z.string().nullable(),
+    providerRefundId: z.string().nullable(),
+    failureReason: z.string().nullable(),
+    attempts: z.number().int(),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    settledAt: timestamp.nullable(),
+  }),
+);
+export type AdminRefundDto = z.infer<typeof adminRefundSchema>;
+
+export const adminRefundListSchema = named(
+  'AdminRefundList',
+  z.object({ refunds: z.array(adminRefundSchema) }),
+);
+
+export const adminRefundQuerySchema = z.object({
+  status: z.enum(REFUND_STATUSES).optional(),
+  bookingId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+/** Staff can choose these; the others are set by the system. */
+export const STAFF_REFUND_REASONS = [
+  'customer_cancellation',
+  'goodwill',
+  'supplier_cancellation',
+  'ticketing_failed',
+  'duplicate_payment',
+  'other',
+] as const;
+
+export const createRefundRequestSchema = named(
+  'CreateRefundRequest',
+  z.object({
+    paymentId: z.uuid(),
+    amount: moneySchema,
+    destination: z.enum(REFUND_DESTINATIONS).default('original'),
+    reason: z.enum(STAFF_REFUND_REASONS),
+    note: z.string().trim().max(500).nullable().default(null),
+    cancelBooking: z
+      .boolean()
+      .default(false)
+      .meta({ description: 'Moves the booking to REFUND_PENDING and REFUNDED once repaid.' }),
+  }),
+);
+export type CreateRefundRequest = z.output<typeof createRefundRequestSchema>;
+
+export const rejectRefundRequestSchema = named(
+  'RejectRefundRequest',
+  z.object({ reason: z.string().trim().min(3).max(300) }),
+);
+
+export const resolveRefundRequestSchema = named(
+  'ResolveRefundRequest',
+  z.object({
+    outcome: z.enum(['succeeded', 'failed']),
+    providerRefundId: z.string().trim().min(1).max(100).nullable().default(null),
   }),
 );

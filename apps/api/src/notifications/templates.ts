@@ -106,6 +106,159 @@ export function bookingConfirmedTemplate(details: BookingConfirmedDetails): Temp
   };
 }
 
+export interface PlanScheduleLine {
+  due: string;
+  amount: string;
+}
+
+export interface PlanCreatedDetails {
+  reference: string;
+  kind: 'hold' | 'installments';
+  summary: string;
+  deadline: string;
+  total: string;
+  schedule: PlanScheduleLine[];
+  /** What happens on a missed payment, from the configured policy. */
+  defaultPolicy: string;
+  /** Booking page, with the guest access link when needed. */
+  bookingUrl: string;
+}
+
+export function planCreatedTemplate(details: PlanCreatedDetails): Template {
+  const intro =
+    details.kind === 'hold'
+      ? `Your seats are reserved. Booking reference: ${details.reference}. Pay ${details.total} by ${details.deadline} to get your tickets.`
+      : `Your payment plan is set up. Booking reference: ${details.reference}. Total ${details.total}, paid by ${details.deadline}.`;
+  const lines = [
+    details.summary,
+    ...details.schedule.map((line) => `${line.due}: ${line.amount}`),
+    'Tickets are issued only after the last payment.',
+    details.defaultPolicy,
+  ];
+  return {
+    template: details.kind === 'hold' ? 'booking-held' : 'payment-plan-created',
+    subject:
+      details.kind === 'hold'
+        ? `Reserved: ${details.reference}, pay by ${details.deadline}`
+        : `Payment plan for ${details.reference}`,
+    text: [intro, lines.join('\n'), details.bookingUrl].join('\n\n'),
+    html: layout(
+      details.kind === 'hold' ? 'Seats reserved' : 'Payment plan set up',
+      [intro, ...lines],
+      {
+        label: 'View booking and pay',
+        url: details.bookingUrl,
+      },
+    ),
+  };
+}
+
+export interface PaymentDueDetails {
+  reference: string;
+  amount: string;
+  due: string;
+  bookingUrl: string;
+  /** What happens if it is not paid. */
+  consequence: string;
+}
+
+export function paymentDueTemplate(details: PaymentDueDetails): Template {
+  const intro = `A payment of ${details.amount} for booking ${details.reference} is due ${details.due}.`;
+  return {
+    template: 'payment-due',
+    subject: `Payment due ${details.due}: ${details.reference}`,
+    text: [intro, details.consequence, details.bookingUrl].join('\n\n'),
+    html: layout('Payment due', [intro, details.consequence], {
+      label: 'Pay now',
+      url: details.bookingUrl,
+    }),
+  };
+}
+
+export function paymentDueSmsBody(details: PaymentDueDetails): string {
+  return `${BRAND.name}: ${details.amount} for booking ${details.reference} is due ${details.due}. Pay from the link in your email.`;
+}
+
+export interface RefundDetails {
+  reference: string;
+  amount: string;
+  destination: 'original' | 'wallet';
+  /** Why the money goes back, in plain words. */
+  reason: string;
+}
+
+export function refundStartedTemplate(details: RefundDetails): Template {
+  const where =
+    details.destination === 'wallet'
+      ? 'It goes to your Suskii wallet.'
+      : 'It goes back to the card or account you paid with; banks usually take 5 to 10 working days.';
+  const intro = `We are refunding ${details.amount} for booking ${details.reference}. ${details.reason}`;
+  return {
+    template: 'refund-started',
+    subject: `Refund on its way: ${details.reference}`,
+    text: `${intro}\n\n${where}`,
+    html: layout('Refund on its way', [intro, where]),
+  };
+}
+
+export function refundCompletedTemplate(details: RefundDetails): Template {
+  const intro = `Your refund of ${details.amount} for booking ${details.reference} is complete.`;
+  const where =
+    details.destination === 'wallet'
+      ? 'It is in your Suskii wallet now.'
+      : 'Your bank may take a few days to show it.';
+  return {
+    template: 'refund-completed',
+    subject: `Refund completed: ${details.reference}`,
+    text: `${intro}\n\n${where}`,
+    html: layout('Refund completed', [intro, where]),
+  };
+}
+
+export interface PlanClosedDetails {
+  reference: string;
+  reason: 'missed_payment' | 'expired' | 'cancelled';
+  refund: string | null;
+  fee: string | null;
+}
+
+export function planClosedTemplate(details: PlanClosedDetails): Template {
+  const why =
+    details.reason === 'missed_payment'
+      ? `A payment for booking ${details.reference} was not made in time, so the reservation has been cancelled.`
+      : details.reason === 'expired'
+        ? `The reservation for booking ${details.reference} was not paid by its deadline and has been released.`
+        : `Booking ${details.reference} has been cancelled as you asked.`;
+  const money = details.refund
+    ? `${details.refund} will be refunded${details.fee ? ` (a cancellation fee of ${details.fee} was kept, as set out in your plan)` : ''}.`
+    : 'No payment was taken, so there is nothing to refund.';
+  return {
+    template: 'payment-plan-closed',
+    subject: `Booking ${details.reference} cancelled`,
+    text: `${why}\n\n${money}`,
+    html: layout('Booking cancelled', [why, money]),
+  };
+}
+
+export interface OpsAlertDetails {
+  /** Short code, e.g. `refund.failed`, `ticketing.needs_review`. */
+  kind: string;
+  bookingReference: string | null;
+  /** Ids and codes only: never personal data, card data or free text. */
+  facts: Record<string, string>;
+}
+
+export function opsAlertTemplate(details: OpsAlertDetails): Template {
+  const lines = Object.entries(details.facts).map(([key, value]) => `${key}: ${value}`);
+  const heading = `[ops] ${details.kind}${details.bookingReference ? ` ${details.bookingReference}` : ''}`;
+  return {
+    template: 'ops-alert',
+    subject: heading,
+    text: [heading, ...lines].join('\n'),
+    html: layout(heading, lines),
+  };
+}
+
 export function otpSmsBody(code: string): string {
   return `${code} is your ${BRAND.name} verification code. It expires in 5 minutes. Never share it.`;
 }

@@ -1,7 +1,7 @@
 /**
  * Payment methods each provider adds at checkout (PROJECT_SPEC.json#/tech_stack integrations).
- * The homepage trust strip shows only methods the platform actually supports, so the list comes
- * from providers with a working adapter. Payment adapters arrive in phase 6.
+ * The homepage trust strip shows only methods the platform actually takes, so the list comes
+ * from the real providers enabled in PAYMENT_PROVIDERS (never the mock, ADR-016).
  */
 const PROVIDER_METHODS = {
   paystack: ['visa', 'mastercard', 'verve', 'bank_transfer', 'ussd'],
@@ -39,5 +39,9 @@ export function paymentMethodsFor(
   ];
 }
 
-/** Providers with a working adapter. None until phase 6, so the trust strip shows no logos yet. */
-export const IMPLEMENTED_PAYMENT_PROVIDERS: readonly PaymentProviderKey[] = [];
+const isRealProvider = (name: string): name is PaymentProviderKey => name in PROVIDER_METHODS;
+
+/** Enabled real providers, in configured order; the mock never appears on the site. */
+export function enabledPaymentProviders(configured: readonly string[]): PaymentProviderKey[] {
+  return configured.filter(isRealProvider);
+}

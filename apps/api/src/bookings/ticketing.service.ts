@@ -26,6 +26,7 @@ import type { FlightSupplier, HotelSupplier, SupplierPassenger } from '../suppli
 import { FLIGHT_SUPPLIERS, HOTEL_SUPPLIERS } from '../suppliers/suppliers.module';
 
 import { BookingDocumentsService } from './booking-documents.service';
+import { BookingNotifications } from './booking-notifications';
 import {
   itemPayload,
   itemServices,
@@ -35,7 +36,8 @@ import {
 import { bookedRate, type ItemPayload } from './booking-pricing';
 import { BookingTransitions, SYSTEM_ACTOR } from './booking-transitions';
 import { BookingsService, passportContext } from './bookings.service';
-import { bookingUrl } from './checkout.service';
+import { bookingUrl } from './booking-urls';
+import { RefundsService } from './refunds.service';
 
 export type TicketingOutcome = 'confirmed' | 'retrying' | 'exhausted' | 'skipped';
 
@@ -82,6 +84,8 @@ export class TicketingService {
     private readonly audit: AuditService,
     private readonly documents: BookingDocumentsService,
     private readonly email: EmailProvider,
+    private readonly refunds: RefundsService,
+    private readonly notifications: BookingNotifications,
   ) {}
 
   /** One ticketing attempt for a booking, if it is due. Safe to call concurrently. */
@@ -146,7 +150,8 @@ export class TicketingService {
     });
     const contact = this.bookings.contact(booking);
     for (const item of booking.items) {
-      if (item.supplierReference) continue;
+      // Held items already carry the airline reference; `bookedAt` marks them ticketed.
+      if (item.bookedAt) continue;
       try {
         const result = await this.bookItem(booking, item, contact);
         await this.prisma.bookingItem.update({
@@ -184,9 +189,26 @@ export class TicketingService {
   ): Promise<{ reference: string; tickets: { passengerIndex: number; number: string }[] | null }> {
     const payload = itemPayload(item);
     const timeout = this.config.SUPPLIER_BOOKING_TIMEOUT_MS;
+    if (payload.kind === 'flight' && item.supplierOrderId) {
+      // A held order (ADR-018): pay it instead of creating a new one.
+      const supplier = this.flightSupplier(payload);
+      const orderId = item.supplierOrderId;
+      const result = await this.runner.call(
+        'flights',
+        supplier.name,
+        'pay-held',
+        (signal) =>
+          supplier.payHeld(
+            { orderId, price: payload.offer.price, idempotencyKey: item.id },
+            signal,
+          ),
+        timeout,
+      );
+      return { reference: result.supplierReference, tickets: result.tickets };
+    }
     if (payload.kind === 'flight') {
       const supplier = this.flightSupplier(payload);
-      const passengers = booking.passengers.map((passenger) => this.supplierPassenger(passenger));
+      const passengers = this.supplierPassengers(booking);
       const result = await this.runner.call(
         'flights',
         supplier.name,
@@ -230,6 +252,11 @@ export class TicketingService {
       timeout,
     );
     return { reference: result.confirmationNumber, tickets: null };
+  }
+
+  /** Passengers as suppliers need them, passports decrypted in memory only. */
+  supplierPassengers(booking: BookingRecord): SupplierPassenger[] {
+    return booking.passengers.map((passenger) => this.supplierPassenger(passenger));
   }
 
   private supplierPassenger(passenger: BookingRecord['passengers'][number]): SupplierPassenger {
@@ -307,7 +334,10 @@ export class TicketingService {
       return 'retrying';
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    // Payment succeeded but nothing was issued: refund automatically, unless the airline may have
+    // issued tickets after all (ambiguous failure), where operations check first (ADR-019).
+    const needsReview = reason.endsWith('_needs_review');
+    const refundIds = await this.prisma.$transaction(async (tx) => {
       await this.transitions.apply(
         tx,
         { id: booking.id, status: 'TICKETING' },
@@ -315,7 +345,6 @@ export class TicketingService {
         SYSTEM_ACTOR,
         { reason, data: { nextTicketingAt: null } },
       );
-      // Operations pick these up from the audit log until the admin console exists (phase 10).
       await this.audit.record(
         {
           action: 'booking.ticketing_failed',
@@ -326,8 +355,41 @@ export class TicketingService {
         },
         tx,
       );
+      return this.refunds.refundBookingBalance(tx, booking, 'ticketing_failed', {
+        needsApproval: needsReview,
+      });
     });
+    if (!needsReview) this.refunds.executeLater(refundIds);
+    await this.notifications.ops(
+      needsReview ? 'ticketing.needs_review' : 'ticketing.failed_refunding',
+      booking.reference,
+      {
+        bookingId: booking.id,
+        reason,
+        attempt: String(attempt),
+        refunds: String(refundIds.length),
+      },
+    );
+    await this.releaseHold(item, payload);
     return 'exhausted';
+  }
+
+  /** A held order that will not be paid any more is released at the airline (best effort). */
+  private async releaseHold(item: BookingItemRecord, payload: ItemPayload): Promise<void> {
+    if (payload.kind !== 'flight' || !item.supplierOrderId || item.bookedAt) return;
+    const supplier = this.flightSuppliers.find((s) => s.name === payload.offer.supplier);
+    const orderId = item.supplierOrderId;
+    if (!supplier) return;
+    try {
+      await this.runner.call('flights', supplier.name, 'cancel-hold', (signal) =>
+        supplier.cancelHold(orderId, signal),
+      );
+    } catch (error) {
+      this.logger.warn(
+        { itemId: item.id, reason: failureReason(error) },
+        'releasing the hold failed',
+      );
+    }
   }
 
   /** Documents and the confirmation email. Failures are logged; the booking stays confirmed. */

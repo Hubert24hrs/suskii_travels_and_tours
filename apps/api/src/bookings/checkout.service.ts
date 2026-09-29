@@ -1,15 +1,21 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { z } from 'zod';
 
-import { equals, money, subtract, toWire, type Money } from '@suskii/shared';
+import { equals, minOf, money, subtract, toWire, type Money } from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
+import { BackgroundTasks } from '../common/background-tasks';
 import { toJsonValue } from '../common/json';
 import { uuidv7 } from '../common/uuid';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { Prisma, type BookingStatus } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
-import { PaymentProvider } from '../payments/payment-provider';
+import { LedgerService } from '../ledger/ledger.service';
+import {
+  PaymentProviderUnavailableError,
+  type PaymentProvider,
+} from '../payments/payment-provider';
+import { PaymentProviders } from '../payments/payment-providers';
 import { FxService } from '../pricing/fx.service';
 import { PricingService } from '../pricing/pricing.service';
 import type { ClientContext } from '../search/client-context';
@@ -19,6 +25,8 @@ import { OfferUnavailableError } from '../suppliers/supplier.errors';
 import type { FlightSupplier, HotelSupplier } from '../suppliers/supplier.types';
 import { FLIGHT_SUPPLIERS, HOTEL_SUPPLIERS } from '../suppliers/suppliers.module';
 
+import { BookingFundsService, PAYABLE_STATUSES } from './booking-funds.service';
+import { BookingPaymentsService } from './booking-payments.service';
 import {
   itemPayload,
   itemServices,
@@ -37,12 +45,22 @@ import {
   type PromoInput,
 } from './booking-pricing';
 import { BookingTransitions, SYSTEM_ACTOR, type BookingActor } from './booking-transitions';
-import { bookingConflict, bookingExpired, priceChanged } from './booking.errors';
-import type { paymentSessionSchema } from './bookings.schemas';
+import {
+  bookingConflict,
+  bookingExpired,
+  installmentInvalid,
+  paymentProviderDown,
+  priceChanged,
+  providerUnavailable,
+  walletInsufficient,
+} from './booking.errors';
+import { bookingUrl } from './booking-urls';
+import type { paymentSessionSchema, StartPaymentRequest } from './bookings.schemas';
 import { BookingsService, customerActor, type BookingCaller } from './bookings.service';
+import { TicketingService } from './ticketing.service';
 
-const PAYABLE: readonly BookingStatus[] = ['PRICED', 'HELD', 'AWAITING_PAYMENT'];
-const UNPAID: readonly BookingStatus[] = ['DRAFT', 'PRICED', 'HELD', 'AWAITING_PAYMENT'];
+/** Unpaid statuses that expire at the payment deadline (held bookings follow their plan). */
+const EXPIRABLE: readonly BookingStatus[] = ['DRAFT', 'PRICED', 'AWAITING_PAYMENT'];
 /** A checkout that is still open when the deadline passes gets this long to report back. */
 const AWAITING_PAYMENT_GRACE_MS = 10 * 60_000;
 
@@ -71,10 +89,20 @@ export function bookingClient(booking: Pick<BookingRecord, 'channel' | 'userId'>
   };
 }
 
+/** A price the supplier confirmed right now, with the extras mapped onto the fresh offer. */
+export interface ConfirmedPrice {
+  payload: ItemPayload;
+  services: ExtraSelection[];
+  total: Money;
+}
+
+type PaymentSession = z.infer<typeof paymentSessionSchema>;
+
 /**
- * Payment start (ADR-014 steps 3-4): re-prices with the supplier immediately before payment,
- * answers 409 with the difference when the total moved, and otherwise opens a hosted checkout
- * session. Also expires unpaid bookings past their deadline.
+ * Payment start (ADR-014 steps 3-4, ADR-016, ADR-018): re-prices with the supplier immediately
+ * before payment, answers 409 with the difference when the total moved, and otherwise opens a
+ * hosted checkout with the chosen provider, or pays from the wallet. Payment plans pay the next
+ * installment (or the balance) of a held booking. Also expires unpaid bookings.
  */
 @Injectable()
 export class CheckoutService {
@@ -89,74 +117,284 @@ export class CheckoutService {
     private readonly pricing: PricingService,
     private readonly fx: FxService,
     private readonly runner: SupplierRunner,
-    private readonly provider: PaymentProvider,
+    private readonly providers: PaymentProviders,
     private readonly transitions: BookingTransitions,
     private readonly audit: AuditService,
+    private readonly funds: BookingFundsService,
+    private readonly payments: BookingPaymentsService,
+    private readonly ledger: LedgerService,
+    private readonly ticketing: TicketingService,
+    private readonly background: BackgroundTasks,
   ) {}
 
   async startPayment(
     bookingId: string,
     caller: BookingCaller,
-  ): Promise<z.infer<typeof paymentSessionSchema>> {
+    request: StartPaymentRequest,
+  ): Promise<PaymentSession> {
     const booking = await this.bookings.load(bookingId, caller);
     const item = booking.items[0];
     if (!item) throw bookingConflict();
-    const payload = itemPayload(item);
     const pending = pendingPrice(booking);
     if (pending) throw priceChanged(this.change(booking, pending));
-    if (!PAYABLE.includes(booking.status)) {
+    if (!PAYABLE_STATUSES.includes(booking.status)) {
       throw bookingConflict('This booking is not waiting for payment.');
     }
     const now = new Date();
-    if (booking.paymentDeadline && booking.paymentDeadline <= now) {
+    const plan = booking.paymentPlan?.status === 'active' ? booking.paymentPlan : null;
+    if (!plan && booking.paymentDeadline && booking.paymentDeadline <= now) {
       await this.expire(booking, 'payment_deadline');
-      throw bookingExpired(payload.request);
+      throw bookingExpired(itemPayload(item).request);
     }
+    if (plan && plan.deadline <= now) throw bookingExpired(itemPayload(item).request);
 
     const actor = customerActor(caller);
-    let fresh: ItemPayload;
+    let amount: Money;
+    let installmentId: string | null = null;
+    let fresh: ConfirmedPrice | null = null;
+    let expiresAt: Date;
+    if (plan) {
+      const paid = await this.funds.paid(this.prisma, booking);
+      const remaining = subtract(money(plan.totalMinor, plan.currency), paid);
+      if (remaining.minor <= 0n) throw bookingConflict('This booking is already paid.');
+      const next = request.installmentId
+        ? plan.installments.find((installment) => installment.id === request.installmentId)
+        : plan.installments.find((installment) => installment.status === 'pending');
+      if (request.installmentId && next?.status !== 'pending') throw installmentInvalid();
+      if (plan.kind === 'hold') await this.recheckHeldPrice(booking, actor);
+      if (request.payInFull || !next) {
+        amount = remaining;
+      } else {
+        amount = minOf(money(next.amountMinor, next.currency), remaining);
+        installmentId = next.id;
+      }
+      expiresAt = earliest(
+        new Date(now.getTime() + this.config.PAYMENT_SESSION_TTL_MINUTES * 60_000),
+        plan.deadline,
+      );
+    } else {
+      fresh = await this.confirmPrice(booking, actor);
+      amount = fresh.total;
+      expiresAt = earliest(
+        new Date(now.getTime() + this.config.PAYMENT_SESSION_TTL_MINUTES * 60_000),
+        offerExpiry(fresh.payload),
+      );
+    }
+
+    if (request.useWallet)
+      return this.payFromWallet(booking, amount, installmentId, fresh, actor, caller);
+
+    const provider = this.providers.choose(booking.currency, request.provider);
+    if (!provider) throw providerUnavailable();
+    const contact = this.bookings.contact(booking);
+    const paymentId = uuidv7();
+    let session: { providerReference: string; checkoutUrl: string };
     try {
-      fresh = await this.reprice(payload);
+      session = await provider.createCheckout({
+        paymentId,
+        reference: booking.reference,
+        amount,
+        customerEmail: contact.email,
+        returnUrl: bookingUrl(this.config, booking.id),
+        expiresAt,
+      });
+    } catch (error) {
+      this.logger.warn(
+        { bookingId, provider: provider.name, reason: (error as Error).name },
+        'checkout creation failed',
+      );
+      if (error instanceof PaymentProviderUnavailableError) throw paymentProviderDown();
+      throw error;
+    }
+
+    const abandoned = await this.prisma.$transaction(async (tx) => {
+      const { status, closed } = await this.abandonOpenPayments(tx, booking, actor, 'new_payment');
+      if (fresh) await this.storeFresh(tx, item.id, fresh);
+      await tx.payment.create({
+        data: {
+          id: paymentId,
+          bookingId: booking.id,
+          provider: provider.name,
+          providerReference: session.providerReference,
+          status: 'pending',
+          amountMinor: amount.minor,
+          currency: amount.currency,
+          checkoutUrl: session.checkoutUrl,
+          expiresAt,
+          installmentId,
+        },
+      });
+      // Held and partly paid bookings stay put: the pending payment shows the open checkout.
+      if (!plan) {
+        await this.transitions.apply(tx, { id: booking.id, status }, 'request_payment', actor, {
+          data: { paymentDeadline: expiresAt },
+        });
+      }
+      await this.audit.record(
+        {
+          action: 'payment.created',
+          actorUserId: actor.userId ?? null,
+          targetType: 'payment',
+          targetId: paymentId,
+          context: caller.context,
+          metadata: {
+            bookingId: booking.id,
+            provider: provider.name,
+            ...(installmentId ? { installmentId } : {}),
+          },
+        },
+        tx,
+      );
+      return closed;
+    });
+    this.closeAtProviders(abandoned);
+
+    return {
+      paymentId,
+      status: 'pending',
+      checkoutUrl: session.checkoutUrl,
+      amount: toWire(amount),
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  /** The wallet pays the whole amount at once, in one transaction (ADR-017). */
+  private async payFromWallet(
+    booking: BookingRecord,
+    amount: Money,
+    installmentId: string | null,
+    fresh: ConfirmedPrice | null,
+    actor: BookingActor,
+    caller: BookingCaller,
+  ): Promise<PaymentSession> {
+    const userId = booking.userId;
+    if (!userId || caller.client.userId !== userId) throw walletInsufficient();
+    const wallet = { kind: 'wallet', userId, currency: booking.currency } as const;
+    const paymentId = uuidv7();
+    const now = new Date();
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${booking.id}::uuid FOR UPDATE`;
+      if ((await this.ledger.balance(tx, wallet)).minor < amount.minor) throw walletInsufficient();
+      const { closed } = await this.abandonOpenPayments(tx, booking, actor, 'wallet_payment');
+      const item = booking.items[0];
+      if (fresh && item) await this.storeFresh(tx, item.id, fresh);
+      const current = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      const payment = await tx.payment.create({
+        data: {
+          id: paymentId,
+          bookingId: booking.id,
+          kind: 'wallet',
+          provider: 'wallet',
+          providerReference: `wallet_${paymentId}`,
+          status: 'pending',
+          amountMinor: amount.minor,
+          currency: amount.currency,
+          checkoutUrl: null,
+          expiresAt: now,
+          installmentId,
+        },
+      });
+      const settled = await this.payments.applyReceived(
+        tx,
+        current,
+        payment,
+        { amount, providerTransactionId: null, method: 'wallet', occurredAt: now },
+        wallet,
+        actor,
+      );
+      if (settled.outcome !== 'paid' && settled.outcome !== 'partially_paid')
+        throw bookingConflict();
+      await this.audit.record(
+        {
+          action: 'payment.wallet',
+          actorUserId: userId,
+          targetType: 'payment',
+          targetId: paymentId,
+          context: caller.context,
+          metadata: {
+            bookingId: booking.id,
+            amountMinor: amount.minor.toString(),
+            currency: amount.currency,
+          },
+        },
+        tx,
+      );
+      return { settled, closed };
+    });
+    this.closeAtProviders(result.closed);
+    const paid = result.settled.paidBookingId;
+    if (paid) this.background.run('ticketing', () => this.ticketing.process(paid));
+    return {
+      paymentId,
+      status: 'succeeded',
+      checkoutUrl: null,
+      amount: toWire(amount),
+      expiresAt: now.toISOString(),
+    };
+  }
+
+  /**
+   * Re-prices the booking's item with the supplier. A changed total is stored as the pending
+   * price and answered with 409 `price-changed`; an offer that is gone fails the booking.
+   */
+  async confirmPrice(booking: BookingRecord, actor: BookingActor): Promise<ConfirmedPrice> {
+    const item = booking.items[0];
+    if (!item) throw bookingConflict();
+    const payload = itemPayload(item);
+    let freshPayload: ItemPayload;
+    try {
+      freshPayload = await this.reprice(payload);
     } catch (error) {
       if (error instanceof OfferUnavailableError) {
         await this.failUnavailable(booking, actor);
         throw offerUnavailable(payload.request);
       }
       this.logger.warn(
-        { bookingId, reason: (error as Error).name },
+        { bookingId: booking.id, reason: (error as Error).name },
         're-price before payment failed',
       );
       throw supplierUnavailable();
     }
-    const services = this.mapExtras(itemServices(item), fresh);
+    const services = this.mapExtras(itemServices(item), freshPayload);
     if (!services) {
       await this.failUnavailable(booking, actor);
       throw offerUnavailable(payload.request);
     }
-
     const [pricer, fx, promo] = await Promise.all([
       this.pricing.pricer(booking.vertical, booking.currency),
       this.fx.converter(),
       this.promoFor(booking),
     ]);
+    const now = new Date();
     const priced = priceBookingItem(
       pricer,
       fx,
-      fresh,
+      freshPayload,
       bookingClient(booking),
       services,
       promo,
       now,
     );
     const agreed = money(booking.totalMinor, booking.currency);
-
     if (!equals(priced.total, agreed)) {
       const next: PendingPrice = {
         price: priced.price,
-        items: [{ id: item.id, supplierOfferId: supplierOfferId(fresh), payload: fresh, services }],
+        items: [
+          {
+            id: item.id,
+            supplierOfferId: supplierOfferId(freshPayload),
+            payload: freshPayload,
+            services,
+          },
+        ],
       };
-      await this.prisma.$transaction(async (tx) => {
-        const status = await this.abandonOpenPayments(tx, booking, actor, 'price_changed');
+      const closed = await this.prisma.$transaction(async (tx) => {
+        const { status, closed: abandoned } = await this.abandonOpenPayments(
+          tx,
+          booking,
+          actor,
+          'price_changed',
+        );
         const { count } = await tx.booking.updateMany({
           where: { id: booking.id, status },
           data: { pendingPrice: toJsonValue(next) as Prisma.InputJsonValue },
@@ -168,7 +406,7 @@ export class CheckoutService {
             actorType: 'system',
             targetType: 'booking',
             targetId: booking.id,
-            context: caller.context,
+            ...(actor.context ? { context: actor.context } : {}),
             metadata: {
               previousMinor: agreed.minor.toString(),
               currentMinor: priced.total.minor.toString(),
@@ -177,78 +415,125 @@ export class CheckoutService {
           },
           tx,
         );
+        return abandoned;
       });
+      this.closeAtProviders(closed);
       throw priceChanged(this.change(booking, next));
     }
+    return { payload: freshPayload, services, total: priced.total };
+  }
 
-    const contact = this.bookings.contact(booking);
-    const paymentId = uuidv7();
-    const expiresAt = earliest(
-      new Date(now.getTime() + this.config.PAYMENT_SESSION_TTL_MINUTES * 60_000),
-      offerExpiry(fresh),
+  /**
+   * A held order's price can change once the airline's guarantee lapses (ADR-018): fetch it, and
+   * send a changed total through the consent step like any re-price. Installment plans are only
+   * offered with the price guaranteed throughout, so this concerns plain holds.
+   */
+  private async recheckHeldPrice(booking: BookingRecord, actor: BookingActor): Promise<void> {
+    const item = booking.items[0];
+    if (!item?.supplierOrderId) return;
+    if (item.priceGuaranteedUntil && item.priceGuaranteedUntil > new Date()) return;
+    const payload = itemPayload(item);
+    if (payload.kind !== 'flight') return;
+    const supplier = this.flightSuppliers.find((s) => s.name === payload.offer.supplier);
+    if (!supplier) throw supplierUnavailable();
+    const orderId = item.supplierOrderId;
+    let held;
+    try {
+      held = await this.runner.call('flights', supplier.name, 'held-order', (signal) =>
+        supplier.heldOrder(orderId, signal),
+      );
+    } catch (error) {
+      if (error instanceof OfferUnavailableError) {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.paymentPlan.updateMany({
+            where: { bookingId: booking.id, status: 'active' },
+            data: { status: 'expired', closedAt: new Date() },
+          });
+          await this.transitions.apply(tx, booking, 'fail', SYSTEM_ACTOR, {
+            reason: 'hold_released',
+          });
+        });
+        throw offerUnavailable(payload.request);
+      }
+      throw supplierUnavailable();
+    }
+    const current = held.price.base.minor + held.price.taxes.minor;
+    const booked = payload.offer.price.base.minor + payload.offer.price.taxes.minor;
+    if (current === booked) return;
+    const freshPayload: ItemPayload = {
+      ...payload,
+      offer: { ...payload.offer, price: held.price },
+    };
+    const [pricer, fx, promo] = await Promise.all([
+      this.pricing.pricer(booking.vertical, booking.currency),
+      this.fx.converter(),
+      this.promoFor(booking),
+    ]);
+    const priced = priceBookingItem(
+      pricer,
+      fx,
+      freshPayload,
+      bookingClient(booking),
+      [],
+      promo,
+      new Date(),
     );
-    const session = await this.provider.createCheckout({
-      paymentId,
-      reference: booking.reference,
-      amount: priced.total,
-      customerEmail: contact.email,
-      returnUrl: bookingUrl(this.config, booking.id),
-      expiresAt,
-    });
-
+    if (equals(priced.total, money(booking.totalMinor, booking.currency))) return;
+    const next: PendingPrice = {
+      price: priced.price,
+      items: [
+        {
+          id: item.id,
+          supplierOfferId: supplierOfferId(freshPayload),
+          payload: freshPayload,
+          services: [],
+        },
+      ],
+    };
     await this.prisma.$transaction(async (tx) => {
-      const status = await this.abandonOpenPayments(tx, booking, actor, 'new_payment');
-      await tx.bookingItem.update({
-        where: { id: item.id },
-        data: {
-          supplierOfferId: supplierOfferId(fresh),
-          payload: toJsonValue(fresh) as Prisma.InputJsonValue,
-          services: services as unknown as Prisma.InputJsonValue,
-        },
+      const { count } = await tx.booking.updateMany({
+        where: { id: booking.id, status: booking.status },
+        data: { pendingPrice: toJsonValue(next) as Prisma.InputJsonValue },
       });
-      await tx.payment.create({
-        data: {
-          id: paymentId,
-          bookingId: booking.id,
-          provider: this.provider.name,
-          providerReference: session.providerReference,
-          status: 'pending',
-          amountMinor: priced.total.minor,
-          currency: priced.total.currency,
-          checkoutUrl: session.checkoutUrl,
-          expiresAt,
-        },
-      });
-      await this.transitions.apply(tx, { id: booking.id, status }, 'request_payment', actor, {
-        data: { paymentDeadline: expiresAt },
-      });
+      if (count !== 1) throw bookingConflict();
       await this.audit.record(
         {
-          action: 'payment.created',
-          actorUserId: actor.userId ?? null,
-          targetType: 'payment',
-          targetId: paymentId,
-          context: caller.context,
-          metadata: { bookingId: booking.id, provider: this.provider.name },
+          action: 'booking.price_changed',
+          actorType: 'system',
+          targetType: 'booking',
+          targetId: booking.id,
+          ...(actor.context ? { context: actor.context } : {}),
+          metadata: {
+            previousMinor: booking.totalMinor.toString(),
+            currentMinor: priced.total.minor.toString(),
+            currency: booking.currency,
+            held: true,
+          },
         },
         tx,
       );
     });
-
-    return {
-      paymentId,
-      checkoutUrl: session.checkoutUrl,
-      amount: toWire(priced.total),
-      expiresAt: expiresAt.toISOString(),
-    };
+    throw priceChanged(this.change(booking, next));
   }
 
-  /** Expires unpaid bookings whose payment deadline has passed. */
+  /** Saves the re-priced offer on the item (its id changes with every re-price). */
+  async storeFresh(tx: Tx, itemId: string, fresh: ConfirmedPrice): Promise<void> {
+    await tx.bookingItem.update({
+      where: { id: itemId },
+      data: {
+        supplierOfferId: supplierOfferId(fresh.payload),
+        payload: toJsonValue(fresh.payload) as Prisma.InputJsonValue,
+        services: fresh.services as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  /** Expires unpaid bookings whose payment deadline has passed (held bookings: see plans). */
   async expireDue(now = new Date()): Promise<number> {
     const due = await this.prisma.booking.findMany({
       where: {
         OR: [
-          { status: { in: ['DRAFT', 'PRICED', 'HELD'] }, paymentDeadline: { lt: now } },
+          { status: { in: ['DRAFT', 'PRICED'] }, paymentDeadline: { lt: now } },
           {
             status: 'AWAITING_PAYMENT',
             paymentDeadline: { lt: new Date(now.getTime() - AWAITING_PAYMENT_GRACE_MS) },
@@ -279,7 +564,7 @@ export class CheckoutService {
     booking: { id: string; status: BookingStatus },
     reason: string,
   ): Promise<void> {
-    if (!UNPAID.includes(booking.status)) return;
+    if (!EXPIRABLE.includes(booking.status)) return;
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.updateMany({
         where: { bookingId: booking.id, status: 'pending' },
@@ -293,30 +578,68 @@ export class CheckoutService {
   }
 
   private async failUnavailable(booking: BookingRecord, actor: BookingActor): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      const status = await this.abandonOpenPayments(tx, booking, actor, 'offer_unavailable');
+    const closed = await this.prisma.$transaction(async (tx) => {
+      const { status, closed: abandoned } = await this.abandonOpenPayments(
+        tx,
+        booking,
+        actor,
+        'offer_unavailable',
+      );
       await this.transitions.apply(tx, { id: booking.id, status }, 'fail', SYSTEM_ACTOR, {
         reason: 'offer_unavailable',
       });
+      return abandoned;
     });
+    this.closeAtProviders(closed);
   }
 
   /**
    * Closes pending checkout sessions; a booking waiting for one goes back to PRICED. A late success
-   * for a closed session is still honoured by the webhook when its amount matches (ADR-014).
+   * for a closed session is still honoured when the booking can take it (ADR-014), otherwise it is
+   * refunded automatically.
    */
   private async abandonOpenPayments(
     tx: Tx,
     booking: { id: string; status: BookingStatus },
     actor: BookingActor,
     reason: string,
-  ): Promise<BookingStatus> {
-    await tx.payment.updateMany({
+  ): Promise<{ status: BookingStatus; closed: { provider: string; providerReference: string }[] }> {
+    const open = await tx.payment.findMany({
       where: { bookingId: booking.id, status: 'pending' },
-      data: { status: 'cancelled' },
+      select: { id: true, provider: true, providerReference: true },
     });
-    if (booking.status !== 'AWAITING_PAYMENT') return booking.status;
-    return this.transitions.apply(tx, booking, 'payment_abandoned', actor, { reason });
+    if (open.length > 0) {
+      await tx.payment.updateMany({
+        where: { id: { in: open.map((payment) => payment.id) } },
+        data: { status: 'cancelled' },
+      });
+    }
+    const current = await tx.booking.findUniqueOrThrow({
+      where: { id: booking.id },
+      select: { status: true },
+    });
+    const status =
+      current.status === 'AWAITING_PAYMENT'
+        ? await this.transitions.apply(
+            tx,
+            { id: booking.id, status: current.status },
+            'payment_abandoned',
+            actor,
+            { reason },
+          )
+        : current.status;
+    return { status, closed: open };
+  }
+
+  /** Best effort: providers that can expire a session (Stripe) stop taking payments on it. */
+  private closeAtProviders(sessions: { provider: string; providerReference: string }[]): void {
+    for (const session of sessions) {
+      const provider: PaymentProvider | undefined = this.providers.find(session.provider);
+      if (provider)
+        this.background.run('checkout-cancel', () =>
+          provider.cancelCheckout(session.providerReference),
+        );
+    }
   }
 
   private async reprice(payload: ItemPayload): Promise<ItemPayload> {
@@ -355,7 +678,7 @@ export class CheckoutService {
     return promo ? this.pricing.findPromo(promo.code, booking.userId) : null;
   }
 
-  private change(booking: BookingRecord, pending: PendingPrice) {
+  change(booking: BookingRecord, pending: PendingPrice) {
     const previous: Money = totalOf(bookingPrice(booking));
     const current: Money = totalOf(pending.price);
     return {
@@ -366,6 +689,3 @@ export class CheckoutService {
     };
   }
 }
-
-export const bookingUrl = (config: AppConfig, bookingId: string): string =>
-  `${config.WEB_APP_URL.replace(/\/$/, '')}/bookings/${bookingId}`;

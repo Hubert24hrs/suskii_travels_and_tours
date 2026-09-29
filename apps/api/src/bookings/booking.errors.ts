@@ -105,3 +105,74 @@ export const priceChanged = (priceChange: PriceChangeDetails): ProblemDetailsExc
     'The supplier changed the price. Review the new total to continue.',
     { priceChange },
   );
+
+export const holdUnavailable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'hold-unavailable',
+    'This booking cannot be reserved',
+    'The airline does not allow this fare to be held now. You can still pay in full.',
+  );
+
+export const holdLimit = (max: number): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'hold-limit',
+    'Too many reservations',
+    `You can have up to ${max} unpaid reservations at a time. Pay for or cancel one first.`,
+  );
+
+export const walletInsufficient = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'wallet-insufficient',
+    'Your wallet does not cover this payment',
+    'Pay with another method instead.',
+  );
+
+export const providerUnavailable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'payment-provider-unavailable',
+    'This payment method is not available',
+    'Choose another payment method for this currency.',
+  );
+
+export const installmentInvalid = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'installment-invalid',
+    'This installment cannot be paid now',
+    'It may already be paid or no longer part of the plan.',
+  );
+
+export const refundInvalid = (detail: string): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'refund-invalid',
+    'Refund not possible',
+    detail,
+  );
+
+export const refundState = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'refund-state',
+    'The refund cannot change from its current status',
+  );
+
+export const makerChecker = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.FORBIDDEN,
+    'maker-checker',
+    'A second person must approve this refund',
+    'The person who requested a refund cannot approve it.',
+  );
+
+export const paymentProviderDown = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.SERVICE_UNAVAILABLE,
+    'payment-provider-unavailable',
+    'The payment provider is not responding',
+    'Please try again in a few minutes.',
+  );
