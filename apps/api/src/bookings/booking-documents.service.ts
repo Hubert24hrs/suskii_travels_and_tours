@@ -9,7 +9,7 @@ import {
   type VoucherDocument,
 } from '../documents/booking-pdf';
 import { ObjectStorage } from '../documents/object-storage';
-import type { BookingDocumentType } from '../generated/prisma/client';
+import { Prisma, type BookingDocumentType } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { FxService } from '../pricing/fx.service';
 
@@ -75,21 +75,35 @@ export class BookingDocumentsService {
       const storageKey = `bookings/${booking.id}/${FILE_PREFIX[type]}.pdf`;
       const fileName = `Suskii-${FILE_PREFIX[type]}-${booking.reference}.pdf`;
       await this.storage.put(storageKey, bytes, 'application/pdf');
-      await this.prisma.bookingDocument.upsert({
-        where: { bookingId_type: { bookingId: booking.id, type } },
-        create: {
-          bookingId: booking.id,
-          type,
-          storageKey,
-          fileName,
-          contentType: 'application/pdf',
-          sizeBytes: bytes.byteLength,
-        },
-        update: { storageKey, fileName, sizeBytes: bytes.byteLength },
-      });
+      await this.record(booking.id, type, { storageKey, fileName, sizeBytes: bytes.byteLength });
       documents.push({ type, fileName, contentType: 'application/pdf', bytes });
     }
     return documents;
+  }
+
+  /**
+   * Upserts the document row. Two generations can race (ticketing and a backfill); both wrote the
+   * same deterministic file, so losing the insert race simply means updating the winner's row.
+   */
+  private async record(
+    bookingId: string,
+    type: BookingDocumentType,
+    data: { storageKey: string; fileName: string; sizeBytes: number },
+  ): Promise<void> {
+    const upsert = () =>
+      this.prisma.bookingDocument.upsert({
+        where: { bookingId_type: { bookingId, type } },
+        create: { bookingId, type, contentType: 'application/pdf', ...data },
+        update: data,
+      });
+    try {
+      await upsert();
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+        throw error;
+      }
+      await upsert();
+    }
   }
 
   /** One document of a booking the caller may already access. */

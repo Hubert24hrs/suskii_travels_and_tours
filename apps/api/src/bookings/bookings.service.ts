@@ -62,6 +62,7 @@ import { BookingDocumentsService } from './booking-documents.service';
 /** Prices are held for at most this long after pricing (ADR-014). */
 export const PRICE_HOLD_MS = 30 * 60_000;
 const REFERENCE_ATTEMPTS = 5;
+const DOCUMENT_BACKFILL_AFTER_MS = 2 * 60_000;
 
 /** Who is asking: the pricing client, request metadata and a guest access token if any. */
 export interface BookingCaller {
@@ -155,7 +156,11 @@ export class BookingsService {
   async get(bookingId: string, caller: BookingCaller): Promise<BookingDto> {
     const booking = await this.load(bookingId, caller);
     // A confirmed booking whose documents failed to generate gets them now, off the request.
-    if (booking.status === 'CONFIRMED' && booking.documents.length === 0) {
+    // Recent confirmations are left to ticketing, which is still rendering and emailing them.
+    const settled =
+      booking.confirmedAt !== null &&
+      Date.now() - booking.confirmedAt.getTime() > DOCUMENT_BACKFILL_AFTER_MS;
+    if (booking.status === 'CONFIRMED' && booking.documents.length === 0 && settled) {
       this.background.run('booking-documents', () => this.documents.ensure(booking.id));
     }
     return this.present(booking);
