@@ -81,6 +81,7 @@ export const en = {
       travel_addons: 'Travel Add-ons',
     },
     loadingForm: 'Loading search form',
+    unavailable: 'Search is not available right now. Please try again.',
     datePicker: {
       done: 'Done',
       close: 'Close calendar',

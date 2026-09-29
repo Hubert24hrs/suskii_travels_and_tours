@@ -72,7 +72,7 @@ export default async function CityPage({ params }: Props) {
                 sizes="(min-width: 1024px) 50vw, 100vw"
               />
             ) : (
-              <CityArt city={data.city.name} />
+              <CityArt city={data.city.name} priority />
             )}
           </div>
         </div>

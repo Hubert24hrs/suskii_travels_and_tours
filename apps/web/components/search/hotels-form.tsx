@@ -116,6 +116,7 @@ export default function HotelsForm({ apiBaseUrl, locale, suggestions, initial }:
       </div>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <CheckboxField
+          name="freeCancellationOnly"
           label={t('search.hotels.freeCancellation')}
           checked={state.freeCancellationOnly}
           onChange={(event) => update({ freeCancellationOnly: event.target.checked })}

@@ -51,7 +51,7 @@ export function CheckboxField({
   label,
   className,
   ...props
-}: Omit<ComponentProps<'input'>, 'type'> & { label: string }) {
+}: Omit<ComponentProps<'input'>, 'type' | 'name'> & { label: string; name: string }) {
   return (
     <label
       className={cn(

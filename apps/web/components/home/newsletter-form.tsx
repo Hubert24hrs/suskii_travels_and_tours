@@ -1,10 +1,11 @@
 'use client';
 
-import { emailSchema, phoneSchema, type LocaleCode } from '@suskii/shared';
+import type { LocaleCode } from '@suskii/shared/lite';
 import { Button, Input } from '@suskii/ui-web';
 import { useId, useRef, useState, type FormEvent } from 'react';
 
 import { AppLink } from '../app-link';
+import { loadShared, prefetchShared } from '../../lib/load-shared';
 
 import { loadTurnstile } from './turnstile';
 
@@ -81,6 +82,14 @@ export function NewsletterForm({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    let schemas: Awaited<ReturnType<typeof loadShared>>;
+    try {
+      schemas = await loadShared();
+    } catch {
+      setStatus({ kind: 'failed', message: labels.error });
+      return;
+    }
+    const { emailSchema, phoneSchema } = schemas;
     const found: typeof errors = {};
     const parsedEmail = emailSchema.safeParse(email);
     if (!parsedEmail.success) found.email = labels.invalidEmail;
@@ -138,7 +147,10 @@ export function NewsletterForm({
     <form
       noValidate
       onSubmit={(event) => void submit(event)}
-      onFocusCapture={ensureTurnstile}
+      onFocusCapture={() => {
+        prefetchShared();
+        ensureTurnstile();
+      }}
       className="flex flex-col gap-4"
     >
       <Input

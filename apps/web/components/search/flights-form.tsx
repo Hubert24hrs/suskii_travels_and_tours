@@ -1,17 +1,14 @@
 'use client';
 
 import { createFormatters } from '@suskii/i18n';
+import type { FlightFormDraft } from '@suskii/shared';
 import {
   CABIN_CLASSES,
   MAX_FLIGHT_SLICES,
   MIN_MULTI_CITY_LEGS,
-  createFlightSearchFormSchema,
-  flightDraftToInput,
-  flightFormToParams,
   type CabinClass,
-  type FlightFormDraft,
   type TripType,
-} from '@suskii/shared';
+} from '@suskii/shared/lite';
 import { Button, DateRangePicker, PassengerPicker, SegmentedControl } from '@suskii/ui-web';
 import { ArrowLeftRight, PlaneLanding, PlaneTakeoff, Plus, Search, X } from 'lucide-react';
 import type { Route } from 'next';
@@ -23,6 +20,7 @@ import { focusFirstError, toFieldErrors, type FieldErrors } from './issues';
 import { CheckboxField, NativeSelect } from './native-select';
 import { PlaceField } from './place-field';
 import { EMPTY_FLIGHT_STATE, emptyLeg, type FlightFormState, type Leg } from './form-state';
+import { loadShared, prefetchShared } from '../../lib/load-shared';
 import type { PlaceOption } from './places';
 import { readStored, STORAGE_KEYS, writeStored } from './storage';
 import { useTravellerLabels } from './traveller-labels';
@@ -91,20 +89,29 @@ export function FlightsForm({ apiBaseUrl, locale, initial }: FlightsFormProps) {
     return to ? `${start} - ${format.date(dateToIso(to), 'weekday')}` : start;
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const input = flightDraftToInput(toDraft(state));
-    const result = createFlightSearchFormSchema().safeParse(input);
+    setSubmitting(true);
+    let shared: Awaited<ReturnType<typeof loadShared>>;
+    try {
+      shared = await loadShared();
+    } catch {
+      setSubmitting(false);
+      setErrors({ form: t('search.unavailable') });
+      return;
+    }
+    const input = shared.flightDraftToInput(toDraft(state));
+    const result = shared.createFlightSearchFormSchema().safeParse(input);
     if (!result.success) {
       const found = toFieldErrors(result.error.issues, input, t);
       // Return-date problems are shown on the shared date-range field.
       if (found.returnDate && !found.departureDate) found.departureDate = found.returnDate;
+      setSubmitting(false);
       setErrors(found);
       focusFirstError(found, 'flight');
       return;
     }
     setErrors({});
-    setSubmitting(true);
     writeStored(STORAGE_KEYS.lastFlightSearch, state);
     const chosen = [
       state.origin,
@@ -119,7 +126,7 @@ export function FlightsForm({ apiBaseUrl, locale, initial }: FlightsFormProps) {
         )
         .slice(0, MAX_RECENT),
     );
-    router.push(`/flights/search?${flightFormToParams(result.data).toString()}` as Route);
+    router.push(`/flights/search?${shared.flightFormToParams(result.data).toString()}` as Route);
   };
 
   const place = (props: {
@@ -141,7 +148,9 @@ export function FlightsForm({ apiBaseUrl, locale, initial }: FlightsFormProps) {
   return (
     <form
       noValidate
-      onSubmit={submit}
+      onSubmit={(event) => void submit(event)}
+      onFocusCapture={prefetchShared}
+      onPointerDownCapture={prefetchShared}
       className="flex flex-col gap-4"
       aria-label={t('search.tabs.flights')}
     >
@@ -327,11 +336,13 @@ export function FlightsForm({ apiBaseUrl, locale, initial }: FlightsFormProps) {
             className="sm:w-auto"
           />
           <CheckboxField
+            name="directOnly"
             label={t('search.flights.directOnly')}
             checked={state.directOnly}
             onChange={(event) => update({ directOnly: event.target.checked })}
           />
           <CheckboxField
+            name="flexibleDates"
             label={t('search.flights.flexibleDates')}
             checked={state.flexibleDates}
             onChange={(event) => update({ flexibleDates: event.target.checked })}
@@ -343,7 +354,7 @@ export function FlightsForm({ apiBaseUrl, locale, initial }: FlightsFormProps) {
         </Button>
       </div>
       <p role="alert" className="font-body text-body-sm text-danger empty:hidden">
-        {Object.keys(errors).length > 0 ? t('search.issues.summary') : ''}
+        {errors.form ?? (Object.keys(errors).length > 0 ? t('search.issues.summary') : '')}
       </p>
     </form>
   );
