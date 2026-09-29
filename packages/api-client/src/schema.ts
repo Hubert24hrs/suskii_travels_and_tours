@@ -72,6 +72,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/bookings/{bookingId}/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a refund for a payment
+         * @description Above REFUND_APPROVAL_THRESHOLD_NGN (converted to NGN) the refund waits for a second approver; below it runs at once. The amount can never exceed what the payment can still return. `cancelBooking` applies to confirmed bookings (after the airline side is handled) and moves them to REFUND_PENDING.
+         */
+        post: operations["adminCreateRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List refunds */
+        get: operations["adminListRefunds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/refunds/{refundId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a refund */
+        get: operations["adminGetRefund"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/refunds/{refundId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a refund (maker-checker)
+         * @description The person who requested a refund cannot approve it (403 `maker-checker`).
+         */
+        post: operations["adminApproveRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/refunds/{refundId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a refund waiting for approval */
+        post: operations["adminRejectRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/refunds/{refundId}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settle a refund in review from the provider dashboard
+         * @description For refunds whose provider outcome is unknown (`needs_review`): record what the provider shows. `failed` returns the money to the booking in the ledger so it can be refunded again.
+         */
+        post: operations["adminResolveRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}": {
         parameters: {
             query?: never;
@@ -383,7 +494,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel an unpaid booking */
+        /**
+         * Cancel an unpaid or partly paid booking
+         * @description A reservation is released at the airline. A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`).
+         */
         post: operations["cancelBooking"];
         delete?: never;
         options?: never;
@@ -408,6 +522,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{bookingId}/hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve now, pay later
+         * @description Holds the seats with the airline until `paymentOptions.hold.deadline` (flights whose fare allows it, without paid extras). Re-checks the price first (409 `price-changed`). 409 `hold-unavailable` when the airline will not hold it, `hold-limit` with too many unpaid reservations. Tickets are issued only after full payment.
+         */
+        post: operations["holdBooking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/installment-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay in installments
+         * @description Holds the seats and sets up the schedule from `paymentOptions.installments`; then pay the deposit with `payments`. If the deposit is not paid within the checkout window the hold is released. Tickets are issued after the last installment.
+         */
+        post: operations["createInstallmentPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{bookingId}/payments": {
         parameters: {
             query?: never;
@@ -418,8 +572,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Re-check the price and open a hosted checkout
-         * @description Re-prices with the supplier first. A changed total answers 409 `price-changed` with `priceChange` (previous, current, difference, price); accept it with `price-consent`, then call this again. An offer that sold out answers 410 with the original search.
+         * Re-check the price and open a hosted checkout (or pay from the wallet)
+         * @description Re-prices with the supplier first. A changed total answers 409 `price-changed` with `priceChange` (previous, current, difference, price); accept it with `price-consent`, then call this again. An offer that sold out answers 410 with the original search. Payment plans pay the next installment unless `installmentId` or `payInFull` says otherwise. `provider` picks one of `paymentOptions.providers` (422 when it cannot take this currency); `useWallet` pays at once when the wallet covers the amount (409 `wallet-insufficient` otherwise).
          */
         post: operations["startBookingPayment"];
         delete?: never;
@@ -843,6 +997,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/bookings/payment-plans-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send payment reminders and close plans that missed a payment */
+        post: operations["processDuePaymentPlans"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/bookings/reconcile-payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify stale pending payments with their provider (lost webhooks) */
+        post: operations["reconcileBookingPayments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/bookings/refunds-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute approved refunds and follow up pending ones */
+        post: operations["processDueRefunds"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/bookings/ticket-due": {
         parameters: {
             query?: never;
@@ -1184,6 +1389,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Wallet balances and latest movements */
+        get: operations["getWallet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/newsletter/confirm": {
         parameters: {
             query?: never;
@@ -1345,6 +1567,41 @@ export interface components {
         Accepted: {
             /** @constant */
             status: "accepted";
+        };
+        AdminRefund: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bookingId: string;
+            bookingReference: string;
+            /** Format: uuid */
+            paymentId: string;
+            provider: string;
+            amount: components["schemas"]["Money"];
+            /** @enum {string} */
+            destination: "original" | "wallet";
+            /** @enum {string} */
+            reason: "duplicate_payment" | "amount_mismatch" | "late_payment" | "ticketing_failed" | "installment_default" | "customer_cancellation" | "goodwill" | "supplier_cancellation" | "other";
+            /** @enum {string} */
+            status: "pending_approval" | "approved" | "processing" | "succeeded" | "failed" | "rejected" | "needs_review";
+            automatic: boolean;
+            cancelsBooking: boolean;
+            note: string | null;
+            requestedByUserId: string | null;
+            approvedByUserId: string | null;
+            approvedAt: string | null;
+            rejectionReason: string | null;
+            providerRefundId: string | null;
+            failureReason: string | null;
+            attempts: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            settledAt: string | null;
+        };
+        AdminRefundList: {
+            refunds: components["schemas"]["AdminRefund"][];
         };
         AdminUser: {
             /** Format: uuid */
@@ -1515,6 +1772,11 @@ export interface components {
                 /** Format: date-time */
                 createdAt: string;
             }[];
+            paid: components["schemas"]["Money"];
+            amountDue: components["schemas"]["Money"] | null;
+            paymentPlan: components["schemas"]["PaymentPlan"] | null;
+            paymentOptions: components["schemas"]["PaymentOptions"] | null;
+            refunds: components["schemas"]["BookingRefund"][];
         };
         BookingExpiryRun: {
             expired: number;
@@ -1574,6 +1836,18 @@ export interface components {
             current: components["schemas"]["Money"];
             difference: components["schemas"]["Money"];
             price: components["schemas"]["BookingPrice"];
+        };
+        BookingRefund: {
+            /** Format: uuid */
+            id: string;
+            amount: components["schemas"]["Money"];
+            /** @enum {string} */
+            destination: "original" | "wallet";
+            /** @enum {string} */
+            status: "in_progress" | "completed" | "failed";
+            /** Format: date-time */
+            createdAt: string;
+            settledAt: string | null;
         };
         Carrier: {
             code: string;
@@ -1673,6 +1947,22 @@ export interface components {
         CreatedBooking: {
             booking: components["schemas"]["Booking"];
             accessToken: string | null;
+        };
+        CreateRefundRequestInput: {
+            /** Format: uuid */
+            paymentId: string;
+            amount: components["schemas"]["MoneyInput"];
+            /**
+             * @default original
+             * @enum {string}
+             */
+            destination?: "original" | "wallet";
+            /** @enum {string} */
+            reason: "customer_cancellation" | "goodwill" | "supplier_cancellation" | "ticketing_failed" | "duplicate_payment" | "other";
+            /** @default null */
+            note?: string | null;
+            /** @default false */
+            cancelBooking?: boolean;
         };
         DealRouteDetail: {
             slug: string;
@@ -2238,10 +2528,67 @@ export interface components {
             /** @enum {string} */
             code: "name_not_latin" | "name_too_long" | "passenger_count_mismatch" | "passenger_type_mismatch" | "born_after_travel" | "infants_exceed_adults" | "passport_required" | "passport_expired" | "passport_expires_soon" | "traveller_not_found";
         };
+        PaymentOptions: {
+            providers: components["schemas"]["PaymentProviderOption"][];
+            hold: {
+                /** Format: date-time */
+                deadline: string;
+                total: components["schemas"]["Money"];
+            } | null;
+            installments: {
+                /** Format: date-time */
+                deadline: string;
+                total: components["schemas"]["Money"];
+                fee: components["schemas"]["Money"];
+                graceHours: number;
+                defaultFeeBps: number;
+                schedule: components["schemas"]["ScheduledPayment"][];
+            } | null;
+            wallet: components["schemas"]["Money"] | null;
+        };
+        PaymentPlan: {
+            /** @enum {string} */
+            kind: "hold" | "installments";
+            /** @enum {string} */
+            status: "active" | "completed" | "defaulted" | "cancelled" | "expired";
+            /** Format: date-time */
+            deadline: string;
+            total: components["schemas"]["Money"];
+            fee: components["schemas"]["Money"];
+            graceHours: number;
+            defaultFeeBps: number;
+            installments: {
+                /** Format: uuid */
+                id: string;
+                sequence: number;
+                /** Format: date-time */
+                dueAt: string;
+                amount: components["schemas"]["Money"];
+                /** @enum {string} */
+                status: "pending" | "paid" | "cancelled";
+                paidAt: string | null;
+            }[];
+        };
+        PaymentPlanRun: {
+            reminders: number;
+            defaulted: number;
+            expired: number;
+        };
+        PaymentProviderOption: {
+            /** @enum {string} */
+            name: "mock" | "paystack" | "flutterwave" | "stripe";
+            methods: ("card" | "bank_transfer" | "ussd" | "mobile_money")[];
+        };
+        PaymentReconciliationRun: {
+            checked: number;
+            settled: number;
+        };
         PaymentSession: {
             /** Format: uuid */
             paymentId: string;
-            checkoutUrl: string;
+            /** @enum {string} */
+            status: "pending" | "succeeded";
+            checkoutUrl: string | null;
             amount: components["schemas"]["Money"];
             /** Format: date-time */
             expiresAt: string;
@@ -2355,6 +2702,7 @@ export interface components {
                 nights: number;
                 request: components["schemas"]["HotelSearchRequest"];
             } | null;
+            payment: components["schemas"]["PaymentOptions"];
         };
         ReadinessStatus: {
             /** @enum {string} */
@@ -2388,14 +2736,34 @@ export interface components {
                 slug: string;
             }[];
         };
+        RefundRun: {
+            executed: number;
+            settled: number;
+            review: number;
+        };
         RegisterRequestInput: {
             email: string;
             password: string;
             displayName?: string;
         };
+        RejectRefundRequestInput: {
+            reason: string;
+        };
         ResetPasswordRequestInput: {
             token: string;
             password: string;
+        };
+        ResolveRefundRequestInput: {
+            /** @enum {string} */
+            outcome: "succeeded" | "failed";
+            /** @default null */
+            providerRefundId?: string | null;
+        };
+        ScheduledPayment: {
+            sequence: number;
+            /** Format: date-time */
+            dueAt: string;
+            amount: components["schemas"]["Money"];
         };
         SessionList: {
             sessions: components["schemas"]["SessionSummary"][];
@@ -2451,6 +2819,16 @@ export interface components {
              * @enum {string}
              */
             transport?: "cookie" | "token";
+        };
+        StartPaymentRequestInput: {
+            /** @default null */
+            provider?: ("mock" | "paystack" | "flutterwave" | "stripe") | null;
+            /** @default null */
+            installmentId?: string | null;
+            /** @default false */
+            payInFull?: boolean;
+            /** @default false */
+            useWallet?: boolean;
         };
         SupplierOutcome: {
             supplier: string;
@@ -2521,6 +2899,19 @@ export interface components {
         };
         VerificationTokenRequestInput: {
             token: string;
+        };
+        Wallet: {
+            balances: components["schemas"]["Money"][];
+            movements: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "cancellation_fee";
+                amount: components["schemas"]["Money"];
+                bookingId: string | null;
+                /** Format: date-time */
+                occurredAt: string;
+            }[];
         };
         WebhookReceipt: {
             /** @constant */
@@ -2730,6 +3121,206 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateRefund: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRefundRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRefund"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListRefunds: {
+        parameters: {
+            query?: {
+                status?: "pending_approval" | "approved" | "processing" | "succeeded" | "failed" | "rejected" | "needs_review";
+                bookingId?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRefundList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refundId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRefund"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminApproveRefund: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                refundId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRefund"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRejectRefund: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                refundId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectRefundRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRefund"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminResolveRefund: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                refundId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveRefundRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRefund"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -3291,7 +3882,7 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
-    startBookingPayment: {
+    holdBooking: {
         parameters: {
             query?: never;
             header: {
@@ -3309,6 +3900,82 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    createInstallmentPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    startBookingPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartPaymentRequestInput"];
+            };
+        };
+        responses: {
             /** @description Created */
             201: {
                 headers: {
@@ -3322,6 +3989,7 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             410: components["responses"]["Problem410"];
+            422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -3990,6 +4658,81 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    processDuePaymentPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentPlanRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    reconcileBookingPayments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentReconciliationRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    processDueRefunds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     ticketDueBookings: {
         parameters: {
             query?: never;
@@ -4609,6 +5352,30 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wallet"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
