@@ -81,6 +81,28 @@ const NIGHTLY_BASE: Record<number, [number, number]> = {
 };
 
 /**
+ * Hotel price level by country relative to the USD table (Nigeria prices in naira, so 1). Rough
+ * public averages, only to keep sample rates plausible: London should never look like Lagos.
+ */
+const PRICE_LEVEL: Record<string, number> = {
+  GB: 2.3,
+  US: 2.2,
+  FR: 2.0,
+  AE: 1.7,
+  QA: 1.6,
+  SA: 1.4,
+  GH: 1.3,
+  TZ: 1.2,
+  TR: 1.1,
+  KE: 0.9,
+  ZA: 0.9,
+  RW: 1.0,
+  ET: 0.9,
+  NG: 1,
+};
+const DEFAULT_PRICE_LEVEL = 1.3;
+
+/**
  * MOCK hotel supplier: a deterministic, fictional set of hotels around each city (stable per
  * city, prices vary by dates), with star ratings, review scores, amenities, room types, board,
  * refundable and non-refundable rates and tax lines. Nigerian hotels price in NGN with 7.5% VAT;
@@ -154,7 +176,10 @@ export class MockHotelSupplier extends HotelSupplier {
     );
     const [usd, ngn] = NIGHTLY_BASE[stars] ?? [85, 65_000];
     const nightly =
-      (nigeria ? ngn : usd) * cityRandom.between(0.8, 1.4) * stayRandom.between(0.9, 1.2);
+      (nigeria ? ngn : usd) *
+      (PRICE_LEVEL[city.countryCode] ?? DEFAULT_PRICE_LEVEL) *
+      cityRandom.between(0.8, 1.4) *
+      stayRandom.between(0.9, 1.2);
     const freeCancellationUntil = localToUtc(
       `${addDays(query.checkIn, -2)}T23:59`,
       city.timeZone ?? 'UTC',
