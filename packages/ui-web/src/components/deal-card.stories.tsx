@@ -27,3 +27,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 export const WithDiscount: Story = { args: { discountLabel: 'Save 15%' } };
+export const SampleFare: Story = {
+  args: { statusLabel: 'Sample fare', updatedLabel: 'Updated 2 hours ago' },
+};

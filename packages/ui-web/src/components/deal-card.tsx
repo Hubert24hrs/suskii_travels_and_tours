@@ -26,6 +26,8 @@ export interface DealCardProps {
   priceLabel: string;
   /** Optional savings badge, e.g. "-15%". */
   discountLabel?: string | undefined;
+  /** Optional neutral status badge, e.g. "Sample fare" for mock supplier quotes (guardrails). */
+  statusLabel?: string | undefined;
   /** Freshness of the quote, e.g. "Updated 2 hours ago" (required by the pricing guardrails). */
   updatedLabel: string;
   ctaLabel: string;
@@ -46,6 +48,7 @@ export function DealCard({
   cabin,
   priceLabel,
   discountLabel,
+  statusLabel,
   updatedLabel,
   ctaLabel,
   headingLevel: Heading = 'h3',
@@ -65,7 +68,12 @@ export function DealCard({
               </span>
               <span className="sr-only">{routeLabel}</span>
             </Heading>
-            {discountLabel ? <Badge variant="promo">{discountLabel}</Badge> : null}
+            {discountLabel || statusLabel ? (
+              <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                {statusLabel ? <Badge variant="neutral">{statusLabel}</Badge> : null}
+                {discountLabel ? <Badge variant="promo">{discountLabel}</Badge> : null}
+              </div>
+            ) : null}
           </div>
           <p className="flex items-center gap-2 font-body text-body-sm text-foreground">
             {airlineLogo ? (

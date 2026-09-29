@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { cn } from '../lib/cn';
 
+import { Badge } from './badge';
 import type { LinkComponent } from './link';
 
 export interface DestinationCardProps {
@@ -13,8 +14,10 @@ export interface DestinationCardProps {
   country: string;
   /** e.g. "248 hotels". */
   hotelsLabel: string;
-  /** e.g. "from ₦45,000/night". */
-  priceLabel: string;
+  /** e.g. "from ₦45,000/night"; omitted while no current price is known. */
+  priceLabel?: string | undefined;
+  /** Optional status badge over the image, e.g. "Sample rate" for mock supplier prices. */
+  statusLabel?: string | undefined;
   headingLevel?: 'h2' | 'h3' | 'h4';
   className?: string;
 }
@@ -28,6 +31,7 @@ export function DestinationCard({
   country,
   hotelsLabel,
   priceLabel,
+  statusLabel,
   headingLevel: Heading = 'h3',
   className,
 }: DestinationCardProps) {
@@ -41,6 +45,11 @@ export function DestinationCard({
       )}
     >
       <div className="aspect-4/3 bg-skeleton *:size-full *:object-cover">{media}</div>
+      {statusLabel ? (
+        <Badge variant="neutral" className="absolute top-3 left-3">
+          {statusLabel}
+        </Badge>
+      ) : null}
       <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-scrim p-4 text-on-scrim">
         <Heading className="font-heading text-h4 font-bold">
           {city}
@@ -48,7 +57,7 @@ export function DestinationCard({
           <span className="block font-body text-body-sm font-medium">{country}</span>
         </Heading>
         <p className="font-body text-body-sm">
-          {hotelsLabel} · {priceLabel}
+          {priceLabel ? `${hotelsLabel} · ${priceLabel}` : hotelsLabel}
         </p>
       </div>
     </LinkElement>

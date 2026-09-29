@@ -21,6 +21,7 @@ export {
   type DialogContentProps,
 } from './components/dialog';
 export { FieldButton, FieldLabel, type FieldButtonProps } from './components/field-trigger';
+export { FilterChip, type FilterChipProps } from './components/filter-chip';
 export { Input, inputClasses, type InputProps } from './components/input';
 export type { LinkComponent } from './components/link';
 export {

@@ -19,3 +19,7 @@ const meta = {
 
 export default meta;
 export const Default: StoryObj<typeof meta> = {};
+export const SampleRate: StoryObj<typeof meta> = { args: { statusLabel: 'Sample rate' } };
+export const WithoutPrice: StoryObj<typeof meta> = {
+  args: { hotelsLabel: 'See hotels', priceLabel: undefined },
+};
