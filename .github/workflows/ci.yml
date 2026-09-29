@@ -83,8 +83,15 @@ jobs:
       - name: Unit tests
         run: pnpm test ${{ env.AFFECTED }}
 
+      # Testcontainers starts Postgres and Redis on the runner's Docker daemon.
       - name: E2E tests (API)
         run: pnpm test:e2e ${{ env.AFFECTED }}
+
+      # The OpenAPI document and the generated client are committed; both must match the code.
+      - name: Check OpenAPI document and API client are up to date
+        run: |
+          pnpm generate:api
+          git diff --exit-code -- apps/api/openapi.json packages/api-client/src/schema.ts
 
       - name: Build
         run: pnpm build ${{ env.AFFECTED }}
