@@ -23,6 +23,11 @@ apps/mobile/android/
 coverage/
 .eslintcache
 
+# Test output (Playwright, Lighthouse)
+test-results/
+playwright-report/
+lighthouse-report/
+
 # Env files: never commit secrets. Only the documented example is tracked.
 .env
 .env.*
