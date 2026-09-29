@@ -307,6 +307,7 @@ export const hotelFacetsSchema = named(
     price: z.object({ min: moneySchema, max: moneySchema }).nullable(),
     amenities: z.array(z.object({ amenity: z.string(), count: z.number().int() })),
     boards: z.array(z.object({ board: boardSchema, count: z.number().int() })),
+    areas: z.array(z.object({ area: z.string(), count: z.number().int() })),
     freeCancellation: z.number().int(),
   }),
 );
@@ -335,6 +336,12 @@ export const hotelsQuerySchema = currencyQuerySchema.extend({
   amenities: csvParam(/^[a-z0-9_]+(,[a-z0-9_]+)*$/)
     .optional()
     .meta({ description: 'All listed amenities are required.' }),
+  areas: z
+    .string()
+    .max(500)
+    .transform((value) => value.split(',').filter((area) => area.length > 0))
+    .optional()
+    .meta({ description: 'Comma-separated area names from the `areas` facet (any of them).' }),
   board: boardSchema.optional(),
   maxPrice: z.coerce
     .number()

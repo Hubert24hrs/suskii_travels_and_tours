@@ -198,6 +198,8 @@ export interface HotelFilters {
   minRating?: number | undefined;
   freeCancellation?: boolean | undefined;
   amenities?: string[] | undefined;
+  /** Neighbourhoods, as named in the `areas` facet. */
+  areas?: string[] | undefined;
   board?: BoardType | undefined;
   maxPrice?: number | undefined;
 }
@@ -209,6 +211,7 @@ export function filterHotels(items: readonly PricedHotel[], filters: HotelFilter
     const { hotel } = item;
     if (filters.stars && !filters.stars.includes(String(hotel.stars))) continue;
     if (filters.minRating !== undefined && (hotel.reviewScore ?? 0) < filters.minRating) continue;
+    if (filters.areas && (hotel.area === null || !filters.areas.includes(hotel.area))) continue;
     if (
       filters.amenities &&
       !filters.amenities.every((amenity) => hotel.amenities.includes(amenity))
@@ -255,7 +258,9 @@ export function hotelFacets(items: readonly PricedHotel[]) {
   const stars = new Map<number, { stars: number; count: number; minPrice: Money }>();
   const amenities = new Map<string, number>();
   const boards = new Map<BoardType, number>();
+  const areas = new Map<string, number>();
   for (const item of items) {
+    if (item.hotel.area) areas.set(item.hotel.area, (areas.get(item.hotel.area) ?? 0) + 1);
     const entry = stars.get(item.hotel.stars);
     if (entry) {
       entry.count += 1;
@@ -279,6 +284,9 @@ export function hotelFacets(items: readonly PricedHotel[]) {
       .map(([amenity, count]) => ({ amenity, count }))
       .sort((a, b) => b.count - a.count || a.amenity.localeCompare(b.amenity)),
     boards: [...boards].map(([board, count]) => ({ board, count })),
+    areas: [...areas]
+      .map(([area, count]) => ({ area, count }))
+      .sort((a, b) => b.count - a.count || a.area.localeCompare(b.area)),
     freeCancellation: items.filter((item) => item.rates.some(({ rate }) => rate.refundable)).length,
   };
 }

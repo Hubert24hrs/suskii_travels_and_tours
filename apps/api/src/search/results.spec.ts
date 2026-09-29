@@ -1,17 +1,24 @@
 import { money } from '@suskii/shared';
 
 import type { PriceBreakdown } from '../pricing/pricing-engine';
-import type { SupplierFlightOffer } from '../suppliers/supplier.types';
+import type {
+  SupplierFlightOffer,
+  SupplierHotel,
+  SupplierHotelRate,
+} from '../suppliers/supplier.types';
 
 import { queryHash } from './search-store';
 import {
   departureWindow,
   filterFlights,
+  filterHotels,
   flightFacets,
+  hotelFacets,
   paginate,
   sortFlights,
   stopsBucket,
   type PricedFlight,
+  type PricedHotel,
 } from './results';
 
 const price = (total: number): PriceBreakdown => ({
@@ -166,5 +173,62 @@ describe('paginate and queryHash', () => {
   it('hashes queries independently of key order', () => {
     expect(queryHash({ a: 1, b: [{ y: 2, x: 1 }] })).toBe(queryHash({ b: [{ x: 1, y: 2 }], a: 1 }));
     expect(queryHash({ a: 1 })).not.toBe(queryHash({ a: 2 }));
+  });
+});
+
+describe('hotel results', () => {
+  const rate = (total: number, refundable: boolean): SupplierHotelRate => ({
+    supplierRateId: `rate-${total}`,
+    roomName: 'Deluxe',
+    board: 'room_only',
+    refundable,
+    freeCancellationUntil: null,
+    price: { base: money(total, 'NGN'), taxes: money(0, 'NGN') },
+    payAtProperty: null,
+    expiresAt: '2026-12-01T00:00:00Z',
+  });
+  const hotel = (id: string, area: string | null, reviewScore: number): PricedHotel => {
+    const rates = [{ id: `${id}.r0`, rate: rate(50_000, true), price: price(50_000) }];
+    const supplierHotel = {
+      supplier: 'mock',
+      supplierHotelId: id,
+      name: id,
+      stars: 4,
+      reviewScore,
+      reviewCount: 10,
+      latitude: 6.4,
+      longitude: 3.4,
+      area,
+      cityName: 'Lagos',
+      countryCode: 'NG',
+      amenities: ['wifi'],
+      rates: rates.map((entry) => entry.rate),
+    } satisfies SupplierHotel;
+    return { id, hotel: supplierHotel, rates, cheapest: rates[0] as PricedHotel['cheapest'] };
+  };
+  const items = [
+    hotel('a', 'Victoria Island', 8.8),
+    hotel('b', 'Ikeja', 7.1),
+    hotel('c', 'Victoria Island', 9.2),
+    hotel('d', null, 9.5),
+  ];
+
+  it('filters by area and minimum rating', () => {
+    expect(filterHotels(items, { areas: ['Victoria Island'] }).map((item) => item.id)).toEqual([
+      'a',
+      'c',
+    ]);
+    expect(
+      filterHotels(items, { areas: ['Victoria Island', 'Ikeja'], minRating: 8 }).map(
+        (item) => item.id,
+      ),
+    ).toEqual(['a', 'c']);
+  });
+
+  it('counts areas in the facets, most common first', () => {
+    expect(hotelFacets(items).areas).toEqual([
+      { area: 'Victoria Island', count: 2 },
+      { area: 'Ikeja', count: 1 },
+    ]);
   });
 });
