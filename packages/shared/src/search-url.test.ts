@@ -79,7 +79,7 @@ const multiCityForm: fc.Arbitrary<FlightSearchForm> = fc
     };
   });
 
-const viaString = (params: URLSearchParams) => new URLSearchParams(params.toString());
+const viaString = (params: { toString(): string }) => new URLSearchParams(params.toString());
 
 describe('flight search URLs', () => {
   it('round-trips every valid form through a URL string', () => {

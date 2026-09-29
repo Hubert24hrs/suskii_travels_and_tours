@@ -7,7 +7,7 @@ import {
   type CurrencyCode,
 } from './currency';
 import { MAX_ADVANCE_DAYS, SEARCH_ISSUES, isoDateSchema, type SearchSchemaOptions } from './search';
-import { queryReaders, type ParsedSearch, type QueryInput } from './search-url';
+import { QueryBuilder, queryReaders, type ParsedSearch, type QueryInput } from './search-url';
 import { addDays, earliestToday } from './time';
 import { DEFAULT_TRAVELLERS, travellerCountsSchema, type TravellerCounts } from './travellers';
 
@@ -128,8 +128,8 @@ export function packagesDraftToInput(draft: PackagesFormDraft): unknown {
   };
 }
 
-export function packagesFormToParams(form: PackagesForm): URLSearchParams {
-  const params = new URLSearchParams({ dest: form.cityId });
+export function packagesFormToParams(form: PackagesForm): QueryBuilder {
+  const params = new QueryBuilder().set('dest', form.cityId);
   if (form.when.type === 'month') params.set('month', form.when.month);
   else {
     params.set('from', form.when.from);
@@ -199,8 +199,8 @@ export function emptyToursDraft(): ToursFormDraft {
   return { query: '', date: '', travellers: { ...DEFAULT_TRAVELLERS, adults: 2 } };
 }
 
-export function toursFormToParams(form: ToursForm): URLSearchParams {
-  const params = new URLSearchParams({ q: form.query, date: form.date });
+export function toursFormToParams(form: ToursForm): QueryBuilder {
+  const params = new QueryBuilder().set('q', form.query).set('date', form.date);
   appendTravellers(params, form.travellers);
   return params;
 }
@@ -256,13 +256,12 @@ export function emptyVisaDraft(nationality = ''): VisaFormDraft {
   return { nationality, destination: '', purpose: 'tourism', travelDate: '' };
 }
 
-export function visaFormToParams(form: VisaForm): URLSearchParams {
-  return new URLSearchParams({
-    nationality: form.nationality,
-    destination: form.destination,
-    purpose: form.purpose,
-    date: form.travelDate,
-  });
+export function visaFormToParams(form: VisaForm): QueryBuilder {
+  return new QueryBuilder()
+    .set('nationality', form.nationality)
+    .set('destination', form.destination)
+    .set('purpose', form.purpose)
+    .set('date', form.travelDate);
 }
 
 export function parseVisaParams(
@@ -367,14 +366,13 @@ export function addonsDraftToInput(draft: AddonsFormDraft): unknown {
 }
 
 /** The last name is personal data and never goes into a URL; only the reference does. */
-export function addonsFormToParams(form: AddonsForm): URLSearchParams {
-  if (form.mode === 'booking') return new URLSearchParams({ booking: form.bookingReference });
-  const params = new URLSearchParams({
-    type: form.type,
-    dest: form.cityId,
-    start: form.startDate,
-    end: form.endDate,
-  });
+export function addonsFormToParams(form: AddonsForm): QueryBuilder {
+  if (form.mode === 'booking') return new QueryBuilder().set('booking', form.bookingReference);
+  const params = new QueryBuilder()
+    .set('type', form.type)
+    .set('dest', form.cityId)
+    .set('start', form.startDate)
+    .set('end', form.endDate);
   appendTravellers(params, form.travellers);
   return params;
 }

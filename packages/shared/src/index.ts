@@ -140,6 +140,7 @@ export {
   type TripType,
 } from './search';
 export {
+  QueryBuilder,
   emptyFlightDraft,
   emptyHotelDraft,
   flightDraftToInput,

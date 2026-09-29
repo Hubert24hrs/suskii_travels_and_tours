@@ -26,15 +26,51 @@ import { DEFAULT_TRAVELLERS, type TravellerCounts } from './travellers';
  * hand-edited link) plus the validated form when every rule passes.
  */
 
-/** Plain query object (Next.js `searchParams`) or `URLSearchParams`. */
-export type QueryInput = URLSearchParams | Readonly<Record<string, string | string[] | undefined>>;
+/** A plain query object (Next.js `searchParams`) or anything with `getAll` (`URLSearchParams`). */
+export type QueryInput =
+  { getAll(name: string): string[] } | Readonly<Record<string, string | string[] | undefined>>;
 
 const all = (query: QueryInput, key: string): string[] => {
-  if (query instanceof URLSearchParams) return query.getAll(key);
-  const value = query[key];
+  if (typeof query.getAll === 'function')
+    return (query as { getAll(name: string): string[] }).getAll(key);
+  const value = (query as Readonly<Record<string, string | string[] | undefined>>)[key];
   if (value === undefined) return [];
   return Array.isArray(value) ? value : [value];
 };
+
+/**
+ * Ordered query parameters. Serialised with `encodeURIComponent` rather than `URLSearchParams`,
+ * which React Native only partly implements.
+ */
+export class QueryBuilder {
+  private readonly entries: [string, string][] = [];
+
+  set(key: string, value: string): this {
+    const index = this.entries.findIndex(([name]) => name === key);
+    if (index === -1) this.entries.push([key, value]);
+    else this.entries[index] = [key, value];
+    return this;
+  }
+
+  append(key: string, value: string): this {
+    this.entries.push([key, value]);
+    return this;
+  }
+
+  has(key: string): boolean {
+    return this.entries.some(([name]) => name === key);
+  }
+
+  getAll(key: string): string[] {
+    return this.entries.filter(([name]) => name === key).map(([, value]) => value);
+  }
+
+  toString(): string {
+    return this.entries
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&');
+  }
+}
 
 const first = (query: QueryInput, key: string): string => all(query, key)[0]?.trim() ?? '';
 
@@ -136,7 +172,7 @@ export function flightFormToDraft(form: FlightSearchForm): FlightFormDraft {
   };
 }
 
-const appendTravellers = (params: URLSearchParams, travellers: TravellerCounts): void => {
+const appendTravellers = (params: QueryBuilder, travellers: TravellerCounts): void => {
   params.set('adults', String(travellers.adults));
   if (travellers.children > 0) params.set('children', String(travellers.children));
   if (travellers.infants > 0) params.set('infants', String(travellers.infants));
@@ -148,8 +184,8 @@ const readTravellers = (query: QueryInput): TravellerCounts => ({
   infants: count(first(query, 'infants'), 0),
 });
 
-export function flightFormToParams(form: FlightSearchForm): URLSearchParams {
-  const params = new URLSearchParams({ trip: form.tripType });
+export function flightFormToParams(form: FlightSearchForm): QueryBuilder {
+  const params = new QueryBuilder().set('trip', form.tripType);
   if (form.tripType === 'multi_city') {
     for (const leg of form.legs) {
       params.append('leg', `${leg.origin}-${leg.destination}-${leg.departureDate}`);
@@ -248,12 +284,11 @@ export function hotelDraftToInput(draft: HotelFormDraft): unknown {
   };
 }
 
-export function hotelFormToParams(form: HotelSearchRequest): URLSearchParams {
-  const params = new URLSearchParams({
-    dest: form.destination.cityId,
-    checkin: form.checkIn,
-    checkout: form.checkOut,
-  });
+export function hotelFormToParams(form: HotelSearchRequest): QueryBuilder {
+  const params = new QueryBuilder()
+    .set('dest', form.destination.cityId)
+    .set('checkin', form.checkIn)
+    .set('checkout', form.checkOut);
   for (const room of form.rooms) params.append('room', [room.adults, ...room.childAges].join('-'));
   if (form.freeCancellationOnly) params.set('freecancel', '1');
   return params;
