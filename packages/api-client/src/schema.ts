@@ -1647,18 +1647,18 @@ export interface components {
                     expiryDate: string;
                 } | null;
                 /** @default null */
-                travellerId: string | null;
+                travellerId?: string | null;
                 /** @default false */
-                saveTraveller: boolean;
+                saveTraveller?: boolean;
             }[];
             guests?: {
                 givenNames: string;
                 surname: string;
             }[];
             /** @default [] */
-            extras: components["schemas"]["ExtraSelectionInput"][];
+            extras?: components["schemas"]["ExtraSelectionInput"][];
             /** @default null */
-            promoCode: string | null;
+            promoCode?: string | null;
             termsVersion: string;
             /** @constant */
             acceptTerms: true;
@@ -1666,9 +1666,9 @@ export interface components {
              * @default en-NG
              * @enum {string}
              */
-            locale: "en-NG" | "en-GB" | "en-US";
+            locale?: "en-NG" | "en-GB" | "en-US";
             /** @default null */
-            turnstileToken: string | null;
+            turnstileToken?: string | null;
         };
         CreatedBooking: {
             booking: components["schemas"]["Booking"];
@@ -1862,9 +1862,9 @@ export interface components {
              * @default economy
              * @enum {string}
              */
-            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            cabinClass?: "economy" | "premium_economy" | "business" | "first";
             /** @default false */
-            directOnly: boolean;
+            directOnly?: boolean;
         };
         FlightSearchResult: {
             searchId: string;
@@ -2075,10 +2075,10 @@ export interface components {
             rooms: {
                 adults: number;
                 /** @default [] */
-                childAges: number[];
+                childAges?: number[];
             }[];
             /** @default false */
-            freeCancellationOnly: boolean;
+            freeCancellationOnly?: boolean;
         };
         HotelSearchResult: {
             searchId: string;
@@ -2131,7 +2131,7 @@ export interface components {
              * @default token
              * @enum {string}
              */
-            transport: "cookie" | "token";
+            transport?: "cookie" | "token";
         };
         LogoutRequestInput: {
             refreshToken?: string;
@@ -2156,7 +2156,7 @@ export interface components {
              * @default token
              * @enum {string}
              */
-            transport: "cookie" | "token";
+            transport?: "cookie" | "token";
         };
         MockPayment: {
             reference: string;
@@ -2200,7 +2200,7 @@ export interface components {
              * @default en-NG
              * @enum {string}
              */
-            locale: "en-NG" | "en-GB" | "en-US";
+            locale?: "en-NG" | "en-GB" | "en-US";
             turnstileToken: string;
         };
         NewsletterSubscribeResponse: {
@@ -2230,7 +2230,7 @@ export interface components {
              * @default token
              * @enum {string}
              */
-            transport: "cookie" | "token";
+            transport?: "cookie" | "token";
         };
         PassengerIssue: {
             index: number | null;
@@ -2450,7 +2450,7 @@ export interface components {
              * @default token
              * @enum {string}
              */
-            transport: "cookie" | "token";
+            transport?: "cookie" | "token";
         };
         SupplierOutcome: {
             supplier: string;

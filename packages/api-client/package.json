@@ -12,7 +12,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "generate": "openapi-typescript ../../apps/api/openapi.json --output src/schema.ts",
+    "generate": "openapi-typescript ../../apps/api/openapi.json --default-non-nullable false --output src/schema.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
