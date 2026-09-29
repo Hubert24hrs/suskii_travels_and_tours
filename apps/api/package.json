@@ -22,7 +22,8 @@
     "db:studio": "prisma studio",
     "openapi": "nest build && node dist/openapi/generate.js",
     "data:build": "tsx scripts/build-reference-data.ts",
-    "keys:generate": "tsx scripts/generate-secrets.ts"
+    "keys:generate": "tsx scripts/generate-secrets.ts",
+    "airlines:sync": "tsx scripts/sync-airlines.ts"
   },
   "dependencies": {
     "@nestjs/common": "catalog:",
