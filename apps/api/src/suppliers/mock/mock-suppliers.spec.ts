@@ -282,18 +282,29 @@ describe('MockFlightSupplier', () => {
     await expect(later.reprice(offer, signal)).rejects.toBeInstanceOf(OfferUnavailableError);
   });
 
-  it('applies re-price rules to their outbound route only', async () => {
+  it('applies re-price rules once, on the second re-price, to their outbound route only', async () => {
     const ruled = new MockFlightSupplier(directory, () => NOW, new Map([['LOS-LHR', 1000]]));
     const [offer] = await ruled.search(query(), signal);
     if (!offer) throw new Error('no offer');
-    const repriced = await ruled.reprice(offer, signal);
-    expect(repriced.price.base.minor).toBe((offer.price.base.minor * 110n + 50n) / 100n);
+    const quoted = await ruled.reprice(offer, signal);
+    expect(quoted.price.base).toEqual(offer.price.base);
+    expect(quoted.supplierOfferId).toBe(`${offer.supplierOfferId}~r1`);
+    const beforePayment = await ruled.reprice(quoted, signal);
+    expect(beforePayment.price.base.minor).toBe((offer.price.base.minor * 110n + 50n) / 100n);
+    expect(beforePayment.services.map((service) => service.id)).toEqual(
+      offer.services.map((service) => service.id),
+    );
+    const consented = await ruled.reprice(beforePayment, signal);
+    expect(consented.price.base).toEqual(beforePayment.price.base);
+    expect(consented.supplierOfferId).toBe(`${offer.supplierOfferId}~r3`);
+
     const [other] = await ruled.search(
       query({ slices: [{ origin: 'LOS', destination: 'ACC', departureDate: '2026-11-20' }] }),
       signal,
     );
     if (!other) throw new Error('no offer');
-    expect((await ruled.reprice(other, signal)).price.base).toEqual(other.price.base);
+    const otherQuoted = await ruled.reprice(other, signal);
+    expect((await ruled.reprice(otherQuoted, signal)).price.base).toEqual(other.price.base);
   });
 
   it('sells one extra 23 kg bag per passenger, priced in the fare currency', async () => {

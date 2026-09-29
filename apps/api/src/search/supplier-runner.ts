@@ -84,17 +84,18 @@ export class SupplierRunner {
     };
   }
 
-  /** One guarded call (re-pricing); errors propagate to the caller. */
+  /** One guarded call (re-pricing, booking); errors propagate to the caller. */
   async call<R>(
     vertical: SearchVertical,
     supplier: string,
     operation: string,
     task: (signal: AbortSignal) => Promise<R>,
+    timeoutMs = this.config.SUPPLIER_TIMEOUT_MS,
   ): Promise<R> {
     const started = performance.now();
     let status: SupplierStatus = 'ok';
     try {
-      return await this.guard(vertical, supplier, undefined, task);
+      return await this.guard(vertical, supplier, undefined, task, timeoutMs);
     } catch (error) {
       status = statusOf(error);
       throw error;
@@ -114,9 +115,10 @@ export class SupplierRunner {
     supplier: string,
     parent: AbortSignal | undefined,
     task: (signal: AbortSignal) => Promise<R>,
+    timeoutMs = this.config.SUPPLIER_TIMEOUT_MS,
   ): Promise<R> {
     return this.breakers
       .get(`${vertical}:${supplier}`)
-      .execute(() => withTimeout(supplier, this.config.SUPPLIER_TIMEOUT_MS, parent, task));
+      .execute(() => withTimeout(supplier, timeoutMs, parent, task));
   }
 }

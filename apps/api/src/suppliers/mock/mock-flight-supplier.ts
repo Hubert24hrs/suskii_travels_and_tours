@@ -199,6 +199,8 @@ const point = (airport: AirportInfo): AirportPoint => ({
   timeZone: airport.timeZone,
 });
 
+const REPRICE_MARK = '~r';
+
 const isAfrican = (airport: AirportInfo): boolean => AFRICAN_COUNTRIES.has(airport.countryCode);
 
 function servesLeg(carrier: MockCarrier, from: AirportInfo, to: AirportInfo, km: number): boolean {
@@ -226,8 +228,10 @@ export class MockFlightSupplier extends FlightSupplier {
   failNextBookings = 0;
 
   /**
-   * @param repriceRules basis points added on re-pricing per outbound route ("LOS-DXB"), from
-   *   MOCK_REPRICE_RULES, so end-to-end tests can walk through a price change.
+   * @param repriceRules basis points added per outbound route ("LOS-DXB"), from
+   *   MOCK_REPRICE_RULES, so end-to-end tests can walk through a price change. A rule applies once,
+   *   on an offer's second re-price: the quote is the first, the check right before payment the
+   *   second, so the change surfaces at payment and a consented price then stays put.
    */
   constructor(
     private readonly airports: AirportDirectory,
@@ -301,14 +305,18 @@ export class MockFlightSupplier extends FlightSupplier {
       return Promise.reject(new OfferUnavailableError(this.name, 'Offer is no longer available'));
     }
     const outbound = offer.slices[0];
-    const bps =
-      this.repriceDriftBps +
-      (outbound
+    // Re-priced offers carry a round counter ("<id>~r2"); service ids keep the base id.
+    const [baseId = offer.supplierOfferId, round = '0'] = offer.supplierOfferId.split(REPRICE_MARK);
+    const nextRound = Number.parseInt(round, 10) + 1;
+    const ruleBps =
+      outbound && nextRound === 2
         ? (this.repriceRules.get(`${outbound.origin.code}-${outbound.destination.code}`) ?? 0)
-        : 0);
+        : 0;
+    const bps = this.repriceDriftBps + ruleBps;
     const drift = (amount: Money): Money => multiplyRatio(amount, 10_000 + bps, 10_000, 'half-up');
     return Promise.resolve({
       ...offer,
+      supplierOfferId: `${baseId}${REPRICE_MARK}${nextRound}`,
       price: { base: drift(offer.price.base), taxes: offer.price.taxes },
       expiresAt: new Date(now + OFFER_TTL_MS).toISOString(),
     });

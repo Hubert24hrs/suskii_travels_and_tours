@@ -113,6 +113,8 @@ export const envSchema = z
     PAYMENT_PROVIDER: z.enum(['mock']).default('mock'),
     /** How long a hosted checkout session stays payable. */
     PAYMENT_SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
+    /** Booking with a supplier can take far longer than a search or a re-price. */
+    SUPPLIER_BOOKING_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(45_000),
     /** Automatic ticketing attempts before a paid booking goes to REFUND_PENDING. */
     TICKETING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(6),
     /** E-tickets and vouchers. `filesystem` is for development and tests (S3/GCS in phase 12). */
@@ -120,7 +122,8 @@ export const envSchema = z
     OBJECT_STORAGE_DIR: z.string().min(1).default('.data/objects'),
     /**
      * Mock flight supplier only: basis points added when re-pricing chosen outbound routes, e.g.
-     * `LOS-DXB:500`, so tests can walk through the price-change consent path.
+     * `LOS-DXB:500`, so tests can walk through the price-change consent path. Each rule applies
+     * once, at the re-price right before payment.
      */
     MOCK_REPRICE_RULES: csv(
       z

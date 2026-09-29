@@ -298,6 +298,7 @@ export class HotelSearchService {
           kind: 'hotel',
           hotel,
           request: meta.request,
+          query,
         }) as Prisma.InputJsonValue,
         supplierTotalMinor: current.supplierTotal.minor,
         supplierCurrency: current.supplierTotal.currency,
