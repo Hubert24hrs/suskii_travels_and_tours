@@ -53,6 +53,8 @@ model User {
   recoveryCodes      MfaRecoveryCode[]
   socialIdentities   SocialIdentity[]
   verificationTokens VerificationToken[]
+  bookings           Booking[]
+  travellers         Traveller[]
 
   @@map("users")
 }
@@ -502,22 +504,23 @@ model PromoRedemption {
 
 /// A supplier offer re-priced for checkout. Bookings (phase 5) are created from these.
 model Offer {
-  id                 String   @id @default(uuid(7)) @db.Uuid
+  id                 String        @id @default(uuid(7)) @db.Uuid
   vertical           Vertical
   supplier           String
-  supplierOfferId    String   @map("supplier_offer_id")
+  supplierOfferId    String        @map("supplier_offer_id")
   /// Normalised offer in our domain shape (never raw vendor JSON).
   payload            Json
-  supplierTotalMinor BigInt   @map("supplier_total_minor")
-  supplierCurrency   String   @map("supplier_currency") @db.Char(3)
+  supplierTotalMinor BigInt        @map("supplier_total_minor")
+  supplierCurrency   String        @map("supplier_currency") @db.Char(3)
   /// Customer price breakdown at quote time.
   price              Json
-  totalMinor         BigInt   @map("total_minor")
-  currency           String   @db.Char(3)
-  searchId           String?  @map("search_id")
-  userId             String?  @map("user_id") @db.Uuid
-  expiresAt          DateTime @map("expires_at") @db.Timestamptz(3)
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  totalMinor         BigInt        @map("total_minor")
+  currency           String        @db.Char(3)
+  searchId           String?       @map("search_id")
+  userId             String?       @map("user_id") @db.Uuid
+  expiresAt          DateTime      @map("expires_at") @db.Timestamptz(3)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  bookingItems       BookingItem[]
 
   @@index([supplier, supplierOfferId])
   @@index([expiresAt])
@@ -726,4 +729,254 @@ model NewsletterSubscription {
 
   @@index([status])
   @@map("newsletter_subscriptions")
+}
+
+// ---------------------------------------------------------------------------
+// Bookings, payments and documents (phase 5, ADR-014 and ADR-015)
+// ---------------------------------------------------------------------------
+
+enum BookingStatus {
+  DRAFT
+  PRICED
+  HELD
+  AWAITING_PAYMENT
+  PARTIALLY_PAID
+  PAID
+  TICKETING
+  CONFIRMED
+  FAILED
+  CANCELLED
+  REFUND_PENDING
+  REFUNDED
+  EXPIRED
+}
+
+enum BookingItemType {
+  flight
+  hotel
+}
+
+enum PassengerType {
+  adult
+  child
+  infant
+}
+
+enum BookingActorType {
+  customer
+  system
+  webhook
+  staff
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  cancelled
+  expired
+}
+
+enum BookingDocumentType {
+  e_ticket
+  hotel_voucher
+}
+
+/// One purchase: a flight or a hotel stay now, several items later (packages, add-ons).
+model Booking {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  /// Short public reference: 6 characters without look-alike letters.
+  reference         String        @unique
+  status            BookingStatus @default(DRAFT)
+  vertical          Vertical
+  userId            String?       @map("user_id") @db.Uuid
+  /// HMAC of the guest access token (ADR-015); null for account bookings.
+  accessTokenHash   String?       @unique @map("access_token_hash")
+  /// JSON { email, phone } encrypted with the context `booking:{id}:contact`.
+  contactEncrypted  String        @map("contact_encrypted")
+  /// HMAC of the contact email, for lookup without decrypting.
+  contactEmailHash  String        @map("contact_email_hash")
+  currency          String        @db.Char(3)
+  totalMinor        BigInt        @map("total_minor")
+  /// Customer price breakdown at the agreed price (fare, extras, discount, total).
+  price             Json
+  /// Re-priced breakdown waiting for the traveller's consent.
+  pendingPrice      Json?         @map("pending_price")
+  promoCodeId       String?       @map("promo_code_id") @db.Uuid
+  channel           SalesChannel
+  locale            String        @default("en-NG")
+  termsVersion      String        @map("terms_version")
+  termsAcceptedAt   DateTime      @map("terms_accepted_at") @db.Timestamptz(3)
+  /// Unpaid bookings expire at this instant.
+  paymentDeadline   DateTime?     @map("payment_deadline") @db.Timestamptz(3)
+  ticketingAttempts Int           @default(0) @map("ticketing_attempts")
+  nextTicketingAt   DateTime?     @map("next_ticketing_at") @db.Timestamptz(3)
+  confirmedAt       DateTime?     @map("confirmed_at") @db.Timestamptz(3)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items      BookingItem[]
+  passengers BookingPassenger[]
+  history    BookingStatusHistory[]
+  payments   Payment[]
+  documents  BookingDocument[]
+
+  @@index([userId, createdAt])
+  @@index([status, paymentDeadline])
+  @@index([status, nextTicketingAt])
+  @@index([contactEmailHash])
+  @@map("bookings")
+}
+
+model BookingItem {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  bookingId         String          @map("booking_id") @db.Uuid
+  type              BookingItemType
+  offerId           String          @map("offer_id") @db.Uuid
+  supplier          String
+  supplierOfferId   String          @map("supplier_offer_id")
+  /// Offer snapshot in our domain shape, as priced for this booking.
+  payload           Json
+  /// Extras chosen at checkout: [{ serviceId, passengerIndex, quantity }].
+  services          Json            @default("[]")
+  totalMinor        BigInt          @map("total_minor")
+  currency          String          @db.Char(3)
+  /// Airline PNR or hotel confirmation number, once booked with the supplier.
+  supplierReference String?         @map("supplier_reference")
+  /// [{ passengerIndex, number }] for flights.
+  ticketNumbers     Json?           @map("ticket_numbers")
+  bookedAt          DateTime?       @map("booked_at") @db.Timestamptz(3)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  offer   Offer   @relation(fields: [offerId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId])
+  @@map("booking_items")
+}
+
+/// A flight passenger or a hotel room's lead guest (then only names and `roomIndex`).
+model BookingPassenger {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  bookingId         String        @map("booking_id") @db.Uuid
+  position          Int
+  type              PassengerType
+  title             String?
+  gender            String?
+  /// Passport (machine-readable) form, e.g. ADEBAYO CHIOMA.
+  givenNames        String        @map("given_names")
+  surname           String
+  dateOfBirth       DateTime?     @map("date_of_birth") @db.Date
+  nationality       String?       @db.Char(2)
+  /// Encrypted with `booking-passenger:{id}:passport`.
+  passportEncrypted String?       @map("passport_encrypted")
+  /// Last three characters, for display.
+  documentHint      String?       @map("document_hint")
+  issuingCountry    String?       @map("issuing_country") @db.Char(2)
+  documentExpiry    DateTime?     @map("document_expiry") @db.Date
+  travellerId       String?       @map("traveller_id") @db.Uuid
+  roomIndex         Int?          @map("room_index")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, position])
+  @@map("booking_passengers")
+}
+
+/// Every status change, append-only (also mirrored to the audit log).
+model BookingStatusHistory {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  bookingId   String           @map("booking_id") @db.Uuid
+  fromStatus  BookingStatus?   @map("from_status")
+  toStatus    BookingStatus    @map("to_status")
+  event       String
+  reason      String?
+  actorType   BookingActorType @map("actor_type")
+  actorUserId String?          @map("actor_user_id") @db.Uuid
+  occurredAt  DateTime         @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, occurredAt])
+  @@map("booking_status_history")
+}
+
+/// Saved passengers of an account (at most 20 per user).
+model Traveller {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  title             String
+  gender            String
+  givenNames        String    @map("given_names")
+  surname           String
+  dateOfBirth       DateTime  @map("date_of_birth") @db.Date
+  nationality       String    @db.Char(2)
+  /// Encrypted with `traveller:{id}:passport`.
+  passportEncrypted String?   @map("passport_encrypted")
+  documentHint      String?   @map("document_hint")
+  issuingCountry    String?   @map("issuing_country") @db.Char(2)
+  documentExpiry    DateTime? @map("document_expiry") @db.Date
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("travellers")
+}
+
+model Payment {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  bookingId         String        @map("booking_id") @db.Uuid
+  provider          String
+  providerReference String        @unique @map("provider_reference")
+  status            PaymentStatus @default(pending)
+  amountMinor       BigInt        @map("amount_minor")
+  currency          String        @db.Char(3)
+  checkoutUrl       String        @map("checkout_url")
+  expiresAt         DateTime      @map("expires_at") @db.Timestamptz(3)
+  succeededAt       DateTime?     @map("succeeded_at") @db.Timestamptz(3)
+  failureReason     String?       @map("failure_reason")
+  /// Money received that the booking could not take (duplicate, mismatch, too late): refunded in phase 6.
+  requiresRefund    Boolean       @default(false) @map("requires_refund")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId])
+  @@map("payments")
+}
+
+/// Provider webhooks, deduplicated by the provider's event id. Normalised fields only, never card data.
+model WebhookEvent {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  provider          String
+  eventId           String    @map("event_id")
+  type              String
+  providerReference String?   @map("provider_reference")
+  payload           Json
+  outcome           String?
+  receivedAt        DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt       DateTime? @map("processed_at") @db.Timestamptz(3)
+
+  @@unique([provider, eventId])
+  @@map("webhook_events")
+}
+
+model BookingDocument {
+  id          String              @id @default(uuid(7)) @db.Uuid
+  bookingId   String              @map("booking_id") @db.Uuid
+  type        BookingDocumentType
+  storageKey  String              @map("storage_key")
+  fileName    String              @map("file_name")
+  contentType String              @map("content_type")
+  sizeBytes   Int                 @map("size_bytes")
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, type])
+  @@map("booking_documents")
 }
