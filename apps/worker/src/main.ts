@@ -1,14 +1,26 @@
-import { loadConfig } from './config.js';
+import { loadConfig, loadDevelopmentEnvFile } from './config.js';
 import { createHealthServer } from './health-server.js';
+import { createInternalApi } from './internal-api.js';
 import { createLifecycle, type WorkerComponent } from './lifecycle.js';
 import { createLogger } from './logger.js';
+import { createRefreshQueue } from './refresh-queue.js';
 
+loadDevelopmentEnvFile();
 const config = loadConfig();
 const logger = createLogger(config);
 
-// Queue processors (deals, ticketing reconciliation, notifications, installments)
-// register here as WorkerComponents in the phases that introduce them.
+// Queue processors register here as WorkerComponents in the phases that introduce them:
+// deals and destinations (phase 4); ticketing, notifications and instalments later.
 const components: WorkerComponent[] = [createHealthServer(config.WORKER_HEALTH_PORT)];
+if (config.INTERNAL_API_TOKEN) {
+  const api = createInternalApi({
+    baseUrl: config.API_INTERNAL_URL,
+    token: config.INTERNAL_API_TOKEN,
+  });
+  components.push(createRefreshQueue(config, api, logger));
+} else {
+  logger.warn('INTERNAL_API_TOKEN is not set; deals and destination refreshes are disabled');
+}
 const lifecycle = createLifecycle(components, logger);
 
 const shutdown = (signal: NodeJS.Signals): void => {

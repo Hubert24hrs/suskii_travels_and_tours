@@ -115,6 +115,9 @@ catalog:
   '@opentelemetry/sdk-metrics': ^2.11.0
   '@photostructure/tz-lookup': ^11.7.0
 
+  # Worker queues (apps/worker)
+  bullmq: ^6.3.9
+
   # Generated API client (packages/api-client)
   openapi-typescript: ^7.13.0
   openapi-fetch: ^0.17.0

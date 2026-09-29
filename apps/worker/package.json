@@ -13,13 +13,18 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rimraf dist .turbo coverage"
+    "clean": "rimraf dist .turbo coverage",
+    "refresh:once": "tsx src/refresh-once.ts"
   },
   "dependencies": {
+    "bullmq": "catalog:",
+    "ioredis": "catalog:",
+    "openapi-fetch": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@suskii/api-client": "workspace:*",
     "@suskii/config": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",

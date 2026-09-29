@@ -8,11 +8,20 @@ describe('loadConfig', () => {
       NODE_ENV: 'development',
       LOG_LEVEL: 'info',
       WORKER_HEALTH_PORT: 4100,
+      REDIS_URL: 'redis://localhost:6379',
+      API_INTERNAL_URL: 'http://localhost:4000',
+      DEALS_REFRESH_INTERVAL_MINUTES: 180,
+      DESTINATIONS_REFRESH_INTERVAL_MINUTES: 360,
+      SNAPSHOT_PRUNE_INTERVAL_MINUTES: 1440,
+      REFRESH_CONCURRENCY: 2,
+      REFRESH_RATE_PER_MINUTE: 30,
     });
   });
 
-  it('coerces the health port from a string', () => {
-    expect(loadConfig({ WORKER_HEALTH_PORT: '9000' }).WORKER_HEALTH_PORT).toBe(9000);
+  it('coerces numbers and treats empty values as unset', () => {
+    const config = loadConfig({ WORKER_HEALTH_PORT: '9000', INTERNAL_API_TOKEN: '' });
+    expect(config.WORKER_HEALTH_PORT).toBe(9000);
+    expect(config.INTERNAL_API_TOKEN).toBeUndefined();
   });
 
   it('rejects invalid values and names the offending key without echoing the value', () => {
@@ -20,5 +29,18 @@ describe('loadConfig', () => {
       /LOG_LEVEL.*WORKER_HEALTH_PORT/,
     );
     expect(() => loadConfig({ LOG_LEVEL: 'super-secret-value' })).not.toThrow(/super-secret-value/);
+    expect(() => loadConfig({ INTERNAL_API_TOKEN: 'too-short' })).toThrow(/INTERNAL_API_TOKEN/);
+  });
+
+  it('requires a real service token in production', () => {
+    expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(
+      /INTERNAL_API_TOKEN: is required in production/,
+    );
+    expect(() =>
+      loadConfig({
+        NODE_ENV: 'production',
+        INTERNAL_API_TOKEN: 'local-dev-only-internal-token-change-me',
+      }),
+    ).toThrow(/local development token/);
   });
 });
