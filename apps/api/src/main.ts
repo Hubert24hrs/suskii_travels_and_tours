@@ -1,4 +1,4 @@
-// Must stay first: OpenTelemetry patches modules as they load.
+// Must stay first: loads the local .env, then OpenTelemetry patches modules as they load.
 import './telemetry/register';
 
 import { NestFactory } from '@nestjs/core';
@@ -7,10 +7,9 @@ import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
-import { APP_CONFIG, loadDevelopmentEnvFile, type AppConfig } from './config/config';
+import { APP_CONFIG, type AppConfig } from './config/config';
 
 async function bootstrap(): Promise<void> {
-  loadDevelopmentEnvFile();
   const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(), {
     bufferLogs: true,
   });
