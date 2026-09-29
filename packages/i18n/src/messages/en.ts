@@ -184,7 +184,7 @@ export const en = {
     },
     addons: {
       mode: 'What do you need?',
-      modes: { standalone: 'Buy an add-on', booking: 'Add to an existing booking' },
+      modes: { standalone: 'Buy an add-on', booking: 'Add to my booking' },
       type: 'Add-on',
       types: {
         insurance: 'Travel insurance',

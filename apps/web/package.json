@@ -10,26 +10,39 @@
     "start": "next start --port 3000",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "clean": "rimraf .next .turbo"
+    "test:e2e": "playwright test",
+    "lighthouse": "tsx scripts/lighthouse.ts",
+    "clean": "rimraf .next .turbo playwright-report test-results",
+    "check:classes": "node --experimental-strip-types --no-warnings scripts/check-classes.ts"
   },
   "dependencies": {
+    "@suskii/api-client": "workspace:*",
     "@suskii/design-tokens": "workspace:*",
+    "@suskii/i18n": "workspace:*",
     "@suskii/shared": "workspace:*",
     "@suskii/ui-web": "workspace:*",
+    "lucide-react": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "uqr": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "catalog:",
+    "@fontsource/plus-jakarta-sans": "catalog:",
+    "@playwright/test": "catalog:",
     "@suskii/config": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "chrome-launcher": "catalog:",
     "eslint": "catalog:",
+    "lighthouse": "catalog:",
     "postcss": "catalog:",
     "rimraf": "catalog:",
     "tailwindcss": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:"
   }
 }
