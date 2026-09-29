@@ -48,6 +48,21 @@ describe('parseEnv', () => {
     ).toBeDefined();
   });
 
+  it('gates suppliers behind flags and requires the Duffel token when enabled', () => {
+    expect(parseEnv(base).FLIGHT_SUPPLIERS).toEqual(['mock']);
+    expect(() => parseEnv({ ...base, FLIGHT_SUPPLIERS: 'mock,duffel' })).toThrow(
+      /DUFFEL_API_TOKEN/,
+    );
+    expect(
+      parseEnv({ ...base, FLIGHT_SUPPLIERS: 'duffel', DUFFEL_API_TOKEN: 'duffel_test_x' })
+        .FLIGHT_SUPPLIERS,
+    ).toEqual(['duffel']);
+    expect(() => parseEnv({ ...base, FLIGHT_SUPPLIERS: 'amadeus' })).toThrow(/FLIGHT_SUPPLIERS/);
+    expect(() =>
+      parseEnv({ ...base, SEARCH_TIMEOUT_MS: '5000', SUPPLIER_TIMEOUT_MS: '8000' }),
+    ).toThrow(/SUPPLIER_TIMEOUT_MS/);
+  });
+
   it('keeps access tokens between 10 and 15 minutes', () => {
     expect(() => parseEnv({ ...base, ACCESS_TOKEN_TTL_SECONDS: '3600' })).toThrow(
       /ACCESS_TOKEN_TTL_SECONDS/,
@@ -78,6 +93,9 @@ describe('parseEnv', () => {
       'CORS_ORIGINS',
       'EMAIL_PROVIDER',
       'SMS_PROVIDER',
+      'FLIGHT_SUPPLIERS',
+      'HOTEL_SUPPLIERS',
+      'FX_PROVIDER',
     ]) {
       expect(message).toContain(key);
     }

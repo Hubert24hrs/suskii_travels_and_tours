@@ -77,12 +77,35 @@ export const envSchema = z
 
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     OTEL_SERVICE_NAME: z.string().min(1).default('suskii-api'),
+
+    /** Enabled flight suppliers (feature flags). `duffel` needs DUFFEL_API_TOKEN. */
+    FLIGHT_SUPPLIERS: csv(z.enum(['mock', 'duffel'])).default(['mock']),
+    HOTEL_SUPPLIERS: csv(z.enum(['mock'])).default(['mock']),
+    DUFFEL_API_TOKEN: z.string().min(1).optional(),
+    DUFFEL_API_URL: z.url().default('https://api.duffel.com'),
+    /** Whole-search budget (spec: 12 s) and per-supplier timeout inside it. */
+    SEARCH_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(12_000),
+    SUPPLIER_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(10_000),
+    /** How long identical searches are served from cache (spec: 5-15 minutes). */
+    SEARCH_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(600),
+    FX_PROVIDER: z.enum(['mock']).default('mock'),
+    FX_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3600),
   })
   .superRefine((env, ctx) => {
-    if (env.NODE_ENV !== 'production') return;
     const require = (key: keyof typeof env, message: string): void => {
       ctx.addIssue({ code: 'custom', path: [key], message });
     };
+    if (env.FLIGHT_SUPPLIERS.includes('duffel') && !env.DUFFEL_API_TOKEN) {
+      require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS includes duffel');
+    }
+    if (env.FLIGHT_SUPPLIERS.length === 0)
+      require('FLIGHT_SUPPLIERS', 'enable at least one supplier');
+    if (env.HOTEL_SUPPLIERS.length === 0)
+      require('HOTEL_SUPPLIERS', 'enable at least one supplier');
+    if (env.SUPPLIER_TIMEOUT_MS > env.SEARCH_TIMEOUT_MS) {
+      require('SUPPLIER_TIMEOUT_MS', 'must not exceed SEARCH_TIMEOUT_MS');
+    }
+    if (env.NODE_ENV !== 'production') return;
     if (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)
       require('JWT_PRIVATE_KEY', 'signing keys are required in production');
     if (!env.FIELD_ENCRYPTION_KEY) require('FIELD_ENCRYPTION_KEY', 'is required in production');
@@ -94,6 +117,13 @@ export const envSchema = z
       require('EMAIL_PROVIDER', 'mock provider is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.SMS_PROVIDER === 'mock')
       require('SMS_PROVIDER', 'mock provider is not allowed in production');
+    // Never show fabricated fares or exchange rates in production (brand guardrails).
+    if (!env.ALLOW_MOCK_PROVIDERS && env.FLIGHT_SUPPLIERS.includes('mock'))
+      require('FLIGHT_SUPPLIERS', 'the mock supplier is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.HOTEL_SUPPLIERS.includes('mock'))
+      require('HOTEL_SUPPLIERS', 'the mock supplier is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.FX_PROVIDER === 'mock')
+      require('FX_PROVIDER', 'mock exchange rates are not allowed in production');
   });
 
 export type Env = z.output<typeof envSchema>;
