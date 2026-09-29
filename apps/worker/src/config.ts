@@ -28,6 +28,8 @@ const envSchema = z
     REFRESH_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(2),
     /** Ceiling on refresh jobs per minute across all workers (supplier quotas). */
     REFRESH_RATE_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(30),
+    /** How often unpaid bookings are expired and due ticketing attempts are made. */
+    BOOKINGS_SWEEP_INTERVAL_SECONDS: z.coerce.number().int().min(15).max(600).default(60),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

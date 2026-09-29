@@ -4,6 +4,8 @@ import createClient from 'openapi-fetch';
 export type RefreshTargets = components['schemas']['RefreshTargets'];
 export type RefreshResult = components['schemas']['RefreshResult'];
 export type PruneResult = components['schemas']['PruneResult'];
+export type ExpiryRun = components['schemas']['BookingExpiryRun'];
+export type TicketingRun = components['schemas']['TicketingRun'];
 
 /** A failed internal API call. `status` 0 means the API was unreachable or timed out. */
 export class InternalApiError extends Error {
@@ -29,6 +31,12 @@ export interface InternalApi {
   readonly pruneSnapshots: () => Promise<PruneResult>;
 }
 
+/** Booking housekeeping routes (ADR-014): expiry of unpaid bookings and ticketing retries. */
+export interface BookingsApi {
+  readonly expireDueBookings: () => Promise<ExpiryRun>;
+  readonly ticketDueBookings: () => Promise<TicketingRun>;
+}
+
 export interface InternalApiOptions {
   baseUrl: string;
   token: string;
@@ -37,7 +45,9 @@ export interface InternalApiOptions {
   fetch?: typeof globalThis.fetch;
 }
 
-export function createInternalApi(options: InternalApiOptions): InternalApi {
+const TICKETING_TIMEOUT_MS = 120_000;
+
+export function createInternalApi(options: InternalApiOptions): InternalApi & BookingsApi {
   const client = createClient<paths>({
     baseUrl: options.baseUrl.replace(/\/$/, ''),
     headers: { Authorization: `Bearer ${options.token}` },
@@ -48,10 +58,11 @@ export function createInternalApi(options: InternalApiOptions): InternalApi {
   const call = async <T>(
     operation: string,
     request: (signal: AbortSignal) => Promise<{ data?: T; response: Response }>,
+    timeout = timeoutMs,
   ): Promise<T> => {
     let result: { data?: T; response: Response };
     try {
-      result = await request(AbortSignal.timeout(timeoutMs));
+      result = await request(AbortSignal.timeout(timeout));
     } catch {
       throw new InternalApiError(operation, 0);
     }
@@ -80,5 +91,16 @@ export function createInternalApi(options: InternalApiOptions): InternalApi {
       ),
     pruneSnapshots: () =>
       call('pruneSnapshots', (signal) => client.POST('/v1/internal/snapshots/prune', { signal })),
+    expireDueBookings: () =>
+      call('expireDueBookings', (signal) =>
+        client.POST('/v1/internal/bookings/expire-due', { signal }),
+      ),
+    // The API stops starting attempts after 20 s, but one supplier booking may take up to 45 s.
+    ticketDueBookings: () =>
+      call(
+        'ticketDueBookings',
+        (signal) => client.POST('/v1/internal/bookings/ticket-due', { signal }),
+        TICKETING_TIMEOUT_MS,
+      ),
   };
 }

@@ -15,6 +15,7 @@ describe('loadConfig', () => {
       SNAPSHOT_PRUNE_INTERVAL_MINUTES: 1440,
       REFRESH_CONCURRENCY: 2,
       REFRESH_RATE_PER_MINUTE: 30,
+      BOOKINGS_SWEEP_INTERVAL_SECONDS: 60,
     });
   });
 

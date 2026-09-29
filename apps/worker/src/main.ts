@@ -1,4 +1,5 @@
 import { loadConfig, loadDevelopmentEnvFile } from './config.js';
+import { createBookingsQueue } from './bookings-queue.js';
 import { createHealthServer } from './health-server.js';
 import { createInternalApi } from './internal-api.js';
 import { createLifecycle, type WorkerComponent } from './lifecycle.js';
@@ -10,7 +11,8 @@ const config = loadConfig();
 const logger = createLogger(config);
 
 // Queue processors register here as WorkerComponents in the phases that introduce them:
-// deals and destinations (phase 4); ticketing, notifications and instalments later.
+// deals and destinations (phase 4), booking expiry and ticketing (phase 5); notifications and
+// instalments later.
 const components: WorkerComponent[] = [createHealthServer(config.WORKER_HEALTH_PORT)];
 if (config.INTERNAL_API_TOKEN) {
   const api = createInternalApi({
@@ -18,8 +20,11 @@ if (config.INTERNAL_API_TOKEN) {
     token: config.INTERNAL_API_TOKEN,
   });
   components.push(createRefreshQueue(config, api, logger));
+  components.push(createBookingsQueue(config, api, logger));
 } else {
-  logger.warn('INTERNAL_API_TOKEN is not set; deals and destination refreshes are disabled');
+  logger.warn(
+    'INTERNAL_API_TOKEN is not set; deals refreshes, booking expiry and ticketing retries are disabled',
+  );
 }
 const lifecycle = createLifecycle(components, logger);
 

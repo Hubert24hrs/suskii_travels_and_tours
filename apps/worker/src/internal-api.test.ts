@@ -47,6 +47,27 @@ describe('internal API client', () => {
     expect(requests[0]?.headers.get('Authorization')).toBe(`Bearer ${TOKEN}`);
   });
 
+  it('calls the booking sweep routes', async () => {
+    const fetch = vi.fn((request: Request) =>
+      Promise.resolve(
+        request.url.endsWith('/expire-due')
+          ? reply(200, { expired: 1 })
+          : reply(200, { attempted: 1, confirmed: 1, retrying: 0, exhausted: 0 }),
+      ),
+    );
+    const api = createInternalApi({
+      baseUrl: 'http://api.internal:4000',
+      token: TOKEN,
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    });
+    await expect(api.expireDueBookings()).resolves.toEqual({ expired: 1 });
+    await expect(api.ticketDueBookings()).resolves.toMatchObject({ confirmed: 1 });
+    expect(fetch.mock.calls.map(([request]) => `${request.method} ${request.url}`)).toEqual([
+      'POST http://api.internal:4000/v1/internal/bookings/expire-due',
+      'POST http://api.internal:4000/v1/internal/bookings/ticket-due',
+    ]);
+  });
+
   it('classifies failures as retryable or final', async () => {
     const statuses = [503, 429, 404, 401];
     const api = createInternalApi({
