@@ -32,22 +32,22 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 
 ## Phase status
 
-| Phase | Name                                             | Status                |
-| ----- | ------------------------------------------------ | --------------------- |
-| 0     | Foundation and repo bootstrap                    | Done                  |
-| 1     | Design tokens and component libraries            | Done                  |
-| 2     | Backend core                                     | Done                  |
-| 3     | Search, catalog and supplier adapters            | Done                  |
-| 4     | Web homepage                                     | Done, awaiting review |
-| 5     | Flight and hotel booking flow (web)              | Not started           |
-| 6     | Payments, flexible payment and refunds           | Not started           |
-| 7     | Mobile app                                       | Not started           |
-| 8     | Packages, tours, visa and add-ons                | Not started           |
-| 9     | Accounts, Suskii Prime, referrals, notifications | Not started           |
-| 10    | Admin console                                    | Not started           |
-| 11    | Hardening                                        | Not started           |
-| 12    | Deployment and release                           | Not started           |
-| 13    | Optional: AI trip search                         | Not started           |
+| Phase | Name                                             | Status      |
+| ----- | ------------------------------------------------ | ----------- |
+| 0     | Foundation and repo bootstrap                    | Done        |
+| 1     | Design tokens and component libraries            | Done        |
+| 2     | Backend core                                     | Done        |
+| 3     | Search, catalog and supplier adapters            | Done        |
+| 4     | Web homepage                                     | Done        |
+| 5     | Flight and hotel booking flow (web)              | In progress |
+| 6     | Payments, flexible payment and refunds           | Not started |
+| 7     | Mobile app                                       | Not started |
+| 8     | Packages, tours, visa and add-ons                | Not started |
+| 9     | Accounts, Suskii Prime, referrals, notifications | Not started |
+| 10    | Admin console                                    | Not started |
+| 11    | Hardening                                        | Not started |
+| 12    | Deployment and release                           | Not started |
+| 13    | Optional: AI trip search                         | Not started |
 
 ## Repository layout
 
