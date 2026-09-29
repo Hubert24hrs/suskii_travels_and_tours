@@ -20,6 +20,8 @@ export interface RouteContract {
   errors?: number[];
   /** Requires an Idempotency-Key header; retries replay the first response (IdempotencyInterceptor). */
   idempotent?: boolean;
+  /** Extra request headers to document (validation stays with the handler). */
+  headers?: { name: string; required: boolean; description: string }[];
 }
 
 export const CONTRACT = 'suskii:contract';
@@ -35,5 +37,23 @@ export const schemaRegistry = z.registry<{ id: string }>();
 
 export function named<T extends z.ZodType>(id: string, schema: T): T {
   schemaRegistry.add(schema, { id });
+  return schema;
+}
+
+/** Media type of each binary response schema created by `fileResponse()`. */
+export const fileResponses = new WeakMap<z.ZodType, string>();
+
+/**
+ * A binary response (e.g. a PDF): the handler returns a `StreamableFile`, which passes through the
+ * contract untouched and is documented as `format: binary` with the given media type.
+ */
+export function fileResponse(contentType: string): z.ZodType {
+  const schema = z.custom<unknown>(
+    (value) =>
+      typeof value === 'object' &&
+      value !== null &&
+      typeof (value as { getStream?: unknown }).getStream === 'function',
+  );
+  fileResponses.set(schema, contentType);
   return schema;
 }

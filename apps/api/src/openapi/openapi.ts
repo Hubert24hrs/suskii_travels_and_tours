@@ -4,7 +4,7 @@ import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { z } from 'zod';
 
 import { IS_PUBLIC } from '../auth/decorators';
-import { CONTRACT, schemaRegistry, type RouteContract } from '../contract/contract';
+import { CONTRACT, fileResponses, schemaRegistry, type RouteContract } from '../contract/contract';
 import { IS_INTERNAL } from '../internal/internal-route';
 
 import { PROBLEM_DETAILS_SCHEMA } from './problem.schema';
@@ -173,11 +173,14 @@ function operation(
   for (const [status, schema] of Object.entries(contract.responses).sort(
     ([a], [b]) => Number(a) - Number(b),
   )) {
+    const fileType = schema ? fileResponses.get(schema) : undefined;
     responses[status] = {
       description: STATUS_TEXT[Number(status)] ?? 'Response',
-      ...(schema
-        ? { content: { 'application/json': { schema: collector.convert(schema, 'output') } } }
-        : {}),
+      ...(fileType
+        ? { content: { [fileType]: { schema: { type: 'string', format: 'binary' } } } }
+        : schema
+          ? { content: { 'application/json': { schema: collector.convert(schema, 'output') } } }
+          : {}),
     };
   }
   const errorStatuses = [
@@ -189,6 +192,13 @@ function operation(
   }
 
   const headerParameters: ParameterObject[] = [
+    ...(contract.headers ?? []).map((header) => ({
+      name: header.name,
+      in: 'header' as const,
+      required: header.required,
+      description: header.description,
+      schema: { type: 'string' },
+    })),
     ...(contract.idempotent
       ? [
           {

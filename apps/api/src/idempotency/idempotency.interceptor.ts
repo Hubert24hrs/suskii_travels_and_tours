@@ -15,6 +15,7 @@ import { ProblemDetailsException } from '../common/problem-details';
 import { requestContext } from '../common/request-context';
 import { CONTRACT, type RouteContract } from '../contract/contract';
 import { resolveResponseStatus } from '../contract/contract.interceptor';
+import { FieldEncryption } from '../crypto/field-encryption';
 import { HmacService } from '../crypto/hmac.service';
 import { sha256 } from '../crypto/random';
 import { Prisma } from '../generated/prisma/client';
@@ -35,6 +36,8 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(value) ?? 'null';
 }
 
+const sealContext = (id: string): string => `idempotency:${id}:response`;
+
 const problem = (status: HttpStatus, slug: string, title: string, detail: string, headers = {}) =>
   new ProblemDetailsException(status, slug, title, detail, {}, headers);
 
@@ -45,7 +48,8 @@ const problem = (status: HttpStatus, slug: string, title: string, detail: string
  * - retry with the same payload: the stored response is replayed (`Idempotent-Replayed: true`);
  * - retry while the first is still running: 409, retry shortly;
  * - same key with a different payload: 422.
- * Failed requests release the key so the client can retry.
+ * Failed requests release the key so the client can retry. Stored responses are encrypted (bound
+ * to the key's row), because they can carry secrets such as a guest booking's access token.
  */
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
@@ -55,6 +59,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
     private readonly hmac: HmacService,
+    private readonly encryption: FieldEncryption,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -153,8 +158,14 @@ export class IdempotencyInterceptor implements NestInterceptor {
           { 'Retry-After': '1' },
         );
       }
-      const stored = existing.responseBody as { body?: unknown } | null;
-      return { replay: { status: existing.responseStatus, body: stored?.body } };
+      const stored = existing.responseBody as { sealed?: string; body?: unknown } | null;
+      const body =
+        typeof stored?.sealed === 'string'
+          ? (JSON.parse(
+              this.encryption.decrypt(stored.sealed, sealContext(existing.id)),
+            ) as unknown)
+          : stored?.body;
+      return { replay: { status: existing.responseStatus, body } };
     }
     throw problem(
       HttpStatus.CONFLICT,
@@ -173,7 +184,9 @@ export class IdempotencyInterceptor implements NestInterceptor {
       data: {
         status: 'completed',
         responseStatus: status,
-        responseBody: { body: (body ?? null) as Prisma.InputJsonValue },
+        responseBody: {
+          sealed: this.encryption.encrypt(JSON.stringify(body ?? null), sealContext(id)),
+        },
       },
     });
   }
