@@ -55,7 +55,7 @@ export function DealCard({
   className,
 }: DealCardProps) {
   return (
-    <Card asChild interactive className={cn('flex flex-col overflow-hidden', className)}>
+    <Card asChild interactive className={cn('relative flex flex-col overflow-hidden', className)}>
       <article>
         <div className="aspect-video overflow-hidden bg-skeleton *:size-full *:object-cover">
           {media}

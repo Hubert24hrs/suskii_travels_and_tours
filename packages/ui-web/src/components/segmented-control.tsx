@@ -38,14 +38,17 @@ export function SegmentedControl<T extends string>({
         if (option) onValueChange(option.value);
       }}
       orientation="horizontal"
-      className={cn('inline-flex rounded-pill border border-border bg-background p-1', className)}
+      className={cn(
+        'inline-flex max-w-full rounded-pill border border-border bg-background p-1',
+        className,
+      )}
     >
       {options.map((option) => (
         <RadioGroup.Item
           key={option.value}
           value={option.value}
           className={cn(
-            'min-h-12 rounded-pill px-4 font-body text-body-sm font-bold text-muted',
+            'min-h-12 min-w-0 rounded-pill px-3 font-body text-body-sm font-bold text-balance text-muted sm:px-4',
             'transition-colors duration-fast ease-standard hover:text-primary focus-visible:focus-ring',
             'aria-checked:bg-primary aria-checked:text-on-primary aria-checked:hover:text-on-primary',
           )}

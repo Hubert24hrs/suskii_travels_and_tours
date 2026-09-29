@@ -14,7 +14,7 @@ export function FilterChip({ selected, className, ...props }: FilterChipProps) {
       type="button"
       aria-pressed={selected}
       className={cn(
-        'inline-flex min-h-11 shrink-0 items-center rounded-pill border px-4 font-body text-body-sm font-bold',
+        'inline-flex min-h-12 shrink-0 items-center rounded-pill border px-4 font-body text-body-sm font-bold',
         'transition-colors duration-fast ease-standard focus-visible:focus-ring',
         selected
           ? 'border-primary bg-primary text-on-primary'
