@@ -40,14 +40,9 @@ export function createBookingsQueue(
       const repeat = { every: config.BOOKINGS_SWEEP_INTERVAL_SECONDS * 1000, immediately: true };
       // Sweeps repeat every minute anyway, so a failed run is not retried and history stays short.
       const opts = { attempts: 1, removeOnComplete: 100, removeOnFail: 100 };
-      await activeQueue.upsertJobScheduler(BOOKING_JOB.expire, repeat, {
-        name: BOOKING_JOB.expire,
-        opts,
-      });
-      await activeQueue.upsertJobScheduler(BOOKING_JOB.ticket, repeat, {
-        name: BOOKING_JOB.ticket,
-        opts,
-      });
+      for (const name of Object.values(BOOKING_JOB)) {
+        await activeQueue.upsertJobScheduler(name, repeat, { name, opts });
+      }
     },
     async stop() {
       await worker?.close();

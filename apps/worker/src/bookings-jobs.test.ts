@@ -10,6 +10,9 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   ticketDueBookings: vi.fn(() =>
     Promise.resolve({ attempted: 3, confirmed: 1, retrying: 1, exhausted: 1 }),
   ),
+  reconcilePayments: vi.fn(() => Promise.resolve({ checked: 2, settled: 1 })),
+  processDuePaymentPlans: vi.fn(() => Promise.resolve({ reminders: 1, defaulted: 1, expired: 0 })),
+  processDueRefunds: vi.fn(() => Promise.resolve({ executed: 2, settled: 1, review: 1 })),
   ...overrides,
 });
 
@@ -78,5 +81,27 @@ describe('booking jobs', () => {
     await expect(
       processBookingJob({ name: 'nope' }, { api: fakeApi(), logger: logger() }),
     ).rejects.toBeInstanceOf(UnrecoverableError);
+  });
+
+  it('runs the money sweeps and warns about defaults and refunds needing review', async () => {
+    const api = fakeApi();
+    const log = logger();
+    await expect(
+      processBookingJob({ name: BOOKING_JOB.reconcile }, { api, logger: log }),
+    ).resolves.toEqual({ checked: 2, settled: 1 });
+    await processBookingJob({ name: BOOKING_JOB.plans }, { api, logger: log });
+    await processBookingJob({ name: BOOKING_JOB.refunds }, { api, logger: log });
+    expect(api.reconcilePayments).toHaveBeenCalledTimes(1);
+    expect(api.processDuePaymentPlans).toHaveBeenCalledTimes(1);
+    expect(api.processDueRefunds).toHaveBeenCalledTimes(1);
+    expect(log.info).toHaveBeenCalledWith(
+      { checked: 2, settled: 1 },
+      'payments settled by reconciliation',
+    );
+    expect(log.warn).toHaveBeenCalledWith(
+      { defaulted: 1 },
+      'payment plans closed on a missed payment',
+    );
+    expect(log.warn).toHaveBeenCalledWith({ review: 1 }, 'refunds need an operations review');
   });
 });

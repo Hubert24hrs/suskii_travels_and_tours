@@ -6,6 +6,9 @@ export type RefreshResult = components['schemas']['RefreshResult'];
 export type PruneResult = components['schemas']['PruneResult'];
 export type ExpiryRun = components['schemas']['BookingExpiryRun'];
 export type TicketingRun = components['schemas']['TicketingRun'];
+export type PaymentRun = components['schemas']['PaymentReconciliationRun'];
+export type PlanRun = components['schemas']['PaymentPlanRun'];
+export type RefundRun = components['schemas']['RefundRun'];
 
 /** A failed internal API call. `status` 0 means the API was unreachable or timed out. */
 export class InternalApiError extends Error {
@@ -31,10 +34,16 @@ export interface InternalApi {
   readonly pruneSnapshots: () => Promise<PruneResult>;
 }
 
-/** Booking housekeeping routes (ADR-014): expiry of unpaid bookings and ticketing retries. */
+/**
+ * Booking and money housekeeping routes (ADR-014, ADR-016 to ADR-019): expiry, ticketing retries,
+ * payment reconciliation, payment plan reminders and defaults, and refund execution.
+ */
 export interface BookingsApi {
   readonly expireDueBookings: () => Promise<ExpiryRun>;
   readonly ticketDueBookings: () => Promise<TicketingRun>;
+  readonly reconcilePayments: () => Promise<PaymentRun>;
+  readonly processDuePaymentPlans: () => Promise<PlanRun>;
+  readonly processDueRefunds: () => Promise<RefundRun>;
 }
 
 export interface InternalApiOptions {
@@ -45,7 +54,9 @@ export interface InternalApiOptions {
   fetch?: typeof globalThis.fetch;
 }
 
+/** Sweeps that call suppliers or payment providers: the API stops starting calls after 20 s. */
 const TICKETING_TIMEOUT_MS = 120_000;
+const MONEY_SWEEP_TIMEOUT_MS = 90_000;
 
 export function createInternalApi(options: InternalApiOptions): InternalApi & BookingsApi {
   const client = createClient<paths>({
@@ -101,6 +112,24 @@ export function createInternalApi(options: InternalApiOptions): InternalApi & Bo
         'ticketDueBookings',
         (signal) => client.POST('/v1/internal/bookings/ticket-due', { signal }),
         TICKETING_TIMEOUT_MS,
+      ),
+    reconcilePayments: () =>
+      call(
+        'reconcileBookingPayments',
+        (signal) => client.POST('/v1/internal/bookings/reconcile-payments', { signal }),
+        MONEY_SWEEP_TIMEOUT_MS,
+      ),
+    processDuePaymentPlans: () =>
+      call(
+        'processDuePaymentPlans',
+        (signal) => client.POST('/v1/internal/bookings/payment-plans-due', { signal }),
+        MONEY_SWEEP_TIMEOUT_MS,
+      ),
+    processDueRefunds: () =>
+      call(
+        'processDueRefunds',
+        (signal) => client.POST('/v1/internal/bookings/refunds-due', { signal }),
+        MONEY_SWEEP_TIMEOUT_MS,
       ),
   };
 }

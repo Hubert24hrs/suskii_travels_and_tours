@@ -68,6 +68,30 @@ describe('internal API client', () => {
     ]);
   });
 
+  it('calls the money sweep routes', async () => {
+    const replies: Record<string, unknown> = {
+      'reconcile-payments': { checked: 1, settled: 1 },
+      'payment-plans-due': { reminders: 2, defaulted: 0, expired: 1 },
+      'refunds-due': { executed: 1, settled: 1, review: 0 },
+    };
+    const fetch = vi.fn((request: Request) =>
+      Promise.resolve(reply(200, replies[request.url.split('/').pop() ?? ''] ?? {})),
+    );
+    const api = createInternalApi({
+      baseUrl: 'http://api.internal:4000',
+      token: TOKEN,
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    });
+    await expect(api.reconcilePayments()).resolves.toEqual({ checked: 1, settled: 1 });
+    await expect(api.processDuePaymentPlans()).resolves.toMatchObject({ reminders: 2 });
+    await expect(api.processDueRefunds()).resolves.toMatchObject({ executed: 1 });
+    expect(fetch.mock.calls.map(([request]) => request.url)).toEqual([
+      'http://api.internal:4000/v1/internal/bookings/reconcile-payments',
+      'http://api.internal:4000/v1/internal/bookings/payment-plans-due',
+      'http://api.internal:4000/v1/internal/bookings/refunds-due',
+    ]);
+  });
+
   it('classifies failures as retryable or final', async () => {
     const statuses = [503, 429, 404, 401];
     const api = createInternalApi({
