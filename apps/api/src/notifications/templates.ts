@@ -72,6 +72,40 @@ export function newsletterConfirmTemplate(confirmUrl: string, unsubscribeUrl: st
   };
 }
 
+export interface BookingConfirmedDetails {
+  reference: string;
+  vertical: 'flights' | 'hotels';
+  /** "Lagos (LOS) to Dubai (DXB), Thu, 10 Dec 2026" or "The Palm Suites, Dubai, 10 to 13 Dec 2026". */
+  summary: string;
+  supplierLabel: string;
+  supplierReference: string;
+  total: string;
+  /** Account bookings link to the booking page; guest links would need the access token. */
+  bookingUrl: string | null;
+}
+
+export function bookingConfirmedTemplate(details: BookingConfirmedDetails): Template {
+  const what = details.vertical === 'flights' ? 'flight' : 'stay';
+  const document = details.vertical === 'flights' ? 'e-ticket receipt' : 'hotel voucher';
+  const intro = `Your ${what} is booked. Booking reference: ${details.reference}.`;
+  const lines = [
+    details.summary,
+    `${details.supplierLabel}: ${details.supplierReference}`,
+    `Total paid: ${details.total}`,
+    `Your ${document} is attached. Keep this email: you need the booking reference to manage the booking.`,
+  ];
+  return {
+    template: 'booking-confirmed',
+    subject: `Booking confirmed: ${details.reference}`,
+    text: [intro, lines.join('\n'), details.bookingUrl].filter(Boolean).join('\n\n'),
+    html: layout(
+      'Booking confirmed',
+      [intro, ...lines],
+      details.bookingUrl ? { label: 'View booking', url: details.bookingUrl } : undefined,
+    ),
+  };
+}
+
 export function otpSmsBody(code: string): string {
   return `${code} is your ${BRAND.name} verification code. It expires in 5 minutes. Never share it.`;
 }

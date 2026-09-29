@@ -3,6 +3,12 @@ import { createTransport, type Transporter } from 'nodemailer';
 
 import { APP_CONFIG, type AppConfig } from '../config/config';
 
+export interface EmailAttachment {
+  filename: string;
+  content: Uint8Array;
+  contentType: string;
+}
+
 export interface EmailMessage {
   to: string;
   subject: string;
@@ -10,6 +16,7 @@ export interface EmailMessage {
   html: string;
   /** Template name for logs and metrics; the recipient and body are never logged. */
   template: string;
+  attachments?: EmailAttachment[];
 }
 
 export abstract class EmailProvider {
@@ -41,6 +48,11 @@ export class SmtpEmailProvider extends EmailProvider {
       subject: message.subject,
       text: message.text,
       html: message.html,
+      attachments: message.attachments?.map((attachment) => ({
+        filename: attachment.filename,
+        content: Buffer.from(attachment.content),
+        contentType: attachment.contentType,
+      })),
     });
     this.logger.log({ template: message.template }, 'email sent');
   }

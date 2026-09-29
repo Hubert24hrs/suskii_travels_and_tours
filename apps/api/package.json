@@ -39,6 +39,7 @@
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",
     "@prisma/instrumentation": "catalog:",
+    "@suskii/design-tokens": "workspace:*",
     "@suskii/shared": "workspace:*",
     "cookie-parser": "catalog:",
     "helmet": "catalog:",
@@ -46,11 +47,13 @@
     "jose": "catalog:",
     "nestjs-pino": "catalog:",
     "nodemailer": "catalog:",
+    "pdf-lib": "catalog:",
     "pg": "catalog:",
     "pino": "catalog:",
     "pino-http": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
+    "uqr": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -7,7 +7,16 @@ import { APP_CONFIG, type AppConfig } from '../config/config';
 import { safeEqual } from './random';
 
 /** Each purpose gets its own derived key, so a digest for one use is useless for another. */
-export type HmacPurpose = 'ip' | 'csrf' | 'otp' | 'recovery-code' | 'identifier' | 'newsletter';
+export type HmacPurpose =
+  | 'ip'
+  | 'csrf'
+  | 'otp'
+  | 'recovery-code'
+  | 'identifier'
+  | 'newsletter'
+  | 'booking-access'
+  | 'booking-email'
+  | 'mock-payment';
 
 const PURPOSES: readonly HmacPurpose[] = [
   'ip',
@@ -16,6 +25,9 @@ const PURPOSES: readonly HmacPurpose[] = [
   'recovery-code',
   'identifier',
   'newsletter',
+  'booking-access',
+  'booking-email',
+  'mock-payment',
 ];
 const HKDF_SALT = 'suskii-api:hmac:v1';
 
