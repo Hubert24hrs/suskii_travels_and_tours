@@ -1,5 +1,6 @@
 import * as z from 'zod';
 
+import { countryCodeSchema } from './country-code';
 import {
   currencyCodeSchema,
   DEFAULT_CURRENCY,
@@ -28,7 +29,6 @@ export const VERTICAL_FORM_ISSUES = {
 } as const;
 
 const cityIdSchema = z.uuid();
-const countryCodeSchema = z.string().regex(/^[A-Z]{2}$/, 'Use a 2-letter country code');
 const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Use YYYY-MM');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
