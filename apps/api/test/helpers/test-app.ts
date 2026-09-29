@@ -83,7 +83,14 @@ async function localSocialKeys(): Promise<{ resolvers: SocialKeyResolvers; signe
 /** Boots the full application exactly as main.ts does, with mock providers at the edges. */
 export async function createTestApp(
   overrides: Partial<AppConfig> = {},
-  options: { controllers?: Type[] } = {},
+  options: {
+    controllers?: Type[];
+    /** Provider overrides, e.g. the supplier list for resilience tests. */
+    overrides?: (
+      | { provide: unknown; useValue: unknown }
+      | { provide: unknown; useFactory: (...deps: never[]) => unknown; inject: unknown[] }
+    )[];
+  } = {},
 ): Promise<TestContext> {
   const databaseUrl = process.env.E2E_DATABASE_URL;
   const redisUrl = process.env.E2E_REDIS_URL;
@@ -113,15 +120,24 @@ export async function createTestApp(
     isBreached: (password: string) => Promise.resolve(password === BREACHED_PASSWORD),
   };
 
-  const moduleRef = await Test.createTestingModule({
+  let builder = Test.createTestingModule({
     imports: [AppModule.forRoot(config)],
     controllers: options.controllers ?? [],
   })
     .overrideProvider(BreachedPasswordChecker)
     .useValue(breached)
     .overrideProvider(SOCIAL_KEY_RESOLVERS)
-    .useValue(resolvers)
-    .compile();
+    .useValue(resolvers);
+  for (const override of options.overrides ?? []) {
+    builder =
+      'useValue' in override
+        ? builder.overrideProvider(override.provide).useValue(override.useValue)
+        : builder.overrideProvider(override.provide).useFactory({
+            factory: override.useFactory as (...args: unknown[]) => unknown,
+            inject: override.inject as never[],
+          });
+  }
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ logger: false });
   configureApp(app, config);
   await app.init();

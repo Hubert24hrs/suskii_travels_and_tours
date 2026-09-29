@@ -277,5 +277,19 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
         }
       }
     });
+
+    it('resolves every $ref (generated clients refuse dangling references)', () => {
+      const doc = buildOpenApiDocument(ctx.app);
+      const refs = JSON.stringify(doc).match(/"#\/components\/[^"]+"/g) ?? [];
+      for (const ref of new Set(refs)) {
+        const [, , section, name] = ref.replaceAll('"', '').split('/');
+        const components = doc.components as Record<string, Record<string, unknown>>;
+        expect([ref, section && name ? name in (components[section] ?? {}) : false]).toEqual([
+          ref,
+          true,
+        ]);
+      }
+      expect(refs.length).toBeGreaterThan(50);
+    });
   });
 });

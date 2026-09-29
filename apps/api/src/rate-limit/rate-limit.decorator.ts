@@ -45,3 +45,13 @@ export const AUTH_LIMITS = {
   verifyEmail: { name: 'auth-verify-email-ip', limit: 10, windowSeconds: 60, by: 'ip' },
   sensitive: { name: 'account-sensitive-user', limit: 10, windowSeconds: 600, by: 'user' },
 } as const satisfies Record<string, RateLimitPolicy>;
+
+/** Search is expensive (supplier calls) and a scraping target: per-IP quotas plus cache-first. */
+export const SEARCH_LIMITS = {
+  searchIp: { name: 'search-ip', limit: 30, windowSeconds: 60, by: 'ip' },
+  searchIpDaily: { name: 'search-ip-daily', limit: 1000, windowSeconds: 86_400, by: 'ip' },
+  searchUser: { name: 'search-user', limit: 60, windowSeconds: 60, by: 'user' },
+  quoteIp: { name: 'quote-ip', limit: 30, windowSeconds: 60, by: 'ip' },
+  promoIp: { name: 'promo-ip', limit: 10, windowSeconds: 600, by: 'ip' },
+  promoUser: { name: 'promo-user', limit: 10, windowSeconds: 600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;

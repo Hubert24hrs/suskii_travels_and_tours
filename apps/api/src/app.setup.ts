@@ -16,6 +16,7 @@ export const CORS_ALLOWED_HEADERS = [
   'Idempotency-Key',
   'X-CSRF-Token',
   'X-Request-Id',
+  'X-Suskii-Client',
 ];
 export const CORS_EXPOSED_HEADERS = [
   'X-Request-Id',

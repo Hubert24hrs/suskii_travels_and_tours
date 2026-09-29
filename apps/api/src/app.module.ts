@@ -17,8 +17,10 @@ import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor';
 import { InfraModule } from './infra/redis';
 import { LoggingModule } from './logging/logging.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PricingModule } from './pricing/pricing.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
 import { RbacModule } from './rbac/rbac.module';
+import { SearchModule } from './search/search.module';
 
 @Module({})
 export class AppModule {
@@ -38,6 +40,8 @@ export class AppModule {
         AuthModule,
         AdminModule,
         CatalogModule,
+        PricingModule,
+        SearchModule,
         HealthModule,
       ],
       providers: [

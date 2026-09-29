@@ -408,6 +408,151 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/flights/offers/{offerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One offer with fare conditions, baggage and layovers
+         * @description Expired offers answer 410 with the original request so the client can search again.
+         */
+        get: operations["getFlightOffer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/flights/offers/{offerId}/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the current price with the supplier
+         * @description Creates a quote to book from. `priceChange` is set when the total moved since the search: show it and ask for consent.
+         */
+        post: operations["quoteFlightOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/flights/searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search flights across suppliers
+         * @description Calls every enabled supplier in parallel (12 s budget, per-supplier timeouts and circuit breakers). Identical searches are served from cache for a few minutes. When a supplier fails, the others are still returned with status `partial`.
+         */
+        post: operations["searchFlights"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/flights/searches/{searchId}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sort, filter and page the offers of a search */
+        get: operations["listFlightOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hotels/rates/{rateId}/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm the current price of a room rate */
+        post: operations["quoteHotelRate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hotels/results/{hotelId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A hotel from a search with every room rate */
+        get: operations["getHotel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hotels/searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Search hotels in a city */
+        post: operations["searchHotels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/hotels/searches/{searchId}/hotels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sort, filter and page the hotels of a search */
+        get: operations["listHotels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -619,6 +764,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/pricing/promos/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a promo code on a quote
+         * @description Returns the discounted price. Invalid, expired or ineligible codes all answer the same 422.
+         */
+        post: operations["validatePromoCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -652,6 +817,13 @@ export interface components {
             countryName: string;
             latitude: number;
             longitude: number;
+            timeZone: string;
+        };
+        AirportPoint: {
+            code: string;
+            name: string | null;
+            cityName: string | null;
+            countryCode: string | null;
             timeZone: string;
         };
         AirportSuggestion: {
@@ -711,6 +883,10 @@ export interface components {
             mfaEnabled: boolean;
             hasPassword: boolean;
         };
+        Carrier: {
+            code: string;
+            name: string;
+        };
         ChangePasswordRequestInput: {
             currentPassword: string;
             newPassword: string;
@@ -736,12 +912,297 @@ export interface components {
                 continent: string;
             }[];
         };
+        FlightFacets: {
+            airlines: {
+                code: string;
+                name: string;
+                count: number;
+                minPrice: components["schemas"]["Money"];
+            }[];
+            stops: {
+                stops: number;
+                count: number;
+                minPrice: components["schemas"]["Money"];
+            }[];
+            price: {
+                min: components["schemas"]["Money"];
+                max: components["schemas"]["Money"];
+            } | null;
+            durationMinutes: {
+                min: number;
+                max: number;
+            } | null;
+            departureWindows: {
+                /** @enum {string} */
+                window: "night" | "morning" | "afternoon" | "evening";
+                count: number;
+            }[];
+            refundable: number;
+            withCheckedBag: number;
+        };
+        FlightOffer: {
+            id: string;
+            supplier: string;
+            owner: components["schemas"]["Carrier"];
+            slices: components["schemas"]["FlightSlice"][];
+            baggage: {
+                carryOn: number;
+                checked: number;
+            };
+            conditions: {
+                refundable: boolean;
+                refundPenalty: components["schemas"]["Money"] | null;
+                changeable: boolean;
+                changePenalty: components["schemas"]["Money"] | null;
+            };
+            /** @enum {string} */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            passengers: {
+                adults: number;
+                children: number;
+                infants: number;
+            };
+            price: components["schemas"]["Price"];
+            /** Format: date-time */
+            expiresAt: string;
+            hold: {
+                available: boolean;
+                paymentRequiredBy: string | null;
+            };
+        };
+        FlightQuote: {
+            /** Format: uuid */
+            quoteId: string;
+            offer: components["schemas"]["FlightOffer"];
+            priceChange: components["schemas"]["PriceChange"];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        FlightSearchRequest: {
+            slices: {
+                origin: string;
+                destination: string;
+                departureDate: string;
+            }[];
+            passengers: {
+                adults: number;
+                children: number;
+                infants: number;
+            };
+            /**
+             * @default economy
+             * @enum {string}
+             */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            /** @default false */
+            directOnly: boolean;
+        };
+        FlightSearchRequestInput: {
+            slices: {
+                origin: string;
+                destination: string;
+                departureDate: string;
+            }[];
+            passengers: {
+                adults: number;
+                children: number;
+                infants: number;
+            };
+            /**
+             * @default economy
+             * @enum {string}
+             */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            /** @default false */
+            directOnly: boolean;
+        };
+        FlightSearchResult: {
+            searchId: string;
+            /** @enum {string} */
+            status: "complete" | "partial";
+            request: components["schemas"]["FlightSearchRequest"];
+            currency: string;
+            suppliers: components["schemas"]["SupplierOutcome"][];
+            /** Format: date-time */
+            resultsExpireAt: string;
+            total: number;
+            nextCursor: string | null;
+            offers: components["schemas"]["FlightOffer"][];
+            facets: components["schemas"]["FlightFacets"];
+        };
+        FlightSegment: {
+            marketingCarrier: components["schemas"]["Carrier"];
+            operatingCarrier: components["schemas"]["Carrier"];
+            flightNumber: string;
+            origin: components["schemas"]["AirportPoint"];
+            destination: components["schemas"]["AirportPoint"];
+            departureLocal: string;
+            /** Format: date-time */
+            departureUtc: string;
+            arrivalLocal: string;
+            /** Format: date-time */
+            arrivalUtc: string;
+            durationMinutes: number;
+            aircraft: string | null;
+            /** @enum {string} */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+        };
+        FlightSlice: {
+            origin: components["schemas"]["AirportPoint"];
+            destination: components["schemas"]["AirportPoint"];
+            departureLocal: string;
+            /** Format: date-time */
+            departureUtc: string;
+            arrivalLocal: string;
+            /** Format: date-time */
+            arrivalUtc: string;
+            durationMinutes: number;
+            stops: number;
+            arrivalDayOffset: number;
+            fareBrand: string | null;
+            segments: components["schemas"]["FlightSegment"][];
+            layovers: {
+                airport: components["schemas"]["AirportPoint"];
+                durationMinutes: number;
+                warnings: ("short_connection" | "airport_change" | "overnight" | "long_layover")[];
+            }[];
+        };
         ForgotPasswordRequestInput: {
             email: string;
         };
         HealthStatus: {
             /** @constant */
             status: "ok";
+        };
+        HotelDetail: {
+            id: string;
+            supplier: string;
+            name: string;
+            stars: number;
+            reviewScore: number | null;
+            reviewCount: number;
+            latitude: number;
+            longitude: number;
+            area: string | null;
+            cityName: string;
+            countryCode: string;
+            amenities: string[];
+            nights: number;
+            rates: components["schemas"]["HotelRate"][];
+        };
+        HotelFacets: {
+            stars: {
+                stars: number;
+                count: number;
+                minPrice: components["schemas"]["Money"];
+            }[];
+            price: {
+                min: components["schemas"]["Money"];
+                max: components["schemas"]["Money"];
+            } | null;
+            amenities: {
+                amenity: string;
+                count: number;
+            }[];
+            boards: {
+                /** @enum {string} */
+                board: "room_only" | "breakfast_included" | "half_board" | "full_board";
+                count: number;
+            }[];
+            freeCancellation: number;
+        };
+        HotelQuote: {
+            /** Format: uuid */
+            quoteId: string;
+            hotel: {
+                id: string;
+                name: string;
+                stars: number;
+                cityName: string;
+            };
+            rate: components["schemas"]["HotelRate"];
+            nights: number;
+            priceChange: components["schemas"]["PriceChange"];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        HotelRate: {
+            id: string;
+            roomName: string;
+            /** @enum {string} */
+            board: "room_only" | "breakfast_included" | "half_board" | "full_board";
+            refundable: boolean;
+            freeCancellationUntil: string | null;
+            price: components["schemas"]["Price"];
+            pricePerNight: components["schemas"]["Money"];
+            payAtProperty: components["schemas"]["Money"] | null;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        HotelSearchRequest: {
+            destination: {
+                /** @constant */
+                type: "city";
+                /** Format: uuid */
+                cityId: string;
+            };
+            checkIn: string;
+            checkOut: string;
+            rooms: {
+                adults: number;
+                /** @default [] */
+                childAges: number[];
+            }[];
+            /** @default false */
+            freeCancellationOnly: boolean;
+        };
+        HotelSearchRequestInput: {
+            destination: {
+                /** @constant */
+                type: "city";
+                /** Format: uuid */
+                cityId: string;
+            };
+            checkIn: string;
+            checkOut: string;
+            rooms: {
+                adults: number;
+                /** @default [] */
+                childAges: number[];
+            }[];
+            /** @default false */
+            freeCancellationOnly: boolean;
+        };
+        HotelSearchResult: {
+            searchId: string;
+            /** @enum {string} */
+            status: "complete" | "partial";
+            request: components["schemas"]["HotelSearchRequest"];
+            currency: string;
+            nights: number;
+            suppliers: components["schemas"]["SupplierOutcome"][];
+            /** Format: date-time */
+            resultsExpireAt: string;
+            total: number;
+            nextCursor: string | null;
+            hotels: components["schemas"]["HotelSummary"][];
+            facets: components["schemas"]["HotelFacets"];
+        };
+        HotelSummary: {
+            id: string;
+            supplier: string;
+            name: string;
+            stars: number;
+            reviewScore: number | null;
+            reviewCount: number;
+            latitude: number;
+            longitude: number;
+            area: string | null;
+            cityName: string;
+            countryCode: string;
+            amenities: string[];
+            cheapestRate: components["schemas"]["HotelRate"];
+            freeCancellationAvailable: boolean;
         };
         Jwks: {
             keys: ({
@@ -790,6 +1251,10 @@ export interface components {
              */
             transport: "cookie" | "token";
         };
+        Money: {
+            amountMinor: number;
+            currency: string;
+        };
         OtpDispatched: {
             /** @constant */
             status: "accepted";
@@ -829,6 +1294,34 @@ export interface components {
                 string
             ][];
         };
+        Price: {
+            currency: string;
+            fare: components["schemas"]["Money"];
+            taxes: components["schemas"]["Money"];
+            fees: {
+                code: string;
+                label: string;
+                amount: components["schemas"]["Money"];
+            }[];
+            discount: {
+                code: string;
+                amount: components["schemas"]["Money"];
+            } | null;
+            total: components["schemas"]["Money"];
+            fx: {
+                from: string;
+                to: string;
+                rate: string;
+                /** Format: date-time */
+                asOf: string;
+                provider: string;
+            } | null;
+        };
+        PriceChange: {
+            previous: components["schemas"]["Money"];
+            current: components["schemas"]["Money"];
+            difference: components["schemas"]["Money"];
+        } | null;
         /** @description RFC 9457 problem details (application/problem+json). */
         ProblemDetails: {
             /** @description Problem type URN, e.g. urn:suskii:problem:validation-failed */
@@ -847,6 +1340,16 @@ export interface components {
                 code: string;
                 message: string;
             }[];
+        };
+        PromoValidateRequestInput: {
+            code: string;
+            /** Format: uuid */
+            quoteId: string;
+        };
+        PromoValidation: {
+            code: string;
+            discount: components["schemas"]["Money"];
+            price: components["schemas"]["Price"];
         };
         ReadinessStatus: {
             /** @enum {string} */
@@ -903,6 +1406,13 @@ export interface components {
              */
             transport: "cookie" | "token";
         };
+        SupplierOutcome: {
+            supplier: string;
+            /** @enum {string} */
+            status: "ok" | "timeout" | "error" | "circuit_open";
+            resultCount: number;
+            durationMs: number;
+        };
         TotpConfirmRequestInput: {
             code: string;
         };
@@ -956,6 +1466,15 @@ export interface components {
         };
         /** @description Conflict */
         Problem409: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description Gone */
+        Problem410: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1644,6 +2163,273 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getFlightOffer: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightOffer"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    quoteFlightOffer: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    searchFlights: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlightSearchRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightSearchResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    listFlightOffers: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                sort?: "best" | "cheapest" | "fastest" | "earliest";
+                stops?: string;
+                airlines?: string;
+                maxPrice?: number;
+                maxDurationMinutes?: number;
+                departureWindows?: string;
+                refundable?: "true" | "false";
+                checkedBag?: "true" | "false";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                searchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightSearchResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    quoteHotelRate: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotelQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    getHotel: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path: {
+                hotelId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotelDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    searchHotels: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotelSearchRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotelSearchResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    listHotels: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                sort?: "recommended" | "price" | "rating" | "stars";
+                stars?: string;
+                minRating?: number;
+                freeCancellation?: "true" | "false";
+                amenities?: string;
+                board?: "room_only" | "breakfast_included" | "half_board" | "full_board";
+                maxPrice?: number;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                searchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotelSearchResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getMe: {
         parameters: {
             query?: never;
@@ -2014,6 +2800,39 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    validatePromoCode: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoValidateRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoValidation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            410: components["responses"]["Problem410"];
+            422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

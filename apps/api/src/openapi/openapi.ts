@@ -62,6 +62,7 @@ const STATUS_TEXT: Record<number, string> = {
   403: 'Forbidden',
   404: 'Not found',
   409: 'Conflict',
+  410: 'Gone',
   422: 'Unprocessable content',
   429: 'Too many requests',
   500: 'Internal server error',
@@ -82,6 +83,8 @@ const FORMATS_WITH_REDUNDANT_PATTERNS = new Set([
 
 class SchemaCollector {
   readonly components: Record<string, JsonSchema> = {};
+  /** Every problem status referenced by an operation gets a reusable response component. */
+  readonly problemStatuses = new Set<number>();
 
   convert(schema: z.ZodType, io: Io): JsonSchema {
     const json = z.toJSONSchema(schema, {
@@ -177,6 +180,7 @@ function operation(
     ...new Set([400, ...(contract.errors ?? []), ...(isPublic ? [] : [401]), 429, 500]),
   ].sort((a, b) => a - b);
   for (const status of errorStatuses) {
+    collector.problemStatuses.add(status);
     responses[String(status)] = { $ref: `#/components/responses/Problem${status}` };
   }
 
@@ -272,15 +276,17 @@ export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
   }
 
   const problemResponses = Object.fromEntries(
-    [400, 401, 403, 404, 409, 422, 429, 500, 503].map((status) => [
-      `Problem${status}`,
-      {
-        description: STATUS_TEXT[status],
-        content: {
-          'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } },
+    [...collector.problemStatuses]
+      .sort((a, b) => a - b)
+      .map((status) => [
+        `Problem${status}`,
+        {
+          description: STATUS_TEXT[status],
+          content: {
+            'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } },
+          },
         },
-      },
-    ]),
+      ]),
   );
 
   const sortKeys = <T>(record: Record<string, T>): Record<string, T> =>
