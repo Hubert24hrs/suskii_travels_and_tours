@@ -56,6 +56,9 @@ All notable changes to this project are documented here. The format follows
 - The checkout draft, its client-side checks and itinerary facts moved from the web app to
   `@suskii/shared` so the web and the app validate the same way.
 - The ui-native `Combobox` takes a `testID` for its field and suggestions.
+- The mobile app depends on `@babel/plugin-transform-react-jsx` directly: NativeWind's Babel
+  preset names it without depending on it, and Babel resolves it from the app's
+  `babel.config.js`, so the Android release bundle failed on a clean install.
 - `.env.example` documents the mobile build settings and the app-link values.
 
 ### Phase 6: Payments, flexible payment and refunds (2026-09-30)
