@@ -1,4 +1,5 @@
 import { color } from '@suskii/design-tokens';
+import { I18nProvider } from '@suskii/i18n/react';
 import { BRAND } from '@suskii/shared';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
@@ -7,7 +8,7 @@ import { SiteFooter } from '../components/layout/site-footer';
 import { SiteHeader, UtilityBar } from '../components/layout/site-header';
 import { api } from '../lib/api';
 import { publicEnv } from '../lib/env';
-import { getI18n } from '../lib/i18n';
+import { getI18n, type ErrorMessages } from '../lib/i18n';
 
 import { bodyFont, headingFont } from './fonts';
 import './globals.css';
@@ -34,8 +35,9 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const { locale, t } = await getI18n();
+  const { locale, t, messages } = await getI18n();
   const site = await api.site(locale);
+  const errorMessages: ErrorMessages = { pages: { error: messages.pages.error } };
   return (
     <html lang={locale} className={`${headingFont.variable} ${bodyFont.variable}`}>
       <body className="flex min-h-dvh flex-col">
@@ -48,7 +50,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <UtilityBar site={site} />
         <SiteHeader site={site} />
         <main id="main" className="flex-1">
-          {children}
+          {/* Only the error boundary's copy, so no page ships the whole catalog (ADR-013). */}
+          <I18nProvider locale={locale} messages={errorMessages}>
+            {children}
+          </I18nProvider>
         </main>
         <SiteFooter site={site} />
       </body>

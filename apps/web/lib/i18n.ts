@@ -12,3 +12,6 @@ export const getI18n = cache(async () => {
 });
 
 export type I18n = Awaited<ReturnType<typeof getI18n>>;
+
+/** The catalog subset the root layout provides to the error boundary (app/error.tsx). */
+export type ErrorMessages = Record<'pages', Pick<Messages['pages'], 'error'>>;
