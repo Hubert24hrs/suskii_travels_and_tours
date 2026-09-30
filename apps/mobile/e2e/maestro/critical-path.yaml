@@ -62,6 +62,11 @@ tags:
 - tapOn:
     id: passengers.0.givenNames
 - inputText: Adebayo
+# The keyboard covers the fields below it: close it and scroll before every tap.
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.surname
 - tapOn:
     id: passengers.0.surname
 - inputText: Okafor
