@@ -12,6 +12,14 @@ maestro="${MAESTRO_BIN:-$HOME/.maestro/bin/maestro}"
 mkdir -p "$report"
 
 adb wait-for-device
+# A freshly booted emulator is busy for a while; its launcher can stop responding and the
+# system dialog then covers the app. Test devices hide error dialogs (crashes still reach
+# logcat, printed below on failure) and get a moment to settle.
+adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
+adb shell settings put global hide_error_dialogs 1
+adb shell input keyevent KEYCODE_WAKEUP || true
+adb shell input keyevent KEYCODE_HOME || true
+sleep 20
 # Chrome without first-run screens: debuggable emulator images read this command-line file.
 adb shell "echo '_ --disable-fre --no-default-browser-check --no-first-run' > /data/local/tmp/chrome-command-line"
 adb shell am set-debug-app --persistent com.android.chrome || true

@@ -81,8 +81,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Restored here, saved right after a successful Gradle build (not only when the whole job
+      # passes), so emulator failures do not force a cold native build on the next run.
       - name: Restore Gradle cache
-        uses: actions/cache@v6
+        id: gradle-cache
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.gradle/caches
@@ -115,6 +118,15 @@ jobs:
           ./gradlew assembleRelease -x lintVitalRelease -PreactNativeArchitectures=x86_64
           --no-daemon "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC"
           "-Pkotlin.daemon.jvmargs=-Xmx3g"
+
+      - name: Save Gradle cache
+        if: steps.gradle-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ steps.gradle-cache.outputs.cache-primary-key }}
 
       - name: Scan the APK for secrets
         run: |
@@ -162,6 +174,8 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          cores: 3
+          ram-size: 4096M
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash apps/mobile/e2e/run-android.sh apps/mobile/android/app/build/outputs/apk/release/app-release.apk maestro-report
