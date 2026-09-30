@@ -44,6 +44,7 @@ describe.skipIf(!redisUrl)('refresh queue (Redis)', () => {
         return Promise.resolve({ status: 'refreshed' as const, snapshotId: 's', fetchedAt: null });
       }),
       pruneSnapshots: vi.fn(() => Promise.resolve({ deletedDeals: 0, deletedDestinations: 0 })),
+      prunePushTokens: vi.fn(() => Promise.resolve({ deleted: 0 })),
     };
     const config = loadConfig({ REDIS_URL: redisUrl, REFRESH_CONCURRENCY: '3' });
     const component = createRefreshQueue(config, api, pino({ level: 'silent' }));
@@ -52,6 +53,7 @@ describe.skipIf(!redisUrl)('refresh queue (Redis)', () => {
 
     await vi.waitFor(() => expect(refreshed).toHaveLength(3), { timeout: 10_000, interval: 100 });
     expect(api.pruneSnapshots).toHaveBeenCalled();
+    await vi.waitFor(() => expect(api.prunePushTokens).toHaveBeenCalled(), { timeout: 10_000 });
 
     const connection = new Redis(redisUrl ?? '', { maxRetriesPerRequest: null });
     const queue = new Queue(REFRESH_QUEUE, { connection, prefix: 'suskii' });
@@ -61,7 +63,7 @@ describe.skipIf(!redisUrl)('refresh queue (Redis)', () => {
     );
     const schedulers = await queue.getJobSchedulers();
     expect(schedulers.map((scheduler) => scheduler.key).sort()).toEqual(
-      [JOB.planDeals, JOB.planDestinations, JOB.prune].sort(),
+      [JOB.planDeals, JOB.planDestinations, JOB.prune, JOB.prunePushTokens].sort(),
     );
     // Replaying a plan in the same interval adds no duplicate route jobs.
     const events = new QueueEvents(REFRESH_QUEUE, {

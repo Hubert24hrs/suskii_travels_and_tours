@@ -4,6 +4,7 @@ import createClient from 'openapi-fetch';
 export type RefreshTargets = components['schemas']['RefreshTargets'];
 export type RefreshResult = components['schemas']['RefreshResult'];
 export type PruneResult = components['schemas']['PruneResult'];
+export type PushTokenPruneResult = components['schemas']['PushTokenPruneRun'];
 export type ExpiryRun = components['schemas']['BookingExpiryRun'];
 export type TicketingRun = components['schemas']['TicketingRun'];
 export type PaymentRun = components['schemas']['PaymentReconciliationRun'];
@@ -32,6 +33,8 @@ export interface InternalApi {
   readonly refreshDealRoute: (routeId: string) => Promise<RefreshResult>;
   readonly refreshDestination: (destinationId: string) => Promise<RefreshResult>;
   readonly pruneSnapshots: () => Promise<PruneResult>;
+  /** Push tokens of ended sessions, closed bookings and stale devices (ADR-022). */
+  readonly prunePushTokens: () => Promise<PushTokenPruneResult>;
 }
 
 /**
@@ -102,6 +105,10 @@ export function createInternalApi(options: InternalApiOptions): InternalApi & Bo
       ),
     pruneSnapshots: () =>
       call('pruneSnapshots', (signal) => client.POST('/v1/internal/snapshots/prune', { signal })),
+    prunePushTokens: () =>
+      call('prunePushTokens', (signal) =>
+        client.POST('/v1/internal/push-tokens/prune', { signal }),
+      ),
     expireDueBookings: () =>
       call('expireDueBookings', (signal) =>
         client.POST('/v1/internal/bookings/expire-due', { signal }),

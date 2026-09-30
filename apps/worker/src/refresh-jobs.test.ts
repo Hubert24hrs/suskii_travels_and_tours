@@ -21,6 +21,7 @@ const fakeApi = (overrides: Partial<InternalApi> = {}): InternalApi => ({
   refreshDealRoute: vi.fn(() => Promise.resolve(REFRESHED)),
   refreshDestination: vi.fn(() => Promise.resolve(REFRESHED)),
   pruneSnapshots: vi.fn(() => Promise.resolve({ deletedDeals: 3, deletedDestinations: 1 })),
+  prunePushTokens: vi.fn(() => Promise.resolve({ deleted: 2 })),
   ...overrides,
 });
 
@@ -70,6 +71,9 @@ describe('refresh jobs', () => {
       deletedDeals: 3,
       deletedDestinations: 1,
     });
+    await expect(
+      processRefreshJob({ name: JOB.prunePushTokens, data: {} }, deps(api)),
+    ).resolves.toEqual({ deleted: 2 });
   });
 
   it('retries transient failures and stops on final ones', async () => {

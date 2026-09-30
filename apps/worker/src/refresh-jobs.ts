@@ -17,6 +17,7 @@ export const JOB = {
   refreshRoute: 'deals-route',
   refreshDestination: 'destinations-city',
   prune: 'snapshots-prune',
+  prunePushTokens: 'push-tokens-prune',
 } as const;
 
 const routeData = z.object({ routeId: z.uuid(), slug: z.string() });
@@ -111,6 +112,11 @@ export async function processRefreshJob(
     case JOB.prune: {
       const result = await deps.api.pruneSnapshots();
       deps.logger.info(result, 'old snapshots pruned');
+      return result;
+    }
+    case JOB.prunePushTokens: {
+      const result = await deps.api.prunePushTokens();
+      deps.logger.info(result, 'push tokens pruned');
       return result;
     }
     default:

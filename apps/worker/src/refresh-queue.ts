@@ -74,6 +74,12 @@ export function createRefreshQueue(
           name: JOB.prune,
         },
       );
+      // Daily housekeeping shares the snapshot schedule (ADR-022).
+      await activeQueue.upsertJobScheduler(
+        JOB.prunePushTokens,
+        every(config.SNAPSHOT_PRUNE_INTERVAL_MINUTES),
+        { name: JOB.prunePushTokens },
+      );
     },
     async stop() {
       await worker?.close();
