@@ -309,6 +309,8 @@ model City {
   country     Country             @relation(fields: [countryCode], references: [code])
   airports    Airport[]
   destination DestinationContent?
+  packages    TravelPackage[]
+  tours       Tour[]
 
   @@unique([countryCode, name])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "cities_search_text_trgm_idx")
@@ -756,6 +758,17 @@ enum BookingStatus {
 enum BookingItemType {
   flight
   hotel
+  package
+  tour
+  visa
+  addon
+}
+
+/// Where a booking item's seats on a departure stand (ADR-025).
+enum SeatState {
+  reserved
+  sold
+  released
 }
 
 enum PassengerType {
@@ -782,6 +795,10 @@ enum PaymentStatus {
 enum BookingDocumentType {
   e_ticket
   hotel_voucher
+  package_voucher
+  tour_voucher
+  addon_voucher
+  visa_confirmation
 }
 
 /// One purchase: a flight or a hotel stay now, several items later (packages, add-ons).
@@ -814,24 +831,31 @@ model Booking {
   ticketingAttempts Int           @default(0) @map("ticketing_attempts")
   nextTicketingAt   DateTime?     @map("next_ticketing_at") @db.Timestamptz(3)
   confirmedAt       DateTime?     @map("confirmed_at") @db.Timestamptz(3)
+  /// The booking an add-on belongs to (ADR-027); add-ons are their own bookings.
+  linkedBookingId   String?       @map("linked_booking_id") @db.Uuid
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user        User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  items       BookingItem[]
-  passengers  BookingPassenger[]
-  history     BookingStatusHistory[]
-  payments    Payment[]
-  documents   BookingDocument[]
-  paymentPlan PaymentPlan?
-  refunds     Refund[]
-  accessLinks BookingAccessLink[]
-  pushTokens  PushToken[]
+  user             User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  linkedBooking    Booking?               @relation("LinkedAddons", fields: [linkedBookingId], references: [id], onDelete: SetNull)
+  addons           Booking[]              @relation("LinkedAddons")
+  vouchers         BookingVoucher[]
+  visaApplications VisaApplication[]
+  items            BookingItem[]
+  passengers       BookingPassenger[]
+  history          BookingStatusHistory[]
+  payments         Payment[]
+  documents        BookingDocument[]
+  paymentPlan      PaymentPlan?
+  refunds          Refund[]
+  accessLinks      BookingAccessLink[]
+  pushTokens       PushToken[]
 
   @@index([userId, createdAt])
   @@index([status, paymentDeadline])
   @@index([status, nextTicketingAt])
   @@index([contactEmailHash])
+  @@index([linkedBookingId])
   @@map("bookings")
 }
 
@@ -859,12 +883,22 @@ model BookingItem {
   /// [{ passengerIndex, number }] for flights.
   ticketNumbers        Json?           @map("ticket_numbers")
   bookedAt             DateTime?       @map("booked_at") @db.Timestamptz(3)
+  /// Package or tour departure whose seats this item holds (ADR-025).
+  packageDepartureId   String?         @map("package_departure_id") @db.Uuid
+  tourDepartureId      String?         @map("tour_departure_id") @db.Uuid
+  seats                Int?
+  seatState            SeatState?      @map("seat_state")
   createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  offer   Offer   @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  booking          Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  offer            Offer             @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  packageDeparture PackageDeparture? @relation(fields: [packageDepartureId], references: [id], onDelete: Restrict)
+  tourDeparture    TourDeparture?    @relation(fields: [tourDepartureId], references: [id], onDelete: Restrict)
+  vouchers         BookingVoucher[]
 
   @@index([bookingId])
+  @@index([packageDepartureId])
+  @@index([tourDepartureId])
   @@map("booking_items")
 }
 
@@ -1261,4 +1295,357 @@ model PushToken {
   @@index([sessionId])
   @@index([bookingId])
   @@map("push_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// In-house catalog: packages, tours, add-ons, visa assistance (phase 8, ADR-025 to ADR-028)
+// ---------------------------------------------------------------------------
+
+enum CatalogStatus {
+  draft
+  published
+  archived
+}
+
+enum DepartureStatus {
+  open
+  closed
+  cancelled
+}
+
+enum AddonProductType {
+  insurance
+  airport_transfer
+  esim
+  lounge
+}
+
+enum AddonPricingBasis {
+  per_person
+  per_booking
+  per_day
+  per_person_per_day
+}
+
+enum VisaPurpose {
+  tourism
+  business
+  study
+  transit
+}
+
+enum VisaRequirement {
+  visa_free
+  visa_on_arrival
+  e_visa
+  visa_required
+  not_available
+}
+
+enum VisaApplicationStatus {
+  awaiting_documents
+  submitted
+  in_review
+  action_required
+  lodged
+  approved
+  refused
+  withdrawn
+}
+
+enum VisaDocumentStatus {
+  pending_scan
+  clean
+  infected
+  scan_failed
+  rejected
+}
+
+/// A curated holiday package: flights, hotel and extras described as inclusions (ADR-025).
+model TravelPackage {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  slug               String        @unique
+  status             CatalogStatus @default(draft)
+  /// Demo inventory from `db:seed:demo`; shown with a "Sample" badge.
+  sample             Boolean       @default(false)
+  featured           Boolean       @default(false)
+  title              String
+  summary            String
+  cityId             String        @map("city_id") @db.Uuid
+  countryCode        String        @map("country_code") @db.Char(2)
+  nights             Int
+  /// Travellers must give passport details at checkout (on unless staff turn it off).
+  passportRequired   Boolean       @default(true) @map("passport_required")
+  /// Card art key under the web app's /art route.
+  artKey             String?       @map("art_key")
+  highlights         Json          @default("[]")
+  itinerary          Json          @default("[]")
+  inclusions         Json          @default("[]")
+  exclusions         Json          @default("[]")
+  /// [{ daysBefore, refundBps }] (ADR-028).
+  cancellationPolicy Json          @map("cancellation_policy")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  city       City               @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  departures PackageDeparture[]
+
+  @@index([status, countryCode])
+  @@index([cityId])
+  @@map("packages")
+}
+
+/// A dated departure of a package with its capacity and per-person base prices.
+model PackageDeparture {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  packageId      String          @map("package_id") @db.Uuid
+  startDate      DateTime        @map("start_date") @db.Date
+  endDate        DateTime        @map("end_date") @db.Date
+  capacity       Int
+  seatsReserved  Int             @default(0) @map("seats_reserved")
+  seatsSold      Int             @default(0) @map("seats_sold")
+  /// { adult, child, infant } wire money (child and infant may be null).
+  prices         Json
+  currency       String          @db.Char(3)
+  /// Adult base price, for sorting and budget filters.
+  fromPriceMinor BigInt          @map("from_price_minor")
+  status         DepartureStatus @default(open)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  package      TravelPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  bookingItems BookingItem[]
+
+  @@index([packageId, startDate])
+  @@index([status, startDate])
+  @@map("package_departures")
+}
+
+/// A tour or activity with a meeting point and dated departures.
+model Tour {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  slug               String        @unique
+  status             CatalogStatus @default(draft)
+  sample             Boolean       @default(false)
+  featured           Boolean       @default(false)
+  title              String
+  summary            String
+  cityId             String        @map("city_id") @db.Uuid
+  countryCode        String        @map("country_code") @db.Char(2)
+  /// IANA zone of the meeting point; departures are stored in its wall time and in UTC.
+  timeZone           String        @map("time_zone")
+  durationMinutes    Int           @map("duration_minutes")
+  category           String?
+  artKey             String?       @map("art_key")
+  meetingPoint       Json          @map("meeting_point")
+  highlights         Json          @default("[]")
+  inclusions         Json          @default("[]")
+  exclusions         Json          @default("[]")
+  cancellationPolicy Json          @map("cancellation_policy")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  city       City            @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  departures TourDeparture[]
+
+  @@index([status, countryCode])
+  @@index([cityId])
+  @@map("tours")
+}
+
+model TourDeparture {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  tourId         String          @map("tour_id") @db.Uuid
+  /// Wall time at the meeting point, YYYY-MM-DDTHH:mm.
+  startsAtLocal  String          @map("starts_at_local")
+  startsAtUtc    DateTime        @map("starts_at_utc") @db.Timestamptz(3)
+  capacity       Int
+  seatsReserved  Int             @default(0) @map("seats_reserved")
+  seatsSold      Int             @default(0) @map("seats_sold")
+  prices         Json
+  currency       String          @db.Char(3)
+  fromPriceMinor BigInt          @map("from_price_minor")
+  status         DepartureStatus @default(open)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tour         Tour          @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  bookingItems BookingItem[]
+
+  @@index([tourId, startsAtUtc])
+  @@index([status, startsAtUtc])
+  @@map("tour_departures")
+}
+
+/// Insurance, airport transfer, eSIM or lounge access sold by Suskii (ADR-027).
+model Addon {
+  id                 String            @id @default(uuid(7)) @db.Uuid
+  slug               String            @unique
+  status             CatalogStatus     @default(draft)
+  sample             Boolean           @default(false)
+  type               AddonProductType
+  title              String
+  summary            String
+  description        String
+  /// Countries where it applies; empty means anywhere.
+  countryCodes       String[]          @map("country_codes") @db.Char(2)
+  pricingBasis       AddonPricingBasis @map("pricing_basis")
+  /// Base unit price, wire money.
+  price              Json
+  currency           String            @db.Char(3)
+  priceMinor         BigInt            @map("price_minor")
+  maxTravellers      Int               @default(9) @map("max_travellers")
+  /// AddonDetailField[] collected at checkout.
+  requiredDetails    Json              @default("[]") @map("required_details")
+  cancellationPolicy Json              @map("cancellation_policy")
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, type])
+  @@map("addons")
+}
+
+/// Eligibility for nationality x destination x purpose, maintained by visa officers (ADR-026).
+model VisaRule {
+  id          String          @id @default(uuid(7)) @db.Uuid
+  nationality String          @db.Char(2)
+  destination String          @db.Char(2)
+  purpose     VisaPurpose
+  requirement VisaRequirement
+  maxStayDays Int?            @map("max_stay_days")
+  notes       String?
+  verifiedAt  DateTime?       @map("verified_at") @db.Date
+  sample      Boolean         @default(false)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([nationality, destination, purpose])
+  @@map("visa_rules")
+}
+
+/// Visa assistance for a destination: service fee, processing time and document checklist.
+model VisaProduct {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  slug              String        @unique
+  status            CatalogStatus @default(draft)
+  sample            Boolean       @default(false)
+  title             String
+  summary           String
+  destination       String        @db.Char(2)
+  purposes          VisaPurpose[]
+  processingDaysMin Int           @map("processing_days_min")
+  processingDaysMax Int           @map("processing_days_max")
+  /// Service fee per applicant, wire money.
+  price             Json
+  currency          String        @db.Char(3)
+  priceMinor        BigInt        @map("price_minor")
+  /// [{ key, label, description, required }].
+  checklist         Json
+  /// Government fees are paid to the authority; this explains them (amount varies).
+  governmentFeeNote String?       @map("government_fee_note")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  applications VisaApplication[]
+
+  @@index([status, destination])
+  @@map("visa_products")
+}
+
+/// One applicant's application, opened when the assistance booking is confirmed.
+model VisaApplication {
+  id                String                @id @default(uuid(7)) @db.Uuid
+  bookingId         String                @map("booking_id") @db.Uuid
+  productId         String                @map("product_id") @db.Uuid
+  /// The booking passenger this application is for.
+  applicantPosition Int                   @map("applicant_position")
+  status            VisaApplicationStatus @default(awaiting_documents)
+  purpose           VisaPurpose
+  nationality       String                @db.Char(2)
+  destination       String                @db.Char(2)
+  travelDate        DateTime              @map("travel_date") @db.Date
+  submittedAt       DateTime?             @map("submitted_at") @db.Timestamptz(3)
+  closedAt          DateTime?             @map("closed_at") @db.Timestamptz(3)
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking   Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  product   VisaProduct            @relation(fields: [productId], references: [id], onDelete: Restrict)
+  documents VisaDocument[]
+  events    VisaApplicationEvent[]
+
+  @@unique([bookingId, applicantPosition])
+  @@index([status, updatedAt])
+  @@map("visa_applications")
+}
+
+/// Status changes, officer messages (shown to the customer) and internal notes, append-only.
+model VisaApplicationEvent {
+  id            String                 @id @default(uuid(7)) @db.Uuid
+  applicationId String                 @map("application_id") @db.Uuid
+  kind          String
+  fromStatus    VisaApplicationStatus? @map("from_status")
+  toStatus      VisaApplicationStatus? @map("to_status")
+  /// Visible to the customer.
+  message       String?
+  /// Staff only.
+  note          String?
+  actorType     BookingActorType       @map("actor_type")
+  actorUserId   String?                @map("actor_user_id") @db.Uuid
+  occurredAt    DateTime               @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  application VisaApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, occurredAt])
+  @@map("visa_application_events")
+}
+
+/// An uploaded document, encrypted at rest with its own key (ADR-026).
+model VisaDocument {
+  id                String             @id @default(uuid(7)) @db.Uuid
+  applicationId     String             @map("application_id") @db.Uuid
+  checklistKey      String             @map("checklist_key")
+  status            VisaDocumentStatus @default(pending_scan)
+  /// Ciphertext location; null once deleted (infected, replaced or past retention).
+  storageKey        String?            @map("storage_key")
+  contentType       String             @map("content_type")
+  sizeBytes         Int                @map("size_bytes")
+  /// SHA-256 of the plaintext, hex.
+  sha256            String
+  /// The document's data key, wrapped by field encryption with `visa-document:{id}`.
+  wrappedKey        String             @map("wrapped_key")
+  /// Safe file name, encrypted with `visa-document:{id}:name`.
+  fileNameEncrypted String             @map("file_name_encrypted")
+  uploadedByUserId  String?            @map("uploaded_by_user_id") @db.Uuid
+  uploadedAt        DateTime           @default(now()) @map("uploaded_at") @db.Timestamptz(3)
+  scannedAt         DateTime?          @map("scanned_at") @db.Timestamptz(3)
+  scanAttempts      Int                @default(0) @map("scan_attempts")
+  /// Newer upload for the same checklist item, or officer rejection.
+  supersededAt      DateTime?          @map("superseded_at") @db.Timestamptz(3)
+  deletedAt         DateTime?          @map("deleted_at") @db.Timestamptz(3)
+
+  application VisaApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, checklistKey])
+  @@index([status, uploadedAt])
+  @@map("visa_documents")
+}
+
+/// A voucher for a confirmed package, tour or add-on item (ADR-028). Only the code's HMAC is
+/// looked up; the code itself is encrypted with `booking-voucher:{id}` for the PDF.
+model BookingVoucher {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  bookingId     String    @map("booking_id") @db.Uuid
+  bookingItemId String    @map("booking_item_id") @db.Uuid
+  codeHash      String    @unique @map("code_hash")
+  codeEncrypted String    @map("code_encrypted")
+  redeemedAt    DateTime? @map("redeemed_at") @db.Timestamptz(3)
+  redeemedById  String?   @map("redeemed_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking     Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingItem BookingItem @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingItemId])
+  @@map("booking_vouchers")
 }
