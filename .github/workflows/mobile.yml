@@ -39,7 +39,7 @@ jobs:
   android:
     name: Android build and Maestro critical path
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     services:
       postgres:
         image: postgres:16-alpine
@@ -105,9 +105,16 @@ jobs:
         working-directory: apps/mobile
         run: pnpm exec expo prebuild --platform android --clean --no-install
 
+      # The generated gradle.properties gives the daemon 2 GiB and 512 MiB of Metaspace, which
+      # runs out on this build and stalls it; the runner has 16 GB. Lint vital checks are skipped
+      # for this test APK (they are the memory-heavy part and not what this job verifies).
       - name: Build the release APK (x86_64 for the emulator)
         working-directory: apps/mobile/android
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+        timeout-minutes: 45
+        run: >-
+          ./gradlew assembleRelease -x lintVitalRelease -PreactNativeArchitectures=x86_64
+          --no-daemon "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC"
+          "-Pkotlin.daemon.jvmargs=-Xmx3g"
 
       - name: Scan the APK for secrets
         run: |
