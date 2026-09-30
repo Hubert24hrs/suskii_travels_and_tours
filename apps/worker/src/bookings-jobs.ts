@@ -8,6 +8,8 @@ import {
   type PlanRun,
   type RefundRun,
   type TicketingRun,
+  type VisaPruneRun,
+  type VisaScanRun,
 } from './internal-api.js';
 import { type Logger } from './logger.js';
 
@@ -17,8 +19,9 @@ import { type Logger } from './logger.js';
  * are ticketed (first attempts the API could not start, plus retries whose backoff has elapsed);
  * pending payments whose webhook never came are verified with the provider; payment plans get
  * their reminders and are closed on a missed payment; approved refunds are sent and pending ones
- * followed up. The API owns the state machine, the ledger, locking and backoff; the worker only
- * keeps the clock.
+ * followed up. Visa documents whose background scan was lost are scanned again every few
+ * minutes, and documents past their retention period are deleted daily (ADR-026). The API owns
+ * the state machine, the ledger, locking and backoff; the worker only keeps the clock.
  */
 export const BOOKINGS_QUEUE = 'bookings';
 
@@ -28,6 +31,12 @@ export const BOOKING_JOB = {
   reconcile: 'bookings-reconcile-payments',
   plans: 'bookings-payment-plans',
   refunds: 'bookings-refunds',
+} as const;
+
+/** Visa document housekeeping, on the same queue with their own schedules. */
+export const VISA_JOB = {
+  scan: 'visa-documents-scan',
+  prune: 'visa-documents-prune',
 } as const;
 
 export interface BookingJobDeps {
@@ -50,7 +59,9 @@ async function sweep<T>(run: () => Promise<T>): Promise<T> {
 export async function processBookingJob(
   job: { name: string },
   deps: BookingJobDeps,
-): Promise<ExpiryRun | TicketingRun | PaymentRun | PlanRun | RefundRun> {
+): Promise<
+  ExpiryRun | TicketingRun | PaymentRun | PlanRun | RefundRun | VisaScanRun | VisaPruneRun
+> {
   switch (job.name) {
     case BOOKING_JOB.expire: {
       const result = await sweep(() => deps.api.expireDueBookings());
@@ -91,6 +102,22 @@ export async function processBookingJob(
       if (result.review > 0) {
         deps.logger.warn({ review: result.review }, 'refunds need an operations review');
       }
+      return result;
+    }
+    case VISA_JOB.scan: {
+      const result = await sweep(() => deps.api.scanDueVisaDocuments());
+      if (result.scanned > 0) deps.logger.info(result, 'visa documents scanned');
+      if (result.infected > 0 || result.failed > 0) {
+        deps.logger.warn(
+          { infected: result.infected, failed: result.failed },
+          'visa document scans found infected files or failed',
+        );
+      }
+      return result;
+    }
+    case VISA_JOB.prune: {
+      const result = await sweep(() => deps.api.pruneVisaDocuments());
+      if (result.deleted > 0) deps.logger.info(result, 'visa documents past retention deleted');
       return result;
     }
     default:

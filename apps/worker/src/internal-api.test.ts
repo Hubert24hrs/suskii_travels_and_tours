@@ -92,6 +92,27 @@ describe('internal API client', () => {
     ]);
   });
 
+  it('calls the visa document routes', async () => {
+    const replies: Record<string, unknown> = {
+      'scan-due': { scanned: 1, clean: 1, infected: 0, failed: 0 },
+      prune: { deleted: 2 },
+    };
+    const fetch = vi.fn((request: Request) =>
+      Promise.resolve(reply(200, replies[request.url.split('/').pop() ?? ''] ?? {})),
+    );
+    const api = createInternalApi({
+      baseUrl: 'http://api.internal:4000',
+      token: TOKEN,
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    });
+    await expect(api.scanDueVisaDocuments()).resolves.toMatchObject({ clean: 1 });
+    await expect(api.pruneVisaDocuments()).resolves.toEqual({ deleted: 2 });
+    expect(fetch.mock.calls.map(([request]) => request.url)).toEqual([
+      'http://api.internal:4000/v1/internal/visa/scan-due',
+      'http://api.internal:4000/v1/internal/visa/prune',
+    ]);
+  });
+
   it('classifies failures as retryable or final', async () => {
     const statuses = [503, 429, 404, 401];
     const api = createInternalApi({

@@ -10,6 +10,8 @@ export type TicketingRun = components['schemas']['TicketingRun'];
 export type PaymentRun = components['schemas']['PaymentReconciliationRun'];
 export type PlanRun = components['schemas']['PaymentPlanRun'];
 export type RefundRun = components['schemas']['RefundRun'];
+export type VisaScanRun = components['schemas']['VisaScanRun'];
+export type VisaPruneRun = components['schemas']['VisaPruneRun'];
 
 /** A failed internal API call. `status` 0 means the API was unreachable or timed out. */
 export class InternalApiError extends Error {
@@ -47,6 +49,10 @@ export interface BookingsApi {
   readonly reconcilePayments: () => Promise<PaymentRun>;
   readonly processDuePaymentPlans: () => Promise<PlanRun>;
   readonly processDueRefunds: () => Promise<RefundRun>;
+  /** Visa documents whose background virus scan did not finish (ADR-026). */
+  readonly scanDueVisaDocuments: () => Promise<VisaScanRun>;
+  /** Visa documents past their retention period. */
+  readonly pruneVisaDocuments: () => Promise<VisaPruneRun>;
 }
 
 export interface InternalApiOptions {
@@ -138,5 +144,13 @@ export function createInternalApi(options: InternalApiOptions): InternalApi & Bo
         (signal) => client.POST('/v1/internal/bookings/refunds-due', { signal }),
         MONEY_SWEEP_TIMEOUT_MS,
       ),
+    scanDueVisaDocuments: () =>
+      call(
+        'scanDueVisaDocuments',
+        (signal) => client.POST('/v1/internal/visa/scan-due', { signal }),
+        MONEY_SWEEP_TIMEOUT_MS,
+      ),
+    pruneVisaDocuments: () =>
+      call('pruneVisaDocuments', (signal) => client.POST('/v1/internal/visa/prune', { signal })),
   };
 }

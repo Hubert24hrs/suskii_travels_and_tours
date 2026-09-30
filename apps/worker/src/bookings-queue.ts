@@ -1,7 +1,7 @@
 import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 
-import { BOOKING_JOB, BOOKINGS_QUEUE, processBookingJob } from './bookings-jobs.js';
+import { BOOKING_JOB, BOOKINGS_QUEUE, processBookingJob, VISA_JOB } from './bookings-jobs.js';
 import { type WorkerConfig } from './config.js';
 import { type BookingsApi } from './internal-api.js';
 import { type WorkerComponent } from './lifecycle.js';
@@ -43,6 +43,16 @@ export function createBookingsQueue(
       for (const name of Object.values(BOOKING_JOB)) {
         await activeQueue.upsertJobScheduler(name, repeat, { name, opts });
       }
+      await activeQueue.upsertJobScheduler(
+        VISA_JOB.scan,
+        { every: config.VISA_SCAN_INTERVAL_SECONDS * 1000, immediately: true },
+        { name: VISA_JOB.scan, opts },
+      );
+      await activeQueue.upsertJobScheduler(
+        VISA_JOB.prune,
+        { every: config.VISA_PRUNE_INTERVAL_HOURS * 3_600_000, immediately: true },
+        { name: VISA_JOB.prune, opts },
+      );
     },
     async stop() {
       await worker?.close();

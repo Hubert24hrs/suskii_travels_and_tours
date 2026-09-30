@@ -30,6 +30,10 @@ const envSchema = z
     REFRESH_RATE_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(30),
     /** How often unpaid bookings are expired and due ticketing attempts are made. */
     BOOKINGS_SWEEP_INTERVAL_SECONDS: z.coerce.number().int().min(15).max(600).default(60),
+    /** Visa documents whose background scan was lost are scanned again this often (ADR-026). */
+    VISA_SCAN_INTERVAL_SECONDS: z.coerce.number().int().min(60).max(3600).default(300),
+    /** How often documents past their retention period are deleted. */
+    VISA_PRUNE_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

@@ -16,6 +16,8 @@ describe('loadConfig', () => {
       REFRESH_CONCURRENCY: 2,
       REFRESH_RATE_PER_MINUTE: 30,
       BOOKINGS_SWEEP_INTERVAL_SECONDS: 60,
+      VISA_SCAN_INTERVAL_SECONDS: 300,
+      VISA_PRUNE_INTERVAL_HOURS: 24,
     });
   });
 

@@ -2,7 +2,7 @@ import { UnrecoverableError } from 'bullmq';
 import { pino } from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BOOKING_JOB, processBookingJob } from './bookings-jobs.js';
+import { BOOKING_JOB, processBookingJob, VISA_JOB } from './bookings-jobs.js';
 import { InternalApiError, type BookingsApi } from './internal-api.js';
 
 const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
@@ -13,6 +13,10 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   reconcilePayments: vi.fn(() => Promise.resolve({ checked: 2, settled: 1 })),
   processDuePaymentPlans: vi.fn(() => Promise.resolve({ reminders: 1, defaulted: 1, expired: 0 })),
   processDueRefunds: vi.fn(() => Promise.resolve({ executed: 2, settled: 1, review: 1 })),
+  scanDueVisaDocuments: vi.fn(() =>
+    Promise.resolve({ scanned: 3, clean: 1, infected: 1, failed: 1 }),
+  ),
+  pruneVisaDocuments: vi.fn(() => Promise.resolve({ deleted: 4 })),
   ...overrides,
 });
 
@@ -103,5 +107,21 @@ describe('booking jobs', () => {
       'payment plans closed on a missed payment',
     );
     expect(log.warn).toHaveBeenCalledWith({ review: 1 }, 'refunds need an operations review');
+  });
+
+  it('rescans lost visa document scans and prunes documents past retention', async () => {
+    const api = fakeApi();
+    const log = logger();
+    await expect(processBookingJob({ name: VISA_JOB.scan }, { api, logger: log })).resolves.toEqual(
+      { scanned: 3, clean: 1, infected: 1, failed: 1 },
+    );
+    expect(log.warn).toHaveBeenCalledWith(
+      { infected: 1, failed: 1 },
+      'visa document scans found infected files or failed',
+    );
+    await expect(
+      processBookingJob({ name: VISA_JOB.prune }, { api, logger: log }),
+    ).resolves.toEqual({ deleted: 4 });
+    expect(api.pruneVisaDocuments).toHaveBeenCalledTimes(1);
   });
 });
