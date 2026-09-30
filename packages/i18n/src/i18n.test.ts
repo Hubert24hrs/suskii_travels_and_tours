@@ -94,6 +94,15 @@ describe('formatters', () => {
     expect(format.dateRange('2026-12-10', '2026-12-17')).toBe('10–17 Dec');
   });
 
+  it('shows deadlines in the viewer time zone, with the zone named', () => {
+    const deadline = '2026-12-10T13:30:00Z';
+    const lagos = format.dateTime(deadline, 'Africa/Lagos');
+    expect(lagos).toContain('14:30');
+    expect(lagos).toContain('10 Dec');
+    expect(format.dateTime(deadline, 'UTC')).toContain('13:30');
+    expect(createFormatters('en-US').dateTime(deadline, 'America/New_York')).toMatch(/08:30\sAM/);
+  });
+
   it('describes how long ago a fare was checked', () => {
     expect(format.relativeTime('2026-10-01T10:00:00Z', now)).toBe('2 hours ago');
     expect(format.relativeTime('2026-09-30T12:00:00Z', now)).toBe('yesterday');

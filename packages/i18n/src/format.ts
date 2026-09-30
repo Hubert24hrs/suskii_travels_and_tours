@@ -39,6 +39,11 @@ export interface Formatters {
   moneyFrom(amount: Money | MoneyWire): string;
   date(value: string, style?: DateStyle): string;
   dateRange(start: string, end: string, style?: DateStyle): string;
+  /**
+   * A moment (deadline, due date) in the viewer's time zone, with the zone shown: "Thu, 10 Dec,
+   * 14:30 WAT". Browser-only use: the server does not know the viewer's zone.
+   */
+  dateTime(instant: string | Date, timeZone?: string): string;
   /** "2 hours ago", "yesterday"; `now` is injectable for tests and stable server renders. */
   relativeTime(instant: string | Date, now?: Date): string;
   number(value: number): string;
@@ -58,6 +63,7 @@ export function createFormatters(locale: string): Formatters {
     }
     return format;
   };
+  const dateTimeFormats = new Map<string, Intl.DateTimeFormat>();
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
   const numbers = new Intl.NumberFormat(locale);
   const lists = new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' });
@@ -76,6 +82,23 @@ export function createFormatters(locale: string): Formatters {
     date: (value, style = 'medium') => dateFormat(style).format(calendarDate(value)),
     dateRange: (start, end, style = 'short') =>
       dateFormat(style).formatRange(calendarDate(start), calendarDate(end)),
+    dateTime(instant, timeZone) {
+      const key = timeZone ?? '';
+      let format = dateTimeFormats.get(key);
+      if (!format) {
+        format = new Intl.DateTimeFormat(locale, {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZoneName: 'short',
+          ...(timeZone ? { timeZone } : {}),
+        });
+        dateTimeFormats.set(key, format);
+      }
+      return format.format(typeof instant === 'string' ? new Date(instant) : instant);
+    },
     relativeTime(instant, now = new Date()) {
       const seconds = Math.round(
         ((typeof instant === 'string' ? Date.parse(instant) : instant.getTime()) - now.getTime()) /

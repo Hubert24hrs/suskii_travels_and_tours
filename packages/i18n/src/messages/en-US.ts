@@ -45,9 +45,18 @@ export const enUS: MessageOverlay<Messages> = {
     priceChange: {
       body: 'The supplier changed the price since you started. Review the new total before you pay.',
     },
+    plan: {
+      policyRefund:
+        'If a payment is missed, the booking is canceled and everything you paid is refunded.',
+      policyFee:
+        'If a payment is missed, the booking is canceled and what you paid is refunded minus a {percent}% cancellation fee.',
+    },
   },
   booking: {
     travellers: 'Travelers',
+    status: { CANCELLED: 'Canceled' },
+    statusHelp: { cancelled: 'This booking was canceled.' },
+    plan: { states: { cancelled: 'Canceled' } },
   },
   pages: {
     verticals: {
