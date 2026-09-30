@@ -3,6 +3,7 @@ module.exports = {
   preset: 'jest-expo',
   testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
   setupFiles: ['<rootDir>/jest.setup.js'],
+  clearMocks: true,
   moduleNameMapper: { '\\.css$': '<rootDir>/src/test/style-mock.js' },
   // Worklets' resolver picks its JS implementation instead of the native module in tests.
   resolver: require.resolve('react-native-worklets/jest/resolver'),
