@@ -170,8 +170,8 @@ export async function startStack(): Promise<Stack> {
     const internalToken = randomBytes(32).toString('base64url');
     const apiUrl = `http://localhost:${API_PORT}`;
     const webUrl = `http://localhost:${WEB_PORT}`;
-    // The mobile e2e job reaches the web app from an emulator (http://10.0.2.2:3000), so hosted
-    // checkout and return URLs must use that origin.
+    // A device that reaches the web app through another origin (an emulator without
+    // `adb reverse` uses http://10.0.2.2:3000) needs hosted checkout and return URLs there.
     const publicWebUrl = process.env.E2E_PUBLIC_WEB_URL ?? webUrl;
     const base = { PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: 'test' } as const;
 
@@ -189,6 +189,8 @@ export async function startStack(): Promise<Stack> {
       // Lagos-Dubai fares rise 5% at the re-check before payment (price-change consent test).
       MOCK_REPRICE_RULES: PRICE_CHANGE_ROUTE_RULE,
       OBJECT_STORAGE_DIR: join(LOG_DIR, 'objects'),
+      // The mobile e2e job enforces (mock) device attestation for app requests (ADR-023).
+      ATTESTATION_MODE: process.env.E2E_ATTESTATION_MODE ?? 'off',
     });
     children.push(api);
     await waitFor(`${apiUrl}/ready`, api, 'api');

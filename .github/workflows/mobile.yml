@@ -1,0 +1,218 @@
+name: Mobile
+
+# Native builds of the app (ADR-024): an Android release APK run through the Maestro critical path
+# on an emulator against the e2e stack, and an iOS simulator build. Both are scanned for secrets.
+# Store builds go through EAS (mobile-release.yml) once the owner's accounts exist.
+on:
+  pull_request:
+    paths:
+      - apps/mobile/**
+      - apps/api/**
+      - apps/web/**
+      - apps/worker/**
+      - packages/**
+      - pnpm-lock.yaml
+      - .github/workflows/mobile.yml
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+  EXPO_NO_TELEMETRY: 1
+  # The e2e variant: http to the stack on localhost (through adb reverse), mock attestation.
+  APP_VARIANT: e2e
+  EXPO_PUBLIC_ATTESTATION: mock
+  EXPO_PUBLIC_API_BASE_URL: http://localhost:4000
+  EXPO_PUBLIC_WEB_BASE_URL: http://localhost:3000
+  GITLEAKS_VERSION: 8.28.0
+
+jobs:
+  android:
+    name: Android build and Maestro critical path
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: suskii
+          POSTGRES_PASSWORD: suskii_ci
+          POSTGRES_DB: suskii_mobile_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U suskii" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore Gradle cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mobile/app.config.ts') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the API, worker and web app
+        run: pnpm exec turbo run build --filter=@suskii/api --filter=@suskii/worker --filter=@suskii/web
+
+      # Continuous native generation: the android/ project is generated, never committed.
+      - name: Generate the native Android project
+        working-directory: apps/mobile
+        run: pnpm exec expo prebuild --platform android --clean --no-install
+
+      - name: Build the release APK (x86_64 for the emulator)
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+
+      - name: Scan the APK for secrets
+        run: |
+          apk=apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          rm -rf apk-contents && mkdir apk-contents && unzip -q "$apk" -d apk-contents
+          node apps/mobile/scripts/scan-bundle.mjs --self-test
+          node apps/mobile/scripts/scan-bundle.mjs apk-contents
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks dir apk-contents --redact --no-banner
+
+      # Postgres and Redis come from the service containers; the stack migrates, seeds, starts
+      # the API and web app from build output and runs one worker refresh.
+      - name: Start the e2e stack
+        run: |
+          nohup pnpm --filter @suskii/web e2e:stack > stack.log 2>&1 &
+          for _ in $(seq 1 150); do
+            if grep -q 'STACK READY' stack.log; then exit 0; fi
+            sleep 2
+          done
+          cat stack.log
+          exit 1
+        env:
+          WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_mobile_e2e
+          WEB_E2E_REDIS_URL: redis://localhost:6379/2
+          E2E_ATTESTATION_MODE: enforce
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL https://get.maestro.mobile.dev | bash
+          "$HOME/.maestro/bin/maestro" --version
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the critical path on an Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash apps/mobile/e2e/run-android.sh apps/mobile/android/app/build/outputs/apk/release/app-release.apk maestro-report
+
+      - name: Upload Maestro and stack reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-android-e2e
+          path: |
+            maestro-report/
+            stack.log
+            apps/web/test-results/stack/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  ios:
+    name: iOS simulator build
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Select the latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Generates ios/ and installs the pods.
+      - name: Generate the native iOS project
+        working-directory: apps/mobile
+        run: pnpm exec expo prebuild --platform ios --clean
+
+      # Unsigned simulator build: proves the native project compiles until EAS has Apple
+      # credentials (owner decision).
+      - name: Build for the iOS simulator
+        working-directory: apps/mobile/ios
+        run: |
+          workspace="$(ls -d *.xcworkspace | head -n 1)"
+          scheme="${workspace%.xcworkspace}"
+          set -o pipefail
+          xcodebuild -workspace "$workspace" -scheme "$scheme" -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 200
+
+      - name: Scan the app bundle for secrets
+        run: |
+          app="$(ls -d apps/mobile/ios/build/Build/Products/Release-iphonesimulator/*.app | head -n 1)"
+          node apps/mobile/scripts/scan-bundle.mjs "$app"

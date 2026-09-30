@@ -1,0 +1,84 @@
+name: Mobile release
+
+# EAS cloud builds for testers and the stores (ADR-024). Runs only once the owner's Expo account
+# is set up: the EXPO_TOKEN secret, the EAS_PROJECT_ID variable (from `eas init`), the profile's
+# public settings as EAS environment variables (https API and web URLs, Play Integrity project)
+# and store credentials managed by EAS. The bundle is exported and scanned before EAS builds it.
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS build profile
+        type: choice
+        options: [preview, production]
+        default: preview
+      platform:
+        description: Platforms
+        type: choice
+        options: [all, android, ios]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-release-${{ inputs.profile }}
+  cancel-in-progress: false
+
+jobs:
+  eas-build:
+    name: EAS ${{ inputs.profile }} build (${{ inputs.platform }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EXPO_NO_TELEMETRY: 1
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      APP_VARIANT: ${{ inputs.profile }}
+    steps:
+      - name: Check the Expo account is configured
+        run: |
+          if [ -z "$EXPO_TOKEN" ] || [ -z "$EAS_PROJECT_ID" ]; then
+            echo "::error::EAS builds need the owner's Expo account: set the EXPO_TOKEN secret and the EAS_PROJECT_ID variable."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # The profile's EAS environment variables (public EXPO_PUBLIC_* settings) into .env.local,
+      # which the Expo CLI loads, so the scanned bundle matches what EAS builds.
+      - name: Load the profile's settings
+        working-directory: apps/mobile
+        run: eas env:pull --environment "$APP_VARIANT" --non-interactive
+
+      - name: Export and scan the bundle
+        working-directory: apps/mobile
+        run: |
+          pnpm exec expo export --platform android --platform ios --output-dir dist-release
+          node scripts/scan-bundle.mjs --self-test
+          node scripts/scan-bundle.mjs dist-release
+
+      - name: Build on EAS
+        working-directory: apps/mobile
+        run: eas build --profile "$APP_VARIANT" --platform "${{ inputs.platform }}" --non-interactive
