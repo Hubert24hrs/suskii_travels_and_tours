@@ -24,6 +24,9 @@ function dayButtonName(iso: string): string {
 export async function pickDates(page: Page, id: string, ...dates: string[]): Promise<void> {
   await page.locator(`#${id}`).click();
   const picker = page.getByRole('dialog').last();
+  // The calendar loads lazily: wait for it before looking for a day, or the loop below would
+  // page past a date that is simply not rendered yet (it did, on a date at a month's end).
+  await expect(picker.getByRole('grid').first()).toBeVisible();
   for (const iso of dates) {
     const day = picker.getByRole('button', { name: dayButtonName(iso), exact: false });
     for (let step = 0; step < 12 && !(await day.isVisible()); step += 1) {
