@@ -52,6 +52,24 @@ services:
       timeout: 3s
       retries: 12
 
+  # Optional virus scanner for visa documents (ADR-026): `docker compose --profile av up -d`.
+  # Needs about 1 GB of memory for its signatures; the mock scanner is the default otherwise.
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: ['av']
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${CLAMAV_PORT:-3310}:3310'
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
 volumes:
   postgres-data:
   redis-data:
+  clamav-data:

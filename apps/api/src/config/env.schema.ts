@@ -269,6 +269,8 @@ export const envSchema = z
       require('FX_PROVIDER', 'mock exchange rates are not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.PAYMENT_PROVIDERS.includes('mock'))
       require('PAYMENT_PROVIDERS', 'mock payments are not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.ANTIVIRUS_PROVIDER === 'mock')
+      require('ANTIVIRUS_PROVIDER', 'uploaded documents must be scanned by a real scanner');
     // Real providers must be called over TLS with their production hosts' defaults or overrides.
     for (const key of ['PAYSTACK_API_URL', 'FLUTTERWAVE_API_URL', 'STRIPE_API_URL'] as const) {
       if (!env[key].startsWith('https://')) require(key, 'must use https in production');

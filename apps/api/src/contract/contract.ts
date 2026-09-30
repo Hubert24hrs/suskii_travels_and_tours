@@ -22,6 +22,11 @@ export interface RouteContract {
   idempotent?: boolean;
   /** Extra request headers to document (validation stays with the handler). */
   headers?: { name: string; required: boolean; description: string }[];
+  /**
+   * A raw binary request body (file upload) instead of JSON: documented with these media types;
+   * the handler reads and checks the bytes itself (size, type sniffing).
+   */
+  upload?: { contentTypes: readonly string[]; description: string };
 }
 
 export const CONTRACT = 'suskii:contract';

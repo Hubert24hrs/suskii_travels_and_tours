@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 import { Inject, Injectable } from '@nestjs/common';
@@ -11,6 +11,8 @@ export abstract class ObjectStorage {
   abstract put(key: string, data: Uint8Array, contentType: string): Promise<void>;
   /** `null` when the object does not exist. */
   abstract get(key: string): Promise<Buffer | null>;
+  /** Removes the object; deleting one that does not exist is not an error. */
+  abstract delete(key: string): Promise<void>;
 }
 
 const KEY_PATTERN = /^[a-z0-9][a-z0-9/_.-]{0,200}$/;
@@ -49,6 +51,15 @@ export class FileSystemObjectStorage extends ObjectStorage {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw error;
+    }
+  }
+
+  async delete(key: string): Promise<void> {
+    assertKey(key);
+    try {
+      await unlink(join(this.root, key));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
   }
 }

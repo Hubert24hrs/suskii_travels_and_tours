@@ -35,7 +35,11 @@ export interface OperationObject {
   tags: string[];
   security?: Record<string, string[]>[];
   parameters: ParameterObject[];
-  requestBody?: { required: boolean; content: Record<string, MediaContent> };
+  requestBody?: {
+    required: boolean;
+    description?: string;
+    content: Record<string, MediaContent>;
+  };
   responses: Record<string, ResponseObject>;
 }
 
@@ -242,6 +246,20 @@ function operation(
           requestBody: {
             required: true,
             content: { 'application/json': { schema: collector.convert(contract.body, 'input') } },
+          },
+        }
+      : {}),
+    ...(contract.upload
+      ? {
+          requestBody: {
+            required: true,
+            description: contract.upload.description,
+            content: Object.fromEntries(
+              contract.upload.contentTypes.map((type) => [
+                type,
+                { schema: { type: 'string', format: 'binary' } },
+              ]),
+            ),
           },
         }
       : {}),

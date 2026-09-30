@@ -20,6 +20,7 @@ import { ContractInterceptor } from './contract/contract.interceptor';
 import { CryptoModule } from './crypto/crypto.module';
 import { HealthModule } from './health/health.module';
 import { InhouseModule } from './inhouse/inhouse.module';
+import { VisaModule } from './visa/visa.module';
 import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor';
 import { InfraModule } from './infra/redis';
 import { LedgerModule } from './ledger/ledger.module';
@@ -61,6 +62,7 @@ export class AppModule {
         NewsletterModule,
         BookingsModule,
         InhouseModule,
+        VisaModule,
         HealthModule,
       ],
       providers: [

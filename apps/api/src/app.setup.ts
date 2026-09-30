@@ -18,6 +18,7 @@ export const CORS_ALLOWED_HEADERS = [
   'X-Request-Id',
   'X-Suskii-Client',
   'X-Booking-Token',
+  'X-File-Name',
 ];
 export const CORS_EXPOSED_HEADERS = [
   'X-Request-Id',

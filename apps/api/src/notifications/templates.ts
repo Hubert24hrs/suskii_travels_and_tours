@@ -315,3 +315,42 @@ export function pushText(kind: PushKind, reference: string): { title: string; bo
       };
   }
 }
+
+const VISA_STATUS_TEXT: Record<string, string> = {
+  submitted: 'We received your documents and will review them shortly.',
+  in_review: 'Our visa team is reviewing your documents.',
+  action_required: 'We need something more from you before we can continue.',
+  lodged: 'Your application has been lodged with the authority.',
+  approved: 'The authority has approved your visa.',
+  refused: 'The authority has refused this application.',
+  withdrawn: 'This application has been withdrawn.',
+  awaiting_documents: 'Please upload the documents on your checklist.',
+};
+
+export interface VisaUpdateDetails {
+  reference: string;
+  status: string;
+  /** A message from the visa team, if any. */
+  message: string | null;
+  bookingUrl: string | null;
+}
+
+/** A visa application changed status or the visa team wrote to the traveller (ADR-026). */
+export function visaUpdateTemplate(details: VisaUpdateDetails): Template {
+  const lines = [
+    VISA_STATUS_TEXT[details.status] ?? 'Your visa application was updated.',
+    ...(details.message ? [`Message from our visa team: ${details.message}`] : []),
+    'Open your booking to see the details and upload documents.',
+    VISA_DISCLAIMER,
+  ];
+  return {
+    template: 'visa-update',
+    subject: `Visa application update: ${details.reference}`,
+    text: [lines.join('\n\n'), details.bookingUrl].filter(Boolean).join('\n\n'),
+    html: layout(
+      'Visa application update',
+      lines,
+      details.bookingUrl ? { label: 'View booking', url: details.bookingUrl } : undefined,
+    ),
+  };
+}

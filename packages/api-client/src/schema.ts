@@ -464,6 +464,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/visa-applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Visa applications, oldest submission first */
+        get: operations["adminListVisaApplications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visa-applications/{applicationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A visa application with documents, events and internal notes */
+        get: operations["adminGetVisaApplication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visa-applications/{applicationId}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Write to the traveller or add an internal note */
+        post: operations["adminCommentVisaApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visa-applications/{applicationId}/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an application on (review, action required, lodged, decision)
+         * @description Only the moves in `allowedTransitions` (409 otherwise). `message` is shown to and emailed to the traveller; `note` stays internal.
+         */
+        post: operations["adminTransitionVisaApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visa-documents/{documentId}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A short-lived, audited link to view a document */
+        post: operations["adminCreateVisaDocumentLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visa-documents/{documentId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a document with a message to the traveller
+         * @description Move the application to `action_required` so they can upload a new one.
+         */
+        post: operations["adminRejectVisaDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/visa-products": {
         parameters: {
             query?: never;
@@ -496,6 +604,41 @@ export interface paths {
         head?: never;
         /** Update, publish or archive a visa assistance product */
         patch: operations["adminUpdateVisaProduct"];
+        trace?: never;
+    };
+    "/v1/admin/visa-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eligibility rules */
+        get: operations["adminListVisaRules"];
+        /** Create or replace the rule for a nationality, destination and purpose */
+        put: operations["adminUpsertVisaRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visa-rules/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a rule (the checker then answers `unknown`) */
+        delete: operations["adminDeleteVisaRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/vouchers/redeem": {
@@ -934,6 +1077,80 @@ export interface paths {
          */
         put: operations["registerBookingPushToken"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/visa-applications/{applicationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A visa application: checklist, uploads and messages */
+        get: operations["getVisaApplication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/visa-applications/{applicationId}/documents/{checklistKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload the file for one checklist item
+         * @description Send the raw file as the body. PDF, JPEG or PNG, detected from the bytes (the declared type and name are ignored); at most VISA_DOCUMENT_MAX_BYTES (413 `document-too-large`, 415 `document-type`). Replaces an earlier upload for the item. The file is encrypted at rest and virus-scanned before it counts (`status: pending_scan`, then `clean`). Only while the application awaits documents or needs action (409 otherwise).
+         */
+        put: operations["uploadVisaDocument"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/visa-applications/{applicationId}/documents/{documentId}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A short-lived link to view one of your documents */
+        post: operations["createVisaDocumentLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/visa-applications/{applicationId}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the documents to our visa team
+         * @description 422 `documents-incomplete` lists the required items without a clean upload; 409 when the application is already with the team.
+         */
+        post: operations["submitVisaApplication"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1511,6 +1728,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/visa/prune": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete documents past their retention period */
+        post: operations["pruneVisaDocuments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/visa/scan-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan documents whose background scan did not finish */
+        post: operations["scanDueVisaDocuments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -2042,6 +2293,80 @@ export interface paths {
         };
         /** A tour with its meeting point and departures */
         get: operations["getTour"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visa/documents/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The bytes behind a signed document link
+         * @description Only through a link from `createVisaDocumentLink` or the officer route, before it expires; anything else answers 404. Always an attachment, never rendered inline.
+         */
+        get: operations["getVisaDocumentContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visa/eligibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether a visa is needed, from our visa team’s rules
+         * @description Answers `unknown` when there is no rule on file (the page offers to confirm by message); never a guess. Lists the assistance products for the destination and purpose. The issuing government always decides.
+         */
+        get: operations["checkVisaEligibility"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visa/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Visa assistance products */
+        get: operations["listVisaProducts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visa/products/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A visa assistance product with its document checklist */
+        get: operations["getVisaProduct"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3419,6 +3744,81 @@ export interface components {
             /** @constant */
             status: "unsubscribed";
         };
+        OfficerVisaApplication: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bookingId: string;
+            applicantPosition: number;
+            applicantName: string;
+            /** @enum {string} */
+            status: "awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn";
+            destination: string;
+            /** @enum {string} */
+            purpose: "tourism" | "business" | "study" | "transit";
+            travelDate: string;
+            submittedAt: string | null;
+            closedAt: string | null;
+            checklist: {
+                key: string;
+                label: string;
+                description: string;
+                required: boolean;
+                document: components["schemas"]["VisaDocument"] | null;
+            }[];
+            disclaimer: string;
+            bookingReference: string;
+            nationality: string;
+            passport: {
+                hint: string;
+                issuingCountry: string;
+                expiryDate: string;
+            } | null;
+            allowedTransitions: ("awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn")[];
+            events: {
+                /** Format: date-time */
+                occurredAt: string;
+                kind: string;
+                fromStatus: ("awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn") | null;
+                toStatus: ("awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn") | null;
+                message: string | null;
+                note: string | null;
+                actorType: string;
+            }[];
+            documents: {
+                /** Format: uuid */
+                id: string;
+                checklistKey: string;
+                /** @enum {string} */
+                status: "pending_scan" | "clean" | "infected" | "scan_failed" | "rejected";
+                contentType: string;
+                sizeBytes: number;
+                fileName: string;
+                /** Format: date-time */
+                uploadedAt: string;
+                supersededAt: string | null;
+                deletedAt: string | null;
+            }[];
+        };
+        OfficerVisaApplicationList: {
+            applications: components["schemas"]["OfficerVisaApplicationSummary"][];
+        };
+        OfficerVisaApplicationSummary: {
+            /** Format: uuid */
+            id: string;
+            bookingReference: string;
+            applicantName: string;
+            nationality: string;
+            destination: string;
+            /** @enum {string} */
+            purpose: "tourism" | "business" | "study" | "transit";
+            travelDate: string;
+            /** @enum {string} */
+            status: "awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn";
+            submittedAt: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         OtpDispatched: {
             /** @constant */
             status: "accepted";
@@ -3770,6 +4170,9 @@ export interface components {
         RejectRefundRequestInput: {
             reason: string;
         };
+        RejectVisaDocumentInput: {
+            message: string;
+        };
         ResetPasswordRequestInput: {
             token: string;
             password: string;
@@ -4100,8 +4503,60 @@ export interface components {
             /** @enum {string} */
             status?: "draft" | "published" | "archived";
         };
+        UpsertVisaRuleInput: {
+            nationality: string;
+            destination: string;
+            /** @enum {string} */
+            purpose: "tourism" | "business" | "study" | "transit";
+            /** @enum {string} */
+            requirement: "visa_free" | "visa_on_arrival" | "e_visa" | "visa_required" | "not_available";
+            /** @default null */
+            maxStayDays?: number | null;
+            /** @default null */
+            notes?: string | null;
+            /** @default null */
+            verifiedAt?: string | null;
+        };
         VerificationTokenRequestInput: {
             token: string;
+        };
+        VisaApplication: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bookingId: string;
+            applicantPosition: number;
+            applicantName: string;
+            /** @enum {string} */
+            status: "awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn";
+            destination: string;
+            /** @enum {string} */
+            purpose: "tourism" | "business" | "study" | "transit";
+            travelDate: string;
+            submittedAt: string | null;
+            closedAt: string | null;
+            checklist: {
+                key: string;
+                label: string;
+                description: string;
+                required: boolean;
+                document: components["schemas"]["VisaDocument"] | null;
+            }[];
+            messages: {
+                /** Format: date-time */
+                occurredAt: string;
+                status: ("awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn") | null;
+                message: string | null;
+            }[];
+            canUpload: boolean;
+            canSubmit: boolean;
+            disclaimer: string;
+        };
+        VisaApplicationCommentInput: {
+            /** @default null */
+            message?: string | null;
+            /** @default null */
+            note?: string | null;
         };
         VisaApplicationSummary: {
             /** Format: uuid */
@@ -4112,6 +4567,47 @@ export interface components {
             submittedAt: string | null;
             /** Format: date-time */
             updatedAt: string;
+        };
+        VisaApplicationTransitionInput: {
+            /** @enum {string} */
+            to: "awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn";
+            /** @default null */
+            message?: string | null;
+            /** @default null */
+            note?: string | null;
+        };
+        VisaChecklistItem: {
+            key: string;
+            label: string;
+            description: string;
+            required: boolean;
+        };
+        VisaDocument: {
+            /** Format: uuid */
+            id: string;
+            checklistKey: string;
+            /** @enum {string} */
+            status: "pending_scan" | "clean" | "infected" | "scan_failed" | "rejected";
+            contentType: string;
+            sizeBytes: number;
+            fileName: string;
+            /** Format: date-time */
+            uploadedAt: string;
+        };
+        VisaDocumentLink: {
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        VisaEligibility: {
+            /** @enum {string} */
+            requirement: "visa_free" | "visa_on_arrival" | "e_visa" | "visa_required" | "not_available" | "unknown";
+            maxStayDays: number | null;
+            notes: string | null;
+            verifiedAt: string | null;
+            sample: boolean;
+            products: components["schemas"]["VisaProductCard"][];
+            disclaimer: string;
         };
         VisaItem: {
             product: {
@@ -4132,6 +4628,67 @@ export interface components {
             governmentFeeNote: string | null;
             travellers: components["schemas"]["TravellerCounts"];
             applications: components["schemas"]["VisaApplicationSummary"][];
+        };
+        VisaProductCard: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            title: string;
+            summary: string;
+            sample: boolean;
+            destination: string;
+            purposes: ("tourism" | "business" | "study" | "transit")[];
+            processingDaysMin: number;
+            processingDaysMax: number;
+            price: components["schemas"]["Money"];
+            governmentFeeNote: string | null;
+        };
+        VisaProductDetail: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            title: string;
+            summary: string;
+            sample: boolean;
+            destination: string;
+            purposes: ("tourism" | "business" | "study" | "transit")[];
+            processingDaysMin: number;
+            processingDaysMax: number;
+            price: components["schemas"]["Money"];
+            governmentFeeNote: string | null;
+            checklist: components["schemas"]["VisaChecklistItem"][];
+            disclaimer: string;
+        };
+        VisaProductList: {
+            products: components["schemas"]["VisaProductCard"][];
+        };
+        VisaPruneRun: {
+            deleted: number;
+        };
+        VisaRule: {
+            /** Format: uuid */
+            id: string;
+            nationality: string;
+            destination: string;
+            /** @enum {string} */
+            purpose: "tourism" | "business" | "study" | "transit";
+            /** @enum {string} */
+            requirement: "visa_free" | "visa_on_arrival" | "e_visa" | "visa_required" | "not_available";
+            maxStayDays: number | null;
+            notes: string | null;
+            verifiedAt: string | null;
+            sample: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        VisaRuleList: {
+            rules: components["schemas"]["VisaRule"][];
+        };
+        VisaScanRun: {
+            scanned: number;
+            clean: number;
+            infected: number;
+            failed: number;
         };
         Wallet: {
             balances: components["schemas"]["Money"][];
@@ -4199,6 +4756,22 @@ export interface components {
         };
         /** @description Gone */
         Problem410: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        Problem413: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        Problem415: {
             headers: {
                 [name: string]: unknown;
             };
@@ -5078,6 +5651,198 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminListVisaApplications: {
+        parameters: {
+            query?: {
+                status?: "awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficerVisaApplicationList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetVisaApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficerVisaApplication"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCommentVisaApplication: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                applicationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisaApplicationCommentInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficerVisaApplication"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminTransitionVisaApplication: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                applicationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisaApplicationTransitionInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfficerVisaApplication"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateVisaDocumentLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaDocumentLink"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRejectVisaDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectVisaDocumentInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminCreateVisaProduct: {
         parameters: {
             query?: never;
@@ -5141,6 +5906,95 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListVisaRules: {
+        parameters: {
+            query?: {
+                nationality?: string;
+                destination?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaRuleList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpsertVisaRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertVisaRuleInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaRule"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminDeleteVisaRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -5887,6 +6741,149 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getVisaApplication: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+                applicationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaApplication"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    uploadVisaDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description The original file name, URI-encoded (shown to the traveller and visa officers). */
+                "X-File-Name"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+                applicationId: string;
+                checklistKey: string;
+            };
+            cookie?: never;
+        };
+        /** @description The file itself. */
+        requestBody: {
+            content: {
+                "application/pdf": string;
+                "image/jpeg": string;
+                "image/png": string;
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaApplication"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            413: components["responses"]["Problem413"];
+            415: components["responses"]["Problem415"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    createVisaDocumentLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+                applicationId: string;
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaDocumentLink"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    submitVisaApplication: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+                applicationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaApplication"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6773,6 +7770,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PruneResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    pruneVisaDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaPruneRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    scanDueVisaDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaScanRun"];
                 };
             };
             400: components["responses"]["Problem400"];
@@ -7741,6 +8788,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TourDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getVisaDocumentContent: {
+        parameters: {
+            query: {
+                expires: number;
+                viewer: string;
+                signature: string;
+            };
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    checkVisaEligibility: {
+        parameters: {
+            query: {
+                nationality: string;
+                destination: string;
+                purpose: "tourism" | "business" | "study" | "transit";
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaEligibility"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listVisaProducts: {
+        parameters: {
+            query?: {
+                destination?: string;
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaProductList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getVisaProduct: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisaProductDetail"];
                 };
             };
             400: components["responses"]["Problem400"];
