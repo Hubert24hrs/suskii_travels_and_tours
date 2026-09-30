@@ -261,11 +261,9 @@ export const quoteSchema = named(
     tour: tourItemSchema.nullable(),
     visa: visaItemSchema.nullable(),
     addon: addonItemSchema.nullable(),
-    price: priceSchema
-      .nullable()
-      .meta({
-        description: 'In-house products: the priced total (flights and hotels: in the offer).',
-      }),
+    price: priceSchema.nullable().meta({
+      description: 'In-house products: the priced total (flights and hotels: in the offer).',
+    }),
     payment: paymentOptionsSchema,
   }),
 );
