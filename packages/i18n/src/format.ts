@@ -80,8 +80,13 @@ export function createFormatters(locale: string): Formatters {
       });
     },
     date: (value, style = 'medium') => dateFormat(style).format(calendarDate(value)),
-    dateRange: (start, end, style = 'short') =>
-      dateFormat(style).formatRange(calendarDate(start), calendarDate(end)),
+    dateRange(start, end, style = 'short') {
+      const format = dateFormat(style);
+      // Hermes (the mobile app) has no formatRange; join the two dates there.
+      return typeof format.formatRange === 'function'
+        ? format.formatRange(calendarDate(start), calendarDate(end))
+        : `${format.format(calendarDate(start))} – ${format.format(calendarDate(end))}`;
+    },
     dateTime(instant, timeZone) {
       const key = timeZone ?? '';
       let format = dateTimeFormats.get(key);

@@ -94,6 +94,19 @@ describe('formatters', () => {
     expect(format.dateRange('2026-12-10', '2026-12-17')).toBe('10–17 Dec');
   });
 
+  it('joins date ranges itself on engines without formatRange (Hermes)', () => {
+    const prototype = Intl.DateTimeFormat.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, 'formatRange');
+    Reflect.deleteProperty(prototype, 'formatRange');
+    try {
+      expect(createFormatters('en-NG').dateRange('2026-12-10', '2026-12-17')).toBe(
+        '10 Dec – 17 Dec',
+      );
+    } finally {
+      if (descriptor) Object.defineProperty(prototype, 'formatRange', descriptor);
+    }
+  });
+
   it('shows deadlines in the viewer time zone, with the zone named', () => {
     const deadline = '2026-12-10T13:30:00Z';
     const lagos = format.dateTime(deadline, 'Africa/Lagos');
