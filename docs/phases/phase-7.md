@@ -1,6 +1,6 @@
 # Phase 7: Mobile app
 
-Status: in progress
+Status: done, awaiting review (EAS builds blocked on owner accounts)
 
 ## Goal
 
@@ -110,3 +110,36 @@ profiles for development, preview and production.
   page also shows a button, and the app polls when the browser closes.
 - **Native modules outside Expo's set (MMKV).** Mitigation: CI builds on both platforms catch
   incompatibilities early; `expo-sqlite` storage is the fallback.
+
+## Outcome
+
+### Acceptance criteria
+
+1. **Maestro critical path on an Android emulator**: `mobile.yml` builds the `e2e` release APK,
+   starts the e2e stack (mock attestation enforced for app requests) and runs
+   `critical-path.yaml` (search Lagos to Abuja, guest checkout, hosted mock payment in a Chrome
+   Custom Tab, confirmed trip, e-ticket saved) and `offline-trip.yaml` (trip and e-ticket
+   reopened with the network cut) on an API 34 emulator. See the CI result in the phase report.
+2. **EAS preview builds for iOS and Android**: blocked. `eas.json`, the variants and
+   `mobile-release.yml` are ready, but EAS needs the owner's Expo account (`EXPO_TOKEN`,
+   `EAS_PROJECT_ID`) and, for iOS, Apple credentials. Until then CI proves both native projects
+   compile: the Android release build above and an unsigned iOS simulator build on macOS.
+3. **No secrets in the bundle**: `scripts/scan-bundle.mjs` (credential formats, server secret
+   setting names, secret values in the environment; self-test with planted secrets) passes on the
+   exported bundle in `ci.yml`, on the APK (with Gitleaks) and the iOS app in `mobile.yml`, and
+   runs before every EAS build.
+
+### Deviations from the plan
+
+- The mobile checkout offers no paid extra bags yet (the web does); travellers add bags on the
+  web booking page. Paid extras also rule out payment plans, so the app keeps the simpler path.
+- Maestro drives the stack through `adb reverse` on `localhost` instead of `10.0.2.2`: pages on
+  `localhost` are a secure context (Web Crypto for idempotency keys), like production https.
+  Airplane mode does not cut `adb reverse`, so the harness removes the route before the offline
+  flow.
+- Push delivery receipts from Expo are not polled yet; `DeviceNotRegistered` answers at send time
+  remove dead tokens, and the daily prune covers the rest (phase 11 hardening).
+- Phone OTP, Google and Apple sign-in, saved payment methods and account deletion stay in
+  phase 9; account deletion must ship before any store release.
+- Real Play Integrity and App Attest verifiers need the owner's Google Cloud and Apple accounts;
+  only the mock verifier exists and production refuses it.

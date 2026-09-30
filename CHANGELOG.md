@@ -6,6 +6,58 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 7: Mobile app (2026-09-30)
+
+#### Added
+
+- Expo app (`apps/mobile`, Expo Router, typed routes) on the shared API client, schemas, design
+  tokens and copy (ADR-020): Home, Trips, Deals, Prime and Account tabs; flight search (one way,
+  return, multi-city) and hotel search; results with FlashList, sort and filters, price-change
+  and expiry handling; hotel rooms; checkout with travellers, passports, contact details,
+  terms, payment plan and method; trip details with status polling, plan payments, refunds and
+  documents; email sign-in with MFA and registration. The Prime tab previews the membership
+  without prices.
+- Payments open the provider's hosted page in the system browser (Custom Tabs or
+  ASWebAuthenticationSession, never a WebView) and return through
+  `WEB_APP_URL/mobile/payment-return`, which hands control back to the app (ADR-021). Webhooks
+  stay the source of truth; the trip screen polls.
+- Offline: trips and booking copies in an AES-256 MMKV cache keyed from the secure store,
+  e-tickets and vouchers saved to app-private storage and opened through the share sheet. Tokens
+  and guest booking tokens live in the Keychain / Keystore; Android backups are off. Sensitive
+  screens block screenshots, blur the iOS app switcher and clear passport numbers after five
+  minutes in the background.
+- Deep links through an allowlist (`+native-intent`): emailed booking links (the `#access=` token
+  goes to the secure store, never the router), search links re-validated with the shared
+  schemas, app-scheme paths; everything else opens Home. App links and associated domains for
+  the https website host.
+- API: `GET /v1/me/bookings` (trip summaries, cursor pages); push tokens per account session or
+  booking with Expo and mock providers and reference-only lock-screen text (ADR-022); single-use
+  attestation challenges, the `X-Suskii-Attestation` header, a verifier interface with a mock
+  adapter, attestation as the mobile guest bot check, and `ATTESTATION_MODE` (off, report,
+  enforce) for mobile login, registration and payment start (ADR-023).
+- Web: `/.well-known/assetlinks.json` and `apple-app-site-association` from environment values,
+  and the app's payment return page. Worker: daily push token pruning.
+- App variants (development, preview, production, e2e) in `app.config.ts`, EAS profiles with
+  named environments and fingerprint runtime versions, and the EAS release workflow (on demand,
+  and production for `mobile-v*` tags) gated on the owner's Expo account (ADR-024).
+- Bundle secret scanner (`apps/mobile/scripts/scan-bundle.mjs`) with a planted-secret self-test,
+  run on the exported bundle in CI, on the release APK (with Gitleaks) and the iOS app in the
+  mobile workflow, and before EAS builds.
+- Mobile workflow: Android release APK driven through the Maestro critical path (search, guest
+  checkout with mock attestation enforced, hosted payment, confirmed trip, e-ticket saved, then
+  opened offline) on an API 34 emulator against the e2e stack; unsigned iOS simulator build.
+- Tests: 63 mobile Jest tests (link allowlist, attestation headers, single-flight refresh and the
+  401 retry, trip storage, payment outcomes, home, checkout, trip and trips screens), shared
+  checkout-draft tests, API unit and e2e tests for trips, push tokens and attestation, and web
+  e2e for the association files and the return page.
+
+#### Changed
+
+- The checkout draft, its client-side checks and itinerary facts moved from the web app to
+  `@suskii/shared` so the web and the app validate the same way.
+- The ui-native `Combobox` takes a `testID` for its field and suggestions.
+- `.env.example` documents the mobile build settings and the app-link values.
+
 ### Phase 6: Payments, flexible payment and refunds (2026-09-30)
 
 #### Added

@@ -29,8 +29,9 @@ Most travellers check out as guests, whose bookings are not tied to an account.
    ADR-018), refund started and completed, and a booking that could not be completed. Schedule
    changes, check-in reminders and price alerts need supplier events and alert subscriptions that
    arrive in later phases.
-5. **Dead tokens.** A `DeviceNotRegistered` answer deletes the token. Guest booking tokens are
-   deleted 30 days after the trip ends.
+5. **Dead tokens.** A `DeviceNotRegistered` answer deletes that device's token in every scope. A
+   daily job deletes tokens of ended sessions, of bookings closed (cancelled, expired, failed or
+   refunded) for 30 days, and any token not refreshed for 400 days.
 6. **Permission prompt.** The app asks for notification permission after a booking is created or
    from Account settings, never on first launch; Android gets a `bookings` channel.
 

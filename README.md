@@ -101,16 +101,16 @@ payments are reconciled. Real providers (`PAYMENT_PROVIDERS=paystack,flutterwave
 test-mode keys in `.env` and their webhook URL, `/v1/payments/webhooks/<provider>`, registered in
 the provider dashboard; see ADR-016 for the go-live checklist.
 
-| Service            | URL                                                   |
-| ------------------ | ----------------------------------------------------- |
-| Web                | http://localhost:3000                                 |
-| Admin              | http://localhost:3001                                 |
-| API health         | http://localhost:4000/health                          |
-| API readiness      | http://localhost:4000/ready                           |
-| API contract       | `apps/api/openapi.json` (OpenAPI 3.1)                 |
-| Worker health      | http://localhost:4100/health                          |
-| Mailpit (email UI) | http://localhost:8025                                 |
-| Expo dev server    | http://localhost:8081 (scan the QR code with Expo Go) |
+| Service            | URL                                                      |
+| ------------------ | -------------------------------------------------------- |
+| Web                | http://localhost:3000                                    |
+| Admin              | http://localhost:3001                                    |
+| API health         | http://localhost:4000/health                             |
+| API readiness      | http://localhost:4000/ready                              |
+| API contract       | `apps/api/openapi.json` (OpenAPI 3.1)                    |
+| Worker health      | http://localhost:4100/health                             |
+| Mailpit (email UI) | http://localhost:8025                                    |
+| Expo dev server    | http://localhost:8081 (open it in the development build) |
 
 Run a single app with a filter, for example `pnpm --filter @suskii/api dev`.
 
@@ -134,6 +134,28 @@ and web app on ports 4000 and 3000, so stop `pnpm dev` first, then run
 accessibility and SEO 100). Set `E2E_BASE_URL` to test a stack that is already running instead,
 and `CHROME_PATH` if Lighthouse cannot find Chromium. Reports land in `apps/web/playwright-report`
 and `apps/web/lighthouse-report`.
+
+## Mobile app
+
+The app uses native modules (Keychain / Keystore, an encrypted cache, device attestation), so it
+runs in a development build of the app rather than Expo Go.
+
+- **Android**: with Android Studio and an emulator, `pnpm --filter @suskii/mobile android` builds
+  and installs the development build and starts Metro. Run `adb reverse tcp:4000 tcp:4000` so the
+  emulator reaches the local API on `localhost`; a physical phone needs
+  `EXPO_PUBLIC_API_BASE_URL=http://<your-computer's-LAN-IP>:4000` (plain http is allowed only for
+  development and e2e builds).
+- **iOS**: build the development client on EAS (`eas build --profile development --platform ios`)
+  once the Expo account exists, or run `pnpm --filter @suskii/mobile ios` on a Mac with Xcode.
+- **Tests**: `pnpm --filter @suskii/mobile test` (Jest). The Maestro critical path runs in the
+  `Mobile` workflow on an Android emulator; to run it locally, start the stack with
+  `pnpm --filter @suskii/web e2e:stack`, build the `e2e` APK (see `.github/workflows/mobile.yml`)
+  and run `bash apps/mobile/e2e/run-android.sh <apk> maestro-report`.
+- **Secret scan**: `pnpm --filter @suskii/mobile build`, then
+  `pnpm --filter @suskii/mobile scan:bundle dist`. Everything in the bundle is public, so only
+  `EXPO_PUBLIC_*` settings may reach it.
+- **Store builds** go through EAS (`Mobile release` workflow) and need the owner's Expo, Apple and
+  Google accounts.
 
 ## Contributing
 

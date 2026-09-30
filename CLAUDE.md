@@ -40,8 +40,8 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | 3     | Search, catalog and supplier adapters            | Done                  |
 | 4     | Web homepage                                     | Done                  |
 | 5     | Flight and hotel booking flow (web)              | Done                  |
-| 6     | Payments, flexible payment and refunds           | Done, awaiting review |
-| 7     | Mobile app                                       | Not started           |
+| 6     | Payments, flexible payment and refunds           | Done                  |
+| 7     | Mobile app                                       | Done, awaiting review |
 | 8     | Packages, tours, visa and add-ons                | Not started           |
 | 9     | Accounts, Suskii Prime, referrals, notifications | Not started           |
 | 10    | Admin console                                    | Not started           |
@@ -97,6 +97,9 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                |
 | `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)            |
 | `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)              |
+| `pnpm --filter @suskii/mobile android`            | Build and run the development build on an Android emulator          |
+| `pnpm --filter @suskii/mobile scan:bundle dist`   | Secret scan of the mobile export (`--self-test` checks the scanner) |
+| `pnpm --filter @suskii/web e2e:stack`             | Run the e2e stack (API, worker refresh, web) for Maestro flows      |
 | `pnpm format` / `format:check`                    | Prettier write / check                                              |
 | `pnpm --filter @suskii/api dev`                   | Run a single workspace                                              |
 
@@ -119,6 +122,13 @@ Tooling notes for agents:
   and uses the `pg` driver adapter; `prisma.config.ts` loads the root `.env` for CLI commands.
   Prisma blocks `migrate reset` from agents without the user's consent; create a fresh database or
   use `prisma migrate diff` instead.
+- Mobile Jest mocks the native modules in `apps/mobile/jest.setup.js` (Expo Router, secure store,
+  MMKV, crypto, localization, file system, web browser, screen capture). Screen tests render
+  through `renderWithApp()` and fake the API with `mockApi({ 'GET /v1/...': () => json(...) })`
+  (`src/test/app.tsx`); typed fixtures live in `src/test/fixtures.ts`. Mock `../config` in a test
+  that needs `attestation: 'mock'`.
+- `expo prebuild` generates `apps/mobile/android` and `ios` (gitignored, continuous native
+  generation); it also rewrites the `android`/`ios` scripts, which already use `expo run:*`.
 - E2E tests reuse running services when `E2E_DATABASE_URL` / `E2E_REDIS_URL` are set (the database
   is truncated, so never point them at data you care about).
 - Web e2e (`apps/web/e2e`) runs from build output: build web, API and worker first (turbo does this
@@ -267,6 +277,29 @@ Tooling notes for agents:
   (`format.money`); never compute totals or fees client-side except to preview the documented
   policy (`defaultRefund` floor rounding).
 
+### Mobile (apps/mobile, ADR-020 to ADR-024)
+
+- Screens live in `src/screens`; files under `app/` only re-export them (typed routes). Copy comes
+  from `useT()` (the full catalog, bundled with the app); there are no hard-coded strings.
+- Talk to the API through `useApp().api` (bearer token from memory, one refresh-and-retry on a
+  401, `X-Suskii-Client: mobile-<os>/<version>`); never call `fetch` directly. The refresh is
+  single flight (`SessionStore`) because the API revokes a session on refresh-token reuse.
+- Secrets (tokens, guest booking tokens, cache key, App Attest key id) go in `secureStorage`
+  (Keychain / Keystore, this device only). Personal data kept offline goes in `secureCache()`
+  (AES-256 MMKV); `preferences` holds settings only. Never use AsyncStorage for either.
+- `appConfig` (`src/config.ts`) is the only reader of `EXPO_PUBLIC_*`. Those values are inlined
+  in the bundle and public; a secret there fails the bundle scan.
+- Incoming URLs go through `resolveIncomingUrl()` (allowlist); add a path there and in the app
+  link paths in `app.config.ts`, with a test. Guest access tokens never reach the router.
+- Payments: `startPayment()` then `openHostedCheckout()` (system browser session, never a
+  WebView); the trip screen polls, webhooks decide. Guest checkout and payment attach
+  `attestationHeader()`.
+- Wrap checkout, payment and document screens in `useSensitiveScreen()`.
+- Push permission is requested only after a booking or from Account (`followBooking`,
+  `followAccount`), never on launch.
+- Give interactive elements used by Maestro a stable `testID` (fields: the form path, such as
+  `passengers.0.surname`; choices: `{testID}-{value}`; suggestions: `{testID}-option-{key}`).
+
 ### Security guardrails
 
 - Never commit `.env` files, secrets, or real supplier credentials. Use `.env.example` placeholders.
@@ -320,6 +353,11 @@ Tooling notes for agents:
 - [ADR-017: Double-entry ledger and wallet](docs/decisions/ADR-017-double-entry-ledger-and-wallet.md)
 - [ADR-018: Book on hold and installments](docs/decisions/ADR-018-book-on-hold-and-installments.md)
 - [ADR-019: Refunds, maker-checker and automatic refunds](docs/decisions/ADR-019-refunds-maker-checker-and-automatic-refunds.md)
+- [ADR-020: Mobile app architecture, storage and offline](docs/decisions/ADR-020-mobile-app-architecture-storage-and-offline.md)
+- [ADR-021: Mobile payments, deep links and app links](docs/decisions/ADR-021-mobile-payments-deep-links-and-app-links.md)
+- [ADR-022: Push notifications](docs/decisions/ADR-022-push-notifications.md)
+- [ADR-023: Device attestation and mobile bot protection](docs/decisions/ADR-023-device-attestation-and-mobile-bot-protection.md)
+- [ADR-024: EAS builds, app variants and mobile CI](docs/decisions/ADR-024-eas-builds-variants-and-mobile-ci.md)
 
 ## Open questions for the owner
 
@@ -336,3 +374,8 @@ launch with; installment deposit, fee, missed-payment fee and grace period (defa
 none, 24 hours); the staff refund approval threshold (default: every refund needs a second
 approver); who receives operations alerts (`OPS_ALERT_EMAIL`) and reviews refunds in
 `needs_review`; and whether stored cards may ever charge installments (needs a mandate, ADR-018).
+Added in phase 7: the Expo account and EAS project (`EXPO_TOKEN`, `EAS_PROJECT_ID`), Apple
+Developer and Google Play accounts, the final bundle id (placeholder `com.suskii.travels`), the
+Google Cloud project for Play Integrity and Apple App Attest setup (real attestation verifiers
+need both), FCM and APNs credentials for push, the production API and web hosts (app links), app
+icon and splash art, and the account deletion flow required before store release (phase 9).
