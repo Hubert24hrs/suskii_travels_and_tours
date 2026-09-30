@@ -260,3 +260,16 @@ export {
   type RefundStatus,
   type ScheduledPayment,
 } from './payment-plans';
+export {
+  emptyPassenger,
+  flightFacts,
+  normalisePassport,
+  normalisePhone,
+  validateCheckout,
+  type CheckoutDraft,
+  type CheckoutIssue,
+  type FieldIssues,
+  type FlightFactsInput,
+  type GuestDraft,
+  type PassengerDraft,
+} from './checkout-draft';
