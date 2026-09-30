@@ -220,6 +220,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/attestation/challenges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A single-use challenge for a device attestation
+         * @description The app binds its Play Integrity or App Attest token to this challenge and sends both in `X-Suskii-Attestation` within five minutes (ADR-023).
+         */
+        post: operations["createAttestationChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/apple": {
         parameters: {
             query?: never;
@@ -456,7 +476,7 @@ export interface paths {
         put?: never;
         /**
          * Book a quote
-         * @description Validates travellers against the offer and itinerary (422 `passengers-invalid` with issue codes), prices extras and the promo code, and creates the booking as PRICED. Guests must send a Turnstile token and receive a one-time access token.
+         * @description Validates travellers against the offer and itinerary (422 `passengers-invalid` with issue codes), prices extras and the promo code, and creates the booking as PRICED. Guests prove they are not a bot with a Turnstile token (web) or a device attestation (mobile app, ADR-023), and receive a one-time access token.
          */
         post: operations["createBooking"];
         delete?: never;
@@ -596,6 +616,26 @@ export interface paths {
          * @description Send the new total exactly as shown; if it moved again the answer is 409.
          */
         post: operations["consentToBookingPrice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/push-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Receive pushes about this booking on this device
+         * @description For guests (with the booking token) and owners alike; account devices can use `PUT /v1/me/push-token` instead (ADR-022).
+         */
+        put: operations["registerBookingPushToken"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1102,6 +1142,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/push-tokens/prune": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete push tokens of ended sessions, closed bookings and stale devices */
+        post: operations["prunePushTokens"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/refresh-targets": {
         parameters: {
             query?: never;
@@ -1152,6 +1209,26 @@ export interface paths {
         head?: never;
         /** Update profile details */
         patch: operations["updateMe"];
+        trace?: never;
+    };
+    "/v1/me/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trips booked with this account
+         * @description Newest first, 20 per page by default. Summaries carry no traveller data; open a trip with `GET /v1/bookings/{id}`.
+         */
+        get: operations["listMyBookings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/me/email/verification": {
@@ -1291,6 +1368,27 @@ export interface paths {
         /** Confirm the phone number with the texted code */
         post: operations["verifyPhone"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/push-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Receive booking pushes on this device
+         * @description Registers the device for pushes about the account bookings while this session lasts. Signing out or revoking the session stops them.
+         */
+        put: operations["registerPushToken"];
+        post?: never;
+        /** Stop account pushes on this device */
+        delete: operations["unregisterPushToken"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1648,6 +1746,11 @@ export interface components {
             countryName: string;
             timeZone: string;
         };
+        AttestationChallenge: {
+            challenge: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         AuditLogEntry: {
             /** Format: uuid */
             id: string;
@@ -1848,6 +1951,41 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             settledAt: string | null;
+        };
+        BookingSummary: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+            /** @enum {string} */
+            vertical: "flights" | "hotels";
+            /** Format: date-time */
+            createdAt: string;
+            total: components["schemas"]["Money"];
+            startsOn: string;
+            endsOn: string | null;
+            flight: {
+                /** @enum {string} */
+                tripType: "one_way" | "round_trip" | "multi_city";
+                origin: {
+                    code: string;
+                    cityName: string | null;
+                };
+                destination: {
+                    code: string;
+                    cityName: string | null;
+                };
+                airline: string;
+            } | null;
+            hotel: {
+                name: string;
+                cityName: string;
+            } | null;
+        };
+        BookingSummaryPage: {
+            bookings: components["schemas"]["BookingSummary"][];
+            nextCursor: string | null;
         };
         Carrier: {
             code: string;
@@ -2678,6 +2816,14 @@ export interface components {
             deletedDeals: number;
             deletedDestinations: number;
         };
+        PushTokenPruneRun: {
+            deleted: number;
+        };
+        PushTokenRequestInput: {
+            token: string;
+            /** @enum {string} */
+            platform: "ios" | "android";
+        };
         Quote: {
             /** Format: uuid */
             quoteId: string;
@@ -3389,6 +3535,32 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    createAttestationChallenge: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttestationChallenge"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     signInWithApple: {
         parameters: {
             query?: never;
@@ -3485,6 +3657,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once. */
+                "X-Suskii-Attestation"?: string;
                 /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
                 "X-CSRF-Token"?: string;
             };
@@ -3508,6 +3682,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -3728,6 +3903,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once. */
+                "X-Suskii-Attestation"?: string;
                 /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
                 "X-CSRF-Token"?: string;
             };
@@ -3750,6 +3927,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            403: components["responses"]["Problem403"];
             422: components["responses"]["Problem422"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -3759,6 +3937,8 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
+                /** @description Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once. */
+                "X-Suskii-Attestation"?: string;
                 /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
                 "Idempotency-Key": string;
                 /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
@@ -3960,6 +4140,8 @@ export interface operations {
             header: {
                 /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
                 "X-Booking-Token"?: string;
+                /** @description Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once. */
+                "X-Suskii-Attestation"?: string;
                 /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
                 "Idempotency-Key": string;
                 /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
@@ -3986,6 +4168,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             410: components["responses"]["Problem410"];
@@ -4027,6 +4210,39 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    registerBookingPushToken: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushTokenRequestInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -4814,6 +5030,30 @@ export interface operations {
             503: components["responses"]["Problem503"];
         };
     };
+    prunePushTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushTokenPruneRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     listRefreshTargets: {
         parameters: {
             query?: never;
@@ -4911,6 +5151,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthUser"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listMyBookings: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingSummaryPage"];
                 };
             };
             400: components["responses"]["Problem400"];
@@ -5157,6 +5424,60 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    registerPushToken: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushTokenRequestInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    unregisterPushToken: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
