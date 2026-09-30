@@ -1,6 +1,17 @@
 'use client';
 
-import type { LocaleCode } from '@suskii/shared/lite';
+import {
+  emptyPassenger,
+  flightFacts,
+  normalisePassport,
+  normalisePhone,
+  validateCheckout,
+  type CheckoutDraft,
+  type CheckoutIssue,
+  type FieldIssues,
+  type LocaleCode,
+  type PassengerDraft,
+} from '@suskii/shared/lite';
 import { useFormatters } from '@suskii/i18n/react';
 import { Button, Card, Dialog, DialogContent, Input } from '@suskii/ui-web';
 import { Lock } from 'lucide-react';
@@ -15,16 +26,6 @@ import { loadTurnstile } from '../home/turnstile';
 import { ResultsLoading } from '../results/result-states';
 
 import { useBookingT } from './checkout-messages';
-import {
-  emptyPassenger,
-  normalisePassport,
-  normalisePhone,
-  validateCheckout,
-  type CheckoutDraft,
-  type CheckoutIssue,
-  type FieldIssues,
-  type PassengerDraft,
-} from './checkout-validation';
 import { GuestFields, PassengerFields, type CountryOption } from './passenger-fields';
 import {
   MethodChoice,
@@ -32,7 +33,7 @@ import {
   type PaymentPlanChoice,
   type ProviderName,
 } from './payment-choice';
-import { flightFacts, PriceSummary, TripSummary, type PriceLines } from './summaries';
+import { PriceSummary, TripSummary, type PriceLines } from './summaries';
 
 type Quote = Schemas['Quote'];
 type Money = Schemas['Money'];

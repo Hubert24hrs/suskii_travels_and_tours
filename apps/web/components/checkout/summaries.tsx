@@ -1,7 +1,6 @@
 'use client';
 
 import { useFormatters } from '@suskii/i18n/react';
-import type { ItineraryFacts } from '@suskii/shared/lite';
 import { Badge, Card } from '@suskii/ui-web';
 
 import type { Schemas } from '../../lib/browser-api';
@@ -9,29 +8,7 @@ import type { Schemas } from '../../lib/browser-api';
 import { useBookingT } from './checkout-messages';
 
 type Quote = Schemas['Quote'];
-type FlightOffer = Schemas['FlightOffer'];
 type Money = Schemas['Money'];
-
-/** Dates, passenger counts and border crossing of a flight offer (ADR-015 rules). */
-export function flightFacts(offer: FlightOffer): ItineraryFacts {
-  const first = offer.slices[0];
-  const last = offer.slices[offer.slices.length - 1];
-  const countries = new Set(
-    offer.slices.flatMap((slice) =>
-      slice.segments.flatMap((segment) => [
-        segment.origin.countryCode,
-        segment.destination.countryCode,
-      ]),
-    ),
-  );
-  const firstDate = first?.departureLocal.slice(0, 10) ?? '';
-  return {
-    counts: offer.passengers,
-    firstTravelDate: firstDate,
-    lastTravelDate: last?.departureLocal.slice(0, 10) ?? firstDate,
-    international: countries.size > 1 || countries.has(null),
-  };
-}
 
 const time = (local: string): string => local.slice(11, 16);
 

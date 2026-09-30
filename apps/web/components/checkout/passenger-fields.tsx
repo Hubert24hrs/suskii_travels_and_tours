@@ -1,14 +1,21 @@
 'use client';
 
 import { useFormatters } from '@suskii/i18n/react';
-import { GENDERS, PASSENGER_TITLES, transliterateName } from '@suskii/shared/lite';
+import {
+  GENDERS,
+  PASSENGER_TITLES,
+  transliterateName,
+  type CheckoutIssue,
+  type FieldIssues,
+  type GuestDraft,
+  type PassengerDraft,
+} from '@suskii/shared/lite';
 import { Card, Input } from '@suskii/ui-web';
 
 import type { Schemas } from '../../lib/browser-api';
 import { NativeSelect } from '../search/native-select';
 
 import { useBookingT } from './checkout-messages';
-import type { CheckoutIssue, FieldIssues, GuestDraft, PassengerDraft } from './checkout-validation';
 
 export interface CountryOption {
   code: string;
