@@ -132,6 +132,25 @@ describe('Combobox', () => {
     expect(screen.getByLabelText('From').props.value).toBe('London');
   });
 
+  it('exposes test ids for the field and each suggestion', async () => {
+    await render(
+      <Combobox
+        testID="city"
+        label="City"
+        items={cities}
+        itemToString={(city) => city ?? ''}
+        itemToKey={(city) => city.toLowerCase()}
+        selectedItem={null}
+        onSelectedItemChange={jest.fn()}
+        onInputValueChange={jest.fn()}
+        loadingLabel="Searching"
+        emptyLabel="No places found"
+      />,
+    );
+    await fireEvent.changeText(screen.getByTestId('city'), 'a');
+    expect(screen.getByTestId('city-option-accra')).toBeOnTheScreen();
+  });
+
   it('announces an empty result', async () => {
     await render(<CitySearch onSelect={jest.fn()} />);
     await fireEvent.changeText(screen.getByLabelText('From'), 'zz');

@@ -21,6 +21,8 @@ export interface ComboboxProps<T> {
   emptyLabel: string;
   error?: string | undefined;
   className?: string;
+  /** Test id of the text field; each suggestion gets `{testID}-option-{key}`. */
+  testID?: string;
 }
 
 /** Text field with a suggestion list (airports, cities). Filtering is the caller's job. */
@@ -40,6 +42,7 @@ export function Combobox<T>({
   emptyLabel,
   error,
   className,
+  testID,
 }: ComboboxProps<T>) {
   const [text, setText] = useState(() => itemToString(selectedItem));
   const [open, setOpen] = useState(false);
@@ -49,6 +52,7 @@ export function Combobox<T>({
   return (
     <View className={cn('gap-1', className)}>
       <Input
+        testID={testID}
         label={label}
         value={text}
         placeholder={placeholder}
@@ -72,6 +76,7 @@ export function Combobox<T>({
           {items.map((item) => (
             <Pressable
               key={itemToKey(item)}
+              testID={testID ? `${testID}-option-${itemToKey(item)}` : undefined}
               accessibilityRole="button"
               accessibilityLabel={itemToString(item)}
               onPress={() => {
