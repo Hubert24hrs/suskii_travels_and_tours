@@ -12,7 +12,9 @@ import { PRICE_CHANGE_ROUTE } from './stack';
 
 /**
  * Phase 5 acceptance: search to confirmation with the mock payment provider, the price-change
- * consent path, and the hotel flow to a voucher. Every page is axe-checked on the way.
+ * consent path, and the hotel flow to a voucher. Phase 6: reserve now and pay later, and
+ * installments from the schedule shown before commitment to a cancelled, refunded plan. Every page
+ * is axe-checked on the way.
  */
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
@@ -53,6 +55,27 @@ async function payWithMock(page: Page): Promise<string> {
   await pay.click();
   await page.waitForURL(/\/bookings\//);
   return amount;
+}
+
+/** Opens each result's details until one shows the fare `brand`, then selects it. */
+async function selectFare(page: Page, brand: string): Promise<void> {
+  const offers = page.getByTestId('flight-offer');
+  await expect(offers.first()).toBeVisible({ timeout: 30_000 });
+  for (const card of await offers.all()) {
+    await card.getByRole('button', { name: t('results.flights.details') }).click();
+    if (await card.getByText(t('results.flights.fareBrand', { brand })).first().isVisible()) {
+      await card.getByRole('button', { name: /^Select/ }).click();
+      await page.waitForURL(/\/checkout\//);
+      return;
+    }
+  }
+  throw new Error(`No ${brand} fare in the results`);
+}
+
+async function fillPassport(page: Page): Promise<void> {
+  await page.locator('#passenger-0-passportNumber').fill('B1234567');
+  await page.locator('#passenger-0-issuingCountry').selectOption('NG');
+  await page.locator('#passenger-0-passportExpiry').fill(isoDaysFromToday(3000));
 }
 
 async function expectConfirmed(page: Page): Promise<void> {
@@ -168,6 +191,113 @@ test.describe('flight booking', () => {
       await expectConfirmed(page);
       await expect(page.getByText(newTotal).first()).toBeVisible();
     });
+  });
+});
+
+test.describe('flexible payment', () => {
+  // Refundable international fares three or more weeks out can be held (mock supplier rules).
+  const refundableSearch = `${flightSearch('LOS', 'LHR')}&refundable=1`;
+
+  test('reserves the seats, then pays in full before the deadline', async ({ page }) => {
+    await page.goto(refundableSearch);
+    await selectFare(page, 'Economy Flex');
+    await expect(page.getByLabel(t('checkout.plan.full'))).toBeChecked();
+    await page.getByLabel(t('checkout.plan.hold')).check();
+
+    await fillTraveller(page, false);
+    await fillPassport(page);
+    await fillContactAndAccept(page, 'amaka@example.com');
+    const total = (await page.getByTestId('checkout-total').textContent()) ?? '';
+    await page.getByRole('button', { name: t('checkout.plan.reserve') }).click();
+
+    // Nothing is charged: the booking page shows the reservation and its deadline.
+    await page.waitForURL(/\/bookings\//);
+    await expect(page.getByTestId('booking-status')).toHaveText(t('booking.status.HELD'));
+    await expect(page.getByText(t('booking.statusHelp.held'))).toBeVisible();
+    const plan = page.getByTestId('payment-plan');
+    await expect(plan.getByRole('heading', { name: t('booking.plan.holdHeading') })).toBeVisible();
+    await expect(page.getByTestId('booking-paid')).toHaveCount(0);
+    await expectNoAxeViolations(page);
+
+    await plan.getByRole('button', { name: t('booking.plan.payNext', { amount: total }) }).click();
+    const paid = await payWithMock(page);
+    expect(paid).toBe(total);
+    await expectConfirmed(page);
+    await expect(page.getByTestId('ticket-number')).toHaveText(/\d{13}/);
+    await expect(page.getByTestId('booking-paid')).toHaveText(total);
+  });
+
+  test('shows the installment schedule before commitment, then refunds a cancelled plan', async ({
+    page,
+  }) => {
+    await page.goto(refundableSearch);
+    await selectFare(page, 'Economy Flex');
+    await fillTraveller(page, false);
+    await fillPassport(page);
+
+    // Paid extras cannot go on a plan.
+    await page.locator('#passenger-0-bags').selectOption('1');
+    await expect(page.getByLabel(t('checkout.plan.installments'))).toHaveCount(0);
+    await expect(page.getByText(t('checkout.plan.notWithExtras'))).toBeVisible();
+    await page.locator('#passenger-0-bags').selectOption('0');
+
+    // The schedule, fee and missed-payment policy show before anything is committed.
+    await expect(page.getByTestId('installment-schedule')).toHaveCount(0);
+    await page.getByLabel(t('checkout.plan.installments')).check();
+    const schedule = page.getByTestId('installment-schedule');
+    await expect(schedule).toBeVisible();
+    const rows = schedule.getByRole('listitem');
+    expect(await rows.count()).toBeGreaterThan(1);
+    await expect(rows.first()).toContainText(t('checkout.plan.depositDue'));
+    const deposit = (await rows.first().locator('span').last().textContent()) ?? '';
+    const second = (await rows.nth(1).locator('span').last().textContent()) ?? '';
+    await expect(schedule).toContainText(t('checkout.plan.noFee'));
+    await expect(schedule).toContainText(t('checkout.plan.policyRefund'));
+    await expectNoAxeViolations(page);
+
+    await fillContactAndAccept(page, 'emeka@example.com');
+    await page.getByRole('button', { name: t('checkout.plan.setUp') }).click();
+    await page.waitForURL(/\/bookings\//);
+    const plan = page.getByTestId('payment-plan');
+    await expect(
+      plan.getByRole('heading', { name: t('booking.plan.installmentsHeading') }),
+    ).toBeVisible();
+    await expect(plan.getByText(t('booking.plan.depositNow'))).toBeVisible();
+
+    await plan
+      .getByRole('button', { name: t('booking.plan.payNext', { amount: deposit }) })
+      .click();
+    expect(await payWithMock(page)).toBe(deposit);
+    await expect(page.getByTestId('booking-status')).toHaveText(
+      t('booking.status.PARTIALLY_PAID'),
+      { timeout: 30_000 },
+    );
+    await expect(page.getByTestId('plan-paid')).toContainText(deposit);
+    // The next installment and its due date replace the deposit prompt.
+    const nextDue = t('booking.plan.nextDue', { amount: second, date: '' }).split(' by ')[0] ?? '';
+    await expect(plan).toContainText(nextDue);
+    await expect(plan.getByText(t('booking.plan.states.paid'), { exact: true })).toBeVisible();
+    await expectNoAxeViolations(page);
+
+    // Cancelling under the plan's policy refunds what was paid (no fee by default).
+    await plan.getByRole('button', { name: t('booking.plan.cancel') }).click();
+    const dialog = page.getByRole('dialog', { name: t('booking.plan.cancelTitle') });
+    await expect(dialog).toContainText(t('booking.plan.cancelRefund', { amount: deposit }));
+    await expectNoAxeViolations(page);
+    await dialog.getByRole('button', { name: t('booking.plan.cancelConfirm') }).click();
+
+    await expect(page.getByTestId('booking-status')).toHaveText(t('booking.status.REFUNDED'), {
+      timeout: 30_000,
+    });
+    const refunds = page.getByTestId('refunds');
+    await expect(refunds).toContainText(
+      t('booking.refunds.line', {
+        amount: deposit,
+        destination: t('booking.refunds.destinations.original'),
+      }),
+    );
+    await expect(refunds).toContainText(t('booking.refunds.states.completed'));
+    await expect(page.getByText(t('booking.statusHelp.refunded'))).toBeVisible();
   });
 });
 
