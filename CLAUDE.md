@@ -39,8 +39,8 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | 2     | Backend core                                     | Done                  |
 | 3     | Search, catalog and supplier adapters            | Done                  |
 | 4     | Web homepage                                     | Done                  |
-| 5     | Flight and hotel booking flow (web)              | Done, awaiting review |
-| 6     | Payments, flexible payment and refunds           | Not started           |
+| 5     | Flight and hotel booking flow (web)              | Done                  |
+| 6     | Payments, flexible payment and refunds           | Done, awaiting review |
 | 7     | Mobile app                                       | Not started           |
 | 8     | Packages, tours, visa and add-ons                | Not started           |
 | 9     | Accounts, Suskii Prime, referrals, notifications | Not started           |
@@ -171,7 +171,7 @@ Tooling notes for agents:
 - Hash low-entropy or personal values with `HmacService` (per-purpose keys); encrypt stored secrets
   with `FieldEncryption` using a record-bound context string.
 - External providers sit behind abstract classes (`EmailProvider`, `SmsProvider`,
-  `BreachedPasswordChecker`, `FxProvider`, `FlightSupplier`, `HotelSupplier`) with mock adapters for
+  `BreachedPasswordChecker`, `FxProvider`, `FlightSupplier`, `HotelSupplier`, `PaymentProvider`) with mock adapters for
   tests and local development. Production refuses mock adapters unless `ALLOW_MOCK_PROVIDERS=true`.
 
 ### Money, pricing and search (apps/api, packages/shared)
@@ -203,11 +203,35 @@ Tooling notes for agents:
   only ever show masked contact details and the last three passport characters.
 - Payment outcomes come only from verified webhooks (`PaymentEventsService`); the mock provider's
   page completes through the same signed-webhook path. Money the booking cannot take is flagged
-  `requiresRefund` and audited, never silently applied.
+  `requiresRefund`, audited and refunded automatically, never silently applied.
 - Supplier `book()` calls use the booking item id as idempotency key; `idempotentBooking` decides
   whether an ambiguous failure (timeout) may be retried or goes to REFUND_PENDING for review.
 - Binary responses (PDFs) use `fileResponse()` in the contract and return a `StreamableFile`.
   Stored idempotent responses are encrypted (they can contain guest tokens).
+
+### Payments, ledger, plans and refunds (apps/api, ADR-016 to ADR-019)
+
+- Providers implement `PaymentProvider` in `src/payments/<vendor>`: hosted checkout only, webhook
+  signature over the raw body, `verify()` against the provider before an outcome counts (Paystack,
+  Flutterwave), refunds with an idempotency key where the provider supports one. `PaymentProviders`
+  routes by currency in `PAYMENT_PROVIDERS` order. Vendor payloads never leave the adapter; parse
+  provider amounts with `parseMoney`, never floats.
+- Every money movement is a `LedgerService.post()` in the caller's transaction with a business
+  idempotency key (`payment:{id}:captured`, ...). Never write ledger tables or balances directly;
+  the database rejects unbalanced, negative-customer or updated entries. What a booking has paid is
+  its ledger balance (`BookingFundsService.paid`), not a sum of payments.
+- Reconciliation and other non-webhook confirmations go through the webhook pipeline with a
+  synthetic event id (`reconcile:{reference}:{status}`), so dedupe and postings stay in one place.
+- Plans: `PaymentPlansService` creates holds and installment plans (flights with supplier holds,
+  no paid extras) and closes them (cancel, default, expiry) under the plan's policy. Amounts,
+  deposit, fees and grace come from config; never hard-code them.
+- Refunds: `RefundsService.createAutomatic()` for non-discretionary cases (approved at once);
+  staff refunds go through the admin API with maker-checker (the requester cannot approve).
+  A refund never exceeds its source balance. An ambiguous call to a provider without idempotency
+  keys goes to `needs_review`, never a blind retry. `finalizeBooking` moves REFUND_PENDING to
+  REFUNDED when nothing is left and no refund is open.
+- Emailed booking links carry a guest token in the URL fragment (`#access=`), stored as an HMAC
+  (`BookingAccessLinks`); the web page moves it to session storage and strips it from the URL.
 
 ### Web (apps/web)
 
@@ -235,6 +259,13 @@ Tooling notes for agents:
 - Result filters and sort live in the URL (`useUrlParams`). Fetched state is keyed by its inputs
   instead of being reset inside effects (the React Compiler lint rejects `setState` in effects).
 - Checkout, payment and booking pages are private: `noIndex` metadata and robots.txt disallow.
+- Never import a message catalog (`getMessages`) into a client component: the whole catalog then
+  ships with every page using it. Pass a subset through `I18nProvider` (the root layout gives the
+  error boundary only `pages.error`).
+- Payment plans on the web show the schedule, fee, total and missed-payment policy before the
+  traveller commits, and never with paid extras. Money on screen comes from API `Money` values
+  (`format.money`); never compute totals or fees client-side except to preview the documented
+  policy (`defaultRefund` floor rounding).
 
 ### Security guardrails
 
@@ -285,6 +316,10 @@ Tooling notes for agents:
 - [ADR-013: Homepage performance and the JavaScript budget](docs/decisions/ADR-013-homepage-performance-and-js-budget.md)
 - [ADR-014: Booking lifecycle, checkout and mock payments](docs/decisions/ADR-014-booking-lifecycle-checkout-and-mock-payments.md)
 - [ADR-015: Passenger data, saved travellers and guest access](docs/decisions/ADR-015-passenger-data-saved-travellers-and-guest-access.md)
+- [ADR-016: Payment providers, routing and verification](docs/decisions/ADR-016-payment-providers-routing-and-verification.md)
+- [ADR-017: Double-entry ledger and wallet](docs/decisions/ADR-017-double-entry-ledger-and-wallet.md)
+- [ADR-018: Book on hold and installments](docs/decisions/ADR-018-book-on-hold-and-installments.md)
+- [ADR-019: Refunds, maker-checker and automatic refunds](docs/decisions/ADR-019-refunds-maker-checker-and-automatic-refunds.md)
 
 ## Open questions for the owner
 
@@ -296,4 +331,8 @@ support contacts, social and app store links, legal texts and privacy policy, li
 WhatsApp/SMS provider for deal alerts, Cloudflare Turnstile keys. Added in phase 5: which payment
 provider comes first (Paystack, Flutterwave, Stripe) and test keys, booking conditions and fare
 rules text, the refund and REFUND_PENDING operations process, and support contacts for failed
-bookings.
+bookings. Added in phase 6: provider test keys and webhook registration for each provider to
+launch with; installment deposit, fee, missed-payment fee and grace period (defaults 30%, none,
+none, 24 hours); the staff refund approval threshold (default: every refund needs a second
+approver); who receives operations alerts (`OPS_ALERT_EMAIL`) and reviews refunds in
+`needs_review`; and whether stored cards may ever charge installments (needs a mandate, ADR-018).

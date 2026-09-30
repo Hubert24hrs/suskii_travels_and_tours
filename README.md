@@ -91,6 +91,16 @@ Mailpit, and documents are stored under `.data/objects`. Set `MOCK_REPRICE_RULES
 see the price-change consent step on Lagos-Dubai fares. With the worker running, unpaid bookings
 expire at their deadline and failed ticketing attempts are retried every minute.
 
+Flexible payment works locally too. Search an international route three or more weeks out, such as
+`http://localhost:3000/flights/search?trip=one_way&from=LOS&to=LHR&depart=2026-12-10&adults=1&refundable=1`:
+refundable fares offer "Reserve now, pay later", and Flex fares also offer installments, with the
+schedule shown before you commit. The booking page then takes each payment, and cancelling a partly
+paid plan refunds it through the mock provider. With the worker running, reminders go out 3 days
+and 1 day before each due date, missed payments default after the grace period and pending
+payments are reconciled. Real providers (`PAYMENT_PROVIDERS=paystack,flutterwave,stripe`) need
+test-mode keys in `.env` and their webhook URL, `/v1/payments/webhooks/<provider>`, registered in
+the provider dashboard; see ADR-016 for the go-live checklist.
+
 | Service            | URL                                                   |
 | ------------------ | ----------------------------------------------------- |
 | Web                | http://localhost:3000                                 |

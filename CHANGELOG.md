@@ -6,6 +6,66 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 6: Payments, flexible payment and refunds (2026-09-30)
+
+#### Added
+
+- Payment providers behind one interface (ADR-016): Paystack, Flutterwave (v3) and Stripe
+  Checkout, all hosted (SAQ-A), plus the mock provider. `PAYMENT_PROVIDERS` enables several at
+  once, in preference order; the checkout offers those that settle the booking currency. Webhook
+  signatures are checked over the raw body (HMAC-SHA512, `verif-hash`, `t=,v1=` with a 5-minute
+  tolerance), Paystack and Flutterwave outcomes are confirmed server to server before they count,
+  and pending payments whose webhook never arrived are reconciled with the provider.
+- Double-entry ledger (ADR-017): accounts for the provider, each booking, unapplied money, wallets,
+  refunds in flight and kept fees. The database enforces append-only entries, balanced
+  transactions per currency at commit and non-negative customer balances; every posting is
+  idempotent by a business key. `GET /v1/me/wallet` shows the balance and history.
+- Reserve now, pay later and installments for flights (ADR-018): `POST /v1/bookings/{id}/hold` and
+  `/installment-plan`, offered only when the airline hold (and, for installments, the price
+  guarantee) covers the whole plan and never with paid extras. Deposit, equal installments,
+  optional fee and a missed-payment policy (refund minus a basis-point fee); reminders 3 days and
+  1 day before each due date by email and SMS with an expiring access link; defaults after the
+  grace period; unpaid holds released at the deadline; at most two active holds per traveller.
+  Mock supplier holds and Duffel `pay_later` orders (`air/payments`, order cancellations).
+- Refunds (ADR-019): automatic refunds for money a booking cannot take, failed ticketing and plan
+  defaults or cancellations; staff refunds through the admin API (`/v1/admin/refunds`: request,
+  approve, reject, resolve) with maker-checker above `REFUND_APPROVAL_THRESHOLD_NGN` (default:
+  always). Refunds go to the original method or the wallet, never exceed what was paid, settle by
+  webhook or polling, and ambiguous calls to providers without idempotency keys go to review
+  instead of being re-sent. Customers and operations (`OPS_ALERT_EMAIL`) are notified.
+- Payments from the wallet (whole amount, one transaction), payment start with `provider`,
+  `installmentId`, `payInFull` and `useWallet`, and payment options on quotes and bookings.
+- Worker: payment reconciliation, plan reminders and defaults, and refund execution every minute.
+- Web: checkout offers pay now, reserve and pay later, or installments with the full schedule, fee,
+  total and missed-payment policy before commitment, and a payment method choice when several
+  providers take the currency. The booking page shows the plan, pays the next installment or the
+  rest, pays from the wallet, cancels under the plan's policy, lists refunds and their state, and
+  opens from emailed links (the token in the URL fragment moves to session storage).
+- Shared: installment schedule and refund policy maths with property tests; plan, provider and
+  refund constants.
+- Tests: provider signatures, payload mapping and amounts; ledger invariants (balanced,
+  idempotent, non-negative under concurrency, append-only); the grown state machine matrix; API
+  e2e for the three acceptance criteria, Paystack end to end against a fake server, lost webhooks,
+  holds, installments with reminders, defaults, cancellation refunds, hold limits, maker-checker
+  and wallet refunds; Playwright for reserve-and-pay-later and installments to a refunded
+  cancellation.
+
+#### Changed
+
+- `PAYMENT_PROVIDERS` (list) replaces `PAYMENT_PROVIDER`.
+- A success for the wrong amount, or money arriving for a booking that cannot take it, is refunded
+  automatically instead of only being flagged; exhausted ticketing ends REFUNDED once the refund
+  settles.
+- State machine: `partial_payment` from HELD, `default` (PARTIALLY_PAID to REFUND_PENDING) and
+  `cancel` from PARTIALLY_PAID.
+- The booking page shows the total price and, separately, what has been paid.
+
+#### Fixed
+
+- The web error boundary imported the whole message catalog, which shipped with every page; it
+  now receives only its own copy from the root layout (homepage JavaScript 216.7 kB to 200.9 kB
+  gzip) and follows the visitor's locale.
+
 ### Phase 5: Flight and hotel booking flow (2026-09-29)
 
 #### Added

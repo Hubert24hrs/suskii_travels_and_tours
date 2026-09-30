@@ -1,6 +1,6 @@
 # Phase 6: Payments, flexible payment and refunds
 
-Status: in progress
+Status: done, awaiting review
 
 ## Goal
 
@@ -133,3 +133,33 @@ staff refunds with maker-checker approval, and notifications to the customer and
   account, rate limits, Turnstile for guests, holds released on expiry.
 - **Installments on flights are rare** because airline holds are short. Mitigation: the plan is
   generic and offered only when it is safe; packages and tours (phase 8) use the same engine.
+
+## Outcome
+
+All three acceptance criteria are met, each by a named test in `apps/api/test/payments.e2e-spec.ts`:
+
+1. "a replayed webhook never credits twice": the same event, and a new event id for the same
+   payment, leave the ledger and the booking unchanged (`ledger.e2e-spec.ts` also replays postings
+   by key).
+2. "tampered amounts fail safely": a tampered signature is rejected; a validly signed event whose
+   amount differs from the provider's verified amount, or from the payment, never credits the
+   booking, and money that did arrive is refunded automatically.
+3. "payment succeeds but ticketing fails": the booking goes through REFUND_PENDING to REFUNDED
+   once the automatic refund settles, and both the customer and operations get emails.
+
+The web flows are covered by `apps/web/e2e/booking.spec.ts` ("flexible payment": reserve and pay
+in full, installments from the schedule shown before commitment to a cancelled, refunded plan).
+
+### Deviations from the plan
+
+- Refunds live in `src/bookings` (`refunds.service.ts`, `admin-refunds.controller.ts`) next to the
+  booking funds and transitions they share, not in a separate `refunds/` module.
+- A success for the wrong amount is refunded automatically (phase 5 only flagged it), and
+  exhausted ticketing now ends REFUNDED rather than waiting in REFUND_PENDING.
+- The booking page can pay from the wallet when the balance covers the amount due; the full
+  wallet page is still phase 9.
+- Running installment plans show the next payment and its due date on the booking page rather
+  than only the final deadline.
+- Unplanned: the web error boundary imported the whole message catalog on every page, which the
+  new copy pushed over the homepage JavaScript budget; it now gets only its own strings from the
+  root layout (216.7 kB to 200.9 kB gzip).
