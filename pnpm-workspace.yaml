@@ -177,6 +177,12 @@ catalog:
   # Encrypted cache for trips and documents index (ADR-020); outside Expo's bundled set.
   react-native-mmkv: ^4.3.2
   react-native-nitro-modules: ^0.37.1
+  # Hermes implements only part of Intl; these fill in what @suskii/i18n uses (ADR-020).
+  '@formatjs/intl-getcanonicallocales': ^3.2.12
+  '@formatjs/intl-locale': ^5.3.12
+  '@formatjs/intl-pluralrules': ^6.3.15
+  '@formatjs/intl-relativetimeformat': ^12.3.15
+  '@formatjs/intl-listformat': ^8.3.15
 
   # Native UI (packages/ui-native)
   nativewind: ^4.2.7

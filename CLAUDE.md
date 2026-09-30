@@ -295,6 +295,10 @@ Tooling notes for agents:
   WebView); the trip screen polls, webhooks decide. Guest checkout and payment attach
   `attestationHeader()`.
 - Wrap checkout, payment and document screens in `useSensitiveScreen()`.
+- Hermes implements only part of `Intl`. `src/polyfills.ts`, loaded first from `index.ts`, adds
+  `PluralRules`, `RelativeTimeFormat`, `ListFormat` and `Locale`; `@suskii/i18n` joins date
+  ranges itself where `formatRange` is missing. Shared code that starts using another `Intl` API
+  needs a polyfill there and a case in `polyfills.test.ts` (Jest runs on Node's full `Intl`).
 - Push permission is requested only after a booking or from Account (`followBooking`,
   `followAccount`), never on launch.
 - Give interactive elements used by Maestro a stable `testID` (fields: the form path, such as

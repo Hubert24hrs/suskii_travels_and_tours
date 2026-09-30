@@ -56,6 +56,10 @@ All notable changes to this project are documented here. The format follows
 - The checkout draft, its client-side checks and itinerary facts moved from the web app to
   `@suskii/shared` so the web and the app validate the same way.
 - The ui-native `Combobox` takes a `testID` for its field and suggestions.
+- The app loads `Intl` polyfills (formatjs `PluralRules`, `RelativeTimeFormat`, `ListFormat`,
+  `Locale`, with en, en-GB and en-NG data) before any other module, because Hermes lacks them
+  and the translator failed at start-up; `@suskii/i18n` formats date ranges without
+  `formatRange` where the engine has none.
 - The mobile app depends on `@babel/plugin-transform-react-jsx` directly: NativeWind's Babel
   preset names it without depending on it, and Babel resolves it from the app's
   `babel.config.js`, so the Android release bundle failed on a clean install.
