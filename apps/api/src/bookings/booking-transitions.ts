@@ -6,6 +6,7 @@ import type { BookingActorType, BookingStatus, Prisma } from '../generated/prism
 
 import { bookingConflict } from './booking.errors';
 import { canTransition, nextStatus, type BookingEvent } from './booking-state-machine';
+import { RELEASING_STATUSES, settleSeats } from './seat-inventory';
 
 type Tx = Prisma.TransactionClient;
 
@@ -28,7 +29,8 @@ function auditActorType(actor: BookingActor): 'user' | 'system' | 'anonymous' {
  * The only way a booking changes status (ADR-014). Each transition is checked against the state
  * machine, applied with an optimistic guard on the current status (a concurrent change makes it
  * fail instead of overwriting), and recorded in `booking_status_history` and the audit log inside
- * the caller's transaction.
+ * the caller's transaction. Reserved package and tour seats are sold on confirmation and released
+ * when the booking ends without one.
  */
 @Injectable()
 export class BookingTransitions {
@@ -79,6 +81,9 @@ export class BookingTransitions {
       data: { ...options.data, status: to },
     });
     if (count !== 1) throw bookingConflict();
+    // Package and tour seats follow the booking (ADR-025), in the same transaction.
+    if (to === 'CONFIRMED') await settleSeats(tx, booking.id, 'sold');
+    else if (RELEASING_STATUSES.includes(to)) await settleSeats(tx, booking.id, 'released');
     await tx.bookingStatusHistory.create({
       data: {
         bookingId: booking.id,

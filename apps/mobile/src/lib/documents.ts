@@ -3,11 +3,13 @@ import { shareAsync } from 'expo-sharing';
 
 import { appConfig, CLIENT_ID } from '../config';
 
+import type { Booking } from './trips';
+
 import { readJson, secureCache, writeJson } from './cache';
 
 export interface SavedDocument {
   documentId: string;
-  type: 'e_ticket' | 'hotel_voucher';
+  type: Booking['documents'][number]['type'];
   fileName: string;
   uri: string;
   savedAt: string;

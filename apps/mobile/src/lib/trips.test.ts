@@ -26,6 +26,42 @@ describe('summaryOf', () => {
         airline: 'Demo Air',
       },
       hotel: null,
+      product: null,
+    });
+  });
+
+  it('summarises a package with its title, place and dates', () => {
+    const summary = summaryOf(
+      booking({
+        vertical: 'packages',
+        flight: null,
+        package: {
+          product: {
+            id: BOOKING_ID,
+            slug: 'zanzibar',
+            title: 'Zanzibar beach break',
+            sample: true,
+            artKey: null,
+          },
+          departureId: BOOKING_ID,
+          cityName: 'Zanzibar',
+          countryCode: 'TZ',
+          nights: 5,
+          startDate: '2026-12-01',
+          endDate: '2026-12-06',
+          passportRequired: true,
+          inclusions: [],
+          travellers: { adults: 2, children: 0, infants: 0 },
+          cancellationPolicy: [],
+        },
+      }),
+    );
+    expect(summary).toMatchObject({
+      vertical: 'packages',
+      startsOn: '2026-12-01',
+      endsOn: '2026-12-06',
+      flight: null,
+      product: { title: 'Zanzibar beach break', cityName: 'Zanzibar', countryCode: 'TZ' },
     });
   });
 

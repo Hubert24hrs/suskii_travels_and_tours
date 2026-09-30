@@ -23,7 +23,8 @@ import { PushTokensService } from '../push/push-tokens.service';
 
 import { BookingAccessLinks, accessLinkUrl } from './booking-access-links';
 import { itemPayload, type BookingRecord } from './booking-presenter';
-import type { ItemPayload } from './booking-pricing';
+import { isInhouse, type ItemPayload } from './booking-pricing';
+import { inhouseSummary } from './inhouse-presenter';
 import { BookingsService } from './bookings.service';
 import { bookingUrl } from './booking-urls';
 
@@ -51,6 +52,7 @@ export function instantText(date: Date): string {
 }
 
 function summaryOf(payload: ItemPayload): string {
+  if (isInhouse(payload)) return inhouseSummary(payload);
   if (payload.kind === 'hotel') return `${payload.hotel.name}, ${payload.hotel.cityName}`;
   const first = payload.offer.slices[0];
   if (!first) return '';

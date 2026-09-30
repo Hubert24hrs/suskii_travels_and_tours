@@ -83,11 +83,12 @@ export class BookingFundsService {
     if (booking.status !== 'PRICED' || booking.paymentPlan || !item || pendingPrice(booking)) {
       return { hold: null, installments: null };
     }
+    const policy = planPolicy(this.config);
     return planOptions(
-      holdTerms(itemPayload(item)),
+      holdTerms(itemPayload(item), policy),
       money(booking.totalMinor, booking.currency),
       itemServices(item).length > 0,
-      planPolicy(this.config),
+      policy,
       now,
     );
   }

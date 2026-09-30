@@ -12,6 +12,13 @@ export function randomDigits(length: number): string {
   return code;
 }
 
+/** Uniformly random code over `alphabet` (voucher codes); `randomInt` has no modulo bias. */
+export function randomCode(alphabet: string, length: number): string {
+  let code = '';
+  for (let index = 0; index < length; index += 1) code += alphabet[randomInt(alphabet.length)];
+  return code;
+}
+
 /** SHA-256 hex digest. Only for high-entropy secrets (random tokens), never passwords or OTPs. */
 export function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');

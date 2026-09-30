@@ -15,6 +15,8 @@ const HOUR_MS = 3_600_000;
 const MINUTE_MS = 60_000;
 
 export interface PlanPolicy {
+  /** Packages: the balance is due this long before departure (ADR-028). */
+  packageBalanceDueMs: number;
   holdMinWindowMs: number;
   holdSafetyMarginMs: number;
   graceHours: number;
@@ -24,6 +26,7 @@ export interface PlanPolicy {
 
 export function planPolicy(config: AppConfig): PlanPolicy {
   return {
+    packageBalanceDueMs: config.PACKAGE_BALANCE_DUE_DAYS * 24 * HOUR_MS,
     holdMinWindowMs: config.HOLD_MIN_WINDOW_HOURS * HOUR_MS,
     holdSafetyMarginMs: config.HOLD_SAFETY_MARGIN_MINUTES * MINUTE_MS,
     graceHours: config.INSTALLMENT_GRACE_HOURS,
@@ -50,8 +53,17 @@ export interface PlanOptions {
 
 const NONE: PlanOptions = { hold: null, installments: null };
 
-/** The supplier's hold terms of an item, if it can be held at all (flights only in phase 6). */
-export function holdTerms(payload: ItemPayload): HoldTerms | null {
+/**
+ * The hold terms of an item, if it can be held at all: the airline's for flights; for packages,
+ * our own seats until the balance-due date before departure, at a price we guarantee (ADR-028).
+ */
+export function holdTerms(payload: ItemPayload, policy: PlanPolicy): HoldTerms | null {
+  if (payload.kind === 'package') {
+    const due = new Date(
+      new Date(`${payload.startDate}T00:00:00.000Z`).getTime() - policy.packageBalanceDueMs,
+    );
+    return { paymentRequiredBy: due, priceGuaranteedUntil: due };
+  }
   if (payload.kind !== 'flight') return null;
   const { hold } = payload.offer;
   if (!hold.available || !hold.paymentRequiredBy) return null;

@@ -649,6 +649,7 @@ export const en = {
       infants_exceed_adults: 'Each infant must travel with an adult',
       passenger_count_mismatch: 'The travellers do not match the selected fare',
       traveller_not_found: 'This saved traveller is no longer available',
+      nationality_mismatch: 'Each applicant must hold the nationality you checked the visa for',
       terms: 'Accept the booking conditions to continue',
     },
     plan: {
@@ -891,6 +892,10 @@ export const en = {
     download: {
       e_ticket: 'Download e-ticket receipt (PDF)',
       hotel_voucher: 'Download hotel voucher (PDF)',
+      package_voucher: 'Download package voucher (PDF)',
+      tour_voucher: 'Download tour voucher (PDF)',
+      addon_voucher: 'Download add-on voucher (PDF)',
+      visa_confirmation: 'Download visa assistance confirmation (PDF)',
     },
     downloadFailed: 'The download failed. Try again.',
     completePayment: 'Complete payment',

@@ -16,7 +16,8 @@ import { flightPricingContext, toFlightOfferDto } from '../search/flight-search.
 import { hotelPricingContext, toHotelRateDto } from '../search/hotel-search.service';
 import { offerUnavailable } from '../search/search.errors';
 
-import { bookedRate, type ItemPayload } from './booking-pricing';
+import { bookedRate, isInhouse, priceItem, type ItemPayload } from './booking-pricing';
+import { inhouseSections, NO_INHOUSE } from './inhouse-presenter';
 import type { PaymentOptionsDto, quoteSchema } from './bookings.schemas';
 import { holdTerms, paymentOptionsDto, planOptions, planPolicy } from './payment-options';
 
@@ -49,7 +50,7 @@ export class QuotesService {
       : null;
     return paymentOptionsDto(
       this.providers.options(total.currency),
-      planOptions(holdTerms(payload), total, false, policy, now),
+      planOptions(holdTerms(payload, policy), total, false, policy, now),
       policy,
       wallet,
     );
@@ -71,7 +72,21 @@ export class QuotesService {
       currency: quote.currency,
       expiresAt: quote.expiresAt.toISOString(),
       termsVersion: BOOKING_TERMS_VERSION,
+      ...NO_INHOUSE,
+      price: null,
     };
+    if (isInhouse(payload)) {
+      const { breakdown } = priceItem(pricer, payload, client, now);
+      return {
+        ...base,
+        vertical: quote.vertical,
+        flight: null,
+        hotel: null,
+        ...inhouseSections(payload),
+        price: toPriceDto(breakdown),
+        payment: await this.paymentOptions(payload, breakdown.total, client, now),
+      };
+    }
     if (payload.kind === 'flight') {
       const { breakdown } = pricer(
         payload.offer.price,

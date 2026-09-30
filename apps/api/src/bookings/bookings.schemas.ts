@@ -1,8 +1,13 @@
 import { z } from 'zod';
 
 import {
+  ADDON_DETAIL_FIELDS,
+  ADDON_PRICING_BASES,
+  ADDON_PRODUCT_TYPES,
   BOOKING_STATUSES,
   CABIN_CLASSES,
+  VISA_APPLICATION_STATUSES,
+  VISA_PURPOSES,
   contactDetailsSchema,
   flightSearchRequestSchema,
   GENDERS,
@@ -27,7 +32,7 @@ import { flightOfferSchema, flightSliceSchema, hotelRateSchema } from '../search
 
 const timestamp = z.iso.datetime();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const verticalSchema = z.enum(['flights', 'hotels']);
+const verticalSchema = z.enum(['flights', 'hotels', 'packages', 'tours', 'visa', 'travel_addons']);
 const boardSchema = z.enum(['room_only', 'breakfast_included', 'half_board', 'full_board']);
 
 export const bookingIdParamsSchema = z.object({ bookingId: z.uuid() });
@@ -108,6 +113,125 @@ export const paymentOptionsSchema = named(
 export type PaymentOptionsDto = z.infer<typeof paymentOptionsSchema>;
 
 // ---------------------------------------------------------------------------
+// In-house items (ADR-025 to ADR-028)
+// ---------------------------------------------------------------------------
+
+export const travellerCountsDtoSchema = named(
+  'TravellerCounts',
+  z.object({
+    adults: z.number().int(),
+    children: z.number().int(),
+    infants: z.number().int(),
+  }),
+);
+
+export const cancellationTierDtoSchema = named(
+  'CancellationTier',
+  z.object({
+    daysBefore: z.number().int().meta({ description: 'Cancel at least this many days before.' }),
+    refundBps: z.number().int().meta({ description: 'Share refunded, 10000 = everything.' }),
+  }),
+);
+
+const productRefSchema = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  sample: z.boolean().meta({ description: 'Demo inventory: show a "Sample" badge.' }),
+  artKey: z.string().nullable(),
+});
+
+export const meetingPointDtoSchema = named(
+  'MeetingPoint',
+  z.object({ name: z.string(), address: z.string(), notes: z.string().nullable() }),
+);
+
+export const packageItemSchema = named(
+  'PackageItem',
+  z.object({
+    product: productRefSchema,
+    departureId: z.uuid(),
+    cityName: z.string(),
+    countryCode: z.string().length(2),
+    nights: z.number().int(),
+    startDate: isoDate,
+    endDate: isoDate,
+    passportRequired: z.boolean(),
+    inclusions: z.array(z.string()),
+    travellers: travellerCountsDtoSchema,
+    cancellationPolicy: z.array(cancellationTierDtoSchema),
+  }),
+);
+
+export const tourItemSchema = named(
+  'TourItem',
+  z.object({
+    product: productRefSchema,
+    departureId: z.uuid(),
+    cityName: z.string(),
+    countryCode: z.string().length(2),
+    timeZone: z.string(),
+    startsAtLocal: z.string().meta({ description: 'Wall time at the meeting point.' }),
+    startsAt: timestamp,
+    durationMinutes: z.number().int(),
+    meetingPoint: meetingPointDtoSchema,
+    inclusions: z.array(z.string()),
+    travellers: travellerCountsDtoSchema,
+    cancellationPolicy: z.array(cancellationTierDtoSchema),
+  }),
+);
+
+export const visaApplicationSummarySchema = named(
+  'VisaApplicationSummary',
+  z.object({
+    id: z.uuid(),
+    applicantPosition: z.number().int(),
+    status: z.enum(VISA_APPLICATION_STATUSES),
+    submittedAt: timestamp.nullable(),
+    updatedAt: timestamp,
+  }),
+);
+
+export const visaItemSchema = named(
+  'VisaItem',
+  z.object({
+    product: productRefSchema,
+    destination: z.string().length(2),
+    purpose: z.enum(VISA_PURPOSES),
+    nationality: z.string().length(2),
+    travelDate: isoDate,
+    processingDaysMin: z.number().int(),
+    processingDaysMax: z.number().int(),
+    governmentFeeNote: z.string().nullable(),
+    travellers: travellerCountsDtoSchema,
+    applications: z
+      .array(visaApplicationSummarySchema)
+      .meta({ description: 'Opened once the booking is confirmed, one per applicant.' }),
+  }),
+);
+
+export const addonItemSchema = named(
+  'AddonItem',
+  z.object({
+    product: productRefSchema,
+    type: z.enum(ADDON_PRODUCT_TYPES),
+    pricingBasis: z.enum(ADDON_PRICING_BASES),
+    units: z.number().int(),
+    startDate: isoDate,
+    endDate: isoDate,
+    countryCode: z.string().length(2).nullable(),
+    cityName: z.string().nullable(),
+    travellers: travellerCountsDtoSchema,
+    requiredDetails: z.array(z.enum(ADDON_DETAIL_FIELDS)),
+    cancellationPolicy: z.array(cancellationTierDtoSchema),
+    linkedBooking: z
+      .object({ id: z.uuid(), reference: z.string() })
+      .nullable()
+      .meta({ description: 'The trip this add-on belongs to (ADR-027).' }),
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // Quotes (checkout)
 // ---------------------------------------------------------------------------
 
@@ -133,6 +257,15 @@ export const quoteSchema = named(
         request: hotelSearchRequestSchema,
       })
       .nullable(),
+    package: packageItemSchema.nullable(),
+    tour: tourItemSchema.nullable(),
+    visa: visaItemSchema.nullable(),
+    addon: addonItemSchema.nullable(),
+    price: priceSchema
+      .nullable()
+      .meta({
+        description: 'In-house products: the priced total (flights and hotels: in the offer).',
+      }),
     payment: paymentOptionsSchema,
   }),
 );
@@ -160,17 +293,35 @@ export const createBookingRequestSchema = named(
   z.object({
     quoteId: z.uuid(),
     contact: contactDetailsSchema,
-    passengers: z
-      .array(passengerInputSchema)
-      .max(9)
-      .default([])
-      .meta({ description: 'Flights: every traveller the offer was priced for.' }),
+    passengers: z.array(passengerInputSchema).max(9).default([]).meta({
+      description:
+        'Flights, packages, tours, visa assistance and add-ons: every traveller the quote was priced for.',
+    }),
     guests: z
       .array(hotelGuestSchema)
       .max(8)
       .default([])
       .meta({ description: 'Hotels: one lead guest per room, in room order.' }),
     extras: z.array(extraSelectionSchema).max(18).default([]),
+    addonDetails: z
+      .object({
+        flightNumber: z
+          .string()
+          .trim()
+          .toUpperCase()
+          .regex(/^[A-Z0-9]{2}\s?\d{1,4}[A-Z]?$/, 'Use the flight number, for example P4 7121')
+          .nullable()
+          .default(null),
+        arrivalTime: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Use local time YYYY-MM-DDTHH:mm')
+          .nullable()
+          .default(null),
+        pickupAddress: z.string().trim().min(5).max(300).nullable().default(null),
+      })
+      .nullable()
+      .default(null)
+      .meta({ description: 'Add-ons: the details the product asks for (`requiredDetails`).' }),
     promoCode: z.string().trim().min(3).max(32).nullable().default(null),
     termsVersion: z.string().min(1).max(32),
     acceptTerms: z.literal(true),
@@ -333,6 +484,38 @@ export const bookingSchema = named(
         request: hotelSearchRequestSchema,
       })
       .nullable(),
+    package: packageItemSchema.nullable(),
+    tour: tourItemSchema.nullable(),
+    visa: visaItemSchema.nullable(),
+    addon: addonItemSchema.nullable(),
+    voucher: z
+      .object({
+        code: z
+          .string()
+          .meta({ description: 'Grouped for display, e.g. ABCD-EFGH-JKMN-PQRS-TUVW.' }),
+        qrPayload: z.string().meta({ description: 'What the QR code encodes (no personal data).' }),
+        redeemedAt: timestamp.nullable(),
+      })
+      .nullable()
+      .meta({ description: 'Confirmed packages, tours and add-ons (ADR-028).' }),
+    cancellation: z
+      .object({
+        refundBps: z.number().int(),
+        refund: moneySchema.meta({ description: 'What cancelling now would refund.' }),
+      })
+      .nullable()
+      .meta({ description: 'Confirmed packages, tours and add-ons the traveller can cancel.' }),
+    addons: z
+      .array(
+        z.object({
+          id: z.uuid(),
+          reference: z.string(),
+          status: z.enum(BOOKING_STATUSES),
+          title: z.string(),
+          type: z.enum(ADDON_PRODUCT_TYPES),
+        }),
+      )
+      .meta({ description: 'Add-ons bought for this trip by the same traveller.' }),
     passengers: z.array(bookingPassengerSchema),
     warnings: z.array(passengerIssueSchema),
     payment: z
@@ -351,7 +534,14 @@ export const bookingSchema = named(
     documents: z.array(
       z.object({
         id: z.uuid(),
-        type: z.enum(['e_ticket', 'hotel_voucher']),
+        type: z.enum([
+          'e_ticket',
+          'hotel_voucher',
+          'package_voucher',
+          'tour_voucher',
+          'addon_voucher',
+          'visa_confirmation',
+        ]),
         fileName: z.string(),
         sizeBytes: z.number().int(),
         createdAt: timestamp,
@@ -639,6 +829,14 @@ export const bookingSummarySchema = named(
       })
       .nullable(),
     hotel: z.object({ name: z.string(), cityName: z.string() }).nullable(),
+    product: z
+      .object({
+        title: z.string(),
+        cityName: z.string().nullable(),
+        countryCode: z.string().length(2).nullable(),
+      })
+      .nullable()
+      .meta({ description: 'Packages, tours, visa assistance and add-ons.' }),
   }),
 );
 export type BookingSummaryDto = z.infer<typeof bookingSummarySchema>;

@@ -8,6 +8,7 @@ import { SuppliersModule } from '../suppliers/suppliers.module';
 
 import { AdminRefundsController } from './admin-refunds.controller';
 import { BookingAccessLinks } from './booking-access-links';
+import { BookingCancellationService } from './booking-cancellation.service';
 import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
 import { BookingNotifications } from './booking-notifications';
@@ -16,6 +17,8 @@ import { BookingTransitions } from './booking-transitions';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { CheckoutService } from './checkout.service';
+import { InhouseCatalog } from './inhouse-catalog';
+import { InhouseFulfilment } from './inhouse-fulfilment';
 import { InternalBookingsController } from './internal-bookings.controller';
 import { MeBookingsController } from './me-bookings.controller';
 import { PaymentEventsService } from './payment-events.service';
@@ -58,7 +61,19 @@ import { TravellersService } from './travellers.service';
     PaymentPlansService,
     QuotesService,
     TravellersService,
+    InhouseCatalog,
+    InhouseFulfilment,
+    BookingCancellationService,
   ],
-  exports: [TicketingService, CheckoutService, RefundsService, PaymentPlansService],
+  exports: [
+    TicketingService,
+    CheckoutService,
+    RefundsService,
+    PaymentPlansService,
+    BookingsService,
+    BookingTransitions,
+    InhouseCatalog,
+    QuotesService,
+  ],
 })
 export class BookingsModule {}

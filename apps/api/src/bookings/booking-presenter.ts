@@ -16,12 +16,15 @@ import type { Converter } from '../pricing/fx.service';
 import { maskEmail, maskPhone } from './booking-codes';
 import {
   bookedRate,
+  isInhouse,
   itineraryFacts,
   totalOf,
   type ExtraSelection,
   type FlightItemPayload,
   type ItemPayload,
 } from './booking-pricing';
+import { inhouseCountry, inhouseDates, inhouseItineraryFacts } from './inhouse-items';
+import { inhouseSections, type VisaApplicationSummaryDto } from './inhouse-presenter';
 import type {
   BookingDto,
   BookingPriceDto,
@@ -65,7 +68,13 @@ const isoDate = (date: Date | null): string | null => date?.toISOString().slice(
 
 /** Passport warnings (expiring within six months of the trip), recomputed from stored facts. */
 function passengerWarnings(booking: BookingRecord, payload: ItemPayload): PassengerIssue[] {
-  if (payload.kind !== 'flight') return [];
+  const itinerary =
+    payload.kind === 'flight'
+      ? itineraryFacts(payload)
+      : isInhouse(payload)
+        ? inhouseItineraryFacts(payload)
+        : null;
+  if (!itinerary) return [];
   const facts = booking.passengers.map((passenger) => ({
     type: passenger.type,
     dateOfBirth: isoDate(passenger.dateOfBirth) ?? '',
@@ -73,7 +82,7 @@ function passengerWarnings(booking: BookingRecord, payload: ItemPayload): Passen
       ? { expiryDate: isoDate(passenger.documentExpiry) ?? '' }
       : null,
   }));
-  return checkPassengers(facts, itineraryFacts(payload)).warnings;
+  return checkPassengers(facts, itinerary).warnings;
 }
 
 /** Money facts the presenter cannot derive from the row: they come from the ledger and config. */
@@ -82,6 +91,23 @@ export interface BookingMoney {
   amountDue: Money | null;
   options: PaymentOptionsDto | null;
 }
+
+/** In-house facts that need decryption or other rows (ADR-026 to ADR-028). */
+export interface BookingView {
+  voucher: { code: string; qrPayload: string; redeemedAt: Date | null } | null;
+  cancellation: { refundBps: number; refund: Money } | null;
+  linkedBooking: { id: string; reference: string } | null;
+  addons: BookingDto['addons'];
+  applications: VisaApplicationSummaryDto[];
+}
+
+export const EMPTY_VIEW: BookingView = {
+  voucher: null,
+  cancellation: null,
+  linkedBooking: null,
+  addons: [],
+  applications: [],
+};
 
 const REFUND_VIEW = {
   pending_approval: 'in_progress',
@@ -99,6 +125,7 @@ export function toBookingDto(
   fx: Converter,
   now: Date,
   funds: BookingMoney,
+  view: BookingView = EMPTY_VIEW,
 ): BookingDto {
   const item = booking.items[0];
   if (!item) throw new Error(`Booking ${booking.id} has no items`);
@@ -113,7 +140,7 @@ export function toBookingDto(
     id: booking.id,
     reference: booking.reference,
     status: booking.status,
-    vertical: payload.kind === 'flight' ? 'flights' : 'hotels',
+    vertical: booking.vertical,
     createdAt: booking.createdAt.toISOString(),
     paymentDeadline: booking.paymentDeadline?.toISOString() ?? null,
     confirmedAt: booking.confirmedAt?.toISOString() ?? null,
@@ -168,6 +195,21 @@ export function toBookingDto(
             };
           })()
         : null,
+    ...inhouseSections(payload, {
+      applications: view.applications,
+      linkedBooking: view.linkedBooking,
+    }),
+    voucher: view.voucher
+      ? {
+          code: view.voucher.code,
+          qrPayload: view.voucher.qrPayload,
+          redeemedAt: view.voucher.redeemedAt?.toISOString() ?? null,
+        }
+      : null,
+    cancellation: view.cancellation
+      ? { refundBps: view.cancellation.refundBps, refund: toWire(view.cancellation.refund) }
+      : null,
+    addons: view.addons,
     passengers: booking.passengers.map((passenger) => ({
       position: passenger.position,
       type: passenger.type,
@@ -255,6 +297,7 @@ export interface BookingSummaryRecord {
   id: string;
   reference: string;
   status: BookingRecord['status'];
+  vertical: BookingRecord['vertical'];
   createdAt: Date;
   totalMinor: bigint;
   currency: string;
@@ -282,10 +325,25 @@ export function toBookingSummary(booking: BookingSummaryRecord): BookingSummaryD
     id: booking.id,
     reference: booking.reference,
     status: booking.status,
-    vertical: payload.kind === 'flight' ? ('flights' as const) : ('hotels' as const),
+    vertical: booking.vertical,
     createdAt: booking.createdAt.toISOString(),
     total: { amountMinor: Number(booking.totalMinor), currency: booking.currency },
   };
+  if (isInhouse(payload)) {
+    const { start, end } = inhouseDates(payload);
+    return {
+      ...base,
+      startsOn: start,
+      endsOn: end === start ? null : end,
+      flight: null,
+      hotel: null,
+      product: {
+        title: payload.title,
+        cityName: payload.kind === 'visa' ? null : payload.cityName,
+        countryCode: inhouseCountry(payload),
+      },
+    };
+  }
   if (payload.kind === 'hotel') {
     return {
       ...base,
@@ -293,6 +351,7 @@ export function toBookingSummary(booking: BookingSummaryRecord): BookingSummaryD
       endsOn: payload.request.checkOut,
       flight: null,
       hotel: { name: payload.hotel.name, cityName: payload.hotel.cityName },
+      product: null,
     };
   }
   const slices = payload.offer.slices;
@@ -315,5 +374,6 @@ export function toBookingSummary(booking: BookingSummaryRecord): BookingSummaryD
       airline: payload.offer.owner.name,
     },
     hotel: null,
+    product: null,
   };
 }

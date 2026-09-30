@@ -35,6 +35,8 @@ export const PASSENGER_ISSUES = {
   passportExpired: 'passport_expired',
   passportExpiresSoon: 'passport_expires_soon',
   travellerNotFound: 'traveller_not_found',
+  /** Visa assistance: every applicant holds the nationality the eligibility was checked for. */
+  nationalityMismatch: 'nationality_mismatch',
 } as const;
 
 const SPECIAL_LETTERS: Readonly<Record<string, string>> = {

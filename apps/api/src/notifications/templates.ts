@@ -74,24 +74,46 @@ export function newsletterConfirmTemplate(confirmUrl: string, unsubscribeUrl: st
 
 export interface BookingConfirmedDetails {
   reference: string;
-  vertical: 'flights' | 'hotels';
+  vertical: 'flights' | 'hotels' | 'packages' | 'tours' | 'visa' | 'travel_addons';
   /** "Lagos (LOS) to Dubai (DXB), Thu, 10 Dec 2026" or "The Palm Suites, Dubai, 10 to 13 Dec 2026". */
   summary: string;
-  supplierLabel: string;
+  /** Airline or hotel reference label; null for Suskii's own products. */
+  supplierLabel: string | null;
   supplierReference: string;
   total: string;
   /** Account bookings link to the booking page; guest links would need the access token. */
   bookingUrl: string | null;
 }
 
+const CONFIRMED_COPY: Record<
+  BookingConfirmedDetails['vertical'],
+  { what: string; document: string }
+> = {
+  flights: { what: 'flight', document: 'e-ticket receipt' },
+  hotels: { what: 'stay', document: 'hotel voucher' },
+  packages: { what: 'holiday package', document: 'package voucher' },
+  tours: { what: 'tour', document: 'tour voucher' },
+  visa: { what: 'visa assistance', document: 'confirmation' },
+  travel_addons: { what: 'add-on', document: 'voucher' },
+};
+
+/** Every visa page, PDF and email says who decides (ADR-026). */
+export const VISA_DISCLAIMER =
+  'Suskii helps you prepare and submit your application. The decision on any visa rests with the issuing government; government fees are paid to the authority and are not refundable by us.';
+
 export function bookingConfirmedTemplate(details: BookingConfirmedDetails): Template {
-  const what = details.vertical === 'flights' ? 'flight' : 'stay';
-  const document = details.vertical === 'flights' ? 'e-ticket receipt' : 'hotel voucher';
+  const { what, document } = CONFIRMED_COPY[details.vertical];
   const intro = `Your ${what} is booked. Booking reference: ${details.reference}.`;
   const lines = [
     details.summary,
-    `${details.supplierLabel}: ${details.supplierReference}`,
+    ...(details.supplierLabel ? [`${details.supplierLabel}: ${details.supplierReference}`] : []),
     `Total paid: ${details.total}`,
+    ...(details.vertical === 'visa'
+      ? [
+          'Next step: upload the documents on your checklist from the booking page.',
+          VISA_DISCLAIMER,
+        ]
+      : []),
     `Your ${document} is attached. Keep this email: you need the booking reference to manage the booking.`,
   ];
   return {

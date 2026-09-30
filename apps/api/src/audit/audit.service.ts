@@ -51,7 +51,28 @@ export type AuditAction =
   | 'refund.resolved'
   | 'traveller.created'
   | 'traveller.updated'
-  | 'traveller.deleted';
+  | 'traveller.deleted'
+  | 'booking.cancelled_under_policy'
+  | 'booking.voucher_redeemed'
+  | 'booking.addon_link_issued'
+  | 'catalog.created'
+  | 'catalog.updated'
+  | 'catalog.status_changed'
+  | 'catalog.departure_created'
+  | 'catalog.departure_updated'
+  | 'visa.rule_upserted'
+  | 'visa.rule_deleted'
+  | 'visa.application_opened'
+  | 'visa.application_submitted'
+  | 'visa.application_status_changed'
+  | 'visa.application_message'
+  | 'visa.application_note'
+  | 'visa.document_uploaded'
+  | 'visa.document_scanned'
+  | 'visa.document_rejected'
+  | 'visa.document_link_issued'
+  | 'visa.document_accessed'
+  | 'visa.documents_pruned';
 
 export interface AuditEvent {
   action: AuditAction;

@@ -84,3 +84,13 @@ export const DEVICE_LIMITS = {
   pushTokenIp: { name: 'push-token-ip', limit: 30, windowSeconds: 600, by: 'ip' },
   challengeIp: { name: 'attestation-challenge-ip', limit: 60, windowSeconds: 600, by: 'ip' },
 } as const satisfies Record<string, RateLimitPolicy>;
+
+/** In-house catalog, add-on links and visa documents (ADR-025 to ADR-027). */
+export const INHOUSE_LIMITS = {
+  catalogIp: { name: 'inhouse-catalog-ip', limit: 120, windowSeconds: 60, by: 'ip' },
+  /** Reference and surname lookups: tight, like other booking lookups (ADR-027). */
+  addonLinkIp: { name: 'addon-link-ip', limit: 10, windowSeconds: 600, by: 'ip' },
+  visaUploadIp: { name: 'visa-upload-ip', limit: 60, windowSeconds: 3600, by: 'ip' },
+  visaLinkIp: { name: 'visa-link-ip', limit: 120, windowSeconds: 600, by: 'ip' },
+  voucherRedeemUser: { name: 'voucher-redeem-user', limit: 120, windowSeconds: 600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;

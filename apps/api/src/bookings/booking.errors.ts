@@ -38,6 +38,16 @@ export const extrasInvalid = (): ProblemDetailsException =>
     'Choose the extras again.',
   );
 
+/** Add-ons: a detail the product needs is missing, or details were sent for another product. */
+export const addonDetailsInvalid = (missing: string[]): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'addon-details-invalid',
+    'Some details are missing',
+    'This add-on needs the details listed in `missing`.',
+    { missing },
+  );
+
 export const bookingConflict = (
   detail = 'Reload the booking and try again.',
 ): ProblemDetailsException =>

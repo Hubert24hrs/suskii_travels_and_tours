@@ -14,10 +14,8 @@ import type { z } from 'zod';
 
 import { DeviceAttested } from '../attestation/attestation.guard';
 import { ATTESTATION_HEADER } from '../attestation/attestation.schemas';
-import { ATTESTATION_HEADER_NAME } from '../attestation/attestation.service';
 import type { AuthenticatedRequest } from '../auth/auth-context';
 import { Public } from '../auth/decorators';
-import { requestContext } from '../common/request-context';
 import { Contract, fileResponse } from '../contract/contract';
 import { PushTokensService } from '../push/push-tokens.service';
 import { pushTokenRequestSchema, type PushTokenRequest } from '../push/push.schemas';
@@ -29,6 +27,7 @@ import {
 } from '../rate-limit/rate-limit.decorator';
 import { clientContext } from '../search/client-context';
 
+import { BookingCancellationService } from './booking-cancellation.service';
 import { BookingDocumentsService } from './booking-documents.service';
 import {
   BOOKING_TOKEN_HEADER,
@@ -45,28 +44,15 @@ import {
   type CreateBookingRequest,
   type StartPaymentRequest,
 } from './bookings.schemas';
-import { BookingsService, type BookingCaller } from './bookings.service';
+import { bookingCaller } from './booking-caller';
+import { BookingsService } from './bookings.service';
 import { CheckoutService } from './checkout.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { QuotesService } from './quotes.service';
 
 const TAGS = ['Bookings'];
 
-function header(request: AuthenticatedRequest, name: string): string {
-  const value = request.headers[name];
-  return (Array.isArray(value) ? value[0] : value)?.trim() ?? '';
-}
-
-function caller(request: AuthenticatedRequest): BookingCaller {
-  const token = header(request, 'x-booking-token');
-  const attestation = header(request, ATTESTATION_HEADER_NAME);
-  return {
-    client: clientContext(request),
-    context: requestContext(request),
-    token: token.length > 0 && token.length <= 128 ? token : null,
-    attestation: attestation.length > 0 ? attestation : null,
-  };
-}
+const caller = bookingCaller;
 
 /**
  * Checkout and booking routes (ADR-014, ADR-015). Guests and signed-in travellers both book;
@@ -82,6 +68,7 @@ export class BookingsController {
     private readonly documents: BookingDocumentsService,
     private readonly plans: PaymentPlansService,
     private readonly pushTokens: PushTokensService,
+    private readonly cancellation: BookingCancellationService,
   ) {}
 
   @Get('quotes/:quoteId')
@@ -259,9 +246,9 @@ export class BookingsController {
   @HttpCode(HttpStatus.OK)
   @Contract({
     operationId: 'cancelBooking',
-    summary: 'Cancel an unpaid or partly paid booking',
+    summary: 'Cancel a booking',
     description:
-      'A reservation is released at the airline. A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`).',
+      'Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept; 409 `not-cancellable` for anything else confirmed (contact support).',
     tags: TAGS,
     params: bookingIdParamsSchema,
     headers: [BOOKING_TOKEN_HEADER],
@@ -272,13 +259,13 @@ export class BookingsController {
     @Param('bookingId') bookingId: string,
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof bookingSchema>> {
-    return this.plans.cancel(bookingId, caller(request));
+    return this.cancellation.cancel(bookingId, caller(request));
   }
 
   @Get('bookings/:bookingId/documents/:documentId')
   @Contract({
     operationId: 'downloadBookingDocument',
-    summary: 'Download an e-ticket or hotel voucher (PDF)',
+    summary: 'Download an e-ticket, voucher or confirmation (PDF)',
     tags: TAGS,
     params: documentParamsSchema,
     headers: [BOOKING_TOKEN_HEADER],

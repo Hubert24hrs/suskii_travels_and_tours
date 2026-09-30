@@ -63,6 +63,7 @@ const ISSUE_CODES: readonly CheckoutIssue[] = [
   'infants_exceed_adults',
   'passenger_count_mismatch',
   'traveller_not_found',
+  'nationality_mismatch',
 ];
 const asIssue = (code: string): CheckoutIssue =>
   (ISSUE_CODES as readonly string[]).includes(code) ? (code as CheckoutIssue) : 'invalid';

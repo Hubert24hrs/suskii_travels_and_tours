@@ -37,6 +37,7 @@ import {
 } from './booking-presenter';
 import {
   bookedRate,
+  isInhouse,
   matchService,
   priceBookingItem,
   totalOf,
@@ -56,7 +57,14 @@ import {
 } from './booking.errors';
 import { paymentReturnUrl } from './booking-urls';
 import type { paymentSessionSchema, StartPaymentRequest } from './bookings.schemas';
-import { BookingsService, customerActor, type BookingCaller } from './bookings.service';
+import {
+  BookingsService,
+  customerActor,
+  PRICE_HOLD_MS,
+  type BookingCaller,
+} from './bookings.service';
+import { InhouseCatalog } from './inhouse-catalog';
+import { inhouseOfferId } from './inhouse-items';
 import { TicketingService } from './ticketing.service';
 
 /** Unpaid statuses that expire at the payment deadline (held bookings follow their plan). */
@@ -68,13 +76,16 @@ type Tx = Prisma.TransactionClient;
 
 const earliest = (...dates: Date[]): Date => new Date(Math.min(...dates.map((d) => d.getTime())));
 
-function offerExpiry(payload: ItemPayload): Date {
+/** When the supplier stops honouring the offer; our own products only need a fresh re-check. */
+function offerExpiry(payload: ItemPayload, now: Date): Date {
+  if (isInhouse(payload)) return new Date(now.getTime() + PRICE_HOLD_MS);
   return new Date(
     payload.kind === 'flight' ? payload.offer.expiresAt : bookedRate(payload).expiresAt,
   );
 }
 
-function supplierOfferId(payload: ItemPayload): string {
+export function supplierOfferId(payload: ItemPayload): string {
+  if (isInhouse(payload)) return inhouseOfferId(payload);
   return payload.kind === 'flight'
     ? payload.offer.supplierOfferId
     : bookedRate(payload).supplierRateId;
@@ -125,6 +136,7 @@ export class CheckoutService {
     private readonly ledger: LedgerService,
     private readonly ticketing: TicketingService,
     private readonly background: BackgroundTasks,
+    private readonly inhouse: InhouseCatalog,
   ) {}
 
   async startPayment(
@@ -177,7 +189,7 @@ export class CheckoutService {
       amount = fresh.total;
       expiresAt = earliest(
         new Date(now.getTime() + this.config.PAYMENT_SESSION_TTL_MINUTES * 60_000),
-        offerExpiry(fresh.payload),
+        offerExpiry(fresh.payload, now),
       );
     }
 
@@ -643,6 +655,7 @@ export class CheckoutService {
   }
 
   private async reprice(payload: ItemPayload): Promise<ItemPayload> {
+    if (isInhouse(payload)) return this.inhouse.reprice(payload);
     if (payload.kind === 'flight') {
       const supplier = this.flightSuppliers.find((s) => s.name === payload.offer.supplier);
       if (!supplier) throw new OfferUnavailableError(payload.offer.supplier, 'Supplier disabled');

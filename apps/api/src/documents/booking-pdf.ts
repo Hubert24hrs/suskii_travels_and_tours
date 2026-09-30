@@ -65,6 +65,41 @@ export interface VoucherDocument {
   total: Money;
 }
 
+/** Package, tour and add-on vouchers (ADR-028). */
+export interface InhouseVoucherDocument {
+  kind: 'package' | 'tour' | 'addon';
+  reference: string;
+  /** Grouped voucher code; tours also print it as a QR code (`qrPayload`). */
+  voucherCode: string;
+  qrPayload: string | null;
+  issuedAt: Date;
+  title: string;
+  sample: boolean;
+  place: string | null;
+  /** Lines such as "Starts: Sat, 12 Dec 2026 09:00" (label, value). */
+  when: [string, string][];
+  meetingPoint: { name: string; address: string; notes: string | null } | null;
+  travellers: string[];
+  inclusions: string[];
+  cancellation: string[];
+  total: Money;
+}
+
+export interface VisaConfirmationDocument {
+  reference: string;
+  issuedAt: Date;
+  title: string;
+  sample: boolean;
+  destination: string;
+  purpose: string;
+  travelDate: string;
+  processingDays: string;
+  applicants: string[];
+  governmentFeeNote: string | null;
+  disclaimer: string;
+  total: Money;
+}
+
 const PAGE: [number, number] = [595.28, 841.89]; // A4 in points
 const MARGIN = 48;
 
@@ -180,7 +215,7 @@ class Writer {
   }
 }
 
-async function newDocument(title: string, reference: string) {
+async function newDocument(title: string, reference: string, qrValue: string = reference) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${title} ${reference}`);
   pdf.setAuthor('Suskii Travels and Tour');
@@ -191,7 +226,7 @@ async function newDocument(title: string, reference: string) {
     await pdf.embedFont(StandardFonts.Helvetica),
     await pdf.embedFont(StandardFonts.HelveticaBold),
   );
-  writer.qr(reference);
+  writer.qr(qrValue);
   writer.line('Suskii Travels', { size: 18, bold: true, color: BRAND });
   writer.line(title, { size: 12, bold: true });
   writer.gap(6);
@@ -286,4 +321,103 @@ export async function renderVoucherPdf(voucher: VoucherDocument): Promise<Uint8A
   writer.heading('At the hotel');
   writer.line("Show this voucher and the lead guest's ID at check-in.");
   return pdf.save();
+}
+
+const VOUCHER_TITLES: Record<InhouseVoucherDocument['kind'], string> = {
+  package: 'Package voucher',
+  tour: 'Tour voucher',
+  addon: 'Add-on voucher',
+};
+
+const SAMPLE_NOTE = 'SAMPLE: demonstration inventory, not a real booking.';
+
+export async function renderInhouseVoucherPdf(
+  voucher: InhouseVoucherDocument,
+): Promise<Uint8Array> {
+  const { pdf, writer } = await newDocument(
+    VOUCHER_TITLES[voucher.kind],
+    voucher.reference,
+    voucher.qrPayload ?? voucher.reference,
+  );
+  if (voucher.sample) writer.line(SAMPLE_NOTE, { bold: true, color: MUTED });
+  writer.pair('Suskii reference', voucher.reference);
+  writer.pair('Voucher code', voucher.voucherCode);
+  writer.pair('Issued', voucher.issuedAt.toISOString().slice(0, 10));
+
+  writer.heading(
+    voucher.kind === 'tour' ? 'Tour' : voucher.kind === 'package' ? 'Package' : 'Add-on',
+  );
+  writer.line(voucher.title, { size: 12, bold: true });
+  if (voucher.place) writer.line(voucher.place, { color: MUTED });
+  writer.gap(4);
+  for (const [label, value] of voucher.when) writer.pair(label, value);
+  if (voucher.meetingPoint) {
+    writer.heading('Meeting point');
+    writer.line(voucher.meetingPoint.name, { bold: true });
+    writer.line(voucher.meetingPoint.address);
+    if (voucher.meetingPoint.notes) writer.line(voucher.meetingPoint.notes, { color: MUTED });
+  }
+
+  writer.heading('Travellers');
+  voucher.travellers.forEach((name, index) => writer.pair(`Traveller ${index + 1}`, name));
+  if (voucher.inclusions.length > 0) {
+    writer.heading('Included');
+    for (const line of voucher.inclusions.slice(0, 12)) writer.line(`- ${line}`);
+  }
+  writer.heading('Payment and cancellation');
+  writer.pair('Total paid', documentMoney(voucher.total));
+  for (const line of voucher.cancellation) writer.line(line);
+  writer.heading('On the day');
+  writer.line(
+    voucher.kind === 'tour'
+      ? 'Show this voucher (the QR code or the voucher code) and an ID to your guide.'
+      : 'Show this voucher and an ID. Our team contacts you with any partner details.',
+  );
+  return pdf.save();
+}
+
+export async function renderVisaConfirmationPdf(
+  confirmation: VisaConfirmationDocument,
+): Promise<Uint8Array> {
+  const { pdf, writer } = await newDocument('Visa assistance confirmation', confirmation.reference);
+  if (confirmation.sample) writer.line(SAMPLE_NOTE, { bold: true, color: MUTED });
+  writer.pair('Suskii reference', confirmation.reference);
+  writer.pair('Issued', confirmation.issuedAt.toISOString().slice(0, 10));
+
+  writer.heading('Service');
+  writer.line(confirmation.title, { size: 12, bold: true });
+  writer.pair('Destination', confirmation.destination);
+  writer.pair('Purpose', confirmation.purpose);
+  writer.pair('Travel date', documentDateTime(confirmation.travelDate));
+  writer.pair('Processing time', confirmation.processingDays);
+
+  writer.heading('Applicants');
+  confirmation.applicants.forEach((name, index) => writer.pair(`Applicant ${index + 1}`, name));
+
+  writer.heading('Payment');
+  writer.pair('Service fee paid', documentMoney(confirmation.total));
+  if (confirmation.governmentFeeNote) writer.line(confirmation.governmentFeeNote);
+
+  writer.heading('Next steps');
+  writer.line('Upload the documents on your checklist from your booking page, then submit.');
+  writer.line('Our visa officers review them and tell you if anything else is needed.');
+  writer.heading('Important');
+  for (const line of wrap(confirmation.disclaimer, 95)) writer.line(line);
+  return pdf.save();
+}
+
+/** Word wrap for the fixed-width body text of these documents. */
+function wrap(text: string, width: number): string[] {
+  const lines: string[] = [];
+  let current = '';
+  for (const word of text.split(/\s+/)) {
+    if (current && current.length + word.length + 1 > width) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = current ? `${current} ${word}` : word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
 }

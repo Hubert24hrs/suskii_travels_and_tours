@@ -152,6 +152,24 @@ export const envSchema = z
     INSTALLMENT_FEE_BPS: z.coerce.number().int().min(0).max(2000).default(0),
     INSTALLMENT_DEFAULT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(0),
     INSTALLMENT_GRACE_HOURS: z.coerce.number().int().min(0).max(168).default(24),
+    /** Packages on a payment plan are paid in full this many days before departure (ADR-028). */
+    PACKAGE_BALANCE_DUE_DAYS: z.coerce.number().int().min(1).max(120).default(30),
+
+    /** Visa documents (ADR-026): `mock` only outside production unless ALLOW_MOCK_PROVIDERS. */
+    ANTIVIRUS_PROVIDER: z.enum(['clamav', 'mock']).default('mock'),
+    CLAMAV_HOST: z.string().min(1).default('127.0.0.1'),
+    CLAMAV_PORT: z.coerce.number().int().min(1).max(65_535).default(3310),
+    CLAMAV_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
+    VISA_DOCUMENT_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(100_000)
+      .max(20_000_000)
+      .default(10_000_000),
+    /** Signed document links stay valid this long. */
+    VISA_DOCUMENT_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+    /** Documents are deleted this many days after the application closes. */
+    VISA_DOCUMENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
 
     /**
      * Staff refunds worth more than this (NGN minor units) need a second approver (ADR-019).

@@ -92,6 +92,13 @@ export function booking(patch: Partial<Booking> = {}): Booking {
       },
     },
     hotel: null,
+    package: null,
+    tour: null,
+    visa: null,
+    addon: null,
+    voucher: null,
+    cancellation: null,
+    addons: [],
     passengers: [
       {
         position: 0,
@@ -181,6 +188,11 @@ export function flightQuote(patch: Partial<Schemas['Quote']> = {}): Schemas['Quo
       request,
     },
     hotel: null,
+    package: null,
+    tour: null,
+    visa: null,
+    addon: null,
+    price: null,
     payment: {
       providers: [{ name: 'mock', methods: ['card'] }],
       hold: null,

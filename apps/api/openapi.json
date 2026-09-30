@@ -112,6 +112,344 @@
         }
       }
     },
+    "/v1/addon-links": {
+      "post": {
+        "operationId": "createAddonLink",
+        "summary": "Attach add-ons to a trip",
+        "description": "From the booking page (`bookingId` with the session or `X-Booking-Token`) or with the booking reference and a traveller's last name. Answers a short-lived `linkToken` for add-on quotes and the trip facts add-ons need, never personal data. A wrong reference or name answers 404 either way; 409 `not-linkable` for trips that are not paid.",
+        "tags": [
+          "Add-ons"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddonLinkRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddonLink"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/addons": {
+      "get": {
+        "operationId": "listAddons",
+        "summary": "Travel add-ons (insurance, transfers, eSIM, lounges)",
+        "tags": [
+          "Add-ons"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "insurance",
+                "airport_transfer",
+                "esim",
+                "lounge"
+              ]
+            }
+          },
+          {
+            "name": "countryCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          {
+            "name": "cityId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddonList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/addons/{slug}": {
+      "get": {
+        "operationId": "getAddon",
+        "summary": "A travel add-on",
+        "tags": [
+          "Add-ons"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddonCard"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/addons": {
+      "post": {
+        "operationId": "adminCreateAddon",
+        "summary": "Create an add-on (draft)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAddonInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/addons/{id}": {
+      "patch": {
+        "operationId": "adminUpdateAddon",
+        "summary": "Update, publish or archive an add-on",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAddonInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/admin/audit-logs": {
       "get": {
         "operationId": "adminListAuditLogs",
@@ -265,6 +603,331 @@
           },
           "422": {
             "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/catalog": {
+      "get": {
+        "operationId": "adminListCatalog",
+        "summary": "List products of one kind, with departures and seat counts",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "package",
+                "tour",
+                "addon",
+                "visa"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published",
+                "archived"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProductList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/package-departures/{id}": {
+      "patch": {
+        "operationId": "adminUpdatePackageDeparture",
+        "summary": "Change capacity, prices or status of a package departure",
+        "description": "409 `capacity-below-booked` when the capacity would drop below reserved + sold.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDepartureInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/packages": {
+      "post": {
+        "operationId": "adminCreatePackage",
+        "summary": "Create a package (draft)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePackageInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/packages/{id}": {
+      "patch": {
+        "operationId": "adminUpdatePackage",
+        "summary": "Update, publish or archive a package",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePackageInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/packages/{id}/departures": {
+      "post": {
+        "operationId": "adminCreatePackageDeparture",
+        "summary": "Add a dated departure with capacity and per-person base prices",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePackageDepartureInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
           },
           "429": {
             "$ref": "#/components/responses/Problem429"
@@ -608,6 +1271,265 @@
         }
       }
     },
+    "/v1/admin/tour-departures/{id}": {
+      "patch": {
+        "operationId": "adminUpdateTourDeparture",
+        "summary": "Change capacity, prices or status of a tour departure",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDepartureInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/tours": {
+      "post": {
+        "operationId": "adminCreateTour",
+        "summary": "Create a tour (draft)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTourInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/tours/{id}": {
+      "patch": {
+        "operationId": "adminUpdateTour",
+        "summary": "Update, publish or archive a tour",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTourInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/tours/{id}/departures": {
+      "post": {
+        "operationId": "adminCreateTourDeparture",
+        "summary": "Add a departure (local time at the meeting point)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTourDepartureInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/admin/users/{id}": {
       "get": {
         "operationId": "adminGetUser",
@@ -703,6 +1625,195 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/visa-products": {
+      "post": {
+        "operationId": "adminCreateVisaProduct",
+        "summary": "Create a visa assistance product (draft)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVisaProductInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/visa-products/{id}": {
+      "patch": {
+        "operationId": "adminUpdateVisaProduct",
+        "summary": "Update, publish or archive a visa assistance product",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVisaProductInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/vouchers/redeem": {
+      "post": {
+        "operationId": "adminRedeemVoucher",
+        "summary": "Redeem a voucher (typed code or scanned QR)",
+        "description": "Once per voucher: 409 `voucher-redeemed` with `redeemedAt` afterwards. Unknown codes and vouchers of cancelled bookings answer 404. The answer carries no personal data.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemVoucherRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedeemedVoucher"
                 }
               }
             }
@@ -1587,8 +2698,8 @@
     "/v1/bookings/{bookingId}/cancel": {
       "post": {
         "operationId": "cancelBooking",
-        "summary": "Cancel an unpaid or partly paid booking",
-        "description": "A reservation is released at the airline. A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`).",
+        "summary": "Cancel a booking",
+        "description": "Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept; 409 `not-cancellable` for anything else confirmed (contact support).",
         "tags": [
           "Bookings"
         ],
@@ -1654,7 +2765,7 @@
     "/v1/bookings/{bookingId}/documents/{documentId}": {
       "get": {
         "operationId": "downloadBookingDocument",
-        "summary": "Download an e-ticket or hotel voucher (PDF)",
+        "summary": "Download an e-ticket, voucher or confirmation (PDF)",
         "tags": [
           "Bookings"
         ],
@@ -3577,6 +4688,71 @@
         }
       }
     },
+    "/v1/inhouse-quotes": {
+      "post": {
+        "operationId": "createInhouseQuote",
+        "summary": "Quote a package, tour, visa assistance or add-on",
+        "description": "Checks the selection against the catalog (seats left, who may book, dates) and prices it for the caller; book it with `createBooking` like any quote. 422 `quote-invalid` carries `code`; 409 `sold-out`; 410 when the departure or product is no longer on sale.",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InhouseQuoteRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Quote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem410"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/bookings/expire-due": {
       "post": {
         "operationId": "expireDueBookings",
@@ -5179,6 +6355,277 @@
         }
       }
     },
+    "/v1/packages": {
+      "get": {
+        "operationId": "listPackages",
+        "summary": "Holiday packages with departures that fit the travellers",
+        "description": "Published packages with an open departure in the date range and room for the travellers. `fromPrice` is per adult, priced for the caller in the display currency; the budget filters apply to it.",
+        "tags": [
+          "Packages"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "adults",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "children",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "infants",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "cityId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "countryCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "budgetMin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "budgetMax",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "featured",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/packages/{slug}": {
+      "get": {
+        "operationId": "getPackage",
+        "summary": "A package with its itinerary and departures",
+        "tags": [
+          "Packages"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "adults",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "children",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "infants",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/payments/mock/{reference}": {
       "get": {
         "operationId": "getMockPayment",
@@ -5458,6 +6905,228 @@
           }
         }
       }
+    },
+    "/v1/tours": {
+      "get": {
+        "operationId": "listTours",
+        "summary": "Tours and activities",
+        "description": "Published tours matching the text (tour, city or country) with an open departure on the date and room for the travellers.",
+        "tags": [
+          "Tours"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "adults",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "children",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "infants",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "cityId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TourList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/tours/{slug}": {
+      "get": {
+        "operationId": "getTour",
+        "summary": "A tour with its meeting point and departures",
+        "tags": [
+          "Tours"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "adults",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "children",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "infants",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TourDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5472,6 +7141,568 @@
         },
         "required": [
           "status"
+        ],
+        "additionalProperties": false
+      },
+      "AddonCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "artKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "insurance",
+              "airport_transfer",
+              "esim",
+              "lounge"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "countryCodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 2
+            }
+          },
+          "pricingBasis": {
+            "type": "string",
+            "enum": [
+              "per_person",
+              "per_booking",
+              "per_day",
+              "per_person_per_day"
+            ]
+          },
+          "unitPrice": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "maxTravellers": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "requiredDetails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cancellationPolicy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CancellationTier"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "summary",
+          "artKey",
+          "sample",
+          "type",
+          "description",
+          "countryCodes",
+          "pricingBasis",
+          "unitPrice",
+          "maxTravellers",
+          "requiredDetails",
+          "cancellationPolicy"
+        ],
+        "additionalProperties": false
+      },
+      "AddonItem": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "sample": {
+                "type": "boolean"
+              },
+              "artKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "title",
+              "sample",
+              "artKey"
+            ],
+            "additionalProperties": false
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "insurance",
+              "airport_transfer",
+              "esim",
+              "lounge"
+            ]
+          },
+          "pricingBasis": {
+            "type": "string",
+            "enum": [
+              "per_person",
+              "per_booking",
+              "per_day",
+              "per_person_per_day"
+            ]
+          },
+          "units": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "countryCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cityName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "travellers": {
+            "$ref": "#/components/schemas/TravellerCounts"
+          },
+          "requiredDetails": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flight_number",
+                "arrival_time",
+                "pickup_address",
+                "dates_of_birth"
+              ]
+            }
+          },
+          "cancellationPolicy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CancellationTier"
+            }
+          },
+          "linkedBooking": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reference": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "reference"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "product",
+          "type",
+          "pricingBasis",
+          "units",
+          "startDate",
+          "endDate",
+          "countryCode",
+          "cityName",
+          "travellers",
+          "requiredDetails",
+          "cancellationPolicy",
+          "linkedBooking"
+        ],
+        "additionalProperties": false
+      },
+      "AddonLink": {
+        "type": "object",
+        "properties": {
+          "linkToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "trip": {
+            "type": "object",
+            "properties": {
+              "reference": {
+                "type": "string"
+              },
+              "countryCode": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 2
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cityName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startDate": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "endDate": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "travellers": {
+                "$ref": "#/components/schemas/TravellerCounts"
+              }
+            },
+            "required": [
+              "reference",
+              "countryCode",
+              "cityName",
+              "startDate",
+              "endDate",
+              "travellers"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "linkToken",
+          "expiresAt",
+          "trip"
+        ],
+        "additionalProperties": false
+      },
+      "AddonLinkRequestInput": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "bookingId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "bookingId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "reference": {
+                "type": "string",
+                "pattern": "^[A-Z0-9]{6,8}$"
+              },
+              "lastName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              }
+            },
+            "required": [
+              "reference",
+              "lastName"
+            ]
+          }
+        ]
+      },
+      "AddonList": {
+        "type": "object",
+        "properties": {
+          "addons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddonCard"
+            }
+          }
+        },
+        "required": [
+          "addons"
+        ],
+        "additionalProperties": false
+      },
+      "AdminDeparture": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "endsOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capacity": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "seatsReserved": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "seatsSold": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "prices": {
+            "type": "object",
+            "properties": {
+              "adult": {
+                "type": "object",
+                "properties": {
+                  "amountMinor": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  }
+                },
+                "required": [
+                  "amountMinor",
+                  "currency"
+                ],
+                "additionalProperties": false
+              },
+              "child": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      }
+                    },
+                    "required": [
+                      "amountMinor",
+                      "currency"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "infant": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      }
+                    },
+                    "required": [
+                      "amountMinor",
+                      "currency"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "adult",
+              "child",
+              "infant"
+            ],
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "startsOn",
+          "endsOn",
+          "capacity",
+          "seatsReserved",
+          "seatsSold",
+          "prices",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "AdminProduct": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "package",
+              "tour",
+              "addon",
+              "visa"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "archived"
+            ]
+          },
+          "sample": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "departures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminDeparture"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "slug",
+          "title",
+          "status",
+          "sample",
+          "updatedAt",
+          "departures"
+        ],
+        "additionalProperties": false
+      },
+      "AdminProductList": {
+        "type": "object",
+        "properties": {
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminProduct"
+            }
+          }
+        },
+        "required": [
+          "products"
         ],
         "additionalProperties": false
       },
@@ -6163,7 +8394,11 @@
             "type": "string",
             "enum": [
               "flights",
-              "hotels"
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons"
             ]
           },
           "createdAt": {
@@ -6435,6 +8670,159 @@
               }
             ]
           },
+          "package": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tour": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TourItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visa": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisaItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "addon": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AddonItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "voucher": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "qrPayload": {
+                    "type": "string"
+                  },
+                  "redeemedAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "qrPayload",
+                  "redeemedAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancellation": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "refundBps": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "refund": {
+                    "$ref": "#/components/schemas/Money"
+                  }
+                },
+                "required": [
+                  "refundBps",
+                  "refund"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "addons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reference": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT",
+                    "PRICED",
+                    "HELD",
+                    "AWAITING_PAYMENT",
+                    "PARTIALLY_PAID",
+                    "PAID",
+                    "TICKETING",
+                    "CONFIRMED",
+                    "FAILED",
+                    "CANCELLED",
+                    "REFUND_PENDING",
+                    "REFUNDED",
+                    "EXPIRED"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "insurance",
+                    "airport_transfer",
+                    "esim",
+                    "lounge"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "reference",
+                "status",
+                "title",
+                "type"
+              ],
+              "additionalProperties": false
+            }
+          },
           "passengers": {
             "type": "array",
             "items": {
@@ -6507,7 +8895,11 @@
                   "type": "string",
                   "enum": [
                     "e_ticket",
-                    "hotel_voucher"
+                    "hotel_voucher",
+                    "package_voucher",
+                    "tour_voucher",
+                    "addon_voucher",
+                    "visa_confirmation"
                   ]
                 },
                 "fileName": {
@@ -6586,6 +8978,13 @@
           "pendingPriceChange",
           "flight",
           "hotel",
+          "package",
+          "tour",
+          "visa",
+          "addon",
+          "voucher",
+          "cancellation",
+          "addons",
           "passengers",
           "warnings",
           "payment",
@@ -6996,7 +9395,11 @@
             "type": "string",
             "enum": [
               "flights",
-              "hotels"
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons"
             ]
           },
           "createdAt": {
@@ -7105,6 +9508,45 @@
                 "type": "null"
               }
             ]
+          },
+          "product": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "cityName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "countryCode": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 2
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "title",
+                  "cityName",
+                  "countryCode"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -7117,7 +9559,8 @@
           "startsOn",
           "endsOn",
           "flight",
-          "hotel"
+          "hotel",
+          "product"
         ],
         "additionalProperties": false
       },
@@ -7148,6 +9591,26 @@
         ],
         "additionalProperties": false
       },
+      "CancellationTier": {
+        "type": "object",
+        "properties": {
+          "daysBefore": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "refundBps": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "daysBefore",
+          "refundBps"
+        ],
+        "additionalProperties": false
+      },
       "Carrier": {
         "type": "object",
         "properties": {
@@ -7161,6 +9624,40 @@
         "required": [
           "code",
           "name"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "published",
+                  "archived"
+                ]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "closed",
+                  "cancelled"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status"
         ],
         "additionalProperties": false
       },
@@ -7365,6 +9862,131 @@
         ],
         "additionalProperties": false
       },
+      "CreateAddonInput": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "insurance",
+              "airport_transfer",
+              "esim",
+              "lounge"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "countryCodes": {
+            "default": [],
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          "pricingBasis": {
+            "type": "string",
+            "enum": [
+              "per_person",
+              "per_booking",
+              "per_day",
+              "per_person_per_day"
+            ]
+          },
+          "price": {
+            "type": "object",
+            "properties": {
+              "amountMinor": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            },
+            "required": [
+              "amountMinor",
+              "currency"
+            ]
+          },
+          "maxTravellers": {
+            "default": 9,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "requiredDetails": {
+            "default": [],
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flight_number",
+                "arrival_time",
+                "pickup_address",
+                "dates_of_birth"
+              ]
+            }
+          },
+          "cancellationPolicy": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "daysBefore": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 365
+                },
+                "refundBps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "daysBefore",
+                "refundBps"
+              ]
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "type",
+          "title",
+          "summary",
+          "description",
+          "pricingBasis",
+          "price",
+          "cancellationPolicy"
+        ]
+      },
       "CreateBookingRequestInput": {
         "type": "object",
         "properties": {
@@ -7524,6 +10146,56 @@
               "$ref": "#/components/schemas/ExtraSelectionInput"
             }
           },
+          "addonDetails": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "flightNumber": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z0-9]{2}\\s?\\d{1,4}[A-Z]?$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "arrivalTime": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "pickupAddress": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 300
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "promoCode": {
             "default": null,
             "anyOf": [
@@ -7595,6 +10267,259 @@
         ],
         "additionalProperties": false
       },
+      "CreatePackageDepartureInput": {
+        "type": "object",
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "capacity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "prices": {
+            "type": "object",
+            "properties": {
+              "adult": {
+                "type": "object",
+                "properties": {
+                  "amountMinor": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  }
+                },
+                "required": [
+                  "amountMinor",
+                  "currency"
+                ]
+              },
+              "child": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      }
+                    },
+                    "required": [
+                      "amountMinor",
+                      "currency"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "infant": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      }
+                    },
+                    "required": [
+                      "amountMinor",
+                      "currency"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "adult",
+              "child",
+              "infant"
+            ]
+          },
+          "status": {
+            "default": "open",
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "startDate",
+          "endDate",
+          "capacity",
+          "prices"
+        ]
+      },
+      "CreatePackageInput": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "cityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nights": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60
+          },
+          "passportRequired": {
+            "default": true,
+            "type": "boolean"
+          },
+          "artKey": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,60}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "featured": {
+            "default": false,
+            "type": "boolean"
+          },
+          "highlights": {
+            "default": [],
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "itinerary": {
+            "default": [],
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "body": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "day",
+                "title",
+                "body"
+              ]
+            }
+          },
+          "inclusions": {
+            "default": [],
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "exclusions": {
+            "default": [],
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "cancellationPolicy": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "daysBefore": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 365
+                },
+                "refundBps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "daysBefore",
+                "refundBps"
+              ]
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "summary",
+          "cityId",
+          "nights",
+          "cancellationPolicy"
+        ]
+      },
       "CreateRefundRequestInput": {
         "type": "object",
         "properties": {
@@ -7645,6 +10570,389 @@
           "paymentId",
           "amount",
           "reason"
+        ]
+      },
+      "CreateTourDepartureInput": {
+        "type": "object",
+        "properties": {
+          "startsAtLocal": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+          },
+          "capacity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "prices": {
+            "type": "object",
+            "properties": {
+              "adult": {
+                "type": "object",
+                "properties": {
+                  "amountMinor": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  }
+                },
+                "required": [
+                  "amountMinor",
+                  "currency"
+                ]
+              },
+              "child": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      }
+                    },
+                    "required": [
+                      "amountMinor",
+                      "currency"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "infant": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      }
+                    },
+                    "required": [
+                      "amountMinor",
+                      "currency"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "adult",
+              "child",
+              "infant"
+            ]
+          },
+          "status": {
+            "default": "open",
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "startsAtLocal",
+          "capacity",
+          "prices"
+        ]
+      },
+      "CreateTourInput": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "cityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 15,
+            "maximum": 20160
+          },
+          "category": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "artKey": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,60}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "featured": {
+            "default": false,
+            "type": "boolean"
+          },
+          "meetingPoint": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "address": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "notes": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "address",
+              "notes"
+            ]
+          },
+          "highlights": {
+            "default": [],
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "inclusions": {
+            "default": [],
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "exclusions": {
+            "default": [],
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "cancellationPolicy": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "daysBefore": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 365
+                },
+                "refundBps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "daysBefore",
+                "refundBps"
+              ]
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "summary",
+          "cityId",
+          "timeZone",
+          "durationMinutes",
+          "meetingPoint",
+          "cancellationPolicy"
+        ]
+      },
+      "CreateVisaProductInput": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "purposes": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "tourism",
+                "business",
+                "study",
+                "transit"
+              ]
+            }
+          },
+          "processingDaysMin": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "processingDaysMax": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "price": {
+            "type": "object",
+            "properties": {
+              "amountMinor": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            },
+            "required": [
+              "amountMinor",
+              "currency"
+            ]
+          },
+          "checklist": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{1,39}$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "description",
+                "required"
+              ]
+            }
+          },
+          "governmentFeeNote": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "summary",
+          "destination",
+          "purposes",
+          "processingDaysMin",
+          "processingDaysMax",
+          "price",
+          "checklist"
         ]
       },
       "DealRouteDetail": {
@@ -9761,6 +13069,288 @@
         ],
         "additionalProperties": false
       },
+      "InhouseQuoteRequestInput": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "package"
+              },
+              "departureId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "travellers": {
+                "type": "object",
+                "properties": {
+                  "adults": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9
+                  },
+                  "children": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  },
+                  "infants": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  }
+                },
+                "required": [
+                  "adults",
+                  "children",
+                  "infants"
+                ]
+              },
+              "currency": {
+                "default": "NGN",
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "USD",
+                  "GBP",
+                  "EUR",
+                  "GHS",
+                  "KES",
+                  "ZAR"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "departureId",
+              "travellers"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "tour"
+              },
+              "departureId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "travellers": {
+                "type": "object",
+                "properties": {
+                  "adults": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9
+                  },
+                  "children": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  },
+                  "infants": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  }
+                },
+                "required": [
+                  "adults",
+                  "children",
+                  "infants"
+                ]
+              },
+              "currency": {
+                "default": "NGN",
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "USD",
+                  "GBP",
+                  "EUR",
+                  "GHS",
+                  "KES",
+                  "ZAR"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "departureId",
+              "travellers"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "visa"
+              },
+              "productId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "purpose": {
+                "type": "string",
+                "enum": [
+                  "tourism",
+                  "business",
+                  "study",
+                  "transit"
+                ]
+              },
+              "nationality": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              "travelDate": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "travellers": {
+                "type": "object",
+                "properties": {
+                  "adults": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9
+                  },
+                  "children": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  },
+                  "infants": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  }
+                },
+                "required": [
+                  "adults",
+                  "children",
+                  "infants"
+                ]
+              },
+              "currency": {
+                "default": "NGN",
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "USD",
+                  "GBP",
+                  "EUR",
+                  "GHS",
+                  "KES",
+                  "ZAR"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "productId",
+              "purpose",
+              "nationality",
+              "travelDate",
+              "travellers"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "addon"
+              },
+              "addonId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "startDate": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "endDate": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "travellers": {
+                "type": "object",
+                "properties": {
+                  "adults": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9
+                  },
+                  "children": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  },
+                  "infants": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  }
+                },
+                "required": [
+                  "adults",
+                  "children",
+                  "infants"
+                ]
+              },
+              "linkToken": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cityId": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "currency": {
+                "default": "NGN",
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "USD",
+                  "GBP",
+                  "EUR",
+                  "GHS",
+                  "KES",
+                  "ZAR"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "addonId",
+              "startDate",
+              "endDate",
+              "travellers"
+            ]
+          }
+        ]
+      },
       "Jwks": {
         "type": "object",
         "properties": {
@@ -9837,6 +13427,29 @@
             "maxLength": 256
           }
         }
+      },
+      "MeetingPoint": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "address",
+          "notes"
+        ],
+        "additionalProperties": false
       },
       "MfaChallenge": {
         "type": "object",
@@ -10189,6 +13802,349 @@
           "code"
         ]
       },
+      "PackageCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "artKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample": {
+            "type": "boolean"
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "nights": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "fromPrice": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "nextDeparture": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "departures": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "summary",
+          "artKey",
+          "sample",
+          "featured",
+          "cityName",
+          "countryCode",
+          "nights",
+          "fromPrice",
+          "nextDeparture",
+          "departures"
+        ],
+        "additionalProperties": false
+      },
+      "PackageDeparture": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "seatsLeft": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "prices": {
+            "$ref": "#/components/schemas/PerPersonPrice"
+          },
+          "bookable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "startDate",
+          "endDate",
+          "seatsLeft",
+          "prices",
+          "bookable"
+        ],
+        "additionalProperties": false
+      },
+      "PackageDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "artKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample": {
+            "type": "boolean"
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "cityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "nights": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "passportRequired": {
+            "type": "boolean"
+          },
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "itinerary": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "title": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "day",
+                "title",
+                "body"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "inclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cancellationPolicy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CancellationTier"
+            }
+          },
+          "departures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackageDeparture"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "summary",
+          "artKey",
+          "sample",
+          "featured",
+          "cityId",
+          "cityName",
+          "countryCode",
+          "nights",
+          "passportRequired",
+          "highlights",
+          "itinerary",
+          "inclusions",
+          "exclusions",
+          "cancellationPolicy",
+          "departures"
+        ],
+        "additionalProperties": false
+      },
+      "PackageItem": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "sample": {
+                "type": "boolean"
+              },
+              "artKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "title",
+              "sample",
+              "artKey"
+            ],
+            "additionalProperties": false
+          },
+          "departureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "nights": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "passportRequired": {
+            "type": "boolean"
+          },
+          "inclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "travellers": {
+            "$ref": "#/components/schemas/TravellerCounts"
+          },
+          "cancellationPolicy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CancellationTier"
+            }
+          }
+        },
+        "required": [
+          "product",
+          "departureId",
+          "cityName",
+          "countryCode",
+          "nights",
+          "startDate",
+          "endDate",
+          "passportRequired",
+          "inclusions",
+          "travellers",
+          "cancellationPolicy"
+        ],
+        "additionalProperties": false
+      },
+      "PackageList": {
+        "type": "object",
+        "properties": {
+          "packages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackageCard"
+            }
+          }
+        },
+        "required": [
+          "packages"
+        ],
+        "additionalProperties": false
+      },
       "PassengerIssue": {
         "type": "object",
         "properties": {
@@ -10222,7 +14178,8 @@
               "passport_required",
               "passport_expired",
               "passport_expires_soon",
-              "traveller_not_found"
+              "traveller_not_found",
+              "nationality_mismatch"
             ]
           }
         },
@@ -10548,6 +14505,40 @@
           "checkoutUrl",
           "amount",
           "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "PerPersonPrice": {
+        "type": "object",
+        "properties": {
+          "adult": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "child": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "infant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "adult",
+          "child",
+          "infant"
         ],
         "additionalProperties": false
       },
@@ -10967,7 +14958,11 @@
             "type": "string",
             "enum": [
               "flights",
-              "hotels"
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons"
             ]
           },
           "currency": {
@@ -11068,6 +15063,56 @@
               }
             ]
           },
+          "package": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackageItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tour": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TourItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visa": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisaItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "addon": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AddonItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Price"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "payment": {
             "$ref": "#/components/schemas/PaymentOptions"
           }
@@ -11080,6 +15125,11 @@
           "termsVersion",
           "flight",
           "hotel",
+          "package",
+          "tour",
+          "visa",
+          "addon",
+          "price",
           "payment"
         ],
         "additionalProperties": false
@@ -11139,6 +15189,59 @@
           "recoveryCodes"
         ],
         "additionalProperties": false
+      },
+      "RedeemedVoucher": {
+        "type": "object",
+        "properties": {
+          "bookingReference": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "package",
+              "tour",
+              "addon"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "travellers": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "redeemedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "bookingReference",
+          "kind",
+          "title",
+          "startsOn",
+          "travellers",
+          "redeemedAt"
+        ],
+        "additionalProperties": false
+      },
+      "RedeemVoucherRequestInput": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "code"
+        ]
       },
       "RefreshRequestInput": {
         "type": "object",
@@ -11761,6 +15864,344 @@
         ],
         "additionalProperties": false
       },
+      "TourCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "artKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample": {
+            "type": "boolean"
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fromPrice": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "nextDeparture": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+          },
+          "departures": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "summary",
+          "artKey",
+          "sample",
+          "featured",
+          "cityName",
+          "countryCode",
+          "durationMinutes",
+          "category",
+          "fromPrice",
+          "nextDeparture",
+          "departures"
+        ],
+        "additionalProperties": false
+      },
+      "TourDeparture": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startsAtLocal": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "seatsLeft": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "prices": {
+            "$ref": "#/components/schemas/PerPersonPrice"
+          },
+          "bookable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "startsAtLocal",
+          "startsAt",
+          "seatsLeft",
+          "prices",
+          "bookable"
+        ],
+        "additionalProperties": false
+      },
+      "TourDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "artKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample": {
+            "type": "boolean"
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "cityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meetingPoint": {
+            "$ref": "#/components/schemas/MeetingPoint"
+          },
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cancellationPolicy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CancellationTier"
+            }
+          },
+          "departures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TourDeparture"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "summary",
+          "artKey",
+          "sample",
+          "featured",
+          "cityId",
+          "cityName",
+          "countryCode",
+          "timeZone",
+          "durationMinutes",
+          "category",
+          "meetingPoint",
+          "highlights",
+          "inclusions",
+          "exclusions",
+          "cancellationPolicy",
+          "departures"
+        ],
+        "additionalProperties": false
+      },
+      "TourItem": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "sample": {
+                "type": "boolean"
+              },
+              "artKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "title",
+              "sample",
+              "artKey"
+            ],
+            "additionalProperties": false
+          },
+          "departureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "startsAtLocal": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "meetingPoint": {
+            "$ref": "#/components/schemas/MeetingPoint"
+          },
+          "inclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "travellers": {
+            "$ref": "#/components/schemas/TravellerCounts"
+          },
+          "cancellationPolicy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CancellationTier"
+            }
+          }
+        },
+        "required": [
+          "product",
+          "departureId",
+          "cityName",
+          "countryCode",
+          "timeZone",
+          "startsAtLocal",
+          "startsAt",
+          "durationMinutes",
+          "meetingPoint",
+          "inclusions",
+          "travellers",
+          "cancellationPolicy"
+        ],
+        "additionalProperties": false
+      },
+      "TourList": {
+        "type": "object",
+        "properties": {
+          "tours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TourCard"
+            }
+          }
+        },
+        "required": [
+          "tours"
+        ],
+        "additionalProperties": false
+      },
       "Traveller": {
         "type": "object",
         "properties": {
@@ -11850,6 +16291,32 @@
           "document",
           "createdAt",
           "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "TravellerCounts": {
+        "type": "object",
+        "properties": {
+          "adults": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "children": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "infants": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "adults",
+          "children",
+          "infants"
         ],
         "additionalProperties": false
       },
@@ -11967,6 +16434,323 @@
         ],
         "additionalProperties": false
       },
+      "UpdateAddonInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "countryCodes": {
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          "price": {
+            "type": "object",
+            "properties": {
+              "amountMinor": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            },
+            "required": [
+              "amountMinor",
+              "currency"
+            ]
+          },
+          "maxTravellers": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "requiredDetails": {
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flight_number",
+                "arrival_time",
+                "pickup_address",
+                "dates_of_birth"
+              ]
+            }
+          },
+          "cancellationPolicy": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "daysBefore": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 365
+                },
+                "refundBps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "daysBefore",
+                "refundBps"
+              ]
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "archived"
+            ]
+          }
+        }
+      },
+      "UpdateDepartureInput": {
+        "type": "object",
+        "properties": {
+          "capacity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "prices": {
+            "type": "object",
+            "properties": {
+              "adult": {
+                "type": "object",
+                "properties": {
+                  "amountMinor": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  }
+                },
+                "required": [
+                  "amountMinor",
+                  "currency"
+                ]
+              },
+              "child": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      }
+                    },
+                    "required": [
+                      "amountMinor",
+                      "currency"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "infant": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "amountMinor": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      }
+                    },
+                    "required": [
+                      "amountMinor",
+                      "currency"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "adult",
+              "child",
+              "infant"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "cancelled"
+            ]
+          }
+        }
+      },
+      "UpdatePackageInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "nights": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60
+          },
+          "passportRequired": {
+            "type": "boolean"
+          },
+          "artKey": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,60}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "highlights": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "itinerary": {
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "body": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "day",
+                "title",
+                "body"
+              ]
+            }
+          },
+          "inclusions": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "exclusions": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "cancellationPolicy": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "daysBefore": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 365
+                },
+                "refundBps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "daysBefore",
+                "refundBps"
+              ]
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "archived"
+            ]
+          }
+        }
+      },
       "UpdateProfileRequestInput": {
         "type": "object",
         "properties": {
@@ -11980,6 +16764,248 @@
           "displayName"
         ]
       },
+      "UpdateTourInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 15,
+            "maximum": 20160
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "artKey": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,60}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "meetingPoint": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "address": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "notes": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "address",
+              "notes"
+            ]
+          },
+          "highlights": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "inclusions": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "exclusions": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "cancellationPolicy": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "daysBefore": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 365
+                },
+                "refundBps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "daysBefore",
+                "refundBps"
+              ]
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "archived"
+            ]
+          }
+        }
+      },
+      "UpdateVisaProductInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "purposes": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "tourism",
+                "business",
+                "study",
+                "transit"
+              ]
+            }
+          },
+          "processingDaysMin": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "processingDaysMax": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "price": {
+            "type": "object",
+            "properties": {
+              "amountMinor": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            },
+            "required": [
+              "amountMinor",
+              "currency"
+            ]
+          },
+          "checklist": {
+            "minItems": 1,
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{1,39}$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "description",
+                "required"
+              ]
+            }
+          },
+          "governmentFeeNote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "archived"
+            ]
+          }
+        }
+      },
       "VerificationTokenRequestInput": {
         "type": "object",
         "properties": {
@@ -11992,6 +17018,154 @@
         "required": [
           "token"
         ]
+      },
+      "VisaApplicationSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "applicantPosition": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "awaiting_documents",
+              "submitted",
+              "in_review",
+              "action_required",
+              "lodged",
+              "approved",
+              "refused",
+              "withdrawn"
+            ]
+          },
+          "submittedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "applicantPosition",
+          "status",
+          "submittedAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "VisaItem": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "sample": {
+                "type": "boolean"
+              },
+              "artKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "title",
+              "sample",
+              "artKey"
+            ],
+            "additionalProperties": false
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "tourism",
+              "business",
+              "study",
+              "transit"
+            ]
+          },
+          "nationality": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "travelDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "processingDaysMin": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "processingDaysMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "governmentFeeNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "travellers": {
+            "$ref": "#/components/schemas/TravellerCounts"
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisaApplicationSummary"
+            }
+          }
+        },
+        "required": [
+          "product",
+          "destination",
+          "purpose",
+          "nationality",
+          "travelDate",
+          "processingDaysMin",
+          "processingDaysMax",
+          "governmentFeeNote",
+          "travellers",
+          "applications"
+        ],
+        "additionalProperties": false
       },
       "Wallet": {
         "type": "object",

@@ -17,6 +17,7 @@ export const BOOKING_EVENTS = [
   'default',
   'request_refund',
   'refunded',
+  'withdraw',
 ] as const;
 export type BookingEvent = (typeof BOOKING_EVENTS)[number];
 
@@ -27,6 +28,8 @@ const UNPAID: readonly BookingStatus[] = ['DRAFT', 'PRICED', 'HELD', 'AWAITING_P
  * an abandoned checkout session is real money and confirms the booking when the amount matches.
  * Payment plans (ADR-018) pay HELD and PARTIALLY_PAID bookings without AWAITING_PAYMENT; a missed
  * installment defaults the plan (refund per policy), or cancels it when nothing is refundable.
+ * `withdraw` cancels a confirmed in-house booking whose cancellation tier refunds nothing
+ * (ADR-028); a tier with a refund goes through `request_refund` instead.
  */
 const TRANSITIONS: Readonly<
   Record<BookingEvent, { from: readonly BookingStatus[]; to: BookingStatus }>
@@ -49,6 +52,7 @@ const TRANSITIONS: Readonly<
   default: { from: ['PARTIALLY_PAID'], to: 'REFUND_PENDING' },
   request_refund: { from: ['PAID', 'PARTIALLY_PAID', 'CONFIRMED'], to: 'REFUND_PENDING' },
   refunded: { from: ['REFUND_PENDING'], to: 'REFUNDED' },
+  withdraw: { from: ['CONFIRMED'], to: 'CANCELLED' },
 };
 
 export class InvalidBookingTransition extends Error {

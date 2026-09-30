@@ -49,6 +49,7 @@ const ISSUE_CODES = new Set<string>([
   'infants_exceed_adults',
   'passenger_count_mismatch',
   'traveller_not_found',
+  'nationality_mismatch',
 ]);
 
 /** API field paths (`passengers.0.document.number`) to form paths (`passengers.0.passportNumber`). */

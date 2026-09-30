@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service';
 import { BackgroundTasks } from '../common/background-tasks';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { documentMoney } from '../documents/booking-pdf';
+import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { LedgerService, transfer } from '../ledger/ledger.service';
 import { offerUnavailable, supplierUnavailable } from '../search/search.errors';
@@ -22,7 +23,7 @@ import { bookingConflict, holdLimit, holdUnavailable } from './booking.errors';
 import type { BookingDto } from './bookings.schemas';
 import { BookingsService, customerActor, type BookingCaller } from './bookings.service';
 import { CheckoutService } from './checkout.service';
-import { holdTerms, planOptions, planPolicy } from './payment-options';
+import { holdTerms, planOptions, planPolicy, type PlanPolicy } from './payment-options';
 import { RefundsService } from './refunds.service';
 import { TicketingService } from './ticketing.service';
 
@@ -78,7 +79,12 @@ export class PaymentPlansService {
     }
     if (booking.status !== 'PRICED') throw bookingConflict('Only unpaid bookings can be reserved.');
     const item = booking.items[0];
-    if (!item || itemPayload(item).kind !== 'flight' || itemServices(item).length > 0) {
+    const itemKind = item ? itemPayload(item).kind : null;
+    if (
+      !item ||
+      (itemKind !== 'flight' && itemKind !== 'package') ||
+      itemServices(item).length > 0
+    ) {
       throw holdUnavailable();
     }
     const active = await this.prisma.paymentPlan.count({
@@ -96,9 +102,32 @@ export class PaymentPlansService {
     const policy = planPolicy(this.config);
     // The price must still hold right now (may answer 409 `price-changed`).
     const fresh = await this.checkout.confirmPrice(booking, actor);
-    const offered = planOptions(holdTerms(fresh.payload), fresh.total, false, policy, now);
+    const offered = planOptions(holdTerms(fresh.payload, policy), fresh.total, false, policy, now);
     if (!offered.hold || (kind === 'installments' && !offered.installments))
       throw holdUnavailable();
+    if (fresh.payload.kind === 'package') {
+      // Our own seats are already reserved: the plan itself is the hold (ADR-028).
+      const deadline = offered.hold.deadline;
+      const installments = kind === 'installments' ? offered.installments : null;
+      await this.prisma.$transaction(async (tx) => {
+        await this.checkout.storeFresh(tx, item.id, fresh);
+        await this.recordPlan(tx, {
+          bookingId,
+          kind,
+          deadline,
+          total: installments?.schedule.total ?? fresh.total,
+          fee: installments?.schedule.fee ?? money(0n, fresh.total.currency),
+          schedule: installments?.schedule.payments ?? [
+            { sequence: 0, dueAt: deadline, amount: fresh.total },
+          ],
+          policy,
+          actor,
+          caller,
+        });
+      });
+      this.background.run('plan-created', () => this.notifications.planCreated(bookingId));
+      return this.bookings.present(await this.bookings.reload(bookingId));
+    }
     if (fresh.payload.kind !== 'flight') throw holdUnavailable();
 
     const offer = fresh.payload.offer;
@@ -178,47 +207,17 @@ export class PaymentPlansService {
               : null,
           },
         });
-        const plan = await tx.paymentPlan.create({
-          data: {
-            bookingId,
-            kind,
-            currency: total.currency,
-            totalMinor: total.minor,
-            feeMinor: fee.minor,
-            graceHours: policy.graceHours,
-            defaultFeeBps: policy.defaultFeeBps,
-            deadline,
-            installments: {
-              create: schedule.map((payment) => ({
-                sequence: payment.sequence,
-                dueAt: payment.dueAt,
-                amountMinor: payment.amount.minor,
-                currency: payment.amount.currency,
-              })),
-            },
-          },
+        await this.recordPlan(tx, {
+          bookingId,
+          kind,
+          deadline,
+          total,
+          fee,
+          schedule,
+          policy,
+          actor,
+          caller,
         });
-        await this.transitions.apply(tx, { id: bookingId, status: 'PRICED' }, 'hold', actor, {
-          data: { paymentDeadline: deadline },
-        });
-        await this.audit.record(
-          {
-            action: 'payment_plan.created',
-            actorUserId: actor.userId ?? null,
-            targetType: 'booking',
-            targetId: bookingId,
-            context: caller.context,
-            metadata: {
-              planId: plan.id,
-              kind,
-              deadline: deadline.toISOString(),
-              totalMinor: total.minor.toString(),
-              currency: total.currency,
-              installments: schedule.length,
-            },
-          },
-          tx,
-        );
       });
     } catch (error) {
       await this.releaseHold(offer.supplier, held.orderId);
@@ -226,6 +225,65 @@ export class PaymentPlansService {
     }
     this.background.run('plan-created', () => this.notifications.planCreated(bookingId));
     return this.bookings.present(await this.bookings.reload(bookingId));
+  }
+
+  /** The plan, its installments and the move to HELD, in the caller's transaction. */
+  private async recordPlan(
+    tx: Prisma.TransactionClient,
+    input: {
+      bookingId: string;
+      kind: PaymentPlanKind;
+      deadline: Date;
+      total: Money;
+      fee: Money;
+      schedule: readonly { sequence: number; dueAt: Date; amount: Money }[];
+      policy: PlanPolicy;
+      actor: BookingActor;
+      caller: BookingCaller;
+    },
+  ): Promise<void> {
+    const { bookingId, kind, deadline, total, fee, schedule, policy, actor } = input;
+    const plan = await tx.paymentPlan.create({
+      data: {
+        bookingId,
+        kind,
+        currency: total.currency,
+        totalMinor: total.minor,
+        feeMinor: fee.minor,
+        graceHours: policy.graceHours,
+        defaultFeeBps: policy.defaultFeeBps,
+        deadline,
+        installments: {
+          create: schedule.map((payment) => ({
+            sequence: payment.sequence,
+            dueAt: payment.dueAt,
+            amountMinor: payment.amount.minor,
+            currency: payment.amount.currency,
+          })),
+        },
+      },
+    });
+    await this.transitions.apply(tx, { id: bookingId, status: 'PRICED' }, 'hold', actor, {
+      data: { paymentDeadline: deadline },
+    });
+    await this.audit.record(
+      {
+        action: 'payment_plan.created',
+        actorUserId: actor.userId ?? null,
+        targetType: 'booking',
+        targetId: bookingId,
+        context: input.caller.context,
+        metadata: {
+          planId: plan.id,
+          kind,
+          deadline: deadline.toISOString(),
+          totalMinor: total.minor.toString(),
+          currency: total.currency,
+          installments: schedule.length,
+        },
+      },
+      tx,
+    );
   }
 
   // -------------------------------------------------------------------------

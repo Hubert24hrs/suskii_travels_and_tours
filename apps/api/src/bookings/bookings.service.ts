@@ -10,6 +10,7 @@ import {
   PASSENGER_ISSUES,
   PASSENGER_TYPES,
   type ContactDetails,
+  type Money,
   type PassengerInput,
   type PassengerIssue,
 } from '@suskii/shared';
@@ -36,12 +37,16 @@ import { bookingReference, documentHint } from './booking-codes';
 import {
   BOOKING_INCLUDE,
   bookingPrice,
+  EMPTY_VIEW,
+  itemPayload,
   pendingPrice,
   toBookingDto,
   toBookingSummary,
   type BookingRecord,
+  type BookingView,
 } from './booking-presenter';
 import {
+  isInhouse,
   itineraryFacts,
   priceBookingItem,
   totalOf,
@@ -51,6 +56,7 @@ import {
 } from './booking-pricing';
 import { BookingTransitions, type BookingActor } from './booking-transitions';
 import {
+  addonDetailsInvalid,
   botCheckFailed,
   bookingConflict,
   extrasInvalid,
@@ -62,6 +68,9 @@ import type { BookingDto, BookingSummaryDto, CreateBookingRequest } from './book
 import { BookingAccessLinks } from './booking-access-links';
 import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
+import { InhouseFulfilment } from './inhouse-fulfilment';
+import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
+import { reserveSeats } from './seat-inventory';
 
 /** Prices are held for at most this long after pricing (ADR-014). */
 export const PRICE_HOLD_MS = 30 * 60_000;
@@ -121,6 +130,7 @@ export class BookingsService {
     private readonly accessLinks: BookingAccessLinks,
     private readonly funds: BookingFundsService,
     private readonly attestation: AttestationService,
+    private readonly fulfilment: InhouseFulfilment,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -168,7 +178,80 @@ export class BookingsService {
       this.fx.converter(),
       this.funds.forBooking(booking, now),
     ]);
-    return toBookingDto(booking, this.contact(booking), fx, now, funds);
+    const view = await this.view(booking, funds.paid, now);
+    return toBookingDto(booking, this.contact(booking), fx, now, funds, view);
+  }
+
+  /** Vouchers, cancellation terms, linked add-ons and visa applications (ADR-026 to ADR-028). */
+  private async view(booking: BookingRecord, paid: Money, now: Date): Promise<BookingView> {
+    const item = booking.items[0];
+    if (!item) return EMPTY_VIEW;
+    const payload = itemPayload(item);
+    const [voucher, linked, addons, applications] = await Promise.all([
+      booking.status === 'CONFIRMED' && isInhouse(payload) && payload.kind !== 'visa'
+        ? this.prisma.bookingVoucher.findUnique({ where: { bookingItemId: item.id } })
+        : null,
+      booking.linkedBookingId
+        ? this.prisma.booking.findUnique({
+            where: { id: booking.linkedBookingId },
+            select: { id: true, reference: true },
+          })
+        : null,
+      booking.vertical === 'travel_addons'
+        ? []
+        : this.prisma.booking.findMany({
+            // Only the same traveller's add-ons: someone else may have linked one by reference.
+            where: {
+              linkedBookingId: booking.id,
+              status: { not: 'DRAFT' },
+              ...(booking.userId
+                ? { userId: booking.userId }
+                : { userId: null, contactEmailHash: booking.contactEmailHash }),
+            },
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              reference: true,
+              status: true,
+              items: { select: { payload: true }, take: 1, orderBy: { createdAt: 'asc' } },
+            },
+          }),
+      payload.kind === 'visa'
+        ? this.prisma.visaApplication.findMany({
+            where: { bookingId: booking.id },
+            orderBy: { applicantPosition: 'asc' },
+          })
+        : [],
+    ]);
+    return {
+      voucher: voucher ? this.fulfilment.view(voucher) : null,
+      cancellation: isInhouse(payload)
+        ? cancellationTerms(payload, booking.status, paid, now)
+        : null,
+      linkedBooking: linked,
+      addons: addons.flatMap((addon) => {
+        const first = addon.items[0];
+        const addonPayload = first ? itemPayload(first) : null;
+        return addonPayload?.kind === 'addon'
+          ? [
+              {
+                id: addon.id,
+                reference: addon.reference,
+                status: addon.status,
+                title: addonPayload.title,
+                type: addonPayload.type,
+              },
+            ]
+          : [];
+      }),
+      applications: applications.map((application) => ({
+        id: application.id,
+        applicantPosition: application.applicantPosition,
+        status: application.status,
+        submittedAt: application.submittedAt?.toISOString() ?? null,
+        updatedAt: application.updatedAt.toISOString(),
+      })),
+    };
   }
 
   async get(bookingId: string, caller: BookingCaller): Promise<BookingDto> {
@@ -204,6 +287,7 @@ export class BookingsService {
         id: true,
         reference: true,
         status: true,
+        vertical: true,
         createdAt: true,
         totalMinor: true,
         currency: true,
@@ -256,6 +340,9 @@ export class BookingsService {
 
     const passengers = await this.preparePassengers(input, payload, userId);
     const extras = this.prepareExtras(input, payload, passengers);
+    const itemId = uuidv7();
+    const storedPayload = this.withAddonDetails(input, payload, itemId);
+    const seats = isInhouse(payload) ? seatDeparture(payload) : null;
 
     let promo: PromoInput = null;
     if (input.promoCode) {
@@ -270,7 +357,6 @@ export class BookingsService {
     if (promo && priced.promo?.status !== 'applied') throw promoInvalid();
 
     const bookingId = uuidv7();
-    const itemId = uuidv7();
     const accessToken = userId ? null : randomToken(32);
     const actor = customerActor(caller);
     const offerExpiry = new Date(
@@ -297,6 +383,7 @@ export class BookingsService {
       termsVersion: input.termsVersion,
       termsAcceptedAt: now,
       paymentDeadline: earliest(offerExpiry, new Date(now.getTime() + PRICE_HOLD_MS)),
+      linkedBookingId: payload.kind === 'addon' ? payload.linkedBookingId : null,
       items: {
         create: [
           {
@@ -305,29 +392,39 @@ export class BookingsService {
             offerId: quote.id,
             supplier: quote.supplier,
             supplierOfferId: quote.supplierOfferId,
-            payload: toJsonValue(payload) as Prisma.InputJsonValue,
+            payload: toJsonValue(storedPayload) as Prisma.InputJsonValue,
             services: extras as unknown as Prisma.InputJsonValue,
             totalMinor: priced.total.minor,
             currency: priced.total.currency,
+            ...(seats
+              ? {
+                  [seats.kind === 'package' ? 'packageDepartureId' : 'tourDepartureId']:
+                    seats.departureId,
+                  seats: seats.seats,
+                  seatState: 'reserved' as const,
+                }
+              : {}),
           },
         ],
       },
       passengers: {
         create:
-          payload.kind === 'flight'
-            ? passengers.map((passenger) => this.passengerRow(passenger))
-            : input.guests.map((guest, index) => ({
+          payload.kind === 'hotel'
+            ? input.guests.map((guest, index) => ({
                 id: uuidv7(),
                 position: index,
                 type: 'adult' as const,
                 givenNames: guest.givenNames,
                 surname: guest.surname,
                 roomIndex: index,
-              })),
+              }))
+            : passengers.map((passenger) => this.passengerRow(passenger)),
       },
     } satisfies Omit<Prisma.BookingUncheckedCreateInput, 'reference'>;
 
     await this.insertWithReference(async (tx, reference) => {
+      // Package and tour seats are taken with the booking, or neither is (ADR-025).
+      if (seats) await reserveSeats(tx, seats);
       await tx.booking.create({ data: { ...data, reference } });
       await this.transitions.created(tx, { id: bookingId, status: 'DRAFT' }, actor);
       await this.transitions.apply(tx, { id: bookingId, status: 'DRAFT' }, 'price', actor);
@@ -457,8 +554,15 @@ export class BookingsService {
         dateOfBirth: passenger.dateOfBirth,
         document: resolved[index] ? { expiryDate: resolved[index].expiryDate } : null,
       })),
-      itineraryFacts(payload),
+      isInhouse(payload) ? inhouseItineraryFacts(payload) : itineraryFacts(payload),
     );
+    // Eligibility was checked for one nationality; each applicant must hold it (ADR-026).
+    if (payload.kind === 'visa') {
+      input.passengers.forEach((passenger, index) => {
+        if (passenger.nationality !== payload.nationality)
+          errors.push({ index, path: ['nationality'], code: PASSENGER_ISSUES.nationalityMismatch });
+      });
+    }
     if (errors.length > 0) throw passengersInvalid(errors);
 
     const order = input.passengers
@@ -476,6 +580,39 @@ export class BookingsService {
       };
     });
     return prepared;
+  }
+
+  /**
+   * Add-ons: checks the details the product needs and stores them encrypted with the item's id
+   * (a pickup address is personal data). Other products take no add-on details.
+   */
+  private withAddonDetails(
+    input: CreateBookingRequest,
+    payload: ItemPayload,
+    itemId: string,
+  ): ItemPayload {
+    const details = input.addonDetails;
+    if (payload.kind !== 'addon') {
+      if (details) throw addonDetailsInvalid([]);
+      return payload;
+    }
+    const wanted = {
+      flight_number: details?.flightNumber ?? null,
+      arrival_time: details?.arrivalTime ?? null,
+      pickup_address: details?.pickupAddress ?? null,
+    };
+    const missing = payload.requiredDetails.filter(
+      (field) => field !== 'dates_of_birth' && wanted[field] === null,
+    );
+    if (missing.length > 0) throw addonDetailsInvalid(missing);
+    if (!details) return payload;
+    return {
+      ...payload,
+      detailsEncrypted: this.encryption.encrypt(
+        JSON.stringify(details),
+        addonDetailsContext(itemId),
+      ),
+    };
   }
 
   /** Validates extras against the offer and maps passenger indexes to booking positions. */
@@ -683,5 +820,7 @@ export class BookingsService {
 }
 
 export const contactContext = (bookingId: string): string => `booking:${bookingId}:contact`;
+export const addonDetailsContext = (itemId: string): string =>
+  `booking-item:${itemId}:addon-details`;
 export const passportContext = (kind: 'booking-passenger' | 'traveller', id: string): string =>
   `${kind}:${id}:passport`;

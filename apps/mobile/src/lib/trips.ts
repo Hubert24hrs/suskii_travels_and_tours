@@ -92,11 +92,13 @@ export function summaryOf(booking: Booking): BookingSummary {
     vertical: booking.vertical,
     createdAt: booking.createdAt,
     total: booking.price.total,
-    startsOn: first ? first.departureLocal.slice(0, 10) : (booking.hotel?.checkIn ?? ''),
+    startsOn: first
+      ? first.departureLocal.slice(0, 10)
+      : (booking.hotel?.checkIn ?? startOf(booking)),
     endsOn:
       flight && flight.slices.length > 1 && last
         ? last.departureLocal.slice(0, 10)
-        : (booking.hotel?.checkOut ?? null),
+        : (booking.hotel?.checkOut ?? endOf(booking)),
     flight:
       flight && first && last
         ? {
@@ -110,5 +112,47 @@ export function summaryOf(booking: Booking): BookingSummary {
           }
         : null,
     hotel: booking.hotel ? { name: booking.hotel.name, cityName: booking.hotel.cityName } : null,
+    product: productOf(booking),
   };
+}
+
+const startOf = (booking: Booking): string =>
+  booking.package?.startDate ??
+  booking.tour?.startsAtLocal.slice(0, 10) ??
+  booking.visa?.travelDate ??
+  booking.addon?.startDate ??
+  '';
+
+const endOf = (booking: Booking): string | null => {
+  const end = booking.package?.endDate ?? booking.addon?.endDate ?? null;
+  return end && end !== startOf(booking) ? end : null;
+};
+
+/** Packages, tours, visa assistance and add-ons: title and place for the Trips list. */
+function productOf(booking: Booking): BookingSummary['product'] {
+  if (booking.package)
+    return {
+      title: booking.package.product.title,
+      cityName: booking.package.cityName,
+      countryCode: booking.package.countryCode,
+    };
+  if (booking.tour)
+    return {
+      title: booking.tour.product.title,
+      cityName: booking.tour.cityName,
+      countryCode: booking.tour.countryCode,
+    };
+  if (booking.visa)
+    return {
+      title: booking.visa.product.title,
+      cityName: null,
+      countryCode: booking.visa.destination,
+    };
+  if (booking.addon)
+    return {
+      title: booking.addon.product.title,
+      cityName: booking.addon.cityName,
+      countryCode: booking.addon.countryCode,
+    };
+  return null;
 }

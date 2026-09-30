@@ -33,7 +33,14 @@ import {
   type BookingItemRecord,
   type BookingRecord,
 } from './booking-presenter';
-import { bookedRate, type ItemPayload } from './booking-pricing';
+import {
+  bookedRate,
+  isInhouse,
+  type ItemPayload,
+  type SupplierItemPayload,
+} from './booking-pricing';
+import { InhouseFulfilment } from './inhouse-fulfilment';
+import { inhouseSummary } from './inhouse-presenter';
 import { BookingTransitions, SYSTEM_ACTOR } from './booking-transitions';
 import { BookingsService, passportContext } from './bookings.service';
 import { bookingUrl } from './booking-urls';
@@ -86,6 +93,7 @@ export class TicketingService {
     private readonly email: EmailProvider,
     private readonly refunds: RefundsService,
     private readonly notifications: BookingNotifications,
+    private readonly fulfilment: InhouseFulfilment,
   ) {}
 
   /** One ticketing attempt for a booking, if it is due. Safe to call concurrently. */
@@ -152,8 +160,11 @@ export class TicketingService {
     for (const item of booking.items) {
       // Held items already carry the airline reference; `bookedAt` marks them ticketed.
       if (item.bookedAt) continue;
+      const payload = itemPayload(item);
+      // Our own products are fulfilled with the confirmation itself, below.
+      if (isInhouse(payload)) continue;
       try {
-        const result = await this.bookItem(booking, item, contact);
+        const result = await this.bookItem(booking, item, payload, contact);
         await this.prisma.bookingItem.update({
           where: { id: item.id },
           data: {
@@ -167,8 +178,12 @@ export class TicketingService {
       }
     }
 
-    await this.prisma.$transaction((tx) =>
-      this.transitions.apply(
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of booking.items) {
+        const payload = itemPayload(item);
+        if (isInhouse(payload)) await this.fulfilment.fulfil(tx, booking, item, payload);
+      }
+      await this.transitions.apply(
         tx,
         { id: booking.id, status: 'TICKETING' },
         'ticketed',
@@ -176,8 +191,8 @@ export class TicketingService {
         {
           data: { confirmedAt: new Date(), nextTicketingAt: null },
         },
-      ),
-    );
+      );
+    });
     await this.confirm(booking.id);
     return 'confirmed';
   }
@@ -185,9 +200,9 @@ export class TicketingService {
   private async bookItem(
     booking: BookingRecord,
     item: BookingItemRecord,
+    payload: SupplierItemPayload,
     contact: ContactDetails,
   ): Promise<{ reference: string; tickets: { passengerIndex: number; number: string }[] | null }> {
-    const payload = itemPayload(item);
     const timeout = this.config.SUPPLIER_BOOKING_TIMEOUT_MS;
     if (payload.kind === 'flight' && item.supplierOrderId) {
       // A held order (ADR-018): pay it instead of creating a new one.
@@ -306,7 +321,9 @@ export class TicketingService {
     const idempotent =
       payload.kind === 'flight'
         ? this.flightSuppliers.find((s) => s.name === payload.offer.supplier)?.idempotentBooking
-        : this.hotelSuppliers.find((s) => s.name === payload.hotel.supplier)?.idempotentBooking;
+        : payload.kind === 'hotel'
+          ? this.hotelSuppliers.find((s) => s.name === payload.hotel.supplier)?.idempotentBooking
+          : true;
     const transient =
       error instanceof SupplierUnavailableError || error instanceof CircuitOpenError;
     // A timeout or an internal failure may have booked anyway: retry only when that is harmless.
@@ -403,10 +420,9 @@ export class TicketingService {
       const contact = this.bookings.contact(booking);
       const template = bookingConfirmedTemplate({
         reference: booking.reference,
-        vertical: payload.kind === 'flight' ? 'flights' : 'hotels',
+        vertical: booking.vertical,
         summary: summaryOf(payload),
-        supplierLabel:
-          payload.kind === 'flight' ? 'Airline booking reference' : 'Hotel confirmation number',
+        supplierLabel: supplierLabel(payload),
         supplierReference: item.supplierReference ?? '',
         total: documentMoney(money(booking.totalMinor, booking.currency)),
         bookingUrl: booking.userId ? bookingUrl(this.config, booking.id) : null,
@@ -430,7 +446,14 @@ export class TicketingService {
   }
 }
 
+function supplierLabel(payload: ItemPayload): string | null {
+  if (payload.kind === 'flight') return 'Airline booking reference';
+  if (payload.kind === 'hotel') return 'Hotel confirmation number';
+  return null;
+}
+
 function summaryOf(payload: ItemPayload): string {
+  if (isInhouse(payload)) return inhouseSummary(payload);
   if (payload.kind === 'hotel') {
     return `${payload.hotel.name}, ${payload.hotel.cityName}, ${documentDateTime(
       payload.request.checkIn,

@@ -3,17 +3,23 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { daysBetween, money } from '@suskii/shared';
 
 import {
+  documentDateTime,
+  renderInhouseVoucherPdf,
   renderTicketPdf,
+  renderVisaConfirmationPdf,
   renderVoucherPdf,
   type TicketDocument,
   type VoucherDocument,
 } from '../documents/booking-pdf';
+import { VISA_DISCLAIMER } from '../notifications/templates';
 import { ObjectStorage } from '../documents/object-storage';
 import { Prisma, type BookingDocumentType } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { FxService } from '../pricing/fx.service';
 
-import { bookedRate, type ItemPayload } from './booking-pricing';
+import { bookedRate, isInhouse, type ItemPayload } from './booking-pricing';
+import { InhouseFulfilment } from './inhouse-fulfilment';
+import type { InhouseItemPayload } from './inhouse-items';
 import {
   BOOKING_INCLUDE,
   itemPayload,
@@ -31,10 +37,46 @@ export interface GeneratedDocument {
 const FILE_PREFIX: Record<BookingDocumentType, string> = {
   e_ticket: 'e-ticket',
   hotel_voucher: 'hotel-voucher',
+  package_voucher: 'package-voucher',
+  tour_voucher: 'tour-voucher',
+  addon_voucher: 'add-on-voucher',
+  visa_confirmation: 'visa-confirmation',
 };
 
-const documentType = (payload: ItemPayload): BookingDocumentType =>
-  payload.kind === 'flight' ? 'e_ticket' : 'hotel_voucher';
+const DOCUMENT_TYPE: Record<ItemPayload['kind'], BookingDocumentType> = {
+  flight: 'e_ticket',
+  hotel: 'hotel_voucher',
+  package: 'package_voucher',
+  tour: 'tour_voucher',
+  addon: 'addon_voucher',
+  visa: 'visa_confirmation',
+};
+
+const documentType = (payload: ItemPayload): BookingDocumentType => DOCUMENT_TYPE[payload.kind];
+
+const PURPOSE_TEXT: Record<string, string> = {
+  tourism: 'Tourism',
+  business: 'Business',
+  study: 'Study',
+  transit: 'Transit',
+};
+
+/** "Full refund up to 30 days before; 50% up to 7 days before; no refund after." */
+function cancellationLines(tiers: readonly { daysBefore: number; refundBps: number }[]): string[] {
+  const sorted = [...tiers].sort((a, b) => b.daysBefore - a.daysBefore);
+  const lines = sorted.map((tier) => {
+    const share =
+      tier.refundBps >= 10_000
+        ? 'Full refund'
+        : tier.refundBps <= 0
+          ? 'No refund'
+          : `${(tier.refundBps / 100).toFixed(tier.refundBps % 100 === 0 ? 0 : 2)}% refund`;
+    return tier.daysBefore === 0
+      ? `${share} if cancelled before the start date.`
+      : `${share} if cancelled at least ${tier.daysBefore} days before the start.`;
+  });
+  return [...lines, 'Cancel from your booking page; refunds go back to how you paid.'];
+}
 
 /**
  * E-tickets and hotel vouchers (ADR-014): rendered once the booking is confirmed, kept in private
@@ -47,6 +89,7 @@ export class BookingDocumentsService {
     private readonly prisma: PrismaService,
     private readonly storage: ObjectStorage,
     private readonly fx: FxService,
+    private readonly fulfilment: InhouseFulfilment,
   ) {}
 
   /** Makes sure every document of a confirmed booking exists; returns them (e.g. for email). */
@@ -129,6 +172,7 @@ export class BookingDocumentsService {
   ): Promise<Uint8Array> {
     const total = money(booking.totalMinor, booking.currency);
     const issuedAt = booking.confirmedAt ?? new Date();
+    if (isInhouse(payload)) return this.renderInhouse(booking, item, payload, total, issuedAt);
     if (payload.kind === 'flight') {
       const services = itemServices(item);
       const tickets =
@@ -203,5 +247,73 @@ export class BookingDocumentsService {
       total,
     };
     return renderVoucherPdf(voucher);
+  }
+
+  private async renderInhouse(
+    booking: BookingRecord,
+    item: BookingRecord['items'][number],
+    payload: InhouseItemPayload,
+    total: ReturnType<typeof money>,
+    issuedAt: Date,
+  ): Promise<Uint8Array> {
+    const names = booking.passengers.map(
+      (passenger) => `${passenger.givenNames} ${passenger.surname}`,
+    );
+    if (payload.kind === 'visa') {
+      return renderVisaConfirmationPdf({
+        reference: booking.reference,
+        issuedAt,
+        title: payload.title,
+        sample: payload.sample,
+        destination: payload.destination,
+        purpose: PURPOSE_TEXT[payload.purpose] ?? payload.purpose,
+        travelDate: payload.travelDate,
+        processingDays: `${payload.processingDaysMin} to ${payload.processingDaysMax} working days after you submit`,
+        applicants: names,
+        governmentFeeNote: payload.governmentFeeNote,
+        disclaimer: VISA_DISCLAIMER,
+        total,
+      });
+    }
+    const voucher = await this.prisma.bookingVoucher.findUnique({
+      where: { bookingItemId: item.id },
+    });
+    if (!voucher) throw new Error(`Voucher missing for booking item ${item.id}`);
+    const view = this.fulfilment.view(voucher);
+    const when: [string, string][] =
+      payload.kind === 'tour'
+        ? [
+            ['Starts', `${documentDateTime(payload.startsAtLocal)} (local time)`],
+            [
+              'Duration',
+              `${Math.floor(payload.durationMinutes / 60)}h ${payload.durationMinutes % 60}m`,
+            ],
+          ]
+        : [
+            ['From', documentDateTime(payload.startDate)],
+            ['To', documentDateTime(payload.endDate)],
+            ...(payload.kind === 'package'
+              ? ([['Nights', String(payload.nights)]] as [string, string][])
+              : []),
+          ];
+    return renderInhouseVoucherPdf({
+      kind: payload.kind,
+      reference: booking.reference,
+      voucherCode: view.code,
+      qrPayload: payload.kind === 'tour' ? view.qrPayload : null,
+      issuedAt,
+      title: payload.title,
+      sample: payload.sample,
+      place:
+        payload.kind === 'addon'
+          ? payload.cityName
+          : [payload.cityName, payload.countryCode].filter(Boolean).join(', '),
+      when,
+      meetingPoint: payload.kind === 'tour' ? payload.meetingPoint : null,
+      travellers: names,
+      inclusions: payload.kind === 'addon' ? [] : payload.inclusions,
+      cancellation: cancellationLines(payload.cancellationPolicy),
+      total,
+    });
   }
 }

@@ -55,6 +55,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/addon-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach add-ons to a trip
+         * @description From the booking page (`bookingId` with the session or `X-Booking-Token`) or with the booking reference and a traveller's last name. Answers a short-lived `linkToken` for add-on quotes and the trip facts add-ons need, never personal data. A wrong reference or name answers 404 either way; 409 `not-linkable` for trips that are not paid.
+         */
+        post: operations["createAddonLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/addons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Travel add-ons (insurance, transfers, eSIM, lounges) */
+        get: operations["listAddons"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/addons/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A travel add-on */
+        get: operations["getAddon"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/addons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create an add-on (draft) */
+        post: operations["adminCreateAddon"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/addons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update, publish or archive an add-on */
+        patch: operations["adminUpdateAddon"];
+        trace?: never;
+    };
     "/v1/admin/audit-logs": {
         parameters: {
             query?: never;
@@ -86,6 +174,94 @@ export interface paths {
          * @description Above REFUND_APPROVAL_THRESHOLD_NGN (converted to NGN) the refund waits for a second approver; below it runs at once. The amount can never exceed what the payment can still return. `cancelBooking` applies to confirmed bookings (after the airline side is handled) and moves them to REFUND_PENDING.
          */
         post: operations["adminCreateRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List products of one kind, with departures and seat counts */
+        get: operations["adminListCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/package-departures/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change capacity, prices or status of a package departure
+         * @description 409 `capacity-below-booked` when the capacity would drop below reserved + sold.
+         */
+        patch: operations["adminUpdatePackageDeparture"];
+        trace?: never;
+    };
+    "/v1/admin/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a package (draft) */
+        post: operations["adminCreatePackage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/packages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update, publish or archive a package */
+        patch: operations["adminUpdatePackage"];
+        trace?: never;
+    };
+    "/v1/admin/packages/{id}/departures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a dated departure with capacity and per-person base prices */
+        post: operations["adminCreatePackageDeparture"];
         delete?: never;
         options?: never;
         head?: never;
@@ -183,6 +359,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tour-departures/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change capacity, prices or status of a tour departure */
+        patch: operations["adminUpdateTourDeparture"];
+        trace?: never;
+    };
+    "/v1/admin/tours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a tour (draft) */
+        post: operations["adminCreateTour"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tours/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update, publish or archive a tour */
+        patch: operations["adminUpdateTour"];
+        trace?: never;
+    };
+    "/v1/admin/tours/{id}/departures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a departure (local time at the meeting point) */
+        post: operations["adminCreateTourDeparture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}": {
         parameters: {
             query?: never;
@@ -214,6 +458,60 @@ export interface paths {
          */
         put: operations["adminSetUserRoles"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visa-products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a visa assistance product (draft) */
+        post: operations["adminCreateVisaProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visa-products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update, publish or archive a visa assistance product */
+        patch: operations["adminUpdateVisaProduct"];
+        trace?: never;
+    };
+    "/v1/admin/vouchers/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeem a voucher (typed code or scanned QR)
+         * @description Once per voucher: 409 `voucher-redeemed` with `redeemedAt` afterwards. Unknown codes and vouchers of cancelled bookings answer 404. The answer carries no personal data.
+         */
+        post: operations["adminRedeemVoucher"];
         delete?: never;
         options?: never;
         head?: never;
@@ -515,8 +813,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Cancel an unpaid or partly paid booking
-         * @description A reservation is released at the airline. A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`).
+         * Cancel a booking
+         * @description Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept; 409 `not-cancellable` for anything else confirmed (contact support).
          */
         post: operations["cancelBooking"];
         delete?: never;
@@ -532,7 +830,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download an e-ticket or hotel voucher (PDF) */
+        /** Download an e-ticket, voucher or confirmation (PDF) */
         get: operations["downloadBookingDocument"];
         put?: never;
         post?: never;
@@ -1014,6 +1312,26 @@ export interface paths {
         get: operations["listHotels"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inhouse-quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Quote a package, tour, visa assistance or add-on
+         * @description Checks the selection against the catalog (seats left, who may book, dates) and prices it for the caller; book it with `createBooking` like any quote. 422 `quote-invalid` carries `code`; 409 `sold-out`; 410 when the departure or product is no longer on sale.
+         */
+        post: operations["createInhouseQuote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1558,6 +1876,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Holiday packages with departures that fit the travellers
+         * @description Published packages with an open departure in the date range and room for the travellers. `fromPrice` is per adult, priced for the caller in the display currency; the budget filters apply to it.
+         */
+        get: operations["listPackages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/packages/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A package with its itinerary and departures */
+        get: operations["getPackage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/mock/{reference}": {
         parameters: {
             query?: never;
@@ -1658,6 +2013,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tours and activities
+         * @description Published tours matching the text (tour, city or country) with an open departure on the date and room for the travellers.
+         */
+        get: operations["listTours"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tours/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A tour with its meeting point and departures */
+        get: operations["getTour"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1665,6 +2057,117 @@ export interface components {
         Accepted: {
             /** @constant */
             status: "accepted";
+        };
+        AddonCard: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            title: string;
+            summary: string;
+            artKey: string | null;
+            sample: boolean;
+            /** @enum {string} */
+            type: "insurance" | "airport_transfer" | "esim" | "lounge";
+            description: string;
+            countryCodes: string[];
+            /** @enum {string} */
+            pricingBasis: "per_person" | "per_booking" | "per_day" | "per_person_per_day";
+            unitPrice: components["schemas"]["Money"];
+            maxTravellers: number;
+            requiredDetails: string[];
+            cancellationPolicy: components["schemas"]["CancellationTier"][];
+        };
+        AddonItem: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                title: string;
+                sample: boolean;
+                artKey: string | null;
+            };
+            /** @enum {string} */
+            type: "insurance" | "airport_transfer" | "esim" | "lounge";
+            /** @enum {string} */
+            pricingBasis: "per_person" | "per_booking" | "per_day" | "per_person_per_day";
+            units: number;
+            startDate: string;
+            endDate: string;
+            countryCode: string | null;
+            cityName: string | null;
+            travellers: components["schemas"]["TravellerCounts"];
+            requiredDetails: ("flight_number" | "arrival_time" | "pickup_address" | "dates_of_birth")[];
+            cancellationPolicy: components["schemas"]["CancellationTier"][];
+            linkedBooking: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+            } | null;
+        };
+        AddonLink: {
+            linkToken: string;
+            /** Format: date-time */
+            expiresAt: string;
+            trip: {
+                reference: string;
+                countryCode: string | null;
+                cityName: string | null;
+                startDate: string;
+                endDate: string;
+                travellers: components["schemas"]["TravellerCounts"];
+            };
+        };
+        AddonLinkRequestInput: {
+            /** Format: uuid */
+            bookingId: string;
+        } | {
+            reference: string;
+            lastName: string;
+        };
+        AddonList: {
+            addons: components["schemas"]["AddonCard"][];
+        };
+        AdminDeparture: {
+            /** Format: uuid */
+            id: string;
+            startsOn: string;
+            endsOn: string | null;
+            capacity: number;
+            seatsReserved: number;
+            seatsSold: number;
+            prices: {
+                adult: {
+                    amountMinor: number;
+                    currency: string;
+                };
+                child: {
+                    amountMinor: number;
+                    currency: string;
+                } | null;
+                infant: {
+                    amountMinor: number;
+                    currency: string;
+                } | null;
+            };
+            /** @enum {string} */
+            status: "open" | "closed" | "cancelled";
+        };
+        AdminProduct: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "package" | "tour" | "addon" | "visa";
+            slug: string;
+            title: string;
+            /** @enum {string} */
+            status: "draft" | "published" | "archived";
+            sample: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+            departures: components["schemas"]["AdminDeparture"][];
+        };
+        AdminProductList: {
+            products: components["schemas"]["AdminProduct"][];
         };
         AdminRefund: {
             /** Format: uuid */
@@ -1804,7 +2307,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons";
             /** Format: date-time */
             createdAt: string;
             paymentDeadline: string | null;
@@ -1853,6 +2356,29 @@ export interface components {
                 confirmationNumber: string | null;
                 request: components["schemas"]["HotelSearchRequest"];
             } | null;
+            package: components["schemas"]["PackageItem"] | null;
+            tour: components["schemas"]["TourItem"] | null;
+            visa: components["schemas"]["VisaItem"] | null;
+            addon: components["schemas"]["AddonItem"] | null;
+            voucher: {
+                code: string;
+                qrPayload: string;
+                redeemedAt: string | null;
+            } | null;
+            cancellation: {
+                refundBps: number;
+                refund: components["schemas"]["Money"];
+            } | null;
+            addons: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+                /** @enum {string} */
+                status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+                title: string;
+                /** @enum {string} */
+                type: "insurance" | "airport_transfer" | "esim" | "lounge";
+            }[];
             passengers: components["schemas"]["BookingPassenger"][];
             warnings: components["schemas"]["PassengerIssue"][];
             payment: {
@@ -1869,7 +2395,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                type: "e_ticket" | "hotel_voucher";
+                type: "e_ticket" | "hotel_voucher" | "package_voucher" | "tour_voucher" | "addon_voucher" | "visa_confirmation";
                 fileName: string;
                 sizeBytes: number;
                 /** Format: date-time */
@@ -1959,7 +2485,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons";
             /** Format: date-time */
             createdAt: string;
             total: components["schemas"]["Money"];
@@ -1982,14 +2508,28 @@ export interface components {
                 name: string;
                 cityName: string;
             } | null;
+            product: {
+                title: string;
+                cityName: string | null;
+                countryCode: string | null;
+            } | null;
         };
         BookingSummaryPage: {
             bookings: components["schemas"]["BookingSummary"][];
             nextCursor: string | null;
         };
+        CancellationTier: {
+            daysBefore: number;
+            refundBps: number;
+        };
         Carrier: {
             code: string;
             name: string;
+        };
+        CatalogCreated: {
+            /** Format: uuid */
+            id: string;
+            status: ("draft" | "published" | "archived") | ("open" | "closed" | "cancelled");
         };
         ChangePasswordRequestInput: {
             currentPassword: string;
@@ -2035,6 +2575,30 @@ export interface components {
                 continent: string;
             }[];
         };
+        CreateAddonInput: {
+            slug: string;
+            /** @enum {string} */
+            type: "insurance" | "airport_transfer" | "esim" | "lounge";
+            title: string;
+            summary: string;
+            description: string;
+            /** @default [] */
+            countryCodes?: string[];
+            /** @enum {string} */
+            pricingBasis: "per_person" | "per_booking" | "per_day" | "per_person_per_day";
+            price: {
+                amountMinor: number;
+                currency: string;
+            };
+            /** @default 9 */
+            maxTravellers?: number;
+            /** @default [] */
+            requiredDetails?: ("flight_number" | "arrival_time" | "pickup_address" | "dates_of_birth")[];
+            cancellationPolicy: {
+                daysBefore: number;
+                refundBps: number;
+            }[];
+        };
         CreateBookingRequestInput: {
             /** Format: uuid */
             quoteId: string;
@@ -2070,6 +2634,15 @@ export interface components {
             /** @default [] */
             extras?: components["schemas"]["ExtraSelectionInput"][];
             /** @default null */
+            addonDetails?: {
+                /** @default null */
+                flightNumber?: string | null;
+                /** @default null */
+                arrivalTime?: string | null;
+                /** @default null */
+                pickupAddress?: string | null;
+            } | null;
+            /** @default null */
             promoCode?: string | null;
             termsVersion: string;
             /** @constant */
@@ -2086,6 +2659,60 @@ export interface components {
             booking: components["schemas"]["Booking"];
             accessToken: string | null;
         };
+        CreatePackageDepartureInput: {
+            startDate: string;
+            endDate: string;
+            capacity: number;
+            prices: {
+                adult: {
+                    amountMinor: number;
+                    currency: string;
+                };
+                child: {
+                    amountMinor: number;
+                    currency: string;
+                } | null;
+                infant: {
+                    amountMinor: number;
+                    currency: string;
+                } | null;
+            };
+            /**
+             * @default open
+             * @enum {string}
+             */
+            status?: "open" | "closed" | "cancelled";
+        };
+        CreatePackageInput: {
+            slug: string;
+            title: string;
+            summary: string;
+            /** Format: uuid */
+            cityId: string;
+            nights: number;
+            /** @default true */
+            passportRequired?: boolean;
+            /** @default null */
+            artKey?: string | null;
+            /** @default false */
+            featured?: boolean;
+            /** @default [] */
+            highlights?: string[];
+            /** @default [] */
+            itinerary?: {
+                day: number;
+                title: string;
+                body: string;
+            }[];
+            /** @default [] */
+            inclusions?: string[];
+            /** @default [] */
+            exclusions?: string[];
+            cancellationPolicy: {
+                daysBefore: number;
+                refundBps: number;
+            }[];
+        };
         CreateRefundRequestInput: {
             /** Format: uuid */
             paymentId: string;
@@ -2101,6 +2728,80 @@ export interface components {
             note?: string | null;
             /** @default false */
             cancelBooking?: boolean;
+        };
+        CreateTourDepartureInput: {
+            startsAtLocal: string;
+            capacity: number;
+            prices: {
+                adult: {
+                    amountMinor: number;
+                    currency: string;
+                };
+                child: {
+                    amountMinor: number;
+                    currency: string;
+                } | null;
+                infant: {
+                    amountMinor: number;
+                    currency: string;
+                } | null;
+            };
+            /**
+             * @default open
+             * @enum {string}
+             */
+            status?: "open" | "closed" | "cancelled";
+        };
+        CreateTourInput: {
+            slug: string;
+            title: string;
+            summary: string;
+            /** Format: uuid */
+            cityId: string;
+            timeZone: string;
+            durationMinutes: number;
+            /** @default null */
+            category?: string | null;
+            /** @default null */
+            artKey?: string | null;
+            /** @default false */
+            featured?: boolean;
+            meetingPoint: {
+                name: string;
+                address: string;
+                notes: string | null;
+            };
+            /** @default [] */
+            highlights?: string[];
+            /** @default [] */
+            inclusions?: string[];
+            /** @default [] */
+            exclusions?: string[];
+            cancellationPolicy: {
+                daysBefore: number;
+                refundBps: number;
+            }[];
+        };
+        CreateVisaProductInput: {
+            slug: string;
+            title: string;
+            summary: string;
+            destination: string;
+            purposes: ("tourism" | "business" | "study" | "transit")[];
+            processingDaysMin: number;
+            processingDaysMax: number;
+            price: {
+                amountMinor: number;
+                currency: string;
+            };
+            checklist: {
+                key: string;
+                label: string;
+                description: string;
+                required: boolean;
+            }[];
+            /** @default null */
+            governmentFeeNote?: string | null;
         };
         DealRouteDetail: {
             slug: string;
@@ -2539,6 +3240,77 @@ export interface components {
             cheapestRate: components["schemas"]["HotelRate"];
             freeCancellationAvailable: boolean;
         };
+        InhouseQuoteRequestInput: {
+            /** @constant */
+            kind: "package";
+            /** Format: uuid */
+            departureId: string;
+            travellers: {
+                adults: number;
+                children: number;
+                infants: number;
+            };
+            /**
+             * @default NGN
+             * @enum {string}
+             */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+        } | {
+            /** @constant */
+            kind: "tour";
+            /** Format: uuid */
+            departureId: string;
+            travellers: {
+                adults: number;
+                children: number;
+                infants: number;
+            };
+            /**
+             * @default NGN
+             * @enum {string}
+             */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+        } | {
+            /** @constant */
+            kind: "visa";
+            /** Format: uuid */
+            productId: string;
+            /** @enum {string} */
+            purpose: "tourism" | "business" | "study" | "transit";
+            nationality: string;
+            travelDate: string;
+            travellers: {
+                adults: number;
+                children: number;
+                infants: number;
+            };
+            /**
+             * @default NGN
+             * @enum {string}
+             */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+        } | {
+            /** @constant */
+            kind: "addon";
+            /** Format: uuid */
+            addonId: string;
+            startDate: string;
+            endDate: string;
+            travellers: {
+                adults: number;
+                children: number;
+                infants: number;
+            };
+            /** @default null */
+            linkToken?: string | null;
+            /** @default null */
+            cityId?: string | null;
+            /**
+             * @default NGN
+             * @enum {string}
+             */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+        };
         Jwks: {
             keys: ({
                 kty: string;
@@ -2563,6 +3335,11 @@ export interface components {
         };
         LogoutRequestInput: {
             refreshToken?: string;
+        };
+        MeetingPoint: {
+            name: string;
+            address: string;
+            notes: string | null;
         };
         MfaChallenge: {
             /** @constant */
@@ -2660,11 +3437,86 @@ export interface components {
              */
             transport?: "cookie" | "token";
         };
+        PackageCard: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            title: string;
+            summary: string;
+            artKey: string | null;
+            sample: boolean;
+            featured: boolean;
+            cityName: string;
+            countryCode: string;
+            nights: number;
+            fromPrice: components["schemas"]["Money"];
+            nextDeparture: string;
+            departures: number;
+        };
+        PackageDeparture: {
+            /** Format: uuid */
+            id: string;
+            startDate: string;
+            endDate: string;
+            seatsLeft: number;
+            prices: components["schemas"]["PerPersonPrice"];
+            bookable: boolean;
+        };
+        PackageDetail: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            title: string;
+            summary: string;
+            artKey: string | null;
+            sample: boolean;
+            featured: boolean;
+            /** Format: uuid */
+            cityId: string;
+            cityName: string;
+            countryCode: string;
+            nights: number;
+            passportRequired: boolean;
+            highlights: string[];
+            itinerary: {
+                day: number;
+                title: string;
+                body: string;
+            }[];
+            inclusions: string[];
+            exclusions: string[];
+            cancellationPolicy: components["schemas"]["CancellationTier"][];
+            departures: components["schemas"]["PackageDeparture"][];
+        };
+        PackageItem: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                title: string;
+                sample: boolean;
+                artKey: string | null;
+            };
+            /** Format: uuid */
+            departureId: string;
+            cityName: string;
+            countryCode: string;
+            nights: number;
+            startDate: string;
+            endDate: string;
+            passportRequired: boolean;
+            inclusions: string[];
+            travellers: components["schemas"]["TravellerCounts"];
+            cancellationPolicy: components["schemas"]["CancellationTier"][];
+        };
+        PackageList: {
+            packages: components["schemas"]["PackageCard"][];
+        };
         PassengerIssue: {
             index: number | null;
             path: string[];
             /** @enum {string} */
-            code: "name_not_latin" | "name_too_long" | "passenger_count_mismatch" | "passenger_type_mismatch" | "born_after_travel" | "infants_exceed_adults" | "passport_required" | "passport_expired" | "passport_expires_soon" | "traveller_not_found";
+            code: "name_not_latin" | "name_too_long" | "passenger_count_mismatch" | "passenger_type_mismatch" | "born_after_travel" | "infants_exceed_adults" | "passport_required" | "passport_expired" | "passport_expires_soon" | "traveller_not_found" | "nationality_mismatch";
         };
         PaymentOptions: {
             providers: components["schemas"]["PaymentProviderOption"][];
@@ -2730,6 +3582,11 @@ export interface components {
             amount: components["schemas"]["Money"];
             /** Format: date-time */
             expiresAt: string;
+        };
+        PerPersonPrice: {
+            adult: components["schemas"]["Money"];
+            child: components["schemas"]["Money"] | null;
+            infant: components["schemas"]["Money"] | null;
         };
         PhoneRequestInput: {
             phone: string;
@@ -2828,7 +3685,7 @@ export interface components {
             /** Format: uuid */
             quoteId: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons";
             currency: string;
             /** Format: date-time */
             expiresAt: string;
@@ -2848,6 +3705,11 @@ export interface components {
                 nights: number;
                 request: components["schemas"]["HotelSearchRequest"];
             } | null;
+            package: components["schemas"]["PackageItem"] | null;
+            tour: components["schemas"]["TourItem"] | null;
+            visa: components["schemas"]["VisaItem"] | null;
+            addon: components["schemas"]["AddonItem"] | null;
+            price: components["schemas"]["Price"] | null;
             payment: components["schemas"]["PaymentOptions"];
         };
         ReadinessStatus: {
@@ -2862,6 +3724,19 @@ export interface components {
         };
         RecoveryCodes: {
             recoveryCodes: string[];
+        };
+        RedeemedVoucher: {
+            bookingReference: string;
+            /** @enum {string} */
+            kind: "package" | "tour" | "addon";
+            title: string;
+            startsOn: string;
+            travellers: number;
+            /** Format: date-time */
+            redeemedAt: string;
+        };
+        RedeemVoucherRequestInput: {
+            code: string;
         };
         RefreshRequestInput: {
             refreshToken?: string;
@@ -2996,6 +3871,82 @@ export interface components {
             secret: string;
             otpauthUri: string;
         };
+        TourCard: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            title: string;
+            summary: string;
+            artKey: string | null;
+            sample: boolean;
+            featured: boolean;
+            cityName: string;
+            countryCode: string;
+            durationMinutes: number;
+            category: string | null;
+            fromPrice: components["schemas"]["Money"];
+            nextDeparture: string;
+            departures: number;
+        };
+        TourDeparture: {
+            /** Format: uuid */
+            id: string;
+            startsAtLocal: string;
+            /** Format: date-time */
+            startsAt: string;
+            seatsLeft: number;
+            prices: components["schemas"]["PerPersonPrice"];
+            bookable: boolean;
+        };
+        TourDetail: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            title: string;
+            summary: string;
+            artKey: string | null;
+            sample: boolean;
+            featured: boolean;
+            /** Format: uuid */
+            cityId: string;
+            cityName: string;
+            countryCode: string;
+            timeZone: string;
+            durationMinutes: number;
+            category: string | null;
+            meetingPoint: components["schemas"]["MeetingPoint"];
+            highlights: string[];
+            inclusions: string[];
+            exclusions: string[];
+            cancellationPolicy: components["schemas"]["CancellationTier"][];
+            departures: components["schemas"]["TourDeparture"][];
+        };
+        TourItem: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                title: string;
+                sample: boolean;
+                artKey: string | null;
+            };
+            /** Format: uuid */
+            departureId: string;
+            cityName: string;
+            countryCode: string;
+            timeZone: string;
+            startsAtLocal: string;
+            /** Format: date-time */
+            startsAt: string;
+            durationMinutes: number;
+            meetingPoint: components["schemas"]["MeetingPoint"];
+            inclusions: string[];
+            travellers: components["schemas"]["TravellerCounts"];
+            cancellationPolicy: components["schemas"]["CancellationTier"][];
+        };
+        TourList: {
+            tours: components["schemas"]["TourCard"][];
+        };
         Traveller: {
             /** Format: uuid */
             id: string;
@@ -3016,6 +3967,11 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        TravellerCounts: {
+            adults: number;
+            children: number;
+            infants: number;
         };
         TravellerList: {
             travellers: components["schemas"]["Traveller"][];
@@ -3040,11 +3996,142 @@ export interface components {
             label: string;
             value: string | null;
         };
+        UpdateAddonInput: {
+            title?: string;
+            summary?: string;
+            description?: string;
+            countryCodes?: string[];
+            price?: {
+                amountMinor: number;
+                currency: string;
+            };
+            maxTravellers?: number;
+            requiredDetails?: ("flight_number" | "arrival_time" | "pickup_address" | "dates_of_birth")[];
+            cancellationPolicy?: {
+                daysBefore: number;
+                refundBps: number;
+            }[];
+            /** @enum {string} */
+            status?: "draft" | "published" | "archived";
+        };
+        UpdateDepartureInput: {
+            capacity?: number;
+            prices?: {
+                adult: {
+                    amountMinor: number;
+                    currency: string;
+                };
+                child: {
+                    amountMinor: number;
+                    currency: string;
+                } | null;
+                infant: {
+                    amountMinor: number;
+                    currency: string;
+                } | null;
+            };
+            /** @enum {string} */
+            status?: "open" | "closed" | "cancelled";
+        };
+        UpdatePackageInput: {
+            title?: string;
+            summary?: string;
+            nights?: number;
+            passportRequired?: boolean;
+            artKey?: string | null;
+            featured?: boolean;
+            highlights?: string[];
+            itinerary?: {
+                day: number;
+                title: string;
+                body: string;
+            }[];
+            inclusions?: string[];
+            exclusions?: string[];
+            cancellationPolicy?: {
+                daysBefore: number;
+                refundBps: number;
+            }[];
+            /** @enum {string} */
+            status?: "draft" | "published" | "archived";
+        };
         UpdateProfileRequestInput: {
             displayName: string;
         };
+        UpdateTourInput: {
+            title?: string;
+            summary?: string;
+            durationMinutes?: number;
+            category?: string | null;
+            artKey?: string | null;
+            featured?: boolean;
+            meetingPoint?: {
+                name: string;
+                address: string;
+                notes: string | null;
+            };
+            highlights?: string[];
+            inclusions?: string[];
+            exclusions?: string[];
+            cancellationPolicy?: {
+                daysBefore: number;
+                refundBps: number;
+            }[];
+            /** @enum {string} */
+            status?: "draft" | "published" | "archived";
+        };
+        UpdateVisaProductInput: {
+            title?: string;
+            summary?: string;
+            purposes?: ("tourism" | "business" | "study" | "transit")[];
+            processingDaysMin?: number;
+            processingDaysMax?: number;
+            price?: {
+                amountMinor: number;
+                currency: string;
+            };
+            checklist?: {
+                key: string;
+                label: string;
+                description: string;
+                required: boolean;
+            }[];
+            governmentFeeNote?: string | null;
+            /** @enum {string} */
+            status?: "draft" | "published" | "archived";
+        };
         VerificationTokenRequestInput: {
             token: string;
+        };
+        VisaApplicationSummary: {
+            /** Format: uuid */
+            id: string;
+            applicantPosition: number;
+            /** @enum {string} */
+            status: "awaiting_documents" | "submitted" | "in_review" | "action_required" | "lodged" | "approved" | "refused" | "withdrawn";
+            submittedAt: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        VisaItem: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                title: string;
+                sample: boolean;
+                artKey: string | null;
+            };
+            destination: string;
+            /** @enum {string} */
+            purpose: "tourism" | "business" | "study" | "transit";
+            nationality: string;
+            travelDate: string;
+            processingDaysMin: number;
+            processingDaysMax: number;
+            governmentFeeNote: string | null;
+            travellers: components["schemas"]["TravellerCounts"];
+            applications: components["schemas"]["VisaApplicationSummary"][];
         };
         Wallet: {
             balances: components["schemas"]["Money"][];
@@ -3241,6 +4328,162 @@ export interface operations {
             };
         };
     };
+    createAddonLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddonLinkRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddonLink"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listAddons: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                type?: "insurance" | "airport_transfer" | "esim" | "lounge";
+                countryCode?: string;
+                cityId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddonList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getAddon: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddonCard"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateAddon: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAddonInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateAddon: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAddonInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminListAuditLogs: {
         parameters: {
             query?: {
@@ -3306,6 +4549,170 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListCatalog: {
+        parameters: {
+            query: {
+                kind: "package" | "tour" | "addon" | "visa";
+                status?: "draft" | "published" | "archived";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProductList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdatePackageDeparture: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDepartureInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreatePackage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePackageInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdatePackage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePackageInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreatePackageDeparture: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePackageDepartureInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -3471,6 +4878,142 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminUpdateTourDeparture: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDepartureInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateTour: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTourInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateTour: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTourInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateTourDeparture: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTourDepartureInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminGetUser: {
         parameters: {
             query?: never;
@@ -3524,6 +5067,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateVisaProduct: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVisaProductInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateVisaProduct: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVisaProductInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRedeemVoucher: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedeemVoucherRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedeemedVoucher"];
                 };
             };
             400: components["responses"]["Problem400"];
@@ -4849,6 +6493,40 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    createInhouseQuote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InhouseQuoteRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            410: components["responses"]["Problem410"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     expireDueBookings: {
         parameters: {
             query?: never;
@@ -5791,6 +7469,74 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    listPackages: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                adults?: number;
+                children?: number;
+                infants?: number;
+                cityId?: string;
+                countryCode?: string;
+                month?: string;
+                from?: string;
+                to?: string;
+                budgetMin?: number;
+                budgetMax?: number;
+                featured?: "true" | "false";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getPackage: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                adults?: number;
+                children?: number;
+                infants?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getMockPayment: {
         parameters: {
             query?: never;
@@ -5936,6 +7682,69 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listTours: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                adults?: number;
+                children?: number;
+                infants?: number;
+                q?: string;
+                cityId?: string;
+                date?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TourList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getTour: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                adults?: number;
+                children?: number;
+                infants?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TourDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

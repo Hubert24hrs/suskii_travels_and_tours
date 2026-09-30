@@ -26,6 +26,12 @@ import type {
 } from '../suppliers/supplier.types';
 
 import type { BookingPriceDto } from './bookings.schemas';
+import {
+  inhouseBasePrice,
+  inhousePricingContext,
+  INHOUSE_KINDS,
+  type InhouseItemPayload,
+} from './inhouse-items';
 
 /** What a quote and a booking item store: the offer in our domain shape plus its search. */
 export interface FlightItemPayload {
@@ -42,7 +48,11 @@ export interface HotelItemPayload {
   query: HotelSearchQuery;
 }
 
-export type ItemPayload = FlightItemPayload | HotelItemPayload;
+export type SupplierItemPayload = FlightItemPayload | HotelItemPayload;
+export type ItemPayload = SupplierItemPayload | InhouseItemPayload;
+
+export const isInhouse = (payload: ItemPayload): payload is InhouseItemPayload =>
+  (INHOUSE_KINDS as readonly string[]).includes(payload.kind);
 
 export interface ExtraSelection {
   serviceId: string;
@@ -103,6 +113,28 @@ export function matchService(
   );
 }
 
+/** The item through the pricing engine: supplier price or in-house base price. */
+export function priceItem(
+  pricer: Pricer,
+  payload: ItemPayload,
+  client: ClientContext,
+  now: Date,
+  promo: PromoInput = null,
+): PricingResult {
+  if (payload.kind === 'flight')
+    return pricer(payload.offer.price, flightPricingContext(payload.offer, client, now), promo);
+  if (payload.kind === 'hotel')
+    return pricer(
+      bookedRate(payload).price,
+      hotelPricingContext(payload.hotel, payload.request, client, now),
+      promo,
+    );
+  const base = inhouseBasePrice(payload);
+  // Quotes are only created for selections that can book; a snapshot that cannot is corrupt.
+  if ('issue' in base) throw new Error(`In-house item cannot be priced: ${base.issue}`);
+  return pricer(base.price, inhousePricingContext(payload, client, now), promo);
+}
+
 export interface PricedBooking {
   price: BookingPriceDto;
   total: Money;
@@ -122,14 +154,7 @@ export function priceBookingItem(
   promo: PromoInput,
   now: Date,
 ): PricedBooking {
-  const result =
-    payload.kind === 'flight'
-      ? pricer(payload.offer.price, flightPricingContext(payload.offer, client, now), promo)
-      : pricer(
-          bookedRate(payload).price,
-          hotelPricingContext(payload.hotel, payload.request, client, now),
-          promo,
-        );
+  const result = priceItem(pricer, payload, client, now, promo);
   const { currency } = result.breakdown;
   const services = payload.kind === 'flight' ? payload.offer.services : [];
 

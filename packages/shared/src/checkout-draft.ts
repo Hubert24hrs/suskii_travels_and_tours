@@ -30,7 +30,8 @@ export type CheckoutIssue =
   | 'born_after_travel'
   | 'infants_exceed_adults'
   | 'passenger_count_mismatch'
-  | 'traveller_not_found';
+  | 'traveller_not_found'
+  | 'nationality_mismatch';
 
 export interface PassengerDraft {
   type: PassengerType;
