@@ -4,6 +4,31 @@ import { appConfig, CLIENT_ID } from '../config';
 
 export type { ApiClient, Schemas };
 
+/**
+ * A request that got no HTTP answer (no network, host unreachable, connection refused). The
+ * platform's fetch reports these with different error types (Hermes' polyfill uses TypeError,
+ * Expo's native fetch its own errors), so the client rethrows them as this one type.
+ */
+export class NetworkError extends TypeError {
+  constructor(cause: unknown) {
+    super('Network request failed', { cause });
+    this.name = 'NetworkError';
+  }
+}
+
+/** fetch with transport failures normalised to `NetworkError`; aborts stay aborts. */
+function transport(fetchImpl: typeof globalThis.fetch): typeof globalThis.fetch {
+  return async (input, init) => {
+    try {
+      return await fetchImpl(input, init);
+    } catch (error) {
+      const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+      if (signal?.aborted) throw error;
+      throw error instanceof NetworkError ? error : new NetworkError(error);
+    }
+  };
+}
+
 export interface TokenSource {
   accessToken(): string | undefined;
   /** Rotates the refresh token once (single flight); undefined when the session is gone. */
@@ -17,8 +42,9 @@ export interface TokenSource {
 export function createAppApi(
   tokens: TokenSource,
   locale: () => string,
-  fetchImpl: typeof globalThis.fetch = globalThis.fetch,
+  platformFetch: typeof globalThis.fetch = globalThis.fetch,
 ): ApiClient {
+  const fetchImpl = transport(platformFetch);
   const fetchWithRefresh = async (request: Request): Promise<Response> => {
     const retry = request.clone();
     const response = await fetchImpl(request);
@@ -45,7 +71,7 @@ export function createAppApi(
 
 /** A client without credentials, for the refresh call itself. */
 export function createBareApi(fetchImpl: typeof globalThis.fetch = globalThis.fetch): ApiClient {
-  const client = createApiClient({ baseUrl: appConfig.apiBaseUrl, fetch: fetchImpl });
+  const client = createApiClient({ baseUrl: appConfig.apiBaseUrl, fetch: transport(fetchImpl) });
   client.use({
     onRequest({ request }) {
       request.headers.set('X-Suskii-Client', CLIENT_ID);

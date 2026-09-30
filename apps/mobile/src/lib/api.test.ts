@@ -1,6 +1,13 @@
 import { json, mockApi } from '../test/app';
 
-import { createAppApi, createBareApi, isNetworkError, problemSlug, type TokenSource } from './api';
+import {
+  createAppApi,
+  createBareApi,
+  isNetworkError,
+  NetworkError,
+  problemSlug,
+  type TokenSource,
+} from './api';
 
 function tokens(access: string | undefined, fresh: string | undefined) {
   const refresh = jest.fn(() => Promise.resolve(fresh));
@@ -68,6 +75,39 @@ describe('createBareApi', () => {
     await createBareApi().POST('/v1/attestation/challenges');
     expect(calls[0]?.headers.get('Authorization')).toBeNull();
     expect(calls[0]?.headers.get('X-Suskii-Client')).toMatch(/^mobile-/);
+  });
+});
+
+describe('network failures', () => {
+  it('reports any transport failure as a network error, whatever the platform throws', async () => {
+    const refused = jest.fn(() => Promise.reject(new Error('java.net.ConnectException: refused')));
+    const api = createAppApi(tokens(undefined, undefined).source, () => 'en-NG', refused);
+    const failure = await api.GET('/v1/me').then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(failure).toBeInstanceOf(NetworkError);
+    expect(isNetworkError(failure)).toBe(true);
+
+    const bare = await createBareApi(refused)
+      .POST('/v1/attestation/challenges')
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+    expect(isNetworkError(bare)).toBe(true);
+  });
+
+  it('keeps aborted requests as aborts', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const aborting = jest.fn(() => Promise.reject(new DOMException('Aborted', 'AbortError')));
+    const api = createAppApi(tokens(undefined, undefined).source, () => 'en-NG', aborting);
+    const failure = await api.GET('/v1/me', { signal: controller.signal }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(isNetworkError(failure)).toBe(false);
   });
 });
 
