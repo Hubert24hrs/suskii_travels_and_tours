@@ -51,19 +51,21 @@ export function Checkbox({
   );
 }
 
-/** Single choice among a few options (title, gender), as a row of chips. */
+/** Single choice among a few options (title, gender), as a row of chips (`{testID}-{value}`). */
 export function ChoiceChips<T extends string>({
   label,
   options,
   value,
   onChange,
   error,
+  testID,
 }: {
   label: string;
   options: readonly { value: T; label: string }[];
   value: T | '';
   onChange: (value: T) => void;
   error?: string | undefined;
+  testID?: string;
 }) {
   return (
     <View className="gap-1">
@@ -78,6 +80,7 @@ export function ChoiceChips<T extends string>({
           return (
             <Pressable
               key={option.value}
+              testID={testID ? `${testID}-${option.value}` : undefined}
               accessibilityRole="radio"
               accessibilityState={{ checked }}
               onPress={() => onChange(option.value)}
@@ -116,11 +119,13 @@ export function CountryField({
   value,
   onChange,
   error,
+  testID,
 }: {
   label: string;
   value: string;
   onChange: (code: string) => void;
   error?: string | undefined;
+  testID?: string;
 }) {
   const { api } = useApp();
   const { t } = useT();
@@ -147,6 +152,7 @@ export function CountryField({
   return (
     <Combobox<Country>
       key={selected?.code ?? 'none'}
+      testID={testID}
       label={label}
       items={matches}
       itemToString={(country) => country?.name ?? ''}

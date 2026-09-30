@@ -58,6 +58,7 @@ export function PassengerForm({
           value={passenger.title as (typeof PASSENGER_TITLES)[number] | ''}
           onChange={(title) => onChange({ title })}
           error={error('title')}
+          testID={`${prefix}.title`}
         />
         <ChoiceChips
           label={t('checkout.fields.gender')}
@@ -68,6 +69,7 @@ export function PassengerForm({
           value={passenger.gender as (typeof GENDERS)[number] | ''}
           onChange={(gender) => onChange({ gender })}
           error={error('gender')}
+          testID={`${prefix}.gender`}
         />
         <Input
           testID={`${prefix}.givenNames`}
@@ -103,6 +105,7 @@ export function PassengerForm({
           error={error('dateOfBirth')}
         />
         <CountryField
+          testID={`${prefix}.nationality`}
           label={t('checkout.fields.nationality')}
           value={passenger.nationality}
           onChange={(nationality) => onChange({ nationality })}
@@ -126,6 +129,7 @@ export function PassengerForm({
           error={error('passportNumber')}
         />
         <CountryField
+          testID={`${prefix}.issuingCountry`}
           label={t('checkout.fields.issuingCountry')}
           value={passenger.issuingCountry}
           onChange={(issuingCountry) => onChange({ issuingCountry })}

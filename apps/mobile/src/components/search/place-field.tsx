@@ -75,29 +75,28 @@ export function PlaceField({
     },
   });
   return (
-    <View testID={testID}>
-      <Combobox
-        label={label}
-        items={term.length >= 2 ? (places.data ?? []) : []}
-        itemToString={placeLabel}
-        itemToKey={(place) => place.code}
-        renderItem={(place) => (
-          <View className="gap-1">
-            <Text className="font-body-bold text-body text-foreground">{placeLabel(place)}</Text>
-            <Text className="font-body text-caption text-muted">{place.name}</Text>
-          </View>
-        )}
-        selectedItem={value}
-        onSelectedItemChange={onChange}
-        onInputValueChange={setQuery}
-        placeholder={t('search.flights.placePlaceholder')}
-        icon={<MapPin color={color.muted} size={iconSize.md} />}
-        loading={places.isFetching}
-        loadingLabel={t('search.places.searching')}
-        emptyLabel={t('search.places.noResults')}
-        error={error}
-      />
-    </View>
+    <Combobox
+      testID={testID}
+      label={label}
+      items={term.length >= 2 ? (places.data ?? []) : []}
+      itemToString={placeLabel}
+      itemToKey={(place) => place.code}
+      renderItem={(place) => (
+        <View className="gap-1">
+          <Text className="font-body-bold text-body text-foreground">{placeLabel(place)}</Text>
+          <Text className="font-body text-caption text-muted">{place.name}</Text>
+        </View>
+      )}
+      selectedItem={value}
+      onSelectedItemChange={onChange}
+      onInputValueChange={setQuery}
+      placeholder={t('search.flights.placePlaceholder')}
+      icon={<MapPin color={color.muted} size={iconSize.md} />}
+      loading={places.isFetching}
+      loadingLabel={t('search.places.searching')}
+      emptyLabel={t('search.places.noResults')}
+      error={error}
+    />
   );
 }
 
@@ -141,22 +140,21 @@ export function CityField({
     },
   });
   return (
-    <View testID={testID}>
-      <Combobox
-        label={label}
-        items={term.length >= 2 ? (cities.data ?? []) : []}
-        itemToString={(city) => (city ? `${city.name}, ${city.countryName}` : '')}
-        itemToKey={(city) => city.id}
-        selectedItem={value}
-        onSelectedItemChange={onChange}
-        onInputValueChange={setQuery}
-        placeholder={t('search.hotels.destinationPlaceholder')}
-        icon={<MapPin color={color.muted} size={iconSize.md} />}
-        loading={cities.isFetching}
-        loadingLabel={t('search.places.searching')}
-        emptyLabel={t('search.places.noResults')}
-        error={error}
-      />
-    </View>
+    <Combobox
+      testID={testID}
+      label={label}
+      items={term.length >= 2 ? (cities.data ?? []) : []}
+      itemToString={(city) => (city ? `${city.name}, ${city.countryName}` : '')}
+      itemToKey={(city) => city.id}
+      selectedItem={value}
+      onSelectedItemChange={onChange}
+      onInputValueChange={setQuery}
+      placeholder={t('search.hotels.destinationPlaceholder')}
+      icon={<MapPin color={color.muted} size={iconSize.md} />}
+      loading={cities.isFetching}
+      loadingLabel={t('search.places.searching')}
+      emptyLabel={t('search.places.noResults')}
+      error={error}
+    />
   );
 }

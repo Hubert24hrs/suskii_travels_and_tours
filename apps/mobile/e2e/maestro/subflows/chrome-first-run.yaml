@@ -1,0 +1,27 @@
+# Chrome's first-run screens, if the emulator shows them before the Custom Tab (CI also starts
+# Chrome with --disable-fre). Each step only runs when its button is on screen.
+appId: com.android.chrome
+---
+- extendedWaitUntil:
+    visible: 'Pay .*|Accept & continue|Use without an account|No thanks|Got it'
+    timeout: 60000
+- runFlow:
+    when:
+      visible: Accept & continue
+    commands:
+      - tapOn: Accept & continue
+- runFlow:
+    when:
+      visible: Use without an account
+    commands:
+      - tapOn: Use without an account
+- runFlow:
+    when:
+      visible: No thanks
+    commands:
+      - tapOn: No thanks
+- runFlow:
+    when:
+      visible: Got it
+    commands:
+      - tapOn: Got it

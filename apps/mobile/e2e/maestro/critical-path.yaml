@@ -1,0 +1,146 @@
+# Phase 7 acceptance: the critical path on an Android emulator against the e2e stack (ADR-024).
+# Search Lagos to Abuja, pick a fare, check out as a guest (with mock device attestation), pay on
+# the provider's hosted page in a Chrome Custom Tab, come back to the confirmed trip and keep the
+# e-ticket on the phone. offline-trip.yaml then reopens it without a network (run-android.sh).
+appId: com.suskii.travels.e2e
+name: Critical path
+tags:
+  - critical
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 60000
+
+# One way, one adult, on the form's default date (two weeks out).
+- tapOn: One way
+- tapOn:
+    id: search-from
+- inputText: Lagos
+- hideKeyboard
+- tapOn:
+    id: search-from-option-LOS
+- tapOn:
+    id: search-to
+- inputText: Abuja
+- hideKeyboard
+- tapOn:
+    id: search-to-option-ABV
+- scrollUntilVisible:
+    element:
+      id: search-submit
+- tapOn:
+    id: search-submit
+
+# Results: the first fare is re-priced (quote) before checkout.
+- extendedWaitUntil:
+    visible:
+      id: select-offer
+    timeout: 60000
+- tapOn:
+    id: select-offer
+    index: 0
+
+# Checkout as a guest. A domestic trip, so no passport.
+- extendedWaitUntil:
+    visible:
+      id: checkout
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: passengers.0.title-mr
+- tapOn:
+    id: passengers.0.title-mr
+- tapOn:
+    id: passengers.0.gender-m
+- scrollUntilVisible:
+    element:
+      id: passengers.0.givenNames
+- tapOn:
+    id: passengers.0.givenNames
+- inputText: Adebayo
+- tapOn:
+    id: passengers.0.surname
+- inputText: Okafor
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.dateOfBirth
+- tapOn:
+    id: passengers.0.dateOfBirth
+- inputText: 1990-04-21
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.nationality
+- tapOn:
+    id: passengers.0.nationality
+- inputText: Nigeria
+- hideKeyboard
+- tapOn:
+    id: passengers.0.nationality-option-NG
+- scrollUntilVisible:
+    element:
+      id: contact-email
+- tapOn:
+    id: contact-email
+- inputText: maestro@example.com
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: contact-phone
+- tapOn:
+    id: contact-phone
+- inputText: '+2348030000000'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: accept-terms
+- tapOn:
+    id: accept-terms
+- scrollUntilVisible:
+    element:
+      id: checkout-submit
+- tapOn:
+    id: checkout-submit
+
+# The provider's hosted page (the mock provider) opens in a Chrome Custom Tab.
+- runFlow: subflows/chrome-first-run.yaml
+- extendedWaitUntil:
+    visible: 'Pay .*'
+    timeout: 60000
+- tapOn: 'Pay .*'
+# The return page hands control back to the app. Chrome may block the automatic jump without a
+# tap, so the page's button is the fallback. Wait for that button or the trip's heading (the
+# mock page's "Booking reference" label does not count).
+- extendedWaitUntil:
+    visible: 'Open the Suskii app|Booking (?!reference).+'
+    timeout: 60000
+- runFlow:
+    when:
+      visible: Open the Suskii app
+    commands:
+      - tapOn: Open the Suskii app
+
+# The trip polls until the verified webhook and ticketing have confirmed it.
+- extendedWaitUntil:
+    visible:
+      id: trip
+    timeout: 60000
+- extendedWaitUntil:
+    visible: Confirmed
+    timeout: 120000
+
+# Keep the e-ticket on the phone.
+- scrollUntilVisible:
+    element:
+      id: document-save
+    timeout: 60000
+- tapOn:
+    id: document-save
+- extendedWaitUntil:
+    visible:
+      id: document-saved
+    timeout: 30000

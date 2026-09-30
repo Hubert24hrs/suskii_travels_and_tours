@@ -1,0 +1,32 @@
+# Runs after critical-path.yaml, once run-android.sh has removed the app's route to the stack:
+# with the network off, the trip and the e-ticket saved on the phone still open (ADR-020).
+appId: com.suskii.travels.e2e
+name: Offline trip
+tags:
+  - critical
+---
+- setAirplaneMode: enabled
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: tab-trips
+    timeout: 60000
+- tapOn:
+    id: tab-trips
+- extendedWaitUntil:
+    visible: 'You are offline.*'
+    timeout: 30000
+- tapOn:
+    id: trip-card
+    index: 0
+- extendedWaitUntil:
+    visible: Confirmed
+    timeout: 30000
+- assertVisible: 'You are offline.*'
+- scrollUntilVisible:
+    element:
+      id: document-open
+- assertVisible:
+    id: document-saved
+- setAirplaneMode: disabled
