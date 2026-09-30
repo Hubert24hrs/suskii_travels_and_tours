@@ -1,6 +1,7 @@
 name: Mobile release
 
-# EAS cloud builds for testers and the stores (ADR-024). Runs only once the owner's Expo account
+# EAS cloud builds for testers and the stores (ADR-024): preview or production on demand, and
+# production for `mobile-v*` tags. Runs only once the owner's Expo account
 # is set up: the EXPO_TOKEN secret, the EAS_PROJECT_ID variable (from `eas init`), the profile's
 # public settings as EAS environment variables (https API and web URLs, Play Integrity project)
 # and store credentials managed by EAS. The bundle is exported and scanned before EAS builds it.
@@ -17,24 +18,27 @@ on:
         type: choice
         options: [all, android, ios]
         default: all
+  push:
+    tags: ['mobile-v*']
 
 permissions:
   contents: read
 
 concurrency:
-  group: mobile-release-${{ inputs.profile }}
+  group: mobile-release-${{ inputs.profile || 'production' }}
   cancel-in-progress: false
 
 jobs:
   eas-build:
-    name: EAS ${{ inputs.profile }} build (${{ inputs.platform }})
+    name: EAS ${{ inputs.profile || 'production' }} build (${{ inputs.platform || 'all' }})
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
       EXPO_NO_TELEMETRY: 1
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
-      APP_VARIANT: ${{ inputs.profile }}
+      APP_VARIANT: ${{ inputs.profile || 'production' }}
+      PLATFORM: ${{ inputs.platform || 'all' }}
     steps:
       - name: Check the Expo account is configured
         run: |
@@ -60,6 +64,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build the app's workspace dependencies
+        run: pnpm exec turbo run build --filter=@suskii/mobile^...
+
       - name: Set up EAS
         uses: expo/expo-github-action@v8
         with:
@@ -81,4 +88,4 @@ jobs:
 
       - name: Build on EAS
         working-directory: apps/mobile
-        run: eas build --profile "$APP_VARIANT" --platform "${{ inputs.platform }}" --non-interactive
+        run: eas build --profile "$APP_VARIANT" --platform "$PLATFORM" --non-interactive

@@ -94,8 +94,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build the API, worker and web app
-        run: pnpm exec turbo run build --filter=@suskii/api --filter=@suskii/worker --filter=@suskii/web
+      # The app's workspace dependencies (design tokens, shared) are built packages.
+      - name: Build the API, worker, web app and the app's dependencies
+        run: >-
+          pnpm exec turbo run build --filter=@suskii/api --filter=@suskii/worker
+          --filter=@suskii/web --filter=@suskii/mobile^...
 
       # Continuous native generation: the android/ project is generated, never committed.
       - name: Generate the native Android project
@@ -194,6 +197,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build the app's workspace dependencies
+        run: pnpm exec turbo run build --filter=@suskii/mobile^...
 
       # Generates ios/ and installs the pods.
       - name: Generate the native iOS project
