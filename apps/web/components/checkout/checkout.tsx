@@ -26,6 +26,12 @@ import {
   type PassengerDraft,
 } from './checkout-validation';
 import { GuestFields, PassengerFields, type CountryOption } from './passenger-fields';
+import {
+  MethodChoice,
+  PlanChoice,
+  type PaymentPlanChoice,
+  type ProviderName,
+} from './payment-choice';
 import { flightFacts, PriceSummary, TripSummary, type PriceLines } from './summaries';
 
 type Quote = Schemas['Quote'];
@@ -86,9 +92,11 @@ function draftFor(quote: Quote): CheckoutDraft {
 }
 
 /**
- * Checkout (ADR-014): travellers, contact, extra bags, promo code and terms, then the booking is
- * created and the price re-checked right before payment. A changed price asks for consent in a
- * dialog; the traveller then continues to the hosted payment page.
+ * Checkout (ADR-014, ADR-018): travellers, contact, extra bags, promo code, how to pay (in full,
+ * reserve and pay later, or installments, where the fare allows) and the payment method, then the
+ * booking is created and the price re-checked. A changed price asks for consent in a dialog. Paying
+ * in full continues to the hosted payment page; a reservation or installment plan continues to the
+ * booking page, which shows the exact schedule before anything is paid.
  */
 export function Checkout({
   quoteId,
@@ -115,6 +123,8 @@ export function Checkout({
   const [promoError, setPromoError] = useState(false);
   const [promoBusy, setPromoBusy] = useState(false);
   const [priceChange, setPriceChange] = useState<PriceChange | null>(null);
+  const [plan, setPlan] = useState<PaymentPlanChoice>('full');
+  const [provider, setProvider] = useState<ProviderName | null>(null);
   const booking = useRef<{ id: string } | null>(null);
   const createKey = useRef<{ body: string; key: string } | null>(null);
   const token = useRef<string | null>(turnstileSiteKey ? null : DEVELOPMENT_TOKEN);
@@ -236,32 +246,73 @@ export function Checkout({
     else setPromoError(true);
   };
 
+  const extrasSelected = draft.passengers.some((passenger) => passenger.bags > 0);
+  // Paid extras cannot be held (ADR-018): choosing a bag switches back to paying in full.
+  const chosenPlan: PaymentPlanChoice = extrasSelected ? 'full' : plan;
+
+  /** Shared handling of the answers a payment or plan request can give. */
+  const handleProblem = (bookingId: string, error: unknown, status: number) => {
+    const slug = problemSlug(error);
+    if (slug === 'price-changed') {
+      const change = (error as { priceChange?: PriceChange }).priceChange;
+      if (change) setPriceChange(change);
+    } else if (status === 410) {
+      const request = (error as { request?: unknown }).request;
+      setPhase({ kind: 'expired', searchHref: searchAgainHref(request) });
+    } else if (slug === 'hold-unavailable') {
+      setPlan('full');
+      setFormError(t('checkout.errors.holdUnavailable'));
+    } else if (slug === 'hold-limit') {
+      setFormError(t('checkout.errors.holdLimit'));
+    } else if (slug === 'payment-provider-unavailable' && status === 422) {
+      setProvider(null);
+      setFormError(t('checkout.errors.providerUnavailable'));
+    } else if (status === 409) {
+      router.push(`/bookings/${bookingId}`);
+    } else if (status === 429) {
+      setFormError(t('checkout.errors.tooMany'));
+    } else {
+      setFormError(
+        status === 503 ? t('checkout.errors.unavailable') : t('checkout.errors.generic'),
+      );
+    }
+  };
+
   const startPayment = async (bookingId: string) => {
     const { data, error, response } = await browserApi().POST('/v1/bookings/{bookingId}/payments', {
       params: {
         path: { bookingId },
         header: { 'Idempotency-Key': idempotencyKey(), ...bookingHeaders(bookingId) },
       },
+      body: { provider },
     });
     if (data) {
-      window.location.assign(data.checkoutUrl);
+      if (data.checkoutUrl) window.location.assign(data.checkoutUrl);
+      else router.push(`/bookings/${bookingId}`);
       return;
     }
-    const slug = problemSlug(error);
-    if (slug === 'price-changed') {
-      const change = (error as { priceChange?: PriceChange }).priceChange;
-      if (change) setPriceChange(change);
-    } else if (response.status === 410) {
-      const request = (error as { request?: unknown }).request;
-      setPhase({ kind: 'expired', searchHref: searchAgainHref(request) });
-    } else if (response.status === 409) {
-      router.push(`/bookings/${bookingId}`);
-    } else {
-      setFormError(
-        response.status === 503 ? t('checkout.errors.unavailable') : t('checkout.errors.generic'),
-      );
-    }
+    handleProblem(bookingId, error, response.status);
   };
+
+  /** Holds the seats (and sets up the schedule); the booking page then takes the payments. */
+  const startPlan = async (bookingId: string, kind: 'hold' | 'installments') => {
+    const params = {
+      path: { bookingId },
+      header: { 'Idempotency-Key': idempotencyKey(), ...bookingHeaders(bookingId) },
+    };
+    const { data, error, response } =
+      kind === 'hold'
+        ? await browserApi().POST('/v1/bookings/{bookingId}/hold', { params })
+        : await browserApi().POST('/v1/bookings/{bookingId}/installment-plan', { params });
+    if (data) {
+      router.push(`/bookings/${bookingId}`);
+      return;
+    }
+    handleProblem(bookingId, error, response.status);
+  };
+
+  const proceed = (bookingId: string) =>
+    chosenPlan === 'full' ? startPayment(bookingId) : startPlan(bookingId, chosenPlan);
 
   const acceptPrice = async () => {
     const bookingId = booking.current?.id;
@@ -274,11 +325,11 @@ export function Checkout({
     });
     if (data) {
       setPriceChange(null);
-      await startPayment(bookingId);
+      await proceed(bookingId);
     } else if (problemSlug(error) === 'price-consent-mismatch') {
       // The price moved again: ask the supplier once more and show the latest figure.
       setPriceChange(null);
-      await startPayment(bookingId);
+      await proceed(bookingId);
     } else {
       setFormError(t('checkout.errors.generic'));
     }
@@ -298,7 +349,7 @@ export function Checkout({
     setSubmitting(true);
     try {
       if (booking.current) {
-        await startPayment(booking.current.id);
+        await proceed(booking.current.id);
         return;
       }
       if (!token.current) {
@@ -347,7 +398,7 @@ export function Checkout({
       if (data) {
         booking.current = { id: data.booking.id };
         if (data.accessToken) saveBookingToken(data.booking.id, data.accessToken);
-        await startPayment(data.booking.id);
+        await proceed(data.booking.id);
         return;
       }
       // Turnstile tokens are single use.
@@ -538,6 +589,14 @@ export function Checkout({
           </section>
         </Card>
 
+        <PlanChoice
+          options={quote.payment}
+          value={chosenPlan}
+          onChange={setPlan}
+          extrasSelected={extrasSelected}
+        />
+        <MethodChoice providers={quote.payment.providers} value={provider} onChange={setProvider} />
+
         <div className="flex flex-col gap-3">
           <label className="flex items-start gap-3 font-body text-body-sm text-foreground">
             <input
@@ -558,7 +617,13 @@ export function Checkout({
           ) : null}
           <div ref={widget} />
           <Button type="submit" fullWidth="mobile" loading={submitting}>
-            {submitting ? t('checkout.paying') : t('checkout.pay')}
+            {submitting
+              ? t('checkout.paying')
+              : chosenPlan === 'hold'
+                ? t('checkout.plan.reserve')
+                : chosenPlan === 'installments'
+                  ? t('checkout.plan.setUp')
+                  : t('checkout.pay')}
           </Button>
           <p className="flex items-center gap-2 font-body text-caption text-foreground">
             <Lock aria-hidden="true" className="size-4" />

@@ -25,3 +25,19 @@ export function bookingHeaders(bookingId: string): Record<string, string> {
   const token = readBookingToken(bookingId);
   return token ? { 'X-Booking-Token': token } : {};
 }
+
+/**
+ * Adopts the token from an emailed link (`/bookings/{id}#access={token}`, ADR-018) and removes it
+ * from the address bar, so it stays out of history, bookmarks and screenshots. The fragment never
+ * reaches the server.
+ */
+export function adoptAccessLink(bookingId: string): void {
+  const match = /^#access=([A-Za-z0-9_-]{16,256})$/.exec(window.location.hash);
+  if (!match?.[1]) return;
+  saveBookingToken(bookingId, match[1]);
+  window.history.replaceState(
+    window.history.state,
+    '',
+    window.location.pathname + window.location.search,
+  );
+}
