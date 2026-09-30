@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "lighthouse": "node --experimental-strip-types --no-warnings scripts/lighthouse.ts",
     "clean": "rimraf .next .turbo playwright-report test-results",
-    "check:classes": "node --experimental-strip-types --no-warnings scripts/check-classes.ts"
+    "check:classes": "node --experimental-strip-types --no-warnings scripts/check-classes.ts",
+    "e2e:stack": "tsx e2e/stack-cli.ts"
   },
   "dependencies": {
     "@suskii/api-client": "workspace:*",
@@ -46,6 +47,7 @@
     "rimraf": "catalog:",
     "tailwindcss": "catalog:",
     "testcontainers": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:"
   }
 }

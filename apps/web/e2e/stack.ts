@@ -28,6 +28,13 @@ export const WEB_PORT = 3000;
 export const PRICE_CHANGE_ROUTE = { origin: 'LOS', destination: 'DXB' } as const;
 const PRICE_CHANGE_ROUTE_RULE = `${PRICE_CHANGE_ROUTE.origin}-${PRICE_CHANGE_ROUTE.destination}:500`;
 
+/** Placeholder app identities for the association-file tests; not real store identities. */
+export const TEST_APP = {
+  androidPackage: 'com.suskii.travels.e2e',
+  androidFingerprint: Array.from({ length: 32 }, () => 'AB').join(':'),
+  appleAppId: 'TEAMID1234.com.suskii.travels.e2e',
+} as const;
+
 export const API_PORT = Number(
   new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000').port || 80,
 );
@@ -163,6 +170,9 @@ export async function startStack(): Promise<Stack> {
     const internalToken = randomBytes(32).toString('base64url');
     const apiUrl = `http://localhost:${API_PORT}`;
     const webUrl = `http://localhost:${WEB_PORT}`;
+    // The mobile e2e job reaches the web app from an emulator (http://10.0.2.2:3000), so hosted
+    // checkout and return URLs must use that origin.
+    const publicWebUrl = process.env.E2E_PUBLIC_WEB_URL ?? webUrl;
     const base = { PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: 'test' } as const;
 
     const api = start('api', ['dist/main.js'], API_DIR, {
@@ -172,8 +182,8 @@ export async function startStack(): Promise<Stack> {
       DATABASE_URL: databaseUrl,
       REDIS_URL: redisUrl,
       INTERNAL_API_TOKEN: internalToken,
-      CORS_ORIGINS: webUrl,
-      WEB_APP_URL: webUrl,
+      CORS_ORIGINS: [...new Set([webUrl, publicWebUrl])].join(','),
+      WEB_APP_URL: publicWebUrl,
       EMAIL_PROVIDER: 'mock',
       HIBP_ENABLED: 'false',
       // Lagos-Dubai fares rise 5% at the re-check before payment (price-change consent test).
@@ -195,7 +205,16 @@ export async function startStack(): Promise<Stack> {
       'web',
       [join(WEB_DIR, 'node_modules/next/dist/bin/next'), 'start', '--port', String(WEB_PORT)],
       WEB_DIR,
-      { ...base, NODE_ENV: 'production', API_INTERNAL_URL: apiUrl, NEXT_TELEMETRY_DISABLED: '1' },
+      {
+        ...base,
+        NODE_ENV: 'production',
+        API_INTERNAL_URL: apiUrl,
+        NEXT_TELEMETRY_DISABLED: '1',
+        // Test identities for the app-link association files (see mobile.spec.ts).
+        MOBILE_ANDROID_PACKAGE: TEST_APP.androidPackage,
+        MOBILE_ANDROID_CERT_SHA256: TEST_APP.androidFingerprint,
+        MOBILE_IOS_APP_IDS: TEST_APP.appleAppId,
+      },
     );
     children.push(web);
     await waitFor(`${webUrl}/robots.txt`, web, 'web');

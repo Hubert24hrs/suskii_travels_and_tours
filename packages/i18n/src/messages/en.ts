@@ -713,6 +713,12 @@ export const en = {
       providerUnavailable: 'This payment method is not available. Choose another one.',
     },
   },
+  mobileReturn: {
+    title: 'Back to the app',
+    heading: 'Payment submitted',
+    body: 'Return to the Suskii app to see your booking. It updates as soon as the payment is confirmed.',
+    open: 'Open the Suskii app',
+  },
   payment: {
     title: 'Test payment',
     heading: 'Test payment page',

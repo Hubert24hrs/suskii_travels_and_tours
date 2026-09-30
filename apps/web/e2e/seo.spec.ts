@@ -21,7 +21,7 @@ test.describe('crawling and sharing', () => {
   test('robots.txt points to the sitemap and keeps private pages out', async ({ request }) => {
     const text = await (await request.get('/robots.txt')).text();
     expect(text).toMatch(/Sitemap: https?:\/\/[^\s]+\/sitemap\.xml/);
-    for (const path of ['/newsletter/', '/checkout/', '/bookings/']) {
+    for (const path of ['/newsletter/', '/checkout/', '/bookings/', '/mobile/']) {
       expect(text).toContain(`Disallow: ${path}`);
     }
   });

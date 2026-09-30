@@ -4,11 +4,17 @@ import { publicEnv } from '../lib/env';
 
 /**
  * Search result pages stay crawlable but carry noindex; email-link pages, checkout, payment and
- * booking pages are private (they also carry noindex).
+ * booking pages and the app's payment return are private (they also carry noindex).
  */
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: '*', allow: '/', disallow: ['/newsletter/', '/checkout/', '/bookings/'] }],
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: ['/newsletter/', '/checkout/', '/bookings/', '/mobile/'],
+      },
+    ],
     sitemap: `${publicEnv.siteUrl}/sitemap.xml`,
     host: publicEnv.siteUrl,
   };
