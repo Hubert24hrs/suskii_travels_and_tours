@@ -17,6 +17,7 @@ import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { CheckoutService } from './checkout.service';
 import { InternalBookingsController } from './internal-bookings.controller';
+import { MeBookingsController } from './me-bookings.controller';
 import { PaymentEventsService } from './payment-events.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { PaymentReconciliationService } from './payment-reconciliation.service';
@@ -39,6 +40,7 @@ import { TravellersService } from './travellers.service';
     TravellersController,
     InternalBookingsController,
     AdminRefundsController,
+    MeBookingsController,
   ],
   providers: [
     BookingTransitions,

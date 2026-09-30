@@ -78,3 +78,9 @@ export const BOOKING_LIMITS = {
   holdIp: { name: 'booking-hold-ip', limit: 6, windowSeconds: 3600, by: 'ip' },
   travellersUser: { name: 'travellers-user', limit: 60, windowSeconds: 600, by: 'user' },
 } as const satisfies Record<string, RateLimitPolicy>;
+
+/** Mobile devices: push token registration and attestation challenges (ADR-022, ADR-023). */
+export const DEVICE_LIMITS = {
+  pushTokenIp: { name: 'push-token-ip', limit: 30, windowSeconds: 600, by: 'ip' },
+  challengeIp: { name: 'attestation-challenge-ip', limit: 60, windowSeconds: 600, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;

@@ -54,7 +54,7 @@ import {
   providerUnavailable,
   walletInsufficient,
 } from './booking.errors';
-import { bookingUrl } from './booking-urls';
+import { paymentReturnUrl } from './booking-urls';
 import type { paymentSessionSchema, StartPaymentRequest } from './bookings.schemas';
 import { BookingsService, customerActor, type BookingCaller } from './bookings.service';
 import { TicketingService } from './ticketing.service';
@@ -195,7 +195,7 @@ export class CheckoutService {
         reference: booking.reference,
         amount,
         customerEmail: contact.email,
-        returnUrl: bookingUrl(this.config, booking.id),
+        returnUrl: paymentReturnUrl(this.config, booking.id, caller.client.channel),
         expiresAt,
       });
     } catch (error) {

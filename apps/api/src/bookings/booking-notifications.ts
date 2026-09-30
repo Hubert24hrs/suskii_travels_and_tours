@@ -13,10 +13,13 @@ import {
   paymentDueTemplate,
   planClosedTemplate,
   planCreatedTemplate,
+  pushText,
   refundCompletedTemplate,
   refundStartedTemplate,
   type PlanClosedDetails,
+  type PushKind,
 } from '../notifications/templates';
+import { PushTokensService } from '../push/push-tokens.service';
 
 import { BookingAccessLinks, accessLinkUrl } from './booking-access-links';
 import { itemPayload, type BookingRecord } from './booking-presenter';
@@ -84,7 +87,19 @@ export class BookingNotifications {
     private readonly prisma: PrismaService,
     private readonly bookings: BookingsService,
     private readonly accessLinks: BookingAccessLinks,
+    private readonly pushTokens: PushTokensService,
   ) {}
+
+  /** Push to the booking's devices once it is confirmed and its documents exist. */
+  async confirmed(bookingId: string): Promise<void> {
+    await this.safely('push-confirmed', async () => {
+      const booking = await this.prisma.booking.findUniqueOrThrow({
+        where: { id: bookingId },
+        select: { id: true, reference: true },
+      });
+      await this.push(booking, 'confirmed');
+    });
+  }
 
   /** The booking page, with a fresh access link for guests valid until `until`. */
   async link(
@@ -155,6 +170,7 @@ export class BookingNotifications {
         body: paymentDueSmsBody(details),
         template: 'payment-due',
       });
+      await this.push(booking, 'payment-due');
     });
   }
 
@@ -208,6 +224,15 @@ export class BookingNotifications {
       const template =
         stage === 'started' ? refundStartedTemplate(details) : refundCompletedTemplate(details);
       await this.email.send({ to: contact.email, ...template });
+      await this.push(booking, stage === 'started' ? 'refund-started' : 'refund-completed');
+    });
+  }
+
+  /** Lock-screen push (ADR-022): reference and event only; the tap opens the trip. */
+  private async push(booking: { id: string; reference: string }, kind: PushKind): Promise<void> {
+    await this.pushTokens.sendToBooking(booking.id, {
+      ...pushText(kind, booking.reference),
+      path: `/trips/${booking.id}`,
     });
   }
 

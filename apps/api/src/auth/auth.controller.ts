@@ -2,6 +2,8 @@ import { Body, Controller, HttpCode, HttpStatus, Inject, Post, Req, Res } from '
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
 
+import { DeviceAttested } from '../attestation/attestation.guard';
+import { ATTESTATION_HEADER } from '../attestation/attestation.schemas';
 import { AuditService } from '../audit/audit.service';
 import { requestContext } from '../common/request-context';
 import { APP_CONFIG, type AppConfig } from '../config/config';
@@ -53,6 +55,7 @@ export class AuthController {
 
   @Post('register')
   @RateLimit(AUTH_LIMITS.register)
+  @DeviceAttested('register')
   @HttpCode(HttpStatus.ACCEPTED)
   @Contract({
     operationId: 'register',
@@ -60,9 +63,10 @@ export class AuthController {
     description:
       'Always answers 202 so the response never reveals whether the email is registered. New accounts get a verification email; existing ones get a notice. Sign in afterwards.',
     tags: TAGS,
+    headers: [ATTESTATION_HEADER],
     body: registerBodySchema,
     responses: { 202: acceptedSchema },
-    errors: [422],
+    errors: [403, 422],
   })
   async register(
     @Body() body: z.infer<typeof registerBodySchema>,
@@ -74,15 +78,17 @@ export class AuthController {
 
   @Post('login')
   @RateLimit(AUTH_LIMITS.login)
+  @DeviceAttested('login')
   @HttpCode(HttpStatus.OK)
   @Contract({
     operationId: 'login',
     summary: 'Sign in with email and password',
     description: 'Returns a session, or an MFA challenge when the account has MFA enabled.',
     tags: TAGS,
+    headers: [ATTESTATION_HEADER],
     body: loginBodySchema,
     responses: { 200: signInResultSchema },
-    errors: [401],
+    errors: [401, 403],
   })
   async login(
     @Body() body: z.infer<typeof loginBodySchema>,

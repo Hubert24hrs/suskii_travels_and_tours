@@ -19,9 +19,15 @@ import {
   itineraryFacts,
   totalOf,
   type ExtraSelection,
+  type FlightItemPayload,
   type ItemPayload,
 } from './booking-pricing';
-import type { BookingDto, BookingPriceDto, PaymentOptionsDto } from './bookings.schemas';
+import type {
+  BookingDto,
+  BookingPriceDto,
+  BookingSummaryDto,
+  PaymentOptionsDto,
+} from './bookings.schemas';
 
 export const BOOKING_INCLUDE = {
   items: { orderBy: { createdAt: 'asc' } },
@@ -242,5 +248,72 @@ export function toBookingDto(
             },
           ],
     ),
+  };
+}
+
+export interface BookingSummaryRecord {
+  id: string;
+  reference: string;
+  status: BookingRecord['status'];
+  createdAt: Date;
+  totalMinor: bigint;
+  currency: string;
+  items: { payload: unknown }[];
+}
+
+type SliceSummary = FlightItemPayload['offer']['slices'][number];
+
+function tripType(slices: readonly SliceSummary[]): 'one_way' | 'round_trip' | 'multi_city' {
+  const [first, second] = slices;
+  if (!first || !second) return 'one_way';
+  const back =
+    slices.length === 2 &&
+    second.origin.code === first.destination.code &&
+    second.destination.code === first.origin.code;
+  return back ? 'round_trip' : 'multi_city';
+}
+
+/** A trip in the Trips list: where, when, status and total, without traveller data. */
+export function toBookingSummary(booking: BookingSummaryRecord): BookingSummaryDto | null {
+  const item = booking.items[0];
+  if (!item) return null;
+  const payload = itemPayload(item);
+  const base = {
+    id: booking.id,
+    reference: booking.reference,
+    status: booking.status,
+    vertical: payload.kind === 'flight' ? ('flights' as const) : ('hotels' as const),
+    createdAt: booking.createdAt.toISOString(),
+    total: { amountMinor: Number(booking.totalMinor), currency: booking.currency },
+  };
+  if (payload.kind === 'hotel') {
+    return {
+      ...base,
+      startsOn: payload.request.checkIn,
+      endsOn: payload.request.checkOut,
+      flight: null,
+      hotel: { name: payload.hotel.name, cityName: payload.hotel.cityName },
+    };
+  }
+  const slices = payload.offer.slices;
+  const first = slices[0];
+  const last = slices.at(-1);
+  if (!first || !last) return null;
+  const type = tripType(slices);
+  const place = (point: { code: string; cityName: string | null }) => ({
+    code: point.code,
+    cityName: point.cityName,
+  });
+  return {
+    ...base,
+    startsOn: first.departureLocal.slice(0, 10),
+    endsOn: slices.length > 1 ? last.departureLocal.slice(0, 10) : null,
+    flight: {
+      tripType: type,
+      origin: place(first.origin),
+      destination: place(type === 'round_trip' ? first.destination : last.destination),
+      airline: payload.offer.owner.name,
+    },
+    hotel: null,
   };
 }

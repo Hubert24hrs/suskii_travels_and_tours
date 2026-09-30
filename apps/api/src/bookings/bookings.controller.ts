@@ -6,16 +6,27 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   Req,
   StreamableFile,
 } from '@nestjs/common';
 import type { z } from 'zod';
 
+import { DeviceAttested } from '../attestation/attestation.guard';
+import { ATTESTATION_HEADER } from '../attestation/attestation.schemas';
+import { ATTESTATION_HEADER_NAME } from '../attestation/attestation.service';
 import type { AuthenticatedRequest } from '../auth/auth-context';
 import { Public } from '../auth/decorators';
 import { requestContext } from '../common/request-context';
 import { Contract, fileResponse } from '../contract/contract';
-import { BOOKING_LIMITS, RateLimit, SEARCH_LIMITS } from '../rate-limit/rate-limit.decorator';
+import { PushTokensService } from '../push/push-tokens.service';
+import { pushTokenRequestSchema, type PushTokenRequest } from '../push/push.schemas';
+import {
+  BOOKING_LIMITS,
+  DEVICE_LIMITS,
+  RateLimit,
+  SEARCH_LIMITS,
+} from '../rate-limit/rate-limit.decorator';
 import { clientContext } from '../search/client-context';
 
 import { BookingDocumentsService } from './booking-documents.service';
@@ -41,13 +52,19 @@ import { QuotesService } from './quotes.service';
 
 const TAGS = ['Bookings'];
 
+function header(request: AuthenticatedRequest, name: string): string {
+  const value = request.headers[name];
+  return (Array.isArray(value) ? value[0] : value)?.trim() ?? '';
+}
+
 function caller(request: AuthenticatedRequest): BookingCaller {
-  const header = request.headers['x-booking-token'];
-  const token = (Array.isArray(header) ? header[0] : header)?.trim() ?? '';
+  const token = header(request, 'x-booking-token');
+  const attestation = header(request, ATTESTATION_HEADER_NAME);
   return {
     client: clientContext(request),
     context: requestContext(request),
     token: token.length > 0 && token.length <= 128 ? token : null,
+    attestation: attestation.length > 0 ? attestation : null,
   };
 }
 
@@ -64,6 +81,7 @@ export class BookingsController {
     private readonly quotes: QuotesService,
     private readonly documents: BookingDocumentsService,
     private readonly plans: PaymentPlansService,
+    private readonly pushTokens: PushTokensService,
   ) {}
 
   @Get('quotes/:quoteId')
@@ -91,8 +109,9 @@ export class BookingsController {
     operationId: 'createBooking',
     summary: 'Book a quote',
     description:
-      'Validates travellers against the offer and itinerary (422 `passengers-invalid` with issue codes), prices extras and the promo code, and creates the booking as PRICED. Guests must send a Turnstile token and receive a one-time access token.',
+      'Validates travellers against the offer and itinerary (422 `passengers-invalid` with issue codes), prices extras and the promo code, and creates the booking as PRICED. Guests prove they are not a bot with a Turnstile token (web) or a device attestation (mobile app, ADR-023), and receive a one-time access token.',
     tags: TAGS,
+    headers: [ATTESTATION_HEADER],
     body: createBookingRequestSchema,
     responses: { 201: createdBookingSchema },
     errors: [404, 409, 410, 422],
@@ -125,6 +144,7 @@ export class BookingsController {
 
   @Post('bookings/:bookingId/payments')
   @RateLimit(BOOKING_LIMITS.paymentIp)
+  @DeviceAttested('payment')
   @Contract({
     operationId: 'startBookingPayment',
     summary: 'Re-check the price and open a hosted checkout (or pay from the wallet)',
@@ -132,10 +152,10 @@ export class BookingsController {
       'Re-prices with the supplier first. A changed total answers 409 `price-changed` with `priceChange` (previous, current, difference, price); accept it with `price-consent`, then call this again. An offer that sold out answers 410 with the original search. Payment plans pay the next installment unless `installmentId` or `payInFull` says otherwise. `provider` picks one of `paymentOptions.providers` (422 when it cannot take this currency); `useWallet` pays at once when the wallet covers the amount (409 `wallet-insufficient` otherwise).',
     tags: TAGS,
     params: bookingIdParamsSchema,
-    headers: [BOOKING_TOKEN_HEADER],
+    headers: [BOOKING_TOKEN_HEADER, ATTESTATION_HEADER],
     body: startPaymentRequestSchema,
     responses: { 201: paymentSessionSchema },
-    errors: [404, 409, 410, 422, 503],
+    errors: [403, 404, 409, 410, 422, 503],
     idempotent: true,
   })
   pay(
@@ -209,6 +229,30 @@ export class BookingsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof bookingSchema>> {
     return this.bookings.consent(bookingId, body.total, caller(request));
+  }
+
+  @Put('bookings/:bookingId/push-token')
+  @RateLimit(DEVICE_LIMITS.pushTokenIp)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Contract({
+    operationId: 'registerBookingPushToken',
+    summary: 'Receive pushes about this booking on this device',
+    description:
+      'For guests (with the booking token) and owners alike; account devices can use `PUT /v1/me/push-token` instead (ADR-022).',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    body: pushTokenRequestSchema,
+    responses: { 204: null },
+    errors: [404],
+  })
+  async registerPushToken(
+    @Param('bookingId') bookingId: string,
+    @Body() body: PushTokenRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    await this.bookings.load(bookingId, caller(request));
+    await this.pushTokens.registerForBooking(bookingId, body);
   }
 
   @Post('bookings/:bookingId/cancel')

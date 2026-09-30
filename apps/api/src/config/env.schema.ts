@@ -68,6 +68,18 @@ export const envSchema = z
     SMTP_USER: z.string().min(1).optional(),
     SMTP_PASSWORD: z.string().min(1).optional(),
     SMS_PROVIDER: z.enum(['mock']).default('mock'),
+    /** Push notifications (ADR-022): Expo's push service relays to FCM and APNs. */
+    PUSH_PROVIDER: z.enum(['expo', 'mock']).default('mock'),
+    EXPO_PUSH_URL: z.url().default('https://exp.host/--/api/v2/push/send'),
+    /** Expo access token for enhanced push security (recommended in production). */
+    EXPO_ACCESS_TOKEN: z.string().min(16).optional(),
+    /**
+     * Device attestation (ADR-023). `none` rejects every attestation until real Play Integrity and
+     * App Attest verifiers are configured; `mock` accepts `mock:<challenge>` (development, tests).
+     */
+    DEVICE_ATTESTATION: z.enum(['mock', 'none']).default('mock'),
+    /** Attestation on mobile login, registration and payment start: off, report or enforce. */
+    ATTESTATION_MODE: z.enum(['off', 'report', 'enforce']).default('off'),
     /** Staging escape hatch: allow mock email/SMS providers when NODE_ENV=production. */
     ALLOW_MOCK_PROVIDERS: booleanish.default(false),
 
@@ -224,6 +236,12 @@ export const envSchema = z
       require('EMAIL_PROVIDER', 'mock provider is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.SMS_PROVIDER === 'mock')
       require('SMS_PROVIDER', 'mock provider is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.PUSH_PROVIDER === 'mock')
+      require('PUSH_PROVIDER', 'mock provider is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.DEVICE_ATTESTATION === 'mock')
+      require('DEVICE_ATTESTATION', 'mock attestation is not allowed in production');
+    if (!env.EXPO_PUSH_URL.startsWith('https://'))
+      require('EXPO_PUSH_URL', 'must use https in production');
     // Never show fabricated fares or exchange rates in production (brand guardrails).
     if (!env.ALLOW_MOCK_PROVIDERS && env.FLIGHT_SUPPLIERS.includes('mock'))
       require('FLIGHT_SUPPLIERS', 'the mock supplier is not allowed in production');

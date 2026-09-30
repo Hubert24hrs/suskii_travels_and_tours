@@ -98,9 +98,19 @@ describe('parseEnv', () => {
       'FX_PROVIDER',
       'INTERNAL_API_TOKEN',
       'TURNSTILE_SECRET_KEY',
+      'PUSH_PROVIDER',
+      'DEVICE_ATTESTATION',
     ]) {
       expect(message).toContain(key);
     }
+  });
+
+  it('defaults push and attestation to mocks outside production, off by default', () => {
+    const env = parseEnv(base);
+    expect(env.PUSH_PROVIDER).toBe('mock');
+    expect(env.DEVICE_ATTESTATION).toBe('mock');
+    expect(env.ATTESTATION_MODE).toBe('off');
+    expect(() => parseEnv({ ...base, ATTESTATION_MODE: 'strict' })).toThrow(/ATTESTATION_MODE/);
   });
 
   it('requires each enabled payment provider keys, and no mock payments in production', () => {

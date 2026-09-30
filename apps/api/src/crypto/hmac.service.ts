@@ -17,7 +17,8 @@ export type HmacPurpose =
   | 'booking-access'
   | 'booking-email'
   | 'booking-access-link'
-  | 'mock-payment';
+  | 'mock-payment'
+  | 'push-token';
 
 const PURPOSES: readonly HmacPurpose[] = [
   'ip',
@@ -30,6 +31,7 @@ const PURPOSES: readonly HmacPurpose[] = [
   'booking-email',
   'booking-access-link',
   'mock-payment',
+  'push-token',
 ];
 const HKDF_SALT = 'suskii-api:hmac:v1';
 

@@ -420,6 +420,7 @@ export class TicketingService {
           contentType: document.contentType,
         })),
       });
+      await this.notifications.confirmed(bookingId);
     } catch (error) {
       this.logger.error(
         { bookingId, reason: (error as Error).name },

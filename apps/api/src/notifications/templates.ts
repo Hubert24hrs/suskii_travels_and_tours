@@ -262,3 +262,34 @@ export function opsAlertTemplate(details: OpsAlertDetails): Template {
 export function otpSmsBody(code: string): string {
   return `${code} is your ${BRAND.name} verification code. It expires in 5 minutes. Never share it.`;
 }
+
+export type PushKind = 'confirmed' | 'payment-due' | 'refund-started' | 'refund-completed';
+
+/**
+ * Lock-screen text for pushes (ADR-022): the booking reference and the event only, never names,
+ * routes, amounts or document numbers.
+ */
+export function pushText(kind: PushKind, reference: string): { title: string; body: string } {
+  switch (kind) {
+    case 'confirmed':
+      return {
+        title: `Booking ${reference} is confirmed`,
+        body: 'Your documents are ready in the app.',
+      };
+    case 'payment-due':
+      return {
+        title: `Payment due for booking ${reference}`,
+        body: 'Open the app to pay before the deadline.',
+      };
+    case 'refund-started':
+      return {
+        title: `Refund started for booking ${reference}`,
+        body: 'We will let you know when it is complete.',
+      };
+    case 'refund-completed':
+      return {
+        title: `Refund completed for booking ${reference}`,
+        body: 'Open the app for the details.',
+      };
+  }
+}

@@ -20,7 +20,7 @@ import { BookingPaymentsService } from './booking-payments.service';
 import { BookingTransitions, WEBHOOK_ACTOR } from './booking-transitions';
 import { invalidWebhook, paymentClosed, paymentProviderDown } from './booking.errors';
 import type { mockPaymentResultSchema, mockPaymentSchema } from './bookings.schemas';
-import { bookingUrl } from './booking-urls';
+import { paymentReturnUrl } from './booking-urls';
 import { RefundsService } from './refunds.service';
 import { TicketingService } from './ticketing.service';
 
@@ -204,7 +204,7 @@ export class PaymentEventsService {
       amount: toWire(money(payment.amountMinor, payment.currency)),
       status: payment.status,
       expiresAt: payment.expiresAt.toISOString(),
-      returnUrl: bookingUrl(this.config, payment.bookingId),
+      returnUrl: paymentReturnUrl(this.config, payment.bookingId, payment.booking.channel),
     };
   }
 
@@ -225,14 +225,17 @@ export class PaymentEventsService {
       await this.receive(this.mock.name, rawBody, headers);
     }
     const after = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
-    return { status: after.status, returnUrl: bookingUrl(this.config, payment.bookingId) };
+    return {
+      status: after.status,
+      returnUrl: paymentReturnUrl(this.config, payment.bookingId, payment.booking.channel),
+    };
   }
 
   private async mockPaymentRow(reference: string) {
     if (!this.providers.find(this.mock.name)) throw new NotFoundException();
     const payment = await this.prisma.payment.findUnique({
       where: { providerReference: reference },
-      include: { booking: { select: { reference: true } } },
+      include: { booking: { select: { reference: true, channel: true } } },
     });
     if (payment?.provider !== this.mock.name) throw new NotFoundException();
     return payment;

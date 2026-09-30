@@ -731,6 +731,49 @@
         }
       }
     },
+    "/v1/attestation/challenges": {
+      "post": {
+        "operationId": "createAttestationChallenge",
+        "summary": "A single-use challenge for a device attestation",
+        "description": "The app binds its Play Integrity or App Attest token to this challenge and sends both in `X-Suskii-Attestation` within five minutes (ADR-023).",
+        "tags": [
+          "Mobile"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttestationChallenge"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/auth/apple": {
       "post": {
         "operationId": "signInWithApple",
@@ -903,6 +946,15 @@
         "security": [],
         "parameters": [
           {
+            "name": "X-Suskii-Attestation",
+            "in": "header",
+            "required": false,
+            "description": "Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "X-CSRF-Token",
             "in": "header",
             "required": false,
@@ -938,6 +990,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
           },
           "429": {
             "$ref": "#/components/responses/Problem429"
@@ -1332,6 +1387,15 @@
         "security": [],
         "parameters": [
           {
+            "name": "X-Suskii-Attestation",
+            "in": "header",
+            "required": false,
+            "description": "Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "X-CSRF-Token",
             "in": "header",
             "required": false,
@@ -1365,6 +1429,9 @@
           "400": {
             "$ref": "#/components/responses/Problem400"
           },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
           "422": {
             "$ref": "#/components/responses/Problem422"
           },
@@ -1381,12 +1448,21 @@
       "post": {
         "operationId": "createBooking",
         "summary": "Book a quote",
-        "description": "Validates travellers against the offer and itinerary (422 `passengers-invalid` with issue codes), prices extras and the promo code, and creates the booking as PRICED. Guests must send a Turnstile token and receive a one-time access token.",
+        "description": "Validates travellers against the offer and itinerary (422 `passengers-invalid` with issue codes), prices extras and the promo code, and creates the booking as PRICED. Guests prove they are not a bot with a Turnstile token (web) or a device attestation (mobile app, ADR-023), and receive a one-time access token.",
         "tags": [
           "Bookings"
         ],
         "security": [],
         "parameters": [
+          {
+            "name": "X-Suskii-Attestation",
+            "in": "header",
+            "required": false,
+            "description": "Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once.",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "Idempotency-Key",
             "in": "header",
@@ -1836,6 +1912,15 @@
             }
           },
           {
+            "name": "X-Suskii-Attestation",
+            "in": "header",
+            "required": false,
+            "description": "Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
@@ -1879,6 +1964,9 @@
           },
           "400": {
             "$ref": "#/components/responses/Problem400"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
           },
           "404": {
             "$ref": "#/components/responses/Problem404"
@@ -1971,6 +2059,73 @@
           },
           "409": {
             "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/bookings/{bookingId}/push-token": {
+      "put": {
+        "operationId": "registerBookingPushToken",
+        "summary": "Receive pushes about this booking on this device",
+        "description": "For guests (with the booking token) and owners alike; account devices can use `PUT /v1/me/push-token` instead (ADR-022).",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushTokenRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
           },
           "429": {
             "$ref": "#/components/responses/Problem429"
@@ -3743,6 +3898,45 @@
         }
       }
     },
+    "/v1/internal/push-tokens/prune": {
+      "post": {
+        "operationId": "prunePushTokens",
+        "summary": "Delete push tokens of ended sessions, closed bookings and stale devices",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushTokenPruneRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/refresh-targets": {
       "get": {
         "operationId": "listRefreshTargets",
@@ -3894,6 +4088,62 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/bookings": {
+      "get": {
+        "operationId": "listMyBookings",
+        "summary": "Trips booked with this account",
+        "description": "Newest first, 20 per page by default. Summaries carry no traveller data; open a trip with `GET /v1/bookings/{id}`.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingSummaryPage"
                 }
               }
             }
@@ -4321,6 +4571,89 @@
           },
           "409": {
             "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/push-token": {
+      "put": {
+        "operationId": "registerPushToken",
+        "summary": "Receive booking pushes on this device",
+        "description": "Registers the device for pushes about the account bookings while this session lasts. Signing out or revoking the session stops them.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushTokenRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "unregisterPushToken",
+        "summary": "Stop account pushes on this device",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
           },
           "429": {
             "$ref": "#/components/responses/Problem429"
@@ -5570,6 +5903,23 @@
         ],
         "additionalProperties": false
       },
+      "AttestationChallenge": {
+        "type": "object",
+        "properties": {
+          "challenge": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "challenge",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
       "AuditLogEntry": {
         "type": "object",
         "properties": {
@@ -6611,6 +6961,190 @@
           "status",
           "createdAt",
           "settledAt"
+        ],
+        "additionalProperties": false
+      },
+      "BookingSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PRICED",
+              "HELD",
+              "AWAITING_PAYMENT",
+              "PARTIALLY_PAID",
+              "PAID",
+              "TICKETING",
+              "CONFIRMED",
+              "FAILED",
+              "CANCELLED",
+              "REFUND_PENDING",
+              "REFUNDED",
+              "EXPIRED"
+            ]
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "flights",
+              "hotels"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "endsOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "flight": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "tripType": {
+                    "type": "string",
+                    "enum": [
+                      "one_way",
+                      "round_trip",
+                      "multi_city"
+                    ]
+                  },
+                  "origin": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "cityName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "cityName"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "destination": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "cityName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "cityName"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "airline": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "tripType",
+                  "origin",
+                  "destination",
+                  "airline"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hotel": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "cityName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "cityName"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "status",
+          "vertical",
+          "createdAt",
+          "total",
+          "startsOn",
+          "endsOn",
+          "flight",
+          "hotel"
+        ],
+        "additionalProperties": false
+      },
+      "BookingSummaryPage": {
+        "type": "object",
+        "properties": {
+          "bookings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingSummary"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "bookings",
+          "nextCursor"
         ],
         "additionalProperties": false
       },
@@ -10387,6 +10921,40 @@
           "deletedDestinations"
         ],
         "additionalProperties": false
+      },
+      "PushTokenPruneRun": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "additionalProperties": false
+      },
+      "PushTokenRequestInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "pattern": "^Expo(?:nent)?PushToken\\[[A-Za-z0-9_-]{8,128}\\]$"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          }
+        },
+        "required": [
+          "token",
+          "platform"
+        ]
       },
       "Quote": {
         "type": "object",

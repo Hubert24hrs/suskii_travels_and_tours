@@ -55,6 +55,7 @@ model User {
   verificationTokens VerificationToken[]
   bookings           Booking[]
   travellers         Traveller[]
+  pushTokens         PushToken[]
 
   @@map("users")
 }
@@ -123,6 +124,7 @@ model Session {
   revokedReason String?        @map("revoked_reason")
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]
+  pushTokens    PushToken[]
 
   @@index([userId])
   @@map("sessions")
@@ -824,6 +826,7 @@ model Booking {
   paymentPlan PaymentPlan?
   refunds     Refund[]
   accessLinks BookingAccessLink[]
+  pushTokens  PushToken[]
 
   @@index([userId, createdAt])
   @@index([status, paymentDeadline])
@@ -1226,4 +1229,36 @@ model BookingAccessLink {
 
   @@index([bookingId])
   @@map("booking_access_links")
+}
+
+enum PushPlatform {
+  ios
+  android
+}
+
+/// A device push token (ADR-022). The token is encrypted with the context `push-token:{id}` and
+/// looked up by HMAC. It belongs to an account session (pushes stop when the session ends) or to
+/// one booking (guests).
+model PushToken {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  tokenHash      String       @map("token_hash")
+  tokenEncrypted String       @map("token_encrypted")
+  platform       PushPlatform
+  /// `session:{id}` or `booking:{id}`: one row per device and scope.
+  scope          String
+  userId         String?      @map("user_id") @db.Uuid
+  sessionId      String?      @map("session_id") @db.Uuid
+  bookingId      String?      @map("booking_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt     DateTime     @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenHash, scope])
+  @@index([userId])
+  @@index([sessionId])
+  @@index([bookingId])
+  @@map("push_tokens")
 }

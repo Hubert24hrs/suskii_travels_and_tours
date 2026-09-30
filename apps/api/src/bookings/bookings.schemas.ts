@@ -609,3 +609,49 @@ export const resolveRefundRequestSchema = named(
     providerRefundId: z.string().trim().min(1).max(100).nullable().default(null),
   }),
 );
+
+// ---------------------------------------------------------------------------
+// Trips list (mobile Trips tab, ADR-020)
+// ---------------------------------------------------------------------------
+
+const summaryPlaceSchema = z.object({ code: z.string(), cityName: z.string().nullable() });
+
+export const bookingSummarySchema = named(
+  'BookingSummary',
+  z.object({
+    id: z.uuid(),
+    reference: z.string(),
+    status: z.enum(BOOKING_STATUSES),
+    vertical: verticalSchema,
+    createdAt: timestamp,
+    total: moneySchema,
+    startsOn: z.string().meta({ description: 'Local date of the first departure or check-in.' }),
+    endsOn: z
+      .string()
+      .nullable()
+      .meta({ description: 'Local date of the last departure or check-out; null one-way.' }),
+    flight: z
+      .object({
+        tripType: z.enum(['one_way', 'round_trip', 'multi_city']),
+        origin: summaryPlaceSchema,
+        destination: summaryPlaceSchema,
+        airline: z.string(),
+      })
+      .nullable(),
+    hotel: z.object({ name: z.string(), cityName: z.string() }).nullable(),
+  }),
+);
+export type BookingSummaryDto = z.infer<typeof bookingSummarySchema>;
+
+export const bookingSummaryPageSchema = named(
+  'BookingSummaryPage',
+  z.object({
+    bookings: z.array(bookingSummarySchema),
+    nextCursor: z.uuid().nullable().meta({ description: 'Pass as `cursor` for the next page.' }),
+  }),
+);
+
+export const bookingListQuerySchema = z.object({
+  cursor: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});

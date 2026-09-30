@@ -2,6 +2,8 @@ import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 
 import { AdminModule } from './admin/admin.module';
+import { AttestationGuard } from './attestation/attestation.guard';
+import { AttestationModule } from './attestation/attestation.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
@@ -24,6 +26,7 @@ import { LoggingModule } from './logging/logging.module';
 import { NewsletterModule } from './newsletter/newsletter.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PricingModule } from './pricing/pricing.module';
+import { PushModule } from './push/push.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
 import { RbacModule } from './rbac/rbac.module';
 import { SearchModule } from './search/search.module';
@@ -43,6 +46,8 @@ export class AppModule {
         AuditModule,
         LedgerModule,
         NotificationsModule,
+        PushModule,
+        AttestationModule,
         BotProtectionModule,
         RbacModule,
         AuthModule,
@@ -58,10 +63,12 @@ export class AppModule {
       ],
       providers: [
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },
-        // Guards run in this order: who is calling, how often, then what they may do.
+        // Guards run in this order: who is calling, how often, what they may do, then (mobile
+        // sensitive routes) whether the device is genuine.
         { provide: APP_GUARD, useExisting: AuthGuard },
         { provide: APP_GUARD, useClass: RateLimitGuard },
         { provide: APP_GUARD, useExisting: PermissionsGuard },
+        { provide: APP_GUARD, useExisting: AttestationGuard },
         // Interceptors nest in this order: idempotency wraps the contract, so replays return
         // exactly the validated response that was sent the first time.
         { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },

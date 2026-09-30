@@ -15,6 +15,7 @@ import {
 } from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
+import { AttestationService } from '../attestation/attestation.service';
 import { TurnstileVerifier } from '../bot-protection/turnstile';
 import { BackgroundTasks } from '../common/background-tasks';
 import { fromJsonValue, toJsonValue } from '../common/json';
@@ -37,6 +38,7 @@ import {
   bookingPrice,
   pendingPrice,
   toBookingDto,
+  toBookingSummary,
   type BookingRecord,
 } from './booking-presenter';
 import {
@@ -56,7 +58,7 @@ import {
   priceConsentMismatch,
   termsOutdated,
 } from './booking.errors';
-import type { BookingDto, CreateBookingRequest } from './bookings.schemas';
+import type { BookingDto, BookingSummaryDto, CreateBookingRequest } from './bookings.schemas';
 import { BookingAccessLinks } from './booking-access-links';
 import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
@@ -71,6 +73,8 @@ export interface BookingCaller {
   client: ClientContext;
   context: RequestContext;
   token: string | null;
+  /** Raw `X-Suskii-Attestation` header (mobile guests, ADR-023). */
+  attestation?: string | null;
 }
 
 interface PreparedPassenger {
@@ -116,6 +120,7 @@ export class BookingsService {
     private readonly background: BackgroundTasks,
     private readonly accessLinks: BookingAccessLinks,
     private readonly funds: BookingFundsService,
+    private readonly attestation: AttestationService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -179,6 +184,39 @@ export class BookingsService {
     return this.present(booking);
   }
 
+  /**
+   * The account's bookings, newest first (Trips). Only bookings that reached PRICED are listed;
+   * the cursor is the last id of the previous page (UUIDv7 ids sort by creation time).
+   */
+  async listForUser(
+    userId: string,
+    query: { cursor?: string | undefined; limit: number },
+  ): Promise<{ bookings: BookingSummaryDto[]; nextCursor: string | null }> {
+    const rows = await this.prisma.booking.findMany({
+      where: {
+        userId,
+        status: { not: 'DRAFT' },
+        ...(query.cursor ? { id: { lt: query.cursor } } : {}),
+      },
+      orderBy: { id: 'desc' },
+      take: query.limit + 1,
+      select: {
+        id: true,
+        reference: true,
+        status: true,
+        createdAt: true,
+        totalMinor: true,
+        currency: true,
+        items: { select: { payload: true }, take: 1, orderBy: { createdAt: 'asc' } },
+      },
+    });
+    const page = rows.slice(0, query.limit);
+    return {
+      bookings: page.flatMap((row) => toBookingSummary(row) ?? []),
+      nextCursor: rows.length > query.limit ? (page.at(-1)?.id ?? null) : null,
+    };
+  }
+
   async reload(bookingId: string): Promise<BookingRecord> {
     return this.prisma.booking.findUniqueOrThrow({
       where: { id: bookingId },
@@ -196,12 +234,15 @@ export class BookingsService {
   ): Promise<{ booking: BookingDto; accessToken: string | null }> {
     const userId = caller.client.userId;
     if (!userId) {
+      // Web guests send Turnstile; the app sends a device attestation instead (ADR-023).
       const verified =
-        input.turnstileToken !== null &&
-        (await this.turnstile.verify(input.turnstileToken, {
-          remoteIp: caller.context.ip,
-          action: 'checkout',
-        }));
+        input.turnstileToken !== null
+          ? await this.turnstile.verify(input.turnstileToken, {
+              remoteIp: caller.context.ip,
+              action: 'checkout',
+            })
+          : (await this.attestation.verify(caller.attestation ?? undefined, 'checkout')) ===
+            'valid';
       if (!verified) throw botCheckFailed();
     }
     if (input.termsVersion !== BOOKING_TERMS_VERSION) throw termsOutdated();

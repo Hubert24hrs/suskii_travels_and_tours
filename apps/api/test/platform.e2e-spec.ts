@@ -283,7 +283,7 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
             expect(operation.parameters.map((p) => p.name)).toContain('X-CSRF-Token');
         }
       }
-      expect(internalOperations).toBe(9);
+      expect(internalOperations).toBe(10);
     });
 
     it('resolves every $ref (generated clients refuse dangling references)', () => {
