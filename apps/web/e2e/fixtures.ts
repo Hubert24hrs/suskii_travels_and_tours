@@ -60,6 +60,10 @@ export const VIEWPORTS = [
 ] as const;
 
 export async function expectNoAxeViolations(page: Page): Promise<void> {
+  // Next streams `generateMetadata` on dynamic pages: after a client-side navigation the new
+  // <title> can land just after the content. Check the finished page; a page that never gets a
+  // title still fails here.
+  await expect(page, 'the page title').not.toHaveTitle('');
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
     .analyze();
