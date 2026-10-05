@@ -13,6 +13,8 @@ import { AppLink } from '../app-link';
 import { ResultsLoading } from '../results/result-states';
 
 import { useBookingT } from './checkout-messages';
+import { CancelUnderPolicy, TripExtras, VisaApplications, VoucherCard } from './inhouse-booking';
+import { InhouseDetails, inhouseKind } from './inhouse-details';
 import { MethodChoice, type ProviderName } from './payment-choice';
 import { PlanPanel, RefundList } from './plan-panel';
 
@@ -65,6 +67,14 @@ const shouldPoll = (booking: Booking): boolean =>
   booking.refunds.some((refund) => refund.status === 'in_progress');
 
 const time = (local: string): string => local.slice(11, 16);
+
+/** Where to find another in-house product like this one. */
+const BROWSE = {
+  package: '/packages',
+  tour: '/tours',
+  visa: '/visa',
+  addon: '/travel-add-ons',
+} as const;
 
 /**
  * The booking page: polls while payment, ticketing or a refund is in flight (webhooks decide the
@@ -240,6 +250,8 @@ export function BookingView({ bookingId }: { bookingId: string }) {
         ? t(slow ? 'booking.statusHelp.slow' : 'booking.statusHelp.working')
         : t(`booking.statusHelp.${helpKey(status)}`);
   const request = booking.flight?.request ?? booking.hotel?.request;
+  const kind = inhouseKind(booking);
+  const searchHref = request ? searchAgainHref(request) : kind ? BROWSE[kind] : null;
   const plan = booking.paymentPlan;
   const planActive = plan?.status === 'active';
   const due = booking.amountDue;
@@ -290,10 +302,19 @@ export function BookingView({ bookingId }: { bookingId: string }) {
             status === 'FAILED' ||
             status === 'CANCELLED' ||
             status === 'REFUNDED') &&
-          request ? (
+          searchHref ? (
             <Button asChild variant="secondary">
-              <AppLink href={searchAgainHref(request)}>{t('booking.searchAgain')}</AppLink>
+              <AppLink href={searchHref}>
+                {kind ? t(`booking.inhouse.browse.${kind}`) : t('booking.searchAgain')}
+              </AppLink>
             </Button>
+          ) : null}
+          {booking.cancellation ? (
+            <CancelUnderPolicy
+              cancellation={booking.cancellation}
+              busy={busy}
+              onCancel={() => cancel(booking)}
+            />
           ) : null}
         </div>
         {booking.pendingPriceChange ? (
@@ -325,6 +346,18 @@ export function BookingView({ bookingId }: { bookingId: string }) {
             />
           ) : null}
           <RefundList refunds={booking.refunds} />
+          {booking.voucher ? <VoucherCard voucher={booking.voucher} /> : null}
+          <VisaApplications booking={booking} />
+          {kind ? (
+            <Card asChild className="flex flex-col gap-3 p-4">
+              <section aria-labelledby="booking-product">
+                <h2 id="booking-product" className="font-heading text-h3 font-bold text-heading">
+                  {t('booking.itinerary')}
+                </h2>
+                <InhouseDetails items={booking} />
+              </section>
+            </Card>
+          ) : null}
           {booking.flight ? (
             <Card asChild className="flex flex-col gap-3 p-4">
               <section aria-labelledby="booking-itinerary">
@@ -470,6 +503,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
               </p>
             ) : null}
           </Card>
+          <TripExtras booking={booking} />
           {booking.documents.length > 0 ? (
             <Card asChild className="flex flex-col gap-3 p-4">
               <section aria-labelledby="booking-documents">

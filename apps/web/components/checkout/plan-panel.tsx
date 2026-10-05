@@ -66,7 +66,12 @@ export function PlanPanel({
                     amount: format.money(booking.amountDue ?? next.amount),
                     date: format.dateTime(next.dueAt),
                   })
-                : t('booking.plan.deadline', { deadline: format.dateTime(plan.deadline) })}
+                : t(
+                    booking.vertical === 'packages'
+                      ? 'booking.plan.deadlinePackage'
+                      : 'booking.plan.deadline',
+                    { deadline: format.dateTime(plan.deadline) },
+                  )}
           </p>
         ) : null}
         <p className="font-body text-body-sm text-foreground" data-testid="plan-paid">
@@ -107,7 +112,13 @@ export function PlanPanel({
             {t('checkout.plan.fee', { amount: format.money(plan.fee) })}
           </p>
         ) : null}
-        <p className="font-body text-body-sm text-foreground">{t('booking.plan.ticketsAfter')}</p>
+        <p className="font-body text-body-sm text-foreground">
+          {t(
+            booking.vertical === 'packages'
+              ? 'booking.plan.voucherAfter'
+              : 'booking.plan.ticketsAfter',
+          )}
+        </p>
         {active ? (
           <p className="font-body text-body-sm text-foreground">
             {plan.defaultFeeBps === 0

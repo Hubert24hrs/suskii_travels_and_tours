@@ -6,6 +6,7 @@ import { Badge, Card } from '@suskii/ui-web';
 import type { Schemas } from '../../lib/browser-api';
 
 import { useBookingT } from './checkout-messages';
+import { InhouseDetails, inhouseKind } from './inhouse-details';
 
 type Quote = Schemas['Quote'];
 type Money = Schemas['Money'];
@@ -66,6 +67,14 @@ export function TripSummary({ quote }: { quote: Quote }) {
               : t('results.flights.notChangeable')}
           </li>
         </ul>
+      </Card>
+    );
+  }
+  if (inhouseKind(quote)) {
+    return (
+      <Card className="flex flex-col gap-3 p-4">
+        <h2 className="font-heading text-h4 font-bold text-heading">{t('checkout.trip')}</h2>
+        <InhouseDetails items={quote} />
       </Card>
     );
   }

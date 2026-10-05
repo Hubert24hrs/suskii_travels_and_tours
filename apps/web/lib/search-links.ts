@@ -59,9 +59,18 @@ export function hotelRequestHref(request: HotelSearchRequest): string {
   return `/hotels/search?${hotelFormToParams(request).toString()}`;
 }
 
+const INHOUSE_PAGES: Partial<Record<string, string>> = {
+  package: '/packages',
+  tour: '/tours',
+  visa: '/visa',
+  addon: '/travel-add-ons',
+};
+
 /** Search page for the `request` of a 410 (expired offer or quote); the homepage when unknown. */
 export function searchAgainHref(request: unknown): string {
   if (typeof request !== 'object' || request === null) return '/';
+  // In-house quote requests (ADR-025) name the product kind; their catalog lists today's offers.
+  if ('kind' in request) return INHOUSE_PAGES[String(request.kind)] ?? '/';
   if ('slices' in request) return flightRequestHref(request as FlightSearchRequest);
   if ('destination' in request) return hotelRequestHref(request as HotelSearchRequest);
   return '/';

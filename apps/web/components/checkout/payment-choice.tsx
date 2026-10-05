@@ -100,11 +100,14 @@ export function InstallmentSchedule({
  * policy are shown before the traveller commits.
  */
 export function PlanChoice({
+  vertical,
   options,
   value,
   onChange,
   extrasSelected,
 }: {
+  /** Packages hold our own places (ADR-028); other in-house products issue a voucher. */
+  vertical: Schemas['Quote']['vertical'];
   options: Options;
   value: PaymentPlanChoice;
   onChange: (plan: PaymentPlanChoice) => void;
@@ -127,7 +130,11 @@ export function PlanChoice({
           checked={value === 'full'}
           onSelect={() => onChange('full')}
           label={t('checkout.plan.full')}
-          hint={t('checkout.plan.fullHint')}
+          hint={
+            vertical === 'flights' || vertical === 'hotels'
+              ? t('checkout.plan.fullHint')
+              : t('checkout.plan.fullHintVoucher')
+          }
         />
         {hold ? (
           <Choice
@@ -136,7 +143,10 @@ export function PlanChoice({
             checked={value === 'hold'}
             onSelect={() => onChange('hold')}
             label={t('checkout.plan.hold')}
-            hint={t('checkout.plan.holdHint', { deadline: format.dateTime(hold.deadline) })}
+            hint={t(
+              vertical === 'packages' ? 'checkout.plan.holdHintPackage' : 'checkout.plan.holdHint',
+              { deadline: format.dateTime(hold.deadline) },
+            )}
           />
         ) : null}
         {installments ? (
@@ -146,7 +156,12 @@ export function PlanChoice({
             checked={value === 'installments'}
             onSelect={() => onChange('installments')}
             label={t('checkout.plan.installments')}
-            hint={t('checkout.plan.installmentsHint', { count: installments.schedule.length })}
+            hint={t(
+              vertical === 'packages'
+                ? 'checkout.plan.installmentsHintPackage'
+                : 'checkout.plan.installmentsHint',
+              { count: installments.schedule.length },
+            )}
           >
             {value === 'installments' ? (
               <>

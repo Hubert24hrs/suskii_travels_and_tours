@@ -48,7 +48,7 @@ export function PassengerFields({
   value,
   onChange,
   countries,
-  passportRequired,
+  passport,
   services,
   errors,
   warnings,
@@ -58,7 +58,8 @@ export function PassengerFields({
   value: PassengerDraft;
   onChange: (patch: Partial<PassengerDraft>) => void;
   countries: readonly CountryOption[];
-  passportRequired: boolean;
+  /** Abroad: required; domestic flights: optional; tours, add-ons, local packages: not asked. */
+  passport: 'required' | 'optional' | 'none';
   services: Schemas['FlightService'][];
   errors: FieldIssues;
   warnings: FieldIssues;
@@ -142,40 +143,44 @@ export function PassengerFields({
             options={countryOptions}
           />
         </div>
-        <div className="flex flex-col gap-2">
-          <h3 className="font-heading text-body font-bold text-heading">
-            {t('checkout.passport')}
-          </h3>
-          <p className="font-body text-body-sm text-foreground">
-            {passportRequired ? t('checkout.passportRequired') : t('checkout.passportOptional')}
-          </p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Input
-              id={id('passportNumber')}
-              label={t('checkout.fields.passportNumber')}
-              autoComplete="off"
-              value={value.passportNumber}
-              onChange={(event) => onChange({ passportNumber: event.target.value })}
-              error={issue(path('passportNumber'))}
-            />
-            <NativeSelect
-              id={id('issuingCountry')}
-              label={t('checkout.fields.issuingCountry')}
-              value={value.issuingCountry}
-              onChange={(event) => onChange({ issuingCountry: event.target.value })}
-              error={issue(path('issuingCountry'))}
-              options={countryOptions}
-            />
-            <Input
-              id={id('passportExpiry')}
-              type="date"
-              label={t('checkout.fields.passportExpiry')}
-              value={value.passportExpiry}
-              onChange={(event) => onChange({ passportExpiry: event.target.value })}
-              error={issue(path('passportExpiry'))}
-            />
+        {passport === 'none' ? null : (
+          <div className="flex flex-col gap-2">
+            <h3 className="font-heading text-body font-bold text-heading">
+              {t('checkout.passport')}
+            </h3>
+            <p className="font-body text-body-sm text-foreground">
+              {passport === 'required'
+                ? t('checkout.passportRequired')
+                : t('checkout.passportOptional')}
+            </p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Input
+                id={id('passportNumber')}
+                label={t('checkout.fields.passportNumber')}
+                autoComplete="off"
+                value={value.passportNumber}
+                onChange={(event) => onChange({ passportNumber: event.target.value })}
+                error={issue(path('passportNumber'))}
+              />
+              <NativeSelect
+                id={id('issuingCountry')}
+                label={t('checkout.fields.issuingCountry')}
+                value={value.issuingCountry}
+                onChange={(event) => onChange({ issuingCountry: event.target.value })}
+                error={issue(path('issuingCountry'))}
+                options={countryOptions}
+              />
+              <Input
+                id={id('passportExpiry')}
+                type="date"
+                label={t('checkout.fields.passportExpiry')}
+                value={value.passportExpiry}
+                onChange={(event) => onChange({ passportExpiry: event.target.value })}
+                error={issue(path('passportExpiry'))}
+              />
+            </div>
           </div>
-        </div>
+        )}
         {bag ? (
           <NativeSelect
             id={id('bags')}
