@@ -59,3 +59,27 @@ and preferences. New tables arrive every phase; an export assembled by hand woul
   valid and makes "who booked this" answerable only as "a deleted account".
 - Guest bookings (no account) are outside account deletion; support handles those requests with
   the booking reference until a guest DSAR flow exists.
+
+## Implementation notes (phase 9)
+
+- The registry is `apps/api/src/privacy/data-registry.ts`: each model has an export `section`
+  (or none) and a `deletion` treatment (`delete`, `redact`, `retain`, `none`). The `satisfies`
+  clause fails compilation on a missing model and `data-registry.spec.ts` compares the registry
+  with both `schema.prisma` and the generated client.
+- The export is `POST /v1/me/data-export` (the proof travels in the body, which a GET cannot
+  carry); the e2e test checks that the document has exactly the registry's sections and contains
+  no credential, hash or cost field.
+- Re-authentication (`ReauthService`, `GET /v1/me/reauth`) has three methods: `password`;
+  `sms_code` for passwordless phone accounts (`POST /v1/me/reauth/code`, purpose
+  `reauth:{userId}`); and `recent_sign_in` for Google or Apple accounts without either, which
+  accept a session created in the last 10 minutes. MFA adds a TOTP or recovery code. Failures
+  count towards the sign-in lockouts and are audited.
+- `GET /v1/me/deletion` lists blockers before asking for proof: `staff_account` (staff are
+  offboarded by an administrator, never self-deleted), `booking_in_progress`,
+  `payment_in_progress`, `upcoming_trip` (until the day after the trip ends), `visa_in_progress`,
+  `refund_in_progress` and `wallet_balance`. `POST /v1/me/deletion` needs the proof plus
+  `confirm: "DELETE"` and re-checks the blockers inside the transaction with the user row locked.
+- The tombstone email is `deleted-{id}@deleted.invalid`; redacted booking contacts read as a
+  `.invalid` address, and both email adapters drop `.invalid` recipients, so nothing is ever sent
+  to a deleted account. Referrals involving the account are rejected with the flag
+  `account_deleted` and lose their sign-up signals.

@@ -170,6 +170,11 @@ export const envSchema = z
     VISA_DOCUMENT_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
     /** Documents are deleted this many days after the application closes. */
     VISA_DOCUMENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+    /**
+     * Retained financial records (bookings, payments, ledger, refunds) of deleted accounts are
+     * kept this long (ADR-029); a legal decision for the owner. The purge job is phase 11.
+     */
+    FINANCIAL_RECORDS_RETENTION_YEARS: z.coerce.number().int().min(1).max(20).default(7),
 
     /**
      * Staff refunds worth more than this (NGN minor units) need a second approver (ADR-019).

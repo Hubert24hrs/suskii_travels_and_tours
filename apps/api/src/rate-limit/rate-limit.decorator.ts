@@ -46,6 +46,12 @@ export const AUTH_LIMITS = {
   sensitive: { name: 'account-sensitive-user', limit: 10, windowSeconds: 600, by: 'user' },
 } as const satisfies Record<string, RateLimitPolicy>;
 
+/** Data export and account deletion (ADR-029): costly and sensitive, so few per user. */
+export const PRIVACY_LIMITS = {
+  exportUser: { name: 'data-export-user', limit: 5, windowSeconds: 86_400, by: 'user' },
+  deleteUser: { name: 'account-delete-user', limit: 5, windowSeconds: 3600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
 /** Search is expensive (supplier calls) and a scraping target: per-IP quotas plus cache-first. */
 export const SEARCH_LIMITS = {
   searchIp: { name: 'search-ip', limit: 30, windowSeconds: 60, by: 'ip' },

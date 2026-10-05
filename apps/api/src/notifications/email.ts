@@ -23,6 +23,12 @@ export abstract class EmailProvider {
   abstract send(message: EmailMessage): Promise<void>;
 }
 
+/**
+ * Addresses under the reserved `.invalid` domain (RFC 2606) are never sent to: deleted accounts
+ * and redacted bookings carry them as tombstones (ADR-029).
+ */
+export const isUndeliverable = (to: string): boolean => /(^|[@.])invalid$/i.test(to.trim());
+
 /** SMTP delivery: Mailpit locally, the transactional provider's SMTP relay in production. */
 @Injectable()
 export class SmtpEmailProvider extends EmailProvider {
@@ -42,6 +48,10 @@ export class SmtpEmailProvider extends EmailProvider {
   }
 
   async send(message: EmailMessage): Promise<void> {
+    if (isUndeliverable(message.to)) {
+      this.logger.log({ template: message.template }, 'email skipped: reserved address');
+      return;
+    }
     await this.transport.sendMail({
       from: this.config.EMAIL_FROM,
       to: message.to,
@@ -65,6 +75,7 @@ export class MockEmailProvider extends EmailProvider {
   readonly outbox: EmailMessage[] = [];
 
   send(message: EmailMessage): Promise<void> {
+    if (isUndeliverable(message.to)) return Promise.resolve();
     this.outbox.push(message);
     this.logger.log({ template: message.template }, 'email captured by mock provider');
     return Promise.resolve();

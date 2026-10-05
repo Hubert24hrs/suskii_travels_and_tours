@@ -255,3 +255,31 @@ export const phoneVerifyBodySchema = named(
 );
 
 export const sessionIdParamsSchema = z.object({ id: z.uuid() });
+
+// ---------------------------------------------------------------------------
+// Re-authentication for data export and account deletion (ADR-029)
+// ---------------------------------------------------------------------------
+
+export const REAUTH_METHODS = ['password', 'sms_code', 'recent_sign_in'] as const;
+
+export const reauthRequirementsSchema = named(
+  'ReauthRequirements',
+  z.object({
+    method: z
+      .enum(REAUTH_METHODS)
+      .describe(
+        '`password`: send the account password; `sms_code`: request a code with `sendReauthCode`, then send it; `recent_sign_in`: sign in again (Google or Apple) and retry within the window.',
+      ),
+    mfa: z.boolean().describe('Also send `mfaCode` or `recoveryCode`.'),
+    recentSignInMinutes: z.number().int().positive(),
+  }),
+);
+
+/** The proof sent with an export or deletion request; which fields apply depends on the account. */
+export const reauthProofSchema = z.object({
+  password: z.string().min(1).max(PASSWORD_MAX_LENGTH).optional(),
+  code: otpCodeSchema.optional().describe('The texted code, for accounts without a password.'),
+  mfaCode: otpCodeSchema.optional(),
+  recoveryCode: z.string().min(1).max(32).optional(),
+});
+export type ReauthProof = z.infer<typeof reauthProofSchema>;

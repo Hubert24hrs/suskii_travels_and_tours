@@ -16,8 +16,11 @@ export const OTP_TTL_SECONDS = 5 * 60;
 export const OTP_RESEND_SECONDS = 60;
 const MAX_ATTEMPTS_PER_CODE = 5;
 
-/** `sign-in` for passwordless phone sign-in; `verify-phone:<userId>` for adding a phone. */
-export type OtpPurpose = 'sign-in' | `verify-phone:${string}`;
+/**
+ * `sign-in` for passwordless phone sign-in, `verify-phone:<userId>` for adding a phone and
+ * `reauth:<userId>` to confirm a sensitive request on an account without a password (ADR-029).
+ */
+export type OtpPurpose = 'sign-in' | `verify-phone:${string}` | `reauth:${string}`;
 
 interface StoredCode {
   codeHash: string;

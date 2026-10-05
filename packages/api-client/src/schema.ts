@@ -1800,6 +1800,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/data-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download a copy of my data
+         * @description One JSON document with every section of the account’s data (ADR-029), as an attachment. Needs fresh proof: see `getReauthRequirements`.
+         */
+        post: operations["exportMyData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the account can be deleted now */
+        get: operations["checkAccountDeletion"];
+        put?: never;
+        /**
+         * Delete my account
+         * @description Signs out every device and anonymises the account at once. Refused (409 with `blockers`) while a booking, payment, trip, visa application or refund is in progress or the wallet holds money. Bookings, payments and refunds are kept for the retention period without contact details.
+         */
+        post: operations["deleteMyAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/email/verification": {
         parameters: {
             query?: never;
@@ -1888,6 +1929,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Which messages arrive on which channel */
+        get: operations["getNotificationPreferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Turn channels on or off per category
+         * @description Booking and payment email cannot be turned off (422). Turning on a marketing channel records marketing consent.
+         */
+        patch: operations["updateNotificationPreferences"];
+        trace?: never;
+    };
     "/v1/me/password": {
         parameters: {
             query?: never;
@@ -1942,6 +2004,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Language, currency, home airport and marketing consent */
+        get: operations["getPreferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change preferences
+         * @description Fields left out stay as they are; `null` clears one. Withdrawing marketing consent turns off every marketing channel.
+         */
+        patch: operations["updatePreferences"];
+        trace?: never;
+    };
     "/v1/me/push-token": {
         parameters: {
             query?: never;
@@ -1958,6 +2041,43 @@ export interface paths {
         post?: never;
         /** Stop account pushes on this device */
         delete: operations["unregisterPushToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/reauth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How to confirm a sensitive request
+         * @description What `exportMyData` and `deleteMyAccount` expect as proof for this account.
+         */
+        get: operations["getReauthRequirements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/reauth/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Text a confirmation code (accounts without a password) */
+        post: operations["sendReauthCode"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2383,6 +2503,24 @@ export interface components {
             /** @constant */
             status: "accepted";
         };
+        AccountDeleted: {
+            /** Format: date-time */
+            deletedAt: string;
+            retainedBookings: number;
+            retentionYears: number;
+        };
+        AccountDeletionCheck: {
+            allowed: boolean;
+            blockers: ("staff_account" | "booking_in_progress" | "payment_in_progress" | "upcoming_trip" | "visa_in_progress" | "refund_in_progress" | "wallet_balance")[];
+            retentionYears: number;
+        };
+        AccountPreferences: {
+            locale: string | null;
+            currency: string | null;
+            homeAirport: string | null;
+            marketingConsent: boolean;
+            marketingConsentAt: string | null;
+        };
         AddonCard: {
             /** Format: uuid */
             id: string;
@@ -2536,7 +2674,7 @@ export interface components {
             phone: string | null;
             displayName: string | null;
             /** @enum {string} */
-            status: "active" | "disabled";
+            status: "active" | "disabled" | "deleted";
             roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer")[];
             mfaEnabled: boolean;
             /** Format: date-time */
@@ -2632,7 +2770,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
             /** Format: date-time */
             createdAt: string;
             paymentDeadline: string | null;
@@ -2810,7 +2948,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
             /** Format: date-time */
             createdAt: string;
             total: components["schemas"]["Money"];
@@ -3128,6 +3266,12 @@ export interface components {
             /** @default null */
             governmentFeeNote?: string | null;
         };
+        DataExportRequestInput: {
+            password?: string;
+            code?: string;
+            mfaCode?: string;
+            recoveryCode?: string;
+        };
         DealRouteDetail: {
             slug: string;
             origin: {
@@ -3173,6 +3317,14 @@ export interface components {
                     countryCode: string;
                 };
             }[];
+        };
+        DeleteAccountRequestInput: {
+            password?: string;
+            code?: string;
+            mfaCode?: string;
+            recoveryCode?: string;
+            /** @constant */
+            confirm: "DELETE";
         };
         ExtraSelectionInput: {
             serviceId: string;
@@ -3744,6 +3896,19 @@ export interface components {
             /** @constant */
             status: "unsubscribed";
         };
+        NotificationPreference: {
+            /** @enum {string} */
+            category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "marketing";
+            /** @enum {string} */
+            channel: "email" | "sms" | "whatsapp" | "push";
+            enabled: boolean;
+            mandatory: boolean;
+        };
+        NotificationPreferences: {
+            preferences: components["schemas"]["NotificationPreference"][];
+            phoneVerified: boolean;
+            marketingConsent: boolean;
+        };
         OfficerVisaApplication: {
             /** Format: uuid */
             id: string;
@@ -4085,7 +4250,7 @@ export interface components {
             /** Format: uuid */
             quoteId: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
             currency: string;
             /** Format: date-time */
             expiresAt: string;
@@ -4121,6 +4286,12 @@ export interface components {
                 /** @enum {string} */
                 redis: "up" | "down";
             };
+        };
+        ReauthRequirements: {
+            /** @enum {string} */
+            method: "password" | "sms_code" | "recent_sign_in";
+            mfa: boolean;
+            recentSignInMinutes: number;
         };
         RecoveryCodes: {
             recoveryCodes: string[];
@@ -4436,6 +4607,15 @@ export interface components {
             /** @enum {string} */
             status?: "open" | "closed" | "cancelled";
         };
+        UpdateNotificationPreferencesRequestInput: {
+            changes: {
+                /** @enum {string} */
+                category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "marketing";
+                /** @enum {string} */
+                channel: "email" | "sms" | "whatsapp" | "push";
+                enabled: boolean;
+            }[];
+        };
         UpdatePackageInput: {
             title?: string;
             summary?: string;
@@ -4457,6 +4637,12 @@ export interface components {
             }[];
             /** @enum {string} */
             status?: "draft" | "published" | "archived";
+        };
+        UpdatePreferencesRequestInput: {
+            locale?: ("en-NG" | "en-GB" | "en-US") | null;
+            currency?: ("NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR") | null;
+            homeAirport?: string | null;
+            marketingConsent?: boolean;
         };
         UpdateProfileRequestInput: {
             displayName: string;
@@ -7911,6 +8097,93 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    exportMyData: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataExportRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    checkAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionCheck"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    deleteMyAccount: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeleted"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     resendEmailVerification: {
         parameters: {
             query?: never;
@@ -8059,6 +8332,62 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    updateNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNotificationPreferencesRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     changePassword: {
         parameters: {
             query?: never;
@@ -8153,6 +8482,61 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountPreferences"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    updatePreferences: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePreferencesRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountPreferences"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     registerPushToken: {
         parameters: {
             query?: never;
@@ -8203,6 +8587,58 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getReauthRequirements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReauthRequirements"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    sendReauthCode: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            409: components["responses"]["Problem409"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

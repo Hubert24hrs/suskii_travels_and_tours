@@ -72,7 +72,10 @@ export type AuditAction =
   | 'visa.document_rejected'
   | 'visa.document_link_issued'
   | 'visa.document_accessed'
-  | 'visa.documents_pruned';
+  | 'visa.documents_pruned'
+  | 'account.data_exported'
+  | 'account.reauth_failed'
+  | 'user.deleted';
 
 export interface AuditEvent {
   action: AuditAction;

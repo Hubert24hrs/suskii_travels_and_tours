@@ -12,6 +12,7 @@ import { MeController } from './me.controller';
 import { MfaService } from './mfa.service';
 import { OtpService } from './otp.service';
 import { PermissionsGuard } from './permissions.guard';
+import { ReauthService } from './reauth.service';
 import { SessionService } from './session.service';
 import { remoteKeyResolvers, SOCIAL_KEY_RESOLVERS, SocialIdentityVerifier } from './social.service';
 import { AccessTokenService } from './tokens/access-token.service';
@@ -28,10 +29,18 @@ import { AccessTokenService } from './tokens/access-token.service';
     LoginThrottleService,
     MfaService,
     OtpService,
+    ReauthService,
     SessionService,
     SocialIdentityVerifier,
     { provide: SOCIAL_KEY_RESOLVERS, useFactory: remoteKeyResolvers },
   ],
-  exports: [AccessTokenService, AuthGuard, PermissionsGuard, SessionService, BackgroundTasks],
+  exports: [
+    AccessTokenService,
+    AuthGuard,
+    PermissionsGuard,
+    ReauthService,
+    SessionService,
+    BackgroundTasks,
+  ],
 })
 export class AuthModule {}

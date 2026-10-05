@@ -6323,6 +6323,152 @@
         }
       }
     },
+    "/v1/me/data-export": {
+      "post": {
+        "operationId": "exportMyData",
+        "summary": "Download a copy of my data",
+        "description": "One JSON document with every section of the account’s data (ADR-029), as an attachment. Needs fresh proof: see `getReauthRequirements`.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataExportRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/deletion": {
+      "get": {
+        "operationId": "checkAccountDeletion",
+        "summary": "Whether the account can be deleted now",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionCheck"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "post": {
+        "operationId": "deleteMyAccount",
+        "summary": "Delete my account",
+        "description": "Signs out every device and anonymises the account at once. Refused (409 with `blockers`) while a booking, payment, trip, visa application or refund is in progress or the wallet holds money. Bookings, payments and refunds are kept for the retention period without contact details.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeleted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/me/email/verification": {
       "post": {
         "operationId": "resendEmailVerification",
@@ -6576,6 +6722,96 @@
         }
       }
     },
+    "/v1/me/notification-preferences": {
+      "get": {
+        "operationId": "getNotificationPreferences",
+        "summary": "Which messages arrive on which channel",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateNotificationPreferences",
+        "summary": "Turn channels on or off per category",
+        "description": "Booking and payment email cannot be turned off (422). Turning on a marketing channel records marketing consent.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNotificationPreferencesRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/me/password": {
       "post": {
         "operationId": "changePassword",
@@ -6741,6 +6977,93 @@
         }
       }
     },
+    "/v1/me/preferences": {
+      "get": {
+        "operationId": "getPreferences",
+        "summary": "Language, currency, home airport and marketing consent",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updatePreferences",
+        "summary": "Change preferences",
+        "description": "Fields left out stay as they are; `null` clears one. Withdrawing marketing consent turns off every marketing channel.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePreferencesRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/me/push-token": {
       "put": {
         "operationId": "registerPushToken",
@@ -6814,6 +7137,88 @@
           },
           "401": {
             "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/reauth": {
+      "get": {
+        "operationId": "getReauthRequirements",
+        "summary": "How to confirm a sensitive request",
+        "description": "What `exportMyData` and `deleteMyAccount` expect as proof for this account.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthRequirements"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/reauth/code": {
+      "post": {
+        "operationId": "sendReauthCode",
+        "summary": "Text a confirmation code (accounts without a password)",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
           },
           "429": {
             "$ref": "#/components/responses/Problem429"
@@ -8412,6 +8817,122 @@
         ],
         "additionalProperties": false
       },
+      "AccountDeleted": {
+        "type": "object",
+        "properties": {
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "retainedBookings": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "retentionYears": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "deletedAt",
+          "retainedBookings",
+          "retentionYears"
+        ],
+        "additionalProperties": false
+      },
+      "AccountDeletionCheck": {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "staff_account",
+                "booking_in_progress",
+                "payment_in_progress",
+                "upcoming_trip",
+                "visa_in_progress",
+                "refund_in_progress",
+                "wallet_balance"
+              ]
+            }
+          },
+          "retentionYears": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "allowed",
+          "blockers",
+          "retentionYears"
+        ],
+        "additionalProperties": false
+      },
+      "AccountPreferences": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "homeAirport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "marketingConsent": {
+            "type": "boolean"
+          },
+          "marketingConsentAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "locale",
+          "currency",
+          "homeAirport",
+          "marketingConsent",
+          "marketingConsentAt"
+        ],
+        "additionalProperties": false
+      },
       "AddonCard": {
         "type": "object",
         "properties": {
@@ -9194,7 +9715,8 @@
             "type": "string",
             "enum": [
               "active",
-              "disabled"
+              "disabled",
+              "deleted"
             ]
           },
           "roles": {
@@ -9666,7 +10188,8 @@
               "packages",
               "tours",
               "visa",
-              "travel_addons"
+              "travel_addons",
+              "prime"
             ]
           },
           "createdAt": {
@@ -10667,7 +11190,8 @@
               "packages",
               "tours",
               "visa",
-              "travel_addons"
+              "travel_addons",
+              "prime"
             ]
           },
           "createdAt": {
@@ -12223,6 +12747,29 @@
           "checklist"
         ]
       },
+      "DataExportRequestInput": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          },
+          "mfaCode": {
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          },
+          "recoveryCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          }
+        }
+      },
       "DealRouteDetail": {
         "type": "object",
         "properties": {
@@ -12431,6 +12978,36 @@
           "routes"
         ],
         "additionalProperties": false
+      },
+      "DeleteAccountRequestInput": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          },
+          "mfaCode": {
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          },
+          "recoveryCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "confirm": {
+            "type": "string",
+            "const": "DELETE"
+          }
+        },
+        "required": [
+          "confirm"
+        ]
       },
       "ExtraSelectionInput": {
         "type": "object",
@@ -15008,6 +15585,67 @@
         ],
         "additionalProperties": false
       },
+      "NotificationPreference": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "booking",
+              "payment",
+              "trip_reminder",
+              "price_alert",
+              "prime",
+              "marketing"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "sms",
+              "whatsapp",
+              "push"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "mandatory": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "category",
+          "channel",
+          "enabled",
+          "mandatory"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationPreferences": {
+        "type": "object",
+        "properties": {
+          "preferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationPreference"
+            }
+          },
+          "phoneVerified": {
+            "type": "boolean"
+          },
+          "marketingConsent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "preferences",
+          "phoneVerified",
+          "marketingConsent"
+        ],
+        "additionalProperties": false
+      },
       "OfficerVisaApplication": {
         "type": "object",
         "properties": {
@@ -16668,7 +17306,8 @@
               "packages",
               "tours",
               "visa",
-              "travel_addons"
+              "travel_addons",
+              "prime"
             ]
           },
           "currency": {
@@ -16878,6 +17517,33 @@
         "required": [
           "status",
           "checks"
+        ],
+        "additionalProperties": false
+      },
+      "ReauthRequirements": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "password",
+              "sms_code",
+              "recent_sign_in"
+            ]
+          },
+          "mfa": {
+            "type": "boolean"
+          },
+          "recentSignInMinutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "method",
+          "mfa",
+          "recentSignInMinutes"
         ],
         "additionalProperties": false
       },
@@ -18345,6 +19011,52 @@
           }
         }
       },
+      "UpdateNotificationPreferencesRequestInput": {
+        "type": "object",
+        "properties": {
+          "changes": {
+            "minItems": 1,
+            "maxItems": 24,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "booking",
+                    "payment",
+                    "trip_reminder",
+                    "price_alert",
+                    "prime",
+                    "marketing"
+                  ]
+                },
+                "channel": {
+                  "type": "string",
+                  "enum": [
+                    "email",
+                    "sms",
+                    "whatsapp",
+                    "push"
+                  ]
+                },
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "category",
+                "channel",
+                "enabled"
+              ]
+            }
+          }
+        },
+        "required": [
+          "changes"
+        ]
+      },
       "UpdatePackageInput": {
         "type": "object",
         "properties": {
@@ -18467,6 +19179,59 @@
               "published",
               "archived"
             ]
+          }
+        }
+      },
+      "UpdatePreferencesRequestInput": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "en-NG",
+                  "en-GB",
+                  "en-US"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "USD",
+                  "GBP",
+                  "EUR",
+                  "GHS",
+                  "KES",
+                  "ZAR"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "homeAirport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "marketingConsent": {
+            "type": "boolean"
           }
         }
       },

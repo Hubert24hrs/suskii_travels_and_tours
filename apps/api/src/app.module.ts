@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 
+import { AccountsModule } from './accounts/accounts.module';
 import { AdminModule } from './admin/admin.module';
 import { AttestationGuard } from './attestation/attestation.guard';
 import { AttestationModule } from './attestation/attestation.module';
@@ -28,6 +29,7 @@ import { LoggingModule } from './logging/logging.module';
 import { NewsletterModule } from './newsletter/newsletter.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PricingModule } from './pricing/pricing.module';
+import { PrivacyModule } from './privacy/privacy.module';
 import { PushModule } from './push/push.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
 import { RbacModule } from './rbac/rbac.module';
@@ -63,6 +65,8 @@ export class AppModule {
         BookingsModule,
         InhouseModule,
         VisaModule,
+        AccountsModule,
+        PrivacyModule,
         HealthModule,
       ],
       providers: [

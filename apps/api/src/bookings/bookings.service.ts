@@ -167,9 +167,11 @@ export class BookingsService {
   }
 
   contact(booking: { id: string; contactEncrypted: string }): ContactDetails {
-    return contactDetailsSchema.parse(
-      JSON.parse(this.encryption.decrypt(booking.contactEncrypted, contactContext(booking.id))),
+    const value: unknown = JSON.parse(
+      this.encryption.decrypt(booking.contactEncrypted, contactContext(booking.id)),
     );
+    if (typeof value === 'object' && value !== null && 'redacted' in value) return REDACTED_CONTACT;
+    return contactDetailsSchema.parse(value);
   }
 
   async present(booking: BookingRecord): Promise<BookingDto> {
@@ -820,6 +822,10 @@ export class BookingsService {
 }
 
 export const contactContext = (bookingId: string): string => `booking:${bookingId}:contact`;
+/** Stored (encrypted) in place of the contact once an account is deleted (ADR-029). */
+export const REDACTED_CONTACT_PAYLOAD = JSON.stringify({ redacted: true });
+/** How a wiped contact reads: a reserved address no email is ever sent to. */
+export const REDACTED_CONTACT: ContactDetails = { email: 'redacted@redacted.invalid', phone: '' };
 export const addonDetailsContext = (itemId: string): string =>
   `booking-item:${itemId}:addon-details`;
 export const passportContext = (kind: 'booking-passenger' | 'traveller', id: string): string =>
