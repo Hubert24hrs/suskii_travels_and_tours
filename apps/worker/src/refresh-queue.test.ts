@@ -66,7 +66,7 @@ describe.skipIf(!redisUrl)('refresh queue (Redis)', () => {
     );
     const schedulers = await queue.getJobSchedulers();
     expect(schedulers.map((scheduler) => scheduler.key).sort()).toEqual(
-      [JOB.planDeals, JOB.planDestinations, JOB.prune, JOB.prunePushTokens].sort(),
+      [JOB.planDeals, JOB.planDestinations, JOB.priceAlerts, JOB.prune, JOB.prunePushTokens].sort(),
     );
     // Replaying a plan in the same interval adds no duplicate route jobs.
     const events = new QueueEvents(REFRESH_QUEUE, {
