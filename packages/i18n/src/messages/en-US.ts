@@ -54,6 +54,13 @@ export const enUS: MessageOverlay<Messages> = {
   },
   booking: {
     travellers: 'Travelers',
+    inhouse: {
+      travellers: { one: '{count} traveler', other: '{count} travelers' },
+      basis: {
+        per_person: { one: '{count} traveler', other: '{count} travelers' },
+        per_person_per_day: { one: '{count} traveler-day', other: '{count} traveler-days' },
+      },
+    },
     status: { CANCELLED: 'Canceled' },
     statusHelp: { cancelled: 'This booking was canceled.' },
     plan: { states: { cancelled: 'Canceled' } },

@@ -48,6 +48,8 @@ export interface Formatters {
   relativeTime(instant: string | Date, now?: Date): string;
   number(value: number): string;
   list(items: readonly string[]): string;
+  /** A country's name from its ISO 3166-1 code ("NG" -> "Nigeria"); the code when unknown. */
+  country(code: string): string;
 }
 
 const toMoney = (amount: Money | MoneyWire): Money =>
@@ -67,6 +69,8 @@ export function createFormatters(locale: string): Formatters {
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
   const numbers = new Intl.NumberFormat(locale);
   const lists = new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' });
+  // Created on first use: engines without DisplayNames (Hermes before its polyfill) show codes.
+  let regions: Intl.DisplayNames | null | undefined;
 
   return {
     locale,
@@ -116,5 +120,16 @@ export function createFormatters(locale: string): Formatters {
     },
     number: (value) => numbers.format(value),
     list: (items) => lists.format(items),
+    country(code) {
+      regions ??=
+        typeof Intl.DisplayNames === 'function'
+          ? new Intl.DisplayNames([locale], { type: 'region', fallback: 'code' })
+          : null;
+      try {
+        return regions?.of(code.toUpperCase()) ?? code;
+      } catch {
+        return code;
+      }
+    },
   };
 }

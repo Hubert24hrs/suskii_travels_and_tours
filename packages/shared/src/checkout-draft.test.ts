@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   emptyPassenger,
+  FLIGHT_NUMBER_PATTERN,
   flightFacts,
+  inhouseFacts,
   normalisePassport,
   normalisePhone,
+  passengerDrafts,
   validateCheckout,
   type CheckoutDraft,
   type FlightFactsInput,
@@ -177,5 +180,75 @@ describe('flightFacts', () => {
       flightFacts(offer([{ departureLocal: '2026-11-02T07:30', segments: [segment('NG', null)] }]))
         .international,
     ).toBe(true);
+  });
+});
+
+describe('in-house checkout helpers', () => {
+  const counts = { adults: 2, children: 1, infants: 1 };
+
+  it('builds one draft per priced traveller, in type order, with a preset nationality', () => {
+    const drafts = passengerDrafts(counts, 'NG');
+    expect(drafts.map((passenger) => passenger.type)).toEqual([
+      'adult',
+      'adult',
+      'child',
+      'infant',
+    ]);
+    expect(drafts.every((passenger) => passenger.nationality === 'NG')).toBe(true);
+    expect(passengerDrafts({ adults: 1, children: 0, infants: 0 })[0]?.nationality).toBe('');
+  });
+
+  it('derives the facts the API checks for each in-house product', () => {
+    expect(
+      inhouseFacts({
+        package: {
+          startDate: '2026-12-01',
+          endDate: '2026-12-06',
+          passportRequired: true,
+          travellers: counts,
+        },
+      }),
+    ).toEqual({
+      counts,
+      firstTravelDate: '2026-12-01',
+      lastTravelDate: '2026-12-06',
+      international: true,
+    });
+    expect(
+      inhouseFacts({ tour: { startsAtLocal: '2026-12-03T09:30', travellers: counts } }),
+    ).toMatchObject({
+      firstTravelDate: '2026-12-03',
+      lastTravelDate: '2026-12-03',
+      international: false,
+    });
+    expect(
+      inhouseFacts({ visa: { travelDate: '2027-01-10', travellers: counts } })?.international,
+    ).toBe(true);
+    expect(
+      inhouseFacts({
+        addon: { startDate: '2026-12-01', endDate: '2026-12-08', travellers: counts },
+      }),
+    ).toMatchObject({ lastTravelDate: '2026-12-08', international: false });
+    expect(inhouseFacts({ package: null, tour: null, visa: null, addon: null })).toBeNull();
+  });
+
+  it('flags applicants whose nationality differs from the visa checked', () => {
+    const facts: ItineraryFacts = { ...domestic, international: false };
+    const { errors } = validateCheckout(
+      draft({ passengers: [adult({ nationality: 'GH' })] }),
+      facts,
+      { nationality: 'NG' },
+    );
+    expect(errors).toEqual({ 'passengers.0.nationality': 'nationality_mismatch' });
+    expect(validateCheckout(draft(), facts, { nationality: 'NG' }).errors).toEqual({});
+  });
+
+  it('accepts flight numbers the way the API does', () => {
+    for (const value of ['P4 7121', 'BA75', 'W37106A']) {
+      expect(FLIGHT_NUMBER_PATTERN.test(value)).toBe(true);
+    }
+    for (const value of ['flight', 'P4-7121', 'P4 71215', 'p4 7121']) {
+      expect(FLIGHT_NUMBER_PATTERN.test(value)).toBe(false);
+    }
   });
 });

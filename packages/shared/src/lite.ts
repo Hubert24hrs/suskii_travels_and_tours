@@ -87,15 +87,20 @@ export {
 } from './payment-plans';
 export {
   emptyPassenger,
+  FLIGHT_NUMBER_PATTERN,
   flightFacts,
+  inhouseFacts,
   normalisePassport,
   normalisePhone,
+  passengerDrafts,
   validateCheckout,
   type CheckoutDraft,
   type CheckoutIssue,
+  type CheckoutRules,
   type FieldIssues,
   type FlightFactsInput,
   type GuestDraft,
+  type InhouseFactsInput,
   type PassengerDraft,
 } from './checkout-draft';
 export {

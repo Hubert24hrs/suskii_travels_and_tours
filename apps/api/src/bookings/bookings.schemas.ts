@@ -6,6 +6,7 @@ import {
   ADDON_PRODUCT_TYPES,
   BOOKING_STATUSES,
   CABIN_CLASSES,
+  FLIGHT_NUMBER_PATTERN,
   VISA_APPLICATION_STATUSES,
   VISA_PURPOSES,
   contactDetailsSchema,
@@ -307,7 +308,7 @@ export const createBookingRequestSchema = named(
           .string()
           .trim()
           .toUpperCase()
-          .regex(/^[A-Z0-9]{2}\s?\d{1,4}[A-Z]?$/, 'Use the flight number, for example P4 7121')
+          .regex(FLIGHT_NUMBER_PATTERN, 'Use the flight number, for example P4 7121')
           .nullable()
           .default(null),
         arrivalTime: z

@@ -126,4 +126,11 @@ describe('formatters', () => {
     expect(format.number(1_234_567)).toBe('1,234,567');
     expect(format.list(['Lagos', 'Abuja', 'Accra'])).toBe('Lagos, Abuja and Accra');
   });
+
+  it('names countries from their codes and falls back to the code', () => {
+    expect(format.country('NG')).toBe('Nigeria');
+    expect(format.country('gb')).toBe('United Kingdom');
+    expect(format.country('QQ')).toBe('QQ');
+    expect(format.country('not-a-code')).toBe('not-a-code');
+  });
 });

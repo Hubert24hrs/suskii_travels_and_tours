@@ -107,6 +107,11 @@ function checkNames(
   }
 }
 
+/** Extra rules from the product: visa assistance is for one nationality (ADR-026). */
+export interface CheckoutRules {
+  nationality?: string | null | undefined;
+}
+
 /**
  * Client-side checks mirroring the API (ADR-015), so most mistakes are caught before a request.
  * The API re-validates everything; its issues map onto the same field paths.
@@ -114,6 +119,7 @@ function checkNames(
 export function validateCheckout(
   draft: CheckoutDraft,
   facts: ItineraryFacts | null,
+  options: CheckoutRules = {},
 ): { errors: FieldIssues; warnings: FieldIssues } {
   const errors: FieldIssues = {};
   const warnings: FieldIssues = {};
@@ -124,6 +130,12 @@ export function validateCheckout(
     for (const field of ['title', 'gender', 'nationality'] as const) {
       if (!passenger[field]) errors[`${prefix}.${field}`] = 'required';
     }
+    if (
+      options.nationality &&
+      passenger.nationality &&
+      passenger.nationality !== options.nationality
+    )
+      errors[`${prefix}.nationality`] = 'nationality_mismatch';
     if (!passenger.dateOfBirth) errors[`${prefix}.dateOfBirth`] = 'required';
     else if (!isValidDate(passenger.dateOfBirth)) errors[`${prefix}.dateOfBirth`] = 'invalid';
 
@@ -208,3 +220,68 @@ export function flightFacts(offer: FlightFactsInput): ItineraryFacts {
     international: countries.size > 1 || countries.has(null),
   };
 }
+
+/** Empty traveller drafts for the counts a quote was priced for (adults, then children, infants). */
+export function passengerDrafts(counts: TravellerCounts, nationality = ''): PassengerDraft[] {
+  const make = (type: PassengerType): PassengerDraft => ({ ...emptyPassenger(type), nationality });
+  return [
+    ...Array.from({ length: counts.adults }, () => make('adult')),
+    ...Array.from({ length: counts.children }, () => make('child')),
+    ...Array.from({ length: counts.infants }, () => make('infant')),
+  ];
+}
+
+/** The in-house items of a quote or booking (the API's PackageItem, TourItem, ...) that matter here. */
+export interface InhouseFactsInput {
+  package?: {
+    startDate: string;
+    endDate: string;
+    passportRequired: boolean;
+    travellers: TravellerCounts;
+  } | null;
+  tour?: { startsAtLocal: string; travellers: TravellerCounts } | null;
+  visa?: { travelDate: string; travellers: TravellerCounts } | null;
+  addon?: { startDate: string; endDate: string; travellers: TravellerCounts } | null;
+}
+
+/**
+ * The facts an in-house product's travellers are checked against, as the API does (ADR-025):
+ * passports for packages that need them and every visa applicant; tours and add-ons check names,
+ * ages and counts only. `null` when the quote has no in-house item.
+ */
+export function inhouseFacts(item: InhouseFactsInput): ItineraryFacts | null {
+  if (item.package)
+    return {
+      counts: item.package.travellers,
+      firstTravelDate: item.package.startDate,
+      lastTravelDate: item.package.endDate,
+      international: item.package.passportRequired,
+    };
+  if (item.tour) {
+    const day = item.tour.startsAtLocal.slice(0, 10);
+    return {
+      counts: item.tour.travellers,
+      firstTravelDate: day,
+      lastTravelDate: day,
+      international: false,
+    };
+  }
+  if (item.visa)
+    return {
+      counts: item.visa.travellers,
+      firstTravelDate: item.visa.travelDate,
+      lastTravelDate: item.visa.travelDate,
+      international: true,
+    };
+  if (item.addon)
+    return {
+      counts: item.addon.travellers,
+      firstTravelDate: item.addon.startDate,
+      lastTravelDate: item.addon.endDate,
+      international: false,
+    };
+  return null;
+}
+
+/** An airline flight number as the API accepts it for transfers (`P4 7121`, `BA75`). */
+export const FLIGHT_NUMBER_PATTERN = /^[A-Z0-9]{2}\s?\d{1,4}[A-Z]?$/;
