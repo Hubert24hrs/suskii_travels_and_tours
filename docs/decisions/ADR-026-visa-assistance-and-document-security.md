@@ -63,3 +63,16 @@ are among the most sensitive data the platform holds.
   is flagged as sample.
 - ClamAV needs about 1 GB of memory for its signatures; local development uses the mock scanner by
   default and `docker compose --profile av` runs ClamAV when needed.
+
+## Implementation notes (end of phase 8)
+
+- Clients upload the raw file as the request body (`PUT .../documents/{checklistKey}`, the
+  declared type only selects the route, the API sniffs the bytes) with the original name in a
+  URI-encoded `X-File-Name` header. No multipart parser runs; the controller reads the stream with
+  a hard size limit after the ownership check, so strangers cannot upload or probe.
+- The app uploads from the system document picker (`expo-document-picker`), reads the picked
+  copy into memory, and deletes the picker's cache copy at once, so no passport scan stays on
+  the phone outside the app. The screen is a sensitive screen (no screenshots).
+- "View" mints a link for the current viewer and opens it in the browser (web: the same tab,
+  which downloads; app: the system browser). The content route always answers with an
+  attachment, `nosniff`, `no-store` and a `default-src 'none'; sandbox` CSP.

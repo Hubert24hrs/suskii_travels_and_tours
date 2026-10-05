@@ -101,6 +101,15 @@ payments are reconciled. Real providers (`PAYMENT_PROVIDERS=paystack,flutterwave
 test-mode keys in `.env` and their webhook URL, `/v1/payments/webhooks/<provider>`, registered in
 the provider dashboard; see ADR-016 for the go-live checklist.
 
+Packages, tours, visa assistance and add-ons are Suskii's own inventory, entered through the
+admin API; a fresh database has none. For local work, load clearly marked sample inventory with
+`pnpm --filter @suskii/api db:seed:demo` (refused in production), then open
+`http://localhost:3000/packages`, `/tours`, `/visa` or `/travel-add-ons`. Confirmed packages and
+tours get a voucher code and QR; visa bookings open an application page per applicant where
+documents are uploaded, encrypted, virus-scanned (mock scanner by default; run ClamAV with
+`docker compose --profile av up -d clamav` and `ANTIVIRUS_PROVIDER=clamav`) and viewed through
+short-lived signed links.
+
 | Service            | URL                                                      |
 | ------------------ | -------------------------------------------------------- |
 | Web                | http://localhost:3000                                    |

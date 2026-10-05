@@ -6,6 +6,58 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 8: Packages, tours, visa and add-ons (2026-10-05)
+
+#### Added
+
+- In-house catalog (ADR-025): packages and tours with dated departures, capacity, per-person
+  prices by traveller type, itineraries, inclusions and cancellation tiers; add-ons (insurance,
+  airport transfers, eSIM, lounge) priced per person, booking or day; visa assistance products
+  with document checklists; visa eligibility rules. Public list and detail routes, admin CRUD and
+  publishing (`catalog:manage`, audited) and `POST /v1/inhouse-quotes`. Production starts empty;
+  `db:seed:demo` (refused in production) adds sample inventory with a "Sample" badge.
+- One booking pipeline for every vertical: in-house items reuse quotes, bookings, payments,
+  the ledger, payment plans and refunds. Seats are reserved at booking with a conditional update
+  (no overselling), sold at confirmation and released on expiry, failure or cancellation; the
+  price is re-checked against the catalog before payment; packages can be reserved or paid in
+  installments until the balance-due date (`PACKAGE_BALANCE_DUE_DAYS`).
+- Fulfilment in the confirming transaction (ADR-028): voucher codes (no look-alike characters,
+  stored hashed and encrypted) with QR codes on the PDFs and a one-time redemption route for
+  operations; visa applications per applicant. Self-service cancellation under the policy tiers
+  (fee to the ledger, automatic refund of the tier's share).
+- Visa assistance (ADR-026): eligibility answers from the rules table (`unknown` without a rule,
+  never a guess); one application per applicant with checklist uploads sniffed by content,
+  size-limited, encrypted with per-document keys wrapped by `FieldEncryption`, virus-scanned
+  (ClamAV adapter, `docker compose --profile av`; mock in development) and readable only
+  through five-minute HMAC-signed links for the owner or a visa officer, every link and access
+  audited; officer routes for review, requests, decisions and messages; visa update emails;
+  document retention. Worker jobs rescan missed uploads and delete expired documents.
+- Add-ons (ADR-027) standalone or linked to a trip, found from the booking page or by reference
+  and last name (short-lived HMAC link tokens); transfer details encrypted per booking item.
+- Web: `/packages` and `/tours` with results or popular products, detail pages with dates,
+  traveller picker and policy; `/visa` with the eligibility answer and products, `/visa/[slug]`
+  with the checklist and booking form; `/travel-add-ons` standalone, for a booking or by
+  reference; checkout and booking pages for every vertical (voucher, cancellation, visa
+  applications, extras); the visa application page with uploads, scan status, signed views and
+  submission. Homepage teaser with real from-prices; non-sample products in the sitemap.
+- Mobile: packages and tours on Home, lists and detail pages, checkout for in-house quotes, trip
+  screens for every vertical with the voucher QR code drawn offline, cancellation under the
+  policy, visa applications with uploads from the document picker, and extras for a trip.
+- `@suskii/shared`: cancellation tiers and refunds, per-person totals, add-on units, voucher codes,
+  document sniffing, in-house checkout facts and traveller drafts. `@suskii/i18n`: country names
+  (`format.country`) and the copy for every new page, PDF and email.
+- Tests: API unit and e2e for every vertical, the seat race, cancellation, signed document
+  access and scanning; web Playwright journeys for packages, tours with linked add-ons,
+  standalone add-ons and visa assistance; mobile Jest for the catalog, checkout, trips, visa
+  uploads and extras (80 tests).
+
+#### Changed
+
+- Checkout asks for passports only where the product needs them (abroad, visa applicants);
+  hold and installment wording follows the product.
+- The app loads the formatjs `DisplayNames` polyfill for country names on Hermes.
+- `next dev` no longer writes its own agent guides (`agentRules: false`).
+
 ### Phase 7: Mobile app (2026-09-30)
 
 #### Added

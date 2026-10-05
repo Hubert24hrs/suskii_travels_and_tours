@@ -41,8 +41,8 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | 4     | Web homepage                                     | Done                  |
 | 5     | Flight and hotel booking flow (web)              | Done                  |
 | 6     | Payments, flexible payment and refunds           | Done                  |
-| 7     | Mobile app                                       | Done, awaiting review |
-| 8     | Packages, tours, visa and add-ons                | Not started           |
+| 7     | Mobile app                                       | Done                  |
+| 8     | Packages, tours, visa and add-ons                | Done, awaiting review |
 | 9     | Accounts, Suskii Prime, referrals, notifications | Not started           |
 | 10    | Admin console                                    | Not started           |
 | 11    | Hardening                                        | Not started           |
@@ -94,6 +94,8 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema           |
 | `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                 |
 | `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`             |
+| `pnpm --filter @suskii/api db:seed:demo`          | Sample packages, tours, add-ons and visa data (refused in prod)     |
+| `docker compose --profile av up -d clamav`        | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)     |
 | `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                |
 | `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)            |
 | `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)              |
@@ -137,7 +139,10 @@ Tooling notes for agents:
   3000 (stop dev servers first) and runs one worker refresh. `E2E_BASE_URL` targets a running stack
   instead. Lighthouse uses `CHROME_PATH` (Playwright's headless shell works best) or Playwright's
   Chromium. The stack makes Lagos-Dubai fares change at the payment re-check
-  (`MOCK_REPRICE_RULES`) for the price-consent test.
+  (`MOCK_REPRICE_RULES`) for the price-consent test, and runs `db:seed:demo` for the in-house
+  journeys (sample packages, tours, add-ons and visa products).
+- `next dev` would write its own `AGENTS.md`/`CLAUDE.md` into the app folder; `agentRules: false`
+  in both Next configs keeps this file the only agent guide.
 
 ## Conventions
 
@@ -272,6 +277,9 @@ Tooling notes for agents:
 - Never import a message catalog (`getMessages`) into a client component: the whole catalog then
   ships with every page using it. Pass a subset through `I18nProvider` (the root layout gives the
   error boundary only `pages.error`).
+- Client widgets inside server pages get their message subset from a plain module
+  (`*-messages.ts`): a server component cannot call a function exported from a client module.
+  Country names come from `format.country` (Intl `DisplayNames`).
 - Payment plans on the web show the schedule, fee, total and missed-payment policy before the
   traveller commits, and never with paid extras. Money on screen comes from API `Money` values
   (`format.money`); never compute totals or fees client-side except to preview the documented
@@ -296,13 +304,40 @@ Tooling notes for agents:
   `attestationHeader()`.
 - Wrap checkout, payment and document screens in `useSensitiveScreen()`.
 - Hermes implements only part of `Intl`. `src/polyfills.ts`, loaded first from `index.ts`, adds
-  `PluralRules`, `RelativeTimeFormat`, `ListFormat` and `Locale`; `@suskii/i18n` joins date
+  `PluralRules`, `RelativeTimeFormat`, `ListFormat`, `DisplayNames` and `Locale`; `@suskii/i18n` joins date
   ranges itself where `formatRange` is missing. Shared code that starts using another `Intl` API
   needs a polyfill there and a case in `polyfills.test.ts` (Jest runs on Node's full `Intl`).
 - Push permission is requested only after a booking or from Account (`followBooking`,
   `followAccount`), never on launch.
 - Give interactive elements used by Maestro a stable `testID` (fields: the form path, such as
   `passengers.0.surname`; choices: `{testID}-{value}`; suggestions: `{testID}-option-{key}`).
+- Visa uploads come from the system document picker (`lib/visa-upload.ts`), which deletes its
+  cache copy once read; the raw bytes are the request body. Voucher QR codes are drawn on the
+  device from the offline booking copy (`uqr`), never fetched as images.
+
+### In-house products (apps/api, ADR-025 to ADR-028)
+
+- Packages, tours, visa assistance and add-ons are `ItemPayload` kinds (`package`, `tour`,
+  `visa`, `addon`) on the one booking pipeline: quotes are `Offer` rows with supplier `suskii`,
+  priced by `priceItem`; the pre-payment re-check reads the catalog (`InhouseCatalog.reprice`).
+  Never build a parallel booking flow.
+- Seats change only through `reserveSeats` (conditional update in the booking-create
+  transaction, 409 `sold-out`) and `settleSeats`, which `BookingTransitions.apply()` calls.
+- Vouchers and visa applications are created by `InhouseFulfilment` in the confirming
+  transaction. Voucher codes are stored as an HMAC (`booking-voucher`) plus ciphertext; the QR
+  payload is `SUSKII-V1:` and the code, never personal data.
+- Confirmed in-house bookings are cancelled through `BookingCancellationService` under the
+  product's tiers (fee to the ledger, refund of the tier's share, or `withdraw` when nothing is
+  refunded). Visa assistance is not self-cancellable.
+- Visa documents: only `VisaDocumentsService` reads or writes them (per-document key wrapped with
+  `visa-document:{id}`, name with `visa-document:{id}:name`); content is served only through
+  `ownerLink`/`officerLink` signed URLs and the content route. Uploads are raw request bodies
+  read with a size limit after the ownership check. Scanning goes through `AntivirusScanner`
+  (production refuses the mock unless `ALLOW_MOCK_PROVIDERS=true`).
+- Add-on links (`addon-links`) are short-lived HMAC tokens; add-on details are encrypted per
+  booking item (`booking-item:{itemId}:addon-details`).
+- Real inventory, prices and visa rules come only from the admin routes. Demo data comes only
+  from `db:seed:demo` and is flagged `sample` (clients show a badge).
 
 ### Security guardrails
 
@@ -362,6 +397,10 @@ Tooling notes for agents:
 - [ADR-022: Push notifications](docs/decisions/ADR-022-push-notifications.md)
 - [ADR-023: Device attestation and mobile bot protection](docs/decisions/ADR-023-device-attestation-and-mobile-bot-protection.md)
 - [ADR-024: EAS builds, app variants and mobile CI](docs/decisions/ADR-024-eas-builds-variants-and-mobile-ci.md)
+- [ADR-025: In-house catalog, capacity and pricing](docs/decisions/ADR-025-in-house-catalog-capacity-and-pricing.md)
+- [ADR-026: Visa assistance and document security](docs/decisions/ADR-026-visa-assistance-and-document-security.md)
+- [ADR-027: Travel add-ons, standalone and linked](docs/decisions/ADR-027-travel-add-ons-standalone-and-linked.md)
+- [ADR-028: In-house fulfilment, vouchers and cancellation](docs/decisions/ADR-028-in-house-fulfilment-vouchers-and-cancellation.md)
 
 ## Open questions for the owner
 
@@ -383,3 +422,8 @@ Developer and Google Play accounts, the final bundle id (placeholder `com.suskii
 Google Cloud project for Play Integrity and Apple App Attest setup (real attestation verifiers
 need both), FCM and APNs credentials for push, the production API and web hosts (app links), app
 icon and splash art, and the account deletion flow required before store release (phase 9).
+Added in phase 8: the real in-house inventory and who enters it (packages, tours, visa products
+and eligibility rules, add-on partners; insurance may need a licensed partner), the package
+balance-due period (default 30 days), visa document retention (default 90 days after closing),
+production antivirus (managed ClamAV or a scanning service), and who fulfils packages, redeems
+vouchers and staffs the visa officer role.

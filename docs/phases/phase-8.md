@@ -1,7 +1,6 @@
 # Phase 8: Packages, tours, visa and add-ons
 
-Status: in progress (started while the phase 7 Maestro run is still being fixed in CI, at the
-owner's request)
+Status: done, awaiting review
 
 ## Goal
 
@@ -59,8 +58,8 @@ existing booking.
   policy tiers (days before start, share refunded): an automatic refund for the policy amount and
   the seats released. Visa assistance is cancelled through support once work has started.
 - **Mobile**: packages and tours can be browsed, booked and paid in the app; trips show every
-  vertical with its documents offline. The visa application flow and add-ons stay on the web in
-  this phase (links from the trip screen).
+  vertical with its documents offline. (Planned as web-only, the visa application flow and
+  add-ons for a trip were built in the app too; see the outcome.)
 
 ## Plan
 
@@ -132,3 +131,72 @@ existing booking.
   rendering (attachment, `nosniff`, sandbox CSP) and encryption at rest.
 - **Invented facts**: visa rules and prices are real-world facts. Mitigation: nothing is seeded in
   production; demo data is flagged and badged.
+
+## Outcome
+
+### Acceptance criteria
+
+1. **Each vertical bookable end to end with mock payment.**
+   - API e2e (`test/inhouse.e2e-spec.ts`, 11 tests): a package, a tour, visa assistance and an
+     add-on are quoted, booked, paid through the mock provider's signed webhook and confirmed,
+     with vouchers or visa applications created in the confirming transaction; seats are reserved
+     at booking, sold at confirmation and released on expiry, failure or cancellation (including
+     two buyers racing for the last places, where one gets 409 `sold-out`); cancellation under
+     the policy refunds the tier's share and keeps the fee; package reservations run to the
+     balance-due date; the catalog price is re-checked before payment.
+   - Web Playwright (`e2e/inhouse.spec.ts`, 4 journeys): a package from the catalog to its voucher
+     PDF and a 100% refund under the policy; a tour, then insurance attached from the trip page;
+     a standalone airport transfer with its flight and pickup details; visa assistance from the
+     checker to uploaded documents and submission. Every page on the way is axe-checked, and the
+     new catalog, visa and add-on pages are in the hydration check.
+   - Mobile Jest: package and tour lists and detail pages to the quote, checkout for package and
+     tour quotes, the trip screen (voucher with its QR code, cancellation, visa applications,
+     extras), the visa application screen (picker upload, view link, submit) and extras for a
+     trip.
+2. **Visa documents encrypted and only accessible via signed URLs by owner and visa officer.**
+   - Each document is encrypted with its own AES-256-GCM key (the document id is the additional
+     data), and that key is wrapped by `FieldEncryption` with the record-bound context
+     `visa-document:{id}`; the file name is encrypted too. `document-crypto.spec.ts` shows the
+     ciphertext hides the plaintext, keys and IVs never repeat, and a blob moved to another
+     document or tampered with does not open; the API e2e reads the stored object and checks it
+     is not the upload.
+   - Files are sniffed (PDF, JPEG, PNG), size-limited, virus-scanned (ClamAV adapter, mock in
+     development and CI; EICAR is refused) and usable only when clean.
+   - Content is served only through HMAC-signed links bound to the document, the expiry and the
+     viewer (`c.{bookingId}` for the owner, `s.{userId}` for an officer), valid five minutes. The
+     API e2e checks the owner's link serves the exact bytes as an attachment (`nosniff`,
+     `no-store`, sandbox CSP); a changed signature, expiry or viewer answers 404; another
+     traveller cannot mint a link (404); staff without `visa:process` cannot either (403); a
+     visa officer (MFA staff session) gets an own link. The web journey checks a tampered link
+     answers 404. Every link and access is audited; files are wiped after the retention period.
+
+### Deviations from the plan
+
+- **Mobile went further than planned.** The app uploads visa documents from the system picker
+  (`expo-document-picker`, a new native module; the picker copy is deleted once read) and buys
+  extras for a trip, instead of sending travellers to the website. Maestro does not drive the
+  system file picker, so uploads on the device are covered by Jest (the raw bytes reach the API;
+  React Native sends typed arrays as base64 to the native layer) and not by the emulator flow.
+- **QR on the phone**: the app draws the tour voucher QR code from the offline booking copy
+  (`uqr`, the encoder the API uses), so it works without a connection.
+- **Country names on Hermes** need `Intl.DisplayNames`; the app now loads the formatjs polyfill
+  (with a polyfill test), per the repository rule for new `Intl` APIs.
+- **Add-on quotes name their trip**: the payload keeps the linked booking's reference (found by
+  the web journey; the API test now expects it).
+- **No admin screens** yet: catalog management, visa officer work and voucher redemption are API
+  routes (`catalog:manage`, `visa:process`, `bookings:manage`); the console is phase 10.
+- **Seat selection** stays deferred (no supplier seat maps); extra baggage stays a flight
+  ancillary at flight checkout.
+- Next.js 16 writes its own `AGENTS.md` and `CLAUDE.md` during `next dev`; `agentRules` is off in
+  both Next apps so the root guide stays the only one.
+
+### Decisions needed from the owner
+
+- Real inventory and who enters it: packages and tours (itineraries, inclusions, capacity,
+  per-person prices, cancellation tiers), visa products and eligibility rules (and the visa
+  team's process), and add-on providers (insurer, eSIM, transfer and lounge partners). Selling
+  insurance may require a licensed partner.
+- Package balance-due period (`PACKAGE_BALANCE_DUE_DAYS`, default 30 days) and visa document
+  retention (`VISA_DOCUMENT_RETENTION_DAYS`, default 90 days after closing).
+- Antivirus in production: a managed ClamAV (about 1 GB of memory) or a scanning service.
+- Operations: who fulfils packages, redeems vouchers at tours, and staffs the visa officer role.

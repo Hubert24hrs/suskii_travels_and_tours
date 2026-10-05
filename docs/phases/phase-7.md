@@ -1,6 +1,6 @@
 # Phase 7: Mobile app
 
-Status: done, awaiting review (EAS builds blocked on owner accounts)
+Status: done (EAS builds blocked on owner accounts)
 
 ## Goal
 
@@ -119,7 +119,9 @@ profiles for development, preview and production.
    starts the e2e stack (mock attestation enforced for app requests) and runs
    `critical-path.yaml` (search Lagos to Abuja, guest checkout, hosted mock payment in a Chrome
    Custom Tab, confirmed trip, e-ticket saved) and `offline-trip.yaml` (trip and e-ticket
-   reopened with the network cut) on an API 34 emulator. See the CI result in the phase report.
+   reopened with the network cut) on an API 34 emulator. Green on commit 8502f2f (Mobile run
+   36758084323: Maestro critical path and offline flow on Android, iOS simulator build), with CI
+   run 36758088609 green on the same commit.
 2. **EAS preview builds for iOS and Android**: blocked. `eas.json`, the variants and
    `mobile-release.yml` are ready, but EAS needs the owner's Expo account (`EXPO_TOKEN`,
    `EAS_PROJECT_ID`) and, for iOS, Apple credentials. Until then CI proves both native projects
@@ -133,6 +135,10 @@ profiles for development, preview and production.
 
 - The mobile checkout offers no paid extra bags yet (the web does); travellers add bags on the
   web booking page. Paid extras also rule out payment plans, so the app keeps the simpler path.
+- The emulator found two issues the Jest suite could not: the soft keyboard covered the surname
+  field (the flow now hides it and scrolls), and React Native's fetch does not reject with a
+  `TypeError` when offline (the API client now normalises transport failures to
+  `NetworkError`, so the offline copy is shown).
 - Maestro drives the stack through `adb reverse` on `localhost` instead of `10.0.2.2`: pages on
   `localhost` are a secure context (Web Crypto for idempotency keys), like production https.
   Airplane mode does not cut `adb reverse`, so the harness removes the route before the offline

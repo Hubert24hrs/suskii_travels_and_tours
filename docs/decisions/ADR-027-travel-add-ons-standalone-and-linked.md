@@ -36,3 +36,12 @@ ledger balance is what they have paid.
 - No partial changes to paid bookings; each add-on can be cancelled or refunded on its own.
 - Partner selection for insurance, transfers, eSIM and lounges is an owner decision; products stay
   empty in production until entered.
+
+## Implementation notes (end of phase 8)
+
+- The add-on payload keeps the linked booking's reference with its id, so the quote already
+  shows which trip an add-on is for. Add-on link tokens are never cached by clients (the app
+  requests a fresh one each time the extras screen opens).
+- The web lists extras from the booking page (`/travel-add-ons?for={bookingId}`, the guest
+  token header proves access) or by reference and last name (the name stays in the tab's
+  session storage, never the URL). The app offers the first path from the trip screen.

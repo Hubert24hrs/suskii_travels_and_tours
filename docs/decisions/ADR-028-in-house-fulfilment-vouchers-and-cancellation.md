@@ -38,3 +38,10 @@ voucher that guides can check (spec: "QR voucher"), and products carry cancellat
 - Guides can check vouchers with any QR reader and the admin route; a leaked QR code reveals no
   personal data and can be redeemed only once.
 - Refunds for cancellations are automatic and bounded by the policy and by what was paid.
+
+## Implementation notes (end of phase 8)
+
+- The app draws the voucher QR code on the device from the booking copy it keeps offline (the
+  same `uqr` encoder the API uses for the PDF), so a traveller without a connection at the
+  meeting point can still show it. The QR carries only `SUSKII-V1:` and the voucher code.
+- Policy texts drop 0% tiers: "no refund after that" already says it.
