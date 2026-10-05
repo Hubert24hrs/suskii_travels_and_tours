@@ -11,6 +11,7 @@ import { randomToken, sha256 } from '../crypto/random';
 import { Prisma, type AuthMethod, type VerificationPurpose } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { EmailProvider } from '../notifications/email';
+import { ReferralsService } from '../referrals/referrals.service';
 import {
   accountExistsTemplate,
   passwordResetTemplate,
@@ -76,12 +77,18 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly email: EmailProvider,
     private readonly background: BackgroundTasks,
+    private readonly referrals: ReferralsService,
   ) {}
 
   // --- Email + password ---------------------------------------------------------
 
   async register(
-    input: { email: string; password: string; displayName?: string | undefined },
+    input: {
+      email: string;
+      password: string;
+      displayName?: string | undefined;
+      referralCode?: string | undefined;
+    },
     context: RequestContext,
   ): Promise<void> {
     if (await this.breached.isBreached(input.password)) throw passwordBreached();
@@ -117,6 +124,7 @@ export class AuthService {
       context,
       metadata: { method: 'password' },
     });
+    await this.referrals.attribute(created.id, input.referralCode, context);
     this.background.run('verification-email', () =>
       this.sendEmailVerification(created.id, input.email),
     );
@@ -213,6 +221,7 @@ export class AuthService {
     phone: string,
     code: string,
     context: RequestContext,
+    referralCode?: string,
   ): Promise<SignInOutcome> {
     await this.otp.verify('sign-in', phone, code, context);
     const now = new Date();
@@ -229,6 +238,7 @@ export class AuthService {
           context,
           metadata: { method: 'otp' },
         });
+        await this.referrals.attribute(user.id, referralCode, context);
       } catch (error) {
         if (!isUniqueViolation(error)) throw error;
         user = await this.prisma.user.findUniqueOrThrow({
@@ -245,7 +255,12 @@ export class AuthService {
 
   async socialSignIn(
     provider: SocialProviderName,
-    input: { idToken: string; nonce?: string | undefined; displayName?: string | undefined },
+    input: {
+      idToken: string;
+      nonce?: string | undefined;
+      displayName?: string | undefined;
+      referralCode?: string | undefined;
+    },
     context: RequestContext,
   ): Promise<SignInOutcome> {
     const identity = await this.social.verify(provider, input.idToken, input.nonce);
@@ -279,6 +294,7 @@ export class AuthService {
           context,
           metadata: { method: provider },
         });
+        await this.referrals.attribute(user.id, input.referralCode, context);
       }
     }
     if (user.status !== 'active') throw invalidCredentials();

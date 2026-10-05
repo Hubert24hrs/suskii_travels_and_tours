@@ -54,6 +54,7 @@ export {
   otpCodeSchema,
   passwordSchema,
   phoneSchema,
+  referralCodeInputSchema,
   registerRequestSchema,
   type AuthTransport,
   type LoginRequest,

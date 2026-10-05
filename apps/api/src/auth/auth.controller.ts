@@ -242,6 +242,7 @@ export class AuthController {
       body.phone,
       body.code,
       requestContext(request),
+      body.referralCode,
     );
     return presentSignIn(outcome, body.transport, response, this.config);
   }

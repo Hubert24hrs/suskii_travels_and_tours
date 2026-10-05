@@ -283,8 +283,9 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
             expect(operation.parameters.map((p) => p.name)).toContain('X-CSRF-Token');
         }
       }
-      // Bookings and money (5), deal and destination refresh (4), push tokens (1), visa (2).
-      expect(internalOperations).toBe(12);
+      // Bookings and money (5), deal and destination refresh (4), push tokens (1), visa (2),
+      // price alerts, reminders and referrals (3).
+      expect(internalOperations).toBe(15);
     });
 
     it('resolves every $ref (generated clients refuse dangling references)', () => {

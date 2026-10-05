@@ -7,7 +7,8 @@ export type AccountRef =
   | { kind: 'unapplied'; currency: string }
   | { kind: 'wallet'; userId: string; currency: string }
   | { kind: 'refunds-in-flight'; provider: string; currency: string }
-  | { kind: 'cancellation-fees'; currency: string };
+  | { kind: 'cancellation-fees'; currency: string }
+  | { kind: 'promotions'; currency: string };
 
 export interface AccountSpec {
   code: string;
@@ -66,6 +67,14 @@ export function accountSpec(ref: AccountRef): AccountSpec {
         type: 'income',
         allowNegative: false,
       };
+    case 'promotions':
+      // What referral rewards and other promotions cost us (ADR-031); grows with debits.
+      return {
+        ...base,
+        code: `expense:promotions:${ref.currency}`,
+        type: 'expense',
+        allowNegative: false,
+      };
   }
 }
 
@@ -79,5 +88,6 @@ export const LEDGER_KINDS = [
   'refund_failed',
   'refund_to_wallet',
   'cancellation_fee',
+  'referral_reward',
 ] as const;
 export type LedgerKind = (typeof LEDGER_KINDS)[number];

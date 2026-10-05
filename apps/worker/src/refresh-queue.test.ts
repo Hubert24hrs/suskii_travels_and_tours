@@ -43,6 +43,9 @@ describe.skipIf(!redisUrl)('refresh queue (Redis)', () => {
         refreshed.push(id);
         return Promise.resolve({ status: 'refreshed' as const, snapshotId: 's', fetchedAt: null });
       }),
+      runPriceAlerts: vi.fn(() =>
+        Promise.resolve({ checked: 0, notified: 0, retired: 0, failed: 0 }),
+      ),
       pruneSnapshots: vi.fn(() => Promise.resolve({ deletedDeals: 0, deletedDestinations: 0 })),
       prunePushTokens: vi.fn(() => Promise.resolve({ deleted: 0 })),
     };

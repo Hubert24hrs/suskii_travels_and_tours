@@ -18,6 +18,8 @@ export const JOB = {
   refreshDestination: 'destinations-city',
   prune: 'snapshots-prune',
   prunePushTokens: 'push-tokens-prune',
+  /** Due price alerts (ADR-032): supplier searches, under this queue's rate limit. */
+  priceAlerts: 'price-alerts',
 } as const;
 
 const routeData = z.object({ routeId: z.uuid(), slug: z.string() });
@@ -117,6 +119,11 @@ export async function processRefreshJob(
     case JOB.prunePushTokens: {
       const result = await deps.api.prunePushTokens();
       deps.logger.info(result, 'push tokens pruned');
+      return result;
+    }
+    case JOB.priceAlerts: {
+      const result = await deps.api.runPriceAlerts();
+      if (result.checked > 0) deps.logger.info(result, 'price alerts checked');
       return result;
     }
     default:

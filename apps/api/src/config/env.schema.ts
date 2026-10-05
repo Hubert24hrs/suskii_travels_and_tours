@@ -68,6 +68,7 @@ export const envSchema = z
     SMTP_USER: z.string().min(1).optional(),
     SMTP_PASSWORD: z.string().min(1).optional(),
     SMS_PROVIDER: z.enum(['mock']).default('mock'),
+    WHATSAPP_PROVIDER: z.enum(['mock']).default('mock'),
     /** Push notifications (ADR-022): Expo's push service relays to FCM and APNs. */
     PUSH_PROVIDER: z.enum(['expo', 'mock']).default('mock'),
     EXPO_PUSH_URL: z.url().default('https://exp.host/--/api/v2/push/send'),
@@ -170,6 +171,23 @@ export const envSchema = z
     VISA_DOCUMENT_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
     /** Documents are deleted this many days after the application closes. */
     VISA_DOCUMENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+    /** Price alerts (ADR-032): how often each is checked and the drop worth a notice. */
+    PRICE_ALERT_INTERVAL_HOURS: z.coerce.number().int().min(1).max(48).default(6),
+    PRICE_ALERT_MIN_DROP_BPS: z.coerce.number().int().min(100).max(9000).default(500),
+    /** Alerts checked per worker run (each distinct route and date costs one supplier search). */
+    PRICE_ALERT_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(50),
+    /** Prime members are reminded this many days before their paid-up end (ADR-030). */
+    PRIME_REMINDER_DAYS: z.coerce.number().int().min(1).max(60).default(7),
+    /**
+     * Referral rewards (ADR-031), in minor units of REFERRAL_REWARD_CURRENCY; zero pays nothing
+     * (referrals are still tracked). A referral qualifies on a completed trip of at least
+     * REFERRAL_MIN_SPEND_MINOR; at most REFERRAL_MONTHLY_CAP qualify per referrer per month.
+     */
+    REFERRAL_REWARD_REFERRER_MINOR: z.coerce.number().int().min(0).max(100_000_000).default(0),
+    REFERRAL_REWARD_REFEREE_MINOR: z.coerce.number().int().min(0).max(100_000_000).default(0),
+    REFERRAL_REWARD_CURRENCY: z.string().length(3).default('NGN'),
+    REFERRAL_MIN_SPEND_MINOR: z.coerce.number().int().min(0).default(0),
+    REFERRAL_MONTHLY_CAP: z.coerce.number().int().min(1).max(1000).default(10),
     /**
      * Retained financial records (bookings, payments, ledger, refunds) of deleted accounts are
      * kept this long (ADR-029); a legal decision for the owner. The purge job is phase 11.
@@ -259,6 +277,8 @@ export const envSchema = z
       require('EMAIL_PROVIDER', 'mock provider is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.SMS_PROVIDER === 'mock')
       require('SMS_PROVIDER', 'mock provider is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.WHATSAPP_PROVIDER === 'mock')
+      require('WHATSAPP_PROVIDER', 'mock provider is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.PUSH_PROVIDER === 'mock')
       require('PUSH_PROVIDER', 'mock provider is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.DEVICE_ATTESTATION === 'mock')

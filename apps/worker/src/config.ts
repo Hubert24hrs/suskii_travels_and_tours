@@ -34,6 +34,13 @@ const envSchema = z
     VISA_SCAN_INTERVAL_SECONDS: z.coerce.number().int().min(60).max(3600).default(300),
     /** How often documents past their retention period are deleted. */
     VISA_PRUNE_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+    /**
+     * Account sweeps (ADR-030 to ADR-032): due price alerts (the API checks each at most every
+     * PRICE_ALERT_INTERVAL_HOURS), check-in and Prime reminders, referral qualification.
+     */
+    PRICE_ALERT_SWEEP_MINUTES: minutes(15),
+    REMINDER_SWEEP_MINUTES: minutes(15),
+    REFERRAL_SWEEP_MINUTES: minutes(60),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

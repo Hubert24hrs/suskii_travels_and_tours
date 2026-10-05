@@ -18,6 +18,20 @@ function layout(heading: string, paragraphs: string[], action?: { label: string;
 
 type Template = Omit<EmailMessage, 'to'>;
 
+/** Subject, plain text and HTML for a short message with one optional link. */
+export function simpleEmail(
+  subject: string,
+  heading: string,
+  paragraphs: string[],
+  action?: { label: string; url: string },
+): { subject: string; text: string; html: string } {
+  return {
+    subject,
+    text: [...paragraphs, ...(action ? [action.url] : [])].join('\n\n'),
+    html: layout(heading, paragraphs, action),
+  };
+}
+
 export function verifyEmailTemplate(url: string): Template {
   const intro = `Confirm your email address to finish setting up your ${BRAND.name} account.`;
   const expiry = 'This link expires in 24 hours. If you did not sign up, ignore this email.';

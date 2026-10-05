@@ -78,7 +78,13 @@ export type AuditAction =
   | 'user.deleted'
   | 'prime.plan_created'
   | 'prime.plan_updated'
-  | 'prime.membership_started';
+  | 'prime.membership_started'
+  | 'referral.attributed'
+  | 'referral.qualified'
+  | 'referral.rewarded'
+  | 'referral.reviewed'
+  | 'reminder.checkin_sent'
+  | 'reminder.prime_sent';
 
 export interface AuditEvent {
   action: AuditAction;

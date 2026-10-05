@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { BackgroundTasks } from '../common/background-tasks';
+import { ReferralsModule } from '../referrals/referrals.module';
 
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
@@ -18,6 +19,7 @@ import { remoteKeyResolvers, SOCIAL_KEY_RESOLVERS, SocialIdentityVerifier } from
 import { AccessTokenService } from './tokens/access-token.service';
 
 @Module({
+  imports: [ReferralsModule],
   controllers: [AuthController, MeController, JwksController],
   providers: [
     AccessTokenService,

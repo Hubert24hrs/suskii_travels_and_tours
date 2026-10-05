@@ -22,6 +22,7 @@ const fakeApi = (overrides: Partial<InternalApi> = {}): InternalApi => ({
   refreshDestination: vi.fn(() => Promise.resolve(REFRESHED)),
   pruneSnapshots: vi.fn(() => Promise.resolve({ deletedDeals: 3, deletedDestinations: 1 })),
   prunePushTokens: vi.fn(() => Promise.resolve({ deleted: 2 })),
+  runPriceAlerts: vi.fn(() => Promise.resolve({ checked: 3, notified: 1, retired: 0, failed: 0 })),
   ...overrides,
 });
 
@@ -34,6 +35,16 @@ const deps = (api: InternalApi, enqueued: PlannedJob[] = []) => ({
   intervals: { dealsMinutes: 180, destinationsMinutes: 360 },
   logger: pino({ level: 'silent' }),
   now: () => new Date('2026-10-01T10:00:00Z'),
+});
+
+describe('price alerts', () => {
+  it('runs due alerts through the API on the refresh queue', async () => {
+    const api = fakeApi();
+    await expect(
+      processRefreshJob({ name: JOB.priceAlerts, data: {} }, deps(api)),
+    ).resolves.toEqual({ checked: 3, notified: 1, retired: 0, failed: 0 });
+    expect(api.runPriceAlerts).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('refresh jobs', () => {

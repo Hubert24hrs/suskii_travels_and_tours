@@ -113,6 +113,30 @@ describe('internal API client', () => {
     ]);
   });
 
+  it('calls the account sweep routes', async () => {
+    const replies: Record<string, unknown> = {
+      'price-alerts': { checked: 2, notified: 1, retired: 0, failed: 0 },
+      reminders: { checkin: 1, prime: 0 },
+      referrals: { qualified: 1, review: 0, rewarded: 1 },
+    };
+    const fetch = vi.fn((request: Request) =>
+      Promise.resolve(reply(200, replies[request.url.split('/').at(-2) ?? ''] ?? {})),
+    );
+    const api = createInternalApi({
+      baseUrl: 'http://api.internal:4000',
+      token: TOKEN,
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    });
+    await expect(api.runPriceAlerts()).resolves.toMatchObject({ notified: 1 });
+    await expect(api.runReminders()).resolves.toEqual({ checkin: 1, prime: 0 });
+    await expect(api.runReferrals()).resolves.toMatchObject({ rewarded: 1 });
+    expect(fetch.mock.calls.map(([request]) => request.url)).toEqual([
+      'http://api.internal:4000/v1/internal/price-alerts/run',
+      'http://api.internal:4000/v1/internal/reminders/run',
+      'http://api.internal:4000/v1/internal/referrals/run',
+    ]);
+  });
+
   it('classifies failures as retryable or final', async () => {
     const statuses = [503, 429, 404, 401];
     const api = createInternalApi({

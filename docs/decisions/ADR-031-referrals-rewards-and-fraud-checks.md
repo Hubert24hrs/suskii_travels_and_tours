@@ -44,3 +44,26 @@ go through the ledger (ADR-017).
 - Referral performance is visible before the owner commits money to it.
 - Card fingerprints come from providers that expose them (Paystack, Flutterwave, Stripe); the mock
   provider supplies a deterministic one for tests.
+
+## Implementation notes (phase 9)
+
+- `GET /v1/me/referrals` creates the code on first use. It returns the share link
+  (`/register?ref=CODE`), counts by status and the configured rewards (null while zero). Password
+  registration, phone OTP and Google or Apple sign-in accept `referralCode`, which counts only
+  when that request creates the account. A bad, unknown, inactive or own code is ignored
+  silently, so registration answers the same either way.
+- Signals are HMACs (`referral-signal`) of the normalised email (Gmail dots and `+tags` removed),
+  phone, network (/24 or /48) and an optional `X-Suskii-Device` install id. Flags at sign-up:
+  `email_alias`, `disposable_email`, `same_ip` (the referrer used this IP in the last 30 days, from
+  their sessions' IP hashes), `shared_network` and `device_reused` (shared with another referral
+  of the same referrer). At qualification: `monthly_cap`. Any flag means `review`.
+- Not built yet: card fingerprints. Payment rows keep no fingerprint and providers would have to
+  expose one. This is recorded for phase 11.
+- `POST /internal/referrals/run` (hourly) qualifies pending referrals on the referee's first
+  CONFIRMED trip that is over, other than Prime, with the minimum spend converted at the current
+  rate. It then pays qualified ones: the referral is claimed first, then one ledger transaction
+  (`referral:{id}:reward`, kind `referral_reward`) moves money from `expense:promotions:{cur}` to
+  both wallets, and the dispatcher notifies both people.
+- Staff decide reviews with `POST /v1/admin/referrals/{id}/decision` (`referrals:review`). A
+  reviewer cannot be either party. Approved referrals become `qualified`, or `pending` until the
+  trip is over.

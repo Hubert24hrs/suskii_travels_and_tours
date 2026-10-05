@@ -6,7 +6,9 @@ import {
   type ExpiryRun,
   type PaymentRun,
   type PlanRun,
+  type ReferralRun,
   type RefundRun,
+  type ReminderRun,
   type TicketingRun,
   type VisaPruneRun,
   type VisaScanRun,
@@ -20,7 +22,8 @@ import { type Logger } from './logger.js';
  * pending payments whose webhook never came are verified with the provider; payment plans get
  * their reminders and are closed on a missed payment; approved refunds are sent and pending ones
  * followed up. Visa documents whose background scan was lost are scanned again every few
- * minutes, and documents past their retention period are deleted daily (ADR-026). The API owns
+ * minutes, and documents past their retention period are deleted daily (ADR-026). Check-in and
+ * Prime reminders and referral qualification run every few minutes (ADR-030, ADR-031). The API owns
  * the state machine, the ledger, locking and backoff; the worker only keeps the clock.
  */
 export const BOOKINGS_QUEUE = 'bookings';
@@ -37,6 +40,12 @@ export const BOOKING_JOB = {
 export const VISA_JOB = {
   scan: 'visa-documents-scan',
   prune: 'visa-documents-prune',
+} as const;
+
+/** Account sweeps (ADR-030 to ADR-032): database work only, so they share this queue. */
+export const ACCOUNT_JOB = {
+  reminders: 'accounts-reminders',
+  referrals: 'accounts-referrals',
 } as const;
 
 export interface BookingJobDeps {
@@ -60,7 +69,15 @@ export async function processBookingJob(
   job: { name: string },
   deps: BookingJobDeps,
 ): Promise<
-  ExpiryRun | TicketingRun | PaymentRun | PlanRun | RefundRun | VisaScanRun | VisaPruneRun
+  | ExpiryRun
+  | TicketingRun
+  | PaymentRun
+  | PlanRun
+  | RefundRun
+  | VisaScanRun
+  | VisaPruneRun
+  | ReminderRun
+  | ReferralRun
 > {
   switch (job.name) {
     case BOOKING_JOB.expire: {
@@ -118,6 +135,18 @@ export async function processBookingJob(
     case VISA_JOB.prune: {
       const result = await sweep(() => deps.api.pruneVisaDocuments());
       if (result.deleted > 0) deps.logger.info(result, 'visa documents past retention deleted');
+      return result;
+    }
+    case ACCOUNT_JOB.reminders: {
+      const result = await sweep(() => deps.api.runReminders());
+      if (result.checkin > 0 || result.prime > 0) deps.logger.info(result, 'reminders sent');
+      return result;
+    }
+    case ACCOUNT_JOB.referrals: {
+      const result = await sweep(() => deps.api.runReferrals());
+      if (result.qualified > 0 || result.rewarded > 0)
+        deps.logger.info(result, 'referrals processed');
+      if (result.review > 0) deps.logger.warn({ review: result.review }, 'referrals need review');
       return result;
     }
     default:

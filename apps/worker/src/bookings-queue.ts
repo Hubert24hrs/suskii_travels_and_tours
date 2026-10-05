@@ -1,7 +1,13 @@
 import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 
-import { BOOKING_JOB, BOOKINGS_QUEUE, processBookingJob, VISA_JOB } from './bookings-jobs.js';
+import {
+  ACCOUNT_JOB,
+  BOOKING_JOB,
+  BOOKINGS_QUEUE,
+  processBookingJob,
+  VISA_JOB,
+} from './bookings-jobs.js';
 import { type WorkerConfig } from './config.js';
 import { type BookingsApi } from './internal-api.js';
 import { type WorkerComponent } from './lifecycle.js';
@@ -52,6 +58,16 @@ export function createBookingsQueue(
         VISA_JOB.prune,
         { every: config.VISA_PRUNE_INTERVAL_HOURS * 3_600_000, immediately: true },
         { name: VISA_JOB.prune, opts },
+      );
+      await activeQueue.upsertJobScheduler(
+        ACCOUNT_JOB.reminders,
+        { every: config.REMINDER_SWEEP_MINUTES * 60_000, immediately: true },
+        { name: ACCOUNT_JOB.reminders, opts },
+      );
+      await activeQueue.upsertJobScheduler(
+        ACCOUNT_JOB.referrals,
+        { every: config.REFERRAL_SWEEP_MINUTES * 60_000, immediately: true },
+        { name: ACCOUNT_JOB.referrals, opts },
       );
     },
     async stop() {

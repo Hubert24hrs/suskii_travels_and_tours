@@ -2,7 +2,7 @@ import { UnrecoverableError } from 'bullmq';
 import { pino } from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BOOKING_JOB, processBookingJob, VISA_JOB } from './bookings-jobs.js';
+import { ACCOUNT_JOB, BOOKING_JOB, processBookingJob, VISA_JOB } from './bookings-jobs.js';
 import { InternalApiError, type BookingsApi } from './internal-api.js';
 
 const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
@@ -17,6 +17,8 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
     Promise.resolve({ scanned: 3, clean: 1, infected: 1, failed: 1 }),
   ),
   pruneVisaDocuments: vi.fn(() => Promise.resolve({ deleted: 4 })),
+  runReminders: vi.fn(() => Promise.resolve({ checkin: 2, prime: 1 })),
+  runReferrals: vi.fn(() => Promise.resolve({ qualified: 1, review: 1, rewarded: 1 })),
   ...overrides,
 });
 
@@ -24,6 +26,30 @@ const logger = () => {
   const log = pino({ level: 'silent' });
   return Object.assign(log, { info: vi.fn(), warn: vi.fn() });
 };
+
+describe('account sweeps', () => {
+  it('sends reminders and processes referrals, flagging reviews', async () => {
+    const api = fakeApi();
+    const log = logger();
+    await expect(
+      processBookingJob({ name: ACCOUNT_JOB.reminders }, { api, logger: log }),
+    ).resolves.toEqual({ checkin: 2, prime: 1 });
+    expect(log.info).toHaveBeenCalledWith({ checkin: 2, prime: 1 }, 'reminders sent');
+    await expect(
+      processBookingJob({ name: ACCOUNT_JOB.referrals }, { api, logger: log }),
+    ).resolves.toEqual({ qualified: 1, review: 1, rewarded: 1 });
+    expect(log.warn).toHaveBeenCalledWith({ review: 1 }, 'referrals need review');
+  });
+
+  it('stops on a final failure until the next tick', async () => {
+    const api = fakeApi({
+      runReminders: vi.fn(() => Promise.reject(new InternalApiError('runReminders', 404))),
+    });
+    await expect(
+      processBookingJob({ name: ACCOUNT_JOB.reminders }, { api, logger: logger() }),
+    ).rejects.toBeInstanceOf(UnrecoverableError);
+  });
+});
 
 describe('booking jobs', () => {
   it('expires due bookings through the API', async () => {

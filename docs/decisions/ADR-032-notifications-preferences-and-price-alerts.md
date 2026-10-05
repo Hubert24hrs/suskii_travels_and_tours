@@ -48,3 +48,29 @@ contracted. Price alerts are "user subscribes to a route; worker notifies on dro
 - Turning SMS or WhatsApp on is a configuration change once a provider is contracted.
 - Every message sent is auditable by category and reference without storing its content.
 - Price alerts cost supplier searches; batching by route and date and the alert cap bound them.
+
+## Implementation notes (phase 9)
+
+- `NotificationService.notify(userId, content)` (global `MessagingModule`) resolves the matrix
+  (`notificationMatrix()`: stored choices over defaults, mandatory booking and payment email,
+  marketing only with recorded consent). It sends each rendered channel and logs every attempt
+  in `notifications` with a reason when skipped: `preference_off`, `no_email`,
+  `no_verified_phone`, `no_device`, `account_inactive`. Failures are logged as
+  `provider_error`, and the call never throws. Push goes to the account's signed-in devices
+  (`PushTokensService.sendToUser`). WhatsApp has a mock provider (`WHATSAPP_PROVIDER=mock`, refused
+  in production like SMS).
+- Marketing consent and marketing channels move together. Turning a marketing channel on records
+  consent with its source (`account:web`, `account:mobile`), and withdrawing consent turns every
+  marketing channel off.
+- Price alerts: `GET/POST/DELETE /v1/me/price-alerts`, up to 10 active, no duplicates, departures
+  from tomorrow to `MAX_ADVANCE_DAYS`. The worker calls `POST /internal/price-alerts/run` every
+  `PRICE_ALERT_SWEEP_MINUTES` on the rate-limited refresh queue. The API checks up to
+  `PRICE_ALERT_BATCH_SIZE` alerts not checked in `PRICE_ALERT_INTERVAL_HOURS`. Each date is one
+  `cheapestOffer()` call (cached and single-flight with customer searches), and month alerts
+  sample at most four dates a week apart. The fare is priced for the alert's owner, Prime
+  included. The first price seen becomes the baseline that drops are measured from, so an alert
+  without a target never notifies on its first check.
+- Reminders: `POST /internal/reminders/run` sends check-in reminders for confirmed account
+  flights departing within 24 hours (`checkin_reminded_at`). It also sends Prime expiry reminders
+  `PRIME_REMINDER_DAYS` before the paid-up end, skipping a term followed by one bought ahead.
+  Each reminder is claimed with a conditional update, so it goes once.

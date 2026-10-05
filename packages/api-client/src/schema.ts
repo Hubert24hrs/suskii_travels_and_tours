@@ -306,6 +306,43 @@ export interface paths {
         patch: operations["adminUpdatePrimePlan"];
         trace?: never;
     };
+    "/v1/admin/referrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Referrals by status (default: waiting for review) */
+        get: operations["adminListReferrals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/referrals/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or reject a referral in review
+         * @description Approved referrals qualify (or wait for their trip) and are paid by the sweep.
+         */
+        post: operations["adminDecideReferral"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/refunds": {
         parameters: {
             query?: never;
@@ -1715,6 +1752,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/price-alerts/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check due price alerts and notify drops */
+        post: operations["runPriceAlerts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/push-tokens/prune": {
         parameters: {
             query?: never;
@@ -1732,6 +1786,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/referrals/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Qualify referrals on completed trips and pay rewards */
+        post: operations["runReferrals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/refresh-targets": {
         parameters: {
             query?: never;
@@ -1743,6 +1814,23 @@ export interface paths {
         get: operations["listRefreshTargets"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/reminders/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send due check-in and Suskii Prime reminders */
+        post: operations["runReminders"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2063,6 +2151,44 @@ export interface paths {
         patch: operations["updatePreferences"];
         trace?: never;
     };
+    "/v1/me/price-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My price alerts, active first */
+        get: operations["listPriceAlerts"];
+        put?: never;
+        /**
+         * Watch a flight route for a date or a month
+         * @description One adult. Up to 10 active alerts (409 `price-alert-limit`); the same route twice is 409 `price-alert-exists`. Notices follow the price-alert channel choices.
+         */
+        post: operations["createPriceAlert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/price-alerts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Stop a price alert */
+        delete: operations["deletePriceAlert"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/prime": {
         parameters: {
             query?: never;
@@ -2135,6 +2261,26 @@ export interface paths {
         put?: never;
         /** Text a confirmation code (accounts without a password) */
         post: operations["sendReauthCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/referrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My referral code, link and results
+         * @description The code is created on first request. A friend enters it when signing up; the referral counts once their first trip is complete.
+         */
+        get: operations["getMyReferrals"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2737,6 +2883,26 @@ export interface components {
         AdminProductList: {
             products: components["schemas"]["AdminProduct"][];
         };
+        AdminReferral: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            referrerId: string;
+            /** Format: uuid */
+            refereeId: string;
+            code: string;
+            /** @enum {string} */
+            status: "pending" | "qualified" | "rewarded" | "review" | "rejected";
+            flags: string[];
+            qualifyingBookingId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            qualifiedAt: string | null;
+            reviewedAt: string | null;
+        };
+        AdminReferralList: {
+            referrals: components["schemas"]["AdminReferral"][];
+        };
         AdminRefund: {
             /** Format: uuid */
             id: string;
@@ -3283,6 +3449,23 @@ export interface components {
                 daysBefore: number;
                 refundBps: number;
             }[];
+        };
+        CreatePriceAlertInput: {
+            origin: string;
+            destination: string;
+            /** @default null */
+            departureDate?: string | null;
+            /** @default null */
+            departureMonth?: string | null;
+            /**
+             * @default economy
+             * @enum {string}
+             */
+            cabinClass?: "economy" | "premium_economy" | "business" | "first";
+            /** @enum {string} */
+            currency: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            /** @default null */
+            targetMinor?: number | null;
         };
         CreatePrimePlanInput: {
             slug: string;
@@ -4051,6 +4234,29 @@ export interface components {
                 bookingId: string;
             }[];
         };
+        MyReferrals: {
+            code: string;
+            active: boolean;
+            shareUrl: string;
+            counts: {
+                pending: number;
+                qualified: number;
+                rewarded: number;
+                review: number;
+                rejected: number;
+            };
+            rewards: {
+                referrer: components["schemas"]["Money"] | null;
+                referee: components["schemas"]["Money"] | null;
+                minSpend: components["schemas"]["Money"] | null;
+            };
+            referredBy: {
+                /** @enum {string} */
+                status: "pending" | "qualified" | "rewarded" | "review" | "rejected";
+                /** Format: date-time */
+                createdAt: string;
+            } | null;
+        };
         NewsletterConfirmResponse: {
             /** @constant */
             status: "confirmed";
@@ -4185,6 +4391,7 @@ export interface components {
              * @enum {string}
              */
             transport?: "cookie" | "token";
+            referralCode?: string;
         };
         PackageCard: {
             /** Format: uuid */
@@ -4383,6 +4590,35 @@ export interface components {
                 provider: string;
             } | null;
         };
+        PriceAlert: {
+            /** Format: uuid */
+            id: string;
+            origin: string;
+            destination: string;
+            departureDate: string | null;
+            departureMonth: string | null;
+            /** @enum {string} */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            currency: string;
+            target: components["schemas"]["Money"] | null;
+            lastPrice: components["schemas"]["Money"] | null;
+            lastCheckedAt: string | null;
+            lastNotifiedAt: string | null;
+            active: boolean;
+            endsOn: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PriceAlertList: {
+            alerts: components["schemas"]["PriceAlert"][];
+            limit: number;
+        };
+        PriceAlertRun: {
+            checked: number;
+            notified: number;
+            retired: number;
+            failed: number;
+        };
         PriceChange: {
             previous: components["schemas"]["Money"];
             current: components["schemas"]["Money"];
@@ -4517,6 +4753,15 @@ export interface components {
         RedeemVoucherRequestInput: {
             code: string;
         };
+        ReferralDecisionInput: {
+            /** @enum {string} */
+            decision: "approve" | "reject";
+        };
+        ReferralRun: {
+            qualified: number;
+            review: number;
+            rewarded: number;
+        };
         RefreshRequestInput: {
             refreshToken?: string;
         };
@@ -4545,12 +4790,17 @@ export interface components {
             email: string;
             password: string;
             displayName?: string;
+            referralCode?: string;
         };
         RejectRefundRequestInput: {
             reason: string;
         };
         RejectVisaDocumentInput: {
             message: string;
+        };
+        ReminderRun: {
+            checkin: number;
+            prime: number;
         };
         ResetPasswordRequestInput: {
             token: string;
@@ -4622,6 +4872,7 @@ export interface components {
              * @enum {string}
              */
             transport?: "cookie" | "token";
+            referralCode?: string;
         };
         StartPaymentRequestInput: {
             /** @default null */
@@ -5106,7 +5357,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "cancellation_fee";
+                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "cancellation_fee" | "referral_reward";
                 amount: components["schemas"]["Money"];
                 bookingId: string | null;
                 /** Format: date-time */
@@ -5789,6 +6040,67 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListReferrals: {
+        parameters: {
+            query?: {
+                status?: "pending" | "qualified" | "rewarded" | "review" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReferralList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminDecideReferral: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferralDecisionInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8209,6 +8521,31 @@ export interface operations {
             503: components["responses"]["Problem503"];
         };
     };
+    runPriceAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceAlertRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     prunePushTokens: {
         parameters: {
             query?: never;
@@ -8233,6 +8570,31 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    runReferrals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferralRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     listRefreshTargets: {
         parameters: {
             query?: never;
@@ -8249,6 +8611,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefreshTargets"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    runReminders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderRun"];
                 };
             };
             400: components["responses"]["Problem400"];
@@ -8855,6 +9242,91 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    listPriceAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceAlertList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    createPriceAlert: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePriceAlertInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceAlert"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    deletePriceAlert: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getMyPrime: {
         parameters: {
             query?: never;
@@ -8981,6 +9453,30 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getMyReferrals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyReferrals"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

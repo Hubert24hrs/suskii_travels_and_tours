@@ -6,16 +6,25 @@ export interface RequestContext {
   ip: string;
   userAgent?: string;
   requestId?: string;
+  /**
+   * `X-Suskii-Device`: an install id the apps generate and keep (spoofable; used only as a
+   * hashed fraud signal for referrals, ADR-031).
+   */
+  device?: string;
 }
 
 const MAX_USER_AGENT = 256;
+const DEVICE_ID = /^[A-Za-z0-9_-]{8,128}$/;
 
 export function requestContext(request: Request): RequestContext {
   const userAgent = request.headers['user-agent']?.slice(0, MAX_USER_AGENT);
   const requestId = (request as Request & { id?: unknown }).id;
+  const device = request.headers['x-suskii-device'];
+  const deviceId = typeof device === 'string' && DEVICE_ID.test(device) ? device : undefined;
   return {
     ip: request.ip ?? request.socket.remoteAddress ?? 'unknown',
     ...(userAgent ? { userAgent } : {}),
     ...(typeof requestId === 'string' ? { requestId } : {}),
+    ...(deviceId ? { device: deviceId } : {}),
   };
 }

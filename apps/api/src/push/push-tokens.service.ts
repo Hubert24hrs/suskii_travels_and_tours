@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { uuidv7 } from '../common/uuid';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { HmacService } from '../crypto/hmac.service';
-import type { PushPlatform } from '../generated/prisma/client';
+import type { Prisma, PushPlatform } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { PushProvider, type PushMessage } from '../notifications/push';
 
@@ -61,43 +61,61 @@ export class PushTokensService {
       });
       if (!booking) return 0;
       const now = new Date();
-      const rows = await this.prisma.pushToken.findMany({
-        where: {
-          OR: [
-            { bookingId },
-            ...(booking.userId
-              ? [
-                  {
-                    userId: booking.userId,
-                    session: { revokedAt: null, expiresAt: { gt: now } },
-                  },
-                ]
-              : []),
-          ],
-        },
-        select: { id: true, tokenHash: true, tokenEncrypted: true },
-        orderBy: { lastSeenAt: 'desc' },
-      });
-      const devices = new Map<string, string>();
-      for (const row of rows) {
-        if (!devices.has(row.tokenHash))
-          devices.set(row.tokenHash, this.encryption.decrypt(row.tokenEncrypted, context(row.id)));
-      }
-      const targets = [...devices.entries()];
-      if (targets.length === 0) return 0;
-      const results = await this.push.send(targets.map(([, token]) => ({ ...message, to: token })));
-      // An uninstalled app is gone for every scope, not only the rows used for this send.
-      const invalid = targets.filter((_, index) => results[index] === 'invalid-token');
-      if (invalid.length > 0) {
-        await this.prisma.pushToken.deleteMany({
-          where: { tokenHash: { in: invalid.map(([hash]) => hash) } },
-        });
-      }
-      return results.filter((result) => result === 'ok').length;
+      return await this.deliver(
+        [
+          { bookingId },
+          ...(booking.userId
+            ? [{ userId: booking.userId, session: { revokedAt: null, expiresAt: { gt: now } } }]
+            : []),
+        ],
+        message,
+      );
     } catch (error) {
       this.logger.error({ bookingId, reason: (error as Error).name }, 'push delivery failed');
       return 0;
     }
+  }
+
+  /** Sends one message to the devices signed in to the account (ADR-032). Never throws. */
+  async sendToUser(userId: string, message: Omit<PushMessage, 'to'>): Promise<number> {
+    try {
+      const now = new Date();
+      return await this.deliver(
+        [{ userId, session: { revokedAt: null, expiresAt: { gt: now } } }],
+        message,
+      );
+    } catch (error) {
+      this.logger.error({ reason: (error as Error).name }, 'push delivery failed');
+      return 0;
+    }
+  }
+
+  /** One message per distinct device among the matching tokens; drops uninstalled ones. */
+  private async deliver(
+    scopes: Prisma.PushTokenWhereInput[],
+    message: Omit<PushMessage, 'to'>,
+  ): Promise<number> {
+    const rows = await this.prisma.pushToken.findMany({
+      where: { OR: scopes },
+      select: { id: true, tokenHash: true, tokenEncrypted: true },
+      orderBy: { lastSeenAt: 'desc' },
+    });
+    const devices = new Map<string, string>();
+    for (const row of rows) {
+      if (!devices.has(row.tokenHash))
+        devices.set(row.tokenHash, this.encryption.decrypt(row.tokenEncrypted, context(row.id)));
+    }
+    const targets = [...devices.entries()];
+    if (targets.length === 0) return 0;
+    const results = await this.push.send(targets.map(([, token]) => ({ ...message, to: token })));
+    // An uninstalled app is gone for every scope, not only the rows used for this send.
+    const invalid = targets.filter((_, index) => results[index] === 'invalid-token');
+    if (invalid.length > 0) {
+      await this.prisma.pushToken.deleteMany({
+        where: { tokenHash: { in: invalid.map(([hash]) => hash) } },
+      });
+    }
+    return results.filter((result) => result === 'ok').length;
   }
 
   /**

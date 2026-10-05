@@ -1103,6 +1103,126 @@
         }
       }
     },
+    "/v1/admin/referrals": {
+      "get": {
+        "operationId": "adminListReferrals",
+        "summary": "Referrals by status (default: waiting for review)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "review",
+              "type": "string",
+              "enum": [
+                "pending",
+                "qualified",
+                "rewarded",
+                "review",
+                "rejected"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminReferralList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/admin/referrals/{id}/decision": {
+      "post": {
+        "operationId": "adminDecideReferral",
+        "summary": "Approve or reject a referral in review",
+        "description": "Approved referrals qualify (or wait for their trip) and are paid by the sweep.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferralDecisionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/admin/refunds": {
       "get": {
         "operationId": "adminListRefunds",
@@ -6142,6 +6262,48 @@
         }
       }
     },
+    "/v1/internal/price-alerts/run": {
+      "post": {
+        "operationId": "runPriceAlerts",
+        "summary": "Check due price alerts and notify drops",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceAlertRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/push-tokens/prune": {
       "post": {
         "operationId": "prunePushTokens",
@@ -6181,6 +6343,48 @@
         }
       }
     },
+    "/v1/internal/referrals/run": {
+      "post": {
+        "operationId": "runReferrals",
+        "summary": "Qualify referrals on completed trips and pay rewards",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferralRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/refresh-targets": {
       "get": {
         "operationId": "listRefreshTargets",
@@ -6201,6 +6405,48 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RefreshTargets"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/internal/reminders/run": {
+      "post": {
+        "operationId": "runReminders",
+        "summary": "Send due check-in and Suskii Prime reminders",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderRun"
                 }
               }
             }
@@ -7232,6 +7478,148 @@
         }
       }
     },
+    "/v1/me/price-alerts": {
+      "get": {
+        "operationId": "listPriceAlerts",
+        "summary": "My price alerts, active first",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceAlertList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPriceAlert",
+        "summary": "Watch a flight route for a date or a month",
+        "description": "One adult. Up to 10 active alerts (409 `price-alert-limit`); the same route twice is 409 `price-alert-exists`. Notices follow the price-alert channel choices.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePriceAlertInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceAlert"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/price-alerts/{id}": {
+      "delete": {
+        "operationId": "deletePriceAlert",
+        "summary": "Stop a price alert",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/me/prime": {
       "get": {
         "operationId": "getMyPrime",
@@ -7422,6 +7810,41 @@
           },
           "409": {
             "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/referrals": {
+      "get": {
+        "operationId": "getMyReferrals",
+        "summary": "My referral code, link and results",
+        "description": "The code is created on first request. A friend enters it when signing up; the referral counts once their first trip is complete.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyReferrals"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
           },
           "429": {
             "$ref": "#/components/responses/Problem429"
@@ -9865,6 +10288,107 @@
         },
         "required": [
           "products"
+        ],
+        "additionalProperties": false
+      },
+      "AdminReferral": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referrerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "refereeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "qualified",
+              "rewarded",
+              "review",
+              "rejected"
+            ]
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "qualifyingBookingId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "qualifiedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "referrerId",
+          "refereeId",
+          "code",
+          "status",
+          "flags",
+          "qualifyingBookingId",
+          "createdAt",
+          "qualifiedAt",
+          "reviewedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminReferralList": {
+        "type": "object",
+        "properties": {
+          "referrals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminReferral"
+            }
+          }
+        },
+        "required": [
+          "referrals"
         ],
         "additionalProperties": false
       },
@@ -12706,6 +13230,78 @@
           "cityId",
           "nights",
           "cancellationPolicy"
+        ]
+      },
+      "CreatePriceAlertInput": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "departureDate": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "departureMonth": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cabinClass": {
+            "default": "economy",
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "NGN",
+              "USD",
+              "GBP",
+              "EUR",
+              "GHS",
+              "KES",
+              "ZAR"
+            ]
+          },
+          "targetMinor": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 1000000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "currency"
         ]
       },
       "CreatePrimePlanInput": {
@@ -16203,6 +16799,139 @@
         ],
         "additionalProperties": false
       },
+      "MyReferrals": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "shareUrl": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "pending": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "qualified": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "rewarded": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "review": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "rejected": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "pending",
+              "qualified",
+              "rewarded",
+              "review",
+              "rejected"
+            ],
+            "additionalProperties": false
+          },
+          "rewards": {
+            "type": "object",
+            "properties": {
+              "referrer": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "referee": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "minSpend": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "referrer",
+              "referee",
+              "minSpend"
+            ],
+            "additionalProperties": false
+          },
+          "referredBy": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "qualified",
+                      "rewarded",
+                      "review",
+                      "rejected"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "status",
+                  "createdAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "active",
+          "shareUrl",
+          "counts",
+          "rewards",
+          "referredBy"
+        ],
+        "additionalProperties": false
+      },
       "NewsletterConfirmResponse": {
         "type": "object",
         "properties": {
@@ -16852,6 +17581,10 @@
               "cookie",
               "token"
             ]
+          },
+          "referralCode": {
+            "type": "string",
+            "maxLength": 20
           }
         },
         "required": [
@@ -17823,6 +18556,179 @@
         ],
         "additionalProperties": false
       },
+      "PriceAlert": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origin": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "departureDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "departureMonth": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cabinClass": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastCheckedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastNotifiedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "endsOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "origin",
+          "destination",
+          "departureDate",
+          "departureMonth",
+          "cabinClass",
+          "currency",
+          "target",
+          "lastPrice",
+          "lastCheckedAt",
+          "lastNotifiedAt",
+          "active",
+          "endsOn",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "PriceAlertList": {
+        "type": "object",
+        "properties": {
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceAlert"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "alerts",
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "PriceAlertRun": {
+        "type": "object",
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "notified": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "retired": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "checked",
+          "notified",
+          "retired",
+          "failed"
+        ],
+        "additionalProperties": false
+      },
       "PriceChange": {
         "anyOf": [
           {
@@ -18448,6 +19354,47 @@
           "code"
         ]
       },
+      "ReferralDecisionInput": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ]
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "ReferralRun": {
+        "type": "object",
+        "properties": {
+          "qualified": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "review": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "rewarded": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "qualified",
+          "review",
+          "rewarded"
+        ],
+        "additionalProperties": false
+      },
       "RefreshRequestInput": {
         "type": "object",
         "properties": {
@@ -18582,6 +19529,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100
+          },
+          "referralCode": {
+            "type": "string",
+            "maxLength": 20
           }
         },
         "required": [
@@ -18614,6 +19565,26 @@
         "required": [
           "message"
         ]
+      },
+      "ReminderRun": {
+        "type": "object",
+        "properties": {
+          "checkin": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "prime": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "checkin",
+          "prime"
+        ],
+        "additionalProperties": false
       },
       "ResetPasswordRequestInput": {
         "type": "object",
@@ -18940,6 +19911,10 @@
               "cookie",
               "token"
             ]
+          },
+          "referralCode": {
+            "type": "string",
+            "maxLength": 20
           }
         },
         "required": [
@@ -21397,7 +22372,8 @@
                     "refund_settled",
                     "refund_failed",
                     "refund_to_wallet",
-                    "cancellation_fee"
+                    "cancellation_fee",
+                    "referral_reward"
                   ]
                 },
                 "amount": {

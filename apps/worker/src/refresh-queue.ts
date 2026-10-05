@@ -80,6 +80,12 @@ export function createRefreshQueue(
         every(config.SNAPSHOT_PRUNE_INTERVAL_MINUTES),
         { name: JOB.prunePushTokens },
       );
+      // A failed alert run is simply picked up by the next one (the API tracks what is due).
+      await activeQueue.upsertJobScheduler(
+        JOB.priceAlerts,
+        every(config.PRICE_ALERT_SWEEP_MINUTES),
+        { name: JOB.priceAlerts, opts: { attempts: 1, removeOnComplete: 100, removeOnFail: 100 } },
+      );
     },
     async stop() {
       await worker?.close();

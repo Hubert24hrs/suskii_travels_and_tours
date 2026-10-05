@@ -4,7 +4,6 @@ import {
   isMandatoryChannel,
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_CHANNELS,
-  resolvePreferences,
   type NotificationCategory,
   type NotificationChannel,
   type NotificationMatrix,
@@ -16,6 +15,7 @@ import type { Prisma, UserPreference } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 
 import type { NotificationPreferencesDto, PreferencesDto } from './accounts.schemas';
+import { notificationMatrix } from './notification-matrix';
 
 type Tx = Prisma.TransactionClient;
 
@@ -85,17 +85,8 @@ export class PreferencesService {
     return toPreferencesDto(row);
   }
 
-  async matrix(userId: string, tx: Tx | PrismaService = this.prisma): Promise<NotificationMatrix> {
-    const [stored, preference] = await Promise.all([
-      tx.notificationPreference.findMany({ where: { userId } }),
-      tx.userPreference.findUnique({ where: { userId }, select: { marketingConsentAt: true } }),
-    ]);
-    const matrix = resolvePreferences(stored);
-    // Without recorded consent no marketing channel counts, whatever is stored.
-    if (!preference?.marketingConsentAt) {
-      for (const channel of NOTIFICATION_CHANNELS) matrix.marketing[channel] = false;
-    }
-    return matrix;
+  matrix(userId: string, tx: Tx | PrismaService = this.prisma): Promise<NotificationMatrix> {
+    return notificationMatrix(tx, userId);
   }
 
   async notifications(userId: string): Promise<NotificationPreferencesDto> {

@@ -12,6 +12,9 @@ export type PlanRun = components['schemas']['PaymentPlanRun'];
 export type RefundRun = components['schemas']['RefundRun'];
 export type VisaScanRun = components['schemas']['VisaScanRun'];
 export type VisaPruneRun = components['schemas']['VisaPruneRun'];
+export type PriceAlertRun = components['schemas']['PriceAlertRun'];
+export type ReferralRun = components['schemas']['ReferralRun'];
+export type ReminderRun = components['schemas']['ReminderRun'];
 
 /** A failed internal API call. `status` 0 means the API was unreachable or timed out. */
 export class InternalApiError extends Error {
@@ -37,6 +40,8 @@ export interface InternalApi {
   readonly pruneSnapshots: () => Promise<PruneResult>;
   /** Push tokens of ended sessions, closed bookings and stale devices (ADR-022). */
   readonly prunePushTokens: () => Promise<PushTokenPruneResult>;
+  /** Due price alerts: supplier searches, so they run on the rate-limited refresh queue. */
+  readonly runPriceAlerts: () => Promise<PriceAlertRun>;
 }
 
 /**
@@ -53,6 +58,10 @@ export interface BookingsApi {
   readonly scanDueVisaDocuments: () => Promise<VisaScanRun>;
   /** Visa documents past their retention period. */
   readonly pruneVisaDocuments: () => Promise<VisaPruneRun>;
+  /** Check-in and Suskii Prime reminders (ADR-030, ADR-032). */
+  readonly runReminders: () => Promise<ReminderRun>;
+  /** Referral qualification and rewards (ADR-031). */
+  readonly runReferrals: () => Promise<ReferralRun>;
 }
 
 export interface InternalApiOptions {
@@ -66,6 +75,8 @@ export interface InternalApiOptions {
 /** Sweeps that call suppliers or payment providers: the API stops starting calls after 20 s. */
 const TICKETING_TIMEOUT_MS = 120_000;
 const MONEY_SWEEP_TIMEOUT_MS = 90_000;
+/** A batch of price alerts runs a search per distinct route and date (cache hits are quick). */
+const PRICE_ALERT_TIMEOUT_MS = 300_000;
 
 export function createInternalApi(options: InternalApiOptions): InternalApi & BookingsApi {
   const client = createClient<paths>({
@@ -152,5 +163,19 @@ export function createInternalApi(options: InternalApiOptions): InternalApi & Bo
       ),
     pruneVisaDocuments: () =>
       call('pruneVisaDocuments', (signal) => client.POST('/v1/internal/visa/prune', { signal })),
+    runPriceAlerts: () =>
+      call(
+        'runPriceAlerts',
+        (signal) => client.POST('/v1/internal/price-alerts/run', { signal }),
+        PRICE_ALERT_TIMEOUT_MS,
+      ),
+    runReminders: () =>
+      call('runReminders', (signal) => client.POST('/v1/internal/reminders/run', { signal })),
+    runReferrals: () =>
+      call(
+        'runReferrals',
+        (signal) => client.POST('/v1/internal/referrals/run', { signal }),
+        MONEY_SWEEP_TIMEOUT_MS,
+      ),
   };
 }

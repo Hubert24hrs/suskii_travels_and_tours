@@ -24,10 +24,14 @@ export const authTransportSchema = z.enum(['cookie', 'token']);
 export type AuthTransport = z.infer<typeof authTransportSchema>;
 
 /** Registration never signs in directly (account privacy): the client signs in afterwards. */
+/** A referral code as typed or shared; validated and normalised by the API (ADR-031). */
+export const referralCodeInputSchema = z.string().trim().max(20);
+
 export const registerRequestSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   displayName: displayNameSchema.optional(),
+  referralCode: referralCodeInputSchema.optional(),
 });
 export type RegisterRequest = z.input<typeof registerRequestSchema>;
 

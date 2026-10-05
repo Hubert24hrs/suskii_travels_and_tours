@@ -9,6 +9,7 @@ import {
   PASSWORD_MAX_LENGTH,
   passwordSchema,
   phoneSchema,
+  referralCodeInputSchema,
   registerRequestSchema,
   ROLES,
 } from '@suskii/shared';
@@ -187,7 +188,14 @@ export const otpRequestBodySchema = named('OtpRequest', z.object({ phone: phoneS
 
 export const otpVerifyBodySchema = named(
   'OtpVerifyRequest',
-  z.object({ phone: phoneSchema, code: otpCodeSchema, transport }),
+  z.object({
+    phone: phoneSchema,
+    code: otpCodeSchema,
+    transport,
+    referralCode: referralCodeInputSchema
+      .optional()
+      .meta({ description: 'Counts only when this code creates the account (ADR-031).' }),
+  }),
 );
 
 export const socialSignInBodySchema = named(
@@ -201,6 +209,9 @@ export const socialSignInBodySchema = named(
       .optional()
       .meta({ description: 'Apple shares the name only on first sign-in, outside the token.' }),
     transport,
+    referralCode: referralCodeInputSchema
+      .optional()
+      .meta({ description: 'Counts only when this sign-in creates the account (ADR-031).' }),
   }),
 );
 

@@ -5,6 +5,7 @@ import { APP_CONFIG, type AppConfig } from '../config/config';
 import { EmailProvider, MockEmailProvider, SmtpEmailProvider } from './email';
 import { ExpoPushProvider, MockPushProvider, PushProvider } from './push';
 import { MockSmsProvider, SmsProvider } from './sms';
+import { MockWhatsAppProvider, WhatsAppProvider } from './whatsapp';
 
 @Global()
 @Module({
@@ -17,6 +18,8 @@ import { MockSmsProvider, SmsProvider } from './sms';
     },
     // The only SMS adapter until a provider is contracted (SMS_PROVIDER accepts 'mock' only).
     { provide: SmsProvider, useClass: MockSmsProvider },
+    // Likewise for WhatsApp (WHATSAPP_PROVIDER accepts 'mock' only, ADR-032).
+    { provide: WhatsAppProvider, useClass: MockWhatsAppProvider },
     {
       provide: PushProvider,
       inject: [APP_CONFIG],
@@ -29,6 +32,6 @@ import { MockSmsProvider, SmsProvider } from './sms';
           : new MockPushProvider(),
     },
   ],
-  exports: [EmailProvider, SmsProvider, PushProvider],
+  exports: [EmailProvider, SmsProvider, WhatsAppProvider, PushProvider],
 })
 export class NotificationsModule {}

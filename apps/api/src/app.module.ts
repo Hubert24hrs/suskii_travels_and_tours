@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs
 
 import { AccountsModule } from './accounts/accounts.module';
 import { AdminModule } from './admin/admin.module';
+import { AlertsModule } from './alerts/alerts.module';
 import { AttestationGuard } from './attestation/attestation.guard';
 import { AttestationModule } from './attestation/attestation.module';
 import { AuditModule } from './audit/audit.module';
@@ -26,6 +27,7 @@ import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor';
 import { InfraModule } from './infra/redis';
 import { LedgerModule } from './ledger/ledger.module';
 import { LoggingModule } from './logging/logging.module';
+import { MessagingModule } from './messaging/messaging.module';
 import { NewsletterModule } from './newsletter/newsletter.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PricingModule } from './pricing/pricing.module';
@@ -34,6 +36,8 @@ import { PrivacyModule } from './privacy/privacy.module';
 import { PushModule } from './push/push.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
 import { RbacModule } from './rbac/rbac.module';
+import { ReferralsModule } from './referrals/referrals.module';
+import { RemindersModule } from './reminders/reminders.module';
 import { SearchModule } from './search/search.module';
 
 @Module({})
@@ -52,6 +56,7 @@ export class AppModule {
         LedgerModule,
         NotificationsModule,
         PushModule,
+        MessagingModule,
         AttestationModule,
         BotProtectionModule,
         RbacModule,
@@ -69,6 +74,9 @@ export class AppModule {
         AccountsModule,
         PrivacyModule,
         PrimeModule,
+        AlertsModule,
+        ReferralsModule,
+        RemindersModule,
         HealthModule,
       ],
       providers: [
