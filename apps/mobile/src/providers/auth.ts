@@ -13,6 +13,12 @@ export type SignInOutcome =
   | { status: 'locked' }
   | { status: 'error' };
 
+export type CodeRequest =
+  | { status: 'sent'; resendAfterSeconds: number }
+  | { status: 'invalid' }
+  | { status: 'locked' }
+  | { status: 'error' };
+
 const outcomeOf = (status: number): SignInOutcome =>
   status === 401
     ? { status: 'invalid' }
@@ -20,7 +26,7 @@ const outcomeOf = (status: number): SignInOutcome =>
       ? { status: 'locked' }
       : { status: 'error' };
 
-/** Sign-in, MFA, registration and sign-out with token transport (ADR-020). */
+/** Sign-in (password or texted code), MFA, registration and sign-out with token transport. */
 export function useAuth() {
   const { api, session, user, queryClient } = useApp();
 
@@ -54,17 +60,61 @@ export function useAuth() {
     [api, session],
   );
 
+  /** Texts a sign-in code; answers the same whether or not the number has an account. */
+  const requestCode = useCallback(
+    async (phone: string): Promise<CodeRequest> => {
+      const { data, response } = await api.POST('/v1/auth/otp/request', { body: { phone } });
+      if (data) return { status: 'sent', resendAfterSeconds: data.resendAfterSeconds };
+      return response.status === 400
+        ? { status: 'invalid' }
+        : response.status === 429
+          ? { status: 'locked' }
+          : { status: 'error' };
+    },
+    [api],
+  );
+
+  /** Signs in (or creates the account) with a texted code; MFA still applies. */
+  const verifyCode = useCallback(
+    async (phone: string, code: string, referralCode?: string): Promise<SignInOutcome> => {
+      const { data, response } = await api.POST('/v1/auth/otp/verify', {
+        body: {
+          phone,
+          code,
+          transport: 'token',
+          ...(referralCode ? { referralCode } : {}),
+        },
+      });
+      if (!data) return outcomeOf(response.status);
+      if (data.status === 'mfa_required') return { status: 'mfa', challenge: data };
+      await session.save(data);
+      return { status: 'signed-in' };
+    },
+    [api, session],
+  );
+
   const register = useCallback(
-    async (email: string, password: string): Promise<'accepted' | 'invalid' | 'error'> => {
+    async (
+      email: string,
+      password: string,
+      referralCode?: string,
+    ): Promise<'accepted' | 'invalid' | 'error'> => {
       const attestation = await attestationHeader(api);
       const { response } = await api.POST('/v1/auth/register', {
         params: attestation ? { header: { 'X-Suskii-Attestation': attestation } } : {},
-        body: { email, password },
+        body: { email, password, ...(referralCode ? { referralCode } : {}) },
       });
       return response.status === 202 ? 'accepted' : response.status < 500 ? 'invalid' : 'error';
     },
     [api],
   );
+
+  /** Forgets the account on this phone: account trips, cached queries and tokens. */
+  const forgetAccount = useCallback(async (): Promise<void> => {
+    tripStore.forgetAccount();
+    queryClient.clear();
+    await session.clear();
+  }, [session, queryClient]);
 
   /** Stops account pushes, revokes the refresh token, then forgets the account locally. */
   const signOut = useCallback(async (): Promise<void> => {
@@ -75,10 +125,8 @@ export function useAuth() {
     } catch {
       // Offline: the session expires on the server; local state goes regardless.
     }
-    tripStore.forgetAccount();
-    queryClient.clear();
-    await session.clear();
-  }, [api, session, queryClient]);
+    await forgetAccount();
+  }, [api, session, forgetAccount]);
 
-  return { user, signIn, verifyMfa, register, signOut };
+  return { user, signIn, verifyMfa, requestCode, verifyCode, register, signOut, forgetAccount };
 }

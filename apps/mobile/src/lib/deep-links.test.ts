@@ -96,9 +96,14 @@ describe('queryInput', () => {
 });
 
 describe('resolveNotificationPath', () => {
-  it('accepts trip paths only', () => {
+  it('accepts trip paths and a few fixed screens only', () => {
     expect(resolveNotificationPath(`/trips/${ID.toUpperCase()}`)).toBe(`/trips/${ID}`);
-    expect(resolveNotificationPath('/account')).toBeNull();
+    expect(resolveNotificationPath('/account')).toBe('/account');
+    expect(resolveNotificationPath('/account/alerts')).toBe('/account/alerts');
+    expect(resolveNotificationPath('/prime')).toBe('/prime');
+    expect(resolveNotificationPath('/account/privacy')).toBeNull();
+    expect(resolveNotificationPath('/account/alerts?next=https://evil.example')).toBeNull();
+    expect(resolveNotificationPath('/alerts')).toBeNull();
     expect(resolveNotificationPath(`https://evil.example/trips/${ID}`)).toBeNull();
     expect(resolveNotificationPath({ path: `/trips/${ID}` })).toBeNull();
     expect(resolveNotificationPath(undefined)).toBeNull();

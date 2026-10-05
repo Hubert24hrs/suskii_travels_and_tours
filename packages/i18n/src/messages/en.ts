@@ -814,15 +814,10 @@ export const en = {
       empty: 'No deals right now. Check back soon.',
     },
     prime: {
-      title: 'Suskii Prime',
-      badge: 'Coming soon',
-      body: 'Suskii Prime is our membership for frequent travellers. It is not available yet.',
-      benefitsHeading: 'What members will get',
-      benefitPrices: 'Member prices on selected bookings',
-      benefitFees: 'Service fee waivers',
-      benefitSupport: 'Priority support',
-      benefitWallet: 'Bonus wallet credit',
-      notice: 'Prices and terms will be announced before memberships open.',
+      memberBadge: 'Member',
+      joinTitle: 'Join {plan}',
+      payNote:
+        'You pay on the payment provider’s secure page. Your term starts once the payment is confirmed.',
     },
     account: {
       signedOutBody: 'Sign in to see your trips on any device and get booking updates.',
@@ -838,6 +833,13 @@ export const en = {
       turnOn: 'Turn on notifications',
       privacy: 'Your trips and saved documents are stored encrypted on this phone.',
       version: 'Version {version}',
+      sections: 'Your account',
+      unknownDevice: 'Unknown device',
+      exportHint:
+        'The file opens in the share sheet so you can save it. The app deletes its copy afterwards.',
+      exportShared: 'Your data file is ready.',
+      referralShare: 'Share your invite',
+      referralMessage: 'Join me on Suskii with my invite code {code}: {url}',
     },
     auth: {
       signInTitle: 'Sign in',
@@ -859,6 +861,11 @@ export const en = {
       mfaCode: 'Code',
       mfaSubmit: 'Verify',
       mfaInvalid: 'That code did not work. Try again.',
+      usePhone: 'Use your mobile number instead',
+      useEmail: 'Use your email instead',
+      phoneInvalid: 'Enter the number with its country code, for example +234 801 234 5678.',
+      codeInvalid: 'That code is wrong or has expired.',
+      referralInvalid: 'That invite code does not look right. Check it or leave it empty.',
     },
   },
   inhouse: {

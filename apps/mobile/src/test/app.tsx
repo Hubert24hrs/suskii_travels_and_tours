@@ -4,7 +4,7 @@ import type { ReactElement } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { openSecureCache } from '../lib/cache';
-import { SessionStore, type RefreshOutcome } from '../lib/session';
+import { SessionStore, type AuthUser, type RefreshOutcome } from '../lib/session';
 import { AppProvider } from '../providers/app-provider';
 
 type Handler = (request: Request) => Response | Promise<Response>;
@@ -46,6 +46,35 @@ export function mockApi(routes: Record<string, Handler>): { calls: Request[] } {
 export const guestSession = (
   refresh: (token: string) => Promise<RefreshOutcome> = () => Promise.resolve('unavailable'),
 ): SessionStore => new SessionStore(refresh);
+
+export const USER_ID = '0192d3a0-7c1e-7b2a-9f00-00000000c001';
+
+/** A session signed in as a customer (tokens in the mocked secure store). */
+export async function signedInSession(user: Partial<AuthUser> = {}): Promise<SessionStore> {
+  await openSecureCache();
+  const session = guestSession();
+  await session.save({
+    status: 'authenticated',
+    sessionId: '0192d3a0-7c1e-7b2a-9f00-00000000c002',
+    accessTokenExpiresAt: '2026-10-05T10:15:00.000Z',
+    refreshTokenExpiresAt: '2026-11-04T10:00:00.000Z',
+    accessToken: 'access-token',
+    refreshToken: 'refresh-token',
+    user: {
+      id: USER_ID,
+      email: 'ada@example.com',
+      emailVerified: true,
+      phone: '+2348012345678',
+      phoneVerified: true,
+      displayName: 'Ada Okafor',
+      roles: ['customer'],
+      mfaEnabled: false,
+      hasPassword: true,
+      ...user,
+    },
+  });
+  return session;
+}
 
 /** Renders a screen inside the app's providers, with the encrypted cache open. */
 export async function renderWithApp(

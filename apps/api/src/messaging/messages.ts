@@ -46,7 +46,7 @@ export function priceAlertMessage(details: PriceAlertDetails): NotificationConte
     push: {
       title: `${route}: ${price}`,
       body: 'Your price alert found a lower fare.',
-      path: '/alerts',
+      path: '/account/alerts',
     },
   };
 }

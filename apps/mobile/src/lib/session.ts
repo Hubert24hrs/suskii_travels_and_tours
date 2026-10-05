@@ -61,6 +61,14 @@ export class SessionStore {
     this.notify();
   }
 
+  /** Keeps the offline profile in step after the account changes it (name, phone). */
+  replaceUser(user: AuthUser): void {
+    if (!this.refreshValue) return;
+    this.user = user;
+    writeJson(secureCache(), USER_KEY, user);
+    this.notify();
+  }
+
   async clear(): Promise<void> {
     this.access = undefined;
     this.refreshValue = undefined;

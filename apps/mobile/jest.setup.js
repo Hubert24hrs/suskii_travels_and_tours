@@ -124,6 +124,19 @@ jest.mock('expo-file-system', () => {
     bytes() {
       return Promise.resolve(contents.get(this.uri) ?? new Uint8Array());
     }
+    text() {
+      return Promise.resolve(new TextDecoder().decode(contents.get(this.uri) ?? new Uint8Array()));
+    }
+    create() {
+      files.add(this.uri);
+    }
+    write(content) {
+      files.add(this.uri);
+      contents.set(
+        this.uri,
+        typeof content === 'string' ? new TextEncoder().encode(content) : content,
+      );
+    }
     delete() {
       files.delete(this.uri);
       contents.delete(this.uri);
@@ -138,5 +151,9 @@ jest.mock('expo-file-system', () => {
     files.add(destination.uri);
     return Promise.resolve(destination);
   });
-  return { File, Directory, Paths: { document: { uri: 'file:///data/documents' } } };
+  return {
+    File,
+    Directory,
+    Paths: { document: { uri: 'file:///data/documents' }, cache: { uri: 'file:///data/cache' } },
+  };
 });

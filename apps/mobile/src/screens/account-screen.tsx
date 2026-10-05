@@ -1,17 +1,55 @@
+import { color } from '@suskii/design-tokens';
 import { useFormatters } from '@suskii/i18n/react';
 import { SUPPORTED_CURRENCIES } from '@suskii/shared';
-import { Button, Card, SegmentedControl, useToast } from '@suskii/ui-native';
+import { Button, Card, iconSize, SegmentedControl, useToast } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
+import { ChevronRight } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { appConfig } from '../config';
 import { followAccount } from '../lib/push';
 import { useApp, useT } from '../providers/app-provider';
 import { useAuth } from '../providers/auth';
 
-/** Account: sign-in state, wallet balance, notifications, currency and sign-out. */
+/** The account screens reachable from the hub, in the order they are listed. */
+const SECTIONS = [
+  ['profile', 'account.nav.overview'],
+  ['notifications', 'account.nav.notifications'],
+  ['sessions', 'account.security.sessions.heading'],
+  ['referrals', 'account.nav.referrals'],
+  ['alerts', 'account.nav.alerts'],
+  ['privacy', 'account.nav.privacy'],
+] as const;
+
+function SectionRow({
+  label,
+  onPress,
+  testID,
+}: {
+  label: string;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      className="min-h-12 flex-row items-center justify-between border-t border-border py-3"
+    >
+      <Text className="font-body text-body text-foreground">{label}</Text>
+      <ChevronRight color={color.muted} size={iconSize.md} />
+    </Pressable>
+  );
+}
+
+/**
+ * Account hub: sign-in state, wallet balance, the account screens (profile, notifications,
+ * devices, invitations, price alerts, your data), push notifications, currency and sign-out.
+ */
 export function AccountScreen() {
   const { api, currency, setCurrency } = useApp();
   const { user, signOut } = useAuth();
@@ -80,6 +118,22 @@ export function AccountScreen() {
           </Button>
         </Card>
       )}
+
+      {user ? (
+        <Card className="gap-1 p-4">
+          <Text accessibilityRole="header" className="pb-2 font-heading text-h4 text-heading">
+            {t('mobile.account.sections')}
+          </Text>
+          {SECTIONS.map(([path, label]) => (
+            <SectionRow
+              key={path}
+              testID={`account-row-${path}`}
+              label={t(label)}
+              onPress={() => router.push(`/account/${path}` as Href)}
+            />
+          ))}
+        </Card>
+      ) : null}
 
       {user ? (
         <Card className="gap-3 p-4">

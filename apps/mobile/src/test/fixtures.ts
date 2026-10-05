@@ -1,5 +1,9 @@
 import type { Schemas } from '@suskii/api-client';
-import { BOOKING_TERMS_VERSION } from '@suskii/shared';
+import {
+  BOOKING_TERMS_VERSION,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_CHANNELS,
+} from '@suskii/shared';
 
 type Booking = Schemas['Booking'];
 type Slice = Schemas['FlightSlice'];
@@ -417,3 +421,98 @@ export const addonCard: Schemas['AddonCard'] = {
   requiredDetails: ['dates_of_birth'],
   cancellationPolicy: tiers,
 };
+
+// ---------------------------------------------------------------------------
+// Accounts, Suskii Prime, referrals and price alerts (phase 9)
+// ---------------------------------------------------------------------------
+
+/** Defaults from the notification matrix: booking and payment email are mandatory. */
+export function notificationPreferences(
+  patch: Partial<Schemas['NotificationPreferences']> = {},
+): Schemas['NotificationPreferences'] {
+  const categories = NOTIFICATION_CATEGORIES;
+  const channels = NOTIFICATION_CHANNELS;
+  return {
+    preferences: categories.flatMap((category) =>
+      channels.map((channel) => {
+        const mandatory = channel === 'email' && (category === 'booking' || category === 'payment');
+        return {
+          category,
+          channel,
+          mandatory,
+          enabled: mandatory || (channel === 'email' && category !== 'marketing'),
+        };
+      }),
+    ),
+    phoneVerified: true,
+    marketingConsent: false,
+    ...patch,
+  };
+}
+
+export const PLAN_ID = '0192d3a0-7c1e-7b2a-9f00-00000000b001';
+export const primePlan: Schemas['PrimePlan'] = {
+  id: PLAN_ID,
+  slug: 'suskii-prime-sample',
+  name: 'Suskii Prime (sample)',
+  summary: 'Member prices, no service fee and priority support for a year.',
+  period: 'year',
+  price: ngn(2_500_000),
+  prices: [ngn(2_500_000)],
+  benefits: { memberFares: true, waivedFeeCodes: ['service_fee'], prioritySupport: true },
+  sample: true,
+};
+
+export const myReferrals: Schemas['MyReferrals'] = {
+  code: 'K7Q2MXRA',
+  active: true,
+  shareUrl: 'https://suskii.example/register?ref=K7Q2MXRA',
+  counts: { pending: 2, qualified: 1, rewarded: 0, review: 0, rejected: 0 },
+  rewards: { referrer: ngn(200_000), referee: ngn(100_000), minSpend: null },
+  referredBy: null,
+};
+
+export const ALERT_ID = '0192d3a0-7c1e-7b2a-9f00-00000000b101';
+export const priceAlert: Schemas['PriceAlert'] = {
+  id: ALERT_ID,
+  origin: 'LOS',
+  destination: 'DXB',
+  departureDate: '2026-12-10',
+  departureMonth: null,
+  cabinClass: 'economy',
+  currency: 'NGN',
+  target: null,
+  lastPrice: ngn(65_000_000),
+  lastCheckedAt: '2026-10-05T06:00:00.000Z',
+  lastNotifiedAt: null,
+  active: true,
+  endsOn: '2026-12-10',
+  createdAt: '2026-10-01T09:00:00.000Z',
+};
+
+export const MEMBERSHIP_BOOKING_ID = '0192d3a0-7c1e-7b2a-9f00-00000000b201';
+/** A Suskii Prime membership booking: no flight, one member, a term once confirmed. */
+export function membershipBooking(patch: Partial<Booking> = {}): Booking {
+  return booking({
+    id: MEMBERSHIP_BOOKING_ID,
+    reference: 'SKPR1M',
+    vertical: 'prime',
+    flight: null,
+    passengers: [],
+    documents: [],
+    membership: {
+      product: {
+        id: PLAN_ID,
+        slug: primePlan.slug,
+        title: primePlan.name,
+        sample: true,
+        artKey: null,
+      },
+      summary: primePlan.summary,
+      period: 'year',
+      benefits: primePlan.benefits,
+      term: { startsAt: '2026-10-05T10:00:00.000Z', endsAt: '2027-10-05T10:00:00.000Z' },
+    },
+    ...patch,
+  });
+}

@@ -124,9 +124,18 @@ export function resolveIncomingUrl(raw: string, webHost: string | null): Incomin
   return web === HOME ? appPath(parts) : web;
 }
 
-/** Notification data carries only an in-app trip path (ADR-022). */
+/** Fixed screens a notification may open besides a trip (Prime, account, price alerts). */
+const NOTIFICATION_SCREENS = new Set([
+  '/prime',
+  '/account',
+  '/account/alerts',
+  '/account/referrals',
+]);
+
+/** Notification data carries an in-app trip path or one of a few fixed screens (ADR-022). */
 export function resolveNotificationPath(path: unknown): string | null {
   if (typeof path !== 'string') return null;
+  if (NOTIFICATION_SCREENS.has(path)) return path;
   const match = /^\/trips\/([0-9a-f-]{36})$/i.exec(path);
   return match?.[1] && UUID.test(match[1]) ? `/trips/${match[1].toLowerCase()}` : null;
 }

@@ -333,6 +333,25 @@ export function TripScreen() {
 
         {booking.voucher ? <VoucherCard voucher={booking.voucher} /> : null}
 
+        {booking.membership ? (
+          <Card testID="trip-membership" className="gap-2 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.membership.heading')}
+            </Text>
+            <Text className="font-body-bold text-body text-foreground">
+              {booking.membership.product.title}
+            </Text>
+            <Text className="font-body text-body text-foreground">
+              {booking.membership.term
+                ? t('booking.membership.term', {
+                    start: format.date(booking.membership.term.startsAt.slice(0, 10)),
+                    end: format.date(booking.membership.term.endsAt.slice(0, 10)),
+                  })
+                : t('booking.membership.pending')}
+            </Text>
+          </Card>
+        ) : null}
+
         {inhouseKind(booking) ? (
           <Card className="gap-3 p-4">
             <Text accessibilityRole="header" className="font-heading text-h4 text-heading">

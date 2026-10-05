@@ -40,7 +40,7 @@ function useBootstrap(): SessionStore | null {
   return session;
 }
 
-/** A tapped notification opens its trip; only validated trip paths are followed (ADR-022). */
+/** A tapped notification opens its trip or a fixed screen; only validated paths are followed. */
 function useNotificationTaps(): void {
   const router = useRouter();
   useEffect(() => {
@@ -77,6 +77,18 @@ function Screens() {
       <Stack.Screen name="packages/[slug]" options={{ title: '' }} />
       <Stack.Screen name="tours/index" options={{ title: t('mobile.search.titles.tours') }} />
       <Stack.Screen name="tours/[slug]" options={{ title: '' }} />
+      <Stack.Screen name="account/profile" options={{ title: t('account.nav.overview') }} />
+      <Stack.Screen
+        name="account/notifications"
+        options={{ title: t('account.nav.notifications') }}
+      />
+      <Stack.Screen
+        name="account/sessions"
+        options={{ title: t('account.security.sessions.heading') }}
+      />
+      <Stack.Screen name="account/referrals" options={{ title: t('account.nav.referrals') }} />
+      <Stack.Screen name="account/alerts" options={{ title: t('account.nav.alerts') }} />
+      <Stack.Screen name="account/privacy" options={{ title: t('account.nav.privacy') }} />
       <Stack.Screen
         name="sign-in"
         options={{ presentation: 'modal', title: t('mobile.auth.signInTitle') }}

@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { FlightOfferCard } from '../components/results/flight-offer-card';
+import { WatchRoute } from '../components/results/watch-route';
 import { Loading, Notice } from '../components/states';
 import { useApp, useT } from '../providers/app-provider';
 
@@ -233,6 +234,7 @@ export function FlightResultsScreen() {
             {first?.status === 'partial' ? (
               <Text className="font-body text-body-sm text-foreground">{t('results.partial')}</Text>
             ) : null}
+            <WatchRoute request={request} currency={currency} />
           </View>
         }
         ListEmptyComponent={
