@@ -160,6 +160,19 @@ sessions with revocation, saved travellers, the wallet and its ledger, push toke
      a deleted account can no longer sign in. Mobile Jest: export through the share sheet with
      the cache copy deleted, blockers, deletion and local sign-out.
 
+### CI
+
+Green on commit 5448075: CI run 37388992036 (format, lint, typecheck, unit tests, API e2e, web
+e2e and Lighthouse, OpenAPI check, builds, mobile bundle scan, Tailwind classes, Storybook). Mobile
+run 37387443008 passed on 338b9ba (release APK through the Maestro critical path and offline flow
+on an Android emulator, and the iOS simulator build); the two later commits change only a worker
+test and the web e2e axe helper.
+
+Two CI-only findings were fixed on the way: the Redis-backed worker queue test (it runs only with
+`TEST_REDIS_URL`) did not expect the new price alert scheduler, and the axe helper ran in the gap
+before Next's streamed `<title>` arrived after a client-side navigation; it now waits for the
+title.
+
 ### Deviations from the plan
 
 - **The export is `POST /v1/me/data-export`**, not GET: the re-authentication proof travels in
