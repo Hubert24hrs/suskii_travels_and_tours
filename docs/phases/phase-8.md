@@ -170,6 +170,12 @@ existing booking.
      visa officer (MFA staff session) gets an own link. The web journey checks a tampered link
      answers 404. Every link and access is audited; files are wiped after the retention period.
 
+### CI
+
+Green on commit ab2c63b: CI run 37312950144 (lint, typecheck, unit tests, builds, API and web
+e2e) and Mobile run 37312953375 (release APK with the new document picker module through the
+Maestro critical path and offline flow on an Android emulator, and the iOS simulator build).
+
 ### Deviations from the plan
 
 - **Mobile went further than planned.** The app uploads visa documents from the system picker
