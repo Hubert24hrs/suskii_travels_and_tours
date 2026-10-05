@@ -6,7 +6,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { openHostedCheckout } from '../lib/payment';
 import { tripStore } from '../lib/trips';
 import { json, mockApi, renderWithApp } from '../test/app';
-import { BOOKING_ID, QUOTE_ID, booking, countries, flightQuote } from '../test/fixtures';
+import {
+  BOOKING_ID,
+  QUOTE_ID,
+  booking,
+  countries,
+  flightQuote,
+  inhouseQuote,
+} from '../test/fixtures';
 
 import { CheckoutScreen } from './checkout-screen';
 
@@ -153,5 +160,45 @@ describe('CheckoutScreen', () => {
     const consent = calls.find((request) => request.url.endsWith('/price-consent'));
     expect(await consent?.json()).toEqual({ total: change.current });
     expect(calls.filter((request) => request.url.endsWith('/v1/bookings'))).toHaveLength(1);
+  });
+
+  it('asks for passports for a package abroad and shows the product, not a fare', async () => {
+    mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(inhouseQuote('package')),
+      'GET /v1/catalog/countries': () => json(countries),
+    });
+    await renderWithApp(<CheckoutScreen />);
+
+    expect(await screen.findByTestId('inhouse-package')).toHaveTextContent(/Zanzibar beach break/);
+    expect(screen.getByText(m.checkout.passportRequired)).toBeOnTheScreen();
+    expect(screen.getByTestId('passengers.0.passportNumber')).toBeOnTheScreen();
+    expect(screen.getByText(m.checkout.basePrice)).toBeOnTheScreen();
+    // In-house prices carry no separate taxes line when there are none.
+    expect(screen.queryByText(m.checkout.taxes)).toBeNull();
+    expect(screen.getByTestId('checkout-total')).toHaveTextContent(/1,250,000/);
+  });
+
+  it('books a tour without passport details and sends no add-on details', async () => {
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(inhouseQuote('tour')),
+      'GET /v1/catalog/countries': () => json(countries),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }), accessToken: TOKEN }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/payments`]: () => json(paymentSession, 201),
+    });
+    await renderWithApp(<CheckoutScreen />);
+    expect(await screen.findByTestId('inhouse-tour')).toBeOnTheScreen();
+    expect(screen.queryByTestId('passengers.0.passportNumber')).toBeNull();
+
+    await fillTraveller();
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/trips/${BOOKING_ID}`));
+    const create = calls.find((request) => request.url.endsWith('/v1/bookings'));
+    const body = (await create?.json()) as { passengers: unknown[]; addonDetails?: unknown };
+    expect(body.passengers).toHaveLength(1);
+    expect(body).not.toHaveProperty('addonDetails');
   });
 });

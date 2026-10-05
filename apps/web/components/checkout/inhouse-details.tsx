@@ -50,7 +50,7 @@ export function CancellationTiers({ tiers }: { tiers: readonly Tier[] }) {
               <li key={tier.daysBefore}>
                 {tier.daysBefore === 0
                   ? t('booking.inhouse.tierSameDay', { percent })
-                  : t('booking.inhouse.tier', { percent, days: tier.daysBefore })}
+                  : t('booking.inhouse.tier', { percent, count: tier.daysBefore })}
               </li>
             );
           })}

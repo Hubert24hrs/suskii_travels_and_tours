@@ -209,3 +209,206 @@ export const countries: Schemas['Countries'] = {
     { code: 'GH', name: 'Ghana', continent: 'AF' },
   ],
 };
+
+// ---------------------------------------------------------------------------
+// In-house products (ADR-025 to ADR-028)
+// ---------------------------------------------------------------------------
+
+export const PACKAGE_DEPARTURE_ID = '0192d3a0-7c1e-7b2a-9f00-00000000e001';
+export const FULL_DEPARTURE_ID = '0192d3a0-7c1e-7b2a-9f00-00000000e002';
+export const APPLICATION_ID = '0192d3a0-7c1e-7b2a-9f00-00000000f001';
+export const ADDON_ID = '0192d3a0-7c1e-7b2a-9f00-00000000f101';
+
+const product = (title: string, slug: string) => ({
+  id: '0192d3a0-7c1e-7b2a-9f00-00000000c001',
+  slug,
+  title,
+  sample: true,
+  artKey: null,
+});
+const tiers = [
+  { daysBefore: 30, refundBps: 10_000 },
+  { daysBefore: 7, refundBps: 5_000 },
+  { daysBefore: 0, refundBps: 0 },
+];
+const perPerson = (adult: number, child: number | null) => ({
+  adult: ngn(adult),
+  child: child === null ? null : ngn(child),
+  infant: null,
+});
+
+/** A sample Zanzibar package with one open departure and one with a single seat left. */
+export const packageDetail: Schemas['PackageDetail'] = {
+  ...product('Zanzibar beach break', 'sample-zanzibar-beach-break'),
+  summary: '5 nights in Zanzibar.',
+  featured: true,
+  cityId: '0192d3a0-7c1e-7b2a-9f00-00000000c0c1',
+  cityName: 'Zanzibar',
+  countryCode: 'TZ',
+  nights: 5,
+  passportRequired: true,
+  highlights: ['Stone Town walk'],
+  itinerary: [{ day: 1, title: 'Arrival', body: 'Transfer to the hotel.' }],
+  inclusions: ['Return flights'],
+  exclusions: ['Visa fees'],
+  cancellationPolicy: tiers,
+  departures: [
+    {
+      id: PACKAGE_DEPARTURE_ID,
+      startDate: '2026-11-14',
+      endDate: '2026-11-19',
+      seatsLeft: 20,
+      prices: perPerson(125_000_000, 95_000_000),
+      bookable: true,
+    },
+    {
+      id: FULL_DEPARTURE_ID,
+      startDate: '2026-12-14',
+      endDate: '2026-12-19',
+      seatsLeft: 1,
+      prices: perPerson(125_000_000, 95_000_000),
+      bookable: false,
+    },
+  ],
+};
+
+const packageItem: Schemas['PackageItem'] = {
+  product: product('Zanzibar beach break', 'sample-zanzibar-beach-break'),
+  departureId: PACKAGE_DEPARTURE_ID,
+  cityName: 'Zanzibar',
+  countryCode: 'TZ',
+  nights: 5,
+  startDate: '2026-11-14',
+  endDate: '2026-11-19',
+  passportRequired: true,
+  inclusions: ['Return flights'],
+  travellers: { adults: 1, children: 0, infants: 0 },
+  cancellationPolicy: tiers,
+};
+
+const tourItem: Schemas['TourItem'] = {
+  product: product('Dubai desert evening', 'sample-dubai-desert-evening'),
+  departureId: '0192d3a0-7c1e-7b2a-9f00-00000000e101',
+  cityName: 'Dubai',
+  countryCode: 'AE',
+  timeZone: 'Asia/Dubai',
+  startsAtLocal: '2026-11-07T15:30',
+  startsAt: '2026-11-07T11:30:00.000Z',
+  durationMinutes: 360,
+  meetingPoint: { name: 'Marina gate', address: 'Dubai Marina', notes: null },
+  inclusions: ['Guide'],
+  travellers: { adults: 1, children: 0, infants: 0 },
+  cancellationPolicy: [{ daysBefore: 2, refundBps: 10_000 }],
+};
+
+const inhousePrice = (amount: number): Schemas['Price'] => ({
+  currency: 'NGN',
+  fare: ngn(amount),
+  taxes: ngn(0),
+  fees: [],
+  discount: null,
+  total: ngn(amount),
+  fx: null,
+});
+
+/** A one-adult quote for the sample package (passports required) or tour (none asked). */
+export function inhouseQuote(kind: 'package' | 'tour'): Schemas['Quote'] {
+  return {
+    ...flightQuote(),
+    vertical: kind === 'package' ? 'packages' : 'tours',
+    flight: null,
+    package: kind === 'package' ? packageItem : null,
+    tour: kind === 'tour' ? tourItem : null,
+    price: inhousePrice(kind === 'package' ? 125_000_000 : 9_500_000),
+  };
+}
+
+/** A confirmed sample tour with its voucher, cancellable under the policy. */
+export function tourBooking(patch: Partial<Booking> = {}): Booking {
+  return booking({
+    reference: 'DQPFWY',
+    vertical: 'tours',
+    flight: null,
+    tour: tourItem,
+    price: { ...inhousePrice(9_500_000), extras: [] },
+    paid: ngn(9_500_000),
+    voucher: {
+      code: 'U3N8-DCNR-NXZS-NXDA-293G',
+      qrPayload: 'SUSKII-V1:U3N8DCNRNXZSNXDA293G',
+      redeemedAt: null,
+    },
+    cancellation: { refundBps: 10_000, refund: ngn(9_500_000) },
+    documents: [],
+    passengers: [
+      {
+        position: 0,
+        type: 'adult',
+        title: 'mr',
+        givenNames: 'CHINEDU',
+        surname: 'OKAFOR',
+        dateOfBirth: '1985-02-10',
+        roomIndex: null,
+        document: null,
+        ticketNumber: null,
+        extraBags: 0,
+      },
+    ],
+    ...patch,
+  });
+}
+
+/** A visa application waiting for its two documents (one optional). */
+export function visaApplication(
+  patch: Partial<Schemas['VisaApplication']> = {},
+): Schemas['VisaApplication'] {
+  return {
+    id: APPLICATION_ID,
+    bookingId: BOOKING_ID,
+    applicantPosition: 0,
+    applicantName: 'ADA OKAFOR',
+    status: 'awaiting_documents',
+    destination: 'AE',
+    purpose: 'tourism',
+    travelDate: '2026-11-14',
+    submittedAt: null,
+    closedAt: null,
+    checklist: [
+      {
+        key: 'passport_bio',
+        label: 'Passport bio page',
+        description: 'A clear scan of the photo page.',
+        required: true,
+        document: null,
+      },
+      {
+        key: 'invitation',
+        label: 'Invitation letter',
+        description: '',
+        required: false,
+        document: null,
+      },
+    ],
+    messages: [],
+    canUpload: true,
+    canSubmit: false,
+    disclaimer: 'The issuing government decides.',
+    ...patch,
+  };
+}
+
+export const addonCard: Schemas['AddonCard'] = {
+  id: ADDON_ID,
+  slug: 'sample-travel-insurance',
+  title: 'Travel insurance (sample)',
+  summary: 'Medical and trip cover.',
+  artKey: null,
+  sample: true,
+  type: 'insurance',
+  description: '',
+  countryCodes: [],
+  pricingBasis: 'per_person_per_day',
+  unitPrice: ngn(150_000),
+  maxTravellers: 9,
+  requiredDetails: ['dates_of_birth'],
+  cancellationPolicy: tiers,
+};

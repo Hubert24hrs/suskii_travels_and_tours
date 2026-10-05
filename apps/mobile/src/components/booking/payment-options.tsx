@@ -96,11 +96,14 @@ export function InstallmentSchedule({
 
 /** Pay now, reserve and pay later, or installments, as the fare allows and never with extras. */
 export function PlanChoice({
+  vertical = 'flights',
   options,
   value,
   onChange,
   extrasSelected,
 }: {
+  /** Packages hold our own places (ADR-028); other in-house products issue a voucher. */
+  vertical?: Schemas['Quote']['vertical'];
   options: Options;
   value: PlanChoiceValue;
   onChange: (value: PlanChoiceValue) => void;
@@ -119,7 +122,11 @@ export function PlanChoice({
       <Radio
         testID="plan-full"
         label={t('checkout.plan.full')}
-        hint={t('checkout.plan.fullHint')}
+        hint={
+          vertical === 'flights' || vertical === 'hotels'
+            ? t('checkout.plan.fullHint')
+            : t('checkout.plan.fullHintVoucher')
+        }
         checked={value === 'full'}
         onPress={() => onChange('full')}
       />
@@ -127,7 +134,10 @@ export function PlanChoice({
         <Radio
           testID="plan-hold"
           label={t('checkout.plan.hold')}
-          hint={t('checkout.plan.holdHint', { deadline: format.dateTime(hold.deadline) })}
+          hint={t(
+            vertical === 'packages' ? 'checkout.plan.holdHintPackage' : 'checkout.plan.holdHint',
+            { deadline: format.dateTime(hold.deadline) },
+          )}
           checked={value === 'hold'}
           onPress={() => onChange('hold')}
         />
@@ -136,7 +146,12 @@ export function PlanChoice({
         <Radio
           testID="plan-installments"
           label={t('checkout.plan.installments')}
-          hint={t('checkout.plan.installmentsHint', { count: installments.schedule.length })}
+          hint={t(
+            vertical === 'packages'
+              ? 'checkout.plan.installmentsHintPackage'
+              : 'checkout.plan.installmentsHint',
+            { count: installments.schedule.length },
+          )}
           checked={value === 'installments'}
           onPress={() => onChange('installments')}
         >

@@ -2,14 +2,17 @@ import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
 import {
   BOOKING_TERMS_VERSION,
-  emptyPassenger,
+  FLIGHT_NUMBER_PATTERN,
   flightFacts,
+  inhouseFacts,
   normalisePassport,
   normalisePhone,
+  passengerDrafts,
   validateCheckout,
   type CheckoutDraft,
   type CheckoutIssue,
   type FieldIssues,
+  type ItineraryFacts,
   type PassengerDraft,
 } from '@suskii/shared';
 import { Button, Card, Input, Modal } from '@suskii/ui-native';
@@ -27,6 +30,7 @@ import {
   type PlanChoiceValue,
   type ProviderName,
 } from '../components/booking/payment-options';
+import { InhouseSummary } from '../components/inhouse/inhouse-summary';
 import { Loading, Notice } from '../components/states';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
 import { problemSlug } from '../lib/api';
@@ -62,18 +66,56 @@ const formPath = (path: string): string =>
     .replace(/\.document$/, '.passportNumber');
 
 function draftFor(quote: Quote): CheckoutDraft {
-  const counts = quote.flight?.offer.passengers;
-  const passengers: PassengerDraft[] = counts
-    ? [
-        ...Array.from({ length: counts.adults }, () => emptyPassenger('adult')),
-        ...Array.from({ length: counts.children }, () => emptyPassenger('child')),
-        ...Array.from({ length: counts.infants }, () => emptyPassenger('infant')),
-      ]
-    : [];
+  const counts =
+    quote.flight?.offer.passengers ??
+    (quote.package ?? quote.tour ?? quote.visa ?? quote.addon)?.travellers;
+  // Visa assistance is for one nationality: every applicant starts with it (ADR-026).
+  const passengers = counts ? passengerDrafts(counts, quote.visa?.nationality ?? '') : [];
   const guests = quote.hotel
     ? quote.hotel.request.rooms.map(() => ({ givenNames: '', surname: '' }))
     : [];
   return { passengers, guests, email: '', phone: '', terms: false };
+}
+
+/** Transfer details an add-on asks for (ADR-027); dates of birth come from the travellers. */
+interface AddonDetailsDraft {
+  flightNumber: string;
+  arrivalTime: string;
+  pickupAddress: string;
+}
+type DetailField = keyof AddonDetailsDraft;
+const DETAIL_FIELDS: Record<string, DetailField> = {
+  flight_number: 'flightNumber',
+  arrival_time: 'arrivalTime',
+  pickup_address: 'pickupAddress',
+};
+const normaliseFlightNumber = (value: string): string => value.trim().toUpperCase();
+
+function checkAddonDetails(
+  fields: readonly DetailField[],
+  details: AddonDetailsDraft,
+): FieldIssues {
+  const issues: FieldIssues = {};
+  for (const field of fields) {
+    const value = details[field].trim();
+    if (!value) issues[`addonDetails.${field}`] = 'required';
+    else if (field === 'flightNumber' && !FLIGHT_NUMBER_PATTERN.test(normaliseFlightNumber(value)))
+      issues[`addonDetails.${field}`] = 'invalid';
+    else if (field === 'arrivalTime' && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))
+      issues[`addonDetails.${field}`] = 'invalid';
+    else if (field === 'pickupAddress' && value.length < 5)
+      issues[`addonDetails.${field}`] = 'invalid';
+  }
+  return issues;
+}
+
+/** Whether travellers give passport details: required abroad, optional on domestic flights. */
+function passportMode(
+  quote: Quote,
+  facts: ItineraryFacts | null,
+): 'required' | 'optional' | 'none' {
+  if (facts?.international) return 'required';
+  return quote.flight ? 'optional' : 'none';
 }
 
 function Checkout({ quote }: { quote: Quote }) {
@@ -91,6 +133,18 @@ function Checkout({ quote }: { quote: Quote }) {
     null,
   );
   const [priceChange, setPriceChange] = useState<Schemas['BookingPriceChange'] | null>(null);
+  const [details, setDetails] = useState<AddonDetailsDraft>({
+    flightNumber: '',
+    arrivalTime: '',
+    pickupAddress: '',
+  });
+  const detailFields = useMemo(
+    () =>
+      (quote.addon?.requiredDetails ?? []).flatMap((field) =>
+        DETAIL_FIELDS[field] ? [DETAIL_FIELDS[field]] : [],
+      ),
+    [quote],
+  );
 
   // Passport numbers are cleared when the app returns after a long time in the background.
   const clearPassports = useCallback(
@@ -103,9 +157,16 @@ function Checkout({ quote }: { quote: Quote }) {
   );
   useSensitiveScreen(clearPassports);
 
-  const facts = useMemo(() => (quote.flight ? flightFacts(quote.flight.offer) : null), [quote]);
-  const checked = useMemo(() => validateCheckout(draft, facts), [draft, facts]);
-  const price = quote.flight?.offer.price ?? quote.hotel?.rate.price;
+  const facts = useMemo(
+    () => (quote.flight ? flightFacts(quote.flight.offer) : inhouseFacts(quote)),
+    [quote],
+  );
+  const checked = useMemo(() => {
+    const result = validateCheckout(draft, facts, { nationality: quote.visa?.nationality });
+    return { ...result, errors: { ...result.errors, ...checkAddonDetails(detailFields, details) } };
+  }, [draft, facts, quote, detailFields, details]);
+  const price = quote.flight?.offer.price ?? quote.hotel?.rate.price ?? quote.price;
+  const inhouse = quote.price !== null;
   const issue = (key: string): string | undefined => {
     const code: CheckoutIssue | undefined = errors[key];
     return code ? t(`checkout.issues.${code}`) : undefined;
@@ -196,7 +257,7 @@ function Checkout({ quote }: { quote: Quote }) {
         body: {
           quoteId: quote.quoteId,
           contact: { email: draft.email.trim(), phone: normalisePhone(draft.phone) },
-          ...(quote.flight
+          ...(!quote.hotel
             ? {
                 passengers: draft.passengers.map((passenger) => ({
                   type: passenger.type,
@@ -221,6 +282,21 @@ function Checkout({ quote }: { quote: Quote }) {
                   surname: guest.surname.trim(),
                 })),
               }),
+          ...(quote.addon
+            ? {
+                addonDetails: {
+                  flightNumber: detailFields.includes('flightNumber')
+                    ? normaliseFlightNumber(details.flightNumber)
+                    : null,
+                  arrivalTime: detailFields.includes('arrivalTime')
+                    ? details.arrivalTime.trim()
+                    : null,
+                  pickupAddress: detailFields.includes('pickupAddress')
+                    ? details.pickupAddress.trim()
+                    : null,
+                },
+              }
+            : {}),
           termsVersion: BOOKING_TERMS_VERSION,
           acceptTerms: true,
           locale,
@@ -232,6 +308,7 @@ function Checkout({ quote }: { quote: Quote }) {
         const problem = error as {
           issues?: { index: number | null; path: string[]; code: string }[];
           errors?: { path: string; message: string }[];
+          missing?: string[];
         };
         const asIssue = (code: string): CheckoutIssue =>
           (ISSUE_CODES.has(code) ? code : 'invalid') as CheckoutIssue;
@@ -253,6 +330,16 @@ function Checkout({ quote }: { quote: Quote }) {
           for (const item of problem.errors) mapped[formPath(item.path)] = asIssue(item.message);
           setErrors(mapped);
           setFormError(t('checkout.issues.summary'));
+        } else if (slug === 'addon-details-invalid') {
+          const mapped: FieldIssues = {};
+          for (const field of problem.missing ?? []) {
+            const key = DETAIL_FIELDS[field];
+            if (key) mapped[`addonDetails.${key}`] = 'required';
+          }
+          setErrors(mapped);
+          setFormError(t('checkout.issues.summary'));
+        } else if (slug === 'sold-out') {
+          setFormError(t('checkout.errors.soldOut'));
         } else if (slug === 'terms-outdated') {
           setFormError(t('checkout.errors.terms'));
         } else if (slug === 'bot-check-failed') {
@@ -314,8 +401,9 @@ function Checkout({ quote }: { quote: Quote }) {
       >
         <Card className="gap-2 p-4">
           <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
-            {quote.flight ? t('checkout.trip') : t('checkout.stay')}
+            {quote.hotel ? t('checkout.stay') : t('checkout.trip')}
           </Text>
+          {inhouse ? <InhouseSummary items={quote} /> : null}
           {quote.flight
             ? quote.flight.offer.slices.map((slice, index) => (
                 <Text key={index} className="font-body text-body-sm text-foreground">
@@ -346,10 +434,71 @@ function Checkout({ quote }: { quote: Quote }) {
               onChange={(patch) => setPassenger(index, patch)}
               errors={errors}
               warnings={checked.warnings}
-              passportRequired={facts?.international ?? false}
+              passport={passportMode(quote, facts)}
             />
           );
         })}
+        {quote.visa && draft.passengers.length > 0 ? (
+          <Text className="font-body text-body-sm text-foreground">
+            {t('checkout.visaNationality', { country: format.country(quote.visa.nationality) })}
+          </Text>
+        ) : null}
+        {detailFields.length > 0 ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('checkout.addonDetails.heading')}
+            </Text>
+            <Text className="font-body text-body-sm text-muted">
+              {t('checkout.addonDetails.hint')}
+            </Text>
+            {detailFields.includes('flightNumber') ? (
+              <Input
+                testID="addonDetails.flightNumber"
+                label={t('checkout.addonDetails.flightNumber')}
+                hint={t('checkout.addonDetails.flightNumberHint')}
+                value={details.flightNumber}
+                onChangeText={(flightNumber) =>
+                  setDetails((current) => ({ ...current, flightNumber }))
+                }
+                autoCapitalize="characters"
+                autoCorrect={false}
+                maxLength={8}
+                error={
+                  errors['addonDetails.flightNumber'] === 'invalid'
+                    ? t('checkout.addonDetails.invalidFlightNumber')
+                    : issue('addonDetails.flightNumber')
+                }
+              />
+            ) : null}
+            {detailFields.includes('arrivalTime') ? (
+              <Input
+                testID="addonDetails.arrivalTime"
+                label={t('checkout.addonDetails.arrivalTime')}
+                hint={t('mobile.checkout.dateTimeHint')}
+                value={details.arrivalTime}
+                onChangeText={(arrivalTime) =>
+                  setDetails((current) => ({ ...current, arrivalTime }))
+                }
+                keyboardType="numbers-and-punctuation"
+                maxLength={16}
+                error={issue('addonDetails.arrivalTime')}
+              />
+            ) : null}
+            {detailFields.includes('pickupAddress') ? (
+              <Input
+                testID="addonDetails.pickupAddress"
+                label={t('checkout.addonDetails.pickupAddress')}
+                value={details.pickupAddress}
+                onChangeText={(pickupAddress) =>
+                  setDetails((current) => ({ ...current, pickupAddress }))
+                }
+                autoComplete="street-address"
+                maxLength={300}
+                error={issue('addonDetails.pickupAddress')}
+              />
+            ) : null}
+          </Card>
+        ) : null}
         {draft.guests.map((guest, index) => (
           <GuestForm
             key={index}
@@ -395,6 +544,7 @@ function Checkout({ quote }: { quote: Quote }) {
         </Card>
 
         <PlanChoice
+          vertical={quote.vertical}
           options={quote.payment}
           value={plan}
           onChange={setPlan}
@@ -408,17 +558,23 @@ function Checkout({ quote }: { quote: Quote }) {
               {t('checkout.summary')}
             </Text>
             <View className="flex-row justify-between">
-              <Text className="font-body text-body-sm text-foreground">{t('checkout.fare')}</Text>
+              <Text className="font-body text-body-sm text-foreground">
+                {inhouse ? t('checkout.basePrice') : t('checkout.fare')}
+              </Text>
               <Text className="font-body text-body-sm text-foreground">
                 {format.money(price.fare)}
               </Text>
             </View>
-            <View className="flex-row justify-between">
-              <Text className="font-body text-body-sm text-foreground">{t('checkout.taxes')}</Text>
-              <Text className="font-body text-body-sm text-foreground">
-                {format.money(price.taxes)}
-              </Text>
-            </View>
+            {inhouse && price.taxes.amountMinor === 0 ? null : (
+              <View className="flex-row justify-between">
+                <Text className="font-body text-body-sm text-foreground">
+                  {t('checkout.taxes')}
+                </Text>
+                <Text className="font-body text-body-sm text-foreground">
+                  {format.money(price.taxes)}
+                </Text>
+              </View>
+            )}
             {price.fees.map((fee) => (
               <View key={fee.code} className="flex-row justify-between">
                 <Text className="font-body text-body-sm text-foreground">{fee.label}</Text>

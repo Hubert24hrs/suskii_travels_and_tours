@@ -80,7 +80,7 @@ export async function PolicyTiers({
               <li key={tier.daysBefore}>
                 {tier.daysBefore === 0
                   ? t('inhouse.detail.tierSameDay', { percent })
-                  : t('inhouse.detail.tier', { percent, days: tier.daysBefore })}
+                  : t('inhouse.detail.tier', { percent, count: tier.daysBefore })}
               </li>
             );
           })}

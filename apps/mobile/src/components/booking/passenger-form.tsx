@@ -27,7 +27,7 @@ export function PassengerForm({
   onChange,
   errors,
   warnings,
-  passportRequired,
+  passport,
 }: {
   index: number;
   label: string;
@@ -35,7 +35,8 @@ export function PassengerForm({
   onChange: (patch: Partial<PassengerDraft>) => void;
   errors: FieldIssues;
   warnings: FieldIssues;
-  passportRequired: boolean;
+  /** Abroad: required; domestic flights: optional; tours, add-ons, local packages: not asked. */
+  passport: 'required' | 'optional' | 'none';
 }) {
   const { t } = useT();
   const prefix = `passengers.${index}`;
@@ -111,40 +112,46 @@ export function PassengerForm({
           onChange={(nationality) => onChange({ nationality })}
           error={error('nationality')}
         />
-        <Text accessibilityRole="header" className="pt-2 font-body-bold text-body text-heading">
-          {t('checkout.passport')}
-        </Text>
-        <Text className="font-body text-body-sm text-muted">
-          {passportRequired ? t('checkout.passportRequired') : t('checkout.passportOptional')}
-        </Text>
-        <Input
-          testID={`${prefix}.passportNumber`}
-          label={t('checkout.fields.passportNumber')}
-          value={passenger.passportNumber}
-          onChangeText={(passportNumber) => onChange({ passportNumber })}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          autoComplete="off"
-          secureTextEntry={false}
-          error={error('passportNumber')}
-        />
-        <CountryField
-          testID={`${prefix}.issuingCountry`}
-          label={t('checkout.fields.issuingCountry')}
-          value={passenger.issuingCountry}
-          onChange={(issuingCountry) => onChange({ issuingCountry })}
-          error={error('issuingCountry')}
-        />
-        <Input
-          testID={`${prefix}.passportExpiry`}
-          label={t('checkout.fields.passportExpiry')}
-          hint={t('mobile.checkout.dateHint')}
-          value={passenger.passportExpiry}
-          onChangeText={(passportExpiry) => onChange({ passportExpiry: passportExpiry.trim() })}
-          keyboardType="numbers-and-punctuation"
-          maxLength={10}
-          error={error('passportExpiry') ?? issueText(t, warnings[`${prefix}.passportExpiry`])}
-        />
+        {passport === 'none' ? null : (
+          <>
+            <Text accessibilityRole="header" className="pt-2 font-body-bold text-body text-heading">
+              {t('checkout.passport')}
+            </Text>
+            <Text className="font-body text-body-sm text-muted">
+              {passport === 'required'
+                ? t('checkout.passportRequired')
+                : t('checkout.passportOptional')}
+            </Text>
+            <Input
+              testID={`${prefix}.passportNumber`}
+              label={t('checkout.fields.passportNumber')}
+              value={passenger.passportNumber}
+              onChangeText={(passportNumber) => onChange({ passportNumber })}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              autoComplete="off"
+              secureTextEntry={false}
+              error={error('passportNumber')}
+            />
+            <CountryField
+              testID={`${prefix}.issuingCountry`}
+              label={t('checkout.fields.issuingCountry')}
+              value={passenger.issuingCountry}
+              onChange={(issuingCountry) => onChange({ issuingCountry })}
+              error={error('issuingCountry')}
+            />
+            <Input
+              testID={`${prefix}.passportExpiry`}
+              label={t('checkout.fields.passportExpiry')}
+              hint={t('mobile.checkout.dateHint')}
+              value={passenger.passportExpiry}
+              onChangeText={(passportExpiry) => onChange({ passportExpiry: passportExpiry.trim() })}
+              keyboardType="numbers-and-punctuation"
+              maxLength={10}
+              error={error('passportExpiry') ?? issueText(t, warnings[`${prefix}.passportExpiry`])}
+            />
+          </>
+        )}
       </Card>
     </View>
   );

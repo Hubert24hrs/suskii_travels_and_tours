@@ -1,7 +1,13 @@
 import { createFormatters, createTranslator, getMessages } from '@suskii/i18n';
 
 /** The Intl APIs Hermes lacks and the app uses (through @suskii/i18n). */
-const MISSING = ['PluralRules', 'RelativeTimeFormat', 'ListFormat', 'Locale'] as const;
+const MISSING = [
+  'PluralRules',
+  'RelativeTimeFormat',
+  'ListFormat',
+  'DisplayNames',
+  'Locale',
+] as const;
 
 describe('Intl polyfills', () => {
   const saved = new Map<string, PropertyDescriptor | undefined>();
@@ -39,5 +45,7 @@ describe('Intl polyfills', () => {
     expect(createFormatters('en-US').list(['Lagos', 'Abuja', 'Accra'])).toBe(
       'Lagos, Abuja, and Accra',
     );
+    expect(format.country('NG')).toBe('Nigeria');
+    expect(format.country('AE')).toBe('United Arab Emirates');
   });
 });

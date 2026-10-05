@@ -1,5 +1,5 @@
 import { Button, Card, Tabs } from '@suskii/ui-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,9 +9,29 @@ import { FlightSearchForm } from '../components/search/flight-search-form';
 import { HotelSearchForm } from '../components/search/hotel-search-form';
 import { useT } from '../providers/app-provider';
 
-type Vertical = 'flights' | 'hotels';
+type Vertical = 'flights' | 'hotels' | 'packages' | 'tours';
 
-/** Home: the search card (flights and hotels in this phase) and the freshest deals. */
+/** Packages and tours are browsed rather than searched: a short pitch and the way in. */
+function Browse({ vertical }: { vertical: 'packages' | 'tours' }) {
+  const { t } = useT();
+  const router = useRouter();
+  return (
+    <View className="gap-3">
+      <Text className="font-body text-body text-foreground">
+        {vertical === 'packages' ? t('mobile.home.packagesBody') : t('mobile.home.toursBody')}
+      </Text>
+      <Button
+        testID={`browse-${vertical}`}
+        fullWidth
+        onPress={() => router.push(`/${vertical}` as Href)}
+      >
+        {vertical === 'packages' ? t('mobile.home.browsePackages') : t('mobile.home.browseTours')}
+      </Button>
+    </View>
+  );
+}
+
+/** Home: the search card (flights, hotels, packages and tours) and the freshest deals. */
 export function HomeScreen() {
   const { t } = useT();
   const router = useRouter();
@@ -35,11 +55,19 @@ export function HomeScreen() {
             items={[
               { value: 'flights', label: t('search.tabs.flights') },
               { value: 'hotels', label: t('search.tabs.hotels') },
+              { value: 'packages', label: t('search.tabs.packages') },
+              { value: 'tours', label: t('search.tabs.tours') },
             ]}
             value={vertical}
             onValueChange={setVertical}
           />
-          {vertical === 'flights' ? <FlightSearchForm /> : <HotelSearchForm />}
+          {vertical === 'flights' ? (
+            <FlightSearchForm />
+          ) : vertical === 'hotels' ? (
+            <HotelSearchForm />
+          ) : (
+            <Browse vertical={vertical} />
+          )}
         </Card>
         {deals.data && deals.data.length > 0 ? (
           <View className="gap-3">

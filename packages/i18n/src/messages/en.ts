@@ -745,9 +745,13 @@ export const en = {
     home: {
       dealsHeading: 'Flight deals',
       seeAllDeals: 'See all deals',
+      packagesBody: 'Flights, hotels and extras planned together, with instalment options.',
+      toursBody: 'Guided tours, day trips and experiences at your destination.',
+      browsePackages: 'See holiday packages',
+      browseTours: 'See tours',
     },
     search: {
-      titles: { flights: 'Flights', hotels: 'Hotels' },
+      titles: { flights: 'Flights', hotels: 'Hotels', packages: 'Packages', tours: 'Tours' },
       filters: 'Filters',
       showResults: 'Show results',
       clearFilters: 'Clear filters',
@@ -756,6 +760,7 @@ export const en = {
     checkout: {
       title: 'Checkout',
       dateHint: 'Year-month-day, for example 1990-04-21',
+      dateTimeHint: 'Date and 24-hour local time, for example 2026-12-01T14:30',
       payOnProvider: 'You pay on the payment provider’s secure page. We never see your card.',
       viewBooking: 'View booking',
       deviceCheckFailed: 'We could not verify this device. Update the app and try again.',
@@ -771,6 +776,10 @@ export const en = {
       multiCity: '{origin} to {destination}, several flights',
       hotel: '{name}, {city}',
     },
+    catalog: {
+      empty: 'Nothing is on sale here yet. Check back soon.',
+      choose: 'Choose a date',
+    },
     trip: {
       offlineCopy: 'Offline copy saved {time}.',
       saveOffline: 'Save for offline use',
@@ -785,6 +794,19 @@ export const en = {
       removeBody: 'The booking stays valid. Documents saved on this phone are deleted.',
       removeConfirm: 'Remove',
       keep: 'Keep',
+      voucherQr: 'QR code for voucher {code}',
+      voucherHint:
+        'Show this QR code or the code when you arrive. It works offline and can be used once.',
+      addExtras: 'Add insurance, an eSIM and more',
+    },
+    visa: {
+      title: 'Visa application',
+      choose: 'Choose a file for {item}',
+      pickerFailed: 'We could not open that file. Try another one.',
+      viewHint: 'Files open in your browser for a few minutes only.',
+    },
+    addons: {
+      title: 'Extras for your trip',
     },
     deals: {
       body: 'The cheapest fares we found recently. Prices can change until you book.',
@@ -865,7 +887,10 @@ export const en = {
       included: 'What is included',
       excluded: 'Not included',
       cancellation: 'Cancellation policy',
-      tier: '{percent}% refund if you cancel at least {days} days before the start',
+      tier: {
+        one: '{percent}% refund if you cancel at least {count} day before the start',
+        other: '{percent}% refund if you cancel at least {count} days before the start',
+      },
       tierSameDay: '{percent}% refund if you cancel before the start',
       tierNone: 'No refund after that.',
       meetingPoint: 'Meeting point',
@@ -1186,7 +1211,10 @@ export const en = {
         'Show this code, or the QR code on the voucher PDF, when you arrive. It can be used once.',
       voucherRedeemed: 'Used on {date}',
       cancellation: 'Cancellation policy',
-      tier: '{percent}% refund if you cancel at least {days} days before the start',
+      tier: {
+        one: '{percent}% refund if you cancel at least {count} day before the start',
+        other: '{percent}% refund if you cancel at least {count} days before the start',
+      },
       tierSameDay: '{percent}% refund if you cancel before the start',
       tierNone: 'No refund after that.',
       cancel: 'Cancel booking',

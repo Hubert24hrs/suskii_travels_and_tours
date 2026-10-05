@@ -86,6 +86,11 @@ jest.mock('expo-screen-capture', () => ({
 
 jest.mock('expo-web-browser', () => ({
   openAuthSessionAsync: jest.fn(() => Promise.resolve({ type: 'dismiss' })),
+  openBrowserAsync: jest.fn(() => Promise.resolve({ type: 'dismiss' })),
+}));
+// The system document picker: cancelled unless a test says otherwise.
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn(() => Promise.resolve({ canceled: true, assets: null })),
 }));
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(() => Promise.resolve()) }));
 
@@ -108,6 +113,7 @@ jest.mock('expo-file-system', () => {
       for (const uri of [...files]) if (uri.startsWith(`${this.uri}/`)) files.delete(uri);
     }
   }
+  const contents = new Map();
   class File {
     constructor(...parts) {
       this.uri = join(parts);
@@ -115,7 +121,19 @@ jest.mock('expo-file-system', () => {
     get exists() {
       return files.has(this.uri);
     }
+    bytes() {
+      return Promise.resolve(contents.get(this.uri) ?? new Uint8Array());
+    }
+    delete() {
+      files.delete(this.uri);
+      contents.delete(this.uri);
+    }
   }
+  /** Test helper: puts a file with these bytes in the in-memory file system. */
+  File.__write = (uri, bytes) => {
+    files.add(uri);
+    contents.set(uri, bytes);
+  };
   File.downloadFileAsync = jest.fn((_url, destination) => {
     files.add(destination.uri);
     return Promise.resolve(destination);

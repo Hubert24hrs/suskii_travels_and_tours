@@ -2,11 +2,13 @@ import { useFormatters } from '@suskii/i18n/react';
 import { BOOKING_IN_PROGRESS_STATUSES, type BookingStatus } from '@suskii/shared';
 import { Badge, Button, Card, Modal, useToast, type BadgeProps } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { PlanPanel, RefundList } from '../components/booking/plan-panel';
+import { InhouseSummary, inhouseKind } from '../components/inhouse/inhouse-summary';
+import { VoucherCard } from '../components/inhouse/voucher-card';
 import { Loading, Notice, OfflineBanner } from '../components/states';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
 import { isNetworkError } from '../lib/api';
@@ -39,6 +41,15 @@ const helpKey = (status: BookingStatus): HelpKey =>
   (STATUS_HELP as Partial<Record<BookingStatus, HelpKey>>)[status] ?? 'unpaid';
 
 const ON_PLAN: readonly BookingStatus[] = ['HELD', 'PARTIALLY_PAID'];
+
+/** Bookings an add-on can still be attached to (the API's `addon-links` rule, ADR-027). */
+const LINKABLE: readonly BookingStatus[] = [
+  'HELD',
+  'PARTIALLY_PAID',
+  'PAID',
+  'TICKETING',
+  'CONFIRMED',
+];
 
 /** Keep polling while payment, ticketing or a refund is in flight (webhooks decide). */
 export const shouldPoll = (booking: Booking): boolean =>
@@ -143,6 +154,7 @@ export function TripScreen() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   useSensitiveScreen();
 
   const headers = async (): Promise<Record<string, string>> => {
@@ -244,6 +256,11 @@ export function TripScreen() {
     void query.refetch();
   };
 
+  const cancelUnderPolicy = async () => {
+    await cancel();
+    setCancelling(false);
+  };
+
   const follow = async () => {
     const ok = await followBooking(
       api,
@@ -314,6 +331,57 @@ export function TripScreen() {
           </View>
         ) : null}
 
+        {booking.voucher ? <VoucherCard voucher={booking.voucher} /> : null}
+
+        {inhouseKind(booking) ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.itinerary')}
+            </Text>
+            <InhouseSummary items={booking} />
+          </Card>
+        ) : null}
+
+        {booking.visa && booking.visa.applications.length > 0 ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.inhouse.applications')}
+            </Text>
+            {booking.visa.applications.map((application) => {
+              const passenger = booking.passengers.find(
+                (candidate) => candidate.position === application.applicantPosition,
+              );
+              return (
+                <View key={application.id} className="gap-2">
+                  <Text className="font-body-bold text-body text-foreground">
+                    {passenger
+                      ? `${passenger.givenNames} ${passenger.surname}`
+                      : t('booking.inhouse.applicant', {
+                          number: application.applicantPosition + 1,
+                        })}
+                  </Text>
+                  <View className="items-start">
+                    <Badge variant={application.status === 'action_required' ? 'warning' : 'info'}>
+                      {t(`booking.inhouse.applicationStatus.${application.status}`)}
+                    </Badge>
+                  </View>
+                  {!offline ? (
+                    <Button
+                      testID={`visa-application-${application.applicantPosition}`}
+                      variant="secondary"
+                      onPress={() =>
+                        router.push(`/trips/${booking.id}/visa/${application.id}` as Href)
+                      }
+                    >
+                      {t('booking.inhouse.openApplication')}
+                    </Button>
+                  ) : null}
+                </View>
+              );
+            })}
+          </Card>
+        ) : null}
+
         {booking.flight ? (
           <Card className="gap-3 p-4">
             <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
@@ -376,6 +444,33 @@ export function TripScreen() {
         <RefundList refunds={booking.refunds} />
         <Documents booking={booking} headers={headers} />
 
+        {booking.addons.length > 0 ||
+        (!offline && booking.vertical !== 'travel_addons' && LINKABLE.includes(status)) ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.inhouse.extras')}
+            </Text>
+            {booking.addons.map((addon) => (
+              <Button
+                key={addon.id}
+                variant="ghost"
+                onPress={() => router.push(`/trips/${addon.id}` as Href)}
+              >
+                {`${addon.title} (${addon.reference}) · ${t(`booking.status.${addon.status}`)}`}
+              </Button>
+            ))}
+            {!offline && booking.vertical !== 'travel_addons' && LINKABLE.includes(status) ? (
+              <Button
+                testID="add-extras"
+                variant="secondary"
+                onPress={() => router.push(`/trips/${booking.id}/addons` as Href)}
+              >
+                {t('mobile.trip.addExtras')}
+              </Button>
+            ) : null}
+          </Card>
+        ) : null}
+
         <Card className="gap-3 p-4">
           <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
             {booking.hotel ? t('booking.guests') : t('booking.travellers')}
@@ -411,6 +506,11 @@ export function TripScreen() {
           ) : null}
         </Card>
 
+        {booking.cancellation && !offline ? (
+          <Button testID="cancel-booking" variant="ghost" onPress={() => setCancelling(true)}>
+            {t('booking.inhouse.cancel')}
+          </Button>
+        ) : null}
         {!offline ? (
           <Button variant="ghost" onPress={() => void follow()}>
             {t('mobile.trip.notify')}
@@ -422,6 +522,35 @@ export function TripScreen() {
           </Button>
         ) : null}
       </ScrollView>
+      <Modal
+        open={cancelling}
+        onOpenChange={setCancelling}
+        title={t('booking.inhouse.cancelTitle')}
+        description={
+          booking.cancellation && booking.cancellation.refund.amountMinor > 0
+            ? t('booking.inhouse.cancelRefund', {
+                amount: format.money(booking.cancellation.refund),
+                percent: format.number(booking.cancellation.refundBps / 100),
+              })
+            : t('booking.inhouse.cancelNoRefund')
+        }
+        closeLabel={t('common.close')}
+        footer={
+          <View className="gap-2">
+            <Button
+              testID="cancel-confirm"
+              fullWidth
+              loading={busy}
+              onPress={() => void cancelUnderPolicy()}
+            >
+              {t('booking.inhouse.cancelConfirm')}
+            </Button>
+            <Button variant="ghost" onPress={() => setCancelling(false)}>
+              {t('booking.inhouse.cancelKeep')}
+            </Button>
+          </View>
+        }
+      />
       <Modal
         open={removing}
         onOpenChange={setRemoving}

@@ -1,6 +1,7 @@
 /**
  * Hermes implements Intl.Collator, DateTimeFormat and NumberFormat only. @suskii/i18n also uses
- * PluralRules (the translator), RelativeTimeFormat and ListFormat (formatters), which need
+ * PluralRules (the translator), RelativeTimeFormat, ListFormat and DisplayNames (formatters: country
+ * names), which need
  * Intl.Locale and getCanonicalLocales. Each `polyfill.js` installs only where the engine lacks
  * the API, so Node (Jest) and JavaScriptCore keep their native versions. Order matters: every
  * polyfill depends on the ones above it. Data for the app's locales (en-NG, en-GB, en-US = en)
@@ -18,3 +19,7 @@ import '@formatjs/intl-listformat/polyfill.js';
 import '@formatjs/intl-listformat/locale-data/en.js';
 import '@formatjs/intl-listformat/locale-data/en-GB.js';
 import '@formatjs/intl-listformat/locale-data/en-NG.js';
+import '@formatjs/intl-displaynames/polyfill.js';
+import '@formatjs/intl-displaynames/locale-data/en.js';
+import '@formatjs/intl-displaynames/locale-data/en-GB.js';
+import '@formatjs/intl-displaynames/locale-data/en-NG.js';

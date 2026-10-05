@@ -12,6 +12,6 @@ module.exports = {
   // pnpm nests packages under node_modules/.pnpm/<name>@<version>/node_modules/<name>, so the
   // allow-list tolerates that prefix. Everything else in node_modules stays untransformed.
   transformIgnorePatterns: [
-    'node_modules/(?!(?:\\.pnpm/[^/]+/node_modules/)?(?:(?:jest-)?react-native[^/]*|@react-native[^/]*|expo[^/]*|@expo[^/]*|nativewind|@gorhom|lucide-react-native|@formatjs)/)',
+    'node_modules/(?!(?:\\.pnpm/[^/]+/node_modules/)?(?:(?:jest-)?react-native[^/]*|@react-native[^/]*|expo[^/]*|@expo[^/]*|nativewind|@gorhom|lucide-react-native|@formatjs|uqr)/)',
   ],
 };

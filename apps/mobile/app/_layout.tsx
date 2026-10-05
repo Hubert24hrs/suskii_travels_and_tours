@@ -67,7 +67,16 @@ function Screens() {
       <Stack.Screen name="search/hotels" options={{ title: t('mobile.search.titles.hotels') }} />
       <Stack.Screen name="hotels/[hotelId]" options={{ title: '' }} />
       <Stack.Screen name="checkout/[quoteId]" options={{ title: t('mobile.checkout.title') }} />
-      <Stack.Screen name="trips/[id]" options={{ title: '' }} />
+      <Stack.Screen name="trips/[id]/index" options={{ title: '' }} />
+      <Stack.Screen
+        name="trips/[id]/visa/[applicationId]"
+        options={{ title: t('mobile.visa.title') }}
+      />
+      <Stack.Screen name="trips/[id]/addons" options={{ title: t('mobile.addons.title') }} />
+      <Stack.Screen name="packages/index" options={{ title: t('mobile.search.titles.packages') }} />
+      <Stack.Screen name="packages/[slug]" options={{ title: '' }} />
+      <Stack.Screen name="tours/index" options={{ title: t('mobile.search.titles.tours') }} />
+      <Stack.Screen name="tours/[slug]" options={{ title: '' }} />
       <Stack.Screen
         name="sign-in"
         options={{ presentation: 'modal', title: t('mobile.auth.signInTitle') }}
