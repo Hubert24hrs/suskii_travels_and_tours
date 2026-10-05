@@ -83,3 +83,8 @@ and preferences. New tables arrive every phase; an export assembled by hand woul
   `.invalid` address, and both email adapters drop `.invalid` recipients, so nothing is ever sent
   to a deleted account. Referrals involving the account are rejected with the flag
   `account_deleted` and lose their sign-up signals.
+- Web: `/account/privacy` asks for the proof the API names, downloads the export as a blob (the
+  file name comes from `Content-Disposition`) and, after deletion, forgets the local session
+  hint. Mobile: the export goes to the system share sheet from a file in the app cache that is
+  deleted as soon as the sheet closes; deletion then clears the tokens, account trips and cached
+  queries on the phone. The in-app deletion meets the store requirement for account removal.

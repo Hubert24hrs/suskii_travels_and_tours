@@ -1,6 +1,6 @@
 # Phase 9: Accounts, Suskii Prime, referrals, notifications
 
-Status: in progress
+Status: done, awaiting review
 
 ## Goal
 
@@ -129,3 +129,51 @@ sessions with revocation, saved travellers, the wallet and its ledger, push toke
 - **Referral abuse.** Mitigation: rewards default to zero, HMAC fingerprints, caps, review queue.
 - **Notification fatigue and consent.** Mitigation: per-category preferences, marketing opt-in,
   daily caps on alerts.
+
+## Outcome
+
+### Acceptance criteria
+
+1. **Prime pricing benefits are covered by tests.**
+   - Unit (`pricing-engine.spec.ts`): the markup share comes back and listed fees are waived, the
+     saving equals the difference from the non-member price, benefits do nothing without the
+     `prime` tier, member-only rules count as savings, promos apply after member pricing, and a
+     property test shows a member is never priced below the supplier cost whatever the plan.
+     Flights, hotels and in-house items all pass the account's benefits to the same engine.
+   - API e2e (`prime.e2e-spec.ts`): only published plans sell, in their currencies; a membership
+     is bought through the booking pipeline and a second purchase extends from the current end;
+     after sign-in refresh the member's fare is lower, the service fee is gone and the quote and
+     checkout carry the same `memberSaving`.
+   - Web Playwright and mobile Jest: joining the sample plan through checkout and the mock
+     payment, the term on the booking and account pages.
+2. **DSAR export returns all user data; deletion anonymises and keeps financial records.**
+   - The registry (`data-registry.ts`) declares a section and a deletion treatment for every
+     model; compilation and `data-registry.spec.ts` fail on a missing one.
+   - API e2e (`accounts.e2e-spec.ts`): the export needs fresh proof (password, MFA, a texted code
+     for phone accounts), has exactly the registry's sections for an account with a booking,
+     payment, traveller, alert, referral, membership and preferences, and holds no credential,
+     hash or supplier cost. Deletion is refused with an upcoming trip, a wallet balance or a
+     staff role; otherwise it signs out everywhere, erases the profile, identities, factors,
+     travellers, tokens, preferences, alerts and referral codes, and keeps the booking, payment,
+     refund and ledger rows with redacted contacts and passports.
+   - Web Playwright (`e2e/account.spec.ts`): the export downloads as JSON with every section, and
+     a deleted account can no longer sign in. Mobile Jest: export through the share sheet with
+     the cache copy deleted, blockers, deletion and local sign-out.
+
+### Deviations from the plan
+
+- **The export is `POST /v1/me/data-export`**, not GET: the re-authentication proof travels in
+  the body (ADR-029 notes).
+- **Card fingerprints** for referral checks are not built: payment rows keep none and the mock
+  provider has none to give. The other signals (email alias, the referrer's own network, shared
+  network or device, disposable domains, monthly cap) are in place (ADR-031).
+- **No Maestro flow** for the account screens: they are covered by Jest; the emulator flows stay
+  the booking critical path and offline trip.
+- **Push paths**: the price alert push now opens `/account/alerts`, and the app follows a few
+  fixed account screens besides trips (ADR-032 notes).
+- **Export test widened at the end of the phase** to an account with a price alert, a referral
+  code and a membership. It caught membership benefits exported with the internal markup share;
+  the export now shows the public view (`benefitsView()`), like the plan and booking pages.
+- **Small shared fixes found on the way**: unnamed form fields on the profile and Prime forms
+  (caught by the console guard), Tailwind classes outside the token scale, and the native toast
+  timer that outlived its provider.

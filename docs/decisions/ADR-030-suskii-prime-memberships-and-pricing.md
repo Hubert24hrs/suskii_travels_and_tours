@@ -69,7 +69,8 @@ know bookings.
 - `priceOffer()` prices twice for members: once with benefits, once as a signed-in non-member.
   `memberSaving` is the difference before promo, so Prime-only markup or fee rules count as
   savings too. The breakdown's internal `markup` is the margin actually kept. Public plan and
-  booking views show `memberFares` (share above zero) instead of the share itself.
+  booking views and the data export show `memberFares` (share above zero) instead of the share
+  itself (`benefitsView()`).
 - Staff manage plans at `/v1/admin/prime/plans` (`pricing:manage`, audited). `db:seed:demo` adds a
   published sample plan (NGN 25,000 or USD 25 a year, half the markup back, `service_fee`
   waived). Its amounts are placeholders until the owner decides them.

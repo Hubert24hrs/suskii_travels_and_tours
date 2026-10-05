@@ -42,8 +42,8 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | 5     | Flight and hotel booking flow (web)              | Done                  |
 | 6     | Payments, flexible payment and refunds           | Done                  |
 | 7     | Mobile app                                       | Done                  |
-| 8     | Packages, tours, visa and add-ons                | Done, awaiting review |
-| 9     | Accounts, Suskii Prime, referrals, notifications | Not started           |
+| 8     | Packages, tours, visa and add-ons                | Done                  |
+| 9     | Accounts, Suskii Prime, referrals, notifications | Done, awaiting review |
 | 10    | Admin console                                    | Not started           |
 | 11    | Hardening                                        | Not started           |
 | 12    | Deployment and release                           | Not started           |
@@ -280,6 +280,10 @@ Tooling notes for agents:
 - Client widgets inside server pages get their message subset from a plain module
   (`*-messages.ts`): a server component cannot call a function exported from a client module.
   Country names come from `format.country` (Intl `DisplayNames`).
+- Signed-in calls use the API's cookies. `browserApi()` refreshes an expiring session first and
+  sends `X-CSRF-Token` on unsafe methods (`lib/session.ts`); refresh only through
+  `ensureFreshSession()` (Web Lock, single flight), never with a direct call. Account pages are
+  client components under `AccountShell`, `noIndex`, and disallowed in robots.txt.
 - Payment plans on the web show the schedule, fee, total and missed-payment policy before the
   traveller commits, and never with paid extras. Money on screen comes from API `Money` values
   (`format.money`); never compute totals or fees client-side except to preview the documented
@@ -311,6 +315,10 @@ Tooling notes for agents:
   `followAccount`), never on launch.
 - Give interactive elements used by Maestro a stable `testID` (fields: the form path, such as
   `passengers.0.surname`; choices: `{testID}-{value}`; suggestions: `{testID}-option-{key}`).
+- Account screens wrap their content in `RequireAccount` and live under `app/account/*`.
+  Deleting the account or signing out goes through `useAuth().forgetAccount()` / `signOut()`,
+  which clear tokens, account trips and cached queries. Files with personal data (the data
+  export) are written to the cache, handed to the share sheet and deleted when it closes.
 - Visa uploads come from the system document picker (`lib/visa-upload.ts`), which deletes its
   cache copy once read; the raw bytes are the request body. Voucher QR codes are drawn on the
   device from the offline booking copy (`uqr`), never fetched as images.
@@ -338,6 +346,28 @@ Tooling notes for agents:
   booking item (`booking-item:{itemId}:addon-details`).
 - Real inventory, prices and visa rules come only from the admin routes. Demo data comes only
   from `db:seed:demo` and is flagged `sample` (clients show a badge).
+
+### Accounts, Prime, referrals and notifications (apps/api, ADR-029 to ADR-032)
+
+- Every Prisma model has an entry in `DATA_REGISTRY` (`src/privacy/data-registry.ts`): its
+  export section and deletion treatment (`delete`, `redact`, `retain`, `none`). A new model
+  fails compilation and `data-registry.spec.ts` until it has one; add new personal data to the
+  export (`DataExportService`) and to `AccountDeletionService` in the same change.
+- Sensitive account actions (export, deletion) take a proof checked by `ReauthService`
+  (password, texted code or a sign-in in the last 10 minutes, plus MFA). Deletion answers 409
+  with `blockers` while anything is unsettled and keeps financial records without contact data.
+- Members are tier `prime` only while a paid-up term runs (`currentPrime()`). The access token's
+  `prm` claim is for searches; quotes, bookings and the payment re-check re-read the database
+  (`withCurrentTier()`). Benefits apply in `priceOffer()` and never price below supplier cost.
+- A Prime purchase is the in-house item `membership` on the booking pipeline (owner required,
+  one `guests` entry, no PDF, no self-cancellation); `InhouseFulfilment` starts the term.
+- Send user messages through `NotificationService.notify(userId, content)` with a category and
+  per-channel renderings (`src/messaging/messages.ts`); it applies the preference matrix and
+  logs each attempt. Booking and payment email are mandatory; marketing needs recorded consent.
+  Push data carries only an in-app path the app allowlists (`resolveNotificationPath`).
+- Referral rewards come from `REFERRAL_*` settings (zero by default) and are paid only through
+  `LedgerService` (`referral_reward`); a fraud flag sends the referral to review, never to a
+  silent rejection or payout.
 
 ### Security guardrails
 
@@ -401,6 +431,10 @@ Tooling notes for agents:
 - [ADR-026: Visa assistance and document security](docs/decisions/ADR-026-visa-assistance-and-document-security.md)
 - [ADR-027: Travel add-ons, standalone and linked](docs/decisions/ADR-027-travel-add-ons-standalone-and-linked.md)
 - [ADR-028: In-house fulfilment, vouchers and cancellation](docs/decisions/ADR-028-in-house-fulfilment-vouchers-and-cancellation.md)
+- [ADR-029: Account data rights, export and deletion](docs/decisions/ADR-029-account-data-rights-export-and-deletion.md)
+- [ADR-030: Suskii Prime memberships and member pricing](docs/decisions/ADR-030-suskii-prime-memberships-and-pricing.md)
+- [ADR-031: Referrals, rewards and fraud checks](docs/decisions/ADR-031-referrals-rewards-and-fraud-checks.md)
+- [ADR-032: Notifications, channel preferences and price alerts](docs/decisions/ADR-032-notifications-preferences-and-price-alerts.md)
 
 ## Open questions for the owner
 
@@ -426,4 +460,11 @@ Added in phase 8: the real in-house inventory and who enters it (packages, tours
 and eligibility rules, add-on partners; insurance may need a licensed partner), the package
 balance-due period (default 30 days), visa document retention (default 90 days after closing),
 production antivirus (managed ClamAV or a scanning service), and who fulfils packages, redeems
-vouchers and staffs the visa officer role.
+vouchers and staffs the visa officer role. Added in phase 9: Suskii Prime plans and prices
+(the sample plan's NGN 25,000 or USD 25 a year, half the markup back and the waived service fee
+are placeholders), referral reward amounts, minimum spend and monthly cap (default zero, so
+nothing is paid), the retention period for financial records of deleted accounts (default 7
+years, `FINANCIAL_RECORDS_RETENTION_YEARS`), the WhatsApp Business provider and message
+templates, the price alert cadence and minimum drop (defaults every 6 hours, 5%), who reviews
+flagged referrals, and whether payment providers may share card fingerprints for referral
+checks.

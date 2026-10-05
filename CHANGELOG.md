@@ -6,6 +6,75 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 9: Accounts, Suskii Prime, referrals and notifications (2026-10-05)
+
+#### Added
+
+- Data rights (ADR-029): a registry gives every database model an export section and a deletion
+  treatment, and a test fails when a model is missing. `POST /v1/me/data-export` returns one JSON
+  document after re-authentication (password, a texted code or a recent sign-in, plus MFA).
+  `GET/POST /v1/me/deletion` lists blockers (trips, payments, refunds, visa work, wallet
+  balance, staff roles), then anonymises the account: profile, identities, sessions, factors,
+  travellers, tokens, preferences, alerts and referral codes go; bookings, payments, refunds and
+  ledger entries stay as financial records without contact details or passport numbers
+  (`FINANCIAL_RECORDS_RETENTION_YEARS`). Deleted accounts can never be emailed.
+- Account preferences and notification settings (`/v1/me/preferences`,
+  `/v1/me/notification-preferences`): language, currency, home airport, marketing consent with
+  its source, and a category-by-channel matrix in which booking and payment email cannot be
+  turned off.
+- Suskii Prime (ADR-030): plans per currency managed at `/v1/admin/prime/plans`
+  (`pricing:manage`, audited; none in production, a sample plan in `db:seed:demo`); public
+  `GET /v1/prime/plans` and `GET /v1/me/prime`. A membership is the in-house item `membership`
+  (vertical `prime`) on the one booking pipeline; confirmation starts or extends the term.
+  Members price as tier `prime`: a share of the markup back (never below supplier cost) and
+  waived fees by code, shown as `memberSaving`. The tier travels in the access token and is
+  re-read from the database for quotes, bookings and the payment re-check.
+- Referrals (ADR-031): a code per account, attribution at registration or phone sign-up,
+  qualification on the referee's first completed trip, then wallet credits through the ledger
+  (`referral_reward`, `expense:promotions`). Rewards default to zero. Fraud signals (an alias of
+  the referrer's email, the referrer's own network, a network or device shared with other recent
+  referrals, disposable email domains, the monthly cap) send a referral to staff review
+  (`/v1/admin/referrals`) instead of paying it.
+- Notifications (ADR-032): `NotificationService` sends by category over email, SMS, WhatsApp
+  (new `WhatsAppProvider`, mock adapter) and push as each account allows, and logs every attempt
+  with a skip reason. New: check-in reminders, Prime expiry reminders, referral reward messages.
+- Price alerts (ADR-032): `GET/POST/DELETE /v1/me/price-alerts` (up to 10, a date or a month,
+  optional target); the worker sweeps them through `/internal/price-alerts/run`, pricing for the
+  owner (Prime included) and notifying on a drop at most once a day. Worker sweeps for alerts,
+  reminders and referrals.
+- Web: sign-in (email and password, phone code, MFA), registration with a referral code, email
+  verification, password reset and the account area (profile, notifications, trips, travellers,
+  password, authenticator MFA with recovery codes, devices, Prime, invitations, price alerts,
+  wallet, your data with export and deletion). Cookie sessions send the CSRF token on writes and
+  refresh once across tabs with a Web Lock. `/prime` with live plan prices and joining through
+  the normal checkout; booking pages show the membership term; "Watch this route" on flight
+  results; Sign in / Account in the header; the homepage Prime block shows live prices.
+- Mobile: phone-code sign-in next to email, an invite code on registration (prefilled from a
+  `?ref=` link), the account hub with profile, notifications, devices, invitations (system share
+  sheet), price alerts and your data (export through the share sheet with the cache copy deleted,
+  in-app account deletion). The Prime tab shows plans, the member's term and joining with the
+  hosted payment; trip screens show the membership; "Watch this route" on flight results.
+  Notification taps can open Prime, the account, alerts and invitations.
+- Tests: API unit tests for Prime pricing (including a property test that members never pay
+  below supplier cost), the notification matrix, referral rules and alert triggers; API e2e for
+  accounts, export and deletion, Prime purchase and member prices, notifications, alerts,
+  referrals and reminders; web Playwright for registration, sign-in, notifications, Prime
+  purchase, export and deletion; mobile Jest for sign-in, account screens, Prime, invitations,
+  alerts and the membership trip (105 tests).
+
+#### Changed
+
+- Prime purchases are left out of the Trips lists; the Prime screens show them.
+- The ui-native `ToastProvider` clears pending dismiss timers on unmount; `Card` takes a
+  `testID`.
+
+#### Not built yet
+
+- Card fingerprints for referral checks (providers do not report them to us yet), saved payment
+  methods and automatic renewal (stored-card mandates, ADR-018), Google and Apple sign-in buttons
+  (owner OAuth client ids), the admin screens (phase 10) and schedule-change notices (supplier
+  order webhooks).
+
 ### Phase 8: Packages, tours, visa and add-ons (2026-10-05)
 
 #### Added

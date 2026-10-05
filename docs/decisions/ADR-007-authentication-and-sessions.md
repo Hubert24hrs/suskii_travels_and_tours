@@ -110,3 +110,14 @@ audit log. Several details were left open; these are the choices.
 - Two browser tabs refreshing with the same token at the same moment sign the user out; the client
   must serialise refreshes.
 - Emails are sent in-process after the response until the worker owns notifications (phase 7).
+
+## Implementation notes (phase 9: web sign-in)
+
+- The web signs in with `transport: cookie`; the cookies belong to the API origin, which is the
+  same site as the web app. Client code reads only the readable CSRF cookie: it is the "signed
+  in" hint for the header and the value of `X-CSRF-Token` on every unsafe request
+  (`browserApi()` middleware, `apps/web/lib/session.ts`).
+- The access cookie lives 15 minutes. Before each API call the client refreshes it when it ends
+  within a minute (expiry from the sign-in or refresh response, kept in `localStorage`; no token
+  is stored). Refreshes are serialised across tabs with a Web Lock and re-checked inside it, as
+  the consequence above requires; a 401 on a live session forces one refresh and one retry.

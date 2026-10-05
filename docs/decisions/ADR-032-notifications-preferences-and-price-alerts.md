@@ -74,3 +74,9 @@ contracted. Price alerts are "user subscribes to a route; worker notifies on dro
   flights departing within 24 hours (`checkin_reminded_at`). It also sends Prime expiry reminders
   `PRIME_REMINDER_DAYS` before the paid-up end, skipping a term followed by one bought ahead.
   Each reminder is claimed with a conditional update, so it goes once.
+- Clients: the web account area and the app show the matrix with booking and payment email
+  locked on, and save each change at once (optimistic, restored on failure). "Watch this route"
+  on flight results creates an alert for the first flight of the search. Push data carries an
+  in-app path; the app follows only a trip path or one of `/prime`, `/account`,
+  `/account/alerts` and `/account/referrals` (`resolveNotificationPath`), so price alert pushes
+  open the alerts screen.
