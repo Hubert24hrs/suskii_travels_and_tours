@@ -22,6 +22,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
+  // The root CLAUDE.md is the single agent guide (as Turborepo's agentGuidance: false).
+  agentRules: false,
   // Workspace packages ship TypeScript source.
   transpilePackages: ['@suskii/ui-web', '@suskii/i18n', '@suskii/api-client'],
   experimental: {
