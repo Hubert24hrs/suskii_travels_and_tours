@@ -43,16 +43,19 @@ const FILE_PREFIX: Record<BookingDocumentType, string> = {
   visa_confirmation: 'visa-confirmation',
 };
 
-const DOCUMENT_TYPE: Record<ItemPayload['kind'], BookingDocumentType> = {
+/** Memberships have no travel document: the confirmation email is their receipt. */
+const DOCUMENT_TYPE: Record<ItemPayload['kind'], BookingDocumentType | null> = {
   flight: 'e_ticket',
   hotel: 'hotel_voucher',
   package: 'package_voucher',
   tour: 'tour_voucher',
   addon: 'addon_voucher',
   visa: 'visa_confirmation',
+  membership: null,
 };
 
-const documentType = (payload: ItemPayload): BookingDocumentType => DOCUMENT_TYPE[payload.kind];
+const documentType = (payload: ItemPayload): BookingDocumentType | null =>
+  DOCUMENT_TYPE[payload.kind];
 
 const PURPOSE_TEXT: Record<string, string> = {
   tourism: 'Tourism',
@@ -103,6 +106,7 @@ export class BookingDocumentsService {
     for (const item of booking.items) {
       const payload = itemPayload(item);
       const type = documentType(payload);
+      if (!type) continue;
       const existing = booking.documents.find((document) => document.type === type);
       const stored = existing && !regenerate ? await this.storage.get(existing.storageKey) : null;
       if (existing && stored) {
@@ -172,6 +176,7 @@ export class BookingDocumentsService {
   ): Promise<Uint8Array> {
     const total = money(booking.totalMinor, booking.currency);
     const issuedAt = booking.confirmedAt ?? new Date();
+    if (payload.kind === 'membership') throw new Error('Memberships have no document');
     if (isInhouse(payload)) return this.renderInhouse(booking, item, payload, total, issuedAt);
     if (payload.kind === 'flight') {
       const services = itemServices(item);
@@ -252,7 +257,7 @@ export class BookingDocumentsService {
   private async renderInhouse(
     booking: BookingRecord,
     item: BookingRecord['items'][number],
-    payload: InhouseItemPayload,
+    payload: Exclude<InhouseItemPayload, { kind: 'membership' }>,
     total: ReturnType<typeof money>,
     issuedAt: Date,
   ): Promise<Uint8Array> {

@@ -96,6 +96,7 @@ export function flightPricingContext(
     supplier: offer.supplier,
     channel: client.channel,
     userTier: client.userTier,
+    benefits: client.benefits,
     originCode: first?.origin.code ?? null,
     destinationCode: first?.destination.code ?? null,
     originCountry: first?.origin.countryCode ?? null,

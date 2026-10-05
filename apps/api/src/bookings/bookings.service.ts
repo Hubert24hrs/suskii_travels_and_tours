@@ -28,6 +28,7 @@ import { HmacService } from '../crypto/hmac.service';
 import { randomToken } from '../crypto/random';
 import { Prisma, type Traveller } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
+import { withCurrentTier } from '../prime/prime-status';
 import { FxService } from '../pricing/fx.service';
 import { PricingService } from '../pricing/pricing.service';
 import type { ClientContext } from '../search/client-context';
@@ -189,7 +190,7 @@ export class BookingsService {
     const item = booking.items[0];
     if (!item) return EMPTY_VIEW;
     const payload = itemPayload(item);
-    const [voucher, linked, addons, applications] = await Promise.all([
+    const [voucher, linked, addons, applications, membership] = await Promise.all([
       booking.status === 'CONFIRMED' && isInhouse(payload) && payload.kind !== 'visa'
         ? this.prisma.bookingVoucher.findUnique({ where: { bookingItemId: item.id } })
         : null,
@@ -224,6 +225,12 @@ export class BookingsService {
             orderBy: { applicantPosition: 'asc' },
           })
         : [],
+      payload.kind === 'membership'
+        ? this.prisma.primeMembership.findUnique({
+            where: { bookingId: booking.id },
+            select: { startsAt: true, endsAt: true },
+          })
+        : null,
     ]);
     return {
       voucher: voucher ? this.fulfilment.view(voucher) : null,
@@ -253,6 +260,7 @@ export class BookingsService {
         submittedAt: application.submittedAt?.toISOString() ?? null,
         updatedAt: application.updatedAt.toISOString(),
       })),
+      membershipTerm: membership,
     };
   }
 
@@ -281,6 +289,8 @@ export class BookingsService {
       where: {
         userId,
         status: { not: 'DRAFT' },
+        // Memberships are not trips; they are listed by getMyPrime.
+        vertical: { not: 'prime' },
         ...(query.cursor ? { id: { lt: query.cursor } } : {}),
       },
       orderBy: { id: 'desc' },
@@ -339,6 +349,10 @@ export class BookingsService {
     const now = new Date();
     if (quote.expiresAt <= now) throw offerUnavailable(payload.request);
     if (payload.kind === 'hotel' && !('query' in payload)) throw quoteExpired();
+    // A membership belongs to the account that asked for its quote (ADR-030).
+    if (payload.kind === 'membership' && (!userId || quote.userId !== userId)) {
+      throw new NotFoundException();
+    }
 
     const passengers = await this.preparePassengers(input, payload, userId);
     const extras = this.prepareExtras(input, payload, passengers);
@@ -351,11 +365,12 @@ export class BookingsService {
       promo = await this.pricing.findPromo(input.promoCode, userId);
       if (!promo) throw promoInvalid();
     }
-    const [pricer, fx] = await Promise.all([
+    const [pricer, fx, client] = await Promise.all([
       this.pricing.pricer(quote.vertical, quote.currency),
       this.fx.converter(),
+      withCurrentTier(this.prisma, caller.client, now),
     ]);
-    const priced = priceBookingItem(pricer, fx, payload, caller.client, extras, promo, now);
+    const priced = priceBookingItem(pricer, fx, payload, client, extras, promo, now);
     if (promo && priced.promo?.status !== 'applied') throw promoInvalid();
 
     const bookingId = uuidv7();
@@ -411,14 +426,14 @@ export class BookingsService {
       },
       passengers: {
         create:
-          payload.kind === 'hotel'
+          payload.kind === 'hotel' || payload.kind === 'membership'
             ? input.guests.map((guest, index) => ({
                 id: uuidv7(),
                 position: index,
                 type: 'adult' as const,
                 givenNames: guest.givenNames,
                 surname: guest.surname,
-                roomIndex: index,
+                roomIndex: payload.kind === 'hotel' ? index : null,
               }))
             : passengers.map((passenger) => this.passengerRow(passenger)),
       },
@@ -491,8 +506,10 @@ export class BookingsService {
     payload: ItemPayload,
     userId: string | null,
   ): Promise<PreparedPassenger[]> {
-    if (payload.kind === 'hotel') {
-      if (input.passengers.length > 0 || input.guests.length !== payload.request.rooms.length) {
+    if (payload.kind === 'hotel' || payload.kind === 'membership') {
+      // Hotel rooms take a lead guest each; a membership names its one member.
+      const expected = payload.kind === 'hotel' ? payload.request.rooms.length : 1;
+      if (input.passengers.length > 0 || input.guests.length !== expected) {
         throw passengersInvalid([
           { index: null, path: ['guests'], code: PASSENGER_ISSUES.countMismatch },
         ]);

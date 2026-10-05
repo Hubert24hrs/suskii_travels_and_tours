@@ -89,6 +89,7 @@ export function hotelPricingContext(
     supplier: hotel.supplier,
     channel: client.channel,
     userTier: client.userTier,
+    benefits: client.benefits,
     destinationCountry: hotel.countryCode,
     // Per-passenger fees apply per guest.
     passengers: request.rooms.reduce((acc, room) => acc + room.adults + room.childAges.length, 0),

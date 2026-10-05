@@ -29,6 +29,7 @@ import { LoggingModule } from './logging/logging.module';
 import { NewsletterModule } from './newsletter/newsletter.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PricingModule } from './pricing/pricing.module';
+import { PrimeModule } from './prime/prime.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { PushModule } from './push/push.module';
 import { RateLimitGuard } from './rate-limit/rate-limit.guard';
@@ -67,6 +68,7 @@ export class AppModule {
         VisaModule,
         AccountsModule,
         PrivacyModule,
+        PrimeModule,
         HealthModule,
       ],
       providers: [

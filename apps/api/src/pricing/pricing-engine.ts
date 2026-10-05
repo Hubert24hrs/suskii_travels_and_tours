@@ -3,6 +3,7 @@ import {
   compare,
   isNegative,
   maxOf,
+  memberMarkupSaving,
   minOf,
   money,
   multiply,
@@ -11,6 +12,7 @@ import {
   sum,
   zero,
   type Money,
+  type PrimeBenefits,
 } from '@suskii/shared';
 
 import type {
@@ -40,6 +42,8 @@ export interface PricingContext {
   /** Travellers that per-passenger fees apply to (passengers or hotel guests). */
   passengers: number;
   now: Date;
+  /** Suskii Prime benefits of the buyer's current term (ADR-030); only with tier `prime`. */
+  benefits?: PrimeBenefits | null;
 }
 
 /** What the supplier charges us, in one currency. */
@@ -133,6 +137,11 @@ export interface PriceBreakdown {
   fees: { code: string; label: string; amount: Money }[];
   discount: { code: string; amount: Money } | null;
   total: Money;
+  /**
+   * What Suskii Prime took off this price (markup given back and waived fees), before any promo;
+   * null when the buyer is not a member.
+   */
+  memberSaving: Money | null;
   /** Internal: never sent to customers (response schemas omit it). */
   markup: { ruleId: string; amount: Money } | null;
   supplierTotal: Money;
@@ -258,12 +267,47 @@ export function checkPromo(
 /**
  * Prices one supplier offer for a customer:
  *   1. markup: first matching rule (percentage of the supplier base, or fixed), clamped to caps;
+ *      a Prime member gets `markupShareBps` of it back (never more than the markup itself);
  *   2. convert fare (base + markup) and taxes into the display currency, line by line;
- *   3. fees: every matching rule, per booking or per passenger, clamped to caps;
+ *   3. fees: every matching rule, per booking or per passenger, clamped to caps; fees a member's
+ *      plan waives are dropped;
  *   4. promo: percentage or fixed off fare + fees (never taxes), capped, never below zero;
  *   5. total = fare + taxes + fees - discount, which holds exactly by construction.
+ * The member saving is the difference with the same offer priced for a signed-in non-member.
  */
 export function priceOffer(input: PricingInput): PricingResult {
+  const benefits = input.context.userTier === 'prime' ? (input.context.benefits ?? null) : null;
+  const priced = priceCore(input, benefits);
+  if (!benefits) return { ...priced, breakdown: { ...priced.breakdown, memberSaving: null } };
+  // Compared with the same account without Prime: member-only rules count as savings too.
+  const baseline = priceCore(
+    { ...input, promo: null, context: { ...input.context, userTier: 'member', benefits: null } },
+    null,
+  );
+  const memberSubtotal = subtotalOf(priced.breakdown);
+  const saving = subtract(subtotalOf(baseline.breakdown), memberSubtotal);
+  return {
+    ...priced,
+    breakdown: {
+      ...priced.breakdown,
+      memberSaving: isNegative(saving) ? zero(saving.currency) : saving,
+    },
+  };
+}
+
+const subtotalOf = (breakdown: Omit<PriceBreakdown, 'memberSaving'>): Money =>
+  add(
+    add(breakdown.fare, breakdown.taxes),
+    sum(
+      breakdown.currency,
+      breakdown.fees.map((fee) => fee.amount),
+    ),
+  );
+
+function priceCore(
+  input: PricingInput,
+  benefits: PrimeBenefits | null,
+): { breakdown: Omit<PriceBreakdown, 'memberSaving'>; promo: PricingResult['promo'] } {
   const { price, context: ctx, displayCurrency, fx } = input;
   const supplierCurrency = price.base.currency;
 
@@ -278,14 +322,16 @@ export function priceOffer(input: PricingInput): PricingResult {
     markup = clamp(raw, rule, fx);
     markupRuleId = rule.id;
   }
+  if (benefits) markup = subtract(markup, memberMarkupSaving(markup, benefits.markupShareBps));
   // A negative markup (a channel discount) can never push the fare below zero.
   const supplierFare = maxOf(add(price.base, markup), zero(supplierCurrency));
 
   const fare = fx.convert(supplierFare, displayCurrency, 'half-up');
   const taxes = fx.convert(price.taxes, displayCurrency, 'half-up');
 
+  const waived = new Set(benefits?.waivedFeeCodes ?? []);
   const fees = input.feeRules
-    .filter((candidate) => feeMatches(candidate, ctx))
+    .filter((candidate) => feeMatches(candidate, ctx) && !waived.has(candidate.code))
     .map((feeRule) => {
       const unit =
         feeRule.type === 'percentage'

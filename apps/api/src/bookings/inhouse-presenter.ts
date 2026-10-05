@@ -5,6 +5,7 @@ import { documentDateTime } from '../documents/booking-pdf';
 import type { ItemPayload } from './booking-pricing';
 import type {
   addonItemSchema,
+  membershipItemSchema,
   packageItemSchema,
   tourItemSchema,
   visaApplicationSummarySchema,
@@ -17,15 +18,23 @@ export type TourItemDto = z.infer<typeof tourItemSchema>;
 export type VisaItemDto = z.infer<typeof visaItemSchema>;
 export type AddonItemDto = z.infer<typeof addonItemSchema>;
 export type VisaApplicationSummaryDto = z.infer<typeof visaApplicationSummarySchema>;
+export type MembershipItemDto = z.infer<typeof membershipItemSchema>;
 
 export interface InhouseSections {
   package: PackageItemDto | null;
   tour: TourItemDto | null;
   visa: VisaItemDto | null;
   addon: AddonItemDto | null;
+  membership: MembershipItemDto | null;
 }
 
-export const NO_INHOUSE: InhouseSections = { package: null, tour: null, visa: null, addon: null };
+export const NO_INHOUSE: InhouseSections = {
+  package: null,
+  tour: null,
+  visa: null,
+  addon: null,
+  membership: null,
+};
 
 const product = (payload: InhouseItemPayload) => ({
   id: payload.productId,
@@ -47,6 +56,7 @@ export function inhouseSections(
   context: {
     applications?: VisaApplicationSummaryDto[];
     linkedBooking?: { id: string; reference: string } | null;
+    membershipTerm?: { startsAt: Date; endsAt: Date } | null;
   } = {},
 ): InhouseSections {
   switch (payload.kind) {
@@ -123,6 +133,26 @@ export function inhouseSections(
               : null),
         },
       };
+    case 'membership':
+      return {
+        ...NO_INHOUSE,
+        membership: {
+          product: product(payload),
+          summary: payload.summary,
+          period: payload.period,
+          benefits: {
+            memberFares: payload.benefits.markupShareBps > 0,
+            waivedFeeCodes: payload.benefits.waivedFeeCodes,
+            prioritySupport: payload.benefits.prioritySupport,
+          },
+          term: context.membershipTerm
+            ? {
+                startsAt: context.membershipTerm.startsAt.toISOString(),
+                endsAt: context.membershipTerm.endsAt.toISOString(),
+              }
+            : null,
+        },
+      };
     case 'flight':
     case 'hotel':
       return NO_INHOUSE;
@@ -139,5 +169,7 @@ export function inhouseSummary(payload: InhouseItemPayload): string {
       return `${payload.title}, ${documentDateTime(payload.startsAtLocal)}`;
     case 'visa':
       return `${payload.title}, travelling ${documentDateTime(payload.travelDate)}`;
+    case 'membership':
+      return `${payload.title} (${payload.period === 'year' ? 'yearly' : 'monthly'} membership)`;
   }
 }

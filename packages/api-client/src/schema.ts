@@ -268,6 +268,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/prime/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every Suskii Prime plan with its active members */
+        get: operations["adminListPrimePlans"];
+        put?: never;
+        /** Create a Suskii Prime plan (as a draft) */
+        post: operations["adminCreatePrimePlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/prime/plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a plan: prices, benefits, copy or status
+         * @description Running terms keep the benefits they were bought with; new purchases and the price re-check before payment use the plan as it is now.
+         */
+        patch: operations["adminUpdatePrimePlan"];
+        trace?: never;
+    };
     "/v1/admin/refunds": {
         parameters: {
             query?: never;
@@ -1545,8 +1583,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Quote a package, tour, visa assistance or add-on
-         * @description Checks the selection against the catalog (seats left, who may book, dates) and prices it for the caller; book it with `createBooking` like any quote. 422 `quote-invalid` carries `code`; 409 `sold-out`; 410 when the departure or product is no longer on sale.
+         * Quote a package, tour, visa assistance, add-on or Suskii Prime membership
+         * @description Checks the selection against the catalog (seats left, who may book, dates) and prices it for the caller; book it with `createBooking` like any quote. 422 `quote-invalid` carries `code`; 409 `sold-out`; 410 when the departure or product is no longer on sale. Memberships need a signed-in account (401) and book with one `guests` entry, the member.
          */
         post: operations["createInhouseQuote"];
         delete?: never;
@@ -1789,7 +1827,7 @@ export interface paths {
         };
         /**
          * Trips booked with this account
-         * @description Newest first, 20 per page by default. Summaries carry no traveller data; open a trip with `GET /v1/bookings/{id}`.
+         * @description Newest first, 20 per page by default. Summaries carry no traveller data; open a trip with `GET /v1/bookings/{id}`. Suskii Prime purchases are listed by `getMyPrime`.
          */
         get: operations["listMyBookings"];
         put?: never;
@@ -2023,6 +2061,26 @@ export interface paths {
          * @description Fields left out stay as they are; `null` clears one. Withdrawing marketing consent turns off every marketing channel.
          */
         patch: operations["updatePreferences"];
+        trace?: never;
+    };
+    "/v1/me/prime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Suskii Prime membership
+         * @description Refresh the session after a purchase is confirmed so searches price you as a member.
+         */
+        get: operations["getMyPrime"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/me/push-token": {
@@ -2364,6 +2422,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/prime/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suskii Prime plans on sale
+         * @description Empty until staff publish a plan (clients then show "coming soon"). Buy one with `createInhouseQuote` (`kind: "membership"`) and `createBooking`.
+         */
+        get: operations["listPrimePlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/quotes/{quoteId}": {
         parameters: {
             query?: never;
@@ -2615,6 +2693,33 @@ export interface components {
             /** @enum {string} */
             status: "open" | "closed" | "cancelled";
         };
+        AdminPrimePlan: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+            summary: string;
+            /** @enum {string} */
+            period: "month" | "year";
+            prices: components["schemas"]["Money"][];
+            benefits: {
+                markupShareBps: number;
+                waivedFeeCodes: string[];
+                prioritySupport: boolean;
+            };
+            /** @enum {string} */
+            status: "draft" | "published" | "archived";
+            sample: boolean;
+            sortOrder: number;
+            activeMembers: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminPrimePlanList: {
+            plans: components["schemas"]["AdminPrimePlan"][];
+        };
         AdminProduct: {
             /** Format: uuid */
             id: string;
@@ -2823,6 +2928,7 @@ export interface components {
             tour: components["schemas"]["TourItem"] | null;
             visa: components["schemas"]["VisaItem"] | null;
             addon: components["schemas"]["AddonItem"] | null;
+            membership: components["schemas"]["MembershipItem"] | null;
             voucher: {
                 code: string;
                 qrPayload: string;
@@ -2913,6 +3019,8 @@ export interface components {
                 amount: components["schemas"]["Money"];
             } | null;
             total: components["schemas"]["Money"];
+            /** @default null */
+            memberSaving: components["schemas"]["Money"] | null;
             fx: {
                 from: string;
                 to: string;
@@ -3175,6 +3283,24 @@ export interface components {
                 daysBefore: number;
                 refundBps: number;
             }[];
+        };
+        CreatePrimePlanInput: {
+            slug: string;
+            name: string;
+            summary: string;
+            /** @enum {string} */
+            period: "month" | "year";
+            prices: {
+                amountMinor: number;
+                currency: string;
+            }[];
+            benefits: {
+                markupShareBps: number;
+                waivedFeeCodes: string[];
+                prioritySupport: boolean;
+            };
+            /** @default 0 */
+            sortOrder?: number;
         };
         CreateRefundRequestInput: {
             /** Format: uuid */
@@ -3787,6 +3913,15 @@ export interface components {
              * @enum {string}
              */
             currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+        } | {
+            /** @constant */
+            kind: "membership";
+            planSlug: string;
+            /**
+             * @default NGN
+             * @enum {string}
+             */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
         };
         Jwks: {
             keys: ({
@@ -3817,6 +3952,26 @@ export interface components {
             name: string;
             address: string;
             notes: string | null;
+        };
+        MembershipItem: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                title: string;
+                sample: boolean;
+                artKey: string | null;
+            };
+            summary: string;
+            /** @enum {string} */
+            period: "month" | "year";
+            benefits: components["schemas"]["PrimeBenefitsView"];
+            term: {
+                /** Format: date-time */
+                startsAt: string;
+                /** Format: date-time */
+                endsAt: string;
+            } | null;
         };
         MfaChallenge: {
             /** @constant */
@@ -3866,6 +4021,35 @@ export interface components {
         MoneyInput: {
             amountMinor: number;
             currency: string;
+        };
+        MyPrime: {
+            member: boolean;
+            current: {
+                plan: {
+                    slug: string;
+                    name: string;
+                    /** @enum {string} */
+                    period: "month" | "year";
+                };
+                /** Format: date-time */
+                startsAt: string;
+                /** Format: date-time */
+                until: string;
+                benefits: components["schemas"]["PrimeBenefitsView"];
+            } | null;
+            terms: {
+                /** Format: uuid */
+                id: string;
+                planName: string;
+                /** @enum {string} */
+                status: "active" | "cancelled";
+                /** Format: date-time */
+                startsAt: string;
+                /** Format: date-time */
+                endsAt: string;
+                /** Format: uuid */
+                bookingId: string;
+            }[];
         };
         NewsletterConfirmResponse: {
             /** @constant */
@@ -4188,6 +4372,8 @@ export interface components {
                 amount: components["schemas"]["Money"];
             } | null;
             total: components["schemas"]["Money"];
+            /** @default null */
+            memberSaving: components["schemas"]["Money"] | null;
             fx: {
                 from: string;
                 to: string;
@@ -4204,6 +4390,27 @@ export interface components {
         } | null;
         PriceConsentRequestInput: {
             total: components["schemas"]["MoneyInput"];
+        };
+        PrimeBenefitsView: {
+            memberFares: boolean;
+            waivedFeeCodes: string[];
+            prioritySupport: boolean;
+        };
+        PrimePlan: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+            summary: string;
+            /** @enum {string} */
+            period: "month" | "year";
+            price: components["schemas"]["Money"] | null;
+            prices: components["schemas"]["Money"][];
+            benefits: components["schemas"]["PrimeBenefitsView"];
+            sample: boolean;
+        };
+        PrimePlanList: {
+            plans: components["schemas"]["PrimePlan"][];
         };
         /** @description RFC 9457 problem details (application/problem+json). */
         ProblemDetails: {
@@ -4274,6 +4481,7 @@ export interface components {
             tour: components["schemas"]["TourItem"] | null;
             visa: components["schemas"]["VisaItem"] | null;
             addon: components["schemas"]["AddonItem"] | null;
+            membership: components["schemas"]["MembershipItem"] | null;
             price: components["schemas"]["Price"] | null;
             payment: components["schemas"]["PaymentOptions"];
         };
@@ -4643,6 +4851,22 @@ export interface components {
             currency?: ("NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR") | null;
             homeAirport?: string | null;
             marketingConsent?: boolean;
+        };
+        UpdatePrimePlanInput: {
+            name?: string;
+            summary?: string;
+            prices?: {
+                amountMinor: number;
+                currency: string;
+            }[];
+            benefits?: {
+                markupShareBps: number;
+                waivedFeeCodes: string[];
+                prioritySupport: boolean;
+            };
+            sortOrder?: number;
+            /** @enum {string} */
+            status?: "draft" | "published" | "archived";
         };
         UpdateProfileRequestInput: {
             displayName: string;
@@ -5466,6 +5690,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListPrimePlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPrimePlanList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreatePrimePlan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePrimePlanInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPrimePlan"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdatePrimePlan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePrimePlanInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPrimePlan"];
                 };
             };
             400: components["responses"]["Problem400"];
@@ -7702,6 +8019,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             410: components["responses"]["Problem410"];
@@ -8537,6 +8855,30 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getMyPrime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyPrime"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     registerPushToken: {
         parameters: {
             query?: never;
@@ -9138,6 +9480,31 @@ export interface operations {
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
             422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listPrimePlans: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrimePlanList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

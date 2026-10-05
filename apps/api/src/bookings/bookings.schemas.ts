@@ -8,6 +8,7 @@ import {
   CABIN_CLASSES,
   FLIGHT_NUMBER_PATTERN,
   VISA_APPLICATION_STATUSES,
+  PRIME_PERIODS,
   VISA_PURPOSES,
   contactDetailsSchema,
   flightSearchRequestSchema,
@@ -240,6 +241,32 @@ export const addonItemSchema = named(
   }),
 );
 
+/** What a Prime plan gives, as customers see it: the margin share itself stays internal. */
+export const primeBenefitsDtoSchema = named(
+  'PrimeBenefitsView',
+  z.object({
+    memberFares: z.boolean().meta({ description: 'Members get lower fares on eligible trips.' }),
+    waivedFeeCodes: z
+      .array(z.string())
+      .meta({ description: 'Fee codes (as in price `fees`) members do not pay.' }),
+    prioritySupport: z.boolean(),
+  }),
+);
+
+export const membershipItemSchema = named(
+  'MembershipItem',
+  z.object({
+    product: productRefSchema,
+    summary: z.string(),
+    period: z.enum(PRIME_PERIODS),
+    benefits: primeBenefitsDtoSchema,
+    term: z.object({ startsAt: timestamp, endsAt: timestamp }).nullable().meta({
+      description:
+        'Set once the booking is confirmed; a member buying again extends from their current end.',
+    }),
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // Quotes (checkout)
 // ---------------------------------------------------------------------------
@@ -270,6 +297,7 @@ export const quoteSchema = named(
     tour: tourItemSchema.nullable(),
     visa: visaItemSchema.nullable(),
     addon: addonItemSchema.nullable(),
+    membership: membershipItemSchema.nullable(),
     price: priceSchema.nullable().meta({
       description: 'In-house products: the priced total (flights and hotels: in the offer).',
     }),
@@ -495,6 +523,7 @@ export const bookingSchema = named(
     tour: tourItemSchema.nullable(),
     visa: visaItemSchema.nullable(),
     addon: addonItemSchema.nullable(),
+    membership: membershipItemSchema.nullable(),
     voucher: z
       .object({
         code: z

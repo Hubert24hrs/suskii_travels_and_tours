@@ -71,6 +71,22 @@ export class AuthGuard implements CanActivate {
       const csrfToken = Array.isArray(csrfHeader) ? csrfHeader[0] : csrfHeader;
       if (!this.csrf.verify(claims.sid, csrfToken)) throw csrfFailed();
     }
-    return { userId: claims.sub, sessionId: claims.sid, roles: claims.roles, mfa: claims.mfa, via };
+    return {
+      userId: claims.sub,
+      sessionId: claims.sid,
+      roles: claims.roles,
+      mfa: claims.mfa,
+      via,
+      prime: claims.prm
+        ? {
+            until: new Date(claims.prm.until * 1000),
+            benefits: {
+              markupShareBps: claims.prm.share,
+              waivedFeeCodes: claims.prm.waived,
+              prioritySupport: claims.prm.priority,
+            },
+          }
+        : null,
+    };
   }
 }

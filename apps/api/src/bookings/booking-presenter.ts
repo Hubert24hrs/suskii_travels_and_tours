@@ -99,6 +99,8 @@ export interface BookingView {
   linkedBooking: { id: string; reference: string } | null;
   addons: BookingDto['addons'];
   applications: VisaApplicationSummaryDto[];
+  /** The Prime term a membership booking bought, once confirmed (ADR-030). */
+  membershipTerm: { startsAt: Date; endsAt: Date } | null;
 }
 
 export const EMPTY_VIEW: BookingView = {
@@ -107,6 +109,7 @@ export const EMPTY_VIEW: BookingView = {
   linkedBooking: null,
   addons: [],
   applications: [],
+  membershipTerm: null,
 };
 
 const REFUND_VIEW = {
@@ -198,6 +201,7 @@ export function toBookingDto(
     ...inhouseSections(payload, {
       applications: view.applications,
       linkedBooking: view.linkedBooking,
+      membershipTerm: view.membershipTerm,
     }),
     voucher: view.voucher
       ? {
@@ -339,7 +343,8 @@ export function toBookingSummary(booking: BookingSummaryRecord): BookingSummaryD
       hotel: null,
       product: {
         title: payload.title,
-        cityName: payload.kind === 'visa' ? null : payload.cityName,
+        cityName:
+          payload.kind === 'visa' || payload.kind === 'membership' ? null : payload.cityName,
         countryCode: inhouseCountry(payload),
       },
     };

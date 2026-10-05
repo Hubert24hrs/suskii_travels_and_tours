@@ -10,6 +10,7 @@ import { uuidv7 } from '../common/uuid';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { Prisma, type BookingStatus } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
+import { withCurrentTier } from '../prime/prime-status';
 import { LedgerService } from '../ledger/ledger.service';
 import {
   PaymentProviderUnavailableError,
@@ -91,12 +92,16 @@ export function supplierOfferId(payload: ItemPayload): string {
     : bookedRate(payload).supplierRateId;
 }
 
-/** Pricing context of an existing booking: its own channel and tier, not the current caller's. */
+/**
+ * Pricing context of an existing booking: its own channel and owner, not the current caller's.
+ * The Prime tier is not known here; callers pass it through `withCurrentTier` (ADR-030).
+ */
 export function bookingClient(booking: Pick<BookingRecord, 'channel' | 'userId'>): ClientContext {
   return {
     channel: booking.channel,
     userTier: booking.userId ? 'member' : 'guest',
     userId: booking.userId,
+    benefits: null,
   };
 }
 
@@ -372,21 +377,14 @@ export class CheckoutService {
       await this.failUnavailable(booking, actor);
       throw offerUnavailable(payload.request);
     }
-    const [pricer, fx, promo] = await Promise.all([
+    const [pricer, fx, promo, client] = await Promise.all([
       this.pricing.pricer(booking.vertical, booking.currency),
       this.fx.converter(),
       this.promoFor(booking),
+      withCurrentTier(this.prisma, bookingClient(booking)),
     ]);
     const now = new Date();
-    const priced = priceBookingItem(
-      pricer,
-      fx,
-      freshPayload,
-      bookingClient(booking),
-      services,
-      promo,
-      now,
-    );
+    const priced = priceBookingItem(pricer, fx, freshPayload, client, services, promo, now);
     const agreed = money(booking.totalMinor, booking.currency);
     if (!equals(priced.total, agreed)) {
       const next: PendingPrice = {
@@ -476,20 +474,13 @@ export class CheckoutService {
       ...payload,
       offer: { ...payload.offer, price: held.price },
     };
-    const [pricer, fx, promo] = await Promise.all([
+    const [pricer, fx, promo, client] = await Promise.all([
       this.pricing.pricer(booking.vertical, booking.currency),
       this.fx.converter(),
       this.promoFor(booking),
+      withCurrentTier(this.prisma, bookingClient(booking)),
     ]);
-    const priced = priceBookingItem(
-      pricer,
-      fx,
-      freshPayload,
-      bookingClient(booking),
-      [],
-      promo,
-      new Date(),
-    );
+    const priced = priceBookingItem(pricer, fx, freshPayload, client, [], promo, new Date());
     if (equals(priced.total, money(booking.totalMinor, booking.currency))) return;
     const next: PendingPrice = {
       price: priced.price,

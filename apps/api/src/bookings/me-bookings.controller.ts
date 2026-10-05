@@ -17,7 +17,7 @@ export class MeBookingsController {
     operationId: 'listMyBookings',
     summary: 'Trips booked with this account',
     description:
-      'Newest first, 20 per page by default. Summaries carry no traveller data; open a trip with `GET /v1/bookings/{id}`.',
+      'Newest first, 20 per page by default. Summaries carry no traveller data; open a trip with `GET /v1/bookings/{id}`. Suskii Prime purchases are listed by `getMyPrime`.',
     tags: ['Account'],
     query: bookingListQuerySchema,
     responses: { 200: bookingSummaryPageSchema },

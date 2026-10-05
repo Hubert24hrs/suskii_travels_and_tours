@@ -366,3 +366,102 @@ describe('priceOffer properties', () => {
     );
   });
 });
+
+describe('Suskii Prime member pricing (ADR-030)', () => {
+  const benefits = {
+    markupShareBps: 5_000,
+    waivedFeeCodes: ['service_fee'],
+    prioritySupport: true,
+  };
+  const rules = {
+    markupRules: [markup({ value: 1_000n })], // 10% of USD 400 = USD 40
+    feeRules: [fee(), fee({ id: 'fee-2', code: 'card_fee', label: 'Card fee', value: 50_000n })],
+  };
+
+  it('gives back the share of the markup, waives listed fees and reports the saving', () => {
+    const member = run({ ...rules, context: context({ userTier: 'member' }) });
+    const prime = run({ ...rules, context: context({ userTier: 'prime', benefits }) });
+    // USD 440 for members, USD 420 for Prime (half the USD 40 markup back).
+    expect(member.breakdown.fare).toEqual(ngn(682_000));
+    expect(prime.breakdown.fare).toEqual(ngn(651_000));
+    expect(prime.breakdown.fees.map((f) => f.code)).toEqual(['card_fee']);
+    expect(prime.breakdown.memberSaving).toEqual(ngn(31_000 + 2_500));
+    expect(subtract(member.breakdown.total, prime.breakdown.total)).toEqual(
+      prime.breakdown.memberSaving,
+    );
+    expect(member.breakdown.memberSaving).toBeNull();
+    // The margin kept is internal and smaller by the saving.
+    expect(prime.breakdown.markup?.amount).toEqual(ngn(31_000));
+  });
+
+  it('ignores benefits without the prime tier and counts member-only rules as savings', () => {
+    const notPrime = run({ ...rules, context: context({ userTier: 'member', benefits }) });
+    expect(notPrime.breakdown.fees).toHaveLength(2);
+    expect(notPrime.breakdown.memberSaving).toBeNull();
+
+    // A Prime-only markup of 5% (instead of 10%) with no share and no waivers.
+    const tiered = run({
+      markupRules: [markup({ id: 'prime', priority: 1, userTier: 'prime', value: 500n }), markup()],
+      context: context({
+        userTier: 'prime',
+        benefits: { markupShareBps: 0, waivedFeeCodes: [], prioritySupport: false },
+      }),
+    });
+    const regular = run({
+      markupRules: [markup({ id: 'prime', priority: 1, userTier: 'prime', value: 500n }), markup()],
+      context: context({ userTier: 'member' }),
+    });
+    expect(tiered.breakdown.memberSaving).toEqual(
+      subtract(regular.breakdown.total, tiered.breakdown.total),
+    );
+  });
+
+  it('applies promos after member pricing and leaves the saving pre-promo', () => {
+    const prime = run({
+      ...rules,
+      context: context({ userTier: 'prime', benefits }),
+      promo: { data: promo(), usage: { total: 0, byUser: 0 } },
+    });
+    expect(prime.promo).toEqual({ status: 'applied' });
+    // 10% off fare + remaining fees.
+    expect(prime.breakdown.discount?.amount).toEqual(ngn((651_000 + 500) / 10));
+    expect(prime.breakdown.memberSaving).toEqual(ngn(33_500));
+  });
+
+  it('never prices a member below the supplier cost, whatever the plan says', () => {
+    fc.assert(
+      fc.property(
+        fc.bigInt({ min: 0n, max: 10n ** 9n }),
+        fc.bigInt({ min: -5_000n, max: 5_000n }),
+        fc.integer({ min: 0, max: 10_000 }),
+        (base, markupBps, shareBps) => {
+          const prime = priceOffer({
+            price: { base: money(base, 'NGN'), taxes: money(0n, 'NGN') },
+            context: context({
+              userTier: 'prime',
+              benefits: { markupShareBps: shareBps, waivedFeeCodes: [], prioritySupport: false },
+            }),
+            displayCurrency: 'NGN',
+            markupRules: [markup({ value: markupBps })],
+            feeRules: [],
+            fx,
+          });
+          const member = priceOffer({
+            price: { base: money(base, 'NGN'), taxes: money(0n, 'NGN') },
+            context: context({ userTier: 'member' }),
+            displayCurrency: 'NGN',
+            markupRules: [markup({ value: markupBps })],
+            feeRules: [],
+            fx,
+          });
+          // A positive markup is shared; a discount (negative markup) is never deepened.
+          expect(prime.breakdown.fare.minor >= (markupBps >= 0n ? base : 0n)).toBe(true);
+          expect(prime.breakdown.fare.minor <= member.breakdown.fare.minor).toBe(true);
+          expect(prime.breakdown.memberSaving?.minor).toBe(
+            member.breakdown.total.minor - prime.breakdown.total.minor,
+          );
+        },
+      ),
+    );
+  });
+});

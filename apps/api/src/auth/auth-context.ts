@@ -1,7 +1,7 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
 
-import type { Role } from '@suskii/shared';
+import type { PrimeBenefits, Role } from '@suskii/shared';
 
 import { authenticationRequired } from './errors';
 
@@ -12,6 +12,8 @@ export interface AuthContext {
   roles: Role[];
   mfa: boolean;
   via: 'bearer' | 'cookie';
+  /** Suskii Prime when the token was issued (ADR-030); null for non-members. */
+  prime: { until: Date; benefits: PrimeBenefits } | null;
 }
 
 export type AuthenticatedRequest = Request & { auth?: AuthContext };

@@ -200,6 +200,7 @@ export class VisaService {
         supplier: INHOUSE_SUPPLIER,
         channel: client.channel,
         userTier: client.userTier,
+        benefits: client.benefits,
         destinationCountry: product.destination,
         passengers: 1,
         now: new Date(),

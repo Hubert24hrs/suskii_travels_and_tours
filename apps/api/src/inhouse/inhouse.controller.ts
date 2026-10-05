@@ -198,13 +198,13 @@ export class InhouseController {
   @RateLimit(SEARCH_LIMITS.quoteIp)
   @Contract({
     operationId: 'createInhouseQuote',
-    summary: 'Quote a package, tour, visa assistance or add-on',
+    summary: 'Quote a package, tour, visa assistance, add-on or Suskii Prime membership',
     description:
-      'Checks the selection against the catalog (seats left, who may book, dates) and prices it for the caller; book it with `createBooking` like any quote. 422 `quote-invalid` carries `code`; 409 `sold-out`; 410 when the departure or product is no longer on sale.',
+      'Checks the selection against the catalog (seats left, who may book, dates) and prices it for the caller; book it with `createBooking` like any quote. 422 `quote-invalid` carries `code`; 409 `sold-out`; 410 when the departure or product is no longer on sale. Memberships need a signed-in account (401) and book with one `guests` entry, the member.',
     tags: ['Bookings'],
     body: inhouseQuoteRequestSchema,
     responses: { 201: quoteSchema },
-    errors: [404, 409, 410, 422],
+    errors: [401, 404, 409, 410, 422],
   })
   quote(
     @Body() body: InhouseQuoteInput,

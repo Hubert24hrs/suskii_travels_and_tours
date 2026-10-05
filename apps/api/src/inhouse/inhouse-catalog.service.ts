@@ -104,6 +104,7 @@ export class InhouseCatalogService {
         supplier: INHOUSE_SUPPLIER,
         channel: client.channel,
         userTier: client.userTier,
+        benefits: client.benefits,
         destinationCountry,
         passengers: 1,
         now,

@@ -10,6 +10,7 @@ import {
   localDate,
   addonDetailFieldsSchema,
   moneyWireSchema,
+  primeTermEnd,
   type CancellationTier,
   type Money,
   type PerPersonPrices,
@@ -19,20 +20,24 @@ import type {
   Addon,
   City,
   PackageDeparture,
+  PrimePlan,
   Tour,
   TourDeparture,
   TravelPackage,
   VisaProduct,
 } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
+import { storedBenefits } from '../prime/prime-status';
 import { OfferUnavailableError } from '../suppliers/supplier.errors';
 
 import {
   addonUnitsFor,
   INHOUSE_SUPPLIER,
+  MEMBERSHIP_TRAVELLERS,
   type AddonItemPayload,
   type InhouseItemPayload,
   type InhouseQuoteRequest,
+  type MembershipItemPayload,
   type PackageItemPayload,
   type TourItemPayload,
   type VisaItemPayload,
@@ -54,6 +59,12 @@ export const storedTexts = (value: unknown): string[] => textListSchema.parse(va
 export const storedItinerary = (value: unknown) => itinerarySchema.parse(value);
 export const storedMeetingPoint = (value: unknown) => meetingPointSchema.parse(value);
 export const storedDetails = (value: unknown) => addonDetailFieldsSchema.parse(value);
+export const storedPlanPrices = (value: unknown): Money[] =>
+  moneyWireSchema.array().parse(value).map(fromWire);
+
+/** A plan's price in one currency, or null when it is not sold in that currency. */
+export const planPrice = (plan: Pick<PrimePlan, 'prices'>, currency: string): Money | null =>
+  storedPlanPrices(plan.prices).find((price) => price.currency === currency) ?? null;
 
 const isoDate = (date: Date): string => date.toISOString().slice(0, 10);
 
@@ -105,6 +116,15 @@ export class InhouseCatalog {
     const row = await this.prisma.addon.findUnique({ where: { id: addonId } });
     if (row?.status !== 'published') throw unavailable('Add-on is not on sale');
     return row;
+  }
+
+  /** A published Prime plan sold in `currency`, with its price there (ADR-030). */
+  async primePlan(planId: string, currency: string): Promise<{ plan: PrimePlan; price: Money }> {
+    const plan = await this.prisma.primePlan.findUnique({ where: { id: planId } });
+    if (plan?.status !== 'published') throw unavailable('Prime plan is not on sale');
+    const price = planPrice(plan, currency);
+    if (!price) throw unavailable('Prime plan is not sold in this currency');
+    return { plan, price };
   }
 
   // -------------------------------------------------------------------------
@@ -232,6 +252,26 @@ export class InhouseCatalog {
     };
   }
 
+  membershipPayload(plan: PrimePlan, price: Money, now = new Date()): MembershipItemPayload {
+    const startDate = isoDate(now);
+    return {
+      kind: 'membership',
+      productId: plan.id,
+      slug: plan.slug,
+      title: plan.name,
+      sample: plan.sample,
+      artKey: null,
+      travellers: MEMBERSHIP_TRAVELLERS,
+      summary: plan.summary,
+      period: plan.period,
+      unitPrice: price,
+      benefits: storedBenefits(plan.benefits),
+      startDate,
+      endDate: isoDate(primeTermEnd(now, plan.period)),
+      request: { kind: 'membership', planSlug: plan.slug, currency: price.currency },
+    };
+  }
+
   /**
    * The item at today's catalog price (the re-check before payment). Everything the traveller
    * chose, and booking-specific fields such as encrypted add-on details, stay as they were.
@@ -255,6 +295,11 @@ export class InhouseCatalog {
         const addon = await this.addon(payload.productId);
         if (payload.startDate < localDate(now, 'UTC')) throw unavailable('Start date has passed');
         return { ...payload, unitPrice: storedMoney(addon.price) };
+      }
+      case 'membership': {
+        // Price and benefits as the plan stands now; the term is fixed at confirmation.
+        const { plan, price } = await this.primePlan(payload.productId, payload.unitPrice.currency);
+        return { ...payload, unitPrice: price, benefits: storedBenefits(plan.benefits) };
       }
     }
   }

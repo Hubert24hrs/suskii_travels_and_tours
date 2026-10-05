@@ -267,6 +267,7 @@ export class DealsService {
           supplier: snapshot.supplier,
           channel: client.channel,
           userTier: client.userTier,
+          benefits: client.benefits,
           originCode: route.originCode,
           destinationCode: route.destinationCode,
           originCountry: snapshot.originCountry,

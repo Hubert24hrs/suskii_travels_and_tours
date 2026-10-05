@@ -1,5 +1,6 @@
 /**
- * Sample in-house inventory for local development and the e2e suites (ADR-025):
+ * Sample in-house inventory and a sample Suskii Prime plan for local development and the e2e
+ * suites (ADR-025, ADR-030):
  *
  *   pnpm --filter @suskii/api db:seed:demo
  *
@@ -365,6 +366,27 @@ async function seedVisa(prisma: PrismaClient): Promise<void> {
   }
 }
 
+/**
+ * One sample Suskii Prime plan (ADR-030) so the Prime pages and purchase flow can be exercised.
+ * The price and benefits are placeholders until the owner decides them.
+ */
+async function seedPrime(prisma: PrismaClient): Promise<void> {
+  const data = {
+    name: 'Suskii Prime (sample)',
+    summary: `Member fares and no service fee for a year. ${SAMPLE_NOTE}`,
+    period: 'year' as const,
+    prices: [ngn(25_000), { amountMinor: 2_500, currency: 'USD' }],
+    benefits: { markupShareBps: 5_000, waivedFeeCodes: ['service_fee'], prioritySupport: true },
+    status: 'published' as const,
+    sample: true,
+  };
+  await prisma.primePlan.upsert({
+    where: { slug: 'suskii-prime-sample' },
+    create: { slug: 'suskii-prime-sample', ...data },
+    update: data,
+  });
+}
+
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('db:seed:demo creates sample inventory and never runs in production');
@@ -380,7 +402,8 @@ async function main(): Promise<void> {
     await seedTours(prisma);
     await seedAddons(prisma);
     await seedVisa(prisma);
-    process.stdout.write('sample inventory ensured (packages, tours, add-ons, visa)\n');
+    await seedPrime(prisma);
+    process.stdout.write('sample inventory ensured (packages, tours, add-ons, visa, Prime)\n');
   } finally {
     await prisma.$disconnect();
   }

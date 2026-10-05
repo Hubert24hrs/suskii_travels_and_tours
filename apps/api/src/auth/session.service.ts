@@ -9,6 +9,7 @@ import { randomToken, sha256 } from '../crypto/random';
 import type { AuthMethod, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { REDIS } from '../infra/redis';
+import { currentPrime } from '../prime/prime-status';
 
 import { CsrfService } from './csrf.service';
 import { invalidToken, sessionRevoked } from './errors';
@@ -114,12 +115,23 @@ export class SessionService {
     refresh: { raw: string; expiresAt: Date },
   ): Promise<IssuedSession> {
     const mfa = session.mfaVerifiedAt !== null;
+    const prime = await currentPrime(this.prisma, user.id);
     const { token, expiresAt } = await this.tokens.sign({
       sub: user.id,
       sid: session.id,
       roles: user.roles.map((role) => role.roleKey),
       mfa,
       amr: [AMR[session.authMethod], ...(mfa ? ['mfa'] : [])],
+      ...(prime
+        ? {
+            prm: {
+              until: Math.floor(prime.until.getTime() / 1000),
+              share: prime.benefits.markupShareBps,
+              waived: prime.benefits.waivedFeeCodes,
+              priority: prime.benefits.prioritySupport,
+            },
+          }
+        : {}),
     });
     return {
       sessionId: session.id,

@@ -336,6 +336,11 @@ export const inhouseQuoteRequestSchema = named(
         .meta({ description: 'Standalone add-ons: the destination city.' }),
       currency: currencyCodeSchema.default(DEFAULT_CURRENCY),
     }),
+    z.object({
+      kind: z.literal('membership'),
+      planSlug: z.string().trim().min(1).max(80),
+      currency: currencyCodeSchema.default(DEFAULT_CURRENCY),
+    }),
   ]),
 );
 export type InhouseQuoteInput = z.output<typeof inhouseQuoteRequestSchema>;

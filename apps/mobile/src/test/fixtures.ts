@@ -69,6 +69,7 @@ export function booking(patch: Partial<Booking> = {}): Booking {
       fees: [],
       discount: null,
       total: ngn(8_500_000),
+      memberSaving: null,
       fx: null,
       extras: [],
     },
@@ -96,6 +97,7 @@ export function booking(patch: Partial<Booking> = {}): Booking {
     tour: null,
     visa: null,
     addon: null,
+    membership: null,
     voucher: null,
     cancellation: null,
     addons: [],
@@ -179,6 +181,7 @@ export function flightQuote(patch: Partial<Schemas['Quote']> = {}): Schemas['Quo
           fees: price.fees,
           discount: price.discount,
           total: price.total,
+          memberSaving: null,
           fx: price.fx,
         },
         expiresAt: '2026-10-01T09:30:00.000Z',
@@ -192,6 +195,7 @@ export function flightQuote(patch: Partial<Schemas['Quote']> = {}): Schemas['Quo
     tour: null,
     visa: null,
     addon: null,
+    membership: null,
     price: null,
     payment: {
       providers: [{ name: 'mock', methods: ['card'] }],
@@ -308,6 +312,7 @@ const inhousePrice = (amount: number): Schemas['Price'] => ({
   fees: [],
   discount: null,
   total: ngn(amount),
+  memberSaving: null,
   fx: null,
 });
 

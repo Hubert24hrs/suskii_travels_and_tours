@@ -6,6 +6,7 @@ import { BOOKING_TERMS_VERSION, daysBetween, type Money } from '@suskii/shared';
 import { fromJsonValue } from '../common/json';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { PrismaService } from '../infra/prisma.service';
+import { withCurrentTier } from '../prime/prime-status';
 import { LedgerService } from '../ledger/ledger.service';
 import { PaymentProviders } from '../payments/payment-providers';
 import { FxService } from '../pricing/fx.service';
@@ -56,15 +57,17 @@ export class QuotesService {
     );
   }
 
-  async get(quoteId: string, client: ClientContext): Promise<z.infer<typeof quoteSchema>> {
+  async get(quoteId: string, caller: ClientContext): Promise<z.infer<typeof quoteSchema>> {
     const quote = await this.prisma.offer.findUnique({ where: { id: quoteId } });
     if (!quote) throw new NotFoundException();
     const payload = fromJsonValue<ItemPayload>(quote.payload);
     if (quote.expiresAt.getTime() <= Date.now()) throw offerUnavailable(payload.request);
 
-    const [pricer, fx] = await Promise.all([
+    const [pricer, fx, client] = await Promise.all([
       this.pricing.pricer(quote.vertical, quote.currency),
       this.fx.converter(),
+      // Checkout shows what the booking will cost: the tier as it is now, not as in the token.
+      withCurrentTier(this.prisma, caller),
     ]);
     const now = new Date();
     const base = {

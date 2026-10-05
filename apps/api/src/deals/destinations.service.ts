@@ -176,6 +176,7 @@ export class DestinationsService {
             supplier: snapshot.supplier,
             channel: client.channel,
             userTier: client.userTier,
+            benefits: client.benefits,
             destinationCountry: snapshot.countryCode,
             passengers: STAY_ADULTS,
             now,

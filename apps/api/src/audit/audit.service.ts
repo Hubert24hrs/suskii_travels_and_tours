@@ -75,7 +75,10 @@ export type AuditAction =
   | 'visa.documents_pruned'
   | 'account.data_exported'
   | 'account.reauth_failed'
-  | 'user.deleted';
+  | 'user.deleted'
+  | 'prime.plan_created'
+  | 'prime.plan_updated'
+  | 'prime.membership_started';
 
 export interface AuditEvent {
   action: AuditAction;

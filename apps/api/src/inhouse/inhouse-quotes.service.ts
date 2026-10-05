@@ -25,6 +25,7 @@ import {
 } from '../bookings/inhouse-items';
 import { QuotesService } from '../bookings/quotes.service';
 import { soldOut } from '../bookings/seat-inventory';
+import { authenticationRequired } from '../auth/errors';
 import { toJsonValue } from '../common/json';
 import { ProblemDetailsException } from '../common/problem-details';
 import type { Prisma } from '../generated/prisma/client';
@@ -75,6 +76,8 @@ export class InhouseQuotesService {
   ) {}
 
   async create(input: InhouseQuoteInput, client: ClientContext): Promise<Quote> {
+    // Suskii Prime is bought by an account for itself (ADR-030).
+    if (input.kind === 'membership' && !client.userId) throw authenticationRequired();
     const now = new Date();
     let payload: InhouseItemPayload;
     try {
@@ -141,12 +144,20 @@ export class InhouseQuotesService {
           travellers: counts(input.travellers),
           linkToken: input.linkToken,
         };
+      case 'membership':
+        return { kind: 'membership', planSlug: input.planSlug, currency: input.currency };
     }
   }
 
   private async payload(input: InhouseQuoteInput, now: Date): Promise<InhouseItemPayload> {
     const today = localDate(now, 'UTC');
     switch (input.kind) {
+      case 'membership': {
+        const plan = await this.prisma.primePlan.findUnique({ where: { slug: input.planSlug } });
+        if (!plan) throw new OfferUnavailableError(INHOUSE_SUPPLIER, 'No such Prime plan');
+        const { price } = await this.catalog.primePlan(plan.id, input.currency);
+        return this.catalog.membershipPayload(plan, price, now);
+      }
       case 'package': {
         const row = await this.catalog.packageDeparture(input.departureId, now);
         if (seatsLeft(row) < seatsFor(input.travellers)) throw soldOut();

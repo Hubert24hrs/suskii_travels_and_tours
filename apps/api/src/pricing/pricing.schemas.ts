@@ -26,6 +26,10 @@ export const priceSchema = named(
     fees: z.array(z.object({ code: z.string(), label: z.string(), amount: moneySchema })),
     discount: z.object({ code: z.string(), amount: moneySchema }).nullable(),
     total: moneySchema,
+    memberSaving: moneySchema.nullable().default(null).meta({
+      description:
+        'What Suskii Prime took off this price, before any promo; null when the buyer is not a member.',
+    }),
     fx: z
       .object({
         from: z.string().length(3),
@@ -56,6 +60,7 @@ export function toPriceDto(breakdown: PriceBreakdown): PriceDto {
       ? { code: breakdown.discount.code, amount: toWire(breakdown.discount.amount) }
       : null,
     total: toWire(breakdown.total),
+    memberSaving: breakdown.memberSaving ? toWire(breakdown.memberSaving) : null,
     fx: breakdown.fx,
   };
 }

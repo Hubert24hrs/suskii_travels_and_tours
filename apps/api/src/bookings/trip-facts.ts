@@ -14,6 +14,8 @@ export interface TripFacts {
 }
 
 export function tripFacts(payload: ItemPayload): TripFacts | null {
+  // A membership is not a trip: nothing to attach add-ons to or to remind about.
+  if (payload.kind === 'membership') return null;
   if (isInhouse(payload)) {
     const { start, end } = inhouseDates(payload);
     return {

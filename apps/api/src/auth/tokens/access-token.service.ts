@@ -27,6 +27,15 @@ export const accessClaimsSchema = z.object({
   mfa: z.boolean(),
   /** Authentication methods references (RFC 8176): pwd, otp, google, apple, mfa. */
   amr: z.array(z.string()),
+  /** Suskii Prime at issue (ADR-030): the paid-up end (epoch seconds) and the term's benefits. */
+  prm: z
+    .object({
+      until: z.number().int(),
+      share: z.number().int().min(0).max(10_000),
+      waived: z.array(z.string().max(40)).max(20),
+      priority: z.boolean(),
+    })
+    .optional(),
 });
 
 export type AccessClaims = z.infer<typeof accessClaimsSchema>;

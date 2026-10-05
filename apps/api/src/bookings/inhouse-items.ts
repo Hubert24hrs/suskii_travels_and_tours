@@ -15,6 +15,8 @@ import {
   type Money,
   type PerPersonIssue,
   type PerPersonPrices,
+  type PrimeBenefits,
+  type PrimePeriod,
   type TravellerCounts,
   type VisaPurpose,
 } from '@suskii/shared';
@@ -24,9 +26,9 @@ import type { PricingContext, SupplierPrice } from '../pricing/pricing-engine';
 import type { ClientContext } from '../search/client-context';
 
 /**
- * In-house items (ADR-025): packages, tours, visa assistance and add-ons. A quote snapshots the
- * product and the selection; the booking item keeps that snapshot, and the price re-check before
- * payment re-reads the catalog (`InhouseCatalogPricer`).
+ * In-house items (ADR-025): packages, tours, visa assistance, add-ons and Suskii Prime
+ * memberships (ADR-030). A quote snapshots the product and the selection; the booking item keeps
+ * that snapshot, and the price re-check before payment re-reads the catalog (`InhouseCatalog`).
  */
 
 export const INHOUSE_SUPPLIER = 'suskii';
@@ -50,7 +52,8 @@ export type InhouseQuoteRequest =
       endDate: string;
       travellers: TravellerCounts;
       linkToken: string | null;
-    };
+    }
+  | { kind: 'membership'; planSlug: string; currency: string };
 
 interface InhouseBase {
   productId: string;
@@ -133,19 +136,45 @@ export interface AddonItemPayload extends InhouseBase {
   request: Extract<InhouseQuoteRequest, { kind: 'addon' }>;
 }
 
+/** A Suskii Prime membership term (ADR-030), bought by the account holder alone. */
+export interface MembershipItemPayload extends InhouseBase {
+  kind: 'membership';
+  summary: string;
+  period: PrimePeriod;
+  unitPrice: Money;
+  benefits: PrimeBenefits;
+  /**
+   * The term if it started on the quote date. The real term starts when the booking is
+   * confirmed, or where the member's current term ends.
+   */
+  startDate: string;
+  endDate: string;
+  request: Extract<InhouseQuoteRequest, { kind: 'membership' }>;
+}
+
 export type InhouseItemPayload =
-  PackageItemPayload | TourItemPayload | VisaItemPayload | AddonItemPayload;
+  PackageItemPayload | TourItemPayload | VisaItemPayload | AddonItemPayload | MembershipItemPayload;
 
 export type InhouseKind = InhouseItemPayload['kind'];
 
-export const INHOUSE_KINDS: readonly InhouseKind[] = ['package', 'tour', 'visa', 'addon'];
+export const INHOUSE_KINDS: readonly InhouseKind[] = [
+  'package',
+  'tour',
+  'visa',
+  'addon',
+  'membership',
+];
 
 export const INHOUSE_VERTICAL: Readonly<Record<InhouseKind, Vertical>> = {
   package: 'packages',
   tour: 'tours',
   visa: 'visa',
   addon: 'travel_addons',
+  membership: 'prime',
 };
+
+/** A member is one person, the account holder. */
+export const MEMBERSHIP_TRAVELLERS: TravellerCounts = { adults: 1, children: 0, infants: 0 };
 
 export const travellerTotal = (counts: TravellerCounts): number => seatsFor(counts);
 
@@ -160,6 +189,8 @@ export function inhouseBasePrice(
     base = result.total;
   } else if (payload.kind === 'visa') {
     base = multiply(payload.unitPrice, travellerTotal(payload.travellers));
+  } else if (payload.kind === 'membership') {
+    base = payload.unitPrice;
   } else {
     base = multiply(payload.unitPrice, payload.units);
   }
@@ -183,6 +214,8 @@ export function inhouseCountry(payload: InhouseItemPayload): string | null {
       return payload.destination;
     case 'addon':
       return payload.countryCode;
+    case 'membership':
+      return null;
   }
 }
 
@@ -196,6 +229,7 @@ export function inhousePricingContext(
     supplier: INHOUSE_SUPPLIER,
     channel: client.channel,
     userTier: client.userTier,
+    benefits: client.benefits,
     destinationCountry: inhouseCountry(payload),
     passengers: travellerTotal(payload.travellers),
     now,
@@ -207,6 +241,7 @@ export function inhouseDates(payload: InhouseItemPayload): { start: string; end:
   switch (payload.kind) {
     case 'package':
     case 'addon':
+    case 'membership':
       return { start: payload.startDate, end: payload.endDate };
     case 'tour':
       return { start: payload.startsAtLocal.slice(0, 10), end: payload.startsAtLocal.slice(0, 10) };
@@ -236,12 +271,20 @@ export function cancellationClock(payload: InhouseItemPayload): {
   timeZone: string;
 } {
   const { start } = inhouseDates(payload);
-  return { startDate: start, timeZone: payload.kind === 'visa' ? 'UTC' : payload.timeZone };
+  return {
+    startDate: start,
+    timeZone: payload.kind === 'visa' || payload.kind === 'membership' ? 'UTC' : payload.timeZone,
+  };
 }
 
-/** The cancellation tiers of a product that can be cancelled by its owner (not visa). */
+/**
+ * The cancellation tiers of a product its owner can cancel: not visa assistance, and not Prime,
+ * whose refunds go through staff (ADR-030).
+ */
 export function cancellationTiers(payload: InhouseItemPayload): CancellationTier[] | null {
-  return payload.kind === 'visa' ? null : payload.cancellationPolicy;
+  return payload.kind === 'visa' || payload.kind === 'membership'
+    ? null
+    : payload.cancellationPolicy;
 }
 
 /** The "supplier offer id" of an in-house item: what was sold, for reporting and support. */
@@ -254,6 +297,8 @@ export function inhouseOfferId(payload: InhouseItemPayload): string {
       return `visa:${payload.productId}`;
     case 'addon':
       return `addon:${payload.productId}`;
+    case 'membership':
+      return `prime:${payload.productId}`;
   }
 }
 
