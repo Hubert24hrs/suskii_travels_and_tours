@@ -1,10 +1,11 @@
 import { BRAND, SUPPORTED_CURRENCIES } from '@suskii/shared';
-import { buttonVariants, cn } from '@suskii/ui-web';
+import { cn } from '@suskii/ui-web';
 import { MessageCircle, Phone } from 'lucide-react';
 
 import { setCurrency } from '../../app/actions';
 import type { SiteContent } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
+import { AccountLink } from '../account/account-link';
 import { AppLink } from '../app-link';
 
 import { Container } from './container';
@@ -135,12 +136,7 @@ export async function SiteHeader({ site }: { site: SiteContent | null }) {
             ))}
           </ul>
         </nav>
-        <AppLink
-          href="/sign-in"
-          className={cn(buttonVariants({ variant: 'ghost' }), 'ml-auto px-4')}
-        >
-          {t('header.signIn')}
-        </AppLink>
+        <AccountLink signInLabel={t('header.signIn')} accountLabel={t('header.account')} />
       </Container>
     </StickyHeader>
   );

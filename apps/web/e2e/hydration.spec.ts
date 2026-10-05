@@ -73,6 +73,8 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
     (cityId, depart, back) =>
       `/travel-add-ons?type=insurance&dest=${cityId}&start=${depart}&end=${back}&adults=1`,
   ],
+  ['sign in', () => '/sign-in'],
+  ['register', () => '/register?ref=ABCDEFGH'],
 ];
 
 test.describe('hydration with different Intl data in the browser', () => {

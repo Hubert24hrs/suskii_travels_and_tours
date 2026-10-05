@@ -1,17 +1,20 @@
 import { buttonVariants } from '@suskii/ui-web';
 import { Check } from 'lucide-react';
 
-import type { HomeContent } from '../../lib/api';
+import { api, type HomeContent } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
+import { getPreferences } from '../../lib/preferences';
 import { AppLink } from '../app-link';
 import { Container } from '../layout/container';
 
 /**
- * Suskii Prime block. Title and benefits come from the CMS; the price line appears only once the
- * owner sets Prime pricing (a business decision still open).
+ * Suskii Prime block. Title and benefits come from the CMS; the price line shows the published
+ * plans in the visitor's currency (ADR-030), or the CMS prices until a plan is published.
  */
 export async function PrimePromo({ prime }: { prime: HomeContent['prime'] | undefined }) {
   const { t, format } = await getI18n();
+  const { currency } = await getPreferences();
+  const plans = (await api.primePlans(currency))?.plans ?? [];
   const benefits = prime?.benefits.length
     ? prime.benefits
     : [
@@ -19,14 +22,26 @@ export async function PrimePromo({ prime }: { prime: HomeContent['prime'] | unde
         t('sections.prime.benefits.fees'),
         t('sections.prime.benefits.support'),
       ];
-  const prices = [
-    prime?.priceMonthly
-      ? t('sections.prime.priceMonthly', { price: format.money(prime.priceMonthly) })
-      : null,
-    prime?.priceYearly
-      ? t('sections.prime.priceYearly', { price: format.money(prime.priceYearly) })
-      : null,
-  ].filter((price): price is string => price !== null);
+  const live = plans.flatMap((plan) =>
+    plan.price
+      ? [
+          t(plan.period === 'year' ? 'sections.prime.priceYearly' : 'sections.prime.priceMonthly', {
+            price: format.money(plan.price),
+          }),
+        ]
+      : [],
+  );
+  const prices =
+    live.length > 0
+      ? live
+      : [
+          prime?.priceMonthly
+            ? t('sections.prime.priceMonthly', { price: format.money(prime.priceMonthly) })
+            : null,
+          prime?.priceYearly
+            ? t('sections.prime.priceYearly', { price: format.money(prime.priceYearly) })
+            : null,
+        ].filter((price): price is string => price !== null);
   return (
     <section aria-labelledby="prime-heading" className="py-10 md:py-16">
       <Container>

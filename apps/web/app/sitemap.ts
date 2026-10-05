@@ -27,6 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/visa',
     '/travel-add-ons',
     '/deals',
+    '/prime',
   ];
   return [
     ...staticPaths.map((path) => ({

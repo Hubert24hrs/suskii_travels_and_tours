@@ -146,6 +146,13 @@ export const api = {
     apiGet<Schemas['Airport']>(`/v1/catalog/airports/${encodeURIComponent(code)}`, {
       revalidate: ONE_DAY,
     }),
+  // Plans are staff-managed data; the purchase quote re-reads the plan anyway (ADR-030).
+  primePlans: (currency: string) =>
+    apiGet<Schemas['PrimePlanList']>('/v1/prime/plans', {
+      revalidate: ONE_MINUTE,
+      tags: ['prime'],
+      query: { currency },
+    }),
 };
 
 export type SiteContent = Schemas['SiteContent'];

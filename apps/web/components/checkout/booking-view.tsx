@@ -348,6 +348,32 @@ export function BookingView({ bookingId }: { bookingId: string }) {
           <RefundList refunds={booking.refunds} />
           {booking.voucher ? <VoucherCard voucher={booking.voucher} /> : null}
           <VisaApplications booking={booking} />
+          {booking.membership ? (
+            <Card asChild className="flex flex-col gap-3 p-4">
+              <section aria-labelledby="booking-membership" data-testid="booking-membership">
+                <h2 id="booking-membership" className="font-heading text-h3 font-bold text-heading">
+                  {t('booking.membership.heading')}
+                </h2>
+                <p className="font-body text-body font-bold text-foreground">
+                  {booking.membership.product.title}
+                </p>
+                <p className="font-body text-body text-foreground">
+                  {booking.membership.term
+                    ? t('booking.membership.term', {
+                        start: format.date(booking.membership.term.startsAt.slice(0, 10)),
+                        end: format.date(booking.membership.term.endsAt.slice(0, 10)),
+                      })
+                    : t('booking.membership.pending')}
+                </p>
+                <AppLink
+                  href="/account/prime"
+                  className="font-body text-body-sm text-primary underline"
+                >
+                  {t('booking.membership.manage')}
+                </AppLink>
+              </section>
+            </Card>
+          ) : null}
           {kind ? (
             <Card asChild className="flex flex-col gap-3 p-4">
               <section aria-labelledby="booking-product">

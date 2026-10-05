@@ -20,6 +20,7 @@ import {
 import { FlightOfferCard, type FlightOfferCardProps } from './flight-offer-card';
 import { ResultsLoading, ResultsMessage } from './result-states';
 import { useResultsT } from './results-messages';
+import { WatchRoute } from './watch-route';
 import { listParam, numberParam, useUrlParams } from './use-url-params';
 
 const SORTS = ['best', 'cheapest', 'fastest', 'earliest'] as const;
@@ -289,6 +290,7 @@ export function FlightResults({
             options={SORTS.map((value) => ({ value, label: t(`results.sort.${value}`) }))}
           />
         </div>
+        <WatchRoute request={request} currency={currency} />
         {result.offers.some((offer) => offer.supplier === 'mock') ? (
           <p className="font-body text-body-sm text-foreground">{t('results.demoSupplier')}</p>
         ) : null}
