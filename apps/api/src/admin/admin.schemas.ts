@@ -11,7 +11,7 @@ export const adminUserSchema = named(
     email: z.email().nullable(),
     phone: z.string().nullable(),
     displayName: z.string().nullable(),
-    status: z.enum(['active', 'disabled']),
+    status: z.enum(['active', 'disabled', 'deleted']),
     roles: z.array(z.enum(ROLES)),
     mfaEnabled: z.boolean(),
     createdAt: z.iso.datetime(),

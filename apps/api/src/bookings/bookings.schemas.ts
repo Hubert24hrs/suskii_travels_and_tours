@@ -33,7 +33,15 @@ import { flightOfferSchema, flightSliceSchema, hotelRateSchema } from '../search
 
 const timestamp = z.iso.datetime();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const verticalSchema = z.enum(['flights', 'hotels', 'packages', 'tours', 'visa', 'travel_addons']);
+const verticalSchema = z.enum([
+  'flights',
+  'hotels',
+  'packages',
+  'tours',
+  'visa',
+  'travel_addons',
+  'prime',
+]);
 const boardSchema = z.enum(['room_only', 'breakfast_included', 'half_board', 'full_board']);
 
 export const bookingIdParamsSchema = z.object({ bookingId: z.uuid() });

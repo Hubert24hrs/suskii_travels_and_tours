@@ -20,6 +20,8 @@ datasource db {
 enum UserStatus {
   active
   disabled
+  /// Anonymised on the owner's request (ADR-029); kept as a tombstone for financial records.
+  deleted
 }
 
 enum RoleKey {
@@ -44,18 +46,28 @@ model User {
   passwordHash    String?    @map("password_hash")
   displayName     String?    @map("display_name")
   status          UserStatus @default(active)
+  /// When the account was anonymised (ADR-029).
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(3)
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  roles              UserRole[]          @relation("UserRoles")
-  sessions           Session[]
-  mfaFactors         MfaFactor[]
-  recoveryCodes      MfaRecoveryCode[]
-  socialIdentities   SocialIdentity[]
-  verificationTokens VerificationToken[]
-  bookings           Booking[]
-  travellers         Traveller[]
-  pushTokens         PushToken[]
+  roles                   UserRole[]               @relation("UserRoles")
+  sessions                Session[]
+  mfaFactors              MfaFactor[]
+  recoveryCodes           MfaRecoveryCode[]
+  socialIdentities        SocialIdentity[]
+  verificationTokens      VerificationToken[]
+  bookings                Booking[]
+  travellers              Traveller[]
+  pushTokens              PushToken[]
+  preferences             UserPreference?
+  notificationPreferences NotificationPreference[]
+  notifications           Notification[]
+  memberships             PrimeMembership[]
+  referralCode            ReferralCode?
+  referralsMade           Referral[]               @relation("Referrer")
+  referredBy              Referral?                @relation("Referee")
+  priceAlerts             PriceAlert[]
 
   @@map("users")
 }
@@ -370,6 +382,8 @@ enum Vertical {
   tours
   visa
   travel_addons
+  /// Suskii Prime membership purchases (ADR-030).
+  prime
 }
 
 enum CabinClass {
@@ -762,6 +776,7 @@ enum BookingItemType {
   tour
   visa
   addon
+  membership
 }
 
 /// Where a booking item's seats on a departure stand (ADR-025).
@@ -833,6 +848,10 @@ model Booking {
   confirmedAt       DateTime?     @map("confirmed_at") @db.Timestamptz(3)
   /// The booking an add-on belongs to (ADR-027); add-ons are their own bookings.
   linkedBookingId   String?       @map("linked_booking_id") @db.Uuid
+  /// Set once the check-in reminder went out (ADR-032).
+  checkinRemindedAt DateTime?     @map("checkin_reminded_at") @db.Timestamptz(3)
+  /// Contact details and passports wiped after account deletion (ADR-029).
+  redactedAt        DateTime?     @map("redacted_at") @db.Timestamptz(3)
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -1648,4 +1667,209 @@ model BookingVoucher {
 
   @@unique([bookingItemId])
   @@map("booking_vouchers")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 9: accounts, Suskii Prime, referrals, notifications (ADR-029 to ADR-032)
+// ---------------------------------------------------------------------------
+
+/// Account preferences; absent values fall back to the client's defaults.
+model UserPreference {
+  userId                 String    @id @map("user_id") @db.Uuid
+  locale                 String?
+  currency               String?   @db.Char(3)
+  homeAirport            String?   @map("home_airport") @db.Char(3)
+  /// Marketing consent: when and where it was given (opt-in); null when not given or withdrawn.
+  marketingConsentAt     DateTime? @map("marketing_consent_at") @db.Timestamptz(3)
+  marketingConsentSource String?   @map("marketing_consent_source")
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+enum NotificationCategory {
+  booking
+  payment
+  trip_reminder
+  price_alert
+  prime
+  marketing
+}
+
+enum NotificationChannel {
+  email
+  sms
+  whatsapp
+  push
+}
+
+/// A user's choice for one category and channel; missing rows mean the default (ADR-032).
+model NotificationPreference {
+  userId    String               @map("user_id") @db.Uuid
+  category  NotificationCategory
+  channel   NotificationChannel
+  enabled   Boolean
+  updatedAt DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, category, channel])
+  @@map("notification_preferences")
+}
+
+enum NotificationStatus {
+  sent
+  skipped
+  failed
+}
+
+/// Delivery log: what was sent, to whom (by id) and why not. Never bodies or contact values.
+model Notification {
+  id        String               @id @default(uuid(7)) @db.Uuid
+  userId    String?              @map("user_id") @db.Uuid
+  bookingId String?              @map("booking_id") @db.Uuid
+  category  NotificationCategory
+  channel   NotificationChannel
+  template  String
+  status    NotificationStatus
+  /// Why a message was skipped or failed (preference_off, no_verified_phone, provider_error).
+  reason    String?
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([bookingId])
+  @@map("notifications")
+}
+
+enum PrimePeriod {
+  month
+  year
+}
+
+/// A Suskii Prime plan (ADR-030). Prices and benefits are data entered by staff.
+model PrimePlan {
+  id        String        @id @default(uuid(7)) @db.Uuid
+  slug      String        @unique
+  name      String
+  summary   String
+  period    PrimePeriod
+  /// [{ amountMinor, currency }], one per currency it is sold in.
+  prices    Json
+  /// { markupShareBps, waivedFeeCodes, prioritySupport }.
+  benefits  Json
+  status    CatalogStatus @default(draft)
+  sample    Boolean       @default(false)
+  sortOrder Int           @default(0) @map("sort_order")
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships PrimeMembership[]
+
+  @@map("prime_plans")
+}
+
+enum PrimeMembershipStatus {
+  active
+  cancelled
+}
+
+/// One paid membership term (a purchase); a member has a term covering now (ADR-030).
+model PrimeMembership {
+  id             String                @id @default(uuid(7)) @db.Uuid
+  userId         String                @map("user_id") @db.Uuid
+  planId         String                @map("plan_id") @db.Uuid
+  bookingId      String                @unique @map("booking_id") @db.Uuid
+  status         PrimeMembershipStatus @default(active)
+  startsAt       DateTime              @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime              @map("ends_at") @db.Timestamptz(3)
+  /// The plan's benefits when bought: later plan edits do not change a running term.
+  benefits       Json
+  reminderSentAt DateTime?             @map("reminder_sent_at") @db.Timestamptz(3)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan PrimePlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([userId, endsAt])
+  @@index([status, endsAt])
+  @@map("prime_memberships")
+}
+
+/// Each account's referral code (ADR-031).
+model ReferralCode {
+  userId    String   @id @map("user_id") @db.Uuid
+  code      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("referral_codes")
+}
+
+enum ReferralStatus {
+  pending
+  qualified
+  rewarded
+  review
+  rejected
+}
+
+/// A referred sign-up and its path to a reward (ADR-031). Signals are HMACs, never values.
+model Referral {
+  id                  String         @id @default(uuid(7)) @db.Uuid
+  referrerId          String         @map("referrer_id") @db.Uuid
+  refereeId           String         @unique @map("referee_id") @db.Uuid
+  code                String
+  status              ReferralStatus @default(pending)
+  /// Fraud flags that sent it to review or rejected it.
+  flags               String[]       @default([])
+  /// { email, phone, network, device } HMACs captured at sign-up.
+  signals             Json
+  qualifyingBookingId String?        @map("qualifying_booking_id") @db.Uuid
+  qualifiedAt         DateTime?      @map("qualified_at") @db.Timestamptz(3)
+  rewardedAt          DateTime?      @map("rewarded_at") @db.Timestamptz(3)
+  reviewedById        String?        @map("reviewed_by_id") @db.Uuid
+  reviewedAt          DateTime?      @map("reviewed_at") @db.Timestamptz(3)
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  referrer User @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee  User @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId, createdAt])
+  @@index([status])
+  @@map("referrals")
+}
+
+/// A watched flight route (ADR-032).
+model PriceAlert {
+  id                String     @id @default(uuid(7)) @db.Uuid
+  userId            String     @map("user_id") @db.Uuid
+  origin            String     @db.Char(3)
+  destination       String     @db.Char(3)
+  /// Exact departure date, or a month (YYYY-MM) to watch its cheapest date.
+  departureDate     DateTime?  @map("departure_date") @db.Date
+  departureMonth    String?    @map("departure_month")
+  cabinClass        CabinClass @default(economy) @map("cabin_class")
+  currency          String     @db.Char(3)
+  targetMinor       BigInt?    @map("target_minor")
+  lastPriceMinor    BigInt?    @map("last_price_minor")
+  lastCheckedAt     DateTime?  @map("last_checked_at") @db.Timestamptz(3)
+  lastNotifiedAt    DateTime?  @map("last_notified_at") @db.Timestamptz(3)
+  lastNotifiedMinor BigInt?    @map("last_notified_minor")
+  active            Boolean    @default(true)
+  /// The alert retires after this date (the departure date or the month's last day).
+  endsOn            DateTime   @map("ends_on") @db.Date
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([active, lastCheckedAt])
+  @@map("price_alerts")
 }

@@ -74,7 +74,7 @@ export function newsletterConfirmTemplate(confirmUrl: string, unsubscribeUrl: st
 
 export interface BookingConfirmedDetails {
   reference: string;
-  vertical: 'flights' | 'hotels' | 'packages' | 'tours' | 'visa' | 'travel_addons';
+  vertical: 'flights' | 'hotels' | 'packages' | 'tours' | 'visa' | 'travel_addons' | 'prime';
   /** "Lagos (LOS) to Dubai (DXB), Thu, 10 Dec 2026" or "The Palm Suites, Dubai, 10 to 13 Dec 2026". */
   summary: string;
   /** Airline or hotel reference label; null for Suskii's own products. */
@@ -95,6 +95,7 @@ const CONFIRMED_COPY: Record<
   tours: { what: 'tour', document: 'tour voucher' },
   visa: { what: 'visa assistance', document: 'confirmation' },
   travel_addons: { what: 'add-on', document: 'voucher' },
+  prime: { what: 'Suskii Prime membership', document: 'receipt' },
 };
 
 /** Every visa page, PDF and email says who decides (ADR-026). */
@@ -114,7 +115,9 @@ export function bookingConfirmedTemplate(details: BookingConfirmedDetails): Temp
           VISA_DISCLAIMER,
         ]
       : []),
-    `Your ${document} is attached. Keep this email: you need the booking reference to manage the booking.`,
+    details.vertical === 'prime'
+      ? 'Member prices apply as soon as you sign in again. Keep this email as your receipt.'
+      : `Your ${document} is attached. Keep this email: you need the booking reference to manage the booking.`,
   ];
   return {
     template: 'booking-confirmed',
