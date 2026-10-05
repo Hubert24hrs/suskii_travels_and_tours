@@ -65,6 +65,14 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
   ],
   ['tours', (_, depart) => `/tours?q=Zanzibar&date=${depart}`],
   ['visa', (_, depart) => `/visa?nationality=NG&destination=GB&purpose=tourism&date=${depart}`],
+  ['package detail', () => '/packages/sample-zanzibar-beach-break?adults=2'],
+  ['tour detail', () => '/tours/sample-dubai-desert-evening?adults=1'],
+  ['visa product', (_, depart) => `/visa/sample-uae-tourist-visa?nationality=NG&date=${depart}`],
+  [
+    'standalone add-ons',
+    (cityId, depart, back) =>
+      `/travel-add-ons?type=insurance&dest=${cityId}&start=${depart}&end=${back}&adults=1`,
+  ],
 ];
 
 test.describe('hydration with different Intl data in the browser', () => {

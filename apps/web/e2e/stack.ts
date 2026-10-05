@@ -132,9 +132,13 @@ async function startDataServices(): Promise<{
   return { databaseUrl, redisUrl, containers };
 }
 
-/** Applies the migrations and the idempotent reference-data seed with the API's Prisma CLI. */
+/**
+ * Applies the migrations and the idempotent reference-data seed with the API's Prisma CLI, then
+ * the sample in-house inventory (packages, tours, add-ons, visa) the phase 8 journeys book.
+ */
 function migrateAndSeed(databaseUrl: string): void {
-  const prismaCli = createRequire(join(API_DIR, 'package.json')).resolve('prisma/build/index.js');
+  const apiRequire = createRequire(join(API_DIR, 'package.json'));
+  const prismaCli = apiRequire.resolve('prisma/build/index.js');
   const env = {
     ...process.env,
     DATABASE_URL: databaseUrl,
@@ -149,6 +153,12 @@ function migrateAndSeed(databaseUrl: string): void {
   ]) {
     execFileSync(process.execPath, [prismaCli, ...args], { cwd: API_DIR, env, stdio: 'pipe' });
   }
+  // `node <tsx cli>` rather than the .bin shim, which is a .cmd file on Windows.
+  execFileSync(process.execPath, [apiRequire.resolve('tsx/cli'), 'prisma/seed-demo.ts'], {
+    cwd: API_DIR,
+    env,
+    stdio: 'pipe',
+  });
 }
 
 export async function startStack(): Promise<Stack> {
