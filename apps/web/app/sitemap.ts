@@ -5,15 +5,18 @@ import { api } from '../lib/api';
 import { absoluteUrl } from '../lib/seo';
 
 /**
- * Landing pages plus the programmatic route and city pages and published CMS pages. Rendered on
- * request (the API is not reachable at build time); the API reads come from the data cache.
+ * Landing pages plus the programmatic route and city pages, packages, tours and published CMS
+ * pages. Rendered on request (the API is not reachable at build time); the API reads come from
+ * the data cache.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection();
-  const [routes, destinations, site] = await Promise.all([
+  const [routes, destinations, site, packages, tours] = await Promise.all([
     api.dealRoutes(),
     api.hotelDestinations('NGN'),
     api.site('en-NG'),
+    api.packages({ currency: 'NGN', limit: '50' }),
+    api.tours({ currency: 'NGN', limit: '50' }),
   ]);
   const staticPaths = [
     '/',
@@ -41,6 +44,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily' as const,
       priority: 0.7,
     })),
+    // Sample (demo) products are noindex, so they stay out of the sitemap too.
+    ...(packages?.packages ?? [])
+      .filter((item) => !item.sample)
+      .map((item) => ({
+        url: absoluteUrl(`/packages/${item.slug}`),
+        changeFrequency: 'weekly' as const,
+        priority: 0.6,
+      })),
+    ...(tours?.tours ?? [])
+      .filter((item) => !item.sample)
+      .map((item) => ({
+        url: absoluteUrl(`/tours/${item.slug}`),
+        changeFrequency: 'weekly' as const,
+        priority: 0.6,
+      })),
     ...(site?.pages ?? []).map((page) => ({
       url: absoluteUrl(`/info/${page.slug}`),
       changeFrequency: 'monthly' as const,

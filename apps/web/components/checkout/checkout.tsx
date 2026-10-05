@@ -233,6 +233,7 @@ export function Checkout({
         currency: price.total.currency,
       },
       payAtProperty: quote.hotel?.rate.payAtProperty ?? null,
+      inhouse: quote.price !== null,
     };
   }, [quote, draft, promo, services]);
 

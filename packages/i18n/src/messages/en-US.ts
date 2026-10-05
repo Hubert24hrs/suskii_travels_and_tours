@@ -65,6 +65,11 @@ export const enUS: MessageOverlay<Messages> = {
     statusHelp: { cancelled: 'This booking was canceled.' },
     plan: { states: { cancelled: 'Canceled' } },
   },
+  inhouse: {
+    noResults: { body: 'Try other dates, fewer travelers or a wider budget.' },
+    detail: { passportRequired: 'Every traveler needs a valid passport for this trip.' },
+    book: { travellers: 'Travelers' },
+  },
   pages: {
     verticals: {
       packages: {

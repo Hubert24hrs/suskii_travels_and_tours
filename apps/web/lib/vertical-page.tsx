@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 
 import { AvailabilityNotice } from '../components/availability-notice';
 import { FlexiblePayment } from '../components/home/flexible-payment';
@@ -34,13 +35,18 @@ export async function verticalMetadata(
   });
 }
 
-/** Landing page for a vertical whose inventory arrives in phase 8: pre-filled form plus notice. */
+/**
+ * Landing page for an in-house vertical (ADR-025): the pre-filled search form, then the results
+ * or content passed as children (the "being added" notice when there are none).
+ */
 export async function VerticalPage({
   vertical,
   searchParams,
+  children,
 }: {
   vertical: ComingVertical;
   searchParams: Promise<SearchParams>;
+  children?: ReactNode;
 }) {
   const { t, locale, currency } = await getI18n();
   const query = await searchParams;
@@ -61,7 +67,7 @@ export async function VerticalPage({
         destinations={destinations?.destinations ?? []}
         initial={initial}
       />
-      <AvailabilityNotice vertical={vertical} hasSearch={hasQuery} />
+      {children ?? <AvailabilityNotice vertical={vertical} hasSearch={hasQuery} />}
       {vertical === 'packages' || vertical === 'tours' ? <FlexiblePayment /> : null}
     </>
   );

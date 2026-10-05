@@ -37,6 +37,7 @@ async function apiGet<T>(path: string, options: GetOptions): Promise<T | null> {
   }
 }
 
+const ONE_MINUTE = 60;
 const FIVE_MINUTES = 300;
 const ONE_HOUR = 3600;
 const ONE_DAY = 86_400;
@@ -95,6 +96,52 @@ export const api = {
       revalidate: ONE_DAY,
       tags: ['catalog'],
     }),
+  // In-house catalog (ADR-025). Seats move with every booking, so details are cached briefly;
+  // the quote re-checks availability and price against the database anyway.
+  packages: (query: Record<string, string | undefined>) =>
+    apiGet<Schemas['PackageList']>('/v1/packages', {
+      revalidate: ONE_MINUTE,
+      tags: ['inhouse'],
+      query,
+    }),
+  package: (slug: string, query: Record<string, string | undefined>) =>
+    apiGet<Schemas['PackageDetail']>(`/v1/packages/${encodeURIComponent(slug)}`, {
+      revalidate: ONE_MINUTE,
+      tags: ['inhouse'],
+      query,
+    }),
+  tours: (query: Record<string, string | undefined>) =>
+    apiGet<Schemas['TourList']>('/v1/tours', { revalidate: ONE_MINUTE, tags: ['inhouse'], query }),
+  tour: (slug: string, query: Record<string, string | undefined>) =>
+    apiGet<Schemas['TourDetail']>(`/v1/tours/${encodeURIComponent(slug)}`, {
+      revalidate: ONE_MINUTE,
+      tags: ['inhouse'],
+      query,
+    }),
+  addons: (query: Record<string, string | undefined>) =>
+    apiGet<Schemas['AddonList']>('/v1/addons', {
+      revalidate: FIVE_MINUTES,
+      tags: ['inhouse'],
+      query,
+    }),
+  visaEligibility: (query: Record<string, string | undefined>) =>
+    apiGet<Schemas['VisaEligibility']>('/v1/visa/eligibility', {
+      revalidate: FIVE_MINUTES,
+      tags: ['inhouse'],
+      query,
+    }),
+  visaProducts: (query: Record<string, string | undefined>) =>
+    apiGet<Schemas['VisaProductList']>('/v1/visa/products', {
+      revalidate: FIVE_MINUTES,
+      tags: ['inhouse'],
+      query,
+    }),
+  visaProduct: (slug: string, currency: string) =>
+    apiGet<Schemas['VisaProductDetail']>(`/v1/visa/products/${encodeURIComponent(slug)}`, {
+      revalidate: FIVE_MINUTES,
+      tags: ['inhouse'],
+      query: { currency },
+    }),
   airport: (code: string) =>
     apiGet<Schemas['Airport']>(`/v1/catalog/airports/${encodeURIComponent(code)}`, {
       revalidate: ONE_DAY,
@@ -105,3 +152,5 @@ export type SiteContent = Schemas['SiteContent'];
 export type HomeContent = Schemas['HomeContent'];
 export type FlightDeal = Schemas['FlightDeal'];
 export type HotelDestination = Schemas['HotelDestination'];
+export type PackageCard = Schemas['PackageCard'];
+export type TourCard = Schemas['TourCard'];

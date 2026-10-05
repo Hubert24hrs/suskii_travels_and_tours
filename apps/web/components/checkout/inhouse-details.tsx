@@ -41,16 +41,19 @@ export function CancellationTiers({ tiers }: { tiers: readonly Tier[] }) {
         {t('booking.inhouse.cancellation')}
       </h3>
       <ul className="flex flex-col gap-1 font-body text-body-sm text-foreground">
-        {sortTiers(tiers).map((tier) => {
-          const percent = format.number(tier.refundBps / 100);
-          return (
-            <li key={tier.daysBefore}>
-              {tier.daysBefore === 0
-                ? t('booking.inhouse.tierSameDay', { percent })
-                : t('booking.inhouse.tier', { percent, days: tier.daysBefore })}
-            </li>
-          );
-        })}
+        {sortTiers(tiers)
+          // A 0% tier says the same as the closing "no refund after that" line.
+          .filter((tier) => tier.refundBps > 0)
+          .map((tier) => {
+            const percent = format.number(tier.refundBps / 100);
+            return (
+              <li key={tier.daysBefore}>
+                {tier.daysBefore === 0
+                  ? t('booking.inhouse.tierSameDay', { percent })
+                  : t('booking.inhouse.tier', { percent, days: tier.daysBefore })}
+              </li>
+            );
+          })}
         <li>{t('booking.inhouse.tierNone')}</li>
       </ul>
     </div>

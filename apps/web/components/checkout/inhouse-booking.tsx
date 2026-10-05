@@ -75,7 +75,7 @@ export function CancelUnderPolicy({
   const percent = format.number(cancellation.refundBps / 100);
   return (
     <>
-      <Button variant="secondary" onClick={() => setConfirming(true)}>
+      <Button variant="ghost" onClick={() => setConfirming(true)}>
         {t('booking.inhouse.cancel')}
       </Button>
       <Dialog open={confirming} onOpenChange={setConfirming}>

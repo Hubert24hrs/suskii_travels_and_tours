@@ -116,6 +116,8 @@ export interface PriceLines {
   extras: Money | null;
   total: Money;
   payAtProperty: Money | null;
+  /** In-house products have a price, not a fare, and usually no separate taxes. */
+  inhouse?: boolean;
 }
 
 export function PriceSummary({ lines }: { lines: PriceLines }) {
@@ -129,13 +131,15 @@ export function PriceSummary({ lines }: { lines: PriceLines }) {
       </h2>
       <dl className="flex flex-col gap-2 font-body text-body-sm text-foreground">
         <div className="flex justify-between gap-4">
-          <dt>{t('checkout.fare')}</dt>
+          <dt>{lines.inhouse ? t('checkout.basePrice') : t('checkout.fare')}</dt>
           <dd>{format.money(price.fare)}</dd>
         </div>
-        <div className="flex justify-between gap-4">
-          <dt>{t('checkout.taxes')}</dt>
-          <dd>{format.money(price.taxes)}</dd>
-        </div>
+        {lines.inhouse && price.taxes.amountMinor === 0 ? null : (
+          <div className="flex justify-between gap-4">
+            <dt>{t('checkout.taxes')}</dt>
+            <dd>{format.money(price.taxes)}</dd>
+          </div>
+        )}
         {price.fees.map((fee) => (
           <div key={fee.code} className="flex justify-between gap-4">
             <dt>{fee.label}</dt>
