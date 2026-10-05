@@ -6,6 +6,7 @@ import { BookingsService, passportContext } from '../bookings/bookings.service';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { PrismaService } from '../infra/prisma.service';
+import { benefitsView, storedBenefits } from '../prime/prime-status';
 
 import type { ExportSection } from './data-registry';
 
@@ -263,7 +264,8 @@ export class DataExportService {
         status: membership.status,
         startsAt: iso(membership.startsAt),
         endsAt: iso(membership.endsAt),
-        benefits: membership.benefits,
+        // As the member sees them: the share of our margin is internal (ADR-030).
+        benefits: benefitsView(storedBenefits(membership.benefits)),
         bookingId: membership.bookingId,
       })),
       referrals,

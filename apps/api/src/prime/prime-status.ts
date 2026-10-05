@@ -23,6 +23,15 @@ export function storedBenefits(value: unknown): PrimeBenefits {
     : { markupShareBps: 0, waivedFeeCodes: [], prioritySupport: false };
 }
 
+/** Benefits as customers see them: the margin share stays internal (ADR-030). */
+export const benefitsView = (
+  benefits: PrimeBenefits,
+): { memberFares: boolean; waivedFeeCodes: string[]; prioritySupport: boolean } => ({
+  memberFares: benefits.markupShareBps > 0,
+  waivedFeeCodes: benefits.waivedFeeCodes,
+  prioritySupport: benefits.prioritySupport,
+});
+
 /** The user's Suskii Prime membership now, or null (ADR-030). */
 export async function currentPrime(
   reader: Reader,

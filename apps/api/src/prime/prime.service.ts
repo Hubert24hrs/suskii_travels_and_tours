@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
-import { toWire, type PrimeBenefits } from '@suskii/shared';
+import { toWire } from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
 import { storedPlanPrices } from '../bookings/inhouse-catalog';
@@ -10,7 +10,7 @@ import type { RequestContext } from '../common/request-context';
 import { Prisma, type PrimePlan } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 
-import { currentPrime, storedBenefits } from './prime-status';
+import { benefitsView, currentPrime, storedBenefits } from './prime-status';
 import type {
   adminPrimePlanSchema,
   CreatePrimePlan,
@@ -21,13 +21,6 @@ import type {
 
 type PlanDto = z.infer<typeof primePlanSchema>;
 type AdminPlanDto = z.infer<typeof adminPrimePlanSchema>;
-
-/** Benefits as customers see them: the margin share stays internal (ADR-030). */
-export const benefitsView = (benefits: PrimeBenefits) => ({
-  memberFares: benefits.markupShareBps > 0,
-  waivedFeeCodes: benefits.waivedFeeCodes,
-  prioritySupport: benefits.prioritySupport,
-});
 
 const slugTaken = (): ProblemDetailsException =>
   new ProblemDetailsException(

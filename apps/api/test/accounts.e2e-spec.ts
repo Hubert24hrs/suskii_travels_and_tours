@@ -250,6 +250,40 @@ describe('accounts (e2e): preferences, data export and deletion', () => {
       const auth = bearer(session.accessToken);
       await saveTraveller(session);
       const { id: bookingId } = await confirmedBooking(session);
+      await ctx
+        .http()
+        .post('/v1/me/price-alerts')
+        .set(auth)
+        .send({
+          origin: 'LOS',
+          destination: 'DXB',
+          departureDate: addDays(today, 40),
+          currency: 'NGN',
+        })
+        .expect(201);
+      const referrals = await ctx.http().get('/v1/me/referrals').set(auth).expect(200);
+      // A membership term (buying one is covered by prime.e2e-spec.ts).
+      const plan = await ctx.prisma.primePlan.create({
+        data: {
+          slug: 'export-plan',
+          name: 'Export plan',
+          summary: 'A plan for the export test.',
+          period: 'year',
+          prices: [{ amountMinor: 2_500_000, currency: 'NGN' }],
+          benefits: { markupShareBps: 0, waivedFeeCodes: [], prioritySupport: true },
+          status: 'published',
+        },
+      });
+      await ctx.prisma.primeMembership.create({
+        data: {
+          userId: session.userId,
+          planId: plan.id,
+          bookingId,
+          startsAt: new Date(),
+          endsAt: new Date(Date.now() + 365 * 24 * 3600 * 1000),
+          benefits: { markupShareBps: 0, waivedFeeCodes: [], prioritySupport: true },
+        },
+      });
 
       const requirements = await ctx.http().get('/v1/me/reauth').set(auth).expect(200);
       expect(requirements.body).toEqual({
@@ -314,6 +348,21 @@ describe('accounts (e2e): preferences, data export and deletion', () => {
           id: bookingId,
           status: 'CONFIRMED',
           contact: { email: 'traveller@example.com', phone: '+2348012345678' },
+        }),
+      ]);
+      expect(document.data.priceAlerts).toEqual([
+        expect.objectContaining({ origin: 'LOS', destination: 'DXB', currency: 'NGN' }),
+      ]);
+      expect(document.data.referrals).toMatchObject({
+        code: { code: referrals.body.code as string, active: true },
+        referred: [],
+        referredBy: null,
+      });
+      expect(document.data.memberships).toEqual([
+        expect.objectContaining({
+          plan: { slug: 'export-plan', name: 'Export plan', period: 'year' },
+          status: 'active',
+          bookingId,
         }),
       ]);
       expect(document.data.payments).toEqual([
