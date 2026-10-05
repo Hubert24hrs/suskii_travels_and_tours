@@ -11,6 +11,8 @@ export interface CardProps {
   accessibilityRole?: AccessibilityRole;
   flat?: boolean;
   className?: string;
+  /** Stable id for tests and Maestro flows. */
+  testID?: string;
 }
 
 export function Card({
@@ -20,6 +22,7 @@ export function Card({
   accessibilityRole,
   flat = false,
   className,
+  testID,
 }: CardProps) {
   const classes = cn(
     'rounded-lg border bg-surface',
@@ -29,6 +32,7 @@ export function Card({
   if (onPress) {
     return (
       <Pressable
+        testID={testID}
         onPress={onPress}
         accessibilityRole={accessibilityRole ?? 'button'}
         accessibilityLabel={accessibilityLabel}
@@ -40,6 +44,7 @@ export function Card({
   }
   return (
     <View
+      testID={testID}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
       className={classes}

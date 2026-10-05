@@ -1,6 +1,15 @@
 import { color } from '@suskii/design-tokens';
 import { CircleAlert, CircleCheck, Info, X } from 'lucide-react-native';
-import { createContext, use, useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AccessibilityInfo, Pressable, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,10 +47,22 @@ export interface ToastProviderProps {
 export function ToastProvider({ children, closeLabel, duration = 5000 }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastEntry[]>([]);
   const nextId = useRef(0);
+  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const insets = useSafeAreaInsets();
 
   const dismiss = useCallback((id: number) => {
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
     setToasts((current) => current.filter((entry) => entry.id !== id));
+  }, []);
+
+  // Pending dismissals must not outlive the provider (screens unmount, tests end).
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const timer of pending.values()) clearTimeout(timer);
+      pending.clear();
+    };
   }, []);
 
   const toast = useCallback(
@@ -52,7 +73,10 @@ export function ToastProvider({ children, closeLabel, duration = 5000 }: ToastPr
       AccessibilityInfo.announceForAccessibility(
         options.description ? `${options.title}. ${options.description}` : options.title,
       );
-      setTimeout(() => dismiss(id), options.duration ?? duration);
+      timers.current.set(
+        id,
+        setTimeout(() => dismiss(id), options.duration ?? duration),
+      );
     },
     [dismiss, duration],
   );
