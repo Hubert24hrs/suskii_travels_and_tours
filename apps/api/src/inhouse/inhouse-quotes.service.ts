@@ -231,7 +231,11 @@ export class InhouseQuotesService {
             travellers: counts(input.travellers),
             linkToken: null,
           },
-          { ...trip, linkedBookingId: linked?.bookingId ?? null },
+          {
+            ...trip,
+            linkedBookingId: linked?.bookingId ?? null,
+            linkedReference: linked?.reference ?? null,
+          },
         );
       }
     }

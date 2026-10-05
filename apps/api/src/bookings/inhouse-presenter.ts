@@ -116,7 +116,11 @@ export function inhouseSections(
           travellers: counts(payload),
           requiredDetails: payload.requiredDetails,
           cancellationPolicy: payload.cancellationPolicy,
-          linkedBooking: context.linkedBooking ?? null,
+          linkedBooking:
+            context.linkedBooking ??
+            (payload.linkedBookingId && payload.linkedReference
+              ? { id: payload.linkedBookingId, reference: payload.linkedReference }
+              : null),
         },
       };
     case 'flight':

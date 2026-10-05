@@ -672,7 +672,13 @@ describe('in-house products (e2e): packages, tours, visa and add-ons', () => {
       }).expect(201);
       expect(q.body).toMatchObject({
         vertical: 'travel_addons',
-        addon: { type: 'airport_transfer', units: 1, countryCode: 'NG', linkedBooking: null },
+        addon: {
+          type: 'airport_transfer',
+          units: 1,
+          countryCode: 'NG',
+          // The quote already names the trip it is for.
+          linkedBooking: { id: tripBooking.id, reference: tripBooking.reference },
+        },
         price: { total: ngn(25_000) },
       });
       // A tampered link is refused.

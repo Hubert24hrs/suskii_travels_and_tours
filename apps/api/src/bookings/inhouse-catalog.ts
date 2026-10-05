@@ -199,6 +199,7 @@ export class InhouseCatalog {
       cityName: string | null;
       timeZone: string | null;
       linkedBookingId: string | null;
+      linkedReference: string | null;
     },
   ): AddonItemPayload {
     return {
@@ -224,6 +225,7 @@ export class InhouseCatalog {
       cityName: trip.cityName,
       timeZone: trip.timeZone ?? 'UTC',
       linkedBookingId: trip.linkedBookingId,
+      linkedReference: trip.linkedReference,
       requiredDetails: storedDetails(addon.requiredDetails),
       cancellationPolicy: storedPolicy(addon.cancellationPolicy),
       request,

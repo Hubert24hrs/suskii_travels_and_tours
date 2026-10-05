@@ -124,6 +124,8 @@ export interface AddonItemPayload extends InhouseBase {
   /** The destination's IANA zone when known, else UTC. */
   timeZone: string;
   linkedBookingId: string | null;
+  /** The linked trip's reference, shown on the quote and booking (absent on older quotes). */
+  linkedReference?: string | null;
   requiredDetails: AddonDetailField[];
   cancellationPolicy: CancellationTier[];
   /** Checkout details (flight number, pickup address), encrypted per booking item. */
