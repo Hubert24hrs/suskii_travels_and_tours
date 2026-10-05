@@ -70,6 +70,13 @@ export const enUS: MessageOverlay<Messages> = {
     detail: { passportRequired: 'Every traveler needs a valid passport for this trip.' },
     book: { travellers: 'Travelers' },
   },
+  addons: {
+    unitPrice: {
+      per_person: '{price} per traveler',
+      per_person_per_day: '{price} per traveler per day',
+    },
+    errors: { too_many_travellers: 'This add-on cannot cover this many travelers.' },
+  },
   pages: {
     verticals: {
       packages: {
