@@ -68,7 +68,7 @@ jobs:
         run: pnpm exec turbo run build --filter=@suskii/mobile^...
 
       - name: Set up EAS
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@v9
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
