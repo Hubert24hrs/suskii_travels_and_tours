@@ -11,6 +11,7 @@ import { BookingAccessLinks } from './booking-access-links';
 import { BookingCancellationService } from './booking-cancellation.service';
 import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
+import { BookingNotesService } from './booking-notes.service';
 import { BookingNotifications } from './booking-notifications';
 import { BookingPaymentsService } from './booking-payments.service';
 import { BookingTransitions } from './booking-transitions';
@@ -64,8 +65,10 @@ import { TravellersService } from './travellers.service';
     InhouseCatalog,
     InhouseFulfilment,
     BookingCancellationService,
+    BookingNotesService,
   ],
   exports: [
+    BookingNotesService,
     TicketingService,
     CheckoutService,
     RefundsService,

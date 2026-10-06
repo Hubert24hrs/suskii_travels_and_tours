@@ -869,8 +869,11 @@ model Booking {
   refunds          Refund[]
   accessLinks      BookingAccessLink[]
   pushTokens       PushToken[]
+  notes            BookingNote[]
 
   @@index([userId, createdAt])
+  /// Admin booking search and the dashboard filter by creation date (ADR-036).
+  @@index([createdAt])
   @@index([status, paymentDeadline])
   @@index([status, nextTicketingAt])
   @@index([contactEmailHash])
@@ -1116,6 +1119,8 @@ model LedgerTransaction {
 
   @@index([bookingId])
   @@index([paymentId])
+  /// Dashboard money figures sum entries by transaction kind and period (ADR-036).
+  @@index([kind, createdAt])
   @@map("ledger_transactions")
 }
 
@@ -1872,4 +1877,23 @@ model PriceAlert {
   @@index([userId])
   @@index([active, lastCheckedAt])
   @@map("price_alerts")
+}
+
+// ---------------------------------------------------------------------------
+// Admin console (phase 10, ADR-033 to ADR-036)
+// ---------------------------------------------------------------------------
+
+/// Internal note staff add to a booking. Never shown to travellers; the text is encrypted with
+/// the context `booking-note:{id}` because staff may record personal details.
+model BookingNote {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  bookingId     String   @map("booking_id") @db.Uuid
+  authorId      String   @map("author_id") @db.Uuid
+  bodyEncrypted String   @map("body_encrypted")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@map("booking_notes")
 }

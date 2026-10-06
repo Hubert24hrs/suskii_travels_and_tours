@@ -91,6 +91,7 @@ describe('parseEnv', () => {
       'HMAC_SECRET',
       'COOKIE_SECURE',
       'CORS_ORIGINS',
+      'ADMIN_ORIGINS',
       'EMAIL_PROVIDER',
       'SMS_PROVIDER',
       'FLIGHT_SUPPLIERS',

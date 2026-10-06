@@ -1,6 +1,8 @@
 import { SetMetadata } from '@nestjs/common';
 import { z } from 'zod';
 
+import type { AuditAction } from '../audit/audit.service';
+
 /**
  * The single description of an endpoint: validates input, filters output (so internal fields such
  * as password hashes can never leak) and generates the OpenAPI 3.1 document and typed client.
@@ -27,6 +29,11 @@ export interface RouteContract {
    * the handler reads and checks the bytes itself (size, type sniffing).
    */
   upload?: { contentTypes: readonly string[]; description: string };
+  /**
+   * Admin mutations: the audit actions the route may record (one of them per successful call).
+   * Published as `x-audit`; the audit coverage e2e test checks it (ADR-034).
+   */
+  audit?: readonly AuditAction[];
 }
 
 export const CONTRACT = 'suskii:contract';

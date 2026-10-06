@@ -3,7 +3,7 @@ import { METHOD_METADATA, PATH_METADATA, VERSION_METADATA } from '@nestjs/common
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { z } from 'zod';
 
-import { IS_PUBLIC } from '../auth/decorators';
+import { IS_ADMIN_ROUTE, IS_PUBLIC, REQUIRED_PERMISSIONS } from '../auth/decorators';
 import { CONTRACT, fileResponses, schemaRegistry, type RouteContract } from '../contract/contract';
 import { IS_INTERNAL } from '../internal/internal-route';
 
@@ -41,6 +41,10 @@ export interface OperationObject {
     content: Record<string, MediaContent>;
   };
   responses: Record<string, ResponseObject>;
+  /** Admin routes: the permissions `@AdminRoute` requires (ADR-034). */
+  'x-admin-permissions'?: string[];
+  /** Admin mutations: the audit actions the route may record (ADR-034). */
+  'x-audit'?: string[];
 }
 
 export interface OpenApiDocument {
@@ -267,6 +271,48 @@ function operation(
   };
 }
 
+/**
+ * Admin routes publish their permissions and, for mutations, the audit actions they record
+ * (ADR-034). An unguarded route under /v1/admin or an admin mutation without an audit declaration
+ * fails the build of the document, so it cannot ship.
+ */
+function adminMetadata(
+  reflector: Reflector,
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type -- Nest metadata targets.
+  targets: [Function, Function],
+  path: string,
+  method: string,
+  contract: RouteContract,
+): Pick<OperationObject, 'x-admin-permissions' | 'x-audit'> {
+  const admin = reflector.getAllAndOverride<boolean | undefined>(IS_ADMIN_ROUTE, targets) === true;
+  const permissions = [
+    ...new Set<string>(
+      targets.flatMap(
+        (target) => reflector.get<string[] | undefined>(REQUIRED_PERMISSIONS, target) ?? [],
+      ),
+    ),
+  ];
+  const underAdmin = path.startsWith('/v1/admin/') || path === '/v1/admin';
+  if (underAdmin && (!admin || permissions.length === 0)) {
+    throw new Error(
+      `${method.toUpperCase()} ${path} is under /v1/admin without @AdminRoute permissions`,
+    );
+  }
+  if (!admin) return {};
+  if (!underAdmin)
+    throw new Error(`${method.toUpperCase()} ${path} uses @AdminRoute outside /v1/admin`);
+  const mutation = UNSAFE_METHODS.has(method);
+  if (mutation && !contract.audit?.length) {
+    throw new Error(
+      `${method.toUpperCase()} ${path} is an admin mutation without an audit declaration`,
+    );
+  }
+  return {
+    'x-admin-permissions': permissions.sort(),
+    ...(mutation ? { 'x-audit': [...(contract.audit ?? [])] } : {}),
+  };
+}
+
 /** Builds the OpenAPI 3.1 document from every route that declares a `@Contract()`. */
 export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
   const discovery = app.get(DiscoveryService);
@@ -308,7 +354,11 @@ export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
         reflector.get<boolean | undefined>(IS_INTERNAL, metatype) === true ||
         reflector.get<boolean | undefined>(IS_INTERNAL, handler) === true;
       const access: Access = isInternal ? 'internal' : isPublic ? 'public' : 'user';
-      paths[path] = { ...paths[path], [method]: operation(collector, contract, method, access) };
+      const admin = adminMetadata(reflector, [handler, metatype], path, method, contract);
+      paths[path] = {
+        ...paths[path],
+        [method]: { ...operation(collector, contract, method, access), ...admin },
+      };
     }
   }
 

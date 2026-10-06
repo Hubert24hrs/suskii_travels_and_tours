@@ -156,6 +156,11 @@ export const DATA_REGISTRY = {
     deletion: 'retain',
     note: 'Status timeline: ids and reasons.',
   },
+  BookingNote: {
+    section: 'bookings',
+    deletion: 'delete',
+    note: 'Internal staff notes (encrypted): exported with the booking, deleted with the account.',
+  },
   BookingDocument: {
     section: 'bookings',
     deletion: 'delete',

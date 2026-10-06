@@ -160,6 +160,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search bookings (newest first) */
+        get: operations["adminListBookings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{bookingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A booking with its status timeline and internal notes */
+        get: operations["adminGetBooking"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{bookingId}/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send the confirmation email again, with the documents */
+        post: operations["adminResendBookingConfirmation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{bookingId}/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal a booking's contact details
+         * @description Audited on every call; the booking view itself shows them masked.
+         */
+        post: operations["adminRevealBookingContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{bookingId}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an internal note to a booking
+         * @description Notes are encrypted, never shown to the traveller and included in their data export.
+         */
+        post: operations["adminAddBookingNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/bookings/{bookingId}/refunds": {
         parameters: {
             query?: never;
@@ -195,6 +286,177 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/content/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CMS blocks, published or not */
+        get: operations["adminListCmsBlocks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/content/blocks/{locale}/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save, publish or unpublish a CMS block
+         * @description Content is validated against the schema the public site parses for the key. The public site shows the change within its five-minute cache window.
+         */
+        put: operations["adminSaveCmsBlock"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/content/faqs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** FAQs, published or not */
+        get: operations["adminListFaqs"];
+        put?: never;
+        /**
+         * Add an FAQ
+         * @description The public site shows the change within its five-minute cache window.
+         */
+        post: operations["adminCreateFaq"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/content/faqs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change, reorder or unpublish an FAQ
+         * @description The public site shows the change within its five-minute cache window.
+         */
+        patch: operations["adminUpdateFaq"];
+        trace?: never;
+    };
+    "/v1/admin/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bookings, money, work queues and top routes for a period
+         * @description Defaults to the last 30 days; at most 366. Money is summed from the ledger per currency.
+         */
+        get: operations["adminGetDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deal-routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deal routes the worker keeps fresh, with their last refresh */
+        get: operations["adminListDealRoutes"];
+        put?: never;
+        /**
+         * Add a deal route
+         * @description The deals worker finds fares for it on its next refresh.
+         */
+        post: operations["adminCreateDealRoute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deal-routes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change or deactivate a deal route */
+        patch: operations["adminUpdateDealRoute"];
+        trace?: never;
+    };
+    "/v1/admin/destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hotel destination content, published or not */
+        get: operations["adminListDestinations"];
+        put?: never;
+        /** Add a hotel destination page */
+        post: operations["adminCreateDestination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/destinations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change, feature or unpublish a hotel destination */
+        patch: operations["adminUpdateDestination"];
         trace?: never;
     };
     "/v1/admin/package-departures/{id}": {
@@ -268,6 +530,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/pricing/fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fee rules by vertical */
+        get: operations["adminListFeeRules"];
+        put?: never;
+        /**
+         * Add a customer-visible fee
+         * @description Every active matching fee applies. Applies to the next search or quote; quotes already given keep their price.
+         */
+        post: operations["adminCreateFeeRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/pricing/fees/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change or deactivate a fee
+         * @description The merged rule is validated like a new one. Applies to the next search or quote; quotes already given keep their price.
+         */
+        patch: operations["adminUpdateFeeRule"];
+        trace?: never;
+    };
+    "/v1/admin/pricing/markups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Markup rules by vertical and priority */
+        get: operations["adminListMarkupRules"];
+        put?: never;
+        /**
+         * Add a markup rule
+         * @description The first active matching rule (lowest priority) applies. Applies to the next search or quote; quotes already given keep their price.
+         */
+        post: operations["adminCreateMarkupRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/pricing/markups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change or deactivate a markup rule
+         * @description The merged rule is validated like a new one. Applies to the next search or quote; quotes already given keep their price.
+         */
+        patch: operations["adminUpdateMarkupRule"];
+        trace?: never;
+    };
     "/v1/admin/prime/plans": {
         parameters: {
             query?: never;
@@ -304,6 +648,44 @@ export interface paths {
          * @description Running terms keep the benefits they were bought with; new purchases and the price re-check before payment use the plan as it is now.
          */
         patch: operations["adminUpdatePrimePlan"];
+        trace?: never;
+    };
+    "/v1/admin/promos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Promo codes with their redemption counts (newest first) */
+        get: operations["adminListPromoCodes"];
+        put?: never;
+        /** Create a promo code */
+        post: operations["adminCreatePromoCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/promos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change or deactivate a promo code
+         * @description The merged promo is validated like a new one. The code cannot change after its first redemption.
+         */
+        patch: operations["adminUpdatePromoCode"];
         trace?: never;
     };
     "/v1/admin/referrals": {
@@ -502,6 +884,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/trust-signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Trust signals with their verification */
+        get: operations["adminListTrustSignals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trust-signals/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a trust signal's label, value or order
+         * @description A changed label or value clears the verification: the claim is hidden until it is verified again.
+         */
+        patch: operations["adminUpdateTrustSignal"];
+        trace?: never;
+    };
+    "/v1/admin/trust-signals/{key}/unverify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a verification
+         * @description The claim disappears from the public site. The public site shows the change within its five-minute cache window.
+         */
+        post: operations["adminUnverifyTrustSignal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trust-signals/{key}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify a trust signal against its evidence
+         * @description Records who verified it and when; the claim then appears on the public site. The public site shows the change within its five-minute cache window.
+         */
+        post: operations["adminVerifyTrustSignal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search accounts (newest first) */
+        get: operations["adminListUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users/{id}": {
         parameters: {
             query?: never;
@@ -513,6 +989,60 @@ export interface paths {
         get: operations["adminGetUser"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable an account and sign it out everywhere */
+        post: operations["adminDisableUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable a disabled account */
+        post: operations["adminEnableUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/mfa-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove an account's authenticator so the user enrols again
+         * @description Also removes recovery codes and signs the user out everywhere.
+         */
+        post: operations["adminResetUserMfa"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2745,6 +3275,9 @@ export interface components {
             marketingConsent: boolean;
             marketingConsentAt: string | null;
         };
+        AddBookingNoteRequestInput: {
+            text: string;
+        };
         AddonCard: {
             /** Format: uuid */
             id: string;
@@ -2814,6 +3347,128 @@ export interface components {
         AddonList: {
             addons: components["schemas"]["AddonCard"][];
         };
+        AdminBookingContact: {
+            email: string;
+            phone: string;
+            redacted: boolean;
+        };
+        AdminBookingDetail: {
+            booking: components["schemas"]["Booking"];
+            accountId: string | null;
+            history: {
+                fromStatus: ("DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED") | null;
+                /** @enum {string} */
+                toStatus: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+                event: string;
+                reason: string | null;
+                /** @enum {string} */
+                actorType: "customer" | "system" | "webhook" | "staff";
+                actorUserId: string | null;
+                /** Format: date-time */
+                occurredAt: string;
+            }[];
+            notes: components["schemas"]["BookingNote"][];
+        };
+        AdminBookingPage: {
+            items: components["schemas"]["AdminBookingRow"][];
+            nextCursor: string | null;
+        };
+        AdminBookingRow: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+            /** @enum {string} */
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            /** Format: date-time */
+            createdAt: string;
+            total: components["schemas"]["Money"];
+            accountId: string | null;
+            trip: components["schemas"]["BookingSummary"] | null;
+        };
+        AdminCmsBlock: {
+            key: string;
+            /** @enum {string} */
+            locale: "en-NG" | "en-GB" | "en-US";
+            content: {
+                [key: string]: unknown;
+            };
+            published: boolean;
+            publishedAt: string | null;
+            valid: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminCmsBlockList: {
+            blocks: components["schemas"]["AdminCmsBlock"][];
+            fixedKeys: string[];
+        };
+        AdminDashboard: {
+            range: {
+                /** Format: date */
+                from: string;
+                /** Format: date */
+                to: string;
+            };
+            bookings: {
+                total: number;
+                byStatus: {
+                    /** @enum {string} */
+                    status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+                    count: number;
+                }[];
+                byVertical: {
+                    /** @enum {string} */
+                    vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+                    count: number;
+                }[];
+            };
+            money: {
+                currency: string;
+                captured: components["schemas"]["Money"];
+                fromWallet: components["schemas"]["Money"];
+                refunded: components["schemas"]["Money"];
+            }[];
+            queues: {
+                refundsAwaitingApproval: number;
+                refundsNeedingReview: number;
+                bookingsRefundPending: number;
+                visaApplicationsToReview: number;
+                referralsInReview: number;
+            };
+            accounts: {
+                created: number;
+                activePrimeMembers: number;
+            };
+            topRoutes: {
+                origin: string;
+                destination: string;
+                bookings: number;
+            }[];
+            /** Format: date-time */
+            generatedAt: string;
+        };
+        AdminDealRoute: {
+            slug: string;
+            originCode: string;
+            destinationCode: string;
+            /** @enum {string} */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            stayNights: number;
+            active: boolean;
+            sortOrder: number;
+            /** Format: uuid */
+            id: string;
+            lastRefreshedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminDealRouteList: {
+            routes: components["schemas"]["AdminDealRoute"][];
+        };
         AdminDeparture: {
             /** Format: uuid */
             id: string;
@@ -2838,6 +3493,105 @@ export interface components {
             };
             /** @enum {string} */
             status: "open" | "closed" | "cancelled";
+        };
+        AdminDestination: {
+            /** Format: uuid */
+            cityId: string;
+            slug: string;
+            featured: boolean;
+            sortOrder: number;
+            imageUrl: string | null;
+            published: boolean;
+            /** Format: uuid */
+            id: string;
+            cityName: string;
+            countryCode: string;
+            publishedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminDestinationList: {
+            destinations: components["schemas"]["AdminDestination"][];
+        };
+        AdminFaq: {
+            /** @enum {string} */
+            locale: "en-NG" | "en-GB" | "en-US";
+            question: string;
+            answer: string;
+            sortOrder: number;
+            published: boolean;
+            /** Format: uuid */
+            id: string;
+            publishedAt: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminFaqList: {
+            faqs: components["schemas"]["AdminFaq"][];
+        };
+        AdminFeeRule: {
+            code: string;
+            label: string;
+            /** @enum {string} */
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            active: boolean;
+            sortOrder: number;
+            channel: ("web" | "mobile") | null;
+            userTier: ("guest" | "member" | "prime") | null;
+            /** @enum {string} */
+            type: "percentage" | "fixed";
+            value: number;
+            currency: string | null;
+            /** @enum {string} */
+            basis: "per_booking" | "per_passenger";
+            minAmountMinor: number | null;
+            maxAmountMinor: number | null;
+            validFrom: string | null;
+            validTo: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminFeeRuleList: {
+            rules: components["schemas"]["AdminFeeRule"][];
+        };
+        AdminMarkupRule: {
+            name: string;
+            /** @enum {string} */
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            priority: number;
+            active: boolean;
+            channel: ("web" | "mobile") | null;
+            userTier: ("guest" | "member" | "prime") | null;
+            supplier: string | null;
+            originCode: string | null;
+            destinationCode: string | null;
+            originCountry: string | null;
+            destinationCountry: string | null;
+            carrierCode: string | null;
+            cabinClass: ("economy" | "premium_economy" | "business" | "first") | null;
+            /** @enum {string} */
+            type: "percentage" | "fixed";
+            value: number;
+            currency: string | null;
+            minAmountMinor: number | null;
+            maxAmountMinor: number | null;
+            validFrom: string | null;
+            validTo: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminMarkupRuleList: {
+            rules: components["schemas"]["AdminMarkupRule"][];
         };
         AdminPrimePlan: {
             /** Format: uuid */
@@ -2882,6 +3636,34 @@ export interface components {
         };
         AdminProductList: {
             products: components["schemas"]["AdminProduct"][];
+        };
+        AdminPromoCode: {
+            code: string;
+            description: string | null;
+            /** @enum {string} */
+            type: "percentage" | "fixed";
+            value: number;
+            currency: string | null;
+            maxDiscountMinor: number | null;
+            minSpendMinor: number | null;
+            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime")[];
+            validFrom: string | null;
+            validTo: string | null;
+            maxRedemptions: number | null;
+            maxRedemptionsPerUser: number | null;
+            requiresAccount: boolean;
+            active: boolean;
+            /** Format: uuid */
+            id: string;
+            redemptions: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminPromoCodePage: {
+            items: components["schemas"]["AdminPromoCode"][];
+            nextCursor: string | null;
         };
         AdminReferral: {
             /** Format: uuid */
@@ -2938,6 +3720,21 @@ export interface components {
         AdminRefundList: {
             refunds: components["schemas"]["AdminRefund"][];
         };
+        AdminTrustSignal: {
+            key: string;
+            label: string;
+            value: string | null;
+            sortOrder: number;
+            verified: boolean;
+            evidenceUrl: string | null;
+            verifiedAt: string | null;
+            verifiedBy: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminTrustSignalList: {
+            signals: components["schemas"]["AdminTrustSignal"][];
+        };
         AdminUser: {
             /** Format: uuid */
             id: string;
@@ -2950,6 +3747,10 @@ export interface components {
             mfaEnabled: boolean;
             /** Format: date-time */
             createdAt: string;
+        };
+        AdminUserPage: {
+            items: components["schemas"]["AdminUser"][];
+            nextCursor: string | null;
         };
         Airport: {
             code: string;
@@ -3153,6 +3954,15 @@ export interface components {
             quantity: number;
             unitPrice: components["schemas"]["Money"];
             amount: components["schemas"]["Money"];
+        };
+        BookingNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            authorId: string;
+            text: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         BookingPassenger: {
             position: number;
@@ -3612,6 +4422,26 @@ export interface components {
                 };
             }[];
         };
+        DealRouteInputInput: {
+            slug: string;
+            originCode: string;
+            destinationCode: string;
+            /** @enum {string} */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            stayNights: number;
+            active: boolean;
+            sortOrder: number;
+        };
+        DealRoutePatchInput: {
+            slug?: string;
+            originCode?: string;
+            destinationCode?: string;
+            /** @enum {string} */
+            cabinClass?: "economy" | "premium_economy" | "business" | "first";
+            stayNights?: number;
+            active?: boolean;
+            sortOrder?: number;
+        };
         DealRoutes: {
             routes: {
                 slug: string;
@@ -3635,10 +4465,82 @@ export interface components {
             /** @constant */
             confirm: "DELETE";
         };
+        DestinationInputInput: {
+            /** Format: uuid */
+            cityId: string;
+            slug: string;
+            featured: boolean;
+            sortOrder: number;
+            imageUrl: string | null;
+            published: boolean;
+        };
+        DestinationPatchInput: {
+            slug?: string;
+            featured?: boolean;
+            sortOrder?: number;
+            imageUrl?: string | null;
+            published?: boolean;
+        };
         ExtraSelectionInput: {
             serviceId: string;
             passengerIndex: number;
             quantity: number;
+        };
+        FaqInputInput: {
+            /** @enum {string} */
+            locale: "en-NG" | "en-GB" | "en-US";
+            question: string;
+            answer: string;
+            sortOrder: number;
+            published: boolean;
+        };
+        FaqPatchInput: {
+            /** @enum {string} */
+            locale?: "en-NG" | "en-GB" | "en-US";
+            question?: string;
+            answer?: string;
+            sortOrder?: number;
+            published?: boolean;
+        };
+        FeeRuleInputInput: {
+            code: string;
+            label: string;
+            /** @enum {string} */
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            active: boolean;
+            sortOrder: number;
+            channel: ("web" | "mobile") | null;
+            userTier: ("guest" | "member" | "prime") | null;
+            /** @enum {string} */
+            type: "percentage" | "fixed";
+            value: number;
+            currency: string | null;
+            /** @enum {string} */
+            basis: "per_booking" | "per_passenger";
+            minAmountMinor: number | null;
+            maxAmountMinor: number | null;
+            validFrom: string | null;
+            validTo: string | null;
+        };
+        FeeRulePatchInput: {
+            code?: string;
+            label?: string;
+            /** @enum {string} */
+            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            active?: boolean;
+            sortOrder?: number;
+            channel?: ("web" | "mobile") | null;
+            userTier?: ("guest" | "member" | "prime") | null;
+            /** @enum {string} */
+            type?: "percentage" | "fixed";
+            value?: number;
+            currency?: string | null;
+            /** @enum {string} */
+            basis?: "per_booking" | "per_passenger";
+            minAmountMinor?: number | null;
+            maxAmountMinor?: number | null;
+            validFrom?: string | null;
+            validTo?: string | null;
         };
         FlightDeal: {
             id: string;
@@ -4130,6 +5032,54 @@ export interface components {
         };
         LogoutRequestInput: {
             refreshToken?: string;
+        };
+        MarkupRuleInputInput: {
+            name: string;
+            /** @enum {string} */
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            priority: number;
+            active: boolean;
+            channel: ("web" | "mobile") | null;
+            userTier: ("guest" | "member" | "prime") | null;
+            supplier: string | null;
+            originCode: string | null;
+            destinationCode: string | null;
+            originCountry: string | null;
+            destinationCountry: string | null;
+            carrierCode: string | null;
+            cabinClass: ("economy" | "premium_economy" | "business" | "first") | null;
+            /** @enum {string} */
+            type: "percentage" | "fixed";
+            value: number;
+            currency: string | null;
+            minAmountMinor: number | null;
+            maxAmountMinor: number | null;
+            validFrom: string | null;
+            validTo: string | null;
+        };
+        MarkupRulePatchInput: {
+            name?: string;
+            /** @enum {string} */
+            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            priority?: number;
+            active?: boolean;
+            channel?: ("web" | "mobile") | null;
+            userTier?: ("guest" | "member" | "prime") | null;
+            supplier?: string | null;
+            originCode?: string | null;
+            destinationCode?: string | null;
+            originCountry?: string | null;
+            destinationCountry?: string | null;
+            carrierCode?: string | null;
+            cabinClass?: ("economy" | "premium_economy" | "business" | "first") | null;
+            /** @enum {string} */
+            type?: "percentage" | "fixed";
+            value?: number;
+            currency?: string | null;
+            minAmountMinor?: number | null;
+            maxAmountMinor?: number | null;
+            validFrom?: string | null;
+            validTo?: string | null;
         };
         MeetingPoint: {
             name: string;
@@ -4667,6 +5617,40 @@ export interface components {
                 message: string;
             }[];
         };
+        PromoCodeInputInput: {
+            code: string;
+            description: string | null;
+            /** @enum {string} */
+            type: "percentage" | "fixed";
+            value: number;
+            currency: string | null;
+            maxDiscountMinor: number | null;
+            minSpendMinor: number | null;
+            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime")[];
+            validFrom: string | null;
+            validTo: string | null;
+            maxRedemptions: number | null;
+            maxRedemptionsPerUser: number | null;
+            requiresAccount: boolean;
+            active: boolean;
+        };
+        PromoCodePatchInput: {
+            code?: string;
+            description?: string | null;
+            /** @enum {string} */
+            type?: "percentage" | "fixed";
+            value?: number;
+            currency?: string | null;
+            maxDiscountMinor?: number | null;
+            minSpendMinor?: number | null;
+            verticals?: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime")[];
+            validFrom?: string | null;
+            validTo?: string | null;
+            maxRedemptions?: number | null;
+            maxRedemptionsPerUser?: number | null;
+            requiresAccount?: boolean;
+            active?: boolean;
+        };
         PromoValidateRequestInput: {
             code: string;
             /** Format: uuid */
@@ -4811,6 +5795,12 @@ export interface components {
             outcome: "succeeded" | "failed";
             /** @default null */
             providerRefundId?: string | null;
+        };
+        SaveCmsBlockRequestInput: {
+            content: {
+                [key: string]: unknown;
+            };
+            published: boolean;
         };
         ScheduledPayment: {
             sequence: number;
@@ -5029,6 +6019,14 @@ export interface components {
             label: string;
             value: string | null;
         };
+        TrustSignalPatchInput: {
+            label?: string;
+            value?: string | null;
+            sortOrder?: number;
+        };
+        UnverifyTrustSignalRequestInput: {
+            reason: string;
+        };
         UpdateAddonInput: {
             title?: string;
             summary?: string;
@@ -5180,6 +6178,10 @@ export interface components {
         };
         VerificationTokenRequestInput: {
             token: string;
+        };
+        VerifyTrustSignalRequestInput: {
+            /** Format: uri */
+            evidenceUrl: string;
         };
         VisaApplication: {
             /** Format: uuid */
@@ -5748,6 +6750,163 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminListBookings: {
+        parameters: {
+            query?: {
+                q?: string;
+                status?: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+                from?: string;
+                to?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBookingPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetBooking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBookingDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminResendBookingConfirmation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRevealBookingContact: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBookingContact"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminAddBookingNote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddBookingNoteRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingNote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminCreateRefund: {
         parameters: {
             query?: never;
@@ -5811,6 +6970,381 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListCmsBlocks: {
+        parameters: {
+            query?: {
+                locale?: "en-NG" | "en-GB" | "en-US";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCmsBlockList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminSaveCmsBlock: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                locale: "en-NG" | "en-GB" | "en-US";
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveCmsBlockRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCmsBlock"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListFaqs: {
+        parameters: {
+            query?: {
+                locale?: "en-NG" | "en-GB" | "en-US";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFaqList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateFaq: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FaqInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFaq"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateFaq: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FaqPatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFaq"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetDashboard: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDashboard"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListDealRoutes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDealRouteList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateDealRoute: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealRouteInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDealRoute"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateDealRoute: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealRoutePatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDealRoute"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListDestinations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDestinationList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateDestination: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DestinationInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDestination"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateDestination: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DestinationPatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDestination"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -5951,6 +7485,194 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminListFeeRules: {
+        parameters: {
+            query?: {
+                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFeeRuleList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateFeeRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeeRuleInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFeeRule"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateFeeRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeeRulePatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFeeRule"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListMarkupRules: {
+        parameters: {
+            query?: {
+                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMarkupRuleList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateMarkupRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkupRuleInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMarkupRule"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateMarkupRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkupRulePatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMarkupRule"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminListPrimePlans: {
         parameters: {
             query?: never;
@@ -6040,6 +7762,105 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListPromoCodes: {
+        parameters: {
+            query?: {
+                q?: string;
+                active?: "true" | "false";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoCodePage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreatePromoCode: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoCodeInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoCode"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdatePromoCode: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoCodePatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPromoCode"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6402,6 +8223,168 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminListTrustSignals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTrustSignalList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateTrustSignal: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrustSignalPatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTrustSignal"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUnverifyTrustSignal: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnverifyTrustSignalRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTrustSignal"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminVerifyTrustSignal: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyTrustSignalRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTrustSignal"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListUsers: {
+        parameters: {
+            query?: {
+                q?: string;
+                status?: "active" | "disabled" | "deleted";
+                staffOnly?: "true" | "false";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminGetUser: {
         parameters: {
             query?: never;
@@ -6426,6 +8409,102 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminDisableUser: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminEnableUser: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminResetUserMfa: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

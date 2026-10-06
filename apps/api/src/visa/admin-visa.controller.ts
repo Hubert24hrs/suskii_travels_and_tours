@@ -94,6 +94,7 @@ export class AdminVisaController {
   @AdminRoute('visa:process')
   @Contract({
     operationId: 'adminTransitionVisaApplication',
+    audit: ['visa.application_status_changed'],
     summary: 'Move an application on (review, action required, lodged, decision)',
     description:
       'Only the moves in `allowedTransitions` (409 otherwise). `message` is shown to and emailed to the traveller; `note` stays internal.',
@@ -117,6 +118,7 @@ export class AdminVisaController {
   @AdminRoute('visa:process')
   @Contract({
     operationId: 'adminCommentVisaApplication',
+    audit: ['visa.application_message', 'visa.application_note'],
     summary: 'Write to the traveller or add an internal note',
     tags: TAGS,
     params: applicationIdParamsSchema,
@@ -139,6 +141,7 @@ export class AdminVisaController {
   @RateLimit(INHOUSE_LIMITS.visaLinkIp)
   @Contract({
     operationId: 'adminCreateVisaDocumentLink',
+    audit: ['visa.document_link_issued'],
     summary: 'A short-lived, audited link to view a document',
     tags: TAGS,
     params: documentIdParamsSchema,
@@ -158,6 +161,7 @@ export class AdminVisaController {
   @AdminRoute('visa:process')
   @Contract({
     operationId: 'adminRejectVisaDocument',
+    audit: ['visa.document_rejected'],
     summary: 'Reject a document with a message to the traveller',
     description: 'Move the application to `action_required` so they can upload a new one.',
     tags: TAGS,
@@ -196,6 +200,7 @@ export class AdminVisaController {
   @AdminRoute('visa:process')
   @Contract({
     operationId: 'adminUpsertVisaRule',
+    audit: ['visa.rule_upserted'],
     summary: 'Create or replace the rule for a nationality, destination and purpose',
     tags: TAGS,
     body: upsertVisaRuleSchema,
@@ -215,6 +220,7 @@ export class AdminVisaController {
   @AdminRoute('visa:process')
   @Contract({
     operationId: 'adminDeleteVisaRule',
+    audit: ['visa.rule_deleted'],
     summary: 'Delete a rule (the checker then answers `unknown`)',
     tags: TAGS,
     params: ruleIdParamsSchema,

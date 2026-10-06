@@ -79,6 +79,7 @@ export class AdminPrimeController {
   @AdminRoute('pricing:manage')
   @Contract({
     operationId: 'adminCreatePrimePlan',
+    audit: ['prime.plan_created'],
     summary: 'Create a Suskii Prime plan (as a draft)',
     tags: ['Admin'],
     body: createPrimePlanSchema,
@@ -97,6 +98,7 @@ export class AdminPrimeController {
   @AdminRoute('pricing:manage')
   @Contract({
     operationId: 'adminUpdatePrimePlan',
+    audit: ['prime.plan_updated'],
     summary: 'Change a plan: prices, benefits, copy or status',
     description:
       'Running terms keep the benefits they were bought with; new purchases and the price re-check before payment use the plan as it is now.',

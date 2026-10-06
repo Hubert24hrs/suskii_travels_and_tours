@@ -2,52 +2,52 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
+  Post,
   Put,
+  Query,
   Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import type { z } from 'zod';
 
-import { AuditService } from '../audit/audit.service';
 import { CurrentAuth, type AuthContext } from '../auth/auth-context';
 import { AdminRoute } from '../auth/decorators';
-import { SessionService, userWithRoles, type UserWithRoles } from '../auth/session.service';
-import { ProblemDetailsException } from '../common/problem-details';
-import { requestContext } from '../common/request-context';
 import { Contract } from '../contract/contract';
-import { PrismaService } from '../infra/prisma.service';
 
-import { adminUserSchema, setRolesBodySchema, userIdParamsSchema } from './admin.schemas';
+import { staffActor } from './admin-helpers';
+import { AdminUsersService } from './admin-users.service';
+import {
+  adminUserPageSchema,
+  adminUserQuerySchema,
+  adminUserSchema,
+  setRolesBodySchema,
+  userIdParamsSchema,
+} from './admin.schemas';
 
 type AdminUser = z.infer<typeof adminUserSchema>;
 const TAGS = ['Admin'];
 
 @Controller('admin/users')
 export class AdminUsersController {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly sessions: SessionService,
-    private readonly audit: AuditService,
-  ) {}
+  constructor(private readonly users: AdminUsersService) {}
 
-  private async present(user: UserWithRoles): Promise<AdminUser> {
-    const factor = await this.prisma.mfaFactor.findUnique({
-      where: { userId_type: { userId: user.id, type: 'totp' } },
-      select: { confirmedAt: true },
-    });
-    return {
-      id: user.id,
-      email: user.email,
-      phone: user.phone,
-      displayName: user.displayName,
-      status: user.status,
-      roles: user.roles.map((role) => role.roleKey),
-      mfaEnabled: Boolean(factor?.confirmedAt),
-      createdAt: user.createdAt.toISOString(),
-    };
+  @Get()
+  @AdminRoute('users:read')
+  @Contract({
+    operationId: 'adminListUsers',
+    summary: 'Search accounts (newest first)',
+    tags: TAGS,
+    query: adminUserQuerySchema,
+    responses: { 200: adminUserPageSchema },
+    errors: [403],
+  })
+  list(
+    @Query() query: z.infer<typeof adminUserQuerySchema>,
+  ): Promise<z.infer<typeof adminUserPageSchema>> {
+    return this.users.list(query);
   }
 
   @Get(':id')
@@ -60,16 +60,15 @@ export class AdminUsersController {
     responses: { 200: adminUserSchema },
     errors: [403, 404],
   })
-  async getUser(@Param('id') id: string): Promise<AdminUser> {
-    const user = await this.prisma.user.findUnique({ where: { id }, include: userWithRoles });
-    if (!user) throw new NotFoundException();
-    return this.present(user);
+  getUser(@Param('id') id: string): Promise<AdminUser> {
+    return this.users.get(id);
   }
 
   @Put(':id/roles')
   @AdminRoute('roles:manage')
   @Contract({
     operationId: 'adminSetUserRoles',
+    audit: ['rbac.roles.changed'],
     summary: "Replace a user's roles",
     description: 'Audited. Signs the user out everywhere so the new roles apply immediately.',
     tags: TAGS,
@@ -78,43 +77,73 @@ export class AdminUsersController {
     responses: { 200: adminUserSchema },
     errors: [403, 404, 409],
   })
-  async setRoles(
+  setRoles(
     @CurrentAuth() auth: AuthContext,
     @Param('id') id: string,
     @Body() body: z.infer<typeof setRolesBodySchema>,
     @Req() request: Request,
   ): Promise<AdminUser> {
-    if (id === auth.userId) {
-      // Prevents locking out the last super admin, and self-escalation through a stolen session.
-      throw new ProblemDetailsException(
-        HttpStatus.CONFLICT,
-        'cannot-change-own-roles',
-        'You cannot change your own roles',
-      );
-    }
-    const roles = [...new Set(body.roles)].sort();
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({ where: { id }, include: userWithRoles });
-      if (!user) throw new NotFoundException();
-      const before = user.roles.map((role) => role.roleKey).sort();
-      await tx.userRole.deleteMany({ where: { userId: id } });
-      await tx.userRole.createMany({
-        data: roles.map((roleKey) => ({ userId: id, roleKey, grantedById: auth.userId })),
-      });
-      await this.audit.record(
-        {
-          action: 'rbac.roles.changed',
-          actorUserId: auth.userId,
-          targetType: 'user',
-          targetId: id,
-          context: requestContext(request),
-          metadata: { before, after: roles },
-        },
-        tx,
-      );
-      return tx.user.findUniqueOrThrow({ where: { id }, include: userWithRoles });
-    });
-    await this.sessions.revokeAllForUser(id, 'roles_changed');
-    return this.present(updated);
+    return this.users.setRoles(id, body.roles, staffActor(auth, request));
+  }
+
+  @Post(':id/disable')
+  @HttpCode(HttpStatus.OK)
+  @AdminRoute('users:manage')
+  @Contract({
+    operationId: 'adminDisableUser',
+    summary: 'Disable an account and sign it out everywhere',
+    tags: TAGS,
+    params: userIdParamsSchema,
+    responses: { 200: adminUserSchema },
+    errors: [403, 404, 409],
+    audit: ['user.disabled'],
+  })
+  disable(
+    @CurrentAuth() auth: AuthContext,
+    @Param('id') id: string,
+    @Req() request: Request,
+  ): Promise<AdminUser> {
+    return this.users.setStatus(id, 'disabled', staffActor(auth, request));
+  }
+
+  @Post(':id/enable')
+  @HttpCode(HttpStatus.OK)
+  @AdminRoute('users:manage')
+  @Contract({
+    operationId: 'adminEnableUser',
+    summary: 'Enable a disabled account',
+    tags: TAGS,
+    params: userIdParamsSchema,
+    responses: { 200: adminUserSchema },
+    errors: [403, 404, 409],
+    audit: ['user.enabled'],
+  })
+  enable(
+    @CurrentAuth() auth: AuthContext,
+    @Param('id') id: string,
+    @Req() request: Request,
+  ): Promise<AdminUser> {
+    return this.users.setStatus(id, 'active', staffActor(auth, request));
+  }
+
+  @Post(':id/mfa-reset')
+  @HttpCode(HttpStatus.OK)
+  @AdminRoute('users:manage')
+  @Contract({
+    operationId: 'adminResetUserMfa',
+    summary: "Remove an account's authenticator so the user enrols again",
+    description: 'Also removes recovery codes and signs the user out everywhere.',
+    tags: TAGS,
+    params: userIdParamsSchema,
+    responses: { 200: adminUserSchema },
+    errors: [403, 404, 409],
+    audit: ['user.mfa_reset'],
+  })
+  resetMfa(
+    @CurrentAuth() auth: AuthContext,
+    @Param('id') id: string,
+    @Req() request: Request,
+  ): Promise<AdminUser> {
+    return this.users.resetMfa(id, staffActor(auth, request));
   }
 }

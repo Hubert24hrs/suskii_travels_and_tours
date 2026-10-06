@@ -51,3 +51,24 @@ export const auditLogQuerySchema = z.object({
 });
 
 export const userIdParamsSchema = z.object({ id: z.uuid() });
+
+export const booleanParam = z.enum(['true', 'false']).transform((value) => value === 'true');
+
+export const adminUserQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(2)
+    .max(254)
+    .optional()
+    .meta({ description: 'The start of an email address, or a phone number in E.164.' }),
+  status: z.enum(['active', 'disabled', 'deleted']).optional(),
+  staffOnly: booleanParam.optional(),
+  cursor: z.uuid().optional().meta({ description: 'Id of the last user of the previous page.' }),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+export const adminUserPageSchema = named(
+  'AdminUserPage',
+  z.object({ items: z.array(adminUserSchema), nextCursor: z.uuid().nullable() }),
+);

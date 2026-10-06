@@ -145,6 +145,7 @@ export class AccountDeletionService {
 
         await this.redactBookings(tx, userId, bookingIds, now);
         await tx.bookingDocument.deleteMany({ where: { bookingId: { in: bookingIds } } });
+        await tx.bookingNote.deleteMany({ where: { bookingId: { in: bookingIds } } });
         await tx.visaDocument.updateMany({
           where: { id: { in: visaDocuments.map((document) => document.id) } },
           data: { storageKey: null, wrappedKey: '', fileNameEncrypted: '', deletedAt: now },

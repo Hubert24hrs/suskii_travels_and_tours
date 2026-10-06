@@ -385,7 +385,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.created"
+        ]
       }
     },
     "/v1/admin/addons/{id}": {
@@ -447,7 +453,14 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.updated",
+          "catalog.status_changed"
+        ]
       }
     },
     "/v1/admin/audit-logs": {
@@ -523,7 +536,395 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "audit:read"
+        ]
+      }
+    },
+    "/v1/admin/bookings": {
+      "get": {
+        "operationId": "adminListBookings",
+        "summary": "Search bookings (newest first)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 254
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "PRICED",
+                "HELD",
+                "AWAITING_PAYMENT",
+                "PARTIALLY_PAID",
+                "PAID",
+                "TICKETING",
+                "CONFIRMED",
+                "FAILED",
+                "CANCELLED",
+                "REFUND_PENDING",
+                "REFUNDED",
+                "EXPIRED"
+              ]
+            }
+          },
+          {
+            "name": "vertical",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "flights",
+                "hotels",
+                "packages",
+                "tours",
+                "visa",
+                "travel_addons",
+                "prime"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminBookingPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "bookings:read"
+        ]
+      }
+    },
+    "/v1/admin/bookings/{bookingId}": {
+      "get": {
+        "operationId": "adminGetBooking",
+        "summary": "A booking with its status timeline and internal notes",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminBookingDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "bookings:read"
+        ]
+      }
+    },
+    "/v1/admin/bookings/{bookingId}/confirmation": {
+      "post": {
+        "operationId": "adminResendBookingConfirmation",
+        "summary": "Send the confirmation email again, with the documents",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "bookings:manage"
+        ],
+        "x-audit": [
+          "booking.confirmation_resent"
+        ]
+      }
+    },
+    "/v1/admin/bookings/{bookingId}/contact": {
+      "post": {
+        "operationId": "adminRevealBookingContact",
+        "summary": "Reveal a booking's contact details",
+        "description": "Audited on every call; the booking view itself shows them masked.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminBookingContact"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "bookings:read"
+        ],
+        "x-audit": [
+          "booking.contact_revealed"
+        ]
+      }
+    },
+    "/v1/admin/bookings/{bookingId}/notes": {
+      "post": {
+        "operationId": "adminAddBookingNote",
+        "summary": "Add an internal note to a booking",
+        "description": "Notes are encrypted, never shown to the traveller and included in their data export.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddBookingNoteRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "bookings:read"
+        ],
+        "x-audit": [
+          "booking.note_added"
+        ]
       }
     },
     "/v1/admin/bookings/{bookingId}/refunds": {
@@ -610,7 +1011,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "refunds:request"
+        ],
+        "x-audit": [
+          "refund.created"
+        ]
       }
     },
     "/v1/admin/catalog": {
@@ -675,7 +1082,776 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ]
+      }
+    },
+    "/v1/admin/content/blocks": {
+      "get": {
+        "operationId": "adminListCmsBlocks",
+        "summary": "CMS blocks, published or not",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "en-NG",
+                "en-GB",
+                "en-US"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCmsBlockList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ]
+      }
+    },
+    "/v1/admin/content/blocks/{locale}/{key}": {
+      "put": {
+        "operationId": "adminSaveCmsBlock",
+        "summary": "Save, publish or unpublish a CMS block",
+        "description": "Content is validated against the schema the public site parses for the key. The public site shows the change within its five-minute cache window.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "en-NG",
+                "en-GB",
+                "en-US"
+              ]
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 45
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCmsBlockRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCmsBlock"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ],
+        "x-audit": [
+          "cms.block_saved"
+        ]
+      }
+    },
+    "/v1/admin/content/faqs": {
+      "get": {
+        "operationId": "adminListFaqs",
+        "summary": "FAQs, published or not",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "en-NG",
+                "en-GB",
+                "en-US"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFaqList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateFaq",
+        "summary": "Add an FAQ",
+        "description": "The public site shows the change within its five-minute cache window.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FaqInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFaq"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ],
+        "x-audit": [
+          "cms.faq_created"
+        ]
+      }
+    },
+    "/v1/admin/content/faqs/{id}": {
+      "patch": {
+        "operationId": "adminUpdateFaq",
+        "summary": "Change, reorder or unpublish an FAQ",
+        "description": "The public site shows the change within its five-minute cache window.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FaqPatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFaq"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ],
+        "x-audit": [
+          "cms.faq_updated"
+        ]
+      }
+    },
+    "/v1/admin/dashboard": {
+      "get": {
+        "operationId": "adminGetDashboard",
+        "summary": "Bookings, money, work queues and top routes for a period",
+        "description": "Defaults to the last 30 days; at most 366. Money is summed from the ledger per currency.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDashboard"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "reports:read"
+        ]
+      }
+    },
+    "/v1/admin/deal-routes": {
+      "get": {
+        "operationId": "adminListDealRoutes",
+        "summary": "Deal routes the worker keeps fresh, with their last refresh",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDealRouteList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "deals:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateDealRoute",
+        "summary": "Add a deal route",
+        "description": "The deals worker finds fares for it on its next refresh.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DealRouteInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDealRoute"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "deals:manage"
+        ],
+        "x-audit": [
+          "deals.route_created"
+        ]
+      }
+    },
+    "/v1/admin/deal-routes/{id}": {
+      "patch": {
+        "operationId": "adminUpdateDealRoute",
+        "summary": "Change or deactivate a deal route",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DealRoutePatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDealRoute"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "deals:manage"
+        ],
+        "x-audit": [
+          "deals.route_updated"
+        ]
+      }
+    },
+    "/v1/admin/destinations": {
+      "get": {
+        "operationId": "adminListDestinations",
+        "summary": "Hotel destination content, published or not",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDestinationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateDestination",
+        "summary": "Add a hotel destination page",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DestinationInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDestination"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ],
+        "x-audit": [
+          "destination.created"
+        ]
+      }
+    },
+    "/v1/admin/destinations/{id}": {
+      "patch": {
+        "operationId": "adminUpdateDestination",
+        "summary": "Change, feature or unpublish a hotel destination",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DestinationPatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDestination"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ],
+        "x-audit": [
+          "destination.updated"
+        ]
       }
     },
     "/v1/admin/package-departures/{id}": {
@@ -741,7 +1917,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.departure_updated"
+        ]
       }
     },
     "/v1/admin/packages": {
@@ -804,7 +1986,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.created"
+        ]
       }
     },
     "/v1/admin/packages/{id}": {
@@ -866,7 +2054,14 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.updated",
+          "catalog.status_changed"
+        ]
       }
     },
     "/v1/admin/packages/{id}/departures": {
@@ -935,7 +2130,405 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.departure_created"
+        ]
+      }
+    },
+    "/v1/admin/pricing/fees": {
+      "get": {
+        "operationId": "adminListFeeRules",
+        "summary": "Fee rules by vertical",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "vertical",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "flights",
+                "hotels",
+                "packages",
+                "tours",
+                "visa",
+                "travel_addons",
+                "prime"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFeeRuleList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateFeeRule",
+        "summary": "Add a customer-visible fee",
+        "description": "Every active matching fee applies. Applies to the next search or quote; quotes already given keep their price.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeeRuleInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFeeRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "pricing.fee_created"
+        ]
+      }
+    },
+    "/v1/admin/pricing/fees/{id}": {
+      "patch": {
+        "operationId": "adminUpdateFeeRule",
+        "summary": "Change or deactivate a fee",
+        "description": "The merged rule is validated like a new one. Applies to the next search or quote; quotes already given keep their price.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeeRulePatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFeeRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "pricing.fee_updated"
+        ]
+      }
+    },
+    "/v1/admin/pricing/markups": {
+      "get": {
+        "operationId": "adminListMarkupRules",
+        "summary": "Markup rules by vertical and priority",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "vertical",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "flights",
+                "hotels",
+                "packages",
+                "tours",
+                "visa",
+                "travel_addons",
+                "prime"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMarkupRuleList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateMarkupRule",
+        "summary": "Add a markup rule",
+        "description": "The first active matching rule (lowest priority) applies. Applies to the next search or quote; quotes already given keep their price.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkupRuleInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMarkupRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "pricing.markup_created"
+        ]
+      }
+    },
+    "/v1/admin/pricing/markups/{id}": {
+      "patch": {
+        "operationId": "adminUpdateMarkupRule",
+        "summary": "Change or deactivate a markup rule",
+        "description": "The merged rule is validated like a new one. Applies to the next search or quote; quotes already given keep their price.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkupRulePatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMarkupRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "pricing.markup_updated"
+        ]
       }
     },
     "/v1/admin/prime/plans": {
@@ -972,7 +2565,10 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ]
       },
       "post": {
         "operationId": "adminCreatePrimePlan",
@@ -1030,7 +2626,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "prime.plan_created"
+        ]
       }
     },
     "/v1/admin/prime/plans/{id}": {
@@ -1100,7 +2702,239 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "prime.plan_updated"
+        ]
+      }
+    },
+    "/v1/admin/promos": {
+      "get": {
+        "operationId": "adminListPromoCodes",
+        "summary": "Promo codes with their redemption counts (newest first)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPromoCodePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "deals:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminCreatePromoCode",
+        "summary": "Create a promo code",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoCodeInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPromoCode"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "deals:manage"
+        ],
+        "x-audit": [
+          "promo.created"
+        ]
+      }
+    },
+    "/v1/admin/promos/{id}": {
+      "patch": {
+        "operationId": "adminUpdatePromoCode",
+        "summary": "Change or deactivate a promo code",
+        "description": "The merged promo is validated like a new one. The code cannot change after its first redemption.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoCodePatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPromoCode"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "deals:manage"
+        ],
+        "x-audit": [
+          "promo.updated"
+        ]
       }
     },
     "/v1/admin/referrals": {
@@ -1154,7 +2988,10 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "referrals:review"
+        ]
       }
     },
     "/v1/admin/referrals/{id}/decision": {
@@ -1220,7 +3057,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "referrals:review"
+        ],
+        "x-audit": [
+          "referral.reviewed"
+        ]
       }
     },
     "/v1/admin/refunds": {
@@ -1295,7 +3138,10 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "refunds:request"
+        ]
       }
     },
     "/v1/admin/refunds/{refundId}": {
@@ -1345,7 +3191,10 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "refunds:request"
+        ]
       }
     },
     "/v1/admin/refunds/{refundId}/approve": {
@@ -1408,7 +3257,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "refunds:approve"
+        ],
+        "x-audit": [
+          "refund.approved"
+        ]
       }
     },
     "/v1/admin/refunds/{refundId}/reject": {
@@ -1480,7 +3335,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "refunds:approve"
+        ],
+        "x-audit": [
+          "refund.rejected"
+        ]
       }
     },
     "/v1/admin/refunds/{refundId}/resolve": {
@@ -1553,7 +3414,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "refunds:approve"
+        ],
+        "x-audit": [
+          "refund.resolved"
+        ]
       }
     },
     "/v1/admin/tour-departures/{id}": {
@@ -1618,7 +3485,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.departure_updated"
+        ]
       }
     },
     "/v1/admin/tours": {
@@ -1681,7 +3554,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.created"
+        ]
       }
     },
     "/v1/admin/tours/{id}": {
@@ -1743,7 +3622,14 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.updated",
+          "catalog.status_changed"
+        ]
       }
     },
     "/v1/admin/tours/{id}/departures": {
@@ -1812,7 +3698,380 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.departure_created"
+        ]
+      }
+    },
+    "/v1/admin/trust-signals": {
+      "get": {
+        "operationId": "adminListTrustSignals",
+        "summary": "Trust signals with their verification",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrustSignalList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ]
+      }
+    },
+    "/v1/admin/trust-signals/{key}": {
+      "patch": {
+        "operationId": "adminUpdateTrustSignal",
+        "summary": "Change a trust signal's label, value or order",
+        "description": "A changed label or value clears the verification: the claim is hidden until it is verified again.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]{2,40}$"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustSignalPatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrustSignal"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "cms:manage"
+        ],
+        "x-audit": [
+          "trust_signal.updated"
+        ]
+      }
+    },
+    "/v1/admin/trust-signals/{key}/unverify": {
+      "post": {
+        "operationId": "adminUnverifyTrustSignal",
+        "summary": "Withdraw a verification",
+        "description": "The claim disappears from the public site. The public site shows the change within its five-minute cache window.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]{2,40}$"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnverifyTrustSignalRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrustSignal"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "trust-signals:verify"
+        ],
+        "x-audit": [
+          "trust_signal.unverified"
+        ]
+      }
+    },
+    "/v1/admin/trust-signals/{key}/verify": {
+      "post": {
+        "operationId": "adminVerifyTrustSignal",
+        "summary": "Verify a trust signal against its evidence",
+        "description": "Records who verified it and when; the claim then appears on the public site. The public site shows the change within its five-minute cache window.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]{2,40}$"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyTrustSignalRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrustSignal"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "trust-signals:verify"
+        ],
+        "x-audit": [
+          "trust_signal.verified"
+        ]
+      }
+    },
+    "/v1/admin/users": {
+      "get": {
+        "operationId": "adminListUsers",
+        "summary": "Search accounts (newest first)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 254
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "disabled",
+                "deleted"
+              ]
+            }
+          },
+          {
+            "name": "staffOnly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "users:read"
+        ]
       }
     },
     "/v1/admin/users/{id}": {
@@ -1862,7 +4121,215 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "users:read"
+        ]
+      }
+    },
+    "/v1/admin/users/{id}/disable": {
+      "post": {
+        "operationId": "adminDisableUser",
+        "summary": "Disable an account and sign it out everywhere",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "users:manage"
+        ],
+        "x-audit": [
+          "user.disabled"
+        ]
+      }
+    },
+    "/v1/admin/users/{id}/enable": {
+      "post": {
+        "operationId": "adminEnableUser",
+        "summary": "Enable a disabled account",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "users:manage"
+        ],
+        "x-audit": [
+          "user.enabled"
+        ]
+      }
+    },
+    "/v1/admin/users/{id}/mfa-reset": {
+      "post": {
+        "operationId": "adminResetUserMfa",
+        "summary": "Remove an account's authenticator so the user enrols again",
+        "description": "Also removes recovery codes and signs the user out everywhere.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "users:manage"
+        ],
+        "x-audit": [
+          "user.mfa_reset"
+        ]
       }
     },
     "/v1/admin/users/{id}/roles": {
@@ -1935,7 +4402,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "roles:manage"
+        ],
+        "x-audit": [
+          "rbac.roles.changed"
+        ]
       }
     },
     "/v1/admin/visa-applications": {
@@ -2002,7 +4475,10 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "visa:process"
+        ]
       }
     },
     "/v1/admin/visa-applications/{applicationId}": {
@@ -2052,7 +4528,10 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "visa:process"
+        ]
       }
     },
     "/v1/admin/visa-applications/{applicationId}/comments": {
@@ -2121,7 +4600,14 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "visa:process"
+        ],
+        "x-audit": [
+          "visa.application_message",
+          "visa.application_note"
+        ]
       }
     },
     "/v1/admin/visa-applications/{applicationId}/transitions": {
@@ -2194,7 +4680,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "visa:process"
+        ],
+        "x-audit": [
+          "visa.application_status_changed"
+        ]
       }
     },
     "/v1/admin/visa-documents/{documentId}/link": {
@@ -2253,7 +4745,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "visa:process"
+        ],
+        "x-audit": [
+          "visa.document_link_issued"
+        ]
       }
     },
     "/v1/admin/visa-documents/{documentId}/reject": {
@@ -2319,7 +4817,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "visa:process"
+        ],
+        "x-audit": [
+          "visa.document_rejected"
+        ]
       }
     },
     "/v1/admin/visa-products": {
@@ -2379,7 +4883,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.created"
+        ]
       }
     },
     "/v1/admin/visa-products/{id}": {
@@ -2444,7 +4954,14 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "catalog:manage"
+        ],
+        "x-audit": [
+          "catalog.updated",
+          "catalog.status_changed"
+        ]
       }
     },
     "/v1/admin/visa-rules": {
@@ -2500,7 +5017,10 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "visa:process"
+        ]
       },
       "put": {
         "operationId": "adminUpsertVisaRule",
@@ -2555,7 +5075,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "visa:process"
+        ],
+        "x-audit": [
+          "visa.rule_upserted"
+        ]
       }
     },
     "/v1/admin/visa-rules/{ruleId}": {
@@ -2607,7 +5133,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "visa:process"
+        ],
+        "x-audit": [
+          "visa.rule_deleted"
+        ]
       }
     },
     "/v1/admin/vouchers/redeem": {
@@ -2671,7 +5203,13 @@
           "500": {
             "$ref": "#/components/responses/Problem500"
           }
-        }
+        },
+        "x-admin-permissions": [
+          "bookings:manage"
+        ],
+        "x-audit": [
+          "booking.voucher_redeemed"
+        ]
       }
     },
     "/v1/attestation/challenges": {
@@ -9610,6 +12148,19 @@
         ],
         "additionalProperties": false
       },
+      "AddBookingNoteRequestInput": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
       "AddonCard": {
         "type": "object",
         "properties": {
@@ -9962,6 +12513,657 @@
         ],
         "additionalProperties": false
       },
+      "AdminBookingContact": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "redacted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email",
+          "phone",
+          "redacted"
+        ],
+        "additionalProperties": false
+      },
+      "AdminBookingDetail": {
+        "type": "object",
+        "properties": {
+          "booking": {
+            "$ref": "#/components/schemas/Booking"
+          },
+          "accountId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fromStatus": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "DRAFT",
+                        "PRICED",
+                        "HELD",
+                        "AWAITING_PAYMENT",
+                        "PARTIALLY_PAID",
+                        "PAID",
+                        "TICKETING",
+                        "CONFIRMED",
+                        "FAILED",
+                        "CANCELLED",
+                        "REFUND_PENDING",
+                        "REFUNDED",
+                        "EXPIRED"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "toStatus": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT",
+                    "PRICED",
+                    "HELD",
+                    "AWAITING_PAYMENT",
+                    "PARTIALLY_PAID",
+                    "PAID",
+                    "TICKETING",
+                    "CONFIRMED",
+                    "FAILED",
+                    "CANCELLED",
+                    "REFUND_PENDING",
+                    "REFUNDED",
+                    "EXPIRED"
+                  ]
+                },
+                "event": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "actorType": {
+                  "type": "string",
+                  "enum": [
+                    "customer",
+                    "system",
+                    "webhook",
+                    "staff"
+                  ]
+                },
+                "actorUserId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "occurredAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "fromStatus",
+                "toStatus",
+                "event",
+                "reason",
+                "actorType",
+                "actorUserId",
+                "occurredAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingNote"
+            }
+          }
+        },
+        "required": [
+          "booking",
+          "accountId",
+          "history",
+          "notes"
+        ],
+        "additionalProperties": false
+      },
+      "AdminBookingPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminBookingRow"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "AdminBookingRow": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PRICED",
+              "HELD",
+              "AWAITING_PAYMENT",
+              "PARTIALLY_PAID",
+              "PAID",
+              "TICKETING",
+              "CONFIRMED",
+              "FAILED",
+              "CANCELLED",
+              "REFUND_PENDING",
+              "REFUNDED",
+              "EXPIRED"
+            ]
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "flights",
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons",
+              "prime"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "accountId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trip": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BookingSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "status",
+          "vertical",
+          "createdAt",
+          "total",
+          "accountId",
+          "trip"
+        ],
+        "additionalProperties": false
+      },
+      "AdminCmsBlock": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en-NG",
+              "en-GB",
+              "en-US"
+            ]
+          },
+          "content": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "key",
+          "locale",
+          "content",
+          "published",
+          "publishedAt",
+          "valid",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminCmsBlockList": {
+        "type": "object",
+        "properties": {
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminCmsBlock"
+            }
+          },
+          "fixedKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "blocks",
+          "fixedKeys"
+        ],
+        "additionalProperties": false
+      },
+      "AdminDashboard": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false
+          },
+          "bookings": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "byStatus": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "DRAFT",
+                        "PRICED",
+                        "HELD",
+                        "AWAITING_PAYMENT",
+                        "PARTIALLY_PAID",
+                        "PAID",
+                        "TICKETING",
+                        "CONFIRMED",
+                        "FAILED",
+                        "CANCELLED",
+                        "REFUND_PENDING",
+                        "REFUNDED",
+                        "EXPIRED"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "byVertical": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "vertical": {
+                      "type": "string",
+                      "enum": [
+                        "flights",
+                        "hotels",
+                        "packages",
+                        "tours",
+                        "visa",
+                        "travel_addons",
+                        "prime"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "vertical",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "total",
+              "byStatus",
+              "byVertical"
+            ],
+            "additionalProperties": false
+          },
+          "money": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "currency": {
+                  "type": "string"
+                },
+                "captured": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "fromWallet": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "refunded": {
+                  "$ref": "#/components/schemas/Money"
+                }
+              },
+              "required": [
+                "currency",
+                "captured",
+                "fromWallet",
+                "refunded"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "queues": {
+            "type": "object",
+            "properties": {
+              "refundsAwaitingApproval": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "refundsNeedingReview": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "bookingsRefundPending": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "visaApplicationsToReview": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "referralsInReview": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "refundsAwaitingApproval",
+              "refundsNeedingReview",
+              "bookingsRefundPending",
+              "visaApplicationsToReview",
+              "referralsInReview"
+            ],
+            "additionalProperties": false
+          },
+          "accounts": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "activePrimeMembers": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "created",
+              "activePrimeMembers"
+            ],
+            "additionalProperties": false
+          },
+          "topRoutes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "origin": {
+                  "type": "string"
+                },
+                "destination": {
+                  "type": "string"
+                },
+                "bookings": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "origin",
+                "destination",
+                "bookings"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "range",
+          "bookings",
+          "money",
+          "queues",
+          "accounts",
+          "topRoutes",
+          "generatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminDealRoute": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "originCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "destinationCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "cabinClass": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "stayNights": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lastRefreshedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "slug",
+          "originCode",
+          "destinationCode",
+          "cabinClass",
+          "stayNights",
+          "active",
+          "sortOrder",
+          "id",
+          "lastRefreshedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminDealRouteList": {
+        "type": "object",
+        "properties": {
+          "routes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminDealRoute"
+            }
+          }
+        },
+        "required": [
+          "routes"
+        ],
+        "additionalProperties": false
+      },
       "AdminDeparture": {
         "type": "object",
         "properties": {
@@ -10098,6 +13300,629 @@
           "seatsSold",
           "prices",
           "status"
+        ],
+        "additionalProperties": false
+      },
+      "AdminDestination": {
+        "type": "object",
+        "properties": {
+          "cityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "imageUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "cityId",
+          "slug",
+          "featured",
+          "sortOrder",
+          "imageUrl",
+          "published",
+          "id",
+          "cityName",
+          "countryCode",
+          "publishedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminDestinationList": {
+        "type": "object",
+        "properties": {
+          "destinations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminDestination"
+            }
+          }
+        },
+        "required": [
+          "destinations"
+        ],
+        "additionalProperties": false
+      },
+      "AdminFaq": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en-NG",
+              "en-GB",
+              "en-US"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "answer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "locale",
+          "question",
+          "answer",
+          "sortOrder",
+          "published",
+          "id",
+          "publishedAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminFaqList": {
+        "type": "object",
+        "properties": {
+          "faqs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminFaq"
+            }
+          }
+        },
+        "required": [
+          "faqs"
+        ],
+        "additionalProperties": false
+      },
+      "AdminFeeRule": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,39}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "flights",
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons",
+              "prime"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "web",
+                  "mobile"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "userTier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "guest",
+                  "member",
+                  "prime"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "per_booking",
+              "per_passenger"
+            ]
+          },
+          "minAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "vertical",
+          "active",
+          "sortOrder",
+          "channel",
+          "userTier",
+          "type",
+          "value",
+          "currency",
+          "basis",
+          "minAmountMinor",
+          "maxAmountMinor",
+          "validFrom",
+          "validTo",
+          "id",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminFeeRuleList": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminFeeRule"
+            }
+          }
+        },
+        "required": [
+          "rules"
+        ],
+        "additionalProperties": false
+      },
+      "AdminMarkupRule": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "flights",
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons",
+              "prime"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "web",
+                  "mobile"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "userTier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "guest",
+                  "member",
+                  "prime"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supplier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "originCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destinationCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "originCountry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destinationCountry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "carrierCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z0-9]{2,3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cabinClass": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "economy",
+                  "premium_economy",
+                  "business",
+                  "first"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "vertical",
+          "priority",
+          "active",
+          "channel",
+          "userTier",
+          "supplier",
+          "originCode",
+          "destinationCode",
+          "originCountry",
+          "destinationCountry",
+          "carrierCode",
+          "cabinClass",
+          "type",
+          "value",
+          "currency",
+          "minAmountMinor",
+          "maxAmountMinor",
+          "validFrom",
+          "validTo",
+          "id",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminMarkupRuleList": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminMarkupRule"
+            }
+          }
+        },
+        "required": [
+          "rules"
         ],
         "additionalProperties": false
       },
@@ -10288,6 +14113,206 @@
         },
         "required": [
           "products"
+        ],
+        "additionalProperties": false
+      },
+      "AdminPromoCode": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{4,20}$"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxDiscountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minSpendMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verticals": {
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flights",
+                "hotels",
+                "packages",
+                "tours",
+                "visa",
+                "travel_addons",
+                "prime"
+              ]
+            }
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxRedemptions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxRedemptionsPerUser": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requiresAccount": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "redemptions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "code",
+          "description",
+          "type",
+          "value",
+          "currency",
+          "maxDiscountMinor",
+          "minSpendMinor",
+          "verticals",
+          "validFrom",
+          "validTo",
+          "maxRedemptions",
+          "maxRedemptionsPerUser",
+          "requiresAccount",
+          "active",
+          "id",
+          "redemptions",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminPromoCodePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminPromoCode"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
         ],
         "additionalProperties": false
       },
@@ -10578,6 +14603,90 @@
         ],
         "additionalProperties": false
       },
+      "AdminTrustSignal": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "evidenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verifiedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verifiedBy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value",
+          "sortOrder",
+          "verified",
+          "evidenceUrl",
+          "verifiedAt",
+          "verifiedBy",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminTrustSignalList": {
+        "type": "object",
+        "properties": {
+          "signals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminTrustSignal"
+            }
+          }
+        },
+        "required": [
+          "signals"
+        ],
+        "additionalProperties": false
+      },
       "AdminUser": {
         "type": "object",
         "properties": {
@@ -10648,6 +14757,33 @@
           "roles",
           "mfaEnabled",
           "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminUserPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUser"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
         ],
         "additionalProperties": false
       },
@@ -11744,6 +15880,33 @@
           "quantity",
           "unitPrice",
           "amount"
+        ],
+        "additionalProperties": false
+      },
+      "BookingNote": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "authorId",
+          "text",
+          "createdAt"
         ],
         "additionalProperties": false
       },
@@ -13997,6 +18160,95 @@
         ],
         "additionalProperties": false
       },
+      "DealRouteInputInput": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "originCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "destinationCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "cabinClass": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "stayNights": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "slug",
+          "originCode",
+          "destinationCode",
+          "cabinClass",
+          "stayNights",
+          "active",
+          "sortOrder"
+        ]
+      },
+      "DealRoutePatchInput": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "originCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "destinationCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "cabinClass": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "stayNights": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        }
+      },
       "DealRoutes": {
         "type": "object",
         "properties": {
@@ -14093,6 +18345,84 @@
           "confirm"
         ]
       },
+      "DestinationInputInput": {
+        "type": "object",
+        "properties": {
+          "cityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "imageUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cityId",
+          "slug",
+          "featured",
+          "sortOrder",
+          "imageUrl",
+          "published"
+        ]
+      },
+      "DestinationPatchInput": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "featured": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "imageUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published": {
+            "type": "boolean"
+          }
+        }
+      },
       "ExtraSelectionInput": {
         "type": "object",
         "properties": {
@@ -14117,6 +18447,370 @@
           "passengerIndex",
           "quantity"
         ]
+      },
+      "FaqInputInput": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en-NG",
+              "en-GB",
+              "en-US"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "answer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "published": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "locale",
+          "question",
+          "answer",
+          "sortOrder",
+          "published"
+        ]
+      },
+      "FaqPatchInput": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en-NG",
+              "en-GB",
+              "en-US"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "answer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "published": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FeeRuleInputInput": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,39}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "flights",
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons",
+              "prime"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "web",
+                  "mobile"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "userTier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "guest",
+                  "member",
+                  "prime"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "per_booking",
+              "per_passenger"
+            ]
+          },
+          "minAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "vertical",
+          "active",
+          "sortOrder",
+          "channel",
+          "userTier",
+          "type",
+          "value",
+          "currency",
+          "basis",
+          "minAmountMinor",
+          "maxAmountMinor",
+          "validFrom",
+          "validTo"
+        ]
+      },
+      "FeeRulePatchInput": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,39}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "flights",
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons",
+              "prime"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "web",
+                  "mobile"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "userTier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "guest",
+                  "member",
+                  "prime"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "per_booking",
+              "per_passenger"
+            ]
+          },
+          "minAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       },
       "FlightDeal": {
         "type": "object",
@@ -16385,6 +21079,450 @@
           "refreshToken": {
             "type": "string",
             "maxLength": 256
+          }
+        }
+      },
+      "MarkupRuleInputInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "flights",
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons",
+              "prime"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "web",
+                  "mobile"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "userTier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "guest",
+                  "member",
+                  "prime"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supplier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "originCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destinationCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "originCountry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destinationCountry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "carrierCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z0-9]{2,3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cabinClass": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "economy",
+                  "premium_economy",
+                  "business",
+                  "first"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "vertical",
+          "priority",
+          "active",
+          "channel",
+          "userTier",
+          "supplier",
+          "originCode",
+          "destinationCode",
+          "originCountry",
+          "destinationCountry",
+          "carrierCode",
+          "cabinClass",
+          "type",
+          "value",
+          "currency",
+          "minAmountMinor",
+          "maxAmountMinor",
+          "validFrom",
+          "validTo"
+        ]
+      },
+      "MarkupRulePatchInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "vertical": {
+            "type": "string",
+            "enum": [
+              "flights",
+              "hotels",
+              "packages",
+              "tours",
+              "visa",
+              "travel_addons",
+              "prime"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "web",
+                  "mobile"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "userTier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "guest",
+                  "member",
+                  "prime"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supplier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "originCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destinationCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "originCountry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destinationCountry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "carrierCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z0-9]{2,3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cabinClass": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "economy",
+                  "premium_economy",
+                  "business",
+                  "first"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxAmountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -18927,6 +24065,292 @@
           "status"
         ]
       },
+      "PromoCodeInputInput": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{4,20}$"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxDiscountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minSpendMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verticals": {
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flights",
+                "hotels",
+                "packages",
+                "tours",
+                "visa",
+                "travel_addons",
+                "prime"
+              ]
+            }
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxRedemptions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxRedemptionsPerUser": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requiresAccount": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "description",
+          "type",
+          "value",
+          "currency",
+          "maxDiscountMinor",
+          "minSpendMinor",
+          "verticals",
+          "validFrom",
+          "validTo",
+          "maxRedemptions",
+          "maxRedemptionsPerUser",
+          "requiresAccount",
+          "active"
+        ]
+      },
+      "PromoCodePatchInput": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{4,20}$"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxDiscountMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minSpendMinor": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verticals": {
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flights",
+                "hotels",
+                "packages",
+                "tours",
+                "visa",
+                "travel_addons",
+                "prime"
+              ]
+            }
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxRedemptions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxRedemptionsPerUser": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requiresAccount": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
       "PromoValidateRequestInput": {
         "type": "object",
         "properties": {
@@ -19631,6 +25055,25 @@
         },
         "required": [
           "outcome"
+        ]
+      },
+      "SaveCmsBlockRequestInput": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "published": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "content",
+          "published"
         ]
       },
       "ScheduledPayment": {
@@ -20627,6 +26070,46 @@
         ],
         "additionalProperties": false
       },
+      "TrustSignalPatchInput": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        }
+      },
+      "UnverifyTrustSignalRequestInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
       "UpdateAddonInput": {
         "type": "object",
         "properties": {
@@ -21462,6 +26945,19 @@
         },
         "required": [
           "token"
+        ]
+      },
+      "VerifyTrustSignalRequestInput": {
+        "type": "object",
+        "properties": {
+          "evidenceUrl": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          }
+        },
+        "required": [
+          "evidenceUrl"
         ]
       },
       "VisaApplication": {

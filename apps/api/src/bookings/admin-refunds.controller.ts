@@ -80,6 +80,7 @@ export class AdminRefundsController {
   @AdminRoute('refunds:request')
   @Contract({
     operationId: 'adminCreateRefund',
+    audit: ['refund.created'],
     summary: 'Request a refund for a payment',
     description:
       'Above REFUND_APPROVAL_THRESHOLD_NGN (converted to NGN) the refund waits for a second approver; below it runs at once. The amount can never exceed what the payment can still return. `cancelBooking` applies to confirmed bookings (after the airline side is handled) and moves them to REFUND_PENDING.',
@@ -104,6 +105,7 @@ export class AdminRefundsController {
   @AdminRoute('refunds:approve')
   @Contract({
     operationId: 'adminApproveRefund',
+    audit: ['refund.approved'],
     summary: 'Approve a refund (maker-checker)',
     description: 'The person who requested a refund cannot approve it (403 `maker-checker`).',
     tags: TAGS,
@@ -124,6 +126,7 @@ export class AdminRefundsController {
   @AdminRoute('refunds:approve')
   @Contract({
     operationId: 'adminRejectRefund',
+    audit: ['refund.rejected'],
     summary: 'Reject a refund waiting for approval',
     tags: TAGS,
     params: refundIdParamsSchema,
@@ -145,6 +148,7 @@ export class AdminRefundsController {
   @AdminRoute('refunds:approve')
   @Contract({
     operationId: 'adminResolveRefund',
+    audit: ['refund.resolved'],
     summary: 'Settle a refund in review from the provider dashboard',
     description:
       'For refunds whose provider outcome is unknown (`needs_review`): record what the provider shows. `failed` returns the money to the booking in the ledger so it can be refunded again.',

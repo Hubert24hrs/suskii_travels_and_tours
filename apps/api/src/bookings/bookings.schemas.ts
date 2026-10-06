@@ -34,7 +34,7 @@ import { flightOfferSchema, flightSliceSchema, hotelRateSchema } from '../search
 
 const timestamp = z.iso.datetime();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const verticalSchema = z.enum([
+export const bookingVerticalSchema = z.enum([
   'flights',
   'hotels',
   'packages',
@@ -275,7 +275,7 @@ export const quoteSchema = named(
   'Quote',
   z.object({
     quoteId: z.uuid(),
-    vertical: verticalSchema,
+    vertical: bookingVerticalSchema,
     currency: z.string().length(3),
     expiresAt: timestamp,
     termsVersion: z.string().meta({ description: 'Send back as `termsVersion` when booking.' }),
@@ -479,7 +479,7 @@ export const bookingSchema = named(
     id: z.uuid(),
     reference: z.string(),
     status: z.enum(BOOKING_STATUSES),
-    vertical: verticalSchema,
+    vertical: bookingVerticalSchema,
     createdAt: timestamp,
     paymentDeadline: timestamp.nullable(),
     confirmedAt: timestamp.nullable(),
@@ -848,7 +848,7 @@ export const bookingSummarySchema = named(
     id: z.uuid(),
     reference: z.string(),
     status: z.enum(BOOKING_STATUSES),
-    vertical: verticalSchema,
+    vertical: bookingVerticalSchema,
     createdAt: timestamp,
     total: moneySchema,
     startsOn: z.string().meta({ description: 'Local date of the first departure or check-in.' }),

@@ -14,7 +14,8 @@ import { authenticationRequired, forbidden, mfaRequired } from './errors';
 /**
  * RBAC: routes declare permissions with `@RequirePermissions()` / `@AdminRoute()`; roles map to
  * permissions through the code catalog in @suskii/shared. Admin routes additionally require a staff
- * role, an MFA-verified session and an allowlisted IP (when ADMIN_IP_ALLOWLIST is set).
+ * role, an MFA-verified session, an allowlisted IP (when ADMIN_IP_ALLOWLIST is set) and, for
+ * cookie sessions, the admin console's origin.
  */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -47,6 +48,8 @@ export class PermissionsGuard implements CanActivate {
     if (adminRoute && !isStaff(auth.roles)) reason = 'not_staff';
     else if (adminRoute && !this.ipAllowed(requestContext(request).ip))
       reason = 'ip_not_allowlisted';
+    else if (adminRoute && auth.via === 'cookie' && !this.originAllowed(request.headers.origin))
+      reason = 'origin_not_allowed';
     else if (!hasPermissions(auth.roles, required)) reason = 'missing_permission';
 
     if (reason) {
@@ -66,6 +69,15 @@ export class PermissionsGuard implements CanActivate {
     }
     if (adminRoute && !auth.mfa) throw mfaRequired();
     return true;
+  }
+
+  /**
+   * Cookie sessions are shared with the public website (COOKIE_DOMAIN), so admin routes take a
+   * cookie-authenticated request only from the admin console's origin; browsers always send
+   * `Origin` on cross-origin calls and pages cannot forge it (ADR-033).
+   */
+  private originAllowed(origin: string | undefined): boolean {
+    return origin !== undefined && this.config.ADMIN_ORIGINS.includes(origin);
   }
 
   private ipAllowed(ip: string): boolean {

@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { PreferencesService } from '../accounts/preferences.service';
 import { BOOKING_INCLUDE } from '../bookings/booking-presenter';
+import { BookingNotesService } from '../bookings/booking-notes.service';
 import { BookingsService, passportContext } from '../bookings/bookings.service';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { FieldEncryption } from '../crypto/field-encryption';
@@ -37,6 +38,7 @@ export class DataExportService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly encryption: FieldEncryption,
     private readonly bookings: BookingsService,
+    private readonly notes: BookingNotesService,
     private readonly preferences: PreferencesService,
   ) {}
 
@@ -120,6 +122,11 @@ export class DataExportService {
       presented.push({
         ...(await this.bookings.present(booking)),
         contact: this.bookings.contact(booking),
+        // Notes staff kept about the booking are personal data too (ADR-029).
+        internalNotes: (await this.notes.list(booking.id)).map((note) => ({
+          createdAt: note.createdAt,
+          text: note.text,
+        })),
       });
     }
 

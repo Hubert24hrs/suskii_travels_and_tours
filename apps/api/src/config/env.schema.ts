@@ -15,6 +15,8 @@ const csv = <T extends z.ZodType<unknown, string>>(item: T) =>
     )
     .pipe(z.array(item));
 
+const originOf = (url: string): string => new URL(url).origin;
+
 /** Prefix of the local development internal token in .env.example; refused in production. */
 export const LOCAL_INTERNAL_TOKEN_PREFIX = 'local-dev-only-';
 
@@ -89,6 +91,13 @@ export const envSchema = z
 
     /** Optional IP allowlist for /v1/admin routes (exact IPs). */
     ADMIN_IP_ALLOWLIST: csv(z.string().min(1)).default([]),
+    /**
+     * Admin console origins. Cookie-authenticated admin requests must come from one of them
+     * (ADR-033); each must also be in CORS_ORIGINS.
+     */
+    ADMIN_ORIGINS: csv(z.url())
+      .default(['http://localhost:3001'])
+      .transform((origins) => origins.map((origin) => new URL(origin).origin)),
     RATE_LIMIT_ENABLED: booleanish.default(true),
 
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
@@ -273,6 +282,10 @@ export const envSchema = z
     if (!env.COOKIE_SECURE) require('COOKIE_SECURE', 'must be true in production');
     if (env.CORS_ORIGINS.length === 0)
       require('CORS_ORIGINS', 'must list the web and admin origins in production');
+    if (env.ADMIN_ORIGINS.some((origin) => !origin.startsWith('https://')))
+      require('ADMIN_ORIGINS', 'must list the https admin console origins in production');
+    else if (env.ADMIN_ORIGINS.some((origin) => !env.CORS_ORIGINS.map(originOf).includes(origin)))
+      require('ADMIN_ORIGINS', 'every admin origin must also be in CORS_ORIGINS');
     if (!env.ALLOW_MOCK_PROVIDERS && env.EMAIL_PROVIDER === 'mock')
       require('EMAIL_PROVIDER', 'mock provider is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.SMS_PROVIDER === 'mock')

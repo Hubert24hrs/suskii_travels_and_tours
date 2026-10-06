@@ -81,6 +81,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminCreatePackage',
+    audit: ['catalog.created'],
     summary: 'Create a package (draft)',
     tags: TAGS,
     body: createPackageSchema,
@@ -100,6 +101,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminUpdatePackage',
+    audit: ['catalog.updated', 'catalog.status_changed'],
     summary: 'Update, publish or archive a package',
     tags: TAGS,
     params: idParamsSchema,
@@ -120,6 +122,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminCreatePackageDeparture',
+    audit: ['catalog.departure_created'],
     summary: 'Add a dated departure with capacity and per-person base prices',
     tags: TAGS,
     params: idParamsSchema,
@@ -141,6 +144,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminUpdatePackageDeparture',
+    audit: ['catalog.departure_updated'],
     summary: 'Change capacity, prices or status of a package departure',
     description: '409 `capacity-below-booked` when the capacity would drop below reserved + sold.',
     tags: TAGS,
@@ -162,6 +166,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminCreateTour',
+    audit: ['catalog.created'],
     summary: 'Create a tour (draft)',
     tags: TAGS,
     body: createTourSchema,
@@ -181,6 +186,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminUpdateTour',
+    audit: ['catalog.updated', 'catalog.status_changed'],
     summary: 'Update, publish or archive a tour',
     tags: TAGS,
     params: idParamsSchema,
@@ -201,6 +207,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminCreateTourDeparture',
+    audit: ['catalog.departure_created'],
     summary: 'Add a departure (local time at the meeting point)',
     tags: TAGS,
     params: idParamsSchema,
@@ -222,6 +229,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminUpdateTourDeparture',
+    audit: ['catalog.departure_updated'],
     summary: 'Change capacity, prices or status of a tour departure',
     tags: TAGS,
     params: idParamsSchema,
@@ -242,6 +250,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminCreateAddon',
+    audit: ['catalog.created'],
     summary: 'Create an add-on (draft)',
     tags: TAGS,
     body: createAddonSchema,
@@ -261,6 +270,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminUpdateAddon',
+    audit: ['catalog.updated', 'catalog.status_changed'],
     summary: 'Update, publish or archive an add-on',
     tags: TAGS,
     params: idParamsSchema,
@@ -281,6 +291,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminCreateVisaProduct',
+    audit: ['catalog.created'],
     summary: 'Create a visa assistance product (draft)',
     tags: TAGS,
     body: createVisaProductSchema,
@@ -300,6 +311,7 @@ export class AdminCatalogController {
   @AdminRoute('catalog:manage')
   @Contract({
     operationId: 'adminUpdateVisaProduct',
+    audit: ['catalog.updated', 'catalog.status_changed'],
     summary: 'Update, publish or archive a visa assistance product',
     tags: TAGS,
     params: idParamsSchema,
@@ -322,6 +334,7 @@ export class AdminCatalogController {
   @RateLimit(INHOUSE_LIMITS.voucherRedeemUser)
   @Contract({
     operationId: 'adminRedeemVoucher',
+    audit: ['booking.voucher_redeemed'],
     summary: 'Redeem a voucher (typed code or scanned QR)',
     description:
       'Once per voucher: 409 `voucher-redeemed` with `redeemedAt` afterwards. Unknown codes and vouchers of cancelled bookings answer 404. The answer carries no personal data.',

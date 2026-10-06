@@ -73,6 +73,7 @@ export class AdminReferralsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Contract({
     operationId: 'adminDecideReferral',
+    audit: ['referral.reviewed'],
     summary: 'Approve or reject a referral in review',
     description: 'Approved referrals qualify (or wait for their trip) and are paid by the sweep.',
     tags: ['Admin'],

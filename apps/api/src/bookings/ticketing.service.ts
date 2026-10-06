@@ -412,30 +412,7 @@ export class TicketingService {
   /** Documents and the confirmation email. Failures are logged; the booking stays confirmed. */
   private async confirm(bookingId: string): Promise<void> {
     try {
-      const documents = await this.documents.ensure(bookingId);
-      const booking = await this.bookings.reload(bookingId);
-      const item = booking.items[0];
-      if (!item) return;
-      const payload = itemPayload(item);
-      const contact = this.bookings.contact(booking);
-      const template = bookingConfirmedTemplate({
-        reference: booking.reference,
-        vertical: booking.vertical,
-        summary: summaryOf(payload),
-        supplierLabel: supplierLabel(payload),
-        supplierReference: item.supplierReference ?? '',
-        total: documentMoney(money(booking.totalMinor, booking.currency)),
-        bookingUrl: booking.userId ? bookingUrl(this.config, booking.id) : null,
-      });
-      await this.email.send({
-        to: contact.email,
-        ...template,
-        attachments: documents.map((document) => ({
-          filename: document.fileName,
-          content: document.bytes,
-          contentType: document.contentType,
-        })),
-      });
+      await this.sendConfirmationEmail(bookingId);
       await this.notifications.confirmed(bookingId);
     } catch (error) {
       this.logger.error(
@@ -443,6 +420,37 @@ export class TicketingService {
         'booking documents or confirmation email failed',
       );
     }
+  }
+
+  /**
+   * The confirmation email with the booking's documents attached (created if missing). Staff
+   * resend it from the admin console; it throws when the email cannot be sent.
+   */
+  async sendConfirmationEmail(bookingId: string): Promise<void> {
+    const documents = await this.documents.ensure(bookingId);
+    const booking = await this.bookings.reload(bookingId);
+    const item = booking.items[0];
+    if (!item) return;
+    const payload = itemPayload(item);
+    const contact = this.bookings.contact(booking);
+    const template = bookingConfirmedTemplate({
+      reference: booking.reference,
+      vertical: booking.vertical,
+      summary: summaryOf(payload),
+      supplierLabel: supplierLabel(payload),
+      supplierReference: item.supplierReference ?? '',
+      total: documentMoney(money(booking.totalMinor, booking.currency)),
+      bookingUrl: booking.userId ? bookingUrl(this.config, booking.id) : null,
+    });
+    await this.email.send({
+      to: contact.email,
+      ...template,
+      attachments: documents.map((document) => ({
+        filename: document.fileName,
+        content: document.bytes,
+        contentType: document.contentType,
+      })),
+    });
   }
 }
 

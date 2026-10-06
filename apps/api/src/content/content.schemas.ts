@@ -64,7 +64,7 @@ export type CmsContent<K extends CmsBlockKey> = z.infer<(typeof cmsContentSchema
 
 /**
  * Structured page content (`page.<slug>` blocks): headings and plain paragraphs rendered as React
- * elements, so no HTML ever reaches the page. Rich text arrives with the admin editor (phase 10).
+ * elements, so no HTML ever reaches the page. The admin console edits them as structured sections.
  */
 export const pageContentSchema = z.object({
   title: z.string().trim().min(1).max(120),

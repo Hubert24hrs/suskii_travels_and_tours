@@ -84,7 +84,29 @@ export type AuditAction =
   | 'referral.rewarded'
   | 'referral.reviewed'
   | 'reminder.checkin_sent'
-  | 'reminder.prime_sent';
+  | 'reminder.prime_sent'
+  | 'booking.note_added'
+  | 'booking.contact_revealed'
+  | 'booking.confirmation_resent'
+  | 'user.disabled'
+  | 'user.enabled'
+  | 'user.mfa_reset'
+  | 'pricing.markup_created'
+  | 'pricing.markup_updated'
+  | 'pricing.fee_created'
+  | 'pricing.fee_updated'
+  | 'promo.created'
+  | 'promo.updated'
+  | 'deals.route_created'
+  | 'deals.route_updated'
+  | 'destination.created'
+  | 'destination.updated'
+  | 'cms.block_saved'
+  | 'cms.faq_created'
+  | 'cms.faq_updated'
+  | 'trust_signal.updated'
+  | 'trust_signal.verified'
+  | 'trust_signal.unverified';
 
 export interface AuditEvent {
   action: AuditAction;
