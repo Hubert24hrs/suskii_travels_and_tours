@@ -61,6 +61,18 @@
         "CHROME_PATH",
         "LIGHTHOUSE_RUNS"
       ]
+    },
+    "@suskii/admin#test:e2e": {
+      "dependsOn": ["build", "@suskii/api#build"],
+      "cache": false,
+      "passThroughEnv": [
+        "DOCKER_HOST",
+        "TESTCONTAINERS_*",
+        "ADMIN_E2E_DATABASE_URL",
+        "ADMIN_E2E_REDIS_URL",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"
+      ]
     }
   }
 }

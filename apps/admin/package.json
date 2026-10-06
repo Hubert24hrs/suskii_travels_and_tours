@@ -10,7 +10,8 @@
     "start": "next start --port 3001",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "clean": "rimraf .next .turbo"
+    "clean": "rimraf .next .turbo playwright-report test-results",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@suskii/api-client": "workspace:*",
@@ -26,8 +27,12 @@
     "uqr": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "catalog:",
+    "@playwright/test": "catalog:",
     "@suskii/config": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
+    "@testcontainers/postgresql": "catalog:",
+    "@testcontainers/redis": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
@@ -35,6 +40,7 @@
     "postcss": "catalog:",
     "rimraf": "catalog:",
     "tailwindcss": "catalog:",
+    "testcontainers": "catalog:",
     "typescript": "catalog:"
   }
 }

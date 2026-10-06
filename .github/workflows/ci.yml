@@ -27,8 +27,8 @@ jobs:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # Throwaway services for the web e2e stack and the worker's BullMQ test. The API e2e suite
-    # starts its own containers (Testcontainers). Credentials are CI-only, never real ones.
+    # Throwaway services for the web and admin e2e stacks and the worker's BullMQ test. The API
+    # e2e suite starts its own containers (Testcontainers). Credentials are CI-only, never real.
     services:
       postgres:
         image: postgres:16-alpine
@@ -130,6 +130,28 @@ jobs:
             apps/web/playwright-report/
             apps/web/test-results/
             apps/web/lighthouse-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # Builds the console and the API, boots them against a new database on the service
+      # container (seed, demo inventory, e2e staff accounts and paid bookings) and runs the
+      # staff journeys, the audit log check and axe on every page.
+      - name: E2E tests (admin)
+        run: pnpm exec turbo run test:e2e --filter=@suskii/admin ${{ env.AFFECTED }}
+        env:
+          ADMIN_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_web_e2e
+          ADMIN_E2E_REDIS_URL: redis://localhost:6379/3
+
+      - name: Upload admin test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: admin-e2e-reports
+          # The run's throwaway credentials (state.json) stay out of the artifact.
+          path: |
+            apps/admin/playwright-report/
+            apps/admin/test-results/
+            !apps/admin/test-results/stack/state.json
           if-no-files-found: ignore
           retention-days: 14
 
