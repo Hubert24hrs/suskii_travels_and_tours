@@ -6,127 +6,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { forgetSession } from '../../lib/session';
-import { AppLink } from '../app-link';
 
 import { useAccountT } from './account-messages';
 import { AccountCard, ErrorLine, StatusLine } from './account-shell';
+import { cleanProof, ReauthFields, useRequirements, type ReauthProof } from './reauth';
 
 type Requirements = Schemas['ReauthRequirements'];
-export interface ReauthProof {
-  password?: string;
-  code?: string;
-  mfaCode?: string;
-  recoveryCode?: string;
-}
-
-function useRequirements(): Requirements | null {
-  const [requirements, setRequirements] = useState<Requirements | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    void browserApi()
-      .GET('/v1/me/reauth')
-      .then(({ data }) => {
-        if (!cancelled && data) setRequirements(data);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return requirements;
-}
-
-/** The proof the API asks for: password, a texted code or a recent sign-in, plus MFA. */
-function ReauthFields({
-  requirements,
-  proof,
-  onChange,
-  idPrefix,
-}: {
-  requirements: Requirements;
-  proof: ReauthProof;
-  onChange: (proof: ReauthProof) => void;
-  idPrefix: string;
-}) {
-  const { t } = useAccountT();
-  const [sent, setSent] = useState(false);
-  return (
-    <fieldset className="flex flex-col gap-3">
-      <legend className="mb-2 font-body text-body-sm font-bold text-foreground">
-        {t('account.reauth.heading')}
-      </legend>
-      {requirements.method === 'password' ? (
-        <Input
-          id={`${idPrefix}-password`}
-          label={t('account.reauth.password')}
-          type="password"
-          autoComplete="current-password"
-          value={proof.password ?? ''}
-          onChange={(event) => onChange({ ...proof, password: event.target.value })}
-          required
-          data-testid={`${idPrefix}-password`}
-        />
-      ) : requirements.method === 'sms_code' ? (
-        <div className="flex flex-col gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            className="self-start"
-            onClick={() =>
-              void browserApi()
-                .POST('/v1/me/reauth/code')
-                .then(({ response }) => setSent(response.ok))
-            }
-          >
-            {t('account.reauth.sendCode')}
-          </Button>
-          <StatusLine message={sent ? t('account.reauth.codeSent') : null} />
-          <Input
-            id={`${idPrefix}-code`}
-            label={t('account.reauth.code')}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={proof.code ?? ''}
-            onChange={(event) => onChange({ ...proof, code: event.target.value.trim() })}
-            required
-          />
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <p className="font-body text-body-sm text-muted">
-            {t('account.reauth.recent', { minutes: requirements.recentSignInMinutes })}
-          </p>
-          <AppLink
-            href="/sign-in?next=/account/privacy"
-            className="font-body text-body-sm text-primary underline"
-          >
-            {t('account.reauth.signInAgain')}
-          </AppLink>
-        </div>
-      )}
-      {requirements.mfa ? (
-        <Input
-          id={`${idPrefix}-mfa`}
-          label={t('account.reauth.mfa')}
-          hint={t('account.reauth.recovery')}
-          value={proof.mfaCode ?? proof.recoveryCode ?? ''}
-          onChange={(event) => {
-            const value = event.target.value.trim();
-            onChange(
-              /^\d{0,6}$/.test(value)
-                ? { ...proof, mfaCode: value, recoveryCode: undefined }
-                : { ...proof, recoveryCode: value, mfaCode: undefined },
-            );
-          }}
-          required
-        />
-      ) : null}
-    </fieldset>
-  );
-}
-
-/** Only the fields the account uses, so the API never sees an empty password. */
-const cleanProof = (proof: ReauthProof): ReauthProof =>
-  Object.fromEntries(Object.entries(proof).filter(([, value]) => Boolean(value)));
 
 function ExportCard({ requirements }: { requirements: Requirements }) {
   const { t } = useAccountT();
@@ -174,6 +59,7 @@ function ExportCard({ requirements }: { requirements: Requirements }) {
           requirements={requirements}
           proof={proof}
           onChange={setProof}
+          returnTo="/account/privacy"
           idPrefix="export"
         />
         <ErrorLine message={error} />
@@ -263,6 +149,7 @@ function DeleteCard({ requirements }: { requirements: Requirements }) {
             requirements={requirements}
             proof={proof}
             onChange={setProof}
+            returnTo="/account/privacy"
             idPrefix="delete"
           />
           <Input

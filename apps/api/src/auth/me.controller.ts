@@ -28,6 +28,7 @@ import {
   otpDispatchedSchema,
   phoneBodySchema,
   phoneVerifyBodySchema,
+  reauthBodySchema,
   recoveryCodesSchema,
   sessionIdParamsSchema,
   sessionListSchema,
@@ -38,6 +39,7 @@ import {
 import { AuthService } from './auth.service';
 import { MfaService, type MfaProof } from './mfa.service';
 import { OTP_RESEND_SECONDS, OTP_TTL_SECONDS } from './otp.service';
+import { ReauthService } from './reauth.service';
 import { SessionService } from './session.service';
 
 const TAGS = ['Account'];
@@ -54,6 +56,7 @@ export class MeController {
     private readonly sessions: SessionService,
     private readonly mfa: MfaService,
     private readonly audit: AuditService,
+    private readonly reauth: ReauthService,
   ) {}
 
   @Get()
@@ -127,11 +130,15 @@ export class MeController {
     tags: TAGS,
     body: phoneBodySchema,
     responses: { 202: otpDispatchedSchema },
+    errors: [401],
   })
   async requestPhone(
     @CurrentAuth() auth: AuthContext,
     @Body() body: z.infer<typeof phoneBodySchema>,
+    @Req() request: Request,
   ): Promise<z.infer<typeof otpDispatchedSchema>> {
+    // The number becomes a way to sign in and recover the account.
+    await this.reauth.confirmRecent(auth, body.reauth, requestContext(request));
     await this.auth.requestPhoneVerification(auth.userId, body.phone);
     return {
       status: 'accepted',
@@ -186,16 +193,22 @@ export class MeController {
     summary: 'Sign out a device',
     tags: TAGS,
     params: sessionIdParamsSchema,
+    body: reauthBodySchema,
     responses: { 204: null },
-    errors: [404],
+    errors: [401, 404],
   })
   async revokeSession(
     @CurrentAuth() auth: AuthContext,
     @Param('id') id: string,
+    @Body() body: z.infer<typeof reauthBodySchema>,
     @Req() request: Request,
   ): Promise<void> {
     // Ownership check: another user's session id is indistinguishable from a missing one.
     if (!(await this.sessions.belongsTo(id, auth.userId))) throw new NotFoundException();
+    // Signing out this device needs no proof; signing out another one does.
+    if (id !== auth.sessionId) {
+      await this.reauth.confirmRecent(auth, body.reauth, requestContext(request));
+    }
     if (await this.sessions.revoke(id, 'user_revoked')) {
       await this.audit.record({
         action: 'auth.session.revoked',
@@ -213,9 +226,16 @@ export class MeController {
     operationId: 'revokeOtherSessions',
     summary: 'Sign out every other device',
     tags: TAGS,
+    body: reauthBodySchema,
     responses: { 204: null },
+    errors: [401],
   })
-  async revokeOthers(@CurrentAuth() auth: AuthContext, @Req() request: Request): Promise<void> {
+  async revokeOthers(
+    @CurrentAuth() auth: AuthContext,
+    @Body() body: z.infer<typeof reauthBodySchema>,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.reauth.confirmRecent(auth, body.reauth, requestContext(request));
     const count = await this.sessions.revokeAllForUser(
       auth.userId,
       'user_revoked_others',
@@ -237,10 +257,17 @@ export class MeController {
     operationId: 'startTotpEnrolment',
     summary: 'Start authenticator-app enrolment',
     tags: TAGS,
+    body: reauthBodySchema,
     responses: { 201: totpSetupSchema },
-    errors: [409],
+    errors: [401, 409],
   })
-  async startTotp(@CurrentAuth() auth: AuthContext): Promise<z.infer<typeof totpSetupSchema>> {
+  async startTotp(
+    @CurrentAuth() auth: AuthContext,
+    @Body() body: z.infer<typeof reauthBodySchema>,
+    @Req() request: Request,
+  ): Promise<z.infer<typeof totpSetupSchema>> {
+    // Enrolling someone else's authenticator would lock the owner out (ASVS V7.5.1).
+    await this.reauth.confirmRecent(auth, body.reauth, requestContext(request));
     const user = await this.auth.getUser(auth.userId);
     return this.mfa.startEnrolment(auth.userId, user.email ?? user.phone ?? user.id);
   }

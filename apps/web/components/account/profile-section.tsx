@@ -8,6 +8,7 @@ import { browserApi, problemSlug, type Schemas } from '../../lib/browser-api';
 import { NativeSelect } from '../search/native-select';
 
 import { useAccountT } from './account-messages';
+import { isReauthRequired, ReauthPrompt, type ReauthProof } from './reauth';
 import { AccountCard, ErrorLine, StatusLine, useAccountUser } from './account-shell';
 
 type Preferences = Schemas['AccountPreferences'];
@@ -95,15 +96,29 @@ function PhoneForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The number becomes a way to sign in, so an older session confirms it is the owner first.
+  const [needsProof, setNeedsProof] = useState(false);
+  const sendCode = async (reauth?: ReauthProof): Promise<boolean> => {
+    const { response, error: problem } = await browserApi().POST('/v1/me/phone', {
+      body: reauth ? { phone, reauth } : { phone },
+    });
+    if (response.ok) {
+      setSent(true);
+      setNeedsProof(false);
+      return true;
+    }
+    if (!reauth && isReauthRequired(problem)) setNeedsProof(true);
+    else if (!reauth) setError(t('auth.signIn.errors.generic'));
+    return false;
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError(null);
     if (!sent) {
-      const { response } = await browserApi().POST('/v1/me/phone', { body: { phone } });
+      await sendCode();
       setBusy(false);
-      if (response.ok) setSent(true);
-      else setError(t('auth.signIn.errors.generic'));
       return;
     }
     const { data, error: problem } = await browserApi().POST('/v1/me/phone/verify', {
@@ -135,8 +150,16 @@ function PhoneForm() {
           <Badge variant="success">{t('account.profile.phoneVerified')}</Badge>
         ) : null}
       </div>
-      {editing ? (
+      {editing && needsProof ? (
+        <ReauthPrompt
+          idPrefix="phone-reauth"
+          returnTo="/account"
+          onConfirm={(proof) => sendCode(proof)}
+          onCancel={() => setNeedsProof(false)}
+        />
+      ) : editing ? (
         <form className="flex flex-col gap-3" onSubmit={(e) => void submit(e)}>
+          <p className="font-body text-body-sm text-muted">{t('account.profile.phoneSmsNote')}</p>
           <Input
             label={t('account.profile.phone')}
             hint={t('auth.signIn.phoneHint')}

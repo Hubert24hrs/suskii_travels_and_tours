@@ -88,6 +88,31 @@ export class ReauthService {
     await this.otp.send(`reauth:${userId}`, user.phone);
   }
 
+  /**
+   * For changes to how the account signs in (phone number, authenticator enrolment, signing out
+   * devices; ASVS 5.0 V7.5.1, V7.5.2): a full sign-in in the last few minutes is proof enough,
+   * otherwise the same proof as `verify`.
+   */
+  async confirmRecent(
+    auth: AuthContext,
+    proof: ReauthProof | undefined,
+    context: RequestContext,
+  ): Promise<void> {
+    if (await this.signedInRecently(auth.sessionId)) return;
+    await this.verify(auth, proof ?? {}, context);
+  }
+
+  private async signedInRecently(sessionId: string): Promise<boolean> {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { createdAt: true },
+    });
+    return (
+      session !== null &&
+      session.createdAt.getTime() >= Date.now() - RECENT_SIGN_IN_MINUTES * 60_000
+    );
+  }
+
   async verify(auth: AuthContext, proof: ReauthProof, context: RequestContext): Promise<void> {
     const requirements = await this.requirements(auth.userId);
     const user = await this.prisma.user.findUniqueOrThrow({
@@ -117,15 +142,9 @@ export class ReauthService {
         if (!proof.code || !user.phone) throw reauthRequired(requirements);
         await this.otp.verify(`reauth:${auth.userId}`, user.phone, proof.code, context);
         break;
-      case 'recent_sign_in': {
-        const session = await this.prisma.session.findUnique({
-          where: { id: auth.sessionId },
-          select: { createdAt: true },
-        });
-        const cutoff = Date.now() - RECENT_SIGN_IN_MINUTES * 60_000;
-        if (!session || session.createdAt.getTime() < cutoff) throw reauthRequired(requirements);
+      case 'recent_sign_in':
+        if (!(await this.signedInRecently(auth.sessionId))) throw reauthRequired(requirements);
         break;
-      }
     }
 
     if (requirements.mfa) {

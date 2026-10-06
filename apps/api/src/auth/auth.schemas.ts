@@ -258,8 +258,6 @@ export const codeBodySchema = named(
 
 export const totpConfirmBodySchema = named('TotpConfirmRequest', z.object({ code: otpCodeSchema }));
 
-export const phoneBodySchema = named('PhoneRequest', z.object({ phone: phoneSchema }));
-
 export const phoneVerifyBodySchema = named(
   'PhoneVerifyRequest',
   z.object({ phone: phoneSchema, code: otpCodeSchema }),
@@ -294,3 +292,17 @@ export const reauthProofSchema = z.object({
   recoveryCode: z.string().min(1).max(32).optional(),
 });
 export type ReauthProof = z.infer<typeof reauthProofSchema>;
+
+const reauthField = reauthProofSchema
+  .optional()
+  .describe(
+    'Needed unless the session signed in within the last few minutes; the API answers 401 `reauthentication-required` with the method to use.',
+  );
+
+/** Changes to how the account signs in (ASVS 5.0 V7.5.1, V7.5.2). */
+export const reauthBodySchema = named('ReauthRequest', z.object({ reauth: reauthField }));
+
+export const phoneBodySchema = named(
+  'PhoneRequest',
+  z.object({ phone: phoneSchema, reauth: reauthField }),
+);

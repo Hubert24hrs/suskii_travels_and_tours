@@ -295,6 +295,42 @@ describe('auth: email and password (e2e)', () => {
         .expect(401);
     });
 
+    it('asks an older session to confirm it is the owner before changing how it signs in', async () => {
+      const phone = await signUp(ctx, 'reauth@example.com');
+      const laptop = await login(ctx, 'reauth@example.com');
+      // The laptop signed in an hour ago (ASVS V7.5.1, V7.5.2).
+      await ctx.prisma.session.update({
+        where: { id: laptop.sessionId },
+        data: { createdAt: new Date(Date.now() - 3_600_000) },
+      });
+      const attempts = [
+        () => ctx.http().delete(`/v1/me/sessions/${phone.sessionId}`),
+        () => ctx.http().post('/v1/me/sessions/revoke-others'),
+        () => ctx.http().post('/v1/me/mfa/totp'),
+        () => ctx.http().post('/v1/me/phone').send({ phone: '+2348030000001' }),
+      ];
+      for (const attempt of attempts) {
+        const refused = await attempt().set(bearer(laptop.accessToken)).expect(401);
+        expect(refused.body.type).toBe('urn:suskii:problem:reauthentication-required');
+        expect(refused.body.method).toBe('password');
+      }
+      await ctx.http().get('/v1/me').set(bearer(phone.accessToken)).expect(200);
+      // Signing out the device itself needs no proof; the password unlocks the rest.
+      await ctx
+        .http()
+        .delete(`/v1/me/sessions/${phone.sessionId}`)
+        .set(bearer(laptop.accessToken))
+        .send({ reauth: { password: PASSWORD } })
+        .expect(204);
+      await ctx.http().get('/v1/me').set(bearer(phone.accessToken)).expect(401);
+      await ctx
+        .http()
+        .post('/v1/me/mfa/totp')
+        .set(bearer(laptop.accessToken))
+        .send({ reauth: { password: 'not my password' } })
+        .expect(401);
+    });
+
     it("cannot revoke another user's session (IDOR)", async () => {
       const alice = await signUp(ctx, 'alice@example.com');
       const bob = await signUp(ctx, 'bob@example.com');

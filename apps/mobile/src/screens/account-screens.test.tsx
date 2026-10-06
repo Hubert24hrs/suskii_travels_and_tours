@@ -131,6 +131,62 @@ describe('SessionsScreen', () => {
     expect(await screen.findByText(m.account.security.sessions.revoked)).toBeOnTheScreen();
     expect(calls.some((request) => request.method === 'DELETE')).toBe(true);
   });
+
+  it('asks for the password when the API wants a fresh proof, then retries with it', async () => {
+    const sessions = [
+      {
+        id: '0192d3a0-7c1e-7b2a-9f00-00000000c002',
+        authMethod: 'password',
+        userAgent: 'Suskii/1.0 (Android 16)',
+        createdAt: '2026-10-05T09:00:00.000Z',
+        lastSeenAt: '2026-10-05T10:00:00.000Z',
+        mfaVerified: false,
+        current: true,
+      },
+      {
+        id: OTHER_SESSION,
+        authMethod: 'password',
+        userAgent: null,
+        createdAt: '2026-09-01T09:00:00.000Z',
+        lastSeenAt: '2026-09-02T10:00:00.000Z',
+        mfaVerified: false,
+        current: false,
+      },
+    ];
+    const { calls } = mockApi({
+      'GET /v1/me/sessions': () => json({ sessions }),
+      'GET /v1/me/reauth': () => json({ method: 'password', mfa: false, recentSignInMinutes: 10 }),
+      [`DELETE /v1/me/sessions/${OTHER_SESSION}`]: async (request: Request) => {
+        const body = (await request.json()) as { reauth?: { password?: string } };
+        return body.reauth?.password === 'my long passphrase'
+          ? new Response(null, { status: 204 })
+          : json(
+              {
+                type: 'urn:suskii:problem:reauthentication-required',
+                title: 'Confirm it is you',
+                status: 401,
+                method: 'password',
+                mfa: false,
+              },
+              401,
+            );
+      },
+    });
+    await renderWithApp(<SessionsScreen />, await signedInSession());
+
+    const cards = await screen.findAllByTestId('session-card');
+    await fireEvent.press(
+      within(cards[1]!).getByRole('button', { name: m.account.security.sessions.revoke }),
+    );
+    await fireEvent.changeText(
+      await screen.findByTestId('sessions-reauth-password'),
+      'my long passphrase',
+    );
+    await fireEvent.press(screen.getByTestId('sessions-reauth-confirm'));
+
+    expect(await screen.findByText(m.account.security.sessions.revoked)).toBeOnTheScreen();
+    expect(calls.filter((request) => request.method === 'DELETE')).toHaveLength(2);
+  });
 });
 
 describe('ReferralsScreen', () => {

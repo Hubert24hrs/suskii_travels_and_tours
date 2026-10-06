@@ -5513,6 +5513,7 @@ export interface components {
         };
         PhoneRequestInput: {
             phone: string;
+            reauth?: components["schemas"]["DataExportRequestInput"];
         };
         PhoneVerifyRequestInput: {
             phone: string;
@@ -5731,6 +5732,9 @@ export interface components {
                 /** @enum {string} */
                 redis: "up" | "down";
             };
+        };
+        ReauthRequestInput: {
+            reauth?: components["schemas"]["DataExportRequestInput"];
         };
         ReauthRequirements: {
             /** @enum {string} */
@@ -11053,7 +11057,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthRequestInput"];
+            };
+        };
         responses: {
             /** @description Created */
             201: {
@@ -11613,7 +11621,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthRequestInput"];
+            };
+        };
         responses: {
             /** @description No content */
             204: {
@@ -11639,7 +11651,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthRequestInput"];
+            };
+        };
         responses: {
             /** @description No content */
             204: {

@@ -176,7 +176,7 @@ export function MfaEnrolment() {
   const start = async () => {
     setBusy(true);
     setError(null);
-    const { data, error: problem } = await adminApi.POST('/v1/me/mfa/totp');
+    const { data, error: problem } = await adminApi.POST('/v1/me/mfa/totp', { body: {} });
     setBusy(false);
     if (data) setSetup(data);
     else setError(problem);

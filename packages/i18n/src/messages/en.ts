@@ -1379,6 +1379,8 @@ export const en = {
       code: '6-digit code',
       verifyPhone: 'Confirm number',
       phoneUnavailable: 'This number is used by another account.',
+      phoneSmsNote:
+        'Texted codes can be intercepted. For better protection, also turn on an authenticator app under Security.',
       preferencesHeading: 'Preferences',
       currency: 'Currency',
       homeAirport: 'Home airport code',
@@ -1556,6 +1558,8 @@ export const en = {
       mfa: 'Authenticator code',
       recovery: 'Or a recovery code',
       wrong: 'That did not match. Check and try again.',
+      confirm: 'Confirm',
+      cancel: 'Cancel',
     },
   },
   prime: {
