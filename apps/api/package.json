@@ -26,7 +26,8 @@
     "data:build": "tsx scripts/build-reference-data.ts",
     "keys:generate": "tsx scripts/generate-secrets.ts",
     "airlines:sync": "tsx scripts/sync-airlines.ts",
-    "sessions:revoke": "tsx scripts/revoke-sessions.ts"
+    "sessions:revoke": "tsx scripts/revoke-sessions.ts",
+    "keys:reencrypt": "tsx scripts/reencrypt-fields.ts"
   },
   "dependencies": {
     "@nestjs/common": "catalog:",

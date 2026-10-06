@@ -66,6 +66,24 @@ export const envSchema = z
       .string()
       .refine((value) => Buffer.from(value, 'base64').length === 32, 'must be 32 bytes, base64')
       .optional(),
+    /** Id written into every new envelope (`v2.<id>.`); change it with the key (ADR-038). */
+    FIELD_ENCRYPTION_KEY_ID: z
+      .string()
+      .regex(/^[a-z0-9]{1,16}$/, 'lower-case letters and digits, at most 16')
+      .default('k1'),
+    /**
+     * Retired keys that still decrypt during a rotation, as `id:base64key` (comma-separated).
+     * Remove one once `keys:reencrypt` reports nothing left under it.
+     */
+    FIELD_ENCRYPTION_PREVIOUS_KEYS: csv(
+      z
+        .string()
+        .regex(/^[a-z0-9]{1,16}:[A-Za-z0-9+/_-]+={0,2}$/, 'must be id:base64key')
+        .refine(
+          (entry) => Buffer.from(entry.slice(entry.indexOf(':') + 1), 'base64').length === 32,
+          'each key must be 32 bytes, base64',
+        ),
+    ).default([]),
     /**
      * Server secret (>= 32 chars) from which purpose-specific HMAC keys are derived (HKDF): IP
      * pseudonymisation, CSRF tokens, OTP and recovery-code hashes.
@@ -251,6 +269,13 @@ export const envSchema = z
     const require = (key: keyof typeof env, message: string): void => {
       ctx.addIssue({ code: 'custom', path: [key], message });
     };
+    const previousKeyIds = env.FIELD_ENCRYPTION_PREVIOUS_KEYS.map((entry) => entry.split(':')[0]);
+    if (
+      new Set(previousKeyIds).size !== previousKeyIds.length ||
+      previousKeyIds.includes(env.FIELD_ENCRYPTION_KEY_ID)
+    ) {
+      require('FIELD_ENCRYPTION_PREVIOUS_KEYS', 'key ids must be unique and differ from FIELD_ENCRYPTION_KEY_ID');
+    }
     if (env.FLIGHT_SUPPLIERS.includes('duffel') && !env.DUFFEL_API_TOKEN) {
       require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS includes duffel');
     }

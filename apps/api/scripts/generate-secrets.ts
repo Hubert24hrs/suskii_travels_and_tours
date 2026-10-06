@@ -15,6 +15,8 @@ const lines = [
   `JWT_PUBLIC_KEY=${base64Pem(publicKey.export({ type: 'spki', format: 'pem' }).toString())}`,
   '# AES-256-GCM key for field-level encryption (32 bytes, base64).',
   `FIELD_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}`,
+  '# Pick a new id with every new key (ADR-038), e.g. k2 after k1.',
+  'FIELD_ENCRYPTION_KEY_ID=k1',
   '# Master secret for HMAC subkeys (IP hashing, CSRF, OTP and recovery-code hashes).',
   `HMAC_SECRET=${randomBytes(48).toString('base64url')}`,
   '# Service token shared by the API and the worker for /v1/internal routes.',

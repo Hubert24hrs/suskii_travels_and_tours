@@ -6,6 +6,7 @@ import { HmacService } from '../crypto/hmac.service';
 import type { Prisma, PushPlatform } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { PushProvider, type PushMessage } from '../notifications/push';
+import { pushTokenContext as context } from '../crypto/encryption-contexts';
 
 export interface PushTokenInput {
   token: string;
@@ -20,8 +21,6 @@ const STALE_AFTER_DAYS = 400;
 /** Closed bookings keep their devices this long for refund updates. */
 const CLOSED_BOOKING_DAYS = 30;
 const CLOSED_STATUSES = ['CANCELLED', 'EXPIRED', 'FAILED', 'REFUNDED'] as const;
-
-const context = (id: string): string => `push-token:${id}`;
 
 /**
  * Device push tokens (ADR-022): encrypted per row, looked up by HMAC, scoped to an account

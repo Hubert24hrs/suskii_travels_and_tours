@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 
 import type { AppConfig } from '../config/config';
 
@@ -29,28 +29,85 @@ describe('HmacService', () => {
   });
 });
 
-describe('LocalKeyFieldEncryption', () => {
-  const cipher = new LocalKeyFieldEncryption(config);
+const keyA = Buffer.alloc(32, 7).toString('base64');
+const keyB = Buffer.alloc(32, 8).toString('base64');
+const ring = (overrides: Partial<AppConfig>) =>
+  new LocalKeyFieldEncryption({
+    ...config,
+    FIELD_ENCRYPTION_KEY_ID: 'k1',
+    FIELD_ENCRYPTION_PREVIOUS_KEYS: [],
+    ...overrides,
+  });
 
-  it('round-trips and never repeats a ciphertext', () => {
+/** A phase 2 envelope (`v1`, no key id) made with the raw key, as the old code wrote them. */
+function legacyEnvelope(key: string, plaintext: string, context: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', Buffer.from(key, 'base64'), iv);
+  cipher.setAAD(Buffer.from(context, 'utf8'));
+  const data = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  return ['v1', iv, data, cipher.getAuthTag()]
+    .map((part) => (typeof part === 'string' ? part : part.toString('base64url')))
+    .join('.');
+}
+
+describe('LocalKeyFieldEncryption', () => {
+  const cipher = ring({});
+
+  it('round-trips under the current key id and never repeats a ciphertext', () => {
     const a = cipher.encrypt('JBSWY3DPEHPK3PXP', 'mfa:user-1');
     const b = cipher.encrypt('JBSWY3DPEHPK3PXP', 'mfa:user-1');
     expect(a).not.toBe(b);
-    expect(a.startsWith('v1.')).toBe(true);
+    expect(a.startsWith('v2.k1.')).toBe(true);
     expect(a).not.toContain('JBSWY3DPEHPK3PXP');
     expect(cipher.decrypt(a, 'mfa:user-1')).toBe('JBSWY3DPEHPK3PXP');
+    expect(cipher.isCurrent(a)).toBe(true);
   });
 
   it('rejects tampering and ciphertexts moved to another record', () => {
     const envelope = cipher.encrypt('secret', 'mfa:user-1');
     expect(() => cipher.decrypt(envelope, 'mfa:user-2')).toThrow();
-    const [version, iv, data, tag] = envelope.split('.');
+    const [version, keyId, iv, data, tag] = envelope.split('.');
     const flipped = Buffer.from(data ?? '', 'base64url');
     flipped[0] = (flipped[0] ?? 0) ^ 1;
     expect(() =>
-      cipher.decrypt([version, iv, flipped.toString('base64url'), tag].join('.'), 'mfa:user-1'),
+      cipher.decrypt(
+        [version, keyId, iv, flipped.toString('base64url'), tag].join('.'),
+        'mfa:user-1',
+      ),
     ).toThrow();
     expect(() => cipher.decrypt('v9.a.b.c', 'mfa:user-1')).toThrow(/Unsupported/);
+  });
+
+  it('keeps reading retired keys during a rotation and flags their envelopes (ADR-038)', () => {
+    const before = cipher.encrypt('A1234567', 'traveller:t1:passport');
+    const rotated = ring({
+      FIELD_ENCRYPTION_KEY: keyB,
+      FIELD_ENCRYPTION_KEY_ID: 'k2',
+      FIELD_ENCRYPTION_PREVIOUS_KEYS: [`k1:${keyA}`],
+    });
+    expect(rotated.decrypt(before, 'traveller:t1:passport')).toBe('A1234567');
+    expect(rotated.isCurrent(before)).toBe(false);
+    const after = rotated.encrypt('A1234567', 'traveller:t1:passport');
+    expect(after.startsWith('v2.k2.')).toBe(true);
+    expect(rotated.isCurrent(after)).toBe(true);
+
+    // Once the old key leaves the ring, its envelopes no longer open, and the error names no key.
+    const retired = ring({ FIELD_ENCRYPTION_KEY: keyB, FIELD_ENCRYPTION_KEY_ID: 'k2' });
+    expect(() => retired.decrypt(before, 'traveller:t1:passport')).toThrow(/^No key for/);
+    expect(() => retired.decrypt(before, 'traveller:t1:passport')).not.toThrow(/k1/);
+  });
+
+  it('reads phase 2 envelopes with whichever key in the ring made them', () => {
+    const legacy = legacyEnvelope(keyA, 'JBSWY3DPEHPK3PXP', 'mfa:user-1');
+    expect(cipher.decrypt(legacy, 'mfa:user-1')).toBe('JBSWY3DPEHPK3PXP');
+    expect(cipher.isCurrent(legacy)).toBe(false);
+    const rotated = ring({
+      FIELD_ENCRYPTION_KEY: keyB,
+      FIELD_ENCRYPTION_KEY_ID: 'k2',
+      FIELD_ENCRYPTION_PREVIOUS_KEYS: [`k1:${keyA}`],
+    });
+    expect(rotated.decrypt(legacy, 'mfa:user-1')).toBe('JBSWY3DPEHPK3PXP');
+    expect(() => rotated.decrypt(legacy, 'mfa:user-2')).toThrow(/^No key for/);
   });
 });
 

@@ -307,7 +307,7 @@ describe('visa assistance (e2e): eligibility, documents and officers', () => {
       expect(blob).not.toBeNull();
       expect(blob?.includes('PASSPORT-SCAN-MARKER')).toBe(false);
       expect(blob?.includes('%PDF')).toBe(false);
-      expect(row.wrappedKey.startsWith('v1.')).toBe(true);
+      expect(row.wrappedKey.startsWith('v2.k1.')).toBe(true);
       expect(row.fileNameEncrypted).not.toContain('Okoro');
 
       // The owner's link works once for them; tampering with any part of it fails.

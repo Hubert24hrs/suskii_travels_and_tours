@@ -17,6 +17,7 @@ import { REDIS } from '../infra/redis';
 
 import { invalidCode } from './errors';
 import { LoginThrottleService } from './login-throttle.service';
+import { factorContext } from '../crypto/encryption-contexts';
 
 const CHALLENGE_TTL_SECONDS = 5 * 60;
 const RECOVERY_CODE_COUNT = 10;
@@ -34,7 +35,6 @@ export interface MfaChallenge {
 export type MfaProof = { code: string } | { recoveryCode: string };
 
 const challengeKey = (token: string): string => `auth:mfa-challenge:${sha256(token)}`;
-const factorContext = (userId: string): string => `mfa-factor:${userId}:totp`;
 const normaliseRecoveryCode = (code: string): string =>
   code.toLowerCase().replace(/[^a-z2-7]/g, '');
 

@@ -72,6 +72,11 @@ import { BookingFundsService } from './booking-funds.service';
 import { InhouseFulfilment } from './inhouse-fulfilment';
 import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
 import { reserveSeats } from './seat-inventory';
+import {
+  addonDetailsContext,
+  contactContext,
+  passportContext,
+} from '../crypto/encryption-contexts';
 
 /** Prices are held for at most this long after pricing (ADR-014). */
 export const PRICE_HOLD_MS = 30 * 60_000;
@@ -838,12 +843,8 @@ export class BookingsService {
   }
 }
 
-export const contactContext = (bookingId: string): string => `booking:${bookingId}:contact`;
+export { addonDetailsContext, contactContext, passportContext };
 /** Stored (encrypted) in place of the contact once an account is deleted (ADR-029). */
 export const REDACTED_CONTACT_PAYLOAD = JSON.stringify({ redacted: true });
 /** How a wiped contact reads: a reserved address no email is ever sent to. */
 export const REDACTED_CONTACT: ContactDetails = { email: 'redacted@redacted.invalid', phone: '' };
-export const addonDetailsContext = (itemId: string): string =>
-  `booking-item:${itemId}:addon-details`;
-export const passportContext = (kind: 'booking-passenger' | 'traveller', id: string): string =>
-  `${kind}:${id}:passport`;

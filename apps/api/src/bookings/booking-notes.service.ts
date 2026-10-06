@@ -5,6 +5,7 @@ import type { RequestContext } from '../common/request-context';
 import { uuidv7 } from '../common/uuid';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { PrismaService } from '../infra/prisma.service';
+import { noteContext } from '../crypto/encryption-contexts';
 
 export interface BookingNoteView {
   id: string;
@@ -12,8 +13,6 @@ export interface BookingNoteView {
   text: string;
   createdAt: string;
 }
-
-const noteContext = (noteId: string): string => `booking-note:${noteId}`;
 
 /**
  * Internal notes staff keep on a booking (phase 10). The text is encrypted per note because staff

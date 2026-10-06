@@ -437,7 +437,7 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
       });
       for (const row of stored) {
         expect(row.passportEncrypted).not.toContain('1234567');
-        expect(row.passportEncrypted).toMatch(/^v1\./);
+        expect(row.passportEncrypted).toMatch(/^v2\.k1\./);
       }
     });
 

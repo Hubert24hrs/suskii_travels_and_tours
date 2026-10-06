@@ -20,6 +20,7 @@ import { HmacService } from '../crypto/hmac.service';
 import { sha256 } from '../crypto/random';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
+import { idempotencySealContext as sealContext } from '../crypto/encryption-contexts';
 
 const KEY_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 const RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -35,8 +36,6 @@ function canonicalJson(value: unknown): string {
   }
   return JSON.stringify(value) ?? 'null';
 }
-
-const sealContext = (id: string): string => `idempotency:${id}:response`;
 
 const problem = (status: HttpStatus, slug: string, title: string, detail: string, headers = {}) =>
   new ProblemDetailsException(status, slug, title, detail, {}, headers);

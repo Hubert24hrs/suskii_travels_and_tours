@@ -17,10 +17,11 @@ import type { BookingVoucher, Prisma } from '../generated/prisma/client';
 
 import type { BookingItemRecord, BookingRecord } from './booking-presenter';
 import type { InhouseItemPayload } from './inhouse-items';
+import { voucherContext } from '../crypto/encryption-contexts';
 
 type Tx = Prisma.TransactionClient;
 
-export const voucherContext = (voucherId: string): string => `booking-voucher:${voucherId}`;
+export { voucherContext };
 
 /** A voucher as shown to its owner: the code grouped for reading and the QR payload. */
 export interface VoucherView {

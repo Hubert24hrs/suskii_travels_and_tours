@@ -4,9 +4,7 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const FORMAT = Buffer.from('SVD1');
 
-export const documentKeyContext = (documentId: string): string => `visa-document:${documentId}`;
-export const documentNameContext = (documentId: string): string =>
-  `visa-document:${documentId}:name`;
+export { documentKeyContext, documentNameContext } from '../crypto/encryption-contexts';
 
 export interface SealedDocument {
   /** `SVD1 | iv | tag | ciphertext`: what object storage holds. */

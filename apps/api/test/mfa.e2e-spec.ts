@@ -45,7 +45,7 @@ describe('auth: TOTP MFA and recovery codes (e2e)', () => {
     const factor = await ctx.prisma.mfaFactor.findFirstOrThrow({
       where: { userId: session.userId },
     });
-    expect(factor.secretCiphertext.startsWith('v1.')).toBe(true);
+    expect(factor.secretCiphertext.startsWith('v2.k1.')).toBe(true);
     expect(factor.secretCiphertext).not.toContain(setup.body.secret);
     const stored = await ctx.prisma.mfaRecoveryCode.findMany({ where: { userId: session.userId } });
     expect(stored.map((c) => c.codeHash)).not.toContain(confirm.body.recoveryCodes[0]);
