@@ -6662,6 +6662,15 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
+        /** @description App update required */
+        Problem426: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
         /** @description Too many requests */
         Problem429: {
             headers: {
@@ -6716,6 +6725,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6739,6 +6749,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6762,6 +6773,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             /** @description Service unavailable */
@@ -6805,6 +6817,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6833,6 +6846,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6861,6 +6875,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6894,6 +6909,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6927,6 +6943,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6957,6 +6974,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -6990,6 +7008,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7018,6 +7037,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7048,6 +7068,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7079,6 +7100,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7114,6 +7136,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7153,6 +7176,7 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7181,6 +7205,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7208,6 +7233,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7243,6 +7269,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7270,6 +7297,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7302,6 +7330,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7337,6 +7366,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7365,6 +7395,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7390,6 +7421,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7424,6 +7456,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7461,6 +7494,7 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7486,6 +7520,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7520,6 +7555,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7556,6 +7592,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7590,6 +7627,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7624,6 +7662,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7657,6 +7696,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7692,6 +7732,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7721,6 +7762,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7753,6 +7795,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7789,6 +7832,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7816,6 +7860,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7848,6 +7893,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7883,6 +7929,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7910,6 +7957,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7942,6 +7990,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -7977,6 +8026,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8002,6 +8052,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8035,6 +8086,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8070,6 +8122,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8100,6 +8153,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8133,6 +8187,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8169,6 +8224,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8196,6 +8252,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8230,6 +8287,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8259,6 +8317,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8287,6 +8346,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8319,6 +8379,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8355,6 +8416,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8391,6 +8453,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8425,6 +8488,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8459,6 +8523,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8492,6 +8557,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8527,6 +8593,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8552,6 +8619,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8587,6 +8655,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8623,6 +8692,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8658,6 +8728,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8689,6 +8760,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8717,6 +8789,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8749,6 +8822,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8781,6 +8855,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8813,6 +8888,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8849,6 +8925,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8881,6 +8958,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8909,6 +8987,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8937,6 +9016,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -8972,6 +9052,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9008,6 +9089,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9039,6 +9121,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9073,6 +9156,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9106,6 +9190,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9140,6 +9225,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9168,6 +9254,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9200,6 +9287,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9229,6 +9317,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9263,6 +9352,7 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9289,6 +9379,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9321,6 +9412,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9349,6 +9441,7 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9381,6 +9474,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9415,6 +9509,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9444,6 +9539,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9475,6 +9571,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9505,6 +9602,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9536,6 +9634,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9566,6 +9665,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9595,6 +9695,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9627,6 +9728,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9661,6 +9763,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             403: components["responses"]["Problem403"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9687,6 +9790,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9725,6 +9829,7 @@ export interface operations {
             409: components["responses"]["Problem409"];
             410: components["responses"]["Problem410"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9754,6 +9859,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9786,6 +9892,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9816,6 +9923,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -9851,6 +9959,7 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -9887,6 +9996,7 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -9931,6 +10041,7 @@ export interface operations {
             409: components["responses"]["Problem409"];
             410: components["responses"]["Problem410"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -9968,6 +10079,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10001,6 +10113,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10031,6 +10144,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10077,6 +10191,7 @@ export interface operations {
             409: components["responses"]["Problem409"];
             413: components["responses"]["Problem413"];
             415: components["responses"]["Problem415"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10110,6 +10225,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10144,6 +10260,7 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10170,6 +10287,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10196,6 +10314,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10219,6 +10338,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10246,6 +10366,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10269,6 +10390,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10294,6 +10416,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10322,6 +10445,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10347,6 +10471,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10374,6 +10499,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10397,6 +10523,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10425,6 +10552,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10450,6 +10578,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10478,6 +10607,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10507,6 +10637,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10539,6 +10670,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -10572,6 +10704,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -10612,6 +10745,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10644,6 +10778,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -10674,6 +10809,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10706,6 +10842,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -10746,6 +10883,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10781,6 +10919,7 @@ export interface operations {
             409: components["responses"]["Problem409"];
             410: components["responses"]["Problem410"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10806,6 +10945,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10831,6 +10971,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10856,6 +10997,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10881,6 +11023,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10906,6 +11049,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -10933,6 +11077,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -10961,6 +11106,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
@@ -10987,6 +11133,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11011,6 +11158,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11036,6 +11184,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11061,6 +11210,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11086,6 +11236,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11111,6 +11262,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11136,6 +11288,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11161,6 +11314,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11186,6 +11340,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11210,6 +11365,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11241,6 +11397,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11268,6 +11425,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11299,6 +11457,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11323,6 +11482,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11355,6 +11515,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11382,6 +11543,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11413,6 +11575,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11444,6 +11607,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11476,6 +11640,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11508,6 +11673,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11538,6 +11704,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11562,6 +11729,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11594,6 +11762,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11625,6 +11794,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11656,6 +11826,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11688,6 +11859,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11712,6 +11884,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11743,6 +11916,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11767,6 +11941,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11800,6 +11975,7 @@ export interface operations {
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11828,6 +12004,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11852,6 +12029,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11881,6 +12059,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11906,6 +12085,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11930,6 +12110,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11958,6 +12139,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -11982,6 +12164,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12006,6 +12189,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12038,6 +12222,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12067,6 +12252,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12091,6 +12277,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12123,6 +12310,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12157,6 +12345,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12185,6 +12374,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12209,6 +12399,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12239,6 +12430,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12269,6 +12461,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12299,6 +12492,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12336,6 +12530,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12367,6 +12562,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12393,6 +12589,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12427,6 +12624,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12456,6 +12654,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12489,6 +12688,7 @@ export interface operations {
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12514,6 +12714,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12541,6 +12742,7 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12573,6 +12775,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12604,6 +12807,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12634,6 +12838,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12662,6 +12867,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12688,6 +12894,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };
@@ -12716,6 +12923,7 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

@@ -15,6 +15,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { AppVersionGuard } from './common/app-version.guard';
 import { ClientCountryMiddleware } from './common/client-country.middleware';
 import { BotProtectionModule } from './bot-protection/bot-protection.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -91,8 +92,10 @@ export class AppModule implements NestModule {
       ],
       providers: [
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },
-        // Guards run in this order: who is calling, how often, what they may do, then (mobile
-        // sensitive routes) whether the device is genuine.
+        // Guards run in this order: a retired app version (before anything else), who is
+        // calling, how often, what they may do, then (mobile sensitive routes) whether the
+        // device is genuine.
+        { provide: APP_GUARD, useClass: AppVersionGuard },
         { provide: APP_GUARD, useExisting: AuthGuard },
         { provide: APP_GUARD, useClass: RateLimitGuard },
         { provide: APP_GUARD, useExisting: PermissionsGuard },

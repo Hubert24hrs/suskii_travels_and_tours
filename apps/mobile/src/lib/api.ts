@@ -2,6 +2,8 @@ import { createApiClient, type ApiClient, type Schemas } from '@suskii/api-clien
 
 import { appConfig, CLIENT_ID } from '../config';
 
+import { appUpdate } from './app-update';
+
 export type { ApiClient, Schemas };
 
 /**
@@ -65,8 +67,15 @@ export function createAppApi(
       request.headers.set('Accept-Language', locale());
       return request;
     },
+    onResponse: noticeRetiredVersion,
   });
   return client;
+}
+
+/** The API answers 426 once this app version is retired: switch to the update screen. */
+function noticeRetiredVersion({ response }: { response: Response }): Response {
+  if (response.status === 426) appUpdate.markRequired();
+  return response;
 }
 
 /** A client without credentials, for the refresh call itself. */
@@ -77,6 +86,7 @@ export function createBareApi(fetchImpl: typeof globalThis.fetch = globalThis.fe
       request.headers.set('X-Suskii-Client', CLIENT_ID);
       return request;
     },
+    onResponse: noticeRetiredVersion,
   });
   return client;
 }

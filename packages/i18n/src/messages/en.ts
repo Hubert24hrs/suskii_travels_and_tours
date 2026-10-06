@@ -743,6 +743,12 @@ export const en = {
     retry: 'Try again',
     loading: 'Loading',
     notificationChannel: 'Bookings',
+    update: {
+      title: 'Update Suskii Travels',
+      body: 'This version of the app is no longer supported. Update it to keep searching, booking and opening your trips.',
+      action: 'Update the app',
+      noStore: 'Update the app from your app store to continue.',
+    },
     home: {
       dealsHeading: 'Flight deals',
       seeAllDeals: 'See all deals',

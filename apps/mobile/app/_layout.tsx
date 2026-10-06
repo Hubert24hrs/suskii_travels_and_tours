@@ -11,15 +11,17 @@ import * as Notifications from 'expo-notifications';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { appUpdate } from '../src/lib/app-update';
 import { openSecureCache } from '../src/lib/cache';
 import { resolveNotificationPath } from '../src/lib/deep-links';
 import { configureNotifications } from '../src/lib/push';
 import type { SessionStore } from '../src/lib/session';
 import { AppProvider, createSessionStore, deviceLocale, useT } from '../src/providers/app-provider';
+import { UpdateRequiredScreen } from '../src/screens/update-required-screen';
 
 /** Opens the encrypted cache and restores the session before the first screen renders. */
 function useBootstrap(): SessionStore | null {
@@ -55,6 +57,15 @@ function useNotificationTaps(): void {
     );
     return () => subscription.remove();
   }, [router]);
+}
+
+/** Every screen, or only the update screen once the API has retired this version (426). */
+function Gate() {
+  const updateRequired = useSyncExternalStore(
+    (listener) => appUpdate.subscribe(listener),
+    () => appUpdate.required,
+  );
+  return updateRequired ? <UpdateRequiredScreen /> : <Screens />;
 }
 
 function Screens() {
@@ -121,7 +132,7 @@ export default function RootLayout() {
         <AppProvider session={session}>
           <BottomSheetModalProvider>
             <StatusBar style="dark" />
-            <Screens />
+            <Gate />
           </BottomSheetModalProvider>
         </AppProvider>
       </SafeAreaProvider>

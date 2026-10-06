@@ -75,6 +75,7 @@ const STATUS_TEXT: Record<number, string> = {
   409: 'Conflict',
   410: 'Gone',
   422: 'Unprocessable content',
+  426: 'App update required',
   429: 'Too many requests',
   500: 'Internal server error',
   503: 'Service unavailable',
@@ -193,8 +194,9 @@ function operation(
           : {}),
     };
   }
+  // 426: an app older than MOBILE_MIN_VERSION is refused on every route (AppVersionGuard).
   const errorStatuses = [
-    ...new Set([400, ...(contract.errors ?? []), ...(isPublic ? [] : [401]), 429, 500]),
+    ...new Set([400, ...(contract.errors ?? []), ...(isPublic ? [] : [401]), 426, 429, 500]),
   ].sort((a, b) => a - b);
   for (const status of errorStatuses) {
     collector.problemStatuses.add(status);

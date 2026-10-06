@@ -359,6 +359,36 @@ describe('mobile (e2e): trips, push, attestation and the app payment return', ()
     expect(push.outbox.map((message) => message.to)).toEqual([DEVICE_B]);
   });
 
+  it('refuses app versions older than MOBILE_MIN_VERSION on every route, before sign-in', async () => {
+    ctx.config.MOBILE_MIN_VERSION = '1.2.0';
+    try {
+      const old = await ctx
+        .http()
+        .get('/v1/me')
+        .set({ 'X-Suskii-Client': 'mobile-ios/1.1.9' })
+        .expect(426);
+      expect(old.body).toMatchObject({
+        type: 'urn:suskii:problem:app-update-required',
+        minVersion: '1.2.0',
+      });
+      await ctx
+        .http()
+        .get('/v1/catalog/countries')
+        .set({ 'X-Suskii-Client': 'mobile-android/1.0.0' })
+        .expect(426);
+      // Current apps, the website and probes are served as before.
+      await ctx
+        .http()
+        .get('/v1/catalog/countries')
+        .set({ 'X-Suskii-Client': 'mobile-android/1.2.0' })
+        .expect(200);
+      await ctx.http().get('/v1/catalog/countries').set(WEB).expect(200);
+      await ctx.http().get('/v1/me').set({ 'X-Suskii-Client': 'mobile-ios/1.10.0' }).expect(401);
+    } finally {
+      ctx.config.MOBILE_MIN_VERSION = undefined;
+    }
+  });
+
   it('prunes push tokens of ended sessions', async () => {
     const amaka = await signUp(ctx, 'amaka@example.com');
     await ctx

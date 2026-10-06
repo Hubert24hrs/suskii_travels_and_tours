@@ -125,6 +125,14 @@ export const envSchema = z
      * App Attest verifiers are configured; `mock` accepts `mock:<challenge>` (development, tests).
      */
     DEVICE_ATTESTATION: z.enum(['mock', 'none']).default('mock'),
+    /**
+     * Oldest app version still served (MASVS-CODE-2); older apps get 426 `app-update-required`
+     * and show an update screen. Unset serves every version.
+     */
+    MOBILE_MIN_VERSION: z
+      .string()
+      .regex(/^\d+\.\d+\.\d+$/, 'must be a version like 1.4.0')
+      .optional(),
     /** Attestation on mobile login, registration and payment start: off, report or enforce. */
     ATTESTATION_MODE: z.enum(['off', 'report', 'enforce']).default('off'),
     /** Staging escape hatch: allow mock email/SMS providers when NODE_ENV=production. */
