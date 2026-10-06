@@ -103,9 +103,15 @@ jobs:
         env:
           TEST_REDIS_URL: redis://localhost:6379/1
 
-      # Testcontainers starts Postgres and Redis on the runner's Docker daemon.
+      # 80% gates on the money, pricing and lifecycle rules (phase 11): unit coverage for the pure
+      # modules here, e2e coverage for the services that need Postgres in the next step.
+      - name: Coverage gates (unit)
+        run: pnpm exec turbo run test:cov --filter=@suskii/api --filter=@suskii/shared ${{ env.AFFECTED }}
+
+      # Testcontainers starts Postgres and Redis on the runner's Docker daemon. Runs with coverage:
+      # pricing, auth, the ledger, booking transitions and installments must stay at 80% or more.
       - name: E2E tests (API)
-        run: pnpm exec turbo run test:e2e --filter=@suskii/api ${{ env.AFFECTED }}
+        run: pnpm exec turbo run test:e2e:cov --filter=@suskii/api ${{ env.AFFECTED }}
 
       # Builds web, API and worker, boots them against the service containers (seed plus one
       # worker refresh), runs the Playwright suite, then the Lighthouse gate on its own.

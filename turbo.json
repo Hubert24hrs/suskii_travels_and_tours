@@ -31,8 +31,18 @@
         "TEST_REDIS_URL"
       ]
     },
+    "test:cov": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "passThroughEnv": ["TEST_REDIS_URL"]
+    },
     "test:e2e": {
       "dependsOn": ["^build"],
+      "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*", "E2E_DATABASE_URL", "E2E_REDIS_URL"]
+    },
+    "test:e2e:cov": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage-e2e/**"],
       "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*", "E2E_DATABASE_URL", "E2E_REDIS_URL"]
     },
     "dev": {

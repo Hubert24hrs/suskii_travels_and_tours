@@ -21,6 +21,7 @@ apps/mobile/android/
 # Tooling caches
 .turbo/
 coverage/
+coverage-e2e/
 .eslintcache
 
 # Local object storage (e-tickets, vouchers) for development and tests
