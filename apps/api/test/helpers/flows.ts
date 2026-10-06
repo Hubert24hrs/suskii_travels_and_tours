@@ -5,6 +5,8 @@ import { base32Decode, hotp, timeStep } from '../../src/crypto/totp';
 import type { TestContext } from './test-app';
 
 export const PASSWORD = 'correct horse battery staple';
+/** Accepted by the mock Turnstile verifier (anything but `fail`). */
+export const E2E_TURNSTILE = 'e2e-turnstile';
 
 export interface TokenSession {
   userId: string;
@@ -22,7 +24,11 @@ export async function register(
   email: string,
   password = PASSWORD,
 ): Promise<void> {
-  await ctx.http().post('/v1/auth/register').send({ email, password }).expect(202);
+  await ctx
+    .http()
+    .post('/v1/auth/register')
+    .send({ email, password, turnstileToken: E2E_TURNSTILE })
+    .expect(202);
   await ctx.background.drain();
 }
 

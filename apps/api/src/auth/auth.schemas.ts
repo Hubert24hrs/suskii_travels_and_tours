@@ -157,7 +157,15 @@ export const recoveryCodesSchema = named(
 
 const transport = authTransportSchema.default('token');
 
-export const registerBodySchema = named('RegisterRequest', registerRequestSchema);
+export const registerBodySchema = named(
+  'RegisterRequest',
+  registerRequestSchema.extend({
+    turnstileToken: z.string().min(1).max(2048).optional().meta({
+      description:
+        'Cloudflare Turnstile token (action `register`); required except from the mobile app, which sends a device attestation instead (ADR-023).',
+    }),
+  }),
+);
 export const loginBodySchema = named('LoginRequest', loginRequestSchema);
 
 export const refreshBodySchema = named(

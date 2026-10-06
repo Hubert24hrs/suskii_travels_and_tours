@@ -1,6 +1,14 @@
 import { createLocalJWKSet, jwtVerify } from 'jose';
 
-import { bearer, emailToken, login, PASSWORD, register, signUp } from './helpers/flows';
+import {
+  bearer,
+  E2E_TURNSTILE,
+  login,
+  emailToken,
+  PASSWORD,
+  register,
+  signUp,
+} from './helpers/flows';
 import { BREACHED_PASSWORD, createTestApp, resetState, type TestContext } from './helpers/test-app';
 
 describe('auth: email and password (e2e)', () => {
@@ -19,10 +27,11 @@ describe('auth: email and password (e2e)', () => {
   describe('registration', () => {
     it('answers 202 for new and existing emails alike, and emails each case differently', async () => {
       await register(ctx, 'Ada@Example.com');
-      const again = await ctx
-        .http()
-        .post('/v1/auth/register')
-        .send({ email: 'ada@example.com', password: 'another password 1' });
+      const again = await ctx.http().post('/v1/auth/register').send({
+        turnstileToken: E2E_TURNSTILE,
+        email: 'ada@example.com',
+        password: 'another password 1',
+      });
       expect(again.status).toBe(202);
       expect(again.body).toEqual({ status: 'accepted' });
       await ctx.background.drain();
@@ -34,32 +43,54 @@ describe('auth: email and password (e2e)', () => {
       await login(ctx, 'ada@example.com');
     });
 
+    it('turns bots away before any account check: Turnstile on the web, attestation in the app', async () => {
+      const send = (body: Record<string, unknown>, headers: Record<string, string> = {}) =>
+        ctx
+          .http()
+          .post('/v1/auth/register')
+          .set(headers)
+          .send({ email: 'bot@example.com', password: PASSWORD, ...body });
+      for (const body of [{}, { turnstileToken: 'fail' }, { password: BREACHED_PASSWORD }]) {
+        const refused = await send(body).expect(400);
+        expect(refused.body.type).toBe('urn:suskii:problem:bot-check-failed');
+      }
+      await ctx.background.drain();
+      expect(await ctx.prisma.user.count({ where: { email: 'bot@example.com' } })).toBe(0);
+      expect(ctx.emails.outbox).toEqual([]);
+      // The app proves itself with a device attestation instead (AttestationGuard, ADR-023).
+      await send({}, { 'X-Suskii-Client': 'mobile-android/1.0.0' }).expect(202);
+    });
+
     it('enforces the password policy and the breached-password check', async () => {
       const short = await ctx
         .http()
         .post('/v1/auth/register')
-        .send({ email: 'b@example.com', password: 'short' })
+        .send({ turnstileToken: E2E_TURNSTILE, email: 'b@example.com', password: 'short' })
         .expect(400);
       expect(short.body.type).toBe('urn:suskii:problem:validation-failed');
       expect(JSON.stringify(short.body)).not.toContain('short"');
       const breached = await ctx
         .http()
         .post('/v1/auth/register')
-        .send({ email: 'b@example.com', password: BREACHED_PASSWORD })
+        .send({
+          turnstileToken: E2E_TURNSTILE,
+          email: 'b@example.com',
+          password: BREACHED_PASSWORD,
+        })
         .expect(422);
       expect(breached.body.type).toBe('urn:suskii:problem:password-breached');
       // The bundled list applies even though HIBP (faked here) knows nothing about it.
       const common = await ctx
         .http()
         .post('/v1/auth/register')
-        .send({ email: 'b@example.com', password: 'Qwertyuiop' })
+        .send({ turnstileToken: E2E_TURNSTILE, email: 'b@example.com', password: 'Qwertyuiop' })
         .expect(422);
       expect(common.body.type).toBe('urn:suskii:problem:password-breached');
       for (const password of ['Susk11 Travels 2026', 'b.okafor.example.1990']) {
         const guessable = await ctx
           .http()
           .post('/v1/auth/register')
-          .send({ email: 'b.okafor.example@example.com', password })
+          .send({ turnstileToken: E2E_TURNSTILE, email: 'b.okafor.example@example.com', password })
           .expect(422);
         expect(guessable.body.type).toBe('urn:suskii:problem:password-guessable');
       }

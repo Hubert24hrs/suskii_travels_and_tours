@@ -87,7 +87,10 @@ async function createPersona(api: Api, root: string, key: PersonaKey): Promise<P
   const spec = PERSONAS[key];
   const email = `${key}@e2e.suskii.test`;
   const secretPassword = password();
-  await api.call('POST', '/v1/auth/register', { body: { email, password: secretPassword } });
+  // The mock Turnstile verifier accepts any token but `fail`.
+  await api.call('POST', '/v1/auth/register', {
+    body: { email, password: secretPassword, turnstileToken: 'e2e-turnstile' },
+  });
   let session = await signIn(api, email, secretPassword);
   const id = session.user?.id;
   if (!id) throw new Error(`No user id for ${email}`);

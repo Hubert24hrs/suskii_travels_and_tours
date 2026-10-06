@@ -1,10 +1,10 @@
-import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { NEWSLETTER_CONSENT_VERSION } from '@suskii/shared';
 
 import { invalidOrExpiredLink } from '../auth/errors';
+import { botCheckFailed } from '../bot-protection/errors';
 import { TurnstileVerifier } from '../bot-protection/turnstile';
-import { ProblemDetailsException } from '../common/problem-details';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { HmacService } from '../crypto/hmac.service';
 import { randomToken, sha256 } from '../crypto/random';
@@ -18,14 +18,6 @@ import type { SubscribeRequest } from './newsletter.schemas';
 const CONFIRM_TTL_MS = 48 * 3_600_000;
 /** A pending subscription gets at most one new confirmation email per window. */
 const RESEND_AFTER_MS = 10 * 60_000;
-
-const botCheckFailed = (): ProblemDetailsException =>
-  new ProblemDetailsException(
-    HttpStatus.BAD_REQUEST,
-    'bot-check-failed',
-    'We could not verify this request',
-    'Refresh the page and try again.',
-  );
 
 /**
  * Deal-alert subscriptions with double opt-in and a provable consent record (ADR-012). Every

@@ -1315,6 +1315,8 @@ export const en = {
       breached:
         'This password is too easy to guess: it is common, has appeared in a data breach or contains our name or your details. Choose a different one.',
       invalid: 'Check the highlighted fields.',
+      botCheck:
+        'We could not confirm you are a person. Wait a moment, or refresh the page, then try again.',
     },
     verifyEmail: {
       title: 'Confirm your email',

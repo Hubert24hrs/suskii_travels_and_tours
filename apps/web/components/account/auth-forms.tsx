@@ -10,6 +10,7 @@ import { AppLink } from '../app-link';
 
 import { useAccountT } from './account-messages';
 import { safeNext } from './use-account';
+import { useTurnstile } from './use-turnstile';
 
 type SignInResult = Schemas['AuthSession'] | Schemas['MfaChallenge'];
 
@@ -261,7 +262,13 @@ export function SignInForm({ next }: { next: string | null }) {
   );
 }
 
-export function RegisterForm({ referralCode }: { referralCode: string | null }) {
+export function RegisterForm({
+  referralCode,
+  turnstileSiteKey,
+}: {
+  referralCode: string | null;
+  turnstileSiteKey: string;
+}) {
   const { t } = useAccountT();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -270,9 +277,22 @@ export function RegisterForm({ referralCode }: { referralCode: string | null }) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const {
+    containerRef: turnstileRef,
+    ensure: ensureTurnstile,
+    reset: resetTurnstile,
+    currentToken,
+  } = useTurnstile(turnstileSiteKey, 'register', () => setError(t('auth.register.botCheck')));
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    const turnstileToken = currentToken();
+    if (!turnstileToken) {
+      // The widget is still checking (or needs a click).
+      ensureTurnstile();
+      setError(t('auth.register.botCheck'));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -280,19 +300,26 @@ export function RegisterForm({ referralCode }: { referralCode: string | null }) 
         body: {
           email,
           password,
+          turnstileToken,
           ...(displayName.trim() ? { displayName: displayName.trim() } : {}),
           ...(code.trim() ? { referralCode: code.trim() } : {}),
         },
       });
-      if (response.ok) setDone(true);
-      else
-        setError(
-          isRejectedPassword(problem)
-            ? t('auth.register.breached')
+      if (response.ok) {
+        setDone(true);
+        return;
+      }
+      resetTurnstile();
+      const slug = problemSlug(problem);
+      setError(
+        isRejectedPassword(problem)
+          ? t('auth.register.breached')
+          : slug === 'bot-check-failed'
+            ? t('auth.register.botCheck')
             : response.status === 400
               ? t('auth.register.invalid')
               : t('auth.signIn.errors.generic'),
-        );
+      );
     } catch {
       setError(t('auth.signIn.errors.generic'));
     } finally {
@@ -313,7 +340,11 @@ export function RegisterForm({ referralCode }: { referralCode: string | null }) 
 
   return (
     <Card className="flex flex-col gap-4 p-6">
-      <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) => void submit(event)}
+        onFocus={ensureTurnstile}
+      >
         <Input
           label={t('auth.register.displayName')}
           autoComplete="name"
@@ -348,6 +379,7 @@ export function RegisterForm({ referralCode }: { referralCode: string | null }) 
           onChange={(event) => setCode(event.target.value)}
           data-testid="register-referral"
         />
+        <div ref={turnstileRef} />
         <FormError message={error} />
         <Button type="submit" loading={busy} data-testid="register-submit">
           {t('auth.register.submit')}

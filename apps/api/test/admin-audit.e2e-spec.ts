@@ -11,7 +11,14 @@ import {
   type AdminOperation,
   type OpenApiDocument,
 } from './helpers/admin';
-import { bearer, enrolTotp, PASSWORD, signUp, type TokenSession } from './helpers/flows';
+import {
+  bearer,
+  E2E_TURNSTILE,
+  enrolTotp,
+  PASSWORD,
+  signUp,
+  type TokenSession,
+} from './helpers/flows';
 import { createTestApp, resetState, type TestContext } from './helpers/test-app';
 
 /**
@@ -620,6 +627,7 @@ describe('admin audit coverage (e2e)', () => {
       .http()
       .post('/v1/auth/register')
       .send({
+        turnstileToken: E2E_TURNSTILE,
         email: 'audit-temp@mailinator.com',
         password: PASSWORD,
         referralCode: mine.body.code as string,

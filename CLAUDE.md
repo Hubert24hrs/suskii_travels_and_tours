@@ -282,6 +282,9 @@ Tooling notes for agents:
   `next/image` with hosts from `IMAGE_REMOTE_HOSTS`.
 - New pages need metadata (`pageMetadata`), a canonical path and, for inner pages, breadcrumbs;
   add them to the sitemap when indexable.
+- Forms the API protects with Turnstile (sign-up, guest checkout, newsletter) render the widget
+  on first focus (`useTurnstile`); without a site key they send a development token the API's mock
+  accepts. The app sends a device attestation instead.
 - Client components call the API with `browserApi()` (typed openapi-fetch, `lib/browser-api.ts`);
   documented headers such as `Idempotency-Key` go in `params.header`. Guest booking tokens live in
   session storage through `lib/booking-token.ts`.

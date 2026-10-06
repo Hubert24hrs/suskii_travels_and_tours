@@ -4,13 +4,14 @@ import { WhatsAppProvider, type MockWhatsAppProvider } from '../src/notification
 
 import {
   bearer,
-  enrolTotp,
+  E2E_TURNSTILE,
   grantRoles,
   login,
+  enrolTotp,
+  totp,
   PASSWORD,
   register,
   signUp,
-  totp,
   type TokenSession,
 } from './helpers/flows';
 import {
@@ -325,6 +326,7 @@ describe('engagement (e2e): notifications, price alerts, referrals and reminders
         .http()
         .post('/v1/auth/register')
         .send({
+          turnstileToken: E2E_TURNSTILE,
           email: 'friend@example.com',
           password: PASSWORD,
           referralCode: code.toLowerCase().replace(/(.{4})/, '$1-'),
@@ -385,7 +387,12 @@ describe('engagement (e2e): notifications, price alerts, referrals and reminders
       await ctx
         .http()
         .post('/v1/auth/register')
-        .send({ email: 'stranger@example.com', password: PASSWORD, referralCode: 'ZZZZZZZZ' })
+        .send({
+          turnstileToken: E2E_TURNSTILE,
+          email: 'stranger@example.com',
+          password: PASSWORD,
+          referralCode: 'ZZZZZZZZ',
+        })
         .expect(202);
       await ctx.background.drain();
       expect(await ctx.prisma.referral.count()).toBe(0);
@@ -393,7 +400,12 @@ describe('engagement (e2e): notifications, price alerts, referrals and reminders
       await ctx
         .http()
         .post('/v1/auth/register')
-        .send({ email: 'temp@mailinator.com', password: PASSWORD, referralCode: code })
+        .send({
+          turnstileToken: E2E_TURNSTILE,
+          email: 'temp@mailinator.com',
+          password: PASSWORD,
+          referralCode: code,
+        })
         .expect(202);
       await ctx.background.drain();
       const flagged = await ctx.prisma.referral.findFirstOrThrow();

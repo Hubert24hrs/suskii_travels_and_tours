@@ -25253,6 +25253,11 @@
           "referralCode": {
             "type": "string",
             "maxLength": 20
+          },
+          "turnstileToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
           }
         },
         "required": [

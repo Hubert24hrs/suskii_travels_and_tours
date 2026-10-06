@@ -5856,6 +5856,7 @@ export interface components {
             password: string;
             displayName?: string;
             referralCode?: string;
+            turnstileToken?: string;
         };
         RejectRefundRequestInput: {
             reason: string;

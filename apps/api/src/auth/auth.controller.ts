@@ -5,10 +5,13 @@ import type { z } from 'zod';
 import { DeviceAttested } from '../attestation/attestation.guard';
 import { ATTESTATION_HEADER } from '../attestation/attestation.schemas';
 import { AuditService } from '../audit/audit.service';
+import { botCheckFailed } from '../bot-protection/errors';
+import { TurnstileVerifier } from '../bot-protection/turnstile';
 import { requestContext } from '../common/request-context';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { Contract } from '../contract/contract';
 import { AUTH_LIMITS, RateLimit } from '../rate-limit/rate-limit.decorator';
+import { clientContext } from '../search/client-context';
 
 import type { AuthenticatedRequest } from './auth-context';
 import { presentSession, presentSignIn } from './auth.presenter';
@@ -53,6 +56,7 @@ export class AuthController {
     private readonly csrf: CsrfService,
     private readonly audit: AuditService,
     private readonly nonces: SocialNonces,
+    private readonly turnstile: TurnstileVerifier,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -73,9 +77,22 @@ export class AuthController {
   })
   async register(
     @Body() body: z.infer<typeof registerBodySchema>,
-    @Req() request: Request,
+    @Req() request: AuthenticatedRequest,
   ): Promise<Accepted> {
-    await this.auth.register(body, requestContext(request));
+    const context = requestContext(request);
+    // Bots are turned away before any password or account check. The app proves itself with a
+    // device attestation (AttestationGuard); everything else needs Turnstile.
+    if (clientContext(request).channel !== 'mobile') {
+      const verified =
+        body.turnstileToken !== undefined &&
+        (await this.turnstile.verify(body.turnstileToken, {
+          remoteIp: context.ip,
+          action: 'register',
+        }));
+      if (!verified) throw botCheckFailed();
+    }
+    const { turnstileToken: _token, ...input } = body;
+    await this.auth.register(input, context);
     return { status: 'accepted' };
   }
 

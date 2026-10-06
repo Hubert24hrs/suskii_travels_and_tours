@@ -4,13 +4,7 @@ import type { PassengerIssue } from '@suskii/shared';
 
 import { ProblemDetailsException } from '../common/problem-details';
 
-export const botCheckFailed = (): ProblemDetailsException =>
-  new ProblemDetailsException(
-    HttpStatus.BAD_REQUEST,
-    'bot-check-failed',
-    'We could not verify this request',
-    'Refresh the page and try again.',
-  );
+export { botCheckFailed } from '../bot-protection/errors';
 
 export const termsOutdated = (): ProblemDetailsException =>
   new ProblemDetailsException(
