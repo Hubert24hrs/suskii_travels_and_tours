@@ -6006,6 +6006,49 @@
         }
       }
     },
+    "/v1/auth/social/nonce": {
+      "post": {
+        "operationId": "createSocialNonce",
+        "summary": "Get a single-use nonce for Google or Apple sign-in",
+        "description": "Pass it to the provider (Apple: its SHA-256 hex digest) and send it back with the ID token within 10 minutes. Sign-in refuses tokens without an unused nonce from here.",
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialNonce"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/bookings": {
       "post": {
         "operationId": "createBooking",
@@ -25596,6 +25639,23 @@
         ],
         "additionalProperties": false
       },
+      "SocialNonce": {
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "nonce",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
       "SocialSignInRequestInput": {
         "type": "object",
         "properties": {
@@ -25628,7 +25688,8 @@
           }
         },
         "required": [
-          "idToken"
+          "idToken",
+          "nonce"
         ]
       },
       "StartPaymentRequestInput": {

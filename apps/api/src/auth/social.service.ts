@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto';
 
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import type { Redis } from 'ioredis';
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { z } from 'zod';
 
 import { ProblemDetailsException } from '../common/problem-details';
 import { APP_CONFIG, type AppConfig } from '../config/config';
-import { safeEqual } from '../crypto/random';
+import { randomToken, safeEqual, sha256 } from '../crypto/random';
+import { REDIS } from '../infra/redis';
 
 import { invalidToken } from './errors';
 
@@ -43,6 +45,32 @@ const claimsSchema = z.object({
   nonce: z.string().optional(),
 });
 
+/** How long a sign-in nonce waits for its ID token. */
+export const SOCIAL_NONCE_TTL_SECONDS = 600;
+const nonceKey = (nonce: string): string => `auth:social-nonce:${sha256(nonce)}`;
+
+/**
+ * Server-issued, single-use nonces for Google and Apple sign-in (ASVS V10.5.1): the client asks
+ * for one, passes it to the provider and sends it back with the ID token. A token whose nonce the
+ * API did not issue, or already accepted, is refused, so a stolen ID token cannot be replayed.
+ * Only a hash of the nonce is stored.
+ */
+@Injectable()
+export class SocialNonces {
+  constructor(@Inject(REDIS) private readonly redis: Redis) {}
+
+  async issue(): Promise<{ nonce: string; expiresAt: Date }> {
+    const nonce = randomToken(32);
+    await this.redis.set(nonceKey(nonce), '1', 'EX', SOCIAL_NONCE_TTL_SECONDS);
+    return { nonce, expiresAt: new Date(Date.now() + SOCIAL_NONCE_TTL_SECONDS * 1000) };
+  }
+
+  /** True exactly once per issued, unexpired nonce, even under concurrent sign-ins. */
+  async consume(nonce: string): Promise<boolean> {
+    return (await this.redis.del(nonceKey(nonce))) === 1;
+  }
+}
+
 export interface VerifiedSocialIdentity {
   provider: SocialProviderName;
   subject: string;
@@ -51,12 +79,16 @@ export interface VerifiedSocialIdentity {
   name: string | null;
 }
 
-/** Verifies Google and Apple ID tokens: signature (provider JWKS), issuer, audience, expiry, nonce. */
+/**
+ * Verifies Google and Apple ID tokens: signature (provider JWKS), issuer, audience, expiry, and a
+ * nonce this API issued and has not seen before.
+ */
 @Injectable()
 export class SocialIdentityVerifier {
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(SOCIAL_KEY_RESOLVERS) private readonly resolvers: SocialKeyResolvers,
+    private readonly nonces: SocialNonces,
   ) {}
 
   private audiences(provider: SocialProviderName): string[] {
@@ -66,7 +98,7 @@ export class SocialIdentityVerifier {
   async verify(
     provider: SocialProviderName,
     idToken: string,
-    nonce?: string,
+    nonce: string,
   ): Promise<VerifiedSocialIdentity> {
     const audience = this.audiences(provider);
     if (audience.length === 0) {
@@ -89,12 +121,12 @@ export class SocialIdentityVerifier {
     }
     const claims = claimsSchema.safeParse(payload);
     if (!claims.success) throw invalidToken();
-    if (nonce !== undefined) {
-      // Google echoes the raw nonce; Apple native flows carry its SHA-256 hex digest.
-      const hashed = createHash('sha256').update(nonce).digest('hex');
-      const actual = claims.data.nonce ?? '';
-      if (!safeEqual(actual, nonce) && !safeEqual(actual, hashed)) throw invalidToken();
-    }
+    // Google echoes the raw nonce; Apple native flows carry its SHA-256 hex digest.
+    const hashed = createHash('sha256').update(nonce).digest('hex');
+    const actual = claims.data.nonce ?? '';
+    if (!safeEqual(actual, nonce) && !safeEqual(actual, hashed)) throw invalidToken();
+    // Consumed last: a token that fails any check above leaves the nonce for a retry.
+    if (!(await this.nonces.consume(nonce))) throw invalidToken();
     const emailVerified =
       claims.data.email_verified === true || claims.data.email_verified === 'true';
     return {

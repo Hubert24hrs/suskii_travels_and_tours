@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { bearer, emailToken, lastSmsCode, register, signUp } from './helpers/flows';
 import { createTestApp, GOOGLE_CLIENT_ID, resetState, type TestContext } from './helpers/test-app';
 
@@ -133,63 +135,108 @@ describe('auth: phone OTP and social sign-in (e2e)', () => {
   });
 
   describe('Google and Apple', () => {
+    type Provider = 'google' | 'apple';
+
+    /** A nonce from the API and an ID token carrying it (Apple: its SHA-256 hex digest). */
+    async function token(
+      provider: Provider,
+      claims: { sub: string } & Record<string, unknown>,
+      context: TestContext = ctx,
+    ): Promise<{ idToken: string; nonce: string }> {
+      const issued = await context.http().post('/v1/auth/social/nonce').expect(200);
+      const nonce = issued.body.nonce as string;
+      const carried =
+        provider === 'apple' ? createHash('sha256').update(nonce).digest('hex') : nonce;
+      return { idToken: await context.social.sign(provider, { ...claims, nonce: carried }), nonce };
+    }
+
     it('creates an account from a verified Google identity and signs it in again', async () => {
-      const idToken = await ctx.social.sign('google', {
+      const claims = {
         sub: 'google-123',
         email: 'Gina@Gmail.com',
         email_verified: true,
         name: 'Gina',
-      });
-      const first = await ctx.http().post('/v1/auth/google').send({ idToken }).expect(200);
+      };
+      const firstToken = await token('google', claims);
+      const first = await ctx.http().post('/v1/auth/google').send(firstToken).expect(200);
       expect(first.body.user).toMatchObject({
         email: 'gina@gmail.com',
         emailVerified: true,
         displayName: 'Gina',
         hasPassword: false,
       });
-      const again = await ctx.http().post('/v1/auth/google').send({ idToken }).expect(200);
+      const second = await token('google', claims);
+      const again = await ctx.http().post('/v1/auth/google').send(second).expect(200);
       expect(again.body.user.id).toBe(first.body.user.id);
     });
 
-    it('rejects tokens for another audience, bad nonces and tampered signatures', async () => {
+    it('issues short-lived nonces and stores only their hash', async () => {
+      const issued = await ctx.http().post('/v1/auth/social/nonce').expect(200);
+      const nonce = issued.body.nonce as string;
+      expect(nonce).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      const ttl = Date.parse(issued.body.expiresAt as string) - Date.now();
+      expect(ttl).toBeGreaterThan(590_000);
+      expect(ttl).toBeLessThanOrEqual(600_000);
+      expect(await ctx.redis.keys(`*${nonce}*`)).toEqual([]);
+    });
+
+    it('requires a nonce the API issued, once (ASVS V10.5.1)', async () => {
+      const signIn = (body: Record<string, unknown>) =>
+        ctx.http().post('/v1/auth/google').send(body);
+      const claims = { sub: 'g-replay', email: 'replay@gmail.com', email_verified: true };
+
+      // No nonce at all is a validation error; a nonce the API never issued is refused.
+      const unsigned = await ctx.social.sign('google', claims);
+      expect((await signIn({ idToken: unsigned }).expect(400)).body.type).toBe(
+        'urn:suskii:problem:validation-failed',
+      );
+      const invented = await ctx.social.sign('google', { ...claims, nonce: 'client-chosen' });
+      await signIn({ idToken: invented, nonce: 'client-chosen' }).expect(401);
+
+      // The token must carry the nonce sent with it; a mismatch keeps the nonce for a retry.
+      const { idToken, nonce } = await token('google', claims);
+      const other = await ctx.http().post('/v1/auth/social/nonce').expect(200);
+      await signIn({ idToken, nonce: other.body.nonce }).expect(401);
+      await signIn({ idToken, nonce }).expect(200);
+
+      // A replayed token (stolen from logs or a proxy) finds its nonce used.
+      const replay = await signIn({ idToken, nonce }).expect(401);
+      expect(replay.body.type).toBe('urn:suskii:problem:invalid-token');
+    });
+
+    it('rejects tokens for another audience and tampered signatures', async () => {
+      const issued = await ctx.http().post('/v1/auth/social/nonce').expect(200);
+      const nonce = issued.body.nonce as string;
       const wrongAudience = await ctx.social.sign(
         'google',
-        { sub: 'x', email: 'x@gmail.com', email_verified: true },
+        { sub: 'x', email: 'x@gmail.com', email_verified: true, nonce },
         'someone-else',
       );
-      await ctx.http().post('/v1/auth/google').send({ idToken: wrongAudience }).expect(401);
-
-      const withNonce = await ctx.social.sign('google', { sub: 'y', nonce: 'expected-nonce' });
-      await ctx
-        .http()
-        .post('/v1/auth/google')
-        .send({ idToken: withNonce, nonce: 'other-nonce' })
-        .expect(401);
-      await ctx
-        .http()
-        .post('/v1/auth/google')
-        .send({ idToken: withNonce, nonce: 'expected-nonce' })
-        .expect(200);
+      await ctx.http().post('/v1/auth/google').send({ idToken: wrongAudience, nonce }).expect(401);
 
       // A Google token presented to the Apple endpoint fails signature and issuer checks.
-      await ctx.http().post('/v1/auth/apple').send({ idToken: withNonce }).expect(401);
-      const tampered = `${withNonce.slice(0, -4)}AAAA`;
-      await ctx.http().post('/v1/auth/google').send({ idToken: tampered }).expect(401);
+      const google = await token('google', { sub: 'y' });
+      await ctx.http().post('/v1/auth/apple').send(google).expect(401);
+      const tampered = `${google.idToken.slice(0, -4)}AAAA`;
+      await ctx
+        .http()
+        .post('/v1/auth/google')
+        .send({ idToken: tampered, nonce: google.nonce })
+        .expect(401);
+      // None of the failures used the nonce up.
+      await ctx.http().post('/v1/auth/google').send(google).expect(200);
     });
 
     it('accepts Apple tokens with a hashed nonce and string email_verified', async () => {
-      const { createHash } = await import('node:crypto');
-      const nonce = 'raw-apple-nonce';
-      const idToken = await ctx.social.sign('apple', {
+      const signed = await token('apple', {
         sub: 'apple-001',
         email: 'relay@privaterelay.appleid.com',
         email_verified: 'true',
-        nonce: createHash('sha256').update(nonce).digest('hex'),
       });
       const response = await ctx
         .http()
         .post('/v1/auth/apple')
-        .send({ idToken, nonce, displayName: 'Ade' })
+        .send({ ...signed, displayName: 'Ade' })
         .expect(200);
       expect(response.body.user).toMatchObject({
         email: 'relay@privaterelay.appleid.com',
@@ -204,24 +251,24 @@ describe('auth: phone OTP and social sign-in (e2e)', () => {
         .post('/v1/auth/email/verify')
         .send({ token: await emailToken(ctx, 'link@example.com', 'verify-email') })
         .expect(204);
-      const idToken = await ctx.social.sign('google', {
+      const linked = await token('google', {
         sub: 'google-link',
         email: 'link@example.com',
         email_verified: true,
       });
-      const response = await ctx.http().post('/v1/auth/google').send({ idToken }).expect(200);
+      const response = await ctx.http().post('/v1/auth/google').send(linked).expect(200);
       expect(response.body.user.hasPassword).toBe(true);
     });
 
     it('defeats account pre-hijacking: an unverified squatter loses the password and sessions', async () => {
       // The attacker registers the victim's email first but cannot verify it.
       const squatter = await signUp(ctx, 'victim@example.com', 'attacker chosen pass');
-      const idToken = await ctx.social.sign('google', {
+      const victimToken = await token('google', {
         sub: 'victim-google',
         email: 'victim@example.com',
         email_verified: true,
       });
-      const victim = await ctx.http().post('/v1/auth/google').send({ idToken }).expect(200);
+      const victim = await ctx.http().post('/v1/auth/google').send(victimToken).expect(200);
       expect(victim.body.user).toMatchObject({
         id: squatter.userId,
         hasPassword: false,
@@ -241,12 +288,12 @@ describe('auth: phone OTP and social sign-in (e2e)', () => {
 
     it('does not link on an unverified provider email', async () => {
       const existing = await signUp(ctx, 'unverified@example.com');
-      const idToken = await ctx.social.sign('google', {
+      const unverified = await token('google', {
         sub: 'g-unverified',
         email: 'unverified@example.com',
         email_verified: false,
       });
-      const response = await ctx.http().post('/v1/auth/google').send({ idToken }).expect(200);
+      const response = await ctx.http().post('/v1/auth/google').send(unverified).expect(200);
       expect(response.body.user.id).not.toBe(existing.userId);
       expect(response.body.user.email).toBeNull();
     });
@@ -254,8 +301,8 @@ describe('auth: phone OTP and social sign-in (e2e)', () => {
     it('answers 404 for a provider without configured client ids', async () => {
       const disabled = await createTestApp({ APPLE_CLIENT_IDS: [] });
       try {
-        const idToken = await disabled.social.sign('apple', { sub: 'a' });
-        const response = await disabled.http().post('/v1/auth/apple').send({ idToken }).expect(404);
+        const apple = await token('apple', { sub: 'a' }, disabled);
+        const response = await disabled.http().post('/v1/auth/apple').send(apple).expect(404);
         expect(response.body.type).toBe('urn:suskii:problem:social-provider-disabled');
       } finally {
         await disabled.close();

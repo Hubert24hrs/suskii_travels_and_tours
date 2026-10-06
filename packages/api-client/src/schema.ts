@@ -1531,6 +1531,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/social/nonce": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get a single-use nonce for Google or Apple sign-in
+         * @description Pass it to the provider (Apple: its SHA-256 hex digest) and send it back with the ID token within 10 minutes. Sign-in refuses tokens without an unused nonce from here.
+         */
+        post: operations["createSocialNonce"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings": {
         parameters: {
             query?: never;
@@ -5917,9 +5937,14 @@ export interface components {
                 label: string;
             }[];
         };
+        SocialNonce: {
+            nonce: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         SocialSignInRequestInput: {
             idToken: string;
-            nonce?: string;
+            nonce: string;
             displayName?: string;
             /**
              * @default token
@@ -9421,6 +9446,32 @@ export interface operations {
             400: components["responses"]["Problem400"];
             403: components["responses"]["Problem403"];
             422: components["responses"]["Problem422"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    createSocialNonce: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialNonce"];
+                };
+            };
+            400: components["responses"]["Problem400"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

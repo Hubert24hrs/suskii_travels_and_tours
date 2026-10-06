@@ -267,7 +267,7 @@ export class AuthService {
     provider: SocialProviderName,
     input: {
       idToken: string;
-      nonce?: string | undefined;
+      nonce: string;
       displayName?: string | undefined;
       referralCode?: string | undefined;
     },

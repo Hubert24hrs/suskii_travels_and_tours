@@ -15,7 +15,12 @@ import { OtpService } from './otp.service';
 import { PermissionsGuard } from './permissions.guard';
 import { ReauthService } from './reauth.service';
 import { SessionService } from './session.service';
-import { remoteKeyResolvers, SOCIAL_KEY_RESOLVERS, SocialIdentityVerifier } from './social.service';
+import {
+  remoteKeyResolvers,
+  SOCIAL_KEY_RESOLVERS,
+  SocialIdentityVerifier,
+  SocialNonces,
+} from './social.service';
 import { AccessTokenService } from './tokens/access-token.service';
 
 @Module({
@@ -34,6 +39,7 @@ import { AccessTokenService } from './tokens/access-token.service';
     ReauthService,
     SessionService,
     SocialIdentityVerifier,
+    SocialNonces,
     { provide: SOCIAL_KEY_RESOLVERS, useFactory: remoteKeyResolvers },
   ],
   exports: [

@@ -205,12 +205,23 @@ export const otpVerifyBodySchema = named(
   }),
 );
 
+export const socialNonceSchema = named(
+  'SocialNonce',
+  z.object({
+    nonce: z
+      .string()
+      .meta({ description: 'Pass to Google or Apple, then send back with the token.' }),
+    expiresAt: timestamp,
+  }),
+);
+
 export const socialSignInBodySchema = named(
   'SocialSignInRequest',
   z.object({
     idToken: z.string().min(1).max(8192),
-    nonce: z.string().min(1).max(256).optional().meta({
-      description: 'Raw nonce the client passed to the provider; checked against the token.',
+    nonce: z.string().min(1).max(256).meta({
+      description:
+        'The nonce from POST /v1/auth/social/nonce that the client passed to the provider (raw for Google, SHA-256 hex for Apple). Works once.',
     }),
     displayName: displayNameSchema
       .optional()

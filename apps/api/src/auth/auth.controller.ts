@@ -26,6 +26,7 @@ import {
   registerBodySchema,
   resetPasswordBodySchema,
   signInResultSchema,
+  socialNonceSchema,
   socialSignInBodySchema,
   tokenBodySchema,
 } from './auth.schemas';
@@ -37,6 +38,7 @@ import { csrfFailed, invalidToken } from './errors';
 import { MfaService } from './mfa.service';
 import { OTP_RESEND_SECONDS, OTP_TTL_SECONDS } from './otp.service';
 import { SessionService } from './session.service';
+import { SocialNonces } from './social.service';
 
 const TAGS = ['Auth'];
 type Accepted = z.infer<typeof acceptedSchema>;
@@ -50,6 +52,7 @@ export class AuthController {
     private readonly mfa: MfaService,
     private readonly csrf: CsrfService,
     private readonly audit: AuditService,
+    private readonly nonces: SocialNonces,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -245,6 +248,22 @@ export class AuthController {
       body.referralCode,
     );
     return presentSignIn(outcome, body.transport, response, this.config);
+  }
+
+  @Post('social/nonce')
+  @RateLimit(AUTH_LIMITS.social)
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'createSocialNonce',
+    summary: 'Get a single-use nonce for Google or Apple sign-in',
+    description:
+      'Pass it to the provider (Apple: its SHA-256 hex digest) and send it back with the ID token within 10 minutes. Sign-in refuses tokens without an unused nonce from here.',
+    tags: TAGS,
+    responses: { 200: socialNonceSchema },
+  })
+  async socialNonce(): Promise<z.infer<typeof socialNonceSchema>> {
+    const { nonce, expiresAt } = await this.nonces.issue();
+    return { nonce, expiresAt: expiresAt.toISOString() };
   }
 
   @Post('google')
