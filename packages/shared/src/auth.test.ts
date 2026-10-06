@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   emailSchema,
   loginRequestSchema,
+  normalisePasswordWords,
+  passwordGuessableBy,
   passwordSchema,
   phoneSchema,
   registerRequestSchema,
@@ -40,5 +42,36 @@ describe('auth schemas', () => {
       password: 'x',
       transport: 'token',
     });
+  });
+});
+
+describe('context-specific password words (ASVS V6.2.11)', () => {
+  it('undoes look-alike characters and drops everything but letters', () => {
+    expect(normalisePasswordWords('Susk11-Pr1me!')).toBe('suskiiprimei');
+    expect(normalisePasswordWords('$u5k!!')).toBe('suskii');
+  });
+
+  it('refuses passwords built on the brand, however they are written', () => {
+    for (const password of [
+      'suskii travels 2026',
+      'MySuskiiPrime',
+      'SUSK11rocks!!',
+      '$u5k!!tours',
+    ]) {
+      expect(passwordGuessableBy(password)).toBe('suskii');
+    }
+  });
+
+  it("refuses passwords built on the person's own details", () => {
+    expect(passwordGuessableBy('ngozi.okafor1990', ['ngozi.okafor'])).toBe('ngoziokafor');
+    expect(passwordGuessableBy('Amaka2026!!', ['Amaka Eze'])).toBeNull();
+    expect(passwordGuessableBy('Amaka2026!!', ['amaka'])).toBe('amaka');
+  });
+
+  it('ignores short account words and accepts ordinary passphrases', () => {
+    expect(
+      passwordGuessableBy('correct horse battery staple', ['ada', null, undefined]),
+    ).toBeNull();
+    expect(passwordGuessableBy('lagos to dubai in june')).toBeNull();
   });
 });

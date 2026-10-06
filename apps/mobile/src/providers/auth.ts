@@ -98,13 +98,18 @@ export function useAuth() {
       email: string,
       password: string,
       referralCode?: string,
-    ): Promise<'accepted' | 'invalid' | 'error'> => {
+    ): Promise<'accepted' | 'weak' | 'invalid' | 'error'> => {
       const attestation = await attestationHeader(api);
-      const { response } = await api.POST('/v1/auth/register', {
+      const { response, error } = await api.POST('/v1/auth/register', {
         params: attestation ? { header: { 'X-Suskii-Attestation': attestation } } : {},
         body: { email, password, ...(referralCode ? { referralCode } : {}) },
       });
-      return response.status === 202 ? 'accepted' : response.status < 500 ? 'invalid' : 'error';
+      if (response.status === 202) return 'accepted';
+      // Common, breached or built on the brand or the email (the API's password policy).
+      const type = (error as { type?: unknown } | undefined)?.type;
+      if (type === 'urn:suskii:problem:password-breached') return 'weak';
+      if (type === 'urn:suskii:problem:password-guessable') return 'weak';
+      return response.status < 500 ? 'invalid' : 'error';
     },
     [api],
   );

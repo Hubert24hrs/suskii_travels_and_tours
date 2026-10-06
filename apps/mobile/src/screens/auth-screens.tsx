@@ -264,7 +264,11 @@ export function RegisterScreen() {
           ? { text: t('mobile.auth.registered'), ok: true }
           : {
               text:
-                result === 'invalid' ? t('mobile.auth.registerInvalid') : t('mobile.auth.error'),
+                result === 'weak'
+                  ? t('auth.register.breached')
+                  : result === 'invalid'
+                    ? t('mobile.auth.registerInvalid')
+                    : t('mobile.auth.error'),
               ok: false,
             },
       );

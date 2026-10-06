@@ -81,6 +81,14 @@ export const passwordBreached = (): ProblemDetailsException =>
     'This password has appeared in a data breach. Use a unique password.',
   );
 
+export const passwordGuessable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'password-guessable',
+    'Choose a different password',
+    'This password contains our name or your own details. Use something only you would think of.',
+  );
+
 export const invalidOrExpiredLink = (): ProblemDetailsException =>
   new ProblemDetailsException(
     HttpStatus.BAD_REQUEST,

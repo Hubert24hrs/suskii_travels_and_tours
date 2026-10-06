@@ -45,13 +45,16 @@ export {
   type Role,
 } from './rbac';
 export {
+  PASSWORD_CONTEXT_WORDS,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   authTransportSchema,
   displayNameSchema,
   emailSchema,
   loginRequestSchema,
+  normalisePasswordWords,
   otpCodeSchema,
+  passwordGuessableBy,
   passwordSchema,
   phoneSchema,
   referralCodeInputSchema,

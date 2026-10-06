@@ -22,6 +22,7 @@
     "db:seed:demo": "tsx prisma/seed-demo.ts",
     "db:studio": "prisma studio",
     "openapi": "nest build && node dist/openapi/generate.js",
+    "passwords:build": "tsx scripts/build-common-passwords.ts",
     "data:build": "tsx scripts/build-reference-data.ts",
     "keys:generate": "tsx scripts/generate-secrets.ts",
     "airlines:sync": "tsx scripts/sync-airlines.ts"

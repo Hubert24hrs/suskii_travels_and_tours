@@ -43,6 +43,12 @@ export function problemSlug(error: unknown): string | null {
   return typeof type === 'string' ? type.replace(/^urn:suskii:problem:/, '') : null;
 }
 
+/** The API refuses a new password that is common, breached or built on the brand or account. */
+export const isRejectedPassword = (error: unknown): boolean => {
+  const slug = problemSlug(error);
+  return slug === 'password-breached' || slug === 'password-guessable';
+};
+
 /** A fresh key per logical write (booking, payment); retries of the same write reuse it. */
 export function idempotencyKey(): string {
   return crypto.randomUUID();

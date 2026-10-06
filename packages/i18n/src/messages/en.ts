@@ -1312,7 +1312,8 @@ export const en = {
       submit: 'Create account',
       toSignIn: 'Already have an account? Sign in',
       done: 'Check your email: we sent a link to confirm your address. Then sign in.',
-      breached: 'This password has appeared in a data breach. Choose a different one.',
+      breached:
+        'This password is too easy to guess: it is common, has appeared in a data breach or contains our name or your details. Choose a different one.',
       invalid: 'Check the highlighted fields.',
     },
     verifyEmail: {

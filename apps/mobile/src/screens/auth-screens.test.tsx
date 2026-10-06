@@ -117,6 +117,27 @@ describe('RegisterScreen', () => {
     });
   });
 
+  it('explains a password the API refuses as too easy to guess', async () => {
+    mockApi({
+      'POST /v1/auth/register': () =>
+        json(
+          {
+            type: 'urn:suskii:problem:password-guessable',
+            title: 'Choose a different password',
+            status: 422,
+          },
+          422,
+        ),
+    });
+    await renderWithApp(<RegisterScreen />);
+
+    await fireEvent.changeText(screen.getByTestId('register-email'), 'ada@example.com');
+    await fireEvent.changeText(screen.getByTestId('register-password'), 'suskii forever and ever');
+    await fireEvent.press(screen.getByTestId('register-submit'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(m.auth.register.breached);
+  });
+
   it('refuses a malformed invite code without calling the API', async () => {
     const { calls } = mockApi({});
     await renderWithApp(<RegisterScreen />);

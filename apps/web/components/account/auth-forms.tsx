@@ -4,7 +4,7 @@ import { Button, Card, Input } from '@suskii/ui-web';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { browserApi, problemSlug, type Schemas } from '../../lib/browser-api';
+import { browserApi, isRejectedPassword, problemSlug, type Schemas } from '../../lib/browser-api';
 import { rememberSession } from '../../lib/session';
 import { AppLink } from '../app-link';
 
@@ -287,7 +287,7 @@ export function RegisterForm({ referralCode }: { referralCode: string | null }) 
       if (response.ok) setDone(true);
       else
         setError(
-          problemSlug(problem) === 'password-breached'
+          isRejectedPassword(problem)
             ? t('auth.register.breached')
             : response.status === 400
               ? t('auth.register.invalid')
@@ -457,9 +457,7 @@ export function ResetPasswordForm() {
       body: { token, password },
     });
     setBusy(false);
-    setState(
-      response.ok ? 'done' : problemSlug(error) === 'password-breached' ? 'breached' : 'failed',
-    );
+    setState(response.ok ? 'done' : isRejectedPassword(error) ? 'breached' : 'failed');
   };
 
   if (state === 'done') {

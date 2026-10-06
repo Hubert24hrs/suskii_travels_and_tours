@@ -1,12 +1,14 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 
+import { passwordGuessableBy } from '@suskii/shared';
+
 import { AuditService } from '../audit/audit.service';
 import { BackgroundTasks } from '../common/background-tasks';
 import { ProblemDetailsException } from '../common/problem-details';
 import type { RequestContext } from '../common/request-context';
 import { APP_CONFIG, type AppConfig } from '../config/config';
-import { BreachedPasswordChecker } from '../crypto/breached-password';
 import { PasswordHasher } from '../crypto/password-hasher';
+import { PasswordPolicy } from '../crypto/password-policy';
 import { randomToken, sha256 } from '../crypto/random';
 import { Prisma, type AuthMethod, type VerificationPurpose } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
@@ -19,7 +21,12 @@ import {
 } from '../notifications/templates';
 
 import type { AuthUserDto } from './auth.schemas';
-import { invalidCredentials, invalidOrExpiredLink, invalidToken, passwordBreached } from './errors';
+import {
+  invalidCredentials,
+  invalidOrExpiredLink,
+  invalidToken,
+  passwordGuessable,
+} from './errors';
 import { LoginThrottleService } from './login-throttle.service';
 import { MfaService, type MfaChallenge, type MfaProof } from './mfa.service';
 import { OtpService } from './otp.service';
@@ -68,7 +75,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly hasher: PasswordHasher,
-    private readonly breached: BreachedPasswordChecker,
+    private readonly passwordPolicy: PasswordPolicy,
     private readonly sessions: SessionService,
     private readonly mfa: MfaService,
     private readonly otp: OtpService,
@@ -91,7 +98,10 @@ export class AuthService {
     },
     context: RequestContext,
   ): Promise<void> {
-    if (await this.breached.isBreached(input.password)) throw passwordBreached();
+    await this.passwordPolicy.check(input.password, {
+      email: input.email,
+      displayName: input.displayName,
+    });
     // Hash before looking the email up, so new and existing emails take the same time.
     const passwordHash = await this.hasher.hash(input.password);
     let user: { id: string; email: string | null } | null = null;
@@ -405,10 +415,23 @@ export class AuthService {
   }
 
   async resetPassword(token: string, password: string, context: RequestContext): Promise<void> {
-    if (await this.breached.isBreached(password)) throw passwordBreached();
+    await this.passwordPolicy.check(password);
     const passwordHash = await this.hasher.hash(password);
     const user = await this.prisma.$transaction(async (tx) => {
       const userId = await this.consumeVerificationToken(tx, token, 'password_reset');
+      // The account is known only now; refusing here rolls the token back, so the link still works.
+      const owner = await tx.user.findUnique({
+        where: { id: userId },
+        select: { email: true, displayName: true },
+      });
+      if (
+        passwordGuessableBy(password, [
+          owner?.email?.split('@')[0],
+          ...(owner?.displayName?.split(/\s+/) ?? []),
+        ])
+      ) {
+        throw passwordGuessable();
+      }
       // Following the emailed link proves control of the address.
       const updated = await tx.user.update({
         where: { id: userId },
@@ -443,7 +466,10 @@ export class AuthService {
       throw invalidCredentials();
     }
     await this.throttle.reset('password', identifier);
-    if (await this.breached.isBreached(input.newPassword)) throw passwordBreached();
+    await this.passwordPolicy.check(input.newPassword, {
+      email: user.email,
+      displayName: user.displayName,
+    });
     await this.prisma.user.update({
       where: { id: auth.userId },
       data: { passwordHash: await this.hasher.hash(input.newPassword) },

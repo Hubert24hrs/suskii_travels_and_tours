@@ -5,7 +5,7 @@ import { Badge, Button, Input } from '@suskii/ui-web';
 import { useEffect, useState, type FormEvent } from 'react';
 import { renderSVG } from 'uqr';
 
-import { browserApi, problemSlug, type Schemas } from '../../lib/browser-api';
+import { browserApi, isRejectedPassword, problemSlug, type Schemas } from '../../lib/browser-api';
 import { useHydrated } from '../../lib/use-hydrated';
 
 import { useAccountT } from './account-messages';
@@ -45,7 +45,7 @@ function PasswordForm() {
       setError(
         slug === 'invalid-credentials'
           ? t('account.security.password.wrong')
-          : slug === 'password-breached'
+          : isRejectedPassword(problem)
             ? t('auth.register.breached')
             : t('auth.signIn.errors.generic'),
       );

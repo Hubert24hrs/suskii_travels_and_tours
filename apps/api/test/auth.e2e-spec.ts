@@ -48,6 +48,21 @@ describe('auth: email and password (e2e)', () => {
         .send({ email: 'b@example.com', password: BREACHED_PASSWORD })
         .expect(422);
       expect(breached.body.type).toBe('urn:suskii:problem:password-breached');
+      // The bundled list applies even though HIBP (faked here) knows nothing about it.
+      const common = await ctx
+        .http()
+        .post('/v1/auth/register')
+        .send({ email: 'b@example.com', password: 'Qwertyuiop' })
+        .expect(422);
+      expect(common.body.type).toBe('urn:suskii:problem:password-breached');
+      for (const password of ['Susk11 Travels 2026', 'b.okafor.example.1990']) {
+        const guessable = await ctx
+          .http()
+          .post('/v1/auth/register')
+          .send({ email: 'b.okafor.example@example.com', password })
+          .expect(422);
+        expect(guessable.body.type).toBe('urn:suskii:problem:password-guessable');
+      }
     });
 
     it('verifies the email with the single-use emailed token', async () => {

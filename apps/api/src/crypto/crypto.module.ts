@@ -10,12 +10,14 @@ import {
 import { FieldEncryption, LocalKeyFieldEncryption } from './field-encryption';
 import { HmacService } from './hmac.service';
 import { PasswordHasher } from './password-hasher';
+import { PasswordPolicy } from './password-policy';
 
 @Global()
 @Module({
   providers: [
     HmacService,
     PasswordHasher,
+    PasswordPolicy,
     { provide: FieldEncryption, useClass: LocalKeyFieldEncryption },
     {
       provide: BreachedPasswordChecker,
@@ -26,6 +28,6 @@ import { PasswordHasher } from './password-hasher';
           : new DisabledBreachedPasswordChecker(),
     },
   ],
-  exports: [HmacService, PasswordHasher, FieldEncryption, BreachedPasswordChecker],
+  exports: [HmacService, PasswordHasher, PasswordPolicy, FieldEncryption, BreachedPasswordChecker],
 })
 export class CryptoModule {}
