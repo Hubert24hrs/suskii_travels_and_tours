@@ -3,7 +3,7 @@ import type { Request } from 'express';
 import type { z } from 'zod';
 
 import { CurrentAuth, type AuthContext } from '../auth/auth-context';
-import { AdminRoute, Public } from '../auth/decorators';
+import { AdminRoute, Public, StepUp } from '../auth/decorators';
 import { requestContext } from '../common/request-context';
 import { Contract } from '../contract/contract';
 
@@ -77,6 +77,7 @@ export class AdminPrimeController {
 
   @Post('plans')
   @AdminRoute('pricing:manage')
+  @StepUp()
   @Contract({
     operationId: 'adminCreatePrimePlan',
     audit: ['prime.plan_created'],
@@ -96,6 +97,7 @@ export class AdminPrimeController {
 
   @Patch('plans/:id')
   @AdminRoute('pricing:manage')
+  @StepUp()
   @Contract({
     operationId: 'adminUpdatePrimePlan',
     audit: ['prime.plan_updated'],

@@ -93,7 +93,7 @@ Gaps to close (requirement in brackets):
 - Sessions: a concurrent-session cap (oldest revoked, audited), staff idle and absolute lifetimes
   (`STAFF_SESSION_IDLE_MINUTES`, `STAFF_SESSION_MAX_HOURS`), step-up MFA within 10 minutes for
   role changes, refund approval, MFA reset, user disable, trust-signal verification and pricing
-  changes (`@AdminRoute(..., { stepUp: true })`, `POST /v1/auth/step-up`, console prompt), an
+  changes (`@AdminRoute(..., { stepUp: true })`, `POST /v1/me/mfa/step-up`, console prompt), an
   admin "sign out everywhere" action and a CLI to revoke every session in an incident.
 - Social sign-in: `POST /v1/auth/social/nonce` issues a single-use nonce (Redis, 10 minutes);
   sign-in requires and consumes it.

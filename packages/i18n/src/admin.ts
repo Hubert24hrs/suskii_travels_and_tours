@@ -58,6 +58,7 @@ export const adminMessages = {
     'validation-failed': 'Some fields are invalid.',
     forbidden: 'Your role does not allow this.',
     'mfa-required': 'Sign in again with your authenticator to continue.',
+    'step-up-required': 'Confirm with your authenticator code to make this change.',
     'authentication-required': 'Your session ended. Sign in again.',
     'csrf-failed': 'Your session ended. Sign in again.',
     'not-found': 'It no longer exists.',
@@ -127,6 +128,14 @@ export const adminMessages = {
     verify: 'Verify',
     signOut: 'Sign out',
     sessionEnded: 'Your session ended. Sign in again.',
+    stepUp: {
+      heading: 'Confirm it is you',
+      intro:
+        'This change needs a fresh code from your authenticator app. You will not be asked again for a few minutes.',
+      code: 'Code or recovery code',
+      submit: 'Confirm',
+      cancel: 'Cancel',
+    },
     errors: {
       invalid: 'The email or password is not right.',
       code: 'That code did not work. Try the next one.',
@@ -384,6 +393,11 @@ export const adminMessages = {
       resetMfaHint: 'Removes the authenticator and recovery codes; the user sets them up again.',
       confirmDisable: 'Disable this account and sign it out everywhere?',
       confirmReset: 'Remove this account’s authenticator?',
+      signOutEverywhere: 'Sign out everywhere',
+      signOutEverywhereHint:
+        'For a lost device or a suspected takeover: ends every session; the account stays active.',
+      confirmSignOut: 'Sign this account out on every device?',
+      signedOut: { one: 'Signed out of {count} device.', other: 'Signed out of {count} devices.' },
       done: 'Done.',
       mfaOn: 'On',
       mfaOff: 'Off',

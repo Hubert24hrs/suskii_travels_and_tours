@@ -21,6 +21,7 @@ import { createTestApp, resetState, type TestContext } from './helpers/test-app'
  * Only staff holding all the route's permissions, signed in with MFA, from the admin console
  * origin (cookie sessions) or with a bearer token, get past authentication and authorisation.
  * Sample parameters name nothing, so permitted calls answer 400 or 404 and change nothing.
+ * Step-up operations (ADR-037) also refuse a session whose last authenticator check is too old.
  */
 const OPERATIONS = adminOperations(committedOpenApi());
 const LIMITED_ROLES = STAFF_ROLES.filter((role) => role !== 'super_admin');
@@ -38,6 +39,7 @@ describe('admin route permission matrix (e2e)', () => {
   let customer: TokenSession;
   let withoutMfa: TokenSession;
   let admin: TokenSession;
+  let staleAdmin: TokenSession;
   let adminConsole: CookieSession;
   const limited = new Map<Role, TokenSession>();
 
@@ -49,6 +51,11 @@ describe('admin route permission matrix (e2e)', () => {
     withoutMfa = await staffWithoutMfa(ctx, 'matrix-no-mfa@example.com', ['super_admin']);
     admin = await staffSession(ctx, 'matrix-admin@example.com', ['super_admin']);
     adminConsole = await staffCookieSession(ctx, 'matrix-console@example.com', ['super_admin']);
+    staleAdmin = await staffSession(ctx, 'matrix-stale@example.com', ['super_admin']);
+    await ctx.prisma.session.update({
+      where: { id: staleAdmin.sessionId },
+      data: { mfaVerifiedAt: new Date(Date.now() - 60 * 60_000) },
+    });
     for (const role of LIMITED_ROLES) {
       limited.set(role, await staffSession(ctx, `matrix-${role}@example.com`, [role]));
     }
@@ -106,9 +113,14 @@ describe('admin route permission matrix (e2e)', () => {
       cookieWithoutOrigin: { status: 403, type: 'urn:suskii:problem:forbidden' },
     });
 
+    const stale = await call(bearer(staleAdmin.accessToken));
+    if (operation.stepUp) {
+      expect(stale).toEqual({ status: 403, type: 'urn:suskii:problem:step-up-required' });
+    }
     for (const allowed of [
       await call(bearer(admin.accessToken)),
       await call(viaCookie(adminConsole)),
+      ...(operation.stepUp ? [] : [stale]),
     ]) {
       expect([401, 403]).not.toContain(allowed.status);
       expect(allowed.status).toBeLessThan(500);

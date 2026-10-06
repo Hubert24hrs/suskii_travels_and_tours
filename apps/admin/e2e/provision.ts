@@ -170,7 +170,7 @@ async function waitForApplication(api: Api, root: string, reference: string): Pr
 export async function provision(
   apiUrl: string,
   root: { email: string; password: string },
-): Promise<StackState> {
+): Promise<Omit<StackState, 'databaseUrl'>> {
   const api = new Api(apiUrl);
   const rootToken = await rootSession(api, root.email, root.password);
 

@@ -1069,6 +1069,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{id}/sessions/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign an account out on every device
+         * @description For a lost device or a suspected takeover; the account stays active and can sign in again.
+         */
+        post: operations["adminRevokeUserSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/visa-applications": {
         parameters: {
             query?: never;
@@ -2525,6 +2545,26 @@ export interface paths {
         put?: never;
         /** Replace all recovery codes */
         post: operations["regenerateRecoveryCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/mfa/step-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the session with an authenticator or recovery code
+         * @description Step-up for the riskiest admin actions (`x-step-up`, ADR-037): they are allowed for STEP_UP_WINDOW_MINUTES after this call or an MFA sign-in.
+         */
+        post: operations["stepUpMfa"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5817,6 +5857,9 @@ export interface components {
             /** @default null */
             providerRefundId?: string | null;
         };
+        RevokedSessions: {
+            revoked: number;
+        };
         SaveCmsBlockRequestInput: {
             content: {
                 [key: string]: unknown;
@@ -5894,6 +5937,10 @@ export interface components {
             payInFull?: boolean;
             /** @default false */
             useWallet?: boolean;
+        };
+        StepUp: {
+            /** Format: date-time */
+            until: string;
         };
         SupplierOutcome: {
             supplier: string;
@@ -8566,6 +8613,38 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminRevokeUserSessions: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokedSessions"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminListVisaApplications: {
         parameters: {
             query?: {
@@ -11039,6 +11118,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryCodes"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    stepUpMfa: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaCodeRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StepUp"];
                 };
             };
             400: components["responses"]["Problem400"];

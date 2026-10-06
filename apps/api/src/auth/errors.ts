@@ -63,6 +63,14 @@ export const mfaRequired = (): ProblemDetailsException =>
     'Staff accounts must sign in with an authenticator app to use admin routes.',
   );
 
+export const stepUpRequired = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.FORBIDDEN,
+    'step-up-required',
+    'Confirm it is you',
+    'Enter a code from your authenticator app (POST /v1/auth/step-up), then repeat the request.',
+  );
+
 export const tooManyAttempts = (retryAfterSeconds: number): ProblemDetailsException =>
   new ProblemDetailsException(
     HttpStatus.TOO_MANY_REQUESTS,

@@ -131,6 +131,7 @@ describe('admin audit coverage (e2e)', () => {
     await audited('adminDisableUser', { id: target.userId }, none);
     await audited('adminEnableUser', { id: target.userId }, none);
     await audited('adminResetUserMfa', { id: target.userId }, none);
+    await audited('adminRevokeUserSessions', { id: target.userId }, none);
   });
 
   it('pricing: markup and fee rules', async () => {

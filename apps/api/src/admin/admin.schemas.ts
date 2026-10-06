@@ -72,3 +72,8 @@ export const adminUserPageSchema = named(
   'AdminUserPage',
   z.object({ items: z.array(adminUserSchema), nextCursor: z.uuid().nullable() }),
 );
+
+export const revokedSessionsSchema = named(
+  'RevokedSessions',
+  z.object({ revoked: z.number().int().min(0).meta({ description: 'Sessions ended.' }) }),
+);

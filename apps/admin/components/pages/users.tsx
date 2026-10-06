@@ -195,7 +195,7 @@ function RolesForm({ user }: { user: AdminUser }) {
 function AccountActions({ user }: { user: AdminUser }) {
   const { toast } = useToast();
   const invalidate = useInvalidateUsers();
-  const [openAction, setOpenAction] = useState<'disable' | 'reset' | null>(null);
+  const [openAction, setOpenAction] = useState<'disable' | 'reset' | 'sign-out' | null>(null);
   const done = async () => {
     setOpenAction(null);
     toast({ title: t('users.detail.done'), variant: 'success' });
@@ -204,6 +204,12 @@ function AccountActions({ user }: { user: AdminUser }) {
   const disable = $api.useMutation('post', '/v1/admin/users/{id}/disable', { onSuccess: done });
   const enable = $api.useMutation('post', '/v1/admin/users/{id}/enable', { onSuccess: done });
   const reset = $api.useMutation('post', '/v1/admin/users/{id}/mfa-reset', { onSuccess: done });
+  const signOut = $api.useMutation('post', '/v1/admin/users/{id}/sessions/revoke', {
+    onSuccess: ({ revoked }) => {
+      setOpenAction(null);
+      toast({ title: t('users.detail.signedOut', { count: revoked }), variant: 'success' });
+    },
+  });
   const path = { params: { path: { id: user.id } } };
   return (
     <div className="flex flex-col gap-3">
@@ -234,8 +240,20 @@ function AccountActions({ user }: { user: AdminUser }) {
             onOpenChange={(open) => setOpenAction(open ? 'reset' : null)}
           />
         ) : null}
+        {user.status === 'active' ? (
+          <ConfirmAction
+            triggerLabel={t('users.detail.signOutEverywhere')}
+            question={t('users.detail.confirmSignOut')}
+            onConfirm={() => signOut.mutate(path)}
+            pending={signOut.isPending}
+            error={signOut.error}
+            open={openAction === 'sign-out'}
+            onOpenChange={(open) => setOpenAction(open ? 'sign-out' : null)}
+          />
+        ) : null}
       </div>
       <p className="font-body text-caption text-muted">{t('users.detail.resetMfaHint')}</p>
+      <p className="font-body text-caption text-muted">{t('users.detail.signOutEverywhereHint')}</p>
       <ProblemAlert error={enable.error} />
     </div>
   );

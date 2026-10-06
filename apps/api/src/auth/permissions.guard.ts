@@ -8,20 +8,23 @@ import { requestContext } from '../common/request-context';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 
 import type { AuthenticatedRequest } from './auth-context';
-import { IS_ADMIN_ROUTE, REQUIRED_PERMISSIONS } from './decorators';
-import { authenticationRequired, forbidden, mfaRequired } from './errors';
+import { IS_ADMIN_ROUTE, REQUIRED_PERMISSIONS, STEP_UP } from './decorators';
+import { authenticationRequired, forbidden, mfaRequired, stepUpRequired } from './errors';
+import { SessionService } from './session.service';
 
 /**
  * RBAC: routes declare permissions with `@RequirePermissions()` / `@AdminRoute()`; roles map to
  * permissions through the code catalog in @suskii/shared. Admin routes additionally require a staff
  * role, an MFA-verified session, an allowlisted IP (when ADMIN_IP_ALLOWLIST is set) and, for
- * cookie sessions, the admin console's origin.
+ * cookie sessions, the admin console's origin. `@StepUp()` routes also need an authenticator check
+ * within STEP_UP_WINDOW_MINUTES (ADR-037).
  */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly audit: AuditService,
+    private readonly sessions: SessionService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -68,6 +71,8 @@ export class PermissionsGuard implements CanActivate {
       throw forbidden();
     }
     if (adminRoute && !auth.mfa) throw mfaRequired();
+    const stepUp = this.reflector.getAllAndOverride<boolean | undefined>(STEP_UP, targets) === true;
+    if (stepUp && !(await this.sessions.stepUpUntil(auth.sessionId))) throw stepUpRequired();
     return true;
   }
 

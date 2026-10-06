@@ -15,7 +15,7 @@ import type { Request } from 'express';
 import type { z } from 'zod';
 
 import { CurrentAuth, type AuthContext } from '../auth/auth-context';
-import { AdminRoute } from '../auth/decorators';
+import { AdminRoute, StepUp } from '../auth/decorators';
 import { Contract } from '../contract/contract';
 
 import {
@@ -182,6 +182,7 @@ export class AdminContentController {
   @Post('trust-signals/:key/verify')
   @HttpCode(HttpStatus.OK)
   @AdminRoute('trust-signals:verify')
+  @StepUp()
   @Contract({
     operationId: 'adminVerifyTrustSignal',
     summary: 'Verify a trust signal against its evidence',

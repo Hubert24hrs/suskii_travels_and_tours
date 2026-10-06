@@ -4,6 +4,7 @@ import { createTranslator } from '@suskii/i18n';
 import { adminMessages, type AdminMessages } from '@suskii/i18n/admin';
 
 import { readState, type PersonaKey, type StackState } from './personas';
+import { onDatabase } from './stack';
 import { totp } from './totp';
 
 /** The console catalog, so tests never hard-code copy. */
@@ -69,6 +70,22 @@ export async function signIn(page: Page, stack: StackState, key: PersonaKey): Pr
   await page.getByRole('button', { name: t('auth.verify') }).click();
   // The navigation is folded behind the menu button on narrow screens; sign-out never is.
   await expect(page.getByTestId('sign-out')).toBeVisible();
+}
+
+/**
+ * Makes the persona's sessions look as if their last authenticator check was an hour ago, so the
+ * next step-up action asks for a code, and forgets the last used TOTP step so the current code
+ * works (stands in for waiting).
+ */
+export async function expireStepUp(stack: StackState, key: PersonaKey): Promise<void> {
+  const userId = stack.personas[key].id;
+  await onDatabase(stack.databaseUrl, [
+    {
+      sql: "UPDATE sessions SET mfa_verified_at = now() - interval '1 hour' WHERE user_id = $1",
+      params: [userId],
+    },
+    { sql: 'UPDATE mfa_factors SET last_used_step = NULL WHERE user_id = $1', params: [userId] },
+  ]);
 }
 
 /** An alert with this text (Next's route announcer is an empty alert on every page). */

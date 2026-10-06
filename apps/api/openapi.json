@@ -2256,7 +2256,8 @@
         ],
         "x-audit": [
           "pricing.fee_created"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/pricing/fees/{id}": {
@@ -2332,7 +2333,8 @@
         ],
         "x-audit": [
           "pricing.fee_updated"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/pricing/markups": {
@@ -2452,7 +2454,8 @@
         ],
         "x-audit": [
           "pricing.markup_created"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/pricing/markups/{id}": {
@@ -2528,7 +2531,8 @@
         ],
         "x-audit": [
           "pricing.markup_updated"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/prime/plans": {
@@ -2632,7 +2636,8 @@
         ],
         "x-audit": [
           "prime.plan_created"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/prime/plans/{id}": {
@@ -2708,7 +2713,8 @@
         ],
         "x-audit": [
           "prime.plan_updated"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/promos": {
@@ -3263,7 +3269,8 @@
         ],
         "x-audit": [
           "refund.approved"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/refunds/{refundId}/reject": {
@@ -3420,7 +3427,8 @@
         ],
         "x-audit": [
           "refund.resolved"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/tour-departures/{id}": {
@@ -3975,7 +3983,8 @@
         ],
         "x-audit": [
           "trust_signal.verified"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/users": {
@@ -4192,7 +4201,8 @@
         ],
         "x-audit": [
           "user.disabled"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/users/{id}/enable": {
@@ -4329,7 +4339,8 @@
         ],
         "x-audit": [
           "user.mfa_reset"
-        ]
+        ],
+        "x-step-up": true
       }
     },
     "/v1/admin/users/{id}/roles": {
@@ -4408,6 +4419,76 @@
         ],
         "x-audit": [
           "rbac.roles.changed"
+        ],
+        "x-step-up": true
+      }
+    },
+    "/v1/admin/users/{id}/sessions/revoke": {
+      "post": {
+        "operationId": "adminRevokeUserSessions",
+        "summary": "Sign an account out on every device",
+        "description": "For a lost device or a suspected takeover; the account stays active and can sign in again.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedSessions"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "users:manage"
+        ],
+        "x-audit": [
+          "user.sessions_revoked"
         ]
       }
     },
@@ -9500,6 +9581,61 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RecoveryCodes"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/mfa/step-up": {
+      "post": {
+        "operationId": "stepUpMfa",
+        "summary": "Confirm the session with an authenticator or recovery code",
+        "description": "Step-up for the riskiest admin actions (`x-step-up`, ADR-037): they are allowed for STEP_UP_WINDOW_MINUTES after this call or an MFA sign-in.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCodeRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepUp"
                 }
               }
             }
@@ -25174,6 +25310,20 @@
           "outcome"
         ]
       },
+      "RevokedSessions": {
+        "type": "object",
+        "properties": {
+          "revoked": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "additionalProperties": false
+      },
       "SaveCmsBlockRequestInput": {
         "type": "object",
         "properties": {
@@ -25522,6 +25672,19 @@
             "type": "boolean"
           }
         }
+      },
+      "StepUp": {
+        "type": "object",
+        "properties": {
+          "until": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "until"
+        ],
+        "additionalProperties": false
       },
       "SupplierOutcome": {
         "type": "object",

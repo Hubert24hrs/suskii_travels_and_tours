@@ -32,6 +32,7 @@ import {
   recoveryCodesSchema,
   sessionIdParamsSchema,
   sessionListSchema,
+  stepUpSchema,
   totpConfirmBodySchema,
   totpSetupSchema,
   updateProfileBodySchema,
@@ -297,6 +298,39 @@ export class MeController {
     );
     await this.sessions.markMfaVerified(auth.sessionId);
     return { recoveryCodes };
+  }
+
+  @Post('mfa/step-up')
+  @RateLimit(AUTH_LIMITS.mfa)
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'stepUpMfa',
+    summary: 'Confirm the session with an authenticator or recovery code',
+    description:
+      'Step-up for the riskiest admin actions (`x-step-up`, ADR-037): they are allowed for STEP_UP_WINDOW_MINUTES after this call or an MFA sign-in.',
+    tags: TAGS,
+    body: codeBodySchema,
+    responses: { 200: stepUpSchema },
+    errors: [401],
+  })
+  async stepUp(
+    @CurrentAuth() auth: AuthContext,
+    @Body() body: z.infer<typeof codeBodySchema>,
+    @Req() request: Request,
+  ): Promise<z.infer<typeof stepUpSchema>> {
+    const context = requestContext(request);
+    await this.mfa.verifyProof(auth.userId, toProof(body), context);
+    await this.sessions.markMfaVerified(auth.sessionId);
+    await this.audit.record({
+      action: 'auth.step_up.succeeded',
+      actorUserId: auth.userId,
+      targetType: 'session',
+      targetId: auth.sessionId,
+      context,
+      metadata: { method: body.code !== undefined ? 'totp' : 'recovery_code' },
+    });
+    const until = await this.sessions.stepUpUntil(auth.sessionId);
+    return { until: (until ?? new Date()).toISOString() };
   }
 
   @Post('mfa/totp/disable')

@@ -177,4 +177,22 @@ export class AdminUsersService {
     await this.sessions.revokeAllForUser(id, 'mfa_reset');
     return this.present(updated);
   }
+
+  /** Ends every session of the account (lost device, suspected takeover); audited with the count. */
+  async revokeSessions(id: string, staff: StaffActor): Promise<{ revoked: number }> {
+    if (id === staff.userId)
+      throw conflict('cannot-change-own-account', 'You cannot change your own account');
+    const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!user) throw new NotFoundException();
+    const revoked = await this.sessions.revokeAllForUser(id, 'staff_revoked');
+    await this.audit.record({
+      action: 'user.sessions_revoked',
+      actorUserId: staff.userId,
+      targetType: 'user',
+      targetId: id,
+      context: staff.context,
+      metadata: { revoked },
+    });
+    return { revoked };
+  }
 }

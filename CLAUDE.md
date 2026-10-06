@@ -385,6 +385,13 @@ Tooling notes for agents:
   `admin-audit.e2e-spec.ts` fails until a new mutation has a case there.
 - Cookie-authenticated admin calls must come from an `ADMIN_ORIGINS` origin (every method);
   bearer tokens are not origin-checked but still need staff, MFA and the permission.
+- The riskiest admin mutations (roles, disable, MFA reset, refund approval, trust-signal verify,
+  markups, fees, Prime plans) also carry `@StepUp()`: an authenticator check within
+  `STEP_UP_WINDOW_MINUTES` (sign-in or `POST /v1/me/mfa/step-up`), else 403 `step-up-required`.
+  The console's API client prompts and repeats the write itself (ADR-037).
+- Staff sessions are short (`STAFF_SESSION_*`) and every account has a device cap; end sessions
+  only through `SessionService` or `revokeSessionsWhere` (Redis denylist included), and in an
+  incident with `pnpm --filter @suskii/api sessions:revoke`.
 - Admin edits validate the merged record with the public schema (`checkMerged`), record
   `fieldChanges()` in the audit metadata (names only for free text), and deactivate or
   unpublish rather than delete where history matters. Editing a verified trust signal clears its

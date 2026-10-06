@@ -13,7 +13,7 @@ import type { Request } from 'express';
 import type { z } from 'zod';
 
 import { CurrentAuth, type AuthContext } from '../auth/auth-context';
-import { AdminRoute } from '../auth/decorators';
+import { AdminRoute, StepUp } from '../auth/decorators';
 import { requestContext } from '../common/request-context';
 import { Contract } from '../contract/contract';
 
@@ -103,6 +103,7 @@ export class AdminRefundsController {
   @Post('refunds/:refundId/approve')
   @HttpCode(HttpStatus.OK)
   @AdminRoute('refunds:approve')
+  @StepUp()
   @Contract({
     operationId: 'adminApproveRefund',
     audit: ['refund.approved'],
@@ -146,6 +147,7 @@ export class AdminRefundsController {
   @Post('refunds/:refundId/resolve')
   @HttpCode(HttpStatus.OK)
   @AdminRoute('refunds:approve')
+  @StepUp()
   @Contract({
     operationId: 'adminResolveRefund',
     audit: ['refund.resolved'],

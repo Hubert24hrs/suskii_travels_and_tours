@@ -5,6 +5,7 @@ import type { Permission } from '@suskii/shared';
 export const IS_PUBLIC = 'suskii:is-public';
 export const REQUIRED_PERMISSIONS = 'suskii:required-permissions';
 export const IS_ADMIN_ROUTE = 'suskii:is-admin-route';
+export const STEP_UP = 'suskii:step-up';
 
 /** Opts a controller or route out of the global deny-by-default authentication guard. */
 export const Public = (): MethodDecorator & ClassDecorator => SetMetadata(IS_PUBLIC, true);
@@ -20,3 +21,10 @@ export const RequirePermissions = (
  */
 export const AdminRoute = (...permissions: Permission[]): MethodDecorator & ClassDecorator =>
   applyDecorators(SetMetadata(IS_ADMIN_ROUTE, true), RequirePermissions(...permissions));
+
+/**
+ * The riskiest admin actions (ADR-037): on top of `@AdminRoute`, the session must have passed an
+ * authenticator check in the last STEP_UP_WINDOW_MINUTES (at sign-in or `POST /v1/auth/step-up`);
+ * otherwise the route answers 403 `step-up-required`. Published as `x-step-up`.
+ */
+export const StepUp = (): MethodDecorator => SetMetadata(STEP_UP, true);

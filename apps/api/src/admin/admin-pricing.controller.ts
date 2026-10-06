@@ -3,7 +3,7 @@ import type { Request } from 'express';
 import type { z } from 'zod';
 
 import { CurrentAuth, type AuthContext } from '../auth/auth-context';
-import { AdminRoute } from '../auth/decorators';
+import { AdminRoute, StepUp } from '../auth/decorators';
 import { Contract } from '../contract/contract';
 
 import { staffActor } from './admin-helpers';
@@ -46,6 +46,7 @@ export class AdminPricingController {
 
   @Post('markups')
   @AdminRoute('pricing:manage')
+  @StepUp()
   @Contract({
     operationId: 'adminCreateMarkupRule',
     summary: 'Add a markup rule',
@@ -66,6 +67,7 @@ export class AdminPricingController {
 
   @Patch('markups/:id')
   @AdminRoute('pricing:manage')
+  @StepUp()
   @Contract({
     operationId: 'adminUpdateMarkupRule',
     summary: 'Change or deactivate a markup rule',
@@ -104,6 +106,7 @@ export class AdminPricingController {
 
   @Post('fees')
   @AdminRoute('pricing:manage')
+  @StepUp()
   @Contract({
     operationId: 'adminCreateFeeRule',
     summary: 'Add a customer-visible fee',
@@ -124,6 +127,7 @@ export class AdminPricingController {
 
   @Patch('fees/:id')
   @AdminRoute('pricing:manage')
+  @StepUp()
   @Contract({
     operationId: 'adminUpdateFeeRule',
     summary: 'Change or deactivate a fee',

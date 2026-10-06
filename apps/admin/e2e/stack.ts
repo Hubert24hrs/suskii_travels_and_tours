@@ -82,8 +82,26 @@ function stopProcess(child: ChildProcess): Promise<void> {
 
 interface PgClient {
   connect: () => Promise<void>;
-  query: (sql: string) => Promise<unknown>;
+  query: (sql: string, params?: unknown[]) => Promise<unknown>;
   end: () => Promise<void>;
+}
+
+/** Runs parameterised statements on the run's database (pg from the API's dependencies). */
+export async function onDatabase(
+  databaseUrl: string,
+  statements: { sql: string; params: unknown[] }[],
+): Promise<void> {
+  const apiRequire = createRequire(join(API_DIR, 'package.json'));
+  const { Client } = apiRequire('pg') as {
+    Client: new (config: { connectionString: string }) => PgClient;
+  };
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    for (const { sql, params } of statements) await client.query(sql, params);
+  } finally {
+    await client.end();
+  }
 }
 
 /** Runs one statement on the server's maintenance database (pg from the API's dependencies). */
@@ -219,7 +237,7 @@ export async function startStack(): Promise<Stack> {
     await waitFor(`${API_URL}/ready`, api, 'api');
 
     const state = await provision(API_URL, root);
-    writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+    writeFileSync(STATE_FILE, JSON.stringify({ ...state, databaseUrl }, null, 2));
 
     const admin = start(
       'admin',

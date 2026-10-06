@@ -12,6 +12,7 @@ import { NAV_ITEMS, visibleNav } from '../lib/permissions';
 
 import { AuthLayout, MfaEnrolment, NotStaff } from './auth';
 import { useStaffSession } from './staff-session';
+import { StepUpPrompt } from './step-up-prompt';
 
 const isActive = (pathname: string, href: string): boolean =>
   href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
@@ -78,6 +79,7 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
       >
         {t('common.skipToContent')}
       </a>
+      <StepUpPrompt />
       <header className="border-b border-border bg-surface">
         <div className="flex items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-2">

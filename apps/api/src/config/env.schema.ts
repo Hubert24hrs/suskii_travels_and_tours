@@ -49,6 +49,17 @@ export const envSchema = z
     JWT_AUDIENCE: z.string().min(1).default('suskii'),
     ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(600).max(900).default(900),
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+    /** Signed-in devices per account; a new sign-in beyond it ends the least recently used one. */
+    MAX_ACTIVE_SESSIONS: z.coerce.number().int().min(1).max(50).default(10),
+    /**
+     * Staff accounts (any role besides customer, ADR-037): fewer devices, an idle timeout instead
+     * of REFRESH_TOKEN_TTL_DAYS and an absolute lifetime of hours, not days.
+     */
+    STAFF_MAX_ACTIVE_SESSIONS: z.coerce.number().int().min(1).max(10).default(3),
+    STAFF_SESSION_IDLE_MINUTES: z.coerce.number().int().min(5).max(240).default(30),
+    STAFF_SESSION_MAX_HOURS: z.coerce.number().int().min(1).max(24).default(12),
+    /** How long an authenticator code counts for step-up admin actions (role changes, refunds). */
+    STEP_UP_WINDOW_MINUTES: z.coerce.number().int().min(1).max(30).default(10),
 
     /** 32-byte key (base64) for field-level encryption until the KMS adapter lands (phase 12). */
     FIELD_ENCRYPTION_KEY: z

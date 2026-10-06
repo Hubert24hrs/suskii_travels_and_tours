@@ -31,6 +31,10 @@ export const PERSONAS = {
   axe: { roles: ['super_admin'], enrolled: true },
   /** Uses the console at phone width. */
   phone: { roles: ['support'], enrolled: true },
+  /** Signs the target out everywhere, then disables it after a fresh authenticator code. */
+  stepUp: { roles: ['super_admin'], enrolled: true },
+  /** A customer the step-up persona signs out and disables. */
+  target: { roles: [], enrolled: false },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
@@ -51,6 +55,8 @@ export interface StackState {
   visa: { bookingId: string; applicationId: string };
   /** The tour whose public price the markup test watches. */
   tourSlug: string;
+  /** The run's own database, for the few states a browser cannot reach (an aged session). */
+  databaseUrl: string;
 }
 
 export const STATE_FILE = resolve(__dirname, '../test-results/stack/state.json');

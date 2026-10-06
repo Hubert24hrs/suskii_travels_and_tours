@@ -3,15 +3,22 @@ import { createApiClient, createApiHooks, type ApiClient, type Schemas } from '@
 import { publicEnv } from './env';
 import { label, t } from './i18n';
 import { csrfToken, ensureFreshSession, expireSession, SESSION_EVENT } from './session';
+import { isStepUpRequired, requestStepUp } from './step-up';
 
 export type { Schemas };
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+/** Routes where a 401 means a mistyped code, not an ended session. */
+const CODE_ROUTES = new Set(['/v1/me/mfa/step-up']);
+
+/** Copies of writes in flight, kept so a write refused for step-up can be sent again. */
+const replayable = new Map<string, Request>();
 
 /**
  * The API from the console: typed routes and the API's session cookies. Every request first
- * refreshes an expiring session and every write carries the CSRF token; a 401 for a live session
- * asks the staff gate to check the session again. Client components only.
+ * refreshes an expiring session and every write carries the CSRF token; a write refused with
+ * `step-up-required` asks for an authenticator code and is sent once more (ADR-037); a 401 for a
+ * live session asks the staff gate to check the session again. Client components only.
  */
 export const adminApi: ApiClient = createApiClient({
   baseUrl: publicEnv.apiBaseUrl,
@@ -19,19 +26,40 @@ export const adminApi: ApiClient = createApiClient({
 });
 
 adminApi.use({
-  async onRequest({ request, schemaPath }) {
+  async onRequest({ request, schemaPath, id }) {
     // Sign-in and refresh routes manage the session themselves.
     if (!schemaPath.startsWith('/v1/auth/')) await ensureFreshSession();
     const csrf = csrfToken();
-    if (csrf && !SAFE_METHODS.has(request.method)) request.headers.set('X-CSRF-Token', csrf);
+    if (!SAFE_METHODS.has(request.method)) {
+      if (csrf) request.headers.set('X-CSRF-Token', csrf);
+      replayable.set(id, request.clone());
+    }
     return request;
   },
-  onResponse({ response, schemaPath }) {
-    if (response.status === 401 && !schemaPath.startsWith('/v1/auth/')) {
+  async onResponse({ response, schemaPath, id }) {
+    const original = replayable.get(id);
+    replayable.delete(id);
+    let result = response;
+    if (original && (await isStepUpRequired(response)) && (await requestStepUp())) {
+      // The prompt may have stayed open past the access cookie's lifetime.
+      await ensureFreshSession();
+      const retry = new Request(original);
+      const csrf = csrfToken();
+      if (csrf) retry.headers.set('X-CSRF-Token', csrf);
+      result = await fetch(retry);
+    }
+    if (
+      result.status === 401 &&
+      !schemaPath.startsWith('/v1/auth/') &&
+      !CODE_ROUTES.has(schemaPath)
+    ) {
       expireSession();
       window.dispatchEvent(new Event(SESSION_EVENT));
     }
-    return response;
+    return result;
+  },
+  onError({ id }) {
+    replayable.delete(id);
   },
 });
 

@@ -135,6 +135,13 @@ export const totpSetupSchema = named(
   }),
 );
 
+export const stepUpSchema = named(
+  'StepUp',
+  z.object({
+    until: timestamp.meta({ description: 'Step-up admin actions are allowed until this time.' }),
+  }),
+);
+
 export const recoveryCodesSchema = named(
   'RecoveryCodes',
   z.object({

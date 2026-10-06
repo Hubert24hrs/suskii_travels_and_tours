@@ -44,7 +44,12 @@ async function staffSignIn(
   email: string,
   roles: Role[],
   transport: 'token' | 'cookie',
-): Promise<{ userId: string; body: Record<string, unknown>; setCookie: string[] }> {
+): Promise<{
+  userId: string;
+  secret: string;
+  body: Record<string, unknown>;
+  setCookie: string[];
+}> {
   const initial = await signUp(ctx, email);
   await grantRoles(ctx, initial.userId, roles);
   const { secret } = await enrolTotp(ctx, initial.accessToken);
@@ -61,20 +66,22 @@ async function staffSignIn(
   const header = verified.headers['set-cookie'] as string[] | string | undefined;
   return {
     userId: initial.userId,
+    secret,
     body: verified.body as Record<string, unknown>,
     setCookie: header === undefined ? [] : Array.isArray(header) ? header : [header],
   };
 }
 
-/** A staff member who completed MFA at sign-in, with bearer tokens. */
+/** A staff member who completed MFA at sign-in, with bearer tokens and the TOTP secret. */
 export async function staffSession(
   ctx: TestContext,
   email: string,
   roles: Role[],
-): Promise<TokenSession> {
-  const { userId, body } = await staffSignIn(ctx, email, roles, 'token');
+): Promise<TokenSession & { secret: string }> {
+  const { userId, secret, body } = await staffSignIn(ctx, email, roles, 'token');
   return {
     userId,
+    secret,
     sessionId: body.sessionId as string,
     accessToken: body.accessToken as string,
     refreshToken: body.refreshToken as string,
@@ -126,6 +133,8 @@ export interface AdminOperation {
   operationId: string;
   permissions: Permission[];
   audit: string[];
+  /** Needs an authenticator check within STEP_UP_WINDOW_MINUTES (`x-step-up`, ADR-037). */
+  stepUp: boolean;
   /** A request path with sample parameters that name nothing (404) or stay invalid (400). */
   samplePath: string;
 }
@@ -140,6 +149,7 @@ interface OperationObject {
   parameters?: (ParameterObject | { $ref: string })[];
   'x-admin-permissions'?: Permission[];
   'x-audit'?: string[];
+  'x-step-up'?: boolean;
 }
 export interface OpenApiDocument {
   paths: Record<string, Partial<Record<HttpMethod, OperationObject>>>;
@@ -178,6 +188,7 @@ export function adminOperations(doc: OpenApiDocument): AdminOperation[] {
         operationId: operation.operationId,
         permissions: operation['x-admin-permissions'] ?? [],
         audit: operation['x-audit'] ?? [],
+        stepUp: operation['x-step-up'] === true,
         samplePath,
       });
     }

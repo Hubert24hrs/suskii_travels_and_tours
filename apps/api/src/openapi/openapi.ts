@@ -3,7 +3,7 @@ import { METHOD_METADATA, PATH_METADATA, VERSION_METADATA } from '@nestjs/common
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { z } from 'zod';
 
-import { IS_ADMIN_ROUTE, IS_PUBLIC, REQUIRED_PERMISSIONS } from '../auth/decorators';
+import { IS_ADMIN_ROUTE, IS_PUBLIC, REQUIRED_PERMISSIONS, STEP_UP } from '../auth/decorators';
 import { CONTRACT, fileResponses, schemaRegistry, type RouteContract } from '../contract/contract';
 import { IS_INTERNAL } from '../internal/internal-route';
 
@@ -45,6 +45,8 @@ export interface OperationObject {
   'x-admin-permissions'?: string[];
   /** Admin mutations: the audit actions the route may record (ADR-034). */
   'x-audit'?: string[];
+  /** Admin routes that need a recent authenticator check (`@StepUp()`, ADR-037). */
+  'x-step-up'?: true;
 }
 
 export interface OpenApiDocument {
@@ -283,8 +285,9 @@ function adminMetadata(
   path: string,
   method: string,
   contract: RouteContract,
-): Pick<OperationObject, 'x-admin-permissions' | 'x-audit'> {
+): Pick<OperationObject, 'x-admin-permissions' | 'x-audit' | 'x-step-up'> {
   const admin = reflector.getAllAndOverride<boolean | undefined>(IS_ADMIN_ROUTE, targets) === true;
+  const stepUp = reflector.getAllAndOverride<boolean | undefined>(STEP_UP, targets) === true;
   const permissions = [
     ...new Set<string>(
       targets.flatMap(
@@ -298,6 +301,8 @@ function adminMetadata(
       `${method.toUpperCase()} ${path} is under /v1/admin without @AdminRoute permissions`,
     );
   }
+  if (stepUp && !admin)
+    throw new Error(`${method.toUpperCase()} ${path} uses @StepUp() without @AdminRoute`);
   if (!admin) return {};
   if (!underAdmin)
     throw new Error(`${method.toUpperCase()} ${path} uses @AdminRoute outside /v1/admin`);
@@ -310,6 +315,7 @@ function adminMetadata(
   return {
     'x-admin-permissions': permissions.sort(),
     ...(mutation ? { 'x-audit': [...(contract.audit ?? [])] } : {}),
+    ...(stepUp ? { 'x-step-up': true as const } : {}),
   };
 }
 

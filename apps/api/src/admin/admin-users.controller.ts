@@ -14,7 +14,7 @@ import type { Request } from 'express';
 import type { z } from 'zod';
 
 import { CurrentAuth, type AuthContext } from '../auth/auth-context';
-import { AdminRoute } from '../auth/decorators';
+import { AdminRoute, StepUp } from '../auth/decorators';
 import { Contract } from '../contract/contract';
 
 import { staffActor } from './admin-helpers';
@@ -23,6 +23,7 @@ import {
   adminUserPageSchema,
   adminUserQuerySchema,
   adminUserSchema,
+  revokedSessionsSchema,
   setRolesBodySchema,
   userIdParamsSchema,
 } from './admin.schemas';
@@ -66,6 +67,7 @@ export class AdminUsersController {
 
   @Put(':id/roles')
   @AdminRoute('roles:manage')
+  @StepUp()
   @Contract({
     operationId: 'adminSetUserRoles',
     audit: ['rbac.roles.changed'],
@@ -89,6 +91,7 @@ export class AdminUsersController {
   @Post(':id/disable')
   @HttpCode(HttpStatus.OK)
   @AdminRoute('users:manage')
+  @StepUp()
   @Contract({
     operationId: 'adminDisableUser',
     summary: 'Disable an account and sign it out everywhere',
@@ -129,6 +132,7 @@ export class AdminUsersController {
   @Post(':id/mfa-reset')
   @HttpCode(HttpStatus.OK)
   @AdminRoute('users:manage')
+  @StepUp()
   @Contract({
     operationId: 'adminResetUserMfa',
     summary: "Remove an account's authenticator so the user enrols again",
@@ -145,5 +149,27 @@ export class AdminUsersController {
     @Req() request: Request,
   ): Promise<AdminUser> {
     return this.users.resetMfa(id, staffActor(auth, request));
+  }
+
+  @Post(':id/sessions/revoke')
+  @HttpCode(HttpStatus.OK)
+  @AdminRoute('users:manage')
+  @Contract({
+    operationId: 'adminRevokeUserSessions',
+    summary: 'Sign an account out on every device',
+    description:
+      'For a lost device or a suspected takeover; the account stays active and can sign in again.',
+    tags: TAGS,
+    params: userIdParamsSchema,
+    responses: { 200: revokedSessionsSchema },
+    errors: [403, 404, 409],
+    audit: ['user.sessions_revoked'],
+  })
+  revokeSessions(
+    @CurrentAuth() auth: AuthContext,
+    @Param('id') id: string,
+    @Req() request: Request,
+  ): Promise<z.infer<typeof revokedSessionsSchema>> {
+    return this.users.revokeSessions(id, staffActor(auth, request));
   }
 }
