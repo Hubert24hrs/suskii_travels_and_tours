@@ -13,12 +13,17 @@
     "clean": "rimraf .next .turbo"
   },
   "dependencies": {
+    "@suskii/api-client": "workspace:*",
     "@suskii/design-tokens": "workspace:*",
+    "@suskii/i18n": "workspace:*",
     "@suskii/shared": "workspace:*",
     "@suskii/ui-web": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "lucide-react": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "uqr": "catalog:"
   },
   "devDependencies": {
     "@suskii/config": "workspace:*",

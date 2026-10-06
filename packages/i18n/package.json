@@ -8,6 +8,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./admin": "./src/admin.ts",
     "./react": "./src/react.tsx",
     "./package.json": "./package.json"
   },
