@@ -3,6 +3,18 @@ import './zod-setup';
 
 export { BRAND, NEWSLETTER_CONSENT_VERSION } from './brand';
 export {
+  COOKIE_CONSENT_COOKIE,
+  COOKIE_CONSENT_MAX_AGE_DAYS,
+  COOKIE_POLICY_VERSION,
+  NO_OPTIONAL_COOKIES,
+  OPTIONAL_COOKIE_CATEGORIES,
+  formatCookieConsent,
+  parseCookieConsent,
+  type CookieChoices,
+  type CookieConsent,
+  type OptionalCookieCategory,
+} from './cookie-consent';
+export {
   DEFAULT_CURRENCY,
   SUPPORTED_CURRENCIES,
   currencyCodeSchema,

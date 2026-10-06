@@ -24,6 +24,7 @@ export const RETENTION_RULES = [
   'notifications',
   'search-logs',
   'newsletter-pending',
+  'cookie-consents',
   'closed-bookings',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
@@ -48,6 +49,8 @@ export const RETENTION_DAYS = {
   'search-logs': 400,
   /** Newsletter sign-ups whose confirmation link was never used. */
   'newsletter-pending': 30,
+  /** Cookie choices: a year in force plus a year to answer questions about them (ADR-042). */
+  'cookie-consents': 730,
 } as const satisfies Record<Exclude<RetentionRule, 'closed-bookings'>, number>;
 
 /** Bookings that will not change again: their money is settled and nothing is due. */
@@ -137,6 +140,11 @@ export class RetentionService {
       'newsletter-pending': counts(
         await this.prisma.newsletterSubscription.deleteMany({
           where: { status: 'pending', createdAt: { lt: before('newsletter-pending') } },
+        }),
+      ),
+      'cookie-consents': counts(
+        await this.prisma.cookieConsent.deleteMany({
+          where: { createdAt: { lt: before('cookie-consents') } },
         }),
       ),
       'closed-bookings': await this.anonymiseClosedBookings(now),

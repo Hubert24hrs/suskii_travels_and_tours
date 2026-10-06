@@ -63,6 +63,58 @@ export const en = {
     emailUs: 'Email {email}',
     copyright: '© {year} {name}',
     locales: { 'en-NG': 'English (Nigeria)', 'en-GB': 'English (UK)', 'en-US': 'English (US)' },
+    cookieSettings: 'Cookie settings',
+  },
+  cookies: {
+    title: 'Cookie settings',
+    intro:
+      'These are the cookies and browser storage this site uses. Strictly necessary ones keep the site working and secure, so they are always on. Optional ones stay off unless you turn them on here.',
+    close: 'Close',
+    alwaysOn: 'Always on',
+    notInUse: 'Not in use today. If we add any, they only run once you turn this on.',
+    columns: { name: 'Name', provider: 'Set by', purpose: 'Purpose', duration: 'Kept for' },
+    categories: {
+      necessary: {
+        title: 'Strictly necessary',
+        body: 'Sign-in, security, your bookings in this tab and the choices you make on the site.',
+      },
+      analytics: {
+        title: 'Analytics',
+        body: 'Counting visits and how pages are used, so we can improve the site.',
+      },
+      marketing: {
+        title: 'Marketing',
+        body: 'Measuring adverts and showing you relevant offers on other sites.',
+      },
+    },
+    providers: { suskii: 'Suskii', cloudflare: 'Cloudflare' },
+    durations: {
+      accessToken: '15 minutes',
+      refreshToken: 'Up to 30 days',
+      oneYear: '1 year',
+      tab: 'Until you close the tab',
+      untilCleared: 'Until you clear it',
+      untilSignOut: 'Until you sign out',
+      challenge: 'For the check only',
+    },
+    items: {
+      access: 'Keeps you signed in.',
+      refresh: 'Renews your sign-in. Only sent to the sign-in service.',
+      csrf: 'Protects your account from requests forged by other sites.',
+      currency: 'Remembers the currency you choose.',
+      locale: 'Remembers the language and formats you choose.',
+      consent: 'Remembers your cookie choices.',
+      sessionExpiry: 'Tells the site when to renew your sign-in.',
+      bookingAccess: 'Opens a booking you made as a guest, in this tab only.',
+      search: 'Remembers your last flight search and recent places.',
+      addonsName: 'Fills in your surname when you look up add-ons for a booking.',
+      turnstile: 'Checks that sign-up, guest checkout and deal alert forms are sent by a person.',
+    },
+    save: 'Save choices',
+    saved: 'Your choices are saved.',
+    error: 'We could not save your choices. Nothing optional was turned on. Try again.',
+    payments:
+      'Payment pages belong to the payment provider you pay with, which sets its own cookies under its own policy.',
   },
   hero: {
     headline: 'Your one-stop travel shop',

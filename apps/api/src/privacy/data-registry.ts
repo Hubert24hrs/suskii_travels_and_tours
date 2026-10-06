@@ -182,6 +182,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'job', job: 'snapshots-prune' },
     note: 'Hotel snapshots.',
   },
+  CookieConsent: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'cookie-consents' },
+    note: 'Proof of cookie choices: a random id from the consent cookie, the policy version and the choices. No account, IP or browser.',
+  },
   NewsletterSubscription: {
     section: 'newsletter',
     deletion: 'delete',

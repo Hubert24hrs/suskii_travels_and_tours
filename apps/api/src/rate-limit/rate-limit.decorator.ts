@@ -50,6 +50,8 @@ export const AUTH_LIMITS = {
 export const PRIVACY_LIMITS = {
   exportUser: { name: 'data-export-user', limit: 5, windowSeconds: 86_400, by: 'user' },
   deleteUser: { name: 'account-delete-user', limit: 5, windowSeconds: 3600, by: 'user' },
+  /** Cookie choices: a person changes them a few times at most. */
+  cookieConsentIp: { name: 'cookie-consent-ip', limit: 20, windowSeconds: 600, by: 'ip' },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 /** Search is expensive (supplier calls) and a scraping target: per-IP quotas plus cache-first. */

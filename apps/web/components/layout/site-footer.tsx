@@ -4,6 +4,7 @@ import { setLocale } from '../../app/actions';
 import type { SiteContent } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
 import { AppLink } from '../app-link';
+import { CookieSettings } from '../cookies/cookie-settings';
 
 import { Container } from './container';
 import { NAV_ITEMS } from './nav-items';
@@ -35,7 +36,7 @@ function Column({ title, children }: { title: string; children: React.ReactNode 
  * to a policy that does not exist yet; social links appear once the business provides them.
  */
 export async function SiteFooter({ site }: { site: SiteContent | null }) {
-  const { t, locale } = await getI18n();
+  const { t, locale, messages } = await getI18n();
   const pages = (group: string) => site?.pages.filter((page) => page.group === group) ?? [];
   const pageLinks = (group: string) =>
     pages(group).map((page) => (
@@ -78,6 +79,9 @@ export async function SiteFooter({ site }: { site: SiteContent | null }) {
             </li>
           ) : null}
           {pageLinks('support')}
+          <li>
+            <CookieSettings labels={messages.cookies} className={linkClass} />
+          </li>
         </Column>
         {pages('company').length > 0 ? (
           <Column title={t('footer.company')}>{pageLinks('company')}</Column>

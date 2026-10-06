@@ -569,6 +569,21 @@ model SearchLog {
   @@map("search_logs")
 }
 
+/// A visitor's cookie choice (ADR-042), recorded before any optional category is enabled. The
+/// consent id is random and lives only in the visitor's consent cookie: no account, IP or browser.
+model CookieConsent {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  consentId     String   @map("consent_id") @db.Uuid
+  policyVersion Int      @map("policy_version")
+  analytics     Boolean
+  marketing     Boolean
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([consentId])
+  @@index([createdAt])
+  @@map("cookie_consents")
+}
+
 // ---------------------------------------------------------------------------
 // CMS
 // ---------------------------------------------------------------------------

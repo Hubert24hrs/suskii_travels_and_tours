@@ -15,7 +15,7 @@ const REFRESH_LOCK = 'suskii-session-refresh';
 /** Refresh this long before the access token expires. */
 const MARGIN_MS = 60_000;
 
-function readCookie(name: string): string | null {
+export function readCookie(name: string): string | null {
   if (typeof document === 'undefined') return null;
   for (const part of document.cookie.split(';')) {
     const [key, ...value] = part.trim().split('=');

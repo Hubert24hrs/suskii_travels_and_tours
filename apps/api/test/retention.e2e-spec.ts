@@ -144,6 +144,14 @@ describe('retention sweep (e2e)', () => {
       ],
     });
 
+    const consentId = '0192d3a0-7c1e-7b2a-9f00-00000000c0c0';
+    await ctx.prisma.cookieConsent.createMany({
+      data: [
+        { consentId, policyVersion: 1, analytics: true, marketing: false, createdAt: ago(800) },
+        { consentId, policyVersion: 1, analytics: false, marketing: false },
+      ],
+    });
+
     const sweeps = () =>
       ctx.prisma.auditLog.count({ where: { action: 'retention.swept', actorType: 'system' } });
     const sweepsBefore = await sweeps();
@@ -155,6 +163,7 @@ describe('retention sweep (e2e)', () => {
       notifications: notifications.length,
       'search-logs': 1,
       'newsletter-pending': 1,
+      'cookie-consents': 1,
       'closed-bookings': 1,
     });
     expect(first['verification-tokens']).toBeGreaterThanOrEqual(2);
@@ -167,6 +176,7 @@ describe('retention sweep (e2e)', () => {
     // The live session, the confirmed subscriber and the recent booking are untouched.
     await ctx.http().get('/v1/me').set(bearer(session.accessToken)).expect(200);
     expect(await ctx.prisma.newsletterSubscription.count()).toBe(1);
+    expect(await ctx.prisma.cookieConsent.count({ where: { consentId } })).toBe(1);
     const recent = await ctx.prisma.bookingPassenger.findFirstOrThrow({
       where: { bookingId: recentBooking },
     });
@@ -202,5 +212,51 @@ describe('retention sweep (e2e)', () => {
     expect(second.body).toEqual(Object.fromEntries(RETENTION_RULES.map((rule) => [rule, 0])));
     // The audit log is append-only, so earlier runs' rows are still there.
     expect((await sweeps()) - sweepsBefore).toBe(2);
+  });
+
+  it('records cookie choices without linking them to a person (ADR-042)', async () => {
+    const consentId = '0192d3a0-7c1e-7b2a-9f00-00000000c0c1';
+    const record = (body: object) =>
+      ctx
+        .http()
+        .post('/v1/privacy/cookie-consents')
+        .set('Cookie', 'suskii_locale=en-GB')
+        .send(body);
+
+    const saved = await record({
+      consentId,
+      policyVersion: 1,
+      choices: { analytics: true, marketing: false },
+    }).expect(201);
+    expect(saved.body).toEqual({
+      consentId,
+      policyVersion: 1,
+      choices: { analytics: true, marketing: false },
+      recordedAt: expect.any(String),
+    });
+    // A later change appends, so the history of choices stays provable.
+    await record({
+      consentId,
+      policyVersion: 1,
+      choices: { analytics: false, marketing: false },
+    }).expect(201);
+    const rows = await ctx.prisma.cookieConsent.findMany({
+      where: { consentId },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(rows.map((row) => row.analytics)).toEqual([true, false]);
+
+    // Unknown policy versions, missing categories and invented ids are refused.
+    await record({
+      consentId,
+      policyVersion: 99,
+      choices: { analytics: true, marketing: true },
+    }).expect(400);
+    await record({ consentId, policyVersion: 1, choices: { analytics: true } }).expect(400);
+    await record({
+      consentId: 'not-a-uuid',
+      policyVersion: 1,
+      choices: { analytics: false, marketing: false },
+    }).expect(400);
   });
 });

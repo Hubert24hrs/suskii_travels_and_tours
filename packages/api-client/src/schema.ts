@@ -3249,6 +3249,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/privacy/cookie-consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a cookie choice
+         * @description The website calls this before it enables any optional cookie category, and only sets its consent cookie once the choice is recorded.
+         */
+        post: operations["recordCookieConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/quotes/{quoteId}": {
         parameters: {
             query?: never;
@@ -4287,6 +4307,26 @@ export interface components {
             }[];
             /** Format: date-time */
             updatedAt: string;
+        };
+        CookieConsentRecorded: {
+            /** Format: uuid */
+            consentId: string;
+            policyVersion: number;
+            choices: {
+                analytics: boolean;
+                marketing: boolean;
+            };
+            /** Format: date-time */
+            recordedAt: string;
+        };
+        CookieConsentRequestInput: {
+            /** Format: uuid */
+            consentId: string;
+            policyVersion: number;
+            choices: {
+                analytics: boolean;
+                marketing: boolean;
+            };
         };
         Countries: {
             items: {
@@ -5993,6 +6033,7 @@ export interface components {
             notifications: number;
             "search-logs": number;
             "newsletter-pending": number;
+            "cookie-consents": number;
             "closed-bookings": number;
         };
         RevokedSessions: {
@@ -12711,6 +12752,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PrimePlanList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    recordCookieConsent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CookieConsentRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CookieConsentRecorded"];
                 };
             };
             400: components["responses"]["Problem400"];
