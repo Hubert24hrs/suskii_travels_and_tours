@@ -192,7 +192,7 @@ catalog:
   react-native-css-interop: 0.2.7
   # NativeWind's Babel preset names this plugin without depending on it, and Babel resolves it
   # from the app's babel.config.js, so apps using the preset list it themselves.
-  '@babel/plugin-transform-react-jsx': ^7.29.7
+  '@babel/plugin-transform-react-jsx': ^8.0.1
   '@gorhom/bottom-sheet': ^5.2.14
   lucide-react-native: ^1.48.0
   jest-expo: ~57.0.5
