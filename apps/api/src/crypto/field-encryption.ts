@@ -18,10 +18,12 @@ export abstract class FieldEncryption {
 }
 
 const IV_BYTES = 12;
+/** Fixed GCM tag length: without it Node accepts truncated tags, which weakens authenticity. */
+const GCM = { authTagLength: 16 } as const;
 const KEY_ID = /^[a-z0-9]{1,16}$/;
 
 function open(key: Buffer, iv: string, ciphertext: string, tag: string, context: string): string {
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'), GCM);
   decipher.setAAD(Buffer.from(context, 'utf8'));
   decipher.setAuthTag(Buffer.from(tag, 'base64url'));
   return Buffer.concat([
@@ -64,7 +66,7 @@ export class LocalKeyFieldEncryption extends FieldEncryption {
     const key = this.keys.get(this.currentId);
     if (!key) throw new Error('The current field encryption key is missing');
     const iv = randomBytes(IV_BYTES);
-    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const cipher = createCipheriv('aes-256-gcm', key, iv, GCM);
     cipher.setAAD(Buffer.from(context, 'utf8'));
     const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
     return [

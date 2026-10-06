@@ -23,7 +23,7 @@ export interface SealedDocument {
 export function sealDocument(plaintext: Uint8Array, documentId: string): SealedDocument {
   const key = randomBytes(32);
   const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const cipher = createCipheriv('aes-256-gcm', key, iv, { authTagLength: TAG_BYTES });
   cipher.setAAD(Buffer.from(documentId, 'utf8'));
   const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   return {
@@ -40,7 +40,9 @@ export function openDocument(blob: Buffer, dataKey: string, documentId: string):
   }
   const iv = blob.subarray(4, 4 + IV_BYTES);
   const tag = blob.subarray(4 + IV_BYTES, 4 + IV_BYTES + TAG_BYTES);
-  const decipher = createDecipheriv('aes-256-gcm', Buffer.from(dataKey, 'base64'), iv);
+  const decipher = createDecipheriv('aes-256-gcm', Buffer.from(dataKey, 'base64'), iv, {
+    authTagLength: TAG_BYTES,
+  });
   decipher.setAAD(Buffer.from(documentId, 'utf8'));
   decipher.setAuthTag(tag);
   return Buffer.concat([

@@ -78,6 +78,18 @@ describe('LocalKeyFieldEncryption', () => {
     expect(() => cipher.decrypt('v9.a.b.c', 'mfa:user-1')).toThrow(/Unsupported/);
   });
 
+  it('refuses truncated authentication tags', () => {
+    // Without a fixed tag length GCM checks only the bytes given, so the first four bytes of the
+    // real tag would pass: a forgery then needs 2^32 tries instead of 2^128.
+    const [version, keyId, iv, data, tag] = cipher.encrypt('secret', 'mfa:user-1').split('.');
+    const short = Buffer.from(tag ?? '', 'base64url')
+      .subarray(0, 4)
+      .toString('base64url');
+    expect(() =>
+      cipher.decrypt([version, keyId, iv, data, short].join('.'), 'mfa:user-1'),
+    ).toThrow();
+  });
+
   it('keeps reading retired keys during a rotation and flags their envelopes (ADR-038)', () => {
     const before = cipher.encrypt('A1234567', 'traveller:t1:passport');
     const rotated = ring({
