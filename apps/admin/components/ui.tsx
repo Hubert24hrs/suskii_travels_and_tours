@@ -323,6 +323,7 @@ export function FormDialog({
   onOpenChange,
   children,
   testId,
+  triggerAriaLabel,
 }: {
   triggerLabel: string;
   triggerVariant?: 'primary' | 'secondary' | 'ghost';
@@ -332,11 +333,13 @@ export function FormDialog({
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
   testId?: string;
+  /** A fuller name when several rows share the same trigger text. */
+  triggerAriaLabel?: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button variant={triggerVariant} data-testid={testId}>
+        <Button variant={triggerVariant} data-testid={testId} aria-label={triggerAriaLabel}>
           {triggerLabel}
         </Button>
       </DialogTrigger>
@@ -344,5 +347,51 @@ export function FormDialog({
         {children}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** A destructive or account-changing action that asks first. */
+export function ConfirmAction({
+  triggerLabel,
+  triggerAriaLabel,
+  title,
+  question,
+  onConfirm,
+  pending,
+  error,
+  open,
+  onOpenChange,
+}: {
+  triggerLabel: string;
+  triggerAriaLabel?: string;
+  title?: string;
+  question: string;
+  onConfirm: () => void;
+  pending: boolean;
+  error: unknown;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <FormDialog
+      triggerLabel={triggerLabel}
+      triggerAriaLabel={triggerAriaLabel}
+      title={title ?? triggerLabel}
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <div className="flex flex-col gap-4">
+        <p className="font-body text-body-sm text-foreground">{question}</p>
+        <ProblemAlert error={error} />
+        <div className="flex gap-2">
+          <Button loading={pending} onClick={onConfirm}>
+            {t('common.yes')}
+          </Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            {t('common.cancel')}
+          </Button>
+        </div>
+      </div>
+    </FormDialog>
   );
 }

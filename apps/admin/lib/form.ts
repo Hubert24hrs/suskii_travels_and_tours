@@ -62,3 +62,15 @@ export function fieldIssues(error: unknown): Record<string, string> {
   }
   return result;
 }
+
+/** A JSON object typed in a textarea, or null when it is not one. */
+export function parseJsonObject(text: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}

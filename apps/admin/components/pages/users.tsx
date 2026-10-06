@@ -14,9 +14,9 @@ import { RequirePermission } from '../console-shell';
 import { useStaffSession } from '../staff-session';
 import {
   CheckboxField,
+  ConfirmAction,
   DataTable,
   DetailList,
-  FormDialog,
   PageHeader,
   ProblemAlert,
   QueryState,
@@ -189,46 +189,6 @@ function RolesForm({ user }: { user: AdminUser }) {
         </Button>
       </div>
     </form>
-  );
-}
-
-function ConfirmAction({
-  triggerLabel,
-  question,
-  onConfirm,
-  pending,
-  error,
-  open,
-  onOpenChange,
-}: {
-  triggerLabel: string;
-  question: string;
-  onConfirm: () => void;
-  pending: boolean;
-  error: unknown;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <FormDialog
-      triggerLabel={triggerLabel}
-      title={triggerLabel}
-      open={open}
-      onOpenChange={onOpenChange}
-    >
-      <div className="flex flex-col gap-4">
-        <p className="font-body text-body-sm text-foreground">{question}</p>
-        <ProblemAlert error={error} />
-        <div className="flex gap-2">
-          <Button loading={pending} onClick={onConfirm}>
-            {t('common.yes')}
-          </Button>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            {t('common.cancel')}
-          </Button>
-        </div>
-      </div>
-    </FormDialog>
   );
 }
 
