@@ -16,7 +16,14 @@ import {
   type adminTrustSignalSchema,
   type FaqFields,
 } from './admin-content.schemas';
-import { checkMerged, conflict, fieldChanges, hasChanges, type StaffActor } from './admin-helpers';
+import {
+  checkMerged,
+  conflict,
+  fieldChanges,
+  hasChanges,
+  sameJson,
+  type StaffActor,
+} from './admin-helpers';
 
 type AdminCmsBlock = z.infer<typeof adminCmsBlockSchema>;
 type AdminFaq = z.infer<typeof adminFaqSchema>;
@@ -107,7 +114,7 @@ export class AdminContentService {
     const content = checkMerged(schema, input.content, 'content') as Prisma.InputJsonObject;
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.cmsBlock.findUnique({ where: { key_locale: { key, locale } } });
-      const contentChanged = JSON.stringify(existing?.content ?? null) !== JSON.stringify(content);
+      const contentChanged = !existing || !sameJson(existing.content, content);
       const wasPublished = existing ? existing.publishedAt !== null : null;
       if (existing && !contentChanged && wasPublished === input.published) {
         return presentBlock(existing);
