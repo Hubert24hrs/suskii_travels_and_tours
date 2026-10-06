@@ -8,7 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { label, t } from '../lib/i18n';
-import { visibleNav } from '../lib/permissions';
+import { NAV_ITEMS, visibleNav } from '../lib/permissions';
 
 import { AuthLayout, MfaEnrolment, NotStaff } from './auth';
 import { useStaffSession } from './staff-session';
@@ -26,12 +26,23 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const ready = session.status === 'signed-in' && session.staff && session.user.mfaEnabled;
+  // A page mounts (and queries the API) only for staff whose roles open its section.
+  const section = NAV_ITEMS.find((item) => isActive(pathname, item.href));
+  const allowed =
+    ready && (!section || section.anyOf.some((permission) => session.permissions.has(permission)));
+  // Staff without the dashboard land on their first section instead.
+  const landing = ready && pathname === '/' && !allowed ? visibleNav(session.permissions)[0] : null;
 
   useEffect(() => {
     if (session.status === 'signed-out') {
       router.replace(`/sign-in?next=${encodeURIComponent(pathname)}` as Route);
     }
   }, [session.status, pathname, router]);
+
+  useEffect(() => {
+    if (landing) router.replace(landing.href);
+  }, [landing, router]);
 
   if (session.status !== 'signed-in') {
     return (
@@ -138,7 +149,17 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
         <main id="main" className="flex min-w-0 flex-1 flex-col gap-6 p-4 lg:p-8">
-          {children}
+          {allowed ? (
+            children
+          ) : landing ? (
+            <p role="status" className="font-body text-body-sm text-muted">
+              {t('common.loading')}
+            </p>
+          ) : (
+            <p role="alert" className="font-body text-body-sm text-danger">
+              {t('common.forbidden')}
+            </p>
+          )}
         </main>
       </div>
     </div>
