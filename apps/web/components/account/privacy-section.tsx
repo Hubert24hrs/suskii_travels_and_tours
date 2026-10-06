@@ -4,6 +4,7 @@ import { Button, Input } from '@suskii/ui-web';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { forgetBookingTokens } from '../../lib/booking-token';
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { forgetSession } from '../../lib/session';
 
@@ -118,6 +119,7 @@ function DeleteCard({ requirements }: { requirements: Requirements }) {
     setBusy(false);
     if (data) {
       forgetSession();
+      forgetBookingTokens();
       setDeleted(true);
       setTimeout(() => {
         router.replace('/');

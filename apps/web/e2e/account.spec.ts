@@ -171,6 +171,24 @@ test.describe('account', () => {
     });
   });
 
+  test('signs out and forgets the guest booking tokens of this tab', async ({ page }) => {
+    const email = newEmail('web-sign-out');
+    await register(page, email);
+    await signIn(page, email);
+    // A guest checkout earlier in this tab left its booking token behind.
+    await page.evaluate(() => {
+      sessionStorage.setItem('suskii.booking.0192d3a0-7c1e-7b2a-9f00-00000000b001', 'guest-token');
+      sessionStorage.setItem('suskii.unrelated', 'kept');
+    });
+
+    await page.getByTestId('sign-out').click();
+    await page.waitForURL((url) => url.pathname === '/');
+    await expect(page.getByTestId('header-account')).toHaveText(t('header.signIn'));
+    const stored = await page.evaluate(() => Object.keys(sessionStorage));
+    expect(stored.filter((name) => name.startsWith('suskii.booking.'))).toEqual([]);
+    expect(stored).toContain('suskii.unrelated');
+  });
+
   test('sends visitors to sign in and back to the page they asked for', async ({ page }) => {
     await page.goto('/account/wallet');
     await page.waitForURL(/\/sign-in\?next=%2Faccount%2Fwallet$/);

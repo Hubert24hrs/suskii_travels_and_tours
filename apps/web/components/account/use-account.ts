@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
+import { forgetBookingTokens } from '../../lib/booking-token';
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { ensureFreshSession, expireSession, forgetSession, hasSession } from '../../lib/session';
 
@@ -80,12 +81,13 @@ export function useAccount(): {
   };
 }
 
-/** Ends this session on the API (cookies cleared) and locally. */
+/** Ends this session on the API (cookies cleared) and locally, guest booking tokens included. */
 export async function signOut(): Promise<void> {
   try {
     await browserApi().POST('/v1/auth/logout', { body: {} });
   } finally {
     forgetSession();
+    forgetBookingTokens();
   }
 }
 
