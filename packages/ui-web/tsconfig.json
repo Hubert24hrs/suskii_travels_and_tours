@@ -8,5 +8,5 @@
     "noEmit": true,
     "types": ["vite/client", "@vitest/browser-playwright"]
   },
-  "include": ["src", ".storybook/*.ts", "vitest.config.ts"]
+  "include": ["src", ".storybook/*.ts", "vitest.config.ts", "vitest.visual.config.ts"]
 }

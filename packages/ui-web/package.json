@@ -18,6 +18,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:visual": "vitest run --config vitest.visual.config.ts",
     "test:watch": "vitest",
     "clean": "rimraf storybook-static .turbo coverage"
   },

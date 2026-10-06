@@ -36,6 +36,11 @@
       "outputs": ["coverage/**"],
       "passThroughEnv": ["TEST_REDIS_URL"]
     },
+    "test:visual": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "passThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH", "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"]
+    },
     "test:e2e": {
       "dependsOn": ["^build"],
       "passThroughEnv": ["DOCKER_HOST", "TESTCONTAINERS_*", "E2E_DATABASE_URL", "E2E_REDIS_URL"]

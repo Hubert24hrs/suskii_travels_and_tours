@@ -22,6 +22,7 @@ apps/mobile/android/
 .turbo/
 coverage/
 coverage-e2e/
+.vitest/
 .eslintcache
 
 # Local object storage (e-tickets, vouchers) for development and tests

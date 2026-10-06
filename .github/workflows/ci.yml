@@ -103,6 +103,11 @@ jobs:
         env:
           TEST_REDIS_URL: redis://localhost:6379/1
 
+      # Key ui-web components against reference screenshots made on this runner image
+      # (visual-baselines.yml); a failure uploads the actual and diff images with the reports.
+      - name: Visual regression (ui-web)
+        run: pnpm exec turbo run test:visual --filter=@suskii/ui-web ${{ env.AFFECTED }}
+
       # 80% gates on the money, pricing and lifecycle rules (phase 11): unit coverage for the pure
       # modules here, e2e coverage for the services that need Postgres in the next step.
       - name: Coverage gates (unit)
@@ -135,6 +140,7 @@ jobs:
             apps/web/playwright-report/
             apps/web/test-results/
             apps/web/lighthouse-report/
+            packages/ui-web/.vitest/attachments/
           if-no-files-found: ignore
           retention-days: 14
 
