@@ -152,11 +152,13 @@ describe('sessions: limits, staff lifetimes and step-up (e2e)', () => {
       .sort();
     expect(stepUp).toEqual(
       [
+        'adminApprovePaymentReview',
         'adminApproveRefund',
         'adminCreateFeeRule',
         'adminCreateMarkupRule',
         'adminCreatePrimePlan',
         'adminDisableUser',
+        'adminRejectPaymentReview',
         'adminResetUserMfa',
         'adminResolveRefund',
         'adminSetUserRoles',

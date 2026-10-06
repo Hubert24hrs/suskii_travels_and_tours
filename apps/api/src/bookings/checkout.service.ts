@@ -17,6 +17,7 @@ import {
   type PaymentProvider,
 } from '../payments/payment-provider';
 import { PaymentProviders } from '../payments/payment-providers';
+import { HmacService } from '../crypto/hmac.service';
 import { FxService } from '../pricing/fx.service';
 import { PricingService } from '../pricing/pricing.service';
 import type { ClientContext } from '../search/client-context';
@@ -142,6 +143,7 @@ export class CheckoutService {
     private readonly ticketing: TicketingService,
     private readonly background: BackgroundTasks,
     private readonly inhouse: InhouseCatalog,
+    private readonly hmac: HmacService,
   ) {}
 
   async startPayment(
@@ -239,6 +241,9 @@ export class CheckoutService {
           checkoutUrl: session.checkoutUrl,
           expiresAt,
           installmentId,
+          // Risk signals (ADR-040): who paid from where, pseudonymised.
+          ipHash: this.hmac.digest('ip', caller.context.ip),
+          ipCountry: caller.context.country ?? null,
         },
       });
       // Held and partly paid bookings stay put: the pending payment shows the open checkout.

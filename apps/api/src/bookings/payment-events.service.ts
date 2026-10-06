@@ -11,11 +11,13 @@ import { MockPaymentProvider } from '../payments/mock-payment-provider';
 import {
   PaymentProviderUnavailableError,
   WebhookVerificationError,
+  type PaymentCard,
   type PaymentEvent,
   type WebhookHeaders,
 } from '../payments/payment-provider';
 import { PaymentProviders } from '../payments/payment-providers';
 
+import { BookingNotifications } from './booking-notifications';
 import { BookingPaymentsService } from './booking-payments.service';
 import { BookingTransitions, WEBHOOK_ACTOR } from './booking-transitions';
 import { invalidWebhook, paymentClosed, paymentProviderDown } from './booking.errors';
@@ -55,6 +57,7 @@ export class PaymentEventsService {
     private readonly transitions: BookingTransitions,
     private readonly ticketing: TicketingService,
     private readonly background: BackgroundTasks,
+    private readonly notifications: BookingNotifications,
   ) {}
 
   async receive(
@@ -133,8 +136,24 @@ export class PaymentEventsService {
     );
     const paid = processed.paidBookingId;
     if (paid) this.background.run('ticketing', () => this.ticketing.process(paid));
+    if (processed.outcome === 'held_for_review' && event.providerReference) {
+      const reference = event.providerReference;
+      this.background.run('risk-review-alert', () => this.alertReview(reference));
+    }
     if (processed.refundIds.length > 0) this.refunds.executeLater(processed.refundIds);
     return processed.outcome;
+  }
+
+  /** Operations hear about a held payment at once: a held fare can lapse (ADR-040). */
+  private async alertReview(providerReference: string): Promise<void> {
+    const payment = await this.prisma.payment.findUnique({
+      where: { providerReference },
+      select: { bookingId: true, booking: { select: { reference: true } } },
+    });
+    if (!payment) return;
+    await this.notifications.ops('payment.risk_review', payment.booking.reference, {
+      bookingId: payment.bookingId,
+    });
   }
 
   private async processRefund(tx: Tx, provider: string, event: PaymentEvent): Promise<Processed> {
@@ -185,6 +204,7 @@ export class PaymentEventsService {
         providerTransactionId: event.providerTransactionId,
         method: event.method,
         occurredAt: new Date(event.occurredAt),
+        card: event.card ?? null,
       },
       { kind: 'psp', provider, currency: amount.currency },
       WEBHOOK_ACTOR,
@@ -212,6 +232,7 @@ export class PaymentEventsService {
   async completeMock(
     reference: string,
     outcome: 'succeeded' | 'failed',
+    card: PaymentCard | null = null,
   ): Promise<z.infer<typeof mockPaymentResultSchema>> {
     const payment = await this.mockPaymentRow(reference);
     if (payment.status !== 'pending' || payment.expiresAt <= new Date()) throw paymentClosed();
@@ -221,7 +242,7 @@ export class PaymentEventsService {
       // Test hook: the provider took the money but its webhook never arrives (reconciliation).
       this.mock.dropNextWebhooks -= 1;
     } else {
-      const { rawBody, headers } = this.mock.signedEvent(reference, outcome, amount);
+      const { rawBody, headers } = this.mock.signedEvent(reference, outcome, amount, card);
       await this.receive(this.mock.name, rawBody, headers);
     }
     const after = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });

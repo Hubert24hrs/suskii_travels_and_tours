@@ -9,6 +9,7 @@ import {
   WebhookSignatureError,
   WebhookVerificationError,
   headerValue,
+  paymentCard,
   type CheckoutRequest,
   type CheckoutSession,
   type PaymentEvent,
@@ -49,6 +50,10 @@ const transaction = z.looseObject({
   currency,
   channel: z.string().nullish(),
   gateway_response: z.string().nullish(),
+  /** Card details: `signature` is Paystack's stable id for the card, `country_code` its issuer. */
+  authorization: z
+    .looseObject({ signature: z.string().nullish(), country_code: z.string().nullish() })
+    .nullish(),
 });
 const refund = z.looseObject({
   id,
@@ -168,6 +173,7 @@ export class PaystackPaymentProvider extends PaymentProvider {
         method: data.channel ?? null,
         occurredAt: data.paid_at ? new Date(data.paid_at).toISOString() : new Date().toISOString(),
         failureReason: null,
+        card: paymentCard(data.authorization?.country_code, data.authorization?.signature),
       };
     }
     const refunded = refundEvent.safeParse(json);

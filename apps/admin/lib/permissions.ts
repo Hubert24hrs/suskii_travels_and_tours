@@ -14,6 +14,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/', label: 'nav.dashboard', anyOf: ['reports:read'] },
   { href: '/bookings', label: 'nav.bookings', anyOf: ['bookings:read'] },
   { href: '/refunds', label: 'nav.refunds', anyOf: ['refunds:request'] },
+  { href: '/payment-reviews', label: 'nav.paymentReviews', anyOf: ['payments:review'] },
   { href: '/vouchers', label: 'nav.vouchers', anyOf: ['bookings:manage'] },
   { href: '/catalog', label: 'nav.catalog', anyOf: ['catalog:manage'] },
   { href: '/pricing', label: 'nav.pricing', anyOf: ['pricing:manage'] },

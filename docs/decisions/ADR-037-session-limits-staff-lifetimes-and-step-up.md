@@ -57,6 +57,7 @@ until its last access token expires (ADR-007).
      - Account disable.
      - MFA reset.
      - Refund approval and resolution of refunds in review.
+     - Decisions on payments held for a risk review (ADR-040).
      - Trust-signal verification.
      - Markup, fee and Prime plan creation and edits.
    - Not step-up:

@@ -12,6 +12,7 @@ import {
   WebhookSignatureError,
   type CheckoutRequest,
   type CheckoutSession,
+  type PaymentCard,
   type PaymentEvent,
   type PaymentRef,
   type PaymentVerification,
@@ -33,6 +34,13 @@ const mockEventSchema = z.object({
     providerRefundId: z.string().max(64).nullable().default(null),
     amount: wireMoney,
     failureReason: z.string().max(64).nullable(),
+    card: z
+      .object({
+        country: z.string().length(2).nullable(),
+        fingerprint: z.string().max(128).nullable(),
+      })
+      .nullable()
+      .default(null),
   }),
 });
 
@@ -91,6 +99,7 @@ export class MockPaymentProvider extends PaymentProvider {
     providerReference: string,
     outcome: 'succeeded' | 'failed',
     amount: Money,
+    card: PaymentCard | null = null,
   ): { rawBody: Buffer; headers: WebhookHeaders } {
     return this.sign({
       id: `mockevt_${randomToken(16)}`,
@@ -102,6 +111,7 @@ export class MockPaymentProvider extends PaymentProvider {
         providerRefundId: null,
         amount: toWire(amount),
         failureReason: outcome === 'failed' ? 'card_declined' : null,
+        card,
       },
     });
   }
@@ -157,6 +167,7 @@ export class MockPaymentProvider extends PaymentProvider {
       method: event.type.startsWith('payment') ? 'card' : null,
       occurredAt: event.created,
       failureReason: event.data.failureReason,
+      card: event.data.card,
     };
   }
 

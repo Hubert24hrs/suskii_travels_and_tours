@@ -252,6 +252,26 @@ export const envSchema = z
      * 0 means every staff refund needs one.
      */
     REFUND_APPROVAL_THRESHOLD_NGN: z.coerce.number().int().min(0).default(0),
+    /**
+     * Payment risk review (ADR-040): signals scored at capture; at or above the score, fulfilment
+     * waits for staff. Limits count the last 24 hours (cards: 30 days).
+     */
+    PAYMENT_RISK_ENABLED: booleanish.default(true),
+    PAYMENT_RISK_REVIEW_SCORE: z.coerce.number().int().min(1).max(1000).default(60),
+    PAYMENT_RISK_MAX_PAYMENTS_PER_DAY: z.coerce.number().int().min(1).max(100).default(5),
+    PAYMENT_RISK_MAX_ATTEMPTS_PER_IP: z.coerce.number().int().min(1).max(500).default(10),
+    PAYMENT_RISK_MAX_CARDS: z.coerce.number().int().min(1).max(50).default(3),
+    /** ISO country codes and IATA airport pairs (`LOS-LHR`) that add to the score. */
+    PAYMENT_RISK_COUNTRIES: csv(z.string().regex(/^[A-Z]{2}$/)).default([]),
+    PAYMENT_RISK_ROUTES: csv(z.string().regex(/^[A-Z]{3}-[A-Z]{3}$/)).default([]),
+    /**
+     * Request header carrying the client's country as set by the edge (e.g. `cf-ipcountry`
+     * behind Cloudflare). Only set it when the edge overwrites the header on every request.
+     */
+    CLIENT_COUNTRY_HEADER: z
+      .string()
+      .regex(/^[a-z0-9-]{1,64}$/)
+      .optional(),
     /** Refunds still pending at a provider without a lookup API go to review after this. */
     REFUND_REVIEW_AFTER_HOURS: z.coerce.number().int().min(1).max(720).default(72),
     /** Operations mailbox for money alerts (automatic refunds, failures, reviews). */

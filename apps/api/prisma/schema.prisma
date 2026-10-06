@@ -872,6 +872,7 @@ model Booking {
   accessLinks      BookingAccessLink[]
   pushTokens       PushToken[]
   notes            BookingNote[]
+  riskReviews      PaymentRiskReview[]
 
   @@index([userId, createdAt])
   /// Admin booking search and the dashboard filter by creation date (ADR-036).
@@ -1026,16 +1027,53 @@ model Payment {
   requiresRefund        Boolean       @default(false) @map("requires_refund")
   /// Last time the worker asked the provider about this pending payment.
   reconciledAt          DateTime?     @map("reconciled_at") @db.Timestamptz(3)
+  /// Risk signals (ADR-040): HMAC of the payer's IP and the country the edge reported for it.
+  ipHash                String?       @map("ip_hash")
+  ipCountry             String?       @map("ip_country") @db.Char(2)
+  /// Issuing country of the card and an HMAC of the provider's card identifier, when reported.
+  cardCountry           String?       @map("card_country") @db.Char(2)
+  cardFingerprintHash   String?       @map("card_fingerprint_hash")
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Restrict)
-  installment Installment? @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  booking     Booking             @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  installment Installment?        @relation(fields: [installmentId], references: [id], onDelete: SetNull)
   refunds     Refund[]
+  riskReviews PaymentRiskReview[]
 
   @@index([bookingId])
   @@index([status, expiresAt])
+  @@index([ipHash, createdAt])
   @@map("payments")
+}
+
+enum PaymentRiskStatus {
+  open
+  approved
+  rejected
+}
+
+/// A captured payment whose risk score held fulfilment until staff decide (ADR-040).
+model PaymentRiskReview {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  bookingId   String            @map("booking_id") @db.Uuid
+  paymentId   String            @map("payment_id") @db.Uuid
+  score       Int
+  /// Signal codes that fired (velocity_account, card_country_mismatch, ...); no personal values.
+  signals     String[]
+  status      PaymentRiskStatus @default(open)
+  /// Staff decision: reason code only (free text could carry personal data).
+  reason      String?
+  decidedById String?           @map("decided_by_id") @db.Uuid
+  decidedAt   DateTime?         @map("decided_at") @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([bookingId])
+  @@map("payment_risk_reviews")
 }
 
 /// Provider webhooks, deduplicated by the provider's event id. Normalised fields only, never card data.
@@ -1235,6 +1273,7 @@ enum RefundReason {
   customer_cancellation
   goodwill
   supplier_cancellation
+  risk_rejected
   other
 }
 

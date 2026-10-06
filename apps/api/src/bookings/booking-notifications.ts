@@ -70,6 +70,7 @@ const REFUND_REASON_TEXT: Record<string, string> = {
   customer_cancellation: 'You cancelled the booking.',
   supplier_cancellation: 'The airline or hotel cancelled it.',
   goodwill: 'As agreed with our team.',
+  risk_rejected: 'We could not complete our payment checks for this booking.',
   other: 'As agreed with our team.',
 };
 

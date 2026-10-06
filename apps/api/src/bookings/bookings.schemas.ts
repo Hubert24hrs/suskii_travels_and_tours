@@ -677,7 +677,20 @@ export const mockPaymentSchema = named(
 
 export const mockPaymentCompleteRequestSchema = named(
   'MockPaymentCompleteRequest',
-  z.object({ outcome: z.enum(['succeeded', 'failed']) }),
+  z.object({
+    outcome: z.enum(['succeeded', 'failed']),
+    card: z
+      .object({
+        country: z
+          .string()
+          .regex(/^[A-Z]{2}$/)
+          .nullable(),
+        fingerprint: z.string().min(1).max(128).nullable(),
+      })
+      .nullable()
+      .default(null)
+      .meta({ description: 'Test aid: the card a real provider would report (risk signals).' }),
+  }),
 );
 
 export const mockPaymentResultSchema = named(

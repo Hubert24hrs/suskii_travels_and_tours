@@ -196,6 +196,10 @@ export class RetentionService {
           await tx.bookingDocument.deleteMany({ where: { bookingId: booking.id } });
           await tx.bookingNote.deleteMany({ where: { bookingId: booking.id } });
           await tx.bookingAccessLink.deleteMany({ where: { bookingId: booking.id } });
+          await tx.payment.updateMany({
+            where: { bookingId: booking.id },
+            data: { ipHash: null, ipCountry: null, cardCountry: null, cardFingerprintHash: null },
+          });
           await tx.$executeRaw`
             UPDATE booking_items SET payload = payload - 'detailsEncrypted'
              WHERE booking_id = ${booking.id}::uuid AND payload ? 'detailsEncrypted'`;

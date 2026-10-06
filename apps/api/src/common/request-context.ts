@@ -11,6 +11,8 @@ export interface RequestContext {
    * hashed fraud signal for referrals, ADR-031).
    */
   device?: string;
+  /** The client's country as the edge reported it (`ClientCountryMiddleware`), if configured. */
+  country?: string;
 }
 
 const MAX_USER_AGENT = 256;
@@ -21,10 +23,12 @@ export function requestContext(request: Request): RequestContext {
   const requestId = (request as Request & { id?: unknown }).id;
   const device = request.headers['x-suskii-device'];
   const deviceId = typeof device === 'string' && DEVICE_ID.test(device) ? device : undefined;
+  const country = (request as Request & { clientCountry?: string }).clientCountry;
   return {
     ip: request.ip ?? request.socket.remoteAddress ?? 'unknown',
     ...(userAgent ? { userAgent } : {}),
     ...(typeof requestId === 'string' ? { requestId } : {}),
     ...(deviceId ? { device: deviceId } : {}),
+    ...(country ? { country } : {}),
   };
 }

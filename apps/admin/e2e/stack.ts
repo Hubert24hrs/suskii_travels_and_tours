@@ -232,6 +232,9 @@ export async function startStack(): Promise<Stack> {
       // covered by the API e2e suite.
       RATE_LIMIT_ENABLED: 'false',
       OBJECT_STORAGE_DIR: join(LOG_DIR, 'objects'),
+      // Only the provisioned "held" booking reports a card, so only it is held (ADR-040).
+      CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
+      PAYMENT_RISK_REVIEW_SCORE: '30',
     });
     children.push(api);
     await waitFor(`${API_URL}/ready`, api, 'api');

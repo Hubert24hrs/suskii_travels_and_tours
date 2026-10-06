@@ -22,7 +22,8 @@ export type HmacPurpose =
   | 'booking-voucher'
   | 'addon-link'
   | 'visa-document-url'
-  | 'referral-signal';
+  | 'referral-signal'
+  | 'card-fingerprint';
 
 const PURPOSES: readonly HmacPurpose[] = [
   'ip',
@@ -40,6 +41,7 @@ const PURPOSES: readonly HmacPurpose[] = [
   'addon-link',
   'visa-document-url',
   'referral-signal',
+  'card-fingerprint',
 ];
 const HKDF_SALT = 'suskii-api:hmac:v1';
 

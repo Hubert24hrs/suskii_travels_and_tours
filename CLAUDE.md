@@ -254,6 +254,10 @@ Tooling notes for agents:
 - Plans: `PaymentPlansService` creates holds and installment plans (flights with supplier holds,
   no paid extras) and closes them (cancel, default, expiry) under the plan's policy. Amounts,
   deposit, fees and grace come from config; never hard-code them.
+- Captured card payments are scored by `PaymentRiskService` in the capture transaction; at or
+  above `PAYMENT_RISK_REVIEW_SCORE` the booking stays PAID with an open `PaymentRiskReview` and
+  nothing fulfils it until finance approves (reject refunds in full). Never fulfil a PAID booking
+  around this check (ADR-040).
 - Refunds: `RefundsService.createAutomatic()` for non-discretionary cases (approved at once);
   staff refunds go through the admin API with maker-checker (the requester cannot approve).
   A refund never exceeds its source balance. An ambiguous call to a provider without idempotency

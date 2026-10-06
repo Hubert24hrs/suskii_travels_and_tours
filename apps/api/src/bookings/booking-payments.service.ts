@@ -3,13 +3,16 @@ import { Injectable } from '@nestjs/common';
 import { add, equals, minOf, money, subtract, type Money, type RefundReason } from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
+import { HmacService } from '../crypto/hmac.service';
 import { Prisma, type Booking, type BookingStatus, type Payment } from '../generated/prisma/client';
 import type { AccountRef } from '../ledger/ledger-accounts';
 import { LedgerService, transfer } from '../ledger/ledger.service';
+import type { PaymentCard } from '../payments/payment-provider';
 
 import { PAYABLE_STATUSES, BookingFundsService } from './booking-funds.service';
 import { bookingPrice } from './booking-presenter';
 import { BookingTransitions, type BookingActor } from './booking-transitions';
+import { PaymentRiskService } from './payment-risk.service';
 import { RefundsService } from './refunds.service';
 
 type Tx = Prisma.TransactionClient;
@@ -19,10 +22,18 @@ export interface ReceivedMoney {
   providerTransactionId: string | null;
   method: string | null;
   occurredAt: Date;
+  /** What the provider reported about the card (risk signals, ADR-040). */
+  card?: PaymentCard | null;
 }
 
 export interface SettleResult {
-  outcome: 'paid' | 'partially_paid' | 'already_succeeded' | 'amount_mismatch' | 'requires_refund';
+  outcome:
+    | 'paid'
+    | 'partially_paid'
+    | 'already_succeeded'
+    | 'amount_mismatch'
+    | 'requires_refund'
+    | 'held_for_review';
   /** Fully paid: ticketing should start. */
   paidBookingId: string | null;
   /** Automatic refunds created for money the booking could not take. */
@@ -54,6 +65,8 @@ export class BookingPaymentsService {
     private readonly refunds: RefundsService,
     private readonly transitions: BookingTransitions,
     private readonly audit: AuditService,
+    private readonly hmac: HmacService,
+    private readonly risk: PaymentRiskService,
   ) {}
 
   async applyReceived(
@@ -67,13 +80,17 @@ export class BookingPaymentsService {
     if (payment.status === 'succeeded') {
       return { outcome: 'already_succeeded', paidBookingId: null, refundIds: [] };
     }
-    await tx.payment.update({
+    const captured = await tx.payment.update({
       where: { id: payment.id },
       data: {
         status: 'succeeded',
         succeededAt: received.occurredAt,
         providerTransactionId: received.providerTransactionId ?? payment.providerTransactionId,
         method: received.method ?? payment.method,
+        cardCountry: received.card?.country ?? null,
+        cardFingerprintHash: received.card?.fingerprint
+          ? this.hmac.digest('card-fingerprint', `${payment.provider}:${received.card.fingerprint}`)
+          : null,
       },
     });
 
@@ -212,6 +229,10 @@ export class BookingPaymentsService {
           currency: discount.amount.currency,
         },
       });
+    }
+    // A risky payment stays PAID with an open review: fulfilment waits for staff (ADR-040).
+    if (await this.risk.holdIfRisky(tx, booking, captured, new Date())) {
+      return { outcome: 'held_for_review', paidBookingId: null, refundIds: [] };
     }
     return { outcome: 'paid', paidBookingId: booking.id, refundIds: [] };
   }

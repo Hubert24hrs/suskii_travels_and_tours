@@ -1,4 +1,9 @@
-import { Module, type DynamicModule } from '@nestjs/common';
+import {
+  Module,
+  type DynamicModule,
+  type MiddlewareConsumer,
+  type NestModule,
+} from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 
 import { AccountsModule } from './accounts/accounts.module';
@@ -10,6 +15,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { ClientCountryMiddleware } from './common/client-country.middleware';
 import { BotProtectionModule } from './bot-protection/bot-protection.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ContentModule } from './content/content.module';
@@ -41,7 +47,11 @@ import { RemindersModule } from './reminders/reminders.module';
 import { SearchModule } from './search/search.module';
 
 @Module({})
-export class AppModule {
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(ClientCountryMiddleware).forRoutes('*');
+  }
+
   /** `config` is injected by tests; production validates `process.env`. */
   static forRoot(config?: AppConfig): DynamicModule {
     return {

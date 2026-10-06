@@ -530,6 +530,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/payment-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payments held for a risk review (open first by default, newest first) */
+        get: operations["adminListPaymentReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-reviews/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release a held booking to fulfilment */
+        post: operations["adminApprovePaymentReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-reviews/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refund a held booking in full and move it to REFUND_PENDING */
+        post: operations["adminRejectPaymentReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/pricing/fees": {
         parameters: {
             query?: never;
@@ -3687,6 +3738,31 @@ export interface components {
         AdminMarkupRuleList: {
             rules: components["schemas"]["AdminMarkupRule"][];
         };
+        AdminPaymentReview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bookingId: string;
+            bookingReference: string;
+            /** Format: uuid */
+            paymentId: string;
+            provider: string;
+            amount: components["schemas"]["Money"];
+            score: number;
+            signals: ("velocity_account" | "velocity_contact" | "velocity_ip" | "card_country_mismatch" | "many_cards" | "high_risk_route")[];
+            /** @enum {string} */
+            status: "open" | "approved" | "rejected";
+            reason: string | null;
+            decidedByUserId: string | null;
+            decidedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            heldUntil: string | null;
+        };
+        AdminPaymentReviewPage: {
+            items: components["schemas"]["AdminPaymentReview"][];
+            nextCursor: string | null;
+        };
         AdminPrimePlan: {
             /** Format: uuid */
             id: string;
@@ -3795,7 +3871,7 @@ export interface components {
             /** @enum {string} */
             destination: "original" | "wallet";
             /** @enum {string} */
-            reason: "duplicate_payment" | "amount_mismatch" | "late_payment" | "ticketing_failed" | "installment_default" | "customer_cancellation" | "goodwill" | "supplier_cancellation" | "other";
+            reason: "duplicate_payment" | "amount_mismatch" | "late_payment" | "ticketing_failed" | "installment_default" | "customer_cancellation" | "goodwill" | "supplier_cancellation" | "risk_rejected" | "other";
             /** @enum {string} */
             status: "pending_approval" | "approved" | "processing" | "succeeded" | "failed" | "rejected" | "needs_review";
             automatic: boolean;
@@ -5238,6 +5314,11 @@ export interface components {
         MockPaymentCompleteRequestInput: {
             /** @enum {string} */
             outcome: "succeeded" | "failed";
+            /** @default null */
+            card?: {
+                country: string | null;
+                fingerprint: string | null;
+            } | null;
         };
         MockPaymentResult: {
             /** @enum {string} */
@@ -5877,6 +5958,10 @@ export interface components {
             displayName?: string;
             referralCode?: string;
             turnstileToken?: string;
+        };
+        RejectPaymentReviewRequestInput: {
+            /** @enum {string} */
+            reason: "confirmed_fraud" | "customer_unverified" | "card_reported" | "other";
         };
         RejectRefundRequestInput: {
             reason: string;
@@ -7607,6 +7692,103 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListPaymentReviews: {
+        parameters: {
+            query?: {
+                status?: "open" | "approved" | "rejected";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPaymentReviewPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminApprovePaymentReview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPaymentReview"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRejectPaymentReview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectPaymentReviewRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPaymentReview"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
         };

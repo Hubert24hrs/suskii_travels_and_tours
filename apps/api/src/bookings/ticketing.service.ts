@@ -114,7 +114,12 @@ export class TicketingService {
     const due = await this.prisma.booking.findMany({
       where: {
         OR: [
-          { status: 'PAID', updatedAt: { lt: new Date(now.getTime() - PAID_PICKUP_AFTER_MS) } },
+          {
+            status: 'PAID',
+            updatedAt: { lt: new Date(now.getTime() - PAID_PICKUP_AFTER_MS) },
+            // Held by a payment risk review until staff decide (ADR-040).
+            riskReviews: { none: { status: 'open' } },
+          },
           { status: 'TICKETING', nextTicketingAt: { lte: now } },
           {
             status: 'TICKETING',
@@ -142,6 +147,10 @@ export class TicketingService {
   private async attempt(bookingId: string, now: Date): Promise<TicketingOutcome> {
     let booking = await this.bookings.reload(bookingId);
     if (booking.status === 'PAID') {
+      const held = await this.prisma.paymentRiskReview.count({
+        where: { bookingId, status: 'open' },
+      });
+      if (held > 0) return 'skipped';
       const paid = booking;
       await this.prisma.$transaction((tx) =>
         this.transitions.apply(tx, paid, 'start_ticketing', SYSTEM_ACTOR),

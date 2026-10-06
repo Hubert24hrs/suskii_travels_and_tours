@@ -40,6 +40,27 @@ export interface PaymentEvent {
   method: string | null;
   occurredAt: string;
   failureReason: string | null;
+  /**
+   * Card payments, when the provider reports them (ADR-040): issuing country and an opaque id
+   * that is the same for the same card. Never card numbers; adapters hash anything derived from
+   * them.
+   */
+  card?: PaymentCard | null;
+}
+
+export interface PaymentCard {
+  /** ISO 3166-1 alpha-2, upper case. */
+  country: string | null;
+  fingerprint: string | null;
+}
+
+/** Normalises what a provider says about a card; null when it says nothing useful. */
+export function paymentCard(country: unknown, fingerprint: unknown): PaymentCard | null {
+  const code =
+    typeof country === 'string' ? (/(?:^|\s)([A-Z]{2})$/.exec(country.trim())?.[1] ?? null) : null;
+  const id = typeof fingerprint === 'string' && fingerprint.length > 0 ? fingerprint : null;
+  if (!code && !id) return null;
+  return { country: code, fingerprint: id };
 }
 
 export interface PaymentVerification {

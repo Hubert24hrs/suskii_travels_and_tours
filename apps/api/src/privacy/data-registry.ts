@@ -286,6 +286,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'parent', parent: 'Booking' },
     note: 'Schedule and payment state of a plan.',
   },
+  PaymentRiskReview: {
+    section: null,
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'Booking' },
+    note: 'Fraud screening of a captured payment: score, signal codes and the staff decision; withheld from the export as fraud-prevention data.',
+  },
   Refund: {
     section: 'refunds',
     deletion: 'retain',

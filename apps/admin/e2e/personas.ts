@@ -35,6 +35,8 @@ export const PERSONAS = {
   stepUp: { roles: ['super_admin'], enrolled: true },
   /** A customer the step-up persona signs out and disables. */
   target: { roles: [], enrolled: false },
+  /** Releases the payment the risk review held (ADR-040). */
+  riskReviewer: { roles: ['finance'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
@@ -51,6 +53,8 @@ export interface StackState {
   personas: Record<PersonaKey, Persona>;
   /** A paid guest tour booking (refund journey). */
   tourBooking: { id: string; reference: string };
+  /** A paid tour booking held by the payment risk review. */
+  heldBooking: { id: string; reference: string };
   /** A paid visa assistance booking and the application it opened. */
   visa: { bookingId: string; applicationId: string };
   /** The tour whose public price the markup test watches. */

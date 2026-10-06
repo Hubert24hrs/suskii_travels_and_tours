@@ -80,6 +80,6 @@ export class PaymentsController {
     @Param('reference') reference: string,
     @Body() body: z.infer<typeof mockPaymentCompleteRequestSchema>,
   ): Promise<z.infer<typeof mockPaymentResultSchema>> {
-    return this.events.completeMock(reference, body.outcome);
+    return this.events.completeMock(reference, body.outcome, body.card);
   }
 }

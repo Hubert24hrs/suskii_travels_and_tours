@@ -8,6 +8,7 @@ import {
   PaymentProviderUnavailableError,
   WebhookSignatureError,
   WebhookVerificationError,
+  paymentCard,
   type PaymentEvent,
 } from './payment-provider';
 import { PaystackPaymentProvider } from './paystack/paystack-payment-provider';
@@ -69,7 +70,12 @@ describe('PaystackPaymentProvider', () => {
       channel: 'card',
       paid_at: '2026-10-01T10:05:00.000Z',
       customer: { email: 'ngozi@example.com' },
-      authorization: { last4: '4081', bin: '408408' },
+      authorization: {
+        last4: '4081',
+        bin: '408408',
+        signature: 'SIG_card_ngozi',
+        country_code: 'NG',
+      },
     },
   };
 
@@ -124,12 +130,14 @@ describe('PaystackPaymentProvider', () => {
       method: 'card',
       occurredAt: '2026-10-01T10:05:00.000Z',
       failureReason: null,
+      // The card's issuer country and Paystack's stable card id (risk signals, ADR-040).
+      card: { country: 'NG', fingerprint: 'SIG_card_ngozi' },
     });
-    expect(
-      JSON.stringify(event, (_key, value: unknown) =>
-        typeof value === 'bigint' ? value.toString() : value,
-      ),
-    ).not.toContain('4081');
+    const serialised = JSON.stringify(event, (_key, value: unknown) =>
+      typeof value === 'bigint' ? value.toString() : value,
+    );
+    expect(serialised).not.toContain('4081');
+    expect(serialised).not.toContain('408408');
   });
 
   it('rejects a tampered body, a wrong secret and a missing signature', () => {
@@ -309,6 +317,31 @@ describe('FlutterwavePaymentProvider', () => {
     expect(() =>
       provider().parseWebhook(Buffer.from(precise), { 'verif-hash': webhookHash }),
     ).toThrow();
+  });
+
+  it('identifies a card by a hash and its issuer country, never by its digits (ADR-040)', () => {
+    const card = {
+      first_6digits: '539983',
+      last_4digits: '8381',
+      expiry: '09/32',
+      country: 'NIGERIA NG',
+      type: 'MASTERCARD',
+    };
+    const parse = (overrides: Record<string, unknown>) =>
+      provider().parseWebhook(Buffer.from(JSON.stringify(completed(overrides))), {
+        'verif-hash': webhookHash,
+      });
+    const event = parse({ payment_type: 'card', card });
+    expect(event?.card?.country).toBe('NG');
+    expect(event?.card?.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(event?.card)).not.toMatch(/539983|8381/);
+    // The same card hashes the same way; another expiry is another card.
+    expect(parse({ card })?.card?.fingerprint).toBe(event?.card?.fingerprint);
+    expect(parse({ card: { ...card, expiry: '10/33' } })?.card?.fingerprint).not.toBe(
+      event?.card?.fingerprint,
+    );
+    // A bank transfer reports no card.
+    expect(parse({})?.card).toBeNull();
   });
 
   it('applies an outcome only when Flutterwave confirms status, reference and amount', async () => {
@@ -524,5 +557,15 @@ describe('provider HTTP errors', () => {
         fakeFetch({ status: 400, body: { error: { message: 'No such session' } } }).fetch,
       ).verifyPayment(ref),
     ).rejects.toThrow(PaymentProviderRequestError);
+  });
+});
+
+describe('paymentCard', () => {
+  it('keeps an upper-case country code and an opaque id, and nothing else', () => {
+    expect(paymentCard('NG', 'sig')).toEqual({ country: 'NG', fingerprint: 'sig' });
+    expect(paymentCard('NIGERIA NG', null)).toEqual({ country: 'NG', fingerprint: null });
+    expect(paymentCard('Nigeria', 'sig')).toEqual({ country: null, fingerprint: 'sig' });
+    expect(paymentCard(null, '')).toBeNull();
+    expect(paymentCard(42, undefined)).toBeNull();
   });
 });

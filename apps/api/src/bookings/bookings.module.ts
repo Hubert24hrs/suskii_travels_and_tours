@@ -12,6 +12,7 @@ import { BookingCancellationService } from './booking-cancellation.service';
 import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
 import { BookingNotesService } from './booking-notes.service';
+import { AdminPaymentReviewsController } from './admin-payment-reviews.controller';
 import { BookingNotifications } from './booking-notifications';
 import { BookingPaymentsService } from './booking-payments.service';
 import { BookingTransitions } from './booking-transitions';
@@ -23,6 +24,8 @@ import { InhouseFulfilment } from './inhouse-fulfilment';
 import { InternalBookingsController } from './internal-bookings.controller';
 import { MeBookingsController } from './me-bookings.controller';
 import { PaymentEventsService } from './payment-events.service';
+import { PaymentReviewsService } from './payment-reviews.service';
+import { PaymentRiskService } from './payment-risk.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { PaymentReconciliationService } from './payment-reconciliation.service';
 import { PaymentsController } from './payments.controller';
@@ -44,6 +47,7 @@ import { TravellersService } from './travellers.service';
     TravellersController,
     InternalBookingsController,
     AdminRefundsController,
+    AdminPaymentReviewsController,
     MeBookingsController,
   ],
   providers: [
@@ -66,6 +70,8 @@ import { TravellersService } from './travellers.service';
     InhouseFulfilment,
     BookingCancellationService,
     BookingNotesService,
+    PaymentRiskService,
+    PaymentReviewsService,
   ],
   exports: [
     BookingNotesService,

@@ -271,6 +271,11 @@ export class AccountDeletionService {
       },
     });
     await tx.bookingAccessLink.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    // Risk signals are pseudonymous but still about the person (ADR-040).
+    await tx.payment.updateMany({
+      where: { bookingId: { in: bookingIds } },
+      data: { ipHash: null, ipCountry: null, cardCountry: null, cardFingerprintHash: null },
+    });
     if (bookingIds.length > 0) {
       await tx.$executeRaw`
         UPDATE booking_items SET payload = payload - 'detailsEncrypted'

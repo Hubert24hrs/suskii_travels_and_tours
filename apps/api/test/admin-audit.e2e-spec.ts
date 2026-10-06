@@ -78,7 +78,13 @@ describe('admin audit coverage (e2e)', () => {
   const covered = new Set<string>();
 
   beforeAll(async () => {
-    ctx = await createTestApp({ RATE_LIMIT_ENABLED: false, REFUND_APPROVAL_THRESHOLD_NGN: 0 });
+    ctx = await createTestApp({
+      RATE_LIMIT_ENABLED: false,
+      REFUND_APPROVAL_THRESHOLD_NGN: 0,
+      // Only the risk review case sends a card: a foreign card holds its payments (ADR-040).
+      CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
+      PAYMENT_RISK_REVIEW_SCORE: 30,
+    });
     await ctx.background.drain();
     await resetState(ctx);
     await cleanAdminContent(ctx);
@@ -640,6 +646,60 @@ describe('admin audit coverage (e2e)', () => {
     expect(flagged.status).toBe('review');
     await audited('adminDecideReferral', { id: flagged.id }, (request) =>
       request.send({ decision: 'reject' }),
+    );
+  });
+
+  it('payment risk reviews: approve and reject', async () => {
+    /** A guest flight booking paid with a Nigerian card from Ghana: held for review. */
+    const heldBooking = async (): Promise<string> => {
+      const search = await ctx
+        .http()
+        .post('/v1/flights/searches')
+        .send({
+          slices: [{ origin: 'LOS', destination: 'ABV', departureDate: inDays(30) }],
+          passengers: { adults: 1, children: 0, infants: 0 },
+          cabinClass: 'economy',
+        })
+        .expect(200);
+      const quote = await ctx
+        .http()
+        .post(`/v1/flights/offers/${search.body.offers[0].id as string}/quote`)
+        .expect(201);
+      const created = await ctx
+        .http()
+        .post('/v1/bookings')
+        .set('Idempotency-Key', idempotencyKey())
+        .send({
+          quoteId: quote.body.quoteId,
+          contact: { email: 'audit-risk@example.com', phone: '+2348012345678' },
+          passengers: [traveller('Kemi', 'Ade')],
+          termsVersion: BOOKING_TERMS_VERSION,
+          acceptTerms: true,
+          turnstileToken: E2E_TURNSTILE,
+        })
+        .expect(201);
+      const id = created.body.booking.id as string;
+      const payment = await ctx
+        .http()
+        .post(`/v1/bookings/${id}/payments`)
+        .set('Idempotency-Key', idempotencyKey())
+        .set('X-Booking-Token', created.body.accessToken as string)
+        .set('cf-ipcountry', 'GH')
+        .send({})
+        .expect(201);
+      await ctx
+        .http()
+        .post(
+          `/v1/payments/mock/${(payment.body.checkoutUrl as string).split('/').pop() ?? ''}/complete`,
+        )
+        .send({ outcome: 'succeeded', card: { country: 'NG', fingerprint: `card-${id}` } })
+        .expect(200);
+      await ctx.background.drain();
+      return (await ctx.prisma.paymentRiskReview.findFirstOrThrow({ where: { bookingId: id } })).id;
+    };
+    await audited('adminApprovePaymentReview', { id: await heldBooking() }, none);
+    await audited('adminRejectPaymentReview', { id: await heldBooking() }, (request) =>
+      request.send({ reason: 'confirmed_fraud' }),
     );
   });
 

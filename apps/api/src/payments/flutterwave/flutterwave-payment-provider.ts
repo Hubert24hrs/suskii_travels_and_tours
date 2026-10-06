@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 import { parseMoney, toDecimalString, type Money } from '@suskii/shared';
 import { z } from 'zod';
@@ -9,7 +9,9 @@ import {
   WebhookSignatureError,
   WebhookVerificationError,
   headerValue,
+  paymentCard,
   type CheckoutRequest,
+  type PaymentCard,
   type CheckoutSession,
   type PaymentEvent,
   type PaymentRef,
@@ -49,9 +51,31 @@ const transaction = z.looseObject({
   status: z.string(),
   payment_type: z.string().nullish(),
   created_at: z.string().nullish(),
+  card: z
+    .looseObject({
+      first_6digits: z.string().nullish(),
+      last_4digits: z.string().nullish(),
+      expiry: z.string().nullish(),
+      country: z.string().nullish(),
+    })
+    .nullish(),
 });
 const chargeEvent = z.looseObject({ event: z.literal('charge.completed'), data: transaction });
 const refundData = z.looseObject({ id, status: z.string(), amount_refunded: decimal.nullish() });
+
+/**
+ * Flutterwave sends no card token in webhooks, so the card is identified by a hash of its
+ * truncated number and expiry; the digits themselves never leave this adapter (ADR-040).
+ */
+function cardOf(card: z.infer<typeof transaction>['card']): PaymentCard | null {
+  if (!card) return null;
+  const { first_6digits: bin, last_4digits: last4, expiry } = card;
+  const fingerprint =
+    bin && last4 && expiry
+      ? createHash('sha256').update(`flutterwave:${bin}:${last4}:${expiry}`).digest('hex')
+      : null;
+  return paymentCard(card.country, fingerprint);
+}
 
 /** Flutterwave names payment channels its own way; normalised to ours. */
 function method(paymentType: string | null | undefined): string | null {
@@ -133,6 +157,7 @@ export class FlutterwavePaymentProvider extends PaymentProvider {
         ? new Date(data.created_at).toISOString()
         : new Date().toISOString(),
       failureReason: succeeded ? null : 'payment_failed',
+      card: cardOf(data.card),
     };
   }
 

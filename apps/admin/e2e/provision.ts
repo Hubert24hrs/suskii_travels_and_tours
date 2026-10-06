@@ -122,10 +122,14 @@ const TRAVELLER = {
 } as const;
 
 /** Books a quote as a guest and pays it through the mock provider's signed-webhook path. */
+/** A foreign card used from Ghana: held by the payment risk review (ADR-040, see stack.ts). */
+const RISKY = { country: 'GH', card: { country: 'NG', fingerprint: 'e2e-risky-card' } } as const;
+
 async function bookAndPay(
   api: Api,
   quote: { quoteId: string; termsVersion: string },
   email: string,
+  risky = false,
 ): Promise<{ id: string; reference: string }> {
   const created = await api.call<{
     booking: { id: string; reference: string };
@@ -145,11 +149,18 @@ async function bookAndPay(
   const payment = await api.call<{ checkoutUrl: string }>(
     'POST',
     `/v1/bookings/${created.booking.id}/payments`,
-    { headers: { ...token, 'Idempotency-Key': randomUUID() }, body: {} },
+    {
+      headers: {
+        ...token,
+        'Idempotency-Key': randomUUID(),
+        ...(risky ? { 'cf-ipcountry': RISKY.country } : {}),
+      },
+      body: {},
+    },
   );
   const reference = new URL(payment.checkoutUrl).pathname.split('/').at(-1);
   await api.call('POST', `/v1/payments/mock/${reference}/complete`, {
-    body: { outcome: 'succeeded' },
+    body: { outcome: 'succeeded', ...(risky ? { card: RISKY.card } : {}) },
   });
   return created.booking;
 }
@@ -203,6 +214,18 @@ export async function provision(
     },
   );
   const tourBooking = await bookAndPay(api, tourQuote, 'ada.tour@example.com');
+  const heldQuote = await api.call<{ quoteId: string; termsVersion: string }>(
+    'POST',
+    '/v1/inhouse-quotes',
+    {
+      body: {
+        kind: 'tour',
+        departureId: departure.id,
+        travellers: { adults: 1, children: 0, infants: 0 },
+      },
+    },
+  );
+  const heldBooking = await bookAndPay(api, heldQuote, 'ada.held@example.com', true);
 
   const products = await api.call<{ products: { id: string }[] }>(
     'GET',
@@ -230,6 +253,7 @@ export async function provision(
   return {
     personas,
     tourBooking,
+    heldBooking,
     visa: { bookingId: visaBooking.id, applicationId },
     tourSlug: watched.slug,
   };
