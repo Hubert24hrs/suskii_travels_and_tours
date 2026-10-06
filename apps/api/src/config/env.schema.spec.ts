@@ -106,6 +106,34 @@ describe('parseEnv', () => {
     }
   });
 
+  it('requires TLS to Postgres and Redis in production unless the hop is declared private', () => {
+    const production = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({ ...base, NODE_ENV: 'production', ...overrides });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    const plaintext = production({});
+    expect(plaintext).toContain('DATABASE_URL');
+    expect(plaintext).toContain('REDIS_URL');
+    expect(plaintext).not.toContain(':pw@');
+    const tls = production({
+      DATABASE_URL: 'postgresql://suskii:pw@db.internal:5432/suskii?sslmode=verify-full',
+      REDIS_URL: 'rediss://cache.internal:6380',
+    });
+    expect(tls).not.toMatch(/DATABASE_URL|REDIS_URL/);
+    expect(production({ DATABASE_URL: `${base.DATABASE_URL}?sslmode=prefer` })).toContain(
+      'DATABASE_URL',
+    );
+    const declared = production({
+      DATABASE_ALLOW_PLAINTEXT: 'true',
+      REDIS_ALLOW_PLAINTEXT: 'true',
+    });
+    expect(declared).not.toMatch(/DATABASE_URL|REDIS_URL/);
+  });
+
   it('defaults push and attestation to mocks outside production, off by default', () => {
     const env = parseEnv(base);
     expect(env.PUSH_PROVIDER).toBe('mock');

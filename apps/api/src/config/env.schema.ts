@@ -4,6 +4,14 @@ const booleanish = z
   .enum(['true', 'false', '1', '0', 'yes', 'no'])
   .transform((value) => value === 'true' || value === '1' || value === 'yes');
 
+/** True when a Postgres URL makes the driver insist on TLS (never echoes the URL). */
+function requiresTls(databaseUrl: string): boolean {
+  const params = new URL(databaseUrl).searchParams;
+  const sslmode = params.get('sslmode');
+  if (sslmode !== null) return ['require', 'verify-ca', 'verify-full'].includes(sslmode);
+  return params.get('ssl') === 'true' || params.get('ssl') === '1';
+}
+
 const csv = <T extends z.ZodType<unknown, string>>(item: T) =>
   z
     .string()
@@ -31,6 +39,13 @@ export const envSchema = z
 
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
     REDIS_URL: z.url({ protocol: /^rediss?$/ }),
+    /**
+     * Production requires TLS to Postgres (`sslmode=verify-full`, or `require`) and Redis
+     * (`rediss://`). Set these only when the hop is already private and encrypted another way: a
+     * Unix socket or a local Cloud SQL Auth Proxy, a sidecar or a mesh with mTLS (ADR-038).
+     */
+    DATABASE_ALLOW_PLAINTEXT: booleanish.default(false),
+    REDIS_ALLOW_PLAINTEXT: booleanish.default(false),
 
     /** Browser origins allowed to call the API with credentials. */
     CORS_ORIGINS: csv(z.url()).default([]),
@@ -314,6 +329,10 @@ export const envSchema = z
     if (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)
       require('JWT_PRIVATE_KEY', 'signing keys are required in production');
     if (!env.FIELD_ENCRYPTION_KEY) require('FIELD_ENCRYPTION_KEY', 'is required in production');
+    if (!env.DATABASE_ALLOW_PLAINTEXT && !requiresTls(env.DATABASE_URL))
+      require('DATABASE_URL', 'must use TLS in production (sslmode=verify-full); DATABASE_ALLOW_PLAINTEXT is only for a socket or local proxy');
+    if (!env.REDIS_ALLOW_PLAINTEXT && !env.REDIS_URL.startsWith('rediss://'))
+      require('REDIS_URL', 'must use TLS in production (rediss://); REDIS_ALLOW_PLAINTEXT is only for a socket or local proxy');
     if (!env.HMAC_SECRET) require('HMAC_SECRET', 'is required in production');
     if (!env.COOKIE_SECURE) require('COOKIE_SECURE', 'must be true in production');
     if (env.CORS_ORIGINS.length === 0)

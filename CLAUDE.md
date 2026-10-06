@@ -192,7 +192,13 @@ Tooling notes for agents:
 - Record security-relevant actions with `AuditService.record()` (add the action to `AuditAction`),
   inside the same transaction as the change when possible. Metadata: ids and reasons only.
 - Hash low-entropy or personal values with `HmacService` (per-purpose keys); encrypt stored secrets
-  with `FieldEncryption` using a record-bound context string.
+  with `FieldEncryption` using a record-bound context string. Contexts live in
+  `src/crypto/encryption-contexts.ts` and every encrypted column (or JSON key) in
+  `ENCRYPTED_FIELDS`, which `keys:reencrypt` walks to rotate keys; a test fails when a column named
+  `*Encrypted`/`*Ciphertext` is missing there (ADR-038).
+- Production refuses plaintext Postgres, Redis and worker-to-API hops unless the matching
+  `*_ALLOW_PLAINTEXT` flag declares a private, otherwise encrypted path (ADR-038). Social sign-in
+  needs a nonce from `POST /v1/auth/social/nonce`.
 - External providers sit behind abstract classes (`EmailProvider`, `SmsProvider`,
   `BreachedPasswordChecker`, `FxProvider`, `FlightSupplier`, `HotelSupplier`, `PaymentProvider`) with mock adapters for
   tests and local development. Production refuses mock adapters unless `ALLOW_MOCK_PROVIDERS=true`.

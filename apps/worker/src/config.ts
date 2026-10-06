@@ -7,6 +7,10 @@ import { z } from 'zod';
 const LOCAL_INTERNAL_TOKEN_PREFIX = 'local-dev-only-';
 
 const minutes = (fallback: number) => z.coerce.number().int().min(5).max(10_080).default(fallback);
+const booleanish = z
+  .enum(['true', 'false', '1', '0'])
+  .default('false')
+  .transform((value) => value === 'true' || value === '1');
 
 const envSchema = z
   .object({
@@ -19,6 +23,12 @@ const envSchema = z
     REDIS_URL: z.url({ protocol: /^rediss?$/ }).default('redis://localhost:6379'),
     /** API base URL for server-to-server calls. */
     API_INTERNAL_URL: z.url().default('http://localhost:4000'),
+    /**
+     * Production requires `rediss://` and an https API URL; set these only when the hop is private
+     * and encrypted another way (a local socket or proxy, a mesh with mTLS).
+     */
+    REDIS_ALLOW_PLAINTEXT: booleanish,
+    API_INTERNAL_ALLOW_PLAINTEXT: booleanish,
     /** Service token for /v1/internal routes; without it the refresh jobs are disabled. */
     INTERNAL_API_TOKEN: z.string().min(32).optional(),
     DEALS_REFRESH_INTERVAL_MINUTES: minutes(180),
@@ -44,6 +54,20 @@ const envSchema = z
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
+    if (!env.REDIS_ALLOW_PLAINTEXT && !env.REDIS_URL.startsWith('rediss://')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['REDIS_URL'],
+        message: 'must use TLS in production (rediss://) unless REDIS_ALLOW_PLAINTEXT=true',
+      });
+    }
+    if (!env.API_INTERNAL_ALLOW_PLAINTEXT && !env.API_INTERNAL_URL.startsWith('https://')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['API_INTERNAL_URL'],
+        message: 'must be https in production unless API_INTERNAL_ALLOW_PLAINTEXT=true',
+      });
+    }
     if (!env.INTERNAL_API_TOKEN) {
       ctx.addIssue({
         code: 'custom',

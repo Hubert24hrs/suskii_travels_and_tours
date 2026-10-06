@@ -10,6 +10,8 @@ describe('loadConfig', () => {
       WORKER_HEALTH_PORT: 4100,
       REDIS_URL: 'redis://localhost:6379',
       API_INTERNAL_URL: 'http://localhost:4000',
+      REDIS_ALLOW_PLAINTEXT: false,
+      API_INTERNAL_ALLOW_PLAINTEXT: false,
       DEALS_REFRESH_INTERVAL_MINUTES: 180,
       DESTINATIONS_REFRESH_INTERVAL_MINUTES: 360,
       SNAPSHOT_PRUNE_INTERVAL_MINUTES: 1440,
@@ -48,5 +50,27 @@ describe('loadConfig', () => {
         INTERNAL_API_TOKEN: 'local-dev-only-internal-token-change-me',
       }),
     ).toThrow(/local development token/);
+  });
+
+  it('requires TLS to Redis and the API in production unless the hop is declared private', () => {
+    const production = {
+      NODE_ENV: 'production',
+      INTERNAL_API_TOKEN: 'a-real-service-token-0123456789abcdef',
+    };
+    expect(() => loadConfig(production)).toThrow(/REDIS_URL.*API_INTERNAL_URL/);
+    expect(
+      loadConfig({
+        ...production,
+        REDIS_URL: 'rediss://cache.internal:6380',
+        API_INTERNAL_URL: 'https://api.internal',
+      }).REDIS_URL,
+    ).toBe('rediss://cache.internal:6380');
+    expect(
+      loadConfig({
+        ...production,
+        REDIS_ALLOW_PLAINTEXT: 'true',
+        API_INTERNAL_ALLOW_PLAINTEXT: '1',
+      }).API_INTERNAL_ALLOW_PLAINTEXT,
+    ).toBe(true);
   });
 });
