@@ -35,6 +35,8 @@ env:
   EXPO_PUBLIC_WEB_BASE_URL: http://localhost:3000
   GITLEAKS_VERSION: 8.30.1
   GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+  MAESTRO_VERSION: 2.11.0
+  MAESTRO_SHA256: 5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a
 
 jobs:
   android:
@@ -158,7 +160,12 @@ jobs:
 
       - name: Install Maestro
         run: |
-          curl -fsSL https://get.maestro.mobile.dev | bash
+          # A pinned release checked against its SHA-256 (no install script piped to a shell).
+          curl -sSfL -o maestro.zip \
+            "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum --check --strict
+          rm -rf "$HOME/.maestro" && mkdir -p "$HOME/.maestro"
+          unzip -q maestro.zip -d "$HOME/.maestro" && mv "$HOME/.maestro/maestro"/* "$HOME/.maestro/"
           "$HOME/.maestro/bin/maestro" --version
 
       - name: Enable KVM

@@ -258,6 +258,14 @@ auditConfig:
     # braces in @expo/cli's Metro file map; patterns come from the project, not from users.
     - GHSA-vfj7-8cjw-p6xm
 
+# Supply-chain guards (phase 11): new releases wait three days before pnpm resolves them, so a
+# compromised publish is usually caught first; transitive dependencies may not come from git or
+# tarball URLs; and a package whose new version lost the provenance its earlier versions had is
+# refused. Security fixes that cannot wait go in `minimumReleaseAgeExclude`.
+minimumReleaseAge: 4320
+blockExoticSubdeps: true
+trustPolicy: no-downgrade
+
 # Fail fast on the wrong Node.js version (the API's Jest setup needs Node >= 24.9
 # for require(esm); see ADR-002) instead of failing later with confusing errors.
 engineStrict: true
