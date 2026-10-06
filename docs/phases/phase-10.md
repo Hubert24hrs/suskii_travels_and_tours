@@ -128,8 +128,8 @@ audit log.
 
 - Unit: API 375 (including the admin helpers), shared 170, design tokens 179, ui-web 144, mobile
   105, ui-native 44, worker 31, i18n 17, api-client 3.
-- API e2e: the full suite, including the admin route matrix, audit coverage and console
-  behaviour suites (results recorded with the CI run below).
+- API e2e: 21 suites, 276 tests, including the admin route matrix, audit coverage and console
+  behaviour suites.
 - Admin e2e (Playwright, 10 tests in two projects): enrolment on first sign-in; a refused code,
   sign-in and sign-out; a customer turned away; a refund requested by support and approved by
   finance (support cannot approve); a tours markup raising the public price; the IATA claim
@@ -139,7 +139,10 @@ audit log.
 
 ### CI
 
-Recorded after the final CI run on this phase's last commit.
+Green on commit d8390ba: CI run 37468943089 (format, lint, typecheck, unit tests, API e2e, web
+e2e and Lighthouse, the new admin e2e step, OpenAPI check, builds, mobile bundle scan, Tailwind
+classes, Storybook). The later commits change only documentation. Locally, unit tests, every build
+and the API e2e suite passed on the same code.
 
 ### Deviations from the plan
 
