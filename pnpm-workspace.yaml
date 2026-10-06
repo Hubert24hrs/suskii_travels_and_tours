@@ -8,7 +8,7 @@ packages:
 catalog:
   # Language and tooling
   typescript: 6.0.3
-  '@types/node': ^24.19.0
+  '@types/node': ^26.6.4
   turbo: ^2.11.5
   prettier: ^3.9.9
   eslint: ^9.39.5
