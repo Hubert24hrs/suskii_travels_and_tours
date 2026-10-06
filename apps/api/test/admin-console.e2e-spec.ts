@@ -473,6 +473,41 @@ describe('admin console API (e2e)', () => {
     });
   });
 
+  describe('catalog', () => {
+    it('lists products with the current values their update route accepts', async () => {
+      const city = await ctx.prisma.city.findFirstOrThrow({
+        where: { name: 'Lagos', countryCode: 'NG' },
+      });
+      const policy = [{ daysBefore: 0, refundBps: 0 }];
+      const created = await post('packages', {
+        slug: 'console-package',
+        title: 'Console package',
+        summary: 'Two nights.',
+        cityId: city.id,
+        nights: 2,
+        highlights: ['Lagoon views'],
+        cancellationPolicy: policy,
+      }).expect(201);
+      const list = await get('catalog?kind=package').expect(200);
+      const product = (list.body.products as { id: string }[]).find(
+        (item) => item.id === created.body.id,
+      );
+      expect(product).toMatchObject({
+        status: 'draft',
+        editable: {
+          title: 'Console package',
+          summary: 'Two nights.',
+          nights: 2,
+          highlights: ['Lagoon views'],
+          cancellationPolicy: policy,
+        },
+      });
+      // The editable values round-trip through the update route unchanged.
+      const editable = (product as unknown as { editable: Record<string, unknown> }).editable;
+      await patch(`packages/${created.body.id as string}`, editable).expect(204);
+    });
+  });
+
   describe('dashboard', () => {
     it('counts bookings, sums ledger money per currency and lists the top routes', async () => {
       await flightBooking({ pay: true });

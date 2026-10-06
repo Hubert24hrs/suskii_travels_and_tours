@@ -14150,6 +14150,13 @@
             "type": "string",
             "format": "date-time"
           },
+          "editable": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
           "departures": {
             "type": "array",
             "items": {
@@ -14165,6 +14172,7 @@
           "status",
           "sample",
           "updatedAt",
+          "editable",
           "departures"
         ],
         "additionalProperties": false

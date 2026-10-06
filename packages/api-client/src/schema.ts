@@ -3646,6 +3646,9 @@ export interface components {
             sample: boolean;
             /** Format: date-time */
             updatedAt: string;
+            editable: {
+                [key: string]: unknown;
+            };
             departures: components["schemas"]["AdminDeparture"][];
         };
         AdminProductList: {

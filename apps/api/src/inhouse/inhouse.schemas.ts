@@ -602,6 +602,10 @@ export const adminProductSchema = named(
     status: catalogStatusSchema,
     sample: z.boolean(),
     updatedAt: timestamp,
+    editable: z.record(z.string(), z.unknown()).meta({
+      description:
+        "Current values of the fields the kind's update route accepts (status apart), for editing.",
+    }),
     departures: z.array(adminDepartureSchema),
   }),
 );

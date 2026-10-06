@@ -65,6 +65,14 @@ const json = (value: unknown): Json => toJsonValue(value) as Json;
 const dateOnly = (value: string): Date => new Date(`${value}T00:00:00.000Z`);
 const isoDate = (date: Date): string => date.toISOString().slice(0, 10);
 
+/** The named columns of a row (stored JSON columns already hold the wire shape). */
+function pick<Row extends object, Key extends keyof Row>(
+  row: Row,
+  keys: readonly Key[],
+): Record<string, unknown> {
+  return Object.fromEntries(keys.map((key) => [key, row[key]]));
+}
+
 /** Money fields derived from a wire price for sorting and filters. */
 const priceColumns = (price: { amountMinor: number; currency: string }) => ({
   price: json(price),
@@ -100,6 +108,19 @@ export class CatalogAdminService {
         });
         return rows.map((row) => ({
           ...this.product('package', row),
+          editable: pick(row, [
+            'title',
+            'summary',
+            'nights',
+            'passportRequired',
+            'artKey',
+            'featured',
+            'highlights',
+            'itinerary',
+            'inclusions',
+            'exclusions',
+            'cancellationPolicy',
+          ]),
           departures: row.departures.map((departure) =>
             this.departure(departure, isoDate(departure.startDate), isoDate(departure.endDate)),
           ),
@@ -114,6 +135,19 @@ export class CatalogAdminService {
         });
         return rows.map((row) => ({
           ...this.product('tour', row),
+          editable: pick(row, [
+            'title',
+            'summary',
+            'durationMinutes',
+            'category',
+            'artKey',
+            'featured',
+            'meetingPoint',
+            'highlights',
+            'inclusions',
+            'exclusions',
+            'cancellationPolicy',
+          ]),
           departures: row.departures.map((departure) =>
             this.departure(departure, departure.startsAtLocal, null),
           ),
@@ -125,7 +159,20 @@ export class CatalogAdminService {
           orderBy: { updatedAt: 'desc' },
           take: 500,
         });
-        return rows.map((row) => ({ ...this.product('addon', row), departures: [] }));
+        return rows.map((row) => ({
+          ...this.product('addon', row),
+          editable: pick(row, [
+            'title',
+            'summary',
+            'description',
+            'countryCodes',
+            'price',
+            'maxTravellers',
+            'requiredDetails',
+            'cancellationPolicy',
+          ]),
+          departures: [],
+        }));
       }
       case 'visa': {
         const rows = await this.prisma.visaProduct.findMany({
@@ -133,7 +180,20 @@ export class CatalogAdminService {
           orderBy: { updatedAt: 'desc' },
           take: 500,
         });
-        return rows.map((row) => ({ ...this.product('visa', row), departures: [] }));
+        return rows.map((row) => ({
+          ...this.product('visa', row),
+          editable: pick(row, [
+            'title',
+            'summary',
+            'purposes',
+            'processingDaysMin',
+            'processingDaysMax',
+            'price',
+            'checklist',
+            'governmentFeeNote',
+          ]),
+          departures: [],
+        }));
       }
     }
   }
@@ -148,7 +208,7 @@ export class CatalogAdminService {
       sample: boolean;
       updatedAt: Date;
     },
-  ): Omit<AdminProduct, 'departures'> {
+  ): Omit<AdminProduct, 'departures' | 'editable'> {
     return {
       id: row.id,
       kind,
