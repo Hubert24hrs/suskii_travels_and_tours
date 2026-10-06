@@ -30,6 +30,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
       notifications: 0,
       'search-logs': 0,
       'newsletter-pending': 0,
+      'cookie-consents': 0,
       'closed-bookings': 1,
     }),
   ),
