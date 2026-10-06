@@ -187,6 +187,9 @@ describe('admin console API (e2e)', () => {
       expect(detail.body.history.map((row: { toStatus: string }) => row.toStatus)).toContain(
         'PAID',
       );
+      expect(detail.body.payments).toEqual([
+        expect.objectContaining({ kind: 'checkout', status: 'succeeded' }),
+      ]);
       // The booking view masks the contact; revealing it is a separate, audited call.
       expect(JSON.stringify(detail.body.booking)).not.toContain('ngozi.a@example.com');
       const contact = await post(`bookings/${paid.id}/contact`).expect(200);

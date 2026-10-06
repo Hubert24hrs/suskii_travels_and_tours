@@ -12649,13 +12649,81 @@
             "items": {
               "$ref": "#/components/schemas/BookingNote"
             }
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "checkout",
+                    "wallet"
+                  ]
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "succeeded",
+                    "failed",
+                    "cancelled",
+                    "expired"
+                  ]
+                },
+                "method": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "succeededAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "provider",
+                "status",
+                "method",
+                "amount",
+                "createdAt",
+                "succeededAt"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
           "booking",
           "accountId",
           "history",
-          "notes"
+          "notes",
+          "payments"
         ],
         "additionalProperties": false
       },

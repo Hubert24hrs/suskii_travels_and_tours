@@ -3368,6 +3368,20 @@ export interface components {
                 occurredAt: string;
             }[];
             notes: components["schemas"]["BookingNote"][];
+            payments: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "checkout" | "wallet";
+                provider: string;
+                /** @enum {string} */
+                status: "pending" | "succeeded" | "failed" | "cancelled" | "expired";
+                method: string | null;
+                amount: components["schemas"]["Money"];
+                /** Format: date-time */
+                createdAt: string;
+                succeededAt: string | null;
+            }[];
         };
         AdminBookingPage: {
             items: components["schemas"]["AdminBookingRow"][];

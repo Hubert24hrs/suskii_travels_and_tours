@@ -72,6 +72,20 @@ export const adminBookingDetailSchema = named(
       }),
     ),
     notes: z.array(bookingNoteSchema),
+    payments: z
+      .array(
+        z.object({
+          id: z.uuid(),
+          kind: z.enum(['checkout', 'wallet']),
+          provider: z.string(),
+          status: z.enum(['pending', 'succeeded', 'failed', 'cancelled', 'expired']),
+          method: z.string().nullable().meta({ description: 'Channel only; never card details.' }),
+          amount: moneySchema,
+          createdAt: timestamp,
+          succeededAt: timestamp.nullable(),
+        }),
+      )
+      .meta({ description: 'Every payment attempt, newest first (refunds name one of these).' }),
   }),
 );
 

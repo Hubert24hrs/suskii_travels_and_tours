@@ -108,12 +108,13 @@ export class AdminBookingsService {
 
   async detail(bookingId: string): Promise<Detail> {
     const booking = await this.find(bookingId);
-    const [history, notes] = await Promise.all([
+    const [history, notes, payments] = await Promise.all([
       this.prisma.bookingStatusHistory.findMany({
         where: { bookingId },
         orderBy: { occurredAt: 'asc' },
       }),
       this.notes.list(bookingId),
+      this.prisma.payment.findMany({ where: { bookingId }, orderBy: { createdAt: 'desc' } }),
     ]);
     return {
       booking: await this.bookings.present(booking),
@@ -128,6 +129,16 @@ export class AdminBookingsService {
         occurredAt: row.occurredAt.toISOString(),
       })),
       notes,
+      payments: payments.map((payment) => ({
+        id: payment.id,
+        kind: payment.kind,
+        provider: payment.provider,
+        status: payment.status,
+        method: payment.method,
+        amount: toWire(money(payment.amountMinor, payment.currency)),
+        createdAt: payment.createdAt.toISOString(),
+        succeededAt: payment.succeededAt?.toISOString() ?? null,
+      })),
     };
   }
 
