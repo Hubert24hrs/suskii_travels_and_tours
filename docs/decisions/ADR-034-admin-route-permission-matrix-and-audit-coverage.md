@@ -43,3 +43,12 @@ tests have to be driven by the routes themselves.
   step in the coverage suite; the tests say which is missing.
 - The admin console can read `x-admin-permissions` from the generated client types to decide what
   to show.
+
+## Notes (end of phase 10)
+
+- The console keeps each section's permissions in `NAV_ITEMS` rather than reading
+  `x-admin-permissions` from the generated types: a section spans several operations, and the
+  list stays short and reviewable. The route matrix still decides what the API allows.
+- The admin Playwright suite adds a browser-level check: after the staff journeys (refund
+  request and approval, markup, trust signal verification, promo code) an auditor finds each
+  change in the audit log under the staff member who made it.

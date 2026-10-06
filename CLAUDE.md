@@ -44,7 +44,7 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | 7     | Mobile app                                       | Done        |
 | 8     | Packages, tours, visa and add-ons                | Done        |
 | 9     | Accounts, Suskii Prime, referrals, notifications | Done        |
-| 10    | Admin console                                    | In progress |
+| 10    | Admin console                                    | Done        |
 | 11    | Hardening                                        | Not started |
 | 12    | Deployment and release                           | Not started |
 | 13    | Optional: AI trip search                         | Not started |
@@ -56,7 +56,7 @@ apps/
   api/        NestJS 12 API (CJS output, URI versioning /v1, Jest), Prisma 7, openapi.json
   worker/     Node ESM worker process (Vitest)
   web/        Next.js 16 App Router (nonce CSP, Playwright e2e + Lighthouse in e2e/)
-  admin/      Next.js 16 App Router (noindex)
+  admin/      Next.js 16 App Router staff console (noindex, RBAC + MFA, Playwright e2e in e2e/)
   mobile/     Expo SDK 57 + Expo Router + NativeWind 4 (Jest)
 packages/
   config/         Shared TSConfig presets, ESLint flat-config factories, Prettier, Vitest base
@@ -86,8 +86,9 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native) |
 | `pnpm build:storybook`                            | Static Storybook for ui-web                                         |
 | `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                   |
-| `pnpm test:e2e`                                   | API and web e2e suites, one after the other (Docker or E2E_* URLs)  |
+| `pnpm test:e2e`                                   | API, web and admin e2e suites, one after the other (Docker or URLs) |
 | `pnpm --filter @suskii/web test:e2e`              | Web e2e + Lighthouse against built web, API and worker (see notes)  |
+| `pnpm --filter @suskii/admin test:e2e`            | Admin e2e: staff journeys, audit log, axe (built admin and API)     |
 | `pnpm --filter @suskii/web lighthouse [url]`      | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)     |
 | `pnpm --filter @suskii/web check:classes`         | Fail if a Tailwind class used in web/ui-web generates no CSS        |
 | `pnpm --filter @suskii/worker refresh:once`       | Refresh every deal route and destination once (API must run)        |
@@ -141,6 +142,13 @@ Tooling notes for agents:
   Chromium. The stack makes Lagos-Dubai fares change at the payment re-check
   (`MOCK_REPRICE_RULES`) for the price-consent test, and runs `db:seed:demo` for the in-house
   journeys (sample packages, tours, add-ons and visa products).
+- Admin e2e (`apps/admin/e2e`) also runs from build output (admin and API; stop servers on 3001
+  and 4000 first). Postgres comes from Testcontainers or as a new database on the server named by
+  `ADMIN_E2E_DATABASE_URL` (dropped afterwards); Redis from `ADMIN_E2E_REDIS_URL`. `provision.ts`
+  creates through the API a seeded super admin, one staff persona per test (`personas.ts`) and
+  paid tour and visa bookings; the API refuses a TOTP code twice, so never sign the same persona
+  in from two tests. The audit project runs after the journeys. The stack sets
+  `RATE_LIMIT_ENABLED=false` because every persona signs in from one IP within a minute.
 - `next dev` would write its own `AGENTS.md`/`CLAUDE.md` into the app folder; `agentRules: false`
   in both Next configs keeps this file the only agent guide.
 
@@ -369,6 +377,31 @@ Tooling notes for agents:
   `LedgerService` (`referral_reward`); a fraud flag sends the referral to review, never to a
   silent rejection or payout.
 
+### Admin API and console (apps/api, apps/admin, ADR-033 to ADR-036)
+
+- Every `/v1/admin` route has `@AdminRoute(permission)` and every admin mutation declares the
+  audit actions it records (`audit: [...]` in its contract). The OpenAPI build fails otherwise;
+  the route matrix (`admin-matrix.e2e-spec.ts`) checks a new route automatically, and
+  `admin-audit.e2e-spec.ts` fails until a new mutation has a case there.
+- Cookie-authenticated admin calls must come from an `ADMIN_ORIGINS` origin (every method);
+  bearer tokens are not origin-checked but still need staff, MFA and the permission.
+- Admin edits validate the merged record with the public schema (`checkMerged`), record
+  `fieldChanges()` in the audit metadata (names only for free text), and deactivate or
+  unpublish rather than delete where history matters. Editing a verified trust signal clears its
+  verification; only `trust-signals:verify` (super admin) verifies, with an https evidence URL.
+- Console pages live in `components/pages/<area>.tsx`; files under `app/(console)/` only render
+  them. A new section needs a `NAV_ITEMS` entry whose permissions match its API routes: the shell
+  mounts a page only for staff whose roles open its section, and staff without the dashboard land
+  on their first section.
+- Data goes through `$api` (openapi-react-query) or `adminApi`; query keys start with
+  `['get', path]`, so invalidate by path. Cursor lists use `useCursorPages`; errors become
+  `ApiProblem` (`problemOf`, `problemMessage`; add new problem slugs to `admin.problems`).
+- Forms take decimals and percentages: convert with `minorFromInput` / `bpsFromPercent` (and
+  back), map API issues with `fieldIssues`, and never send floats. Destructive actions use
+  `ConfirmAction`. Copy comes from `@suskii/i18n/admin` (`t`, `label` for enum values).
+- Admin e2e tests sign each persona in once (`signIn` uses the next TOTP step) and look up alerts
+  with `alertWith` (Next's route announcer is an empty alert) and toasts with `expectToast`.
+
 ### Security guardrails
 
 - Never commit `.env` files, secrets, or real supplier credentials. Use `.env.example` placeholders.
@@ -435,6 +468,10 @@ Tooling notes for agents:
 - [ADR-030: Suskii Prime memberships and member pricing](docs/decisions/ADR-030-suskii-prime-memberships-and-pricing.md)
 - [ADR-031: Referrals, rewards and fraud checks](docs/decisions/ADR-031-referrals-rewards-and-fraud-checks.md)
 - [ADR-032: Notifications, channel preferences and price alerts](docs/decisions/ADR-032-notifications-preferences-and-price-alerts.md)
+- [ADR-033: Admin console, staff sessions and origin isolation](docs/decisions/ADR-033-admin-console-staff-sessions-and-origin-isolation.md)
+- [ADR-034: Admin route permission matrix and audit coverage](docs/decisions/ADR-034-admin-route-permission-matrix-and-audit-coverage.md)
+- [ADR-035: Admin-managed pricing, promos, deals and content](docs/decisions/ADR-035-admin-managed-pricing-promos-deals-and-content.md)
+- [ADR-036: Admin dashboards and reporting](docs/decisions/ADR-036-admin-dashboards-and-reporting.md)
 
 ## Open questions for the owner
 
@@ -467,4 +504,8 @@ nothing is paid), the retention period for financial records of deleted accounts
 years, `FINANCIAL_RECORDS_RETENTION_YEARS`), the WhatsApp Business provider and message
 templates, the price alert cadence and minimum drop (defaults every 6 hours, 5%), who reviews
 flagged referrals, and whether payment providers may share card fingerprints for referral
-checks.
+checks. Added in phase 10: the production console host (`ADMIN_ORIGINS`) and office or VPN egress
+addresses for `ADMIN_IP_ALLOWLIST`, the first super admins and who holds each staff role, the
+evidence documents for regulated trust claims (IATA accreditation, traveller counts) before
+anyone verifies them, and whether markup and fee changes should need a second approver like
+refunds (today one `pricing:manage` holder applies them, audited).

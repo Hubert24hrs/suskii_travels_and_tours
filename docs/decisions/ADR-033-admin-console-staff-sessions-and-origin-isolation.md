@@ -48,3 +48,11 @@ makes it the likelier place for an XSS.
 - A staff member using a non-browser client must use bearer tokens (`transport: token`).
 - Shorter idle timeouts for staff sessions and step-up confirmation for the riskiest actions are
   left for phase 11 (hardening).
+
+## Notes (end of phase 10)
+
+- The console mounts a page only for staff whose roles open its section (`NAV_ITEMS`), so it
+  never sends a request the API would refuse; staff without the dashboard (content managers,
+  visa officers) land on their first section. The API remains the authority.
+- The admin Playwright suite covers enrolment on first sign-in, a refused authenticator code,
+  sign-out and a customer account turned away, against the built console and API.

@@ -6,6 +6,53 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 10: Admin console (2026-10-06)
+
+#### Added
+
+- Staff sessions (ADR-033): the console signs staff in through the existing auth routes
+  (password, then the authenticator); a staff account without TOTP enrols before it gets a
+  console session. Cookie-authenticated `/v1/admin` calls must come from an `ADMIN_ORIGINS`
+  origin for every method (required and https in production, and listed in `CORS_ORIGINS`), so a
+  script on the public website cannot use a staff member's session.
+- Admin API (ADR-035, ADR-036): booking search (reference, status, vertical, dates, contact email
+  through its HMAC) and detail with items, payment attempts, refunds, plan and status timeline,
+  encrypted internal notes, an audited contact reveal and confirmation resend; user search,
+  disable and enable (sessions revoked, the last super admin protected) and MFA reset; markup and
+  fee rules, promo codes (the code is locked after the first redemption), deal routes and
+  destinations; CMS blocks validated against the public site's schemas, FAQs and trust signals
+  (an edit clears verification; verifying needs `trust-signals:verify` and an https evidence
+  URL); a read-only dashboard with bookings by status and vertical, money taken and refunded per
+  currency from the ledger, work queues, new accounts, active Prime members and top routes.
+  Catalog products list their editable fields. Migrations add `booking_notes` and reporting
+  indexes.
+- Permission and audit metadata (ADR-034): contracts declare the audit actions an admin mutation
+  records; the OpenAPI document carries `x-admin-permissions` and `x-audit`, and its build fails
+  when a `/v1/admin` route has no permission or an admin mutation no audit action.
+- Admin console (`apps/admin`): staff sign-in with MFA and enrolment (QR code drawn on the page,
+  setup key, recovery codes), single-flight session refresh with a Web Lock, CSRF on writes and
+  a nonce CSP. Navigation shows only the sections the roles allow, and a section mounts only for
+  staff who may open it. Pages: dashboard, bookings (search, detail, notes, contact reveal,
+  refund requests), refunds (approve or reject under maker-checker, resolve), vouchers, users
+  (roles, disable, MFA reset), audit log, markups and fees, promo codes, deal routes and
+  destinations, CMS blocks and FAQs, trust signals (verify with evidence), the in-house catalog
+  (packages, tours, add-ons, visa products, departures), visa applications (documents through
+  signed links, status changes, comments) and eligibility rules, Suskii Prime plans and the
+  referral review queue. Copy comes from `@suskii/i18n/admin`.
+- Tests: API e2e route matrix over every admin operation in the OpenAPI document (anonymous,
+  customer, staff without the permission, staff without MFA, foreign or missing origin, and the
+  permitted caller); an audit coverage suite that performs every admin mutation and checks its
+  declared entries; behaviour suites for the new routes. Admin Playwright journeys: enrolment on
+  first sign-in, a refused code and sign-out, a customer turned away, a refund requested by
+  support and approved by finance, a markup raising a public price, a trust signal verified and
+  served publicly, a promo code created, the audit log showing each change with its author, and
+  axe on every page and at phone width. CI runs the admin suite after the web suite.
+
+#### Fixed
+
+- Saving an unchanged CMS block no longer reports a change (jsonb reorders keys; content is now
+  compared canonically).
+
 ### Phase 9: Accounts, Suskii Prime, referrals and notifications (2026-10-05)
 
 #### Added

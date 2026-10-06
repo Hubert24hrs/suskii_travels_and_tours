@@ -1,6 +1,6 @@
 # Phase 10: Admin console
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -99,3 +99,65 @@ audit log.
 - **Price mistakes from markup edits.** Mitigation: values validated (basis points within limits,
   caps in minor units), markups cannot be negative (discounts are promo codes), every change
   audited with the before and after values.
+
+## Outcome
+
+### Acceptance criteria
+
+1. **Every admin route has permission tests.**
+   - The OpenAPI build fails when a `/v1/admin` operation has no `@AdminRoute` permission
+     (`x-admin-permissions`) or `@AdminRoute` is used outside `/v1/admin`.
+   - API e2e (`admin-matrix.e2e-spec.ts`) reads the document and calls every admin operation
+     (71) anonymously (401), as a customer (403), as staff without its permission (403), as
+     staff without MFA (`mfa-required`), with a cookie session from a foreign or missing origin
+     (403), and as a permitted super admin by bearer token and from the console origin (neither
+     401 nor 403). A new route is covered without editing the test.
+   - Admin Playwright: navigation and page access per role (a content manager and operations
+     staff see only their sections; other sections show the refusal without calling the API) and
+     staff sign-in with MFA, enrolment and refusal of customer accounts.
+2. **All admin mutations appear in the audit log.**
+   - The OpenAPI build fails when an admin mutation declares no audit action (`x-audit`).
+   - API e2e (`admin-audit.e2e-spec.ts`) performs all 49 admin mutations successfully, checks a
+     declared entry with the staff actor and target for each, and fails if any admin mutation in
+     the document was not exercised.
+   - Admin Playwright (`audit.spec.ts`, after the journeys): the refund request and approval, the
+     markup rule, the trust signal verification and the promo code are each in the audit log
+     under the staff member who made them.
+
+### Tests
+
+- Unit: API 375 (including the admin helpers), shared 170, design tokens 179, ui-web 144, mobile
+  105, ui-native 44, worker 31, i18n 17, api-client 3.
+- API e2e: the full suite, including the admin route matrix, audit coverage and console
+  behaviour suites (results recorded with the CI run below).
+- Admin e2e (Playwright, 10 tests in two projects): enrolment on first sign-in; a refused code,
+  sign-in and sign-out; a customer turned away; a refund requested by support and approved by
+  finance (support cannot approve); a tours markup raising the public price; the IATA claim
+  verified with evidence and served by the public content API; a promo code created by operations,
+  who cannot open pricing; the audit log check; axe on every page (all sections plus booking, user
+  and visa application details) and the console at phone width. Stable over repeated local runs.
+
+### CI
+
+Recorded after the final CI run on this phase's last commit.
+
+### Deviations from the plan
+
+- **Catalog details are edited as JSON.** Packages, tours, add-ons and visa products have long
+  nested fields (itineraries, policies, checklists, meeting points); the console edits the
+  product's editable fields as a JSON document, prefilled from the API, and shows the API's field
+  issues. Status changes and departures (capacity, status, per-person prices) have their own
+  forms. A field-by-field editor can replace it when content staff ask.
+- **Visa documents open in a new tab** through a short-lived signed link requested on click;
+  the console never holds document content.
+- **Prime plan slug and billing period are fixed after creation**, since running memberships
+  refer to them.
+- **The admin e2e stack disables rate limiting** (`RATE_LIMIT_ENABLED=false`) because every
+  persona signs in from one IP within a minute; the limits are covered by the API e2e suite.
+  It creates and drops its own database when given a server URL, so runs never share data.
+- **Found by the e2e suite and fixed:** pages started their API query before their permission
+  check, so opening a forbidden section sent a request the API refused (the shell now mounts a
+  section only for permitted staff, and staff without the dashboard land on their first section);
+  the console had no icon (a 404 on every page).
+- **Found by CI and fixed:** the detail routes used Next's generated `PageProps` type, which does
+  not exist when lint runs before a build.
