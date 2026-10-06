@@ -69,6 +69,11 @@ export function createBookingsQueue(
         { every: config.REFERRAL_SWEEP_MINUTES * 60_000, immediately: true },
         { name: ACCOUNT_JOB.referrals, opts },
       );
+      await activeQueue.upsertJobScheduler(
+        ACCOUNT_JOB.retention,
+        { every: config.RETENTION_SWEEP_INTERVAL_HOURS * 3_600_000, immediately: true },
+        { name: ACCOUNT_JOB.retention, opts },
+      );
     },
     async stop() {
       await worker?.close();

@@ -2407,6 +2407,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/retention/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purge records past their retention period
+         * @description Rows removed (or bookings anonymised) per rule. Idempotent; the worker calls it daily.
+         */
+        post: operations["runRetention"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/snapshots/prune": {
         parameters: {
             query?: never;
@@ -5877,6 +5897,18 @@ export interface components {
             outcome: "succeeded" | "failed";
             /** @default null */
             providerRefundId?: string | null;
+        };
+        RetentionRun: {
+            sessions: number;
+            "verification-tokens": number;
+            "idempotency-keys": number;
+            "booking-access-links": number;
+            offers: number;
+            "webhook-events": number;
+            notifications: number;
+            "search-logs": number;
+            "newsletter-pending": number;
+            "closed-bookings": number;
         };
         RevokedSessions: {
             revoked: number;
@@ -10867,6 +10899,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReminderRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    runRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionRun"];
                 };
             };
             400: components["responses"]["Problem400"];

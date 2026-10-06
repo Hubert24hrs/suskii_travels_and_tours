@@ -367,7 +367,9 @@ Tooling notes for agents:
 ### Accounts, Prime, referrals and notifications (apps/api, ADR-029 to ADR-032)
 
 - Every Prisma model has an entry in `DATA_REGISTRY` (`src/privacy/data-registry.ts`): its
-  export section and deletion treatment (`delete`, `redact`, `retain`, `none`). A new model
+  export section, deletion treatment (`delete`, `redact`, `retain`, `none`) and retention
+  (`account`, `reference`, a `RetentionService` rule, its own job, its parent, or `append-only`;
+  ADR-039). A table that grows with use needs a purge rule. A new model
   fails compilation and `data-registry.spec.ts` until it has one; add new personal data to the
   export (`DataExportService`) and to `AccountDeletionService` in the same change.
 - Sensitive account actions (export, deletion) take a proof checked by `ReauthService`

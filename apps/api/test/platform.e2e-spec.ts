@@ -284,8 +284,8 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
         }
       }
       // Bookings and money (5), deal and destination refresh (4), push tokens (1), visa (2),
-      // price alerts, reminders and referrals (3).
-      expect(internalOperations).toBe(15);
+      // price alerts, reminders and referrals (3), retention (1).
+      expect(internalOperations).toBe(16);
     });
 
     it('resolves every $ref (generated clients refuse dangling references)', () => {

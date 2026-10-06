@@ -9,6 +9,7 @@ import {
   type ReferralRun,
   type RefundRun,
   type ReminderRun,
+  type RetentionRun,
   type TicketingRun,
   type VisaPruneRun,
   type VisaScanRun,
@@ -23,7 +24,8 @@ import { type Logger } from './logger.js';
  * their reminders and are closed on a missed payment; approved refunds are sent and pending ones
  * followed up. Visa documents whose background scan was lost are scanned again every few
  * minutes, and documents past their retention period are deleted daily (ADR-026). Check-in and
- * Prime reminders and referral qualification run every few minutes (ADR-030, ADR-031). The API owns
+ * Prime reminders and referral qualification run every few minutes (ADR-030, ADR-031), and the
+ * retention sweep daily (ADR-039). The API owns
  * the state machine, the ledger, locking and backoff; the worker only keeps the clock.
  */
 export const BOOKINGS_QUEUE = 'bookings';
@@ -46,6 +48,8 @@ export const VISA_JOB = {
 export const ACCOUNT_JOB = {
   reminders: 'accounts-reminders',
   referrals: 'accounts-referrals',
+  /** The daily retention sweep (ADR-039). */
+  retention: 'accounts-retention',
 } as const;
 
 export interface BookingJobDeps {
@@ -78,6 +82,7 @@ export async function processBookingJob(
   | VisaPruneRun
   | ReminderRun
   | ReferralRun
+  | RetentionRun
 > {
   switch (job.name) {
     case BOOKING_JOB.expire: {
@@ -147,6 +152,13 @@ export async function processBookingJob(
       if (result.qualified > 0 || result.rewarded > 0)
         deps.logger.info(result, 'referrals processed');
       if (result.review > 0) deps.logger.warn({ review: result.review }, 'referrals need review');
+      return result;
+    }
+    case ACCOUNT_JOB.retention: {
+      const result = await sweep(() => deps.api.runRetention());
+      if (Object.values(result).some((count) => count > 0)) {
+        deps.logger.info(result, 'records past retention purged');
+      }
       return result;
     }
     default:

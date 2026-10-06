@@ -113,6 +113,19 @@ describe('internal API client', () => {
     ]);
   });
 
+  it('calls the retention sweep', async () => {
+    const fetch = vi.fn(() => Promise.resolve(reply(200, { sessions: 1 })));
+    const api = createInternalApi({
+      baseUrl: 'http://api.internal:4000',
+      token: TOKEN,
+      fetch: fetch,
+    });
+    await expect(api.runRetention()).resolves.toEqual({ sessions: 1 });
+    expect((fetch.mock.calls[0] as unknown as [Request])[0].url).toBe(
+      'http://api.internal:4000/v1/internal/retention/run',
+    );
+  });
+
   it('calls the account sweep routes', async () => {
     const replies: Record<string, unknown> = {
       'price-alerts': { checked: 2, notified: 1, retired: 0, failed: 0 },

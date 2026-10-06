@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { Prisma } from '../generated/prisma/client';
 
 import { DATA_REGISTRY, EXPORT_SECTIONS, type DataTreatment } from './data-registry';
+import { RETENTION_RULES } from './retention.service';
 
 const schemaModels = (): string[] => {
   const schema = readFileSync(resolve(__dirname, '../../prisma/schema.prisma'), 'utf8');
@@ -39,6 +40,25 @@ describe('DSAR data registry (ADR-029)', () => {
     for (const model of ['RefreshToken', 'VerificationToken', 'BookingAccessLink']) {
       const treatment = DATA_REGISTRY[model as keyof typeof DATA_REGISTRY];
       expect([treatment.deletion, treatment.section]).toEqual(['delete', null]);
+    }
+  });
+
+  it('gives every table a retention and claims every sweep rule (ADR-039)', () => {
+    const claimed = entries.flatMap(([, treatment]) =>
+      treatment.retention.kind === 'rule' ? [treatment.retention.rule] : [],
+    );
+    expect([...new Set(claimed)].sort()).toEqual([...RETENTION_RULES].sort());
+    const appendOnly = entries
+      .filter(([, treatment]) => treatment.retention.kind === 'append-only')
+      .map(([model]) => model);
+    expect(appendOnly.sort()).toEqual(
+      ['AuditLog', 'LedgerAccount', 'LedgerEntry', 'LedgerTransaction'].sort(),
+    );
+    // Personal data never lives on reference data.
+    for (const [model, treatment] of entries) {
+      if (treatment.retention.kind === 'reference') {
+        expect([model, treatment.deletion]).toEqual([model, 'none']);
+      }
     }
   });
 });

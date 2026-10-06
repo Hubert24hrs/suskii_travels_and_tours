@@ -9131,6 +9131,49 @@
         }
       }
     },
+    "/v1/internal/retention/run": {
+      "post": {
+        "operationId": "runRetention",
+        "summary": "Purge records past their retention period",
+        "description": "Rows removed (or bookings anonymised) per rule. Idempotent; the worker calls it daily.",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/snapshots/prune": {
       "post": {
         "operationId": "pruneSnapshots",
@@ -25357,6 +25400,74 @@
         "required": [
           "outcome"
         ]
+      },
+      "RetentionRun": {
+        "type": "object",
+        "properties": {
+          "sessions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "verification-tokens": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "idempotency-keys": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "booking-access-links": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "offers": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "webhook-events": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "notifications": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "search-logs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "newsletter-pending": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "closed-bookings": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "sessions",
+          "verification-tokens",
+          "idempotency-keys",
+          "booking-access-links",
+          "offers",
+          "webhook-events",
+          "notifications",
+          "search-logs",
+          "newsletter-pending",
+          "closed-bookings"
+        ],
+        "additionalProperties": false
       },
       "RevokedSessions": {
         "type": "object",

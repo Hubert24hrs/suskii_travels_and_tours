@@ -15,6 +15,7 @@ export type VisaPruneRun = components['schemas']['VisaPruneRun'];
 export type PriceAlertRun = components['schemas']['PriceAlertRun'];
 export type ReferralRun = components['schemas']['ReferralRun'];
 export type ReminderRun = components['schemas']['ReminderRun'];
+export type RetentionRun = components['schemas']['RetentionRun'];
 
 /** A failed internal API call. `status` 0 means the API was unreachable or timed out. */
 export class InternalApiError extends Error {
@@ -62,6 +63,8 @@ export interface BookingsApi {
   readonly runReminders: () => Promise<ReminderRun>;
   /** Referral qualification and rewards (ADR-031). */
   readonly runReferrals: () => Promise<ReferralRun>;
+  /** Records past their retention period are purged; long-closed bookings anonymised (ADR-039). */
+  readonly runRetention: () => Promise<RetentionRun>;
 }
 
 export interface InternalApiOptions {
@@ -75,6 +78,8 @@ export interface InternalApiOptions {
 /** Sweeps that call suppliers or payment providers: the API stops starting calls after 20 s. */
 const TICKETING_TIMEOUT_MS = 120_000;
 const MONEY_SWEEP_TIMEOUT_MS = 90_000;
+/** The first daily sweep after a backlog can delete many rows; later ones find little. */
+const RETENTION_TIMEOUT_MS = 300_000;
 /** A batch of price alerts runs a search per distinct route and date (cache hits are quick). */
 const PRICE_ALERT_TIMEOUT_MS = 300_000;
 
@@ -176,6 +181,12 @@ export function createInternalApi(options: InternalApiOptions): InternalApi & Bo
         'runReferrals',
         (signal) => client.POST('/v1/internal/referrals/run', { signal }),
         MONEY_SWEEP_TIMEOUT_MS,
+      ),
+    runRetention: () =>
+      call(
+        'runRetention',
+        (signal) => client.POST('/v1/internal/retention/run', { signal }),
+        RETENTION_TIMEOUT_MS,
       ),
   };
 }

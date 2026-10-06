@@ -852,6 +852,8 @@ model Booking {
   checkinRemindedAt DateTime?     @map("checkin_reminded_at") @db.Timestamptz(3)
   /// Contact details and passports wiped after account deletion (ADR-029).
   redactedAt        DateTime?     @map("redacted_at") @db.Timestamptz(3)
+  /// Set when the retention sweep cleared the last personal data of a closed booking (ADR-039).
+  anonymisedAt      DateTime?     @map("anonymised_at") @db.Timestamptz(3)
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -878,6 +880,7 @@ model Booking {
   @@index([status, nextTicketingAt])
   @@index([contactEmailHash])
   @@index([linkedBookingId])
+  @@index([status, updatedAt])
   @@map("bookings")
 }
 

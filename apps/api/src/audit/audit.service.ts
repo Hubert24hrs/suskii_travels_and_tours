@@ -88,6 +88,7 @@ export type AuditAction =
   | 'referral.reviewed'
   | 'reminder.checkin_sent'
   | 'reminder.prime_sent'
+  | 'retention.swept'
   | 'booking.note_added'
   | 'booking.contact_revealed'
   | 'booking.confirmation_resent'

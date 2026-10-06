@@ -23,6 +23,7 @@ describe('loadConfig', () => {
       PRICE_ALERT_SWEEP_MINUTES: 15,
       REMINDER_SWEEP_MINUTES: 15,
       REFERRAL_SWEEP_MINUTES: 60,
+      RETENTION_SWEEP_INTERVAL_HOURS: 24,
     });
   });
 

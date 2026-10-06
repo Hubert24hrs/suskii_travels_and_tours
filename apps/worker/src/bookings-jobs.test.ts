@@ -19,6 +19,20 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   pruneVisaDocuments: vi.fn(() => Promise.resolve({ deleted: 4 })),
   runReminders: vi.fn(() => Promise.resolve({ checkin: 2, prime: 1 })),
   runReferrals: vi.fn(() => Promise.resolve({ qualified: 1, review: 1, rewarded: 1 })),
+  runRetention: vi.fn(() =>
+    Promise.resolve({
+      sessions: 3,
+      'verification-tokens': 0,
+      'idempotency-keys': 5,
+      'booking-access-links': 0,
+      offers: 2,
+      'webhook-events': 0,
+      notifications: 0,
+      'search-logs': 0,
+      'newsletter-pending': 0,
+      'closed-bookings': 1,
+    }),
+  ),
   ...overrides,
 });
 
@@ -26,6 +40,16 @@ const logger = () => {
   const log = pino({ level: 'silent' });
   return Object.assign(log, { info: vi.fn(), warn: vi.fn() });
 };
+
+describe('retention sweep', () => {
+  it('runs the daily sweep and logs what it removed', async () => {
+    const api = fakeApi();
+    const log = logger();
+    const result = await processBookingJob({ name: ACCOUNT_JOB.retention }, { api, logger: log });
+    expect(result).toMatchObject({ sessions: 3, 'closed-bookings': 1 });
+    expect(log.info).toHaveBeenCalledWith(result, 'records past retention purged');
+  });
+});
 
 describe('account sweeps', () => {
   it('sends reminders and processes referrals, flagging reviews', async () => {
