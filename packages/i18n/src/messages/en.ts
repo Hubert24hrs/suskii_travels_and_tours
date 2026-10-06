@@ -844,6 +844,8 @@ export const en = {
       exportHint:
         'The file opens in the share sheet so you can save it. The app deletes its copy afterwards.',
       exportShared: 'Your data file is ready.',
+      phoneSmsNote:
+        'Texted codes can be intercepted. For better protection, turn on an authenticator app under Security in your account on the Suskii website.',
       referralShare: 'Share your invite',
       referralMessage: 'Join me on Suskii with my invite code {code}: {url}',
     },
@@ -1289,6 +1291,8 @@ export const en = {
       sendCode: 'Text me a code',
       code: '6-digit code',
       codeSent: 'We sent a code to {phone}. It expires in 5 minutes.',
+      smsNote:
+        'Texted codes can be intercepted if someone takes over your number. Sign in with a password and an authenticator app for stronger protection.',
       resend: 'Send a new code',
       verifyCode: 'Continue',
       mfaHeading: 'Enter your authenticator code',

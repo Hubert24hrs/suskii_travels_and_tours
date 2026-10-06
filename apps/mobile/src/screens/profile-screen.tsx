@@ -63,6 +63,11 @@ function ProfileForm({ preferences }: { preferences: Preferences }) {
         <Text className="font-body text-body text-foreground">
           {user?.phone ?? t('account.profile.phoneNone')}
         </Text>
+        {user?.phone ? (
+          <Text className="font-body text-caption text-muted">
+            {t('mobile.account.phoneSmsNote')}
+          </Text>
+        ) : null}
       </Card>
       <Card className="gap-3 p-4">
         <Input

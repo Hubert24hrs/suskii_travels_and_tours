@@ -190,6 +190,7 @@ export function SignInScreen() {
             autoComplete="tel"
             textContentType="telephoneNumber"
           />
+          <Text className="font-body text-body-sm text-muted">{t('auth.signIn.smsNote')}</Text>
           {codeSentTo ? (
             <>
               <Text

@@ -225,6 +225,7 @@ export function SignInForm({ next }: { next: string | null }) {
             required
             data-testid="sign-in-phone"
           />
+          <p className="font-body text-body-sm text-muted">{t('auth.signIn.smsNote')}</p>
           {codeSent ? (
             <>
               <p role="status" className="font-body text-body-sm text-muted">
