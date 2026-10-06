@@ -41,6 +41,7 @@ export class CloudflareTurnstileVerifier extends TurnstileVerifier {
     try {
       const response = await this.fetchImpl(SITEVERIFY_URL, {
         method: 'POST',
+        redirect: 'error',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           secret: this.secret,

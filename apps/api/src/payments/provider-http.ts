@@ -48,6 +48,8 @@ export class ProviderHttp {
       response = await this.fetchImpl(`${this.options.baseUrl.replace(/\/$/, '')}${request.path}`, {
         method: request.method,
         headers,
+        // Provider APIs never redirect; following one could leak the secret key elsewhere.
+        redirect: 'error',
         signal: AbortSignal.timeout(this.options.timeoutMs),
         ...(request.body
           ? {

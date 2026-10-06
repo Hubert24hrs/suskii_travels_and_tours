@@ -105,6 +105,7 @@ test.describe('security headers', () => {
     expect(csp).toContain("'strict-dynamic'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("base-uri 'none'");
     expect(csp).not.toContain("'unsafe-eval'");
     expect(headers['x-content-type-options']).toBe('nosniff');
     expect(headers['x-frame-options']).toBe('DENY');

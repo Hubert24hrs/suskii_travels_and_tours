@@ -20,6 +20,7 @@ interface Call {
   url: string;
   headers: Record<string, string>;
   body: string | undefined;
+  redirect: RequestInit['redirect'];
 }
 
 /** A fetch that answers from a queue and records what was sent. */
@@ -31,6 +32,7 @@ function fakeFetch(...responses: { status?: number; body: unknown }[]) {
       url,
       headers: init.headers as Record<string, string>,
       body: init.body as string | undefined,
+      redirect: init.redirect,
     });
     const next = responses.shift();
     if (!next) return Promise.reject(new TypeError('fetch failed'));
@@ -96,6 +98,8 @@ describe('PaystackPaymentProvider', () => {
     });
     expect(calls[0]?.url).toBe('https://api.paystack.test/transaction/initialize');
     expect(calls[0]?.headers.Authorization).toBe(`Bearer ${secretKey}`);
+    // A redirect could carry the secret key to another host (ASVS V15.3.2).
+    expect(calls[0]?.redirect).toBe('error');
     expect(JSON.parse(calls[0]?.body ?? '{}')).toMatchObject({
       amount: '4550000',
       currency: 'NGN',

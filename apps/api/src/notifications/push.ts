@@ -68,6 +68,7 @@ export class ExpoPushProvider extends PushProvider {
     try {
       const response = await this.fetchImpl(this.options.url, {
         method: 'POST',
+        redirect: 'error',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',

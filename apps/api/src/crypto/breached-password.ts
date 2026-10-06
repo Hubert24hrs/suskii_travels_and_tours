@@ -28,6 +28,7 @@ export class HibpBreachedPasswordChecker extends BreachedPasswordChecker {
     try {
       const response = await this.fetchImpl(`${RANGE_API}${prefix}`, {
         headers: { 'Add-Padding': 'true', 'User-Agent': 'suskii-api' },
+        redirect: 'error',
         signal: AbortSignal.timeout(2500),
       });
       if (!response.ok) throw new Error(`HIBP responded ${response.status}`);

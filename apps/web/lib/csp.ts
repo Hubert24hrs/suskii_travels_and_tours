@@ -31,7 +31,7 @@ export function buildCsp(options: CspOptions): string {
     ['connect-src', "'self'", options.apiOrigin, TURNSTILE_ORIGIN],
     ['frame-src', TURNSTILE_ORIGIN],
     ['object-src', "'none'"],
-    ['base-uri', "'self'"],
+    ['base-uri', "'none'"],
     ['form-action', "'self'"],
     ['frame-ancestors', "'none'"],
     ['manifest-src', "'self'"],

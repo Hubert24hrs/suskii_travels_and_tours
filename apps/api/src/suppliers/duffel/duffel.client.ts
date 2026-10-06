@@ -42,6 +42,8 @@ export class DuffelClient {
       response = await this.fetchImpl(`${this.options.baseUrl}${path}`, {
         method,
         signal,
+        // The supplier API never redirects; following one could leak the token elsewhere.
+        redirect: 'error',
         headers: {
           Authorization: `Bearer ${this.options.token}`,
           'Duffel-Version': 'v2',

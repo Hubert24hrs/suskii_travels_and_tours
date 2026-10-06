@@ -44,9 +44,14 @@ export const test = base.extend<Fixtures>({
 export { expect };
 
 /** Opens the sign-in page and submits the persona's email and password. */
-export async function submitPassword(page: Page, stack: StackState, key: PersonaKey) {
+export async function submitPassword(
+  page: Page,
+  stack: StackState,
+  key: PersonaKey,
+  next?: string,
+) {
   const persona = stack.personas[key];
-  await page.goto('/sign-in');
+  await page.goto(next ? `/sign-in?next=${encodeURIComponent(next)}` : '/sign-in');
   await page.getByTestId('sign-in-email').fill(persona.email);
   await page.getByTestId('sign-in-password').fill(persona.password);
   await page.getByRole('button', { name: t('auth.submit') }).click();

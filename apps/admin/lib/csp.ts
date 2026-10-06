@@ -26,7 +26,7 @@ export function buildCsp(options: CspOptions): string {
     ['connect-src', "'self'", options.apiOrigin],
     ['frame-src', "'none'"],
     ['object-src', "'none'"],
-    ['base-uri', "'self'"],
+    ['base-uri', "'none'"],
     ['form-action', "'self'"],
     ['frame-ancestors', "'none'"],
   ];

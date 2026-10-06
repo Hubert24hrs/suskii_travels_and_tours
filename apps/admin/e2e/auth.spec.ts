@@ -53,7 +53,8 @@ test.describe('authenticator codes', () => {
   }) => {
     const { secret } = stack.personas.mfa;
     if (!secret) throw new Error('mfa persona has no authenticator');
-    await submitPassword(page, stack, 'mfa');
+    // A `next` that a browser would resolve to another host is ignored after sign-in.
+    await submitPassword(page, stack, 'mfa', '/\\example.com/phish');
     await expect(page.getByRole('heading', { name: t('auth.mfaHeading') })).toBeVisible();
     await expectNoAxeViolations(page);
 
@@ -65,6 +66,7 @@ test.describe('authenticator codes', () => {
     await page.getByTestId('mfa-code').fill(totp(secret, 1));
     await page.getByRole('button', { name: t('auth.verify') }).click();
     await expect(page.getByRole('navigation', { name: t('nav.label') })).toBeVisible();
+    expect(new URL(page.url()).host).toBe('localhost:3001');
     await expect(
       page.getByText(t('nav.signedInAs', { name: stack.personas.mfa.email })),
     ).toBeVisible();
@@ -82,4 +84,19 @@ test('an account without a staff role cannot open the console', async ({ page, s
   await submitPassword(page, stack, 'customer');
   await expect(page.getByRole('heading', { name: t('auth.notStaff.heading') })).toBeVisible();
   await expect(page.getByRole('navigation', { name: t('nav.label') })).toHaveCount(0);
+});
+
+test('the console sends its security headers', async ({ request }) => {
+  const response = await request.get('/sign-in');
+  const headers = response.headers();
+  expect(headers['strict-transport-security']).toContain('max-age=63072000');
+  expect(headers['x-content-type-options']).toBe('nosniff');
+  expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  expect(headers['permissions-policy']).toContain('camera=()');
+  expect(headers['x-robots-tag']).toBe('noindex, nofollow');
+  const csp = headers['content-security-policy'] ?? '';
+  for (const directive of ["object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) {
+    expect(csp).toContain(directive);
+  }
+  expect(csp).toMatch(/script-src [^;]*'nonce-/);
 });
