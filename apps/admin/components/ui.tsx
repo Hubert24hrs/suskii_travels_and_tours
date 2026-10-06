@@ -1,6 +1,16 @@
 'use client';
 
-import { Badge, Button, Card, cn, Input, type BadgeProps } from '@suskii/ui-web';
+import {
+  Badge,
+  Button,
+  Card,
+  cn,
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  Input,
+  type BadgeProps,
+} from '@suskii/ui-web';
 import { useId, type ComponentProps, type ReactNode } from 'react';
 
 import { problemMessage, problemOf } from '../lib/api';
@@ -302,3 +312,37 @@ export function DetailList({ items }: { items: readonly { term: string; value: R
 export const FormGrid = ({ children }: { children: ReactNode }) => (
   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{children}</div>
 );
+
+/** A button that opens a modal form; the caller closes it on success via `onOpenChange`. */
+export function FormDialog({
+  triggerLabel,
+  triggerVariant = 'ghost',
+  title,
+  description,
+  open,
+  onOpenChange,
+  children,
+  testId,
+}: {
+  triggerLabel: string;
+  triggerVariant?: 'primary' | 'secondary' | 'ghost';
+  title: string;
+  description?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+  testId?: string;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant={triggerVariant} data-testid={testId}>
+          {triggerLabel}
+        </Button>
+      </DialogTrigger>
+      <DialogContent title={title} description={description} closeLabel={t('common.close')}>
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
+}

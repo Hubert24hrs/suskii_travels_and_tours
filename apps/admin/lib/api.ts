@@ -49,10 +49,18 @@ export interface Problem {
   issues: ProblemIssue[];
 }
 
+/** A failed call's problem body, wrapped so it can be thrown as an Error. */
+export class ApiProblem extends Error {
+  constructor(readonly body: unknown) {
+    super('API request failed');
+  }
+}
+
 /** The problem details of a failed call (openapi-fetch rejects with the response body). */
 export function problemOf(error: unknown): Problem {
-  if (typeof error !== 'object' || error === null) return { slug: null, status: null, issues: [] };
-  const body = error as { type?: unknown; status?: unknown; errors?: unknown };
+  const value = error instanceof ApiProblem ? error.body : error;
+  if (typeof value !== 'object' || value === null) return { slug: null, status: null, issues: [] };
+  const body = value as { type?: unknown; status?: unknown; errors?: unknown };
   const slug = typeof body.type === 'string' ? body.type.replace(/^urn:suskii:problem:/, '') : null;
   const issues = Array.isArray(body.errors)
     ? body.errors.flatMap((issue: unknown) => {

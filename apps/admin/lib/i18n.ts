@@ -1,6 +1,6 @@
 import { createFormatters, createTranslator, type MessageKey } from '@suskii/i18n';
 import { adminMessages, type AdminMessages } from '@suskii/i18n/admin';
-import { DEFAULT_LOCALE } from '@suskii/shared/lite';
+import { DEFAULT_LOCALE } from '@suskii/shared';
 
 /**
  * The console's copy and formatters. The console is English only (en-NG formatting), so one

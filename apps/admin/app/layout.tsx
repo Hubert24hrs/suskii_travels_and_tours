@@ -1,5 +1,5 @@
 import { color } from '@suskii/design-tokens';
-import { DEFAULT_LOCALE } from '@suskii/shared/lite';
+import { DEFAULT_LOCALE } from '@suskii/shared';
 import type { Metadata, Viewport } from 'next';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
