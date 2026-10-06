@@ -8,7 +8,8 @@ import { ProblemDetailsException } from '../common/problem-details';
 import type { RequestContext } from '../common/request-context';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { HmacService } from '../crypto/hmac.service';
-import { randomToken, sha256 } from '../crypto/random';
+import { PasswordHasher } from '../crypto/password-hasher';
+import { randomToken, safeEqual, sha256 } from '../crypto/random';
 import { base32Encode, generateTotpSecret, otpauthUri, verifyTotp } from '../crypto/totp';
 import type { AuthMethod } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
@@ -47,6 +48,7 @@ export class MfaService {
     private readonly hmac: HmacService,
     private readonly throttle: LoginThrottleService,
     private readonly audit: AuditService,
+    private readonly hasher: PasswordHasher,
   ) {}
 
   async isEnabled(userId: string): Promise<boolean> {
@@ -132,9 +134,22 @@ export class MfaService {
     code: string,
     context: RequestContext,
   ): Promise<boolean> {
-    const codeHash = this.hmac.digest('recovery-code', `${userId}:${normaliseRecoveryCode(code)}`);
+    const normalised = normaliseRecoveryCode(code);
+    const unused = await this.prisma.mfaRecoveryCode.findMany({
+      where: { userId, usedAt: null },
+      select: { id: true, codeHash: true },
+    });
+    let matchId: string | null = null;
+    for (const candidate of unused) {
+      if (await this.recoveryCodeMatches(userId, candidate.codeHash, normalised)) {
+        matchId = candidate.id;
+        break;
+      }
+    }
+    if (!matchId) return false;
+    // Conditional on `usedAt: null`, so two concurrent uses of one code cannot both pass.
     const used = await this.prisma.mfaRecoveryCode.updateMany({
-      where: { userId, codeHash, usedAt: null },
+      where: { id: matchId, usedAt: null },
       data: { usedAt: new Date() },
     });
     if (used.count !== 1) return false;
@@ -239,11 +254,26 @@ export class MfaService {
     });
   }
 
+  /**
+   * Recovery codes carry 50 bits, below the 112 bits for which ASVS 5.0 V6.5.2 allows a plain
+   * hash, so they are stored with argon2id (salted, slow). Codes issued before phase 11 were a
+   * keyed HMAC and keep working until used or replaced.
+   */
+  private recoveryCodeMatches(
+    userId: string,
+    stored: string,
+    normalised: string,
+  ): Promise<boolean> {
+    if (stored.startsWith('$argon2')) return this.hasher.verify(stored, normalised);
+    return Promise.resolve(
+      safeEqual(stored, this.hmac.digest('recovery-code', `${userId}:${normalised}`)),
+    );
+  }
+
   private async replaceRecoveryCodes(
     tx: Pick<PrismaService, 'mfaRecoveryCode'>,
     userId: string,
   ): Promise<string[]> {
-    await tx.mfaRecoveryCode.deleteMany({ where: { userId } });
     // 10 codes of 50 bits each, formatted xxxxx-xxxxx for readability.
     const codes = Array.from({ length: RECOVERY_CODE_COUNT }, () => {
       const raw = base32Encode(crypto.getRandomValues(new Uint8Array(7)))
@@ -251,11 +281,12 @@ export class MfaService {
         .toLowerCase();
       return `${raw.slice(0, 5)}-${raw.slice(5)}`;
     });
+    const hashes = await Promise.all(
+      codes.map((code) => this.hasher.hash(normaliseRecoveryCode(code))),
+    );
+    await tx.mfaRecoveryCode.deleteMany({ where: { userId } });
     await tx.mfaRecoveryCode.createMany({
-      data: codes.map((code) => ({
-        userId,
-        codeHash: this.hmac.digest('recovery-code', `${userId}:${normaliseRecoveryCode(code)}`),
-      })),
+      data: hashes.map((codeHash) => ({ userId, codeHash })),
     });
     return codes;
   }

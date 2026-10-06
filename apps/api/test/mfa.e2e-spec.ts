@@ -49,6 +49,8 @@ describe('auth: TOTP MFA and recovery codes (e2e)', () => {
     expect(factor.secretCiphertext).not.toContain(setup.body.secret);
     const stored = await ctx.prisma.mfaRecoveryCode.findMany({ where: { userId: session.userId } });
     expect(stored.map((c) => c.codeHash)).not.toContain(confirm.body.recoveryCodes[0]);
+    // 50-bit codes are stored with a salted slow hash (ASVS V6.5.2).
+    expect(stored.every((c) => c.codeHash.startsWith('$argon2id$'))).toBe(true);
 
     await ctx.http().post('/v1/me/mfa/totp').set(bearer(session.accessToken)).expect(409);
     const me = await ctx.http().get('/v1/me').set(bearer(session.accessToken)).expect(200);
