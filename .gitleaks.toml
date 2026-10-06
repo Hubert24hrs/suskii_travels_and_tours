@@ -1,0 +1,16 @@
+# Gitleaks configuration (phase 11). The default rules apply; the allowlist below only covers
+# values that are fake by construction, never whole files or directories.
+title = "Suskii Travels gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Test fixtures: sequential placeholder digits and the worker's internal API host"
+regexTarget = "match"
+regexes = [
+  # sk_test_0123456789abcdef, whsec_test_0123456789abcdef, FLWSECK_TEST-0123456789
+  '''0123456789(abcdef)?''',
+  # http://api.internal:4000/v1/internal/... (a hostname, read as a key by generic-api-key)
+  '''api\.internal:4000''',
+]

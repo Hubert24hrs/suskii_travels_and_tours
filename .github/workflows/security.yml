@@ -1,0 +1,138 @@
+name: Security
+
+# Supply-chain and code scanning (phase 11). Scanners run as pinned binaries (version and SHA-256)
+# or container images pinned by digest, never as mutable third-party actions.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Weekly: new advisories against unchanged code.
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_VERSION: 8.30.1
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+  TRIVY_VERSION: 0.75.0
+  TRIVY_SHA256: c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f
+  SEMGREP_IMAGE: semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf gitleaks.tar.gz gitleaks
+
+      # Pull requests scan their own commits; everything else scans the whole history.
+      - name: Scan commits
+        env:
+          RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || '' }}
+        run: |
+          if [ -n "$RANGE" ]; then
+            ./gitleaks git --no-banner --redact --config .gitleaks.toml --log-opts="$RANGE" .
+          else
+            ./gitleaks git --no-banner --redact --config .gitleaks.toml .
+          fi
+
+  dependencies:
+    name: Dependency audit, Trivy and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      # Production dependencies, high and critical. Reviewed exceptions without a fixed release
+      # are listed by advisory id in pnpm-workspace.yaml (auditConfig) and
+      # docs/security/dependency-exceptions.md.
+      - name: pnpm audit
+        run: pnpm audit --prod --audit-level high
+
+      - name: Install Trivy
+        run: |
+          curl -sSfL -o trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum --check --strict
+          tar -xzf trivy.tar.gz trivy
+
+      # Vulnerabilities in the lockfile and misconfigurations (Dockerfiles, Compose, Terraform,
+      # Helm). Secrets are gitleaks' job. Only issues with a fix fail the job.
+      - name: Trivy file-system scan
+        run: |
+          ./trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed \
+            --exit-code 1 --skip-dirs '**/node_modules' .
+
+      - name: CycloneDX SBOM
+        run: ./trivy fs --scanners vuln --format cyclonedx --output sbom.cdx.json .
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          retention-days: 90
+
+  code:
+    name: Static analysis (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # OWASP Top 10, TypeScript, Node.js and React rule packs. Every finding goes to the report;
+      # ERROR-severity findings fail the job. Exclusions are in .semgrepignore.
+      - name: Semgrep
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/src" -w /src \
+            "$SEMGREP_IMAGE" semgrep scan --metrics=off \
+            --config p/owasp-top-ten --config p/typescript --config p/nodejs --config p/react \
+            --json --output semgrep.json || true
+          test -s semgrep.json
+          jq -r '.results[] | "\(.extra.severity)\t\(.check_id)\t\(.path):\(.start.line)"' semgrep.json
+          jq -e '.errors | length == 0' semgrep.json > /dev/null || jq '.errors' semgrep.json
+          blocking="$(jq '[.results[] | select(.extra.severity == "ERROR")] | length' semgrep.json)"
+          echo "Blocking findings: ${blocking}"
+          test "$blocking" -eq 0
+
+      - name: Upload Semgrep report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: semgrep-report
+          path: semgrep.json
+          if-no-files-found: ignore
+          retention-days: 30
