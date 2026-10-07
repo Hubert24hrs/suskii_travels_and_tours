@@ -46,8 +46,9 @@ const pathOnly = (url: string | undefined): string | undefined => url?.split('?'
           },
           redact: { paths: REDACT_PATHS, censor: '[redacted]' },
           autoLogging: {
+            // Probes, and web-vitals beacons (a page view sends one; their values are metrics).
             ignore: (req: IncomingMessage) =>
-              ['/health', '/ready'].includes(pathOnly(req.url) ?? ''),
+              ['/health', '/ready', '/v1/telemetry/web-vitals'].includes(pathOnly(req.url) ?? ''),
           },
           serializers: {
             req: (req: { id: unknown; method: string; url: string }) => ({

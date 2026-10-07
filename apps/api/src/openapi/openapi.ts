@@ -4,6 +4,7 @@ import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { z } from 'zod';
 
 import { IS_ADMIN_ROUTE, IS_PUBLIC, REQUIRED_PERMISSIONS, STEP_UP } from '../auth/decorators';
+import { BEACON_PATHS } from '../common/beacon-body.middleware';
 import { CONTRACT, fileResponses, schemaRegistry, type RouteContract } from '../contract/contract';
 import { IS_INTERNAL } from '../internal/internal-route';
 
@@ -255,7 +256,7 @@ function operation(
       ? {
           requestBody: {
             required: true,
-            content: { 'application/json': { schema: collector.convert(contract.body, 'input') } },
+            content: bodyContent(collector.convert(contract.body, 'input'), contract.beacon),
           },
         }
       : {}),
@@ -282,6 +283,17 @@ function operation(
  * (ADR-034). An unguarded route under /v1/admin or an admin mutation without an audit declaration
  * fails the build of the document, so it cannot ship.
  */
+/** JSON, and for beacon routes the same document as `text/plain` (navigator.sendBeacon). */
+function bodyContent(
+  schema: JsonSchema,
+  beacon: boolean | undefined,
+): Record<string, MediaContent> {
+  return {
+    'application/json': { schema },
+    ...(beacon ? { 'text/plain': { schema } } : {}),
+  };
+}
+
 function adminMetadata(
   reflector: Reflector,
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type -- Nest metadata targets.
@@ -331,6 +343,7 @@ export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
   const collector = new SchemaCollector();
   const paths: OpenApiDocument['paths'] = {};
   const seenOperationIds = new Set<string>();
+  const beaconPaths = new Set<string>();
 
   for (const wrapper of discovery.getControllers()) {
     const instance = wrapper.instance as Record<string, unknown> | undefined;
@@ -365,11 +378,22 @@ export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
         reflector.get<boolean | undefined>(IS_INTERNAL, handler) === true;
       const access: Access = isInternal ? 'internal' : isPublic ? 'public' : 'user';
       const admin = adminMetadata(reflector, [handler, metatype], path, method, contract);
+      if (contract.beacon === true) beaconPaths.add(path);
       paths[path] = {
         ...paths[path],
         [method]: { ...operation(collector, contract, method, access), ...admin },
       };
     }
+  }
+
+  // The middleware that parses text/plain beacons and the contracts that document them must agree.
+  const unlisted = [...beaconPaths].filter((path) => !BEACON_PATHS.has(path));
+  // Only routes this application has (unit tests build documents from a few controllers).
+  const undocumented = [...BEACON_PATHS].filter((path) => paths[path] && !beaconPaths.has(path));
+  if (unlisted.length > 0 || undocumented.length > 0) {
+    throw new Error(
+      `Beacon routes and BEACON_PATHS differ: ${[...unlisted, ...undocumented].join(', ')}`,
+    );
   }
 
   const problemResponses = Object.fromEntries(

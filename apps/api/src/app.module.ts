@@ -16,6 +16,7 @@ import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { AppVersionGuard } from './common/app-version.guard';
+import { BeaconBodyMiddleware } from './common/beacon-body.middleware';
 import { ClientCountryMiddleware } from './common/client-country.middleware';
 import { BotProtectionModule } from './bot-protection/bot-protection.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -46,11 +47,12 @@ import { RbacModule } from './rbac/rbac.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { SearchModule } from './search/search.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 
 @Module({})
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(ClientCountryMiddleware).forRoutes('*');
+    consumer.apply(ClientCountryMiddleware, BeaconBodyMiddleware).forRoutes('*');
   }
 
   /** `config` is injected by tests; production validates `process.env`. */
@@ -89,6 +91,7 @@ export class AppModule implements NestModule {
         ReferralsModule,
         RemindersModule,
         HealthModule,
+        TelemetryModule,
       ],
       providers: [
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },

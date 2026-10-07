@@ -30,6 +30,12 @@ export interface RouteContract {
    */
   upload?: { contentTypes: readonly string[]; description: string };
   /**
+   * The JSON body may also arrive as `text/plain`: `navigator.sendBeacon` sends that type without
+   * a CORS preflight, and the request survives the page closing. The path must be listed in
+   * `BEACON_PATHS` (common/beacon-body.middleware.ts); the OpenAPI build checks both ways.
+   */
+  beacon?: boolean;
+  /**
    * Admin mutations: the audit actions the route may record (one of them per successful call).
    * Published as `x-audit`; the audit coverage e2e test checks it (ADR-034).
    */

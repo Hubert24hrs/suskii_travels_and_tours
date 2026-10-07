@@ -3289,6 +3289,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/telemetry/web-vitals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Core Web Vitals from a page view
+         * @description Sent by the website with `navigator.sendBeacon` when the page is hidden, so it also accepts the JSON as `text/plain`. Recorded as histograms by page template and device class.
+         */
+        post: operations["reportWebVitals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tours": {
         parameters: {
             query?: never;
@@ -6621,6 +6641,33 @@ export interface components {
         WebhookReceipt: {
             /** @constant */
             received: true;
+        };
+        WebVitalsReportInput: {
+            /** @enum {string} */
+            page: "/" | "/flights" | "/flights/search" | "/flights/[route]" | "/hotels" | "/hotels/search" | "/hotels/[city]" | "/hotels/stay/[hotelId]" | "/packages" | "/packages/[slug]" | "/tours" | "/tours/[slug]" | "/visa" | "/visa/[slug]" | "/travel-add-ons" | "/deals" | "/prime" | "/checkout/[quoteId]" | "/bookings/[bookingId]" | "/account" | "/info/[slug]" | "other";
+            /** @enum {string} */
+            device: "mobile" | "desktop";
+            metrics: ({
+                /** @constant */
+                name: "LCP";
+                value: number;
+            } | {
+                /** @constant */
+                name: "INP";
+                value: number;
+            } | {
+                /** @constant */
+                name: "CLS";
+                value: number;
+            } | {
+                /** @constant */
+                name: "FCP";
+                value: number;
+            } | {
+                /** @constant */
+                name: "TTFB";
+                value: number;
+            })[];
         };
     };
     responses: {
@@ -12816,6 +12863,37 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    reportWebVitals: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebVitalsReportInput"];
+                "text/plain": components["schemas"]["WebVitalsReportInput"];
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            413: components["responses"]["Problem413"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

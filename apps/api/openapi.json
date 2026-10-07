@@ -12620,6 +12620,63 @@
         }
       }
     },
+    "/v1/telemetry/web-vitals": {
+      "post": {
+        "operationId": "reportWebVitals",
+        "summary": "Report Core Web Vitals from a page view",
+        "description": "Sent by the website with `navigator.sendBeacon` when the page is hidden, so it also accepts the JSON as `text/plain`. Recorded as histograms by page template and device class.",
+        "tags": [
+          "Telemetry"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebVitalsReportInput"
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "$ref": "#/components/schemas/WebVitalsReportInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Problem413"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/tours": {
       "get": {
         "operationId": "listTours",
@@ -29532,6 +29589,149 @@
           "received"
         ],
         "additionalProperties": false
+      },
+      "WebVitalsReportInput": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "string",
+            "enum": [
+              "/",
+              "/flights",
+              "/flights/search",
+              "/flights/[route]",
+              "/hotels",
+              "/hotels/search",
+              "/hotels/[city]",
+              "/hotels/stay/[hotelId]",
+              "/packages",
+              "/packages/[slug]",
+              "/tours",
+              "/tours/[slug]",
+              "/visa",
+              "/visa/[slug]",
+              "/travel-add-ons",
+              "/deals",
+              "/prime",
+              "/checkout/[quoteId]",
+              "/bookings/[bookingId]",
+              "/account",
+              "/info/[slug]",
+              "other"
+            ]
+          },
+          "device": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "desktop"
+            ]
+          },
+          "metrics": {
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "const": "LCP"
+                    },
+                    "value": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 120000
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "const": "INP"
+                    },
+                    "value": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 60000
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "const": "CLS"
+                    },
+                    "value": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 50
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "const": "FCP"
+                    },
+                    "value": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 120000
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "const": "TTFB"
+                    },
+                    "value": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 120000
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "page",
+          "device",
+          "metrics"
+        ]
       }
     },
     "securitySchemes": {

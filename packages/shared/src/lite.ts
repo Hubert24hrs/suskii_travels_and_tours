@@ -182,3 +182,13 @@ export {
   type PrimePeriod,
   type ReferralStatus,
 } from './accounts';
+export {
+  WEB_VITALS_DEVICES,
+  WEB_VITALS_PAGES,
+  WEB_VITAL_MAX,
+  WEB_VITAL_NAMES,
+  webVitalsPage,
+  type WebVitalName,
+  type WebVitalsDevice,
+  type WebVitalsPage,
+} from './web-vitals';

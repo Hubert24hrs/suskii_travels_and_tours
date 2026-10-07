@@ -388,3 +388,13 @@ export {
   type PreferencesInput,
   type PriceAlertInput,
 } from './accounts-schemas';
+export {
+  WEB_VITALS_DEVICES,
+  WEB_VITALS_PAGES,
+  WEB_VITAL_MAX,
+  WEB_VITAL_NAMES,
+  webVitalsPage,
+  type WebVitalName,
+  type WebVitalsDevice,
+  type WebVitalsPage,
+} from './web-vitals';

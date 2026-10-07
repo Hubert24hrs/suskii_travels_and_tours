@@ -54,6 +54,11 @@ export const PRIVACY_LIMITS = {
   cookieConsentIp: { name: 'cookie-consent-ip', limit: 20, windowSeconds: 600, by: 'ip' },
 } as const satisfies Record<string, RateLimitPolicy>;
 
+/** Field performance beacons: a page view sends one or two, so a generous per-IP ceiling. */
+export const TELEMETRY_LIMITS = {
+  webVitalsIp: { name: 'web-vitals-ip', limit: 120, windowSeconds: 600, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
 /** Search is expensive (supplier calls) and a scraping target: per-IP quotas plus cache-first. */
 export const SEARCH_LIMITS = {
   searchIp: { name: 'search-ip', limit: 30, windowSeconds: 60, by: 'ip' },
