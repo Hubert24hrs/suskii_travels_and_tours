@@ -19,6 +19,8 @@ export const appConfig = {
   attestation: process.env.EXPO_PUBLIC_ATTESTATION === 'mock' ? 'mock' : 'native',
   /** Google Cloud project number for Play Integrity (public identifier, not a secret). */
   playIntegrityProject: process.env.EXPO_PUBLIC_PLAY_INTEGRITY_PROJECT_NUMBER ?? '',
+  /** Sentry DSN for JavaScript error reports (public by design; ADR-046). Empty: none sent. */
+  sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN ?? '',
   /** App Store page for the update screen on iOS; Android links to Google Play by package. */
   iosAppStoreUrl: process.env.EXPO_PUBLIC_IOS_APP_STORE_URL ?? '',
   /** Android application id (Google Play listing). */
