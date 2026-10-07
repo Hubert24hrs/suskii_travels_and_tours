@@ -1,0 +1,82 @@
+# OWASP ZAP baseline (phase 11), run by the Security workflow against the e2e stack: the web app
+# (3000), the admin console (3001) and the API (4000, every operation from its OpenAPI document).
+# Passive rules only: nothing is attacked. High-risk alerts fail the job (exitStatus). Reviewed
+# exceptions go in passiveScan-config.rules with the reason; docs/security/zap-baseline.md has
+# the triage of the last run.
+env:
+  contexts:
+    - name: web
+      urls: ['http://localhost:3000']
+      includePaths: ['http://localhost:3000.*']
+    - name: admin
+      urls: ['http://localhost:3001']
+      includePaths: ['http://localhost:3001.*']
+    - name: api
+      urls: ['http://localhost:4000']
+      includePaths: ['http://localhost:4000.*']
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  # Reviewed false positives (docs/security/zap-baseline.md). Filters register before the scans.
+  - type: alertFilter
+    alertFilters:
+      # No HTML form on the website or the console is submitted natively: client code sends API
+      # requests that carry X-CSRF-Token with cookie sessions (ADR-007), and the one Server
+      # Action form (language) is checked by Next.js against the Origin header.
+      - ruleId: 10202
+        newRisk: False Positive
+        context: web
+      - ruleId: 10202
+        newRisk: False Positive
+        context: admin
+
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 10
+      scanOnlyInScope: true
+      enableTags: false
+    rules: []
+
+  - type: openapi
+    parameters:
+      apiFile: /zap/wrk/openapi.json
+      targetUrl: 'http://localhost:4000'
+      context: api
+
+  - type: spider
+    parameters:
+      context: web
+      url: 'http://localhost:3000'
+      maxDuration: 2
+
+  - type: spider
+    parameters:
+      context: admin
+      url: 'http://localhost:3001'
+      maxDuration: 1
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/reports
+      reportFile: zap-report.json
+    risks: [high, medium, low, info]
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/reports
+      reportFile: zap-report.html
+    risks: [high, medium, low, info]
+
+  - type: exitStatus
+    parameters:
+      errorLevel: High
+      warnLevel: Medium

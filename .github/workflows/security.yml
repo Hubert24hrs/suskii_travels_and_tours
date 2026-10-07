@@ -24,6 +24,7 @@ env:
   TRIVY_VERSION: 0.75.0
   TRIVY_SHA256: c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f
   SEMGREP_IMAGE: semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b
+  ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:2.17.0@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef
 
 jobs:
   secrets:
@@ -134,5 +135,97 @@ jobs:
         with:
           name: semgrep-report
           path: semgrep.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  dynamic:
+    name: Dynamic scan (ZAP baseline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: suskii
+          POSTGRES_PASSWORD: suskii_ci
+          POSTGRES_DB: suskii_zap
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U suskii" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the web app, console, API and worker
+        run: >-
+          pnpm exec turbo run build --filter=@suskii/web --filter=@suskii/admin
+          --filter=@suskii/api --filter=@suskii/worker
+
+      # The e2e stack: migrations, seed, API on 4000, one worker refresh, web on 3000; then the
+      # console on 3001 against the same API.
+      - name: Start the stack
+        run: |
+          nohup pnpm --filter @suskii/web e2e:stack > stack.log 2>&1 &
+          for _ in $(seq 1 150); do
+            if grep -q 'STACK READY' stack.log; then break; fi
+            sleep 2
+          done
+          grep -q 'STACK READY' stack.log || { cat stack.log; exit 1; }
+          nohup pnpm --filter @suskii/admin start > admin.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:3001/; then exit 0; fi
+            sleep 2
+          done
+          cat admin.log
+          exit 1
+        env:
+          WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_zap
+          WEB_E2E_REDIS_URL: redis://localhost:6379/4
+
+      # .zap/automation.yaml: passive rules over the spidered web app and console and every API
+      # operation. Exit 1 (a high-risk alert) fails the job; 2 means medium or lower alerts,
+      # which the report lists for review.
+      - name: ZAP baseline
+        run: |
+          mkdir -p .zap/reports
+          cp apps/api/openapi.json .zap/openapi.json
+          chmod -R a+rwX .zap
+          status=0
+          docker run --rm --network host -v "$PWD/.zap:/zap/wrk:rw" "$ZAP_IMAGE" \
+            zap.sh -cmd -autorun /zap/wrk/automation.yaml || status=$?
+          jq -r '.site[].alerts[] | "\(.riskdesc)\t\(.pluginid)\t\(.alert)\t\(.count)"' \
+            .zap/reports/zap-report.json || true
+          [ "$status" -eq 0 ] || [ "$status" -eq 2 ]
+
+      - name: Upload ZAP reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zap-reports
+          path: |
+            .zap/reports/
+            stack.log
+            admin.log
           if-no-files-found: ignore
           retention-days: 30

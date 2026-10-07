@@ -1,8 +1,9 @@
 name: Visual baselines
 
 # Regenerates the ui-web reference screenshots on the same runner image and Chromium build that CI
-# compares against (phase 11). Run it after an intended visual change, review the uploaded images,
-# then commit them under packages/ui-web/src/test/__screenshots__/.
+# compares against (phase 11), and commits them to the branch it runs on. Run it after an intended
+# visual change from that branch, then review the images in the commit (or the artifact) in the
+# pull request like any other change.
 on:
   workflow_dispatch:
 
@@ -14,11 +15,12 @@ jobs:
     name: Update ui-web screenshots
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Only this job may push, and only the screenshot directory is committed.
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
       - name: Set up pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -46,3 +48,15 @@ jobs:
           name: ui-web-screenshots
           path: packages/ui-web/src/test/__screenshots__/
           retention-days: 14
+
+      - name: Commit the screenshots
+        run: |
+          git add packages/ui-web/src/test/__screenshots__/
+          if git diff --cached --quiet; then
+            echo "Screenshots unchanged."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "test(ui-web): update reference screenshots"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
