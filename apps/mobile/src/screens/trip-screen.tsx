@@ -51,9 +51,27 @@ const LINKABLE: readonly BookingStatus[] = [
   'CONFIRMED',
 ];
 
-/** Keep polling while payment, ticketing or a refund is in flight (webhooks decide). */
-export const shouldPoll = (booking: Booking): boolean =>
+/**
+ * Documents are rendered just after the booking is confirmed, and the API backfills missing ones
+ * on a read two minutes after confirmation; waiting a little longer picks those up too.
+ */
+const DOCUMENTS_WAIT_MS = 3 * 60_000;
+
+/** A booking confirmed moments ago whose documents (all but memberships have one) are not ready. */
+const awaitingDocuments = (booking: Booking, now: number): boolean =>
+  booking.status === 'CONFIRMED' &&
+  booking.vertical !== 'prime' &&
+  booking.documents.length === 0 &&
+  booking.confirmedAt !== null &&
+  now - Date.parse(booking.confirmedAt) < DOCUMENTS_WAIT_MS;
+
+/**
+ * Keep polling while payment, ticketing or a refund is in flight (webhooks decide), or while a
+ * booking that was just confirmed still has no documents.
+ */
+export const shouldPoll = (booking: Booking, now = Date.now()): boolean =>
   BOOKING_IN_PROGRESS_STATUSES.includes(booking.status) ||
+  awaitingDocuments(booking, now) ||
   (ON_PLAN.includes(booking.status) && booking.payment?.status === 'pending') ||
   booking.status === 'REFUND_PENDING' ||
   booking.refunds.some((refund) => refund.status === 'in_progress');

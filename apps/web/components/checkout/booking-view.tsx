@@ -57,11 +57,27 @@ const inProgress = (status: BookingStatus): boolean =>
 const ON_PLAN: readonly BookingStatus[] = ['HELD', 'PARTIALLY_PAID'];
 
 /**
+ * Documents are rendered just after the booking is confirmed, and the API backfills missing ones
+ * on a read two minutes after confirmation; waiting a little longer picks those up too.
+ */
+const DOCUMENTS_WAIT_MS = 3 * 60_000;
+
+/** A booking confirmed moments ago whose documents (all but memberships have one) are not ready. */
+const awaitingDocuments = (booking: Booking): boolean =>
+  booking.status === 'CONFIRMED' &&
+  booking.vertical !== 'prime' &&
+  booking.documents.length === 0 &&
+  booking.confirmedAt !== null &&
+  Date.now() - Date.parse(booking.confirmedAt) < DOCUMENTS_WAIT_MS;
+
+/**
  * Whether the page keeps polling: payment or ticketing in flight, a plan payment waiting for its
- * webhook (held and partly paid bookings keep their status meanwhile), or a refund on its way.
+ * webhook (held and partly paid bookings keep their status meanwhile), documents still being
+ * rendered, or a refund on its way.
  */
 const shouldPoll = (booking: Booking): boolean =>
   inProgress(booking.status) ||
+  awaitingDocuments(booking) ||
   (ON_PLAN.includes(booking.status) && booking.payment?.status === 'pending') ||
   booking.status === 'REFUND_PENDING' ||
   booking.refunds.some((refund) => refund.status === 'in_progress');

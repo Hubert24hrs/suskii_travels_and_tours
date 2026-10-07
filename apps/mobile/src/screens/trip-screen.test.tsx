@@ -93,4 +93,14 @@ describe('shouldPoll', () => {
     expect(shouldPoll(booking({ status: 'CONFIRMED' }))).toBe(false);
     expect(shouldPoll(booking({ status: 'CANCELLED' }))).toBe(false);
   });
+
+  it('polls a just-confirmed booking until its documents exist', () => {
+    const confirmed = Date.parse('2026-10-01T09:05:00.000Z');
+    const waiting = booking({ status: 'CONFIRMED', documents: [] });
+    expect(shouldPoll(waiting, confirmed + 10_000)).toBe(true);
+    expect(shouldPoll(waiting, confirmed + 4 * 60_000)).toBe(false);
+    expect(shouldPoll(booking({ status: 'CONFIRMED' }), confirmed + 10_000)).toBe(false);
+    // Memberships have no document to wait for.
+    expect(shouldPoll({ ...waiting, vertical: 'prime' }, confirmed + 10_000)).toBe(false);
+  });
 });
