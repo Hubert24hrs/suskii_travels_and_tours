@@ -4,9 +4,10 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 
 /**
- * Phase 4 acceptance: Lighthouse mobile performance >= 90, accessibility 100 and SEO 100 on the
- * homepage. Runs last and alone (its own project) so parallel tests cannot skew the scores; the
- * script judges the median of LIGHTHOUSE_RUNS runs and writes lighthouse-report/.
+ * Phases 4 and 11: Lighthouse mobile performance >= 90, accessibility 100 and SEO 100 on the
+ * homepage, with lab LCP, CLS and TBT in Lighthouse's "good" range (scripts/lighthouse.ts). Runs
+ * last and alone (its own project) so parallel tests cannot skew the results; the script judges
+ * medians of LIGHTHOUSE_RUNS runs and writes lighthouse-report/.
  */
 test('homepage meets the Lighthouse thresholds', async ({ baseURL }) => {
   test.setTimeout(10 * 60_000);
