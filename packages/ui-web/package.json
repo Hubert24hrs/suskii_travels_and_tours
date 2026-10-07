@@ -17,7 +17,7 @@
     "build:storybook": "storybook build --quiet --output-dir storybook-static",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run && vitest run --config vitest.node.config.ts",
     "test:visual": "vitest run --config vitest.visual.config.ts",
     "test:watch": "vitest",
     "clean": "rimraf storybook-static .turbo coverage"
@@ -29,10 +29,8 @@
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "date-fns": "catalog:",
-    "downshift": "catalog:",
     "lucide-react": "catalog:",
-    "radix-ui": "catalog:",
-    "tailwind-merge": "catalog:"
+    "radix-ui": "catalog:"
   },
   "peerDependencies": {
     "react": "^19.2.0",
@@ -60,6 +58,7 @@
     "react-dom": "catalog:",
     "rimraf": "catalog:",
     "storybook": "catalog:",
+    "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
