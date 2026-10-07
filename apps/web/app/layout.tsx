@@ -4,6 +4,7 @@ import { BRAND } from '@suskii/shared';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
+import { ErrorReporting } from '../components/error-reporting';
 import { SiteFooter } from '../components/layout/site-footer';
 import { SiteHeader, UtilityBar } from '../components/layout/site-header';
 import { WebVitalsReporter } from '../components/web-vitals-reporter';
@@ -58,6 +59,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         </main>
         <SiteFooter site={site} />
         <WebVitalsReporter />
+        <ErrorReporting />
       </body>
     </html>
   );

@@ -8,6 +8,8 @@ export interface CspOptions {
   development: boolean;
   /** Only over HTTPS: upgrading plain-HTTP localhost calls would break local and CI runs. */
   upgradeInsecureRequests: boolean;
+  /** Where error reports go (the Sentry DSN's origin), when reporting is on (ADR-046). */
+  errorReportOrigin?: string | undefined;
 }
 
 /**
@@ -28,7 +30,13 @@ export function buildCsp(options: CspOptions): string {
     ['style-src', "'self'", "'unsafe-inline'"],
     ['img-src', "'self'", 'data:', 'blob:', ...(options.imageOrigins ?? [])],
     ['font-src', "'self'"],
-    ['connect-src', "'self'", options.apiOrigin, TURNSTILE_ORIGIN],
+    [
+      'connect-src',
+      "'self'",
+      options.apiOrigin,
+      TURNSTILE_ORIGIN,
+      ...(options.errorReportOrigin ? [options.errorReportOrigin] : []),
+    ],
     ['frame-src', TURNSTILE_ORIGIN],
     ['object-src', "'none'"],
     ['base-uri', "'none'"],

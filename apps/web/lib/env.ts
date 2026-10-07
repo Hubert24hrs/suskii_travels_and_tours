@@ -9,6 +9,11 @@ export const publicEnv = {
   siteUrl: (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
   /** Cloudflare Turnstile site key; empty locally (the API then uses its mock verifier). */
   turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '',
+  /** Sentry DSN for error reports from the browser and the server (public by design; ADR-046). */
+  sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN ?? '',
+  sentryEnvironment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
+  /** The deployed version (the git SHA), so reports match the uploaded source maps. */
+  sentryRelease: process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? '',
   /** Share of page views that report field Core Web Vitals (0 to 1; ADR-044). */
   webVitalsSampleRate: sampleRate(process.env.NEXT_PUBLIC_WEB_VITALS_SAMPLE_RATE),
 } as const;

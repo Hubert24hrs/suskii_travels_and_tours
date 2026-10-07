@@ -113,6 +113,12 @@ test.describe('security headers', () => {
     expect(headers['strict-transport-security']).toContain('max-age=');
     expect(headers['permissions-policy']).toBeTruthy();
     expect(headers['x-powered-by']).toBeUndefined();
+    // A request id for each page; a well-formed upstream id is kept, anything else replaced.
+    expect(headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+    const kept = await page.request.get('/', { headers: { 'X-Request-Id': 'lb-trace-12345678' } });
+    expect(kept.headers()['x-request-id']).toBe('lb-trace-12345678');
+    const replaced = await page.request.get('/', { headers: { 'X-Request-Id': 'bad id <x>' } });
+    expect(replaced.headers()['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
 
     // Every inline and external script carries this response's nonce.
     const nonces = await page
