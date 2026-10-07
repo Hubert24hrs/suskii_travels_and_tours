@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState } from 'react';
 
 import { forgetBookingTokens } from '../../lib/booking-token';
 import { browserApi, type Schemas } from '../../lib/browser-api';
@@ -13,22 +13,6 @@ export type AccountPhase =
   | { kind: 'signedOut' }
   | { kind: 'ready'; user: AuthUser }
   | { kind: 'error' };
-
-const subscribe = (notify: () => void) => {
-  window.addEventListener('suskii:session', notify);
-  window.addEventListener('storage', notify);
-  window.addEventListener('focus', notify);
-  return () => {
-    window.removeEventListener('suskii:session', notify);
-    window.removeEventListener('storage', notify);
-    window.removeEventListener('focus', notify);
-  };
-};
-
-/** Whether this browser has a session cookie; false on the server and during hydration. */
-export function useSignedIn(): boolean {
-  return useSyncExternalStore(subscribe, hasSession, () => false);
-}
 
 /**
  * The signed-in user from `GET /v1/me`. An access cookie that expired between refreshes gets one

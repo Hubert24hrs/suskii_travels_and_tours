@@ -281,7 +281,7 @@ Tooling notes for agents:
   `check:classes` after a build.
 - Keep the homepage JavaScript small (ADR-013): client code imports `@suskii/shared/lite`, loads
   schemas with `loadShared()`, opens popovers and dialogs through `useDeferredOverlay`, and puts
-  heavy or rarely used code behind `lazy()`/`next/dynamic`. The e2e budget test fails above 210 kB.
+  heavy or rarely used code behind `lazy()`/`next/dynamic`. The e2e budget test fails above 170 kB (ADR-043).
 - Use `AppLink` for string hrefs (typed routes). Card art comes from `/art`; real photos go through
   `next/image` with hosts from `IMAGE_REMOTE_HOSTS`.
 - New pages need metadata (`pageMetadata`), a canonical path and, for inner pages, breadcrumbs;

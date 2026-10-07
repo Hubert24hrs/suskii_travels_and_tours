@@ -4,7 +4,7 @@ import { buttonVariants, cn } from '@suskii/ui-web';
 
 import { AppLink } from '../app-link';
 
-import { useSignedIn } from './use-account';
+import { useSignedIn } from './use-signed-in';
 
 /**
  * The header's account entry: "Sign in" on the server and for visitors, "Account" once the

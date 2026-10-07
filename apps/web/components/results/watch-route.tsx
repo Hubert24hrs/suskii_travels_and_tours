@@ -7,7 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 import { browserApi, problemSlug, type Schemas } from '../../lib/browser-api';
-import { useSignedIn } from '../account/use-account';
+import { useSignedIn } from '../account/use-signed-in';
 import { AppLink } from '../app-link';
 
 import { useResultsT } from './results-messages';

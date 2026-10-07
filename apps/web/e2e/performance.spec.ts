@@ -5,9 +5,9 @@ import { expect, test } from './fixtures';
 /**
  * Initial JavaScript of the homepage: scripts loaded without any interaction (overlay, calendar,
  * schema and other-tab chunks load on demand). PROJECT_SPEC.json#/performance/web_targets sets
- * 170 kB gzip, enforced from phase 11; until then this ratchet stops regressions (ADR-010).
+ * 170 kB gzip (ADR-013, ADR-043).
  */
-const HOMEPAGE_JS_BUDGET_BYTES = 210 * 1024;
+const HOMEPAGE_JS_BUDGET_BYTES = 170 * 1024;
 
 test('homepage initial JavaScript stays within budget', async ({ page }) => {
   const scripts: Promise<number>[] = [];

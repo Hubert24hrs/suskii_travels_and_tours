@@ -1,6 +1,6 @@
 # ADR-013: Homepage performance, on-demand code and the JavaScript budget
 
-- Status: Accepted
+- Status: Accepted (the 170 kB budget is enforced since ADR-043)
 - Date: 2026-09-29
 - Deciders: Claude Code (implementer), pending owner review
 
