@@ -7,7 +7,7 @@ packages:
 # mobile never resolve two copies of React (see ADR-002).
 catalog:
   # Language and tooling
-  typescript: 6.0.3
+  typescript: 7.0.2
   '@types/node': ^24.19.0
   turbo: ^2.11.5
   prettier: ^3.9.9
