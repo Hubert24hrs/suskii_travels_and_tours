@@ -44,6 +44,7 @@ export default function ToursForm({ locale, initial }: ToursFormProps) {
 
   return (
     <form
+      method="get"
       noValidate
       onSubmit={submit}
       className="flex flex-col gap-4"

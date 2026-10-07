@@ -147,6 +147,7 @@ export function FlightsForm({ apiBaseUrl, locale, initial }: FlightsFormProps) {
 
   return (
     <form
+      method="get"
       noValidate
       onSubmit={(event) => void submit(event)}
       onFocusCapture={prefetchShared}

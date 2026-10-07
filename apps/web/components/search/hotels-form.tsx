@@ -62,6 +62,7 @@ export default function HotelsForm({ apiBaseUrl, locale, suggestions, initial }:
 
   return (
     <form
+      method="get"
       noValidate
       onSubmit={submit}
       className="flex flex-col gap-4"

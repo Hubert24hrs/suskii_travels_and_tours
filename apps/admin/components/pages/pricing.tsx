@@ -259,7 +259,7 @@ function RuleFormDialog({ kind, rule }: { kind: Kind; rule: Markup | Fee | null 
       }}
       testId={rule ? `edit-${kind}-${rule.id}` : `new-${kind}`}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <FormGrid>
           {kind === 'markup' ? (
             <>

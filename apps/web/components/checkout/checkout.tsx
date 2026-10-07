@@ -534,6 +534,7 @@ export function Checkout({
 
   return (
     <form
+      method="post"
       noValidate
       onSubmit={(event) => void submit(event)}
       className="flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start lg:gap-8"

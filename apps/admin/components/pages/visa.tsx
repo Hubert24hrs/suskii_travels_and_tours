@@ -170,7 +170,7 @@ function RuleDialog({ rule }: { rule: Rule | null }) {
         }
       }}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <FormGrid>
           <TextField
             label={t('visa.nationality')}
@@ -391,7 +391,7 @@ function TransitionForm({ application }: { application: Application }) {
     });
   };
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
+    <form method="post" onSubmit={submit} className="flex flex-col gap-3">
       <SelectField
         label={t('visa.detail.transition')}
         name="to"
@@ -443,6 +443,7 @@ function CommentForm({ application }: { application: Application }) {
   });
   return (
     <form
+      method="post"
       onSubmit={(event) => {
         event.preventDefault();
         comment.mutate({
@@ -504,6 +505,7 @@ function RejectDocument({
   return (
     <FormDialog triggerLabel={text} title={text} open={open} onOpenChange={setOpen}>
       <form
+        method="post"
         onSubmit={(event) => {
           event.preventDefault();
           reject.mutate({ params: { path: { documentId } }, body: { message } });

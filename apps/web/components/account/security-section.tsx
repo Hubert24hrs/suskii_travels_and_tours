@@ -53,7 +53,7 @@ function PasswordForm() {
     }
   };
   return (
-    <form className="flex flex-col gap-3" onSubmit={(e) => void submit(e)}>
+    <form method="post" className="flex flex-col gap-3" onSubmit={(e) => void submit(e)}>
       <Input
         label={t('account.security.password.current')}
         type="password"
@@ -164,7 +164,7 @@ function MfaPanel() {
       </p>
       {codes ? <RecoveryCodes codes={codes} /> : null}
       {setup ? (
-        <form className="flex flex-col gap-3" onSubmit={(e) => void confirm(e)}>
+        <form method="post" className="flex flex-col gap-3" onSubmit={(e) => void confirm(e)}>
           <p className="font-body text-body-sm text-muted">
             {t('account.security.mfa.setupIntro')}
           </p>
@@ -195,7 +195,7 @@ function MfaPanel() {
           </Button>
         </form>
       ) : disabling ? (
-        <form className="flex flex-col gap-3" onSubmit={(e) => void disable(e)}>
+        <form method="post" className="flex flex-col gap-3" onSubmit={(e) => void disable(e)}>
           <p className="font-body text-body-sm text-muted">
             {t('account.security.mfa.disableIntro')}
           </p>

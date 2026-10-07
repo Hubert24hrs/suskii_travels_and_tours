@@ -193,7 +193,7 @@ function ProductDialog({ kind, product }: { kind: Kind; product: Product | null 
       }}
       testId={product ? `edit-product-${product.slug}` : `new-${kind}`}
     >
-      <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
+      <form method="post" onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
         {product ? null : (
           <TextField
             label={t('catalog.slug')}
@@ -413,7 +413,12 @@ function NewDepartureForm({ kind, product }: { kind: 'package' | 'tour'; product
     }
   };
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4" aria-label={t('catalog.newDeparture')}>
+    <form
+      method="post"
+      onSubmit={submit}
+      className="flex flex-col gap-4"
+      aria-label={t('catalog.newDeparture')}
+    >
       <h3 className="font-heading text-body font-bold text-heading">{t('catalog.newDeparture')}</h3>
       <FormGrid>
         {kind === 'package' ? (
@@ -513,7 +518,7 @@ function DepartureEditor({ kind, departure }: { kind: 'package' | 'tour'; depart
         if (next) mutation.reset();
       }}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <FormGrid>
           <TextField
             label={t('catalog.capacity')}

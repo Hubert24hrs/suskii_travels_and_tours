@@ -122,7 +122,7 @@ export function JoinPrime({
           <h3 className="font-heading text-h4 font-bold text-heading">
             {t('prime.checkoutHeading', { plan: planName })}
           </h3>
-          <form className="flex flex-col gap-3" onSubmit={(e) => void submit(e)}>
+          <form method="post" className="flex flex-col gap-3" onSubmit={(e) => void submit(e)}>
             <div className="grid gap-3 md:grid-cols-2">
               <Input
                 label={t('prime.memberGivenNames')}

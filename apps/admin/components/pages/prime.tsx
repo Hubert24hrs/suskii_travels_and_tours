@@ -162,7 +162,7 @@ function PlanDialog({ plan }: { plan: Plan | null }) {
       }}
       testId={plan ? `edit-plan-${plan.slug}` : 'new-plan'}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <FormGrid>
           {/* Slug and period identify what members bought, so they are fixed after creation. */}
           <TextField

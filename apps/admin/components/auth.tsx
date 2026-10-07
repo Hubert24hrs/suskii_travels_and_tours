@@ -86,7 +86,7 @@ export function SignInForm({ onSignedIn }: { onSignedIn: () => void }) {
       <Card className="flex flex-col gap-4 p-6">
         <h2 className="font-heading text-h4 font-bold text-heading">{t('auth.mfaHeading')}</h2>
         <p className="font-body text-body-sm text-muted">{t('auth.mfaIntro')}</p>
-        <form className="flex flex-col gap-4" onSubmit={submitMfa}>
+        <form method="post" className="flex flex-col gap-4" onSubmit={submitMfa}>
           <TextField
             label={useRecovery ? t('auth.recoveryCode') : t('auth.mfaCode')}
             name={useRecovery ? 'recoveryCode' : 'code'}
@@ -111,7 +111,7 @@ export function SignInForm({ onSignedIn }: { onSignedIn: () => void }) {
 
   return (
     <Card className="flex flex-col gap-4 p-6">
-      <form className="flex flex-col gap-4" onSubmit={submitPassword}>
+      <form method="post" className="flex flex-col gap-4" onSubmit={submitPassword}>
         <TextField
           label={t('auth.email')}
           name="email"
@@ -224,7 +224,11 @@ export function MfaEnrolment() {
       <h2 className="font-heading text-h4 font-bold text-heading">{t('auth.enrol.heading')}</h2>
       <p className="font-body text-body-sm text-muted">{t('auth.enrol.intro')}</p>
       {setup ? (
-        <form className="flex flex-col gap-4" onSubmit={(event) => void confirm(event)}>
+        <form
+          method="post"
+          className="flex flex-col gap-4"
+          onSubmit={(event) => void confirm(event)}
+        >
           <QrCode value={setup.otpauthUri} label={t('auth.enrol.qrLabel')} />
           <p className="font-body text-body-sm text-foreground">
             {t('auth.enrol.key')}:{' '}

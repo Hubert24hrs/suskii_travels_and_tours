@@ -57,6 +57,7 @@ export default function VisaForm({ apiBaseUrl, locale, initial }: VisaFormProps)
 
   return (
     <form
+      method="get"
       noValidate
       onSubmit={submit}
       className="flex flex-col gap-4"

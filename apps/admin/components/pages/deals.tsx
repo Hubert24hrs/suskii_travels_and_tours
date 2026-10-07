@@ -83,7 +83,7 @@ function RouteDialog({ route }: { route: Route | null }) {
         }
       }}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <FormGrid>
           <TextField
             label={t('deals.slug')}
@@ -208,7 +208,7 @@ function DestinationDialog({ destination }: { destination: Destination | null })
         }
       }}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         {destination ? (
           <p className="font-body text-body-sm text-foreground">
             {t('form.selectedCity', {

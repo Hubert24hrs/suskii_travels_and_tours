@@ -142,7 +142,7 @@ export function SignInForm({ next }: { next: string | null }) {
           {t('auth.signIn.mfaHeading')}
         </h2>
         <p className="font-body text-body-sm text-muted">{t('auth.signIn.mfaIntro')}</p>
-        <form className="flex flex-col gap-4" onSubmit={submitMfa}>
+        <form method="post" className="flex flex-col gap-4" onSubmit={submitMfa}>
           <Input
             label={useRecovery ? t('auth.signIn.recoveryCode') : t('auth.signIn.mfaCode')}
             value={code}
@@ -183,7 +183,7 @@ export function SignInForm({ next }: { next: string | null }) {
         ))}
       </div>
       {mode === 'email' ? (
-        <form className="flex flex-col gap-4" onSubmit={submitPassword}>
+        <form method="post" className="flex flex-col gap-4" onSubmit={submitPassword}>
           <Input
             label={t('auth.signIn.email')}
             type="email"
@@ -214,7 +214,7 @@ export function SignInForm({ next }: { next: string | null }) {
           </AppLink>
         </form>
       ) : (
-        <form className="flex flex-col gap-4" onSubmit={submitCode}>
+        <form method="post" className="flex flex-col gap-4" onSubmit={submitCode}>
           <Input
             label={t('auth.signIn.phone')}
             hint={t('auth.signIn.phoneHint')}
@@ -342,6 +342,7 @@ export function RegisterForm({
   return (
     <Card className="flex flex-col gap-4 p-6">
       <form
+        method="post"
         className="flex flex-col gap-4"
         onSubmit={(event) => void submit(event)}
         onFocus={ensureTurnstile}
@@ -453,7 +454,11 @@ export function ForgotPasswordForm() {
       {sent ? (
         <Notice>{t('auth.forgot.sent')}</Notice>
       ) : (
-        <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
+        <form
+          method="post"
+          className="flex flex-col gap-4"
+          onSubmit={(event) => void submit(event)}
+        >
           <p className="font-body text-body-sm text-muted">{t('auth.forgot.intro')}</p>
           <Input
             label={t('auth.forgot.email')}
@@ -505,7 +510,7 @@ export function ResetPasswordForm() {
   }
   return (
     <Card className="flex flex-col gap-4 p-6">
-      <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
+      <form method="post" className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
         <Input
           label={t('auth.reset.password')}
           hint={t('auth.register.passwordHint')}

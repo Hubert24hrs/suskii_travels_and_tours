@@ -153,7 +153,7 @@ function PromoDialog({ promo }: { promo: Promo | null }) {
       }}
       testId={promo ? `edit-promo-${promo.code}` : 'new-promo'}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <FormGrid>
           <TextField
             label={t('promos.code')}
@@ -336,7 +336,7 @@ export function PromosPage() {
         intro={t('promos.intro')}
         actions={<PromoDialog promo={null} />}
       />
-      <form onSubmit={apply} className="flex flex-col gap-3 md:flex-row md:items-end">
+      <form method="post" onSubmit={apply} className="flex flex-col gap-3 md:flex-row md:items-end">
         <div className="flex-1">
           <TextField
             label={t('promos.search')}

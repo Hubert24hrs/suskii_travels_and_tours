@@ -145,6 +145,7 @@ export function NewsletterForm({
 
   return (
     <form
+      method="post"
       noValidate
       onSubmit={(event) => void submit(event)}
       onFocusCapture={() => {

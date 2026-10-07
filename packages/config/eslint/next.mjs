@@ -21,5 +21,22 @@ export function nextConfig(options) {
       // Lets the Next plugin find the app when ESLint runs from the repo root (lint-staged).
       settings: { next: { rootDir: options.tsconfigRootDir } },
     },
+    {
+      files: ['**/*.tsx'],
+      rules: {
+        // A form without a method is sent with GET if someone submits it before the page has
+        // hydrated, which puts passwords or passport numbers in the URL, history and server logs
+        // (phase 11, ZAP finding). Say method="post", or method="get" for searches.
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector:
+              'JSXOpeningElement[name.name="form"]:not(:has(JSXAttribute[name.name="method"]))',
+            message:
+              'Give every <form> a method: "post" for anything personal, "get" only for searches.',
+          },
+        ],
+      },
+    },
   ];
 }

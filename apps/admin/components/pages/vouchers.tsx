@@ -22,7 +22,11 @@ export function VouchersPage() {
     <RequirePermission permission="bookings:manage">
       <PageHeader title={t('vouchers.title')} intro={t('vouchers.intro')} />
       <Section title={t('vouchers.code')}>
-        <form onSubmit={submit} className="flex flex-col gap-4 md:flex-row md:items-end">
+        <form
+          method="post"
+          onSubmit={submit}
+          className="flex flex-col gap-4 md:flex-row md:items-end"
+        >
           <div className="flex-1">
             <TextField
               label={t('vouchers.code')}

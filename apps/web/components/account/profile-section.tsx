@@ -33,7 +33,11 @@ function NameForm() {
   };
 
   return (
-    <form className="flex flex-col gap-3 md:flex-row md:items-end" onSubmit={(e) => void submit(e)}>
+    <form
+      method="post"
+      className="flex flex-col gap-3 md:flex-row md:items-end"
+      onSubmit={(e) => void submit(e)}
+    >
       <div className="flex-1">
         <Input
           label={t('account.profile.displayName')}
@@ -158,7 +162,7 @@ function PhoneForm() {
           onCancel={() => setNeedsProof(false)}
         />
       ) : editing ? (
-        <form className="flex flex-col gap-3" onSubmit={(e) => void submit(e)}>
+        <form method="post" className="flex flex-col gap-3" onSubmit={(e) => void submit(e)}>
           <p className="font-body text-body-sm text-muted">{t('account.profile.phoneSmsNote')}</p>
           <Input
             label={t('account.profile.phone')}
@@ -237,7 +241,7 @@ function PreferencesForm() {
   };
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={(e) => void submit(e)}>
+    <form method="post" className="flex flex-col gap-4" onSubmit={(e) => void submit(e)}>
       <div className="grid gap-4 md:grid-cols-3">
         <NativeSelect
           id="profile-locale"

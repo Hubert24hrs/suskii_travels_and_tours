@@ -59,7 +59,7 @@ export default function CookiePanel({ labels }: { labels: CookieLabels }) {
   };
 
   return (
-    <form className="flex flex-col gap-6" onSubmit={(event) => void submit(event)}>
+    <form method="post" className="flex flex-col gap-6" onSubmit={(event) => void submit(event)}>
       {CATEGORIES.map((category) => {
         const copy = labels.categories[category];
         return (

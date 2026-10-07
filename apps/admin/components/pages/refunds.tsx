@@ -67,7 +67,7 @@ function RejectDialog({ refund }: { refund: Refund }) {
       open={open}
       onOpenChange={setOpen}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <TextAreaField
           label={t('refunds.rejectReason')}
           name="reason"
@@ -113,7 +113,7 @@ function ResolveDialog({ refund }: { refund: Refund }) {
       open={open}
       onOpenChange={setOpen}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <SelectField
           label={t('refunds.outcome')}
           name="outcome"

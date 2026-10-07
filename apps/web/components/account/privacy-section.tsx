@@ -55,7 +55,7 @@ function ExportCard({ requirements }: { requirements: Requirements }) {
       intro={t('account.privacy.exportIntro')}
       testId="account-export"
     >
-      <form className="flex flex-col gap-4" onSubmit={(e) => void submit(e)}>
+      <form method="post" className="flex flex-col gap-4" onSubmit={(e) => void submit(e)}>
         <ReauthFields
           requirements={requirements}
           proof={proof}
@@ -146,7 +146,7 @@ function DeleteCard({ requirements }: { requirements: Requirements }) {
         {t('account.privacy.retention', { years: check.retentionYears })}
       </p>
       {check.allowed ? (
-        <form className="flex flex-col gap-4" onSubmit={(e) => void submit(e)}>
+        <form method="post" className="flex flex-col gap-4" onSubmit={(e) => void submit(e)}>
           <ReauthFields
             requirements={requirements}
             proof={proof}

@@ -180,6 +180,7 @@ function Reports() {
     <>
       <PageHeader title={t('dashboard.title')} intro={t('dashboard.intro')} />
       <form
+        method="post"
         onSubmit={apply}
         aria-label={t('dashboard.period')}
         className="flex flex-col gap-3 md:flex-row md:items-end"

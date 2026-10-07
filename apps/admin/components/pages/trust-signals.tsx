@@ -66,7 +66,7 @@ function EditDialog({ signal }: { signal: Signal }) {
       }}
       testId={`edit-signal-${signal.key}`}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <TextField
           label={t('trust.label')}
           name="label"
@@ -122,6 +122,7 @@ function VerifyDialog({ signal }: { signal: Signal }) {
       testId={`verify-signal-${signal.key}`}
     >
       <form
+        method="post"
         onSubmit={(event) => {
           event.preventDefault();
           verify.mutate({
@@ -168,6 +169,7 @@ function UnverifyDialog({ signal }: { signal: Signal }) {
       }}
     >
       <form
+        method="post"
         onSubmit={(event) => {
           event.preventDefault();
           unverify.mutate({ params: { path: { key: signal.key } }, body: { reason } });

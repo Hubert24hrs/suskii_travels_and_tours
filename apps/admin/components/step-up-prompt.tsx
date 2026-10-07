@@ -76,6 +76,7 @@ export function StepUpPrompt() {
         closeLabel={t('common.close')}
       >
         <form
+          method="post"
           className="flex flex-col gap-3"
           aria-label={t('auth.stepUp.heading')}
           onSubmit={(event) => void submit(event)}

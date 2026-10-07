@@ -163,7 +163,7 @@ export function ReauthPrompt({
     if (!done) setError(t('account.reauth.wrong'));
   };
   return (
-    <form className="flex flex-col gap-3" onSubmit={(event) => void submit(event)}>
+    <form method="post" className="flex flex-col gap-3" onSubmit={(event) => void submit(event)}>
       <ReauthFields
         requirements={requirements}
         proof={proof}

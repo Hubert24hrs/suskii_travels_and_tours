@@ -54,7 +54,7 @@ export function UsersPage() {
   return (
     <RequirePermission permission="users:read">
       <PageHeader title={t('users.title')} />
-      <form onSubmit={apply} className="flex flex-col gap-3 md:flex-row md:items-end">
+      <form method="post" onSubmit={apply} className="flex flex-col gap-3 md:flex-row md:items-end">
         <div className="flex-1">
           <TextField
             label={t('users.search')}
@@ -163,7 +163,7 @@ function RolesForm({ user }: { user: AdminUser }) {
     save.mutate({ params: { path: { id: user.id } }, body: { roles } });
   };
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
+    <form method="post" onSubmit={submit} className="flex flex-col gap-3">
       <fieldset className="grid grid-cols-1 gap-1 md:grid-cols-2">
         <legend className="sr-only">{t('users.detail.roles')}</legend>
         {ROLES.map((role) => (

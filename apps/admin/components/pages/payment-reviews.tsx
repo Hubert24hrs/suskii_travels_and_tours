@@ -96,7 +96,7 @@ function RejectAction({ review }: { review: Review }) {
       open={open}
       onOpenChange={setOpen}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <SelectField
           label={t('paymentReviews.rejectReason')}
           name="reason"

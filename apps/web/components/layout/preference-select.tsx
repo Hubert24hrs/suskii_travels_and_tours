@@ -33,6 +33,7 @@ export function PreferenceSelect({
   const [pending, startTransition] = useTransition();
   return (
     <form
+      method="post"
       action={action}
       className={cn('flex items-center gap-2', className)}
       onSubmit={(event) => {

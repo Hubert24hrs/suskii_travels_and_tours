@@ -117,6 +117,7 @@ export function BookingsPage() {
     <RequirePermission permission="bookings:read">
       <PageHeader title={t('bookings.title')} />
       <form
+        method="post"
         onSubmit={apply}
         className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-6 lg:items-end"
       >
@@ -323,7 +324,7 @@ function NotesSection({ detail }: { detail: Detail }) {
           ))}
         </ul>
       )}
-      <form onSubmit={submit} className="flex flex-col gap-3">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-3">
         <TextAreaField
           label={t('bookings.detail.noteText')}
           name="note"
@@ -394,6 +395,7 @@ function RefundRequestForm({ detail }: { detail: Detail }) {
 
   return (
     <form
+      method="post"
       onSubmit={submit}
       className="flex flex-col gap-4"
       aria-label={t('bookings.detail.requestRefund')}

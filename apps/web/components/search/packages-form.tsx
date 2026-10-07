@@ -106,6 +106,7 @@ export default function PackagesForm({
 
   return (
     <form
+      method="get"
       noValidate
       onSubmit={submit}
       className="flex flex-col gap-4"

@@ -32,7 +32,7 @@ export function AuditPage() {
   return (
     <RequirePermission permission="audit:read">
       <PageHeader title={t('audit.title')} intro={t('audit.intro')} />
-      <form onSubmit={apply} className="flex flex-col gap-3 md:flex-row md:items-end">
+      <form method="post" onSubmit={apply} className="flex flex-col gap-3 md:flex-row md:items-end">
         <div className="flex-1">
           <TextField
             label={t('audit.filterAction')}

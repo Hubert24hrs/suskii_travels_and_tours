@@ -81,6 +81,7 @@ export default function AddonsForm({ apiBaseUrl, locale, suggestions, initial }:
 
   return (
     <form
+      method="post"
       noValidate
       onSubmit={submit}
       className="flex flex-col gap-4"

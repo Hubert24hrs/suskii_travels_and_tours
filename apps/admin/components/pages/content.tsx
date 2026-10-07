@@ -89,7 +89,7 @@ function BlockDialog({ block, fixedKeys }: { block: Block | null; fixedKeys: str
       }}
       testId={block ? `edit-block-${block.key}-${block.locale}` : 'new-block'}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         {block ? null : (
           <FormGrid>
             <SelectField
@@ -253,7 +253,7 @@ function FaqDialog({ faq }: { faq: Faq | null }) {
         }
       }}
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form method="post" onSubmit={submit} className="flex flex-col gap-4">
         <FormGrid>
           <SelectField
             label={t('content.locale')}
