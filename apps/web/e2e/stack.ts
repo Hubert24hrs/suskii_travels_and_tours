@@ -201,6 +201,10 @@ export async function startStack(): Promise<Stack> {
       OBJECT_STORAGE_DIR: join(LOG_DIR, 'objects'),
       // The mobile e2e job enforces (mock) device attestation for app requests (ADR-023).
       ATTESTATION_MODE: process.env.E2E_ATTESTATION_MODE ?? 'off',
+      // The k6 load test (load/k6) measures capacity, not the per-IP limits (ADR-045).
+      ...(process.env.E2E_RATE_LIMIT_ENABLED
+        ? { RATE_LIMIT_ENABLED: process.env.E2E_RATE_LIMIT_ENABLED }
+        : {}),
     });
     children.push(api);
     await waitFor(`${apiUrl}/ready`, api, 'api');
