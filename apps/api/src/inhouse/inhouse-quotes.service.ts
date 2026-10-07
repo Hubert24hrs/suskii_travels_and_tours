@@ -38,6 +38,7 @@ import { OfferUnavailableError } from '../suppliers/supplier.errors';
 
 import { AddonLinksService } from './addon-links.service';
 import { INHOUSE_QUOTE_ISSUES, type InhouseQuoteInput } from './inhouse.schemas';
+import { quotes } from '../telemetry/metrics';
 
 type Quote = z.infer<typeof quoteSchema>;
 type QuoteIssue = (typeof INHOUSE_QUOTE_ISSUES)[keyof typeof INHOUSE_QUOTE_ISSUES];
@@ -113,6 +114,7 @@ export class InhouseQuotesService {
         expiresAt: new Date(now.getTime() + PRICE_HOLD_MS),
       },
     });
+    quotes.add(1, { vertical: offer.vertical });
     return this.quotes.get(offer.id, client);
   }
 

@@ -14,6 +14,9 @@ export function startTelemetry(env: NodeJS.ProcessEnv = process.env): NodeSDK | 
   const endpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT;
   if (!endpoint) return undefined;
 
+  // Stable HTTP semantic conventions: http.server.request.duration (seconds) with
+  // http.route and http.response.status_code, which the dashboards and alerts use (ADR-047).
+  env.OTEL_SEMCONV_STABILITY_OPT_IN ??= 'http';
   const base = endpoint.replace(/\/$/, '');
   const sdk = new NodeSDK({
     serviceName: env.OTEL_SERVICE_NAME ?? 'suskii-api',

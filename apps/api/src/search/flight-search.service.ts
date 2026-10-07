@@ -55,6 +55,7 @@ import type {
 import { SearchLogService } from './search-log.service';
 import { queryHash, SearchStore, type SearchMeta } from './search-store';
 import { SupplierRunner } from './supplier-runner';
+import { quotes } from '../telemetry/metrics';
 
 type FlightOfferDto = z.infer<typeof flightOfferSchema>;
 type FlightSearchResultDto = z.infer<typeof flightSearchResultSchema>;
@@ -294,6 +295,7 @@ export class FlightSearchService {
         expiresAt: new Date(fresh.expiresAt),
       },
     });
+    quotes.add(1, { vertical: 'flights' });
     return {
       quoteId: quote.id,
       offer: toFlightOfferDto(item.id, fresh, toPriceDto(current), fx),

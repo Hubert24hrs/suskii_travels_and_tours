@@ -24,6 +24,7 @@ import { BookingNotifications } from './booking-notifications';
 import { BookingTransitions, SYSTEM_ACTOR } from './booking-transitions';
 import { makerChecker, refundInvalid, refundState } from './booking.errors';
 import type { AdminRefundDto, CreateRefundRequest } from './bookings.schemas';
+import { refundAttempts } from '../telemetry/metrics';
 
 type Tx = Prisma.TransactionClient;
 
@@ -437,6 +438,14 @@ export class RefundsService {
 
   /** Sends one approved refund; safe to call concurrently (the status claim decides). */
   async execute(
+    refundId: string,
+  ): Promise<'succeeded' | 'processing' | 'failed' | 'needs_review' | 'skipped'> {
+    const outcome = await this.executeOnce(refundId);
+    if (outcome !== 'skipped') refundAttempts.add(1, { outcome });
+    return outcome;
+  }
+
+  private async executeOnce(
     refundId: string,
   ): Promise<'succeeded' | 'processing' | 'failed' | 'needs_review' | 'skipped'> {
     const { count } = await this.prisma.refund.updateMany({

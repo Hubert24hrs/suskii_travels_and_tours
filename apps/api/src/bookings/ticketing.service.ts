@@ -45,6 +45,7 @@ import { BookingTransitions, SYSTEM_ACTOR } from './booking-transitions';
 import { BookingsService, passportContext } from './bookings.service';
 import { bookingUrl } from './booking-urls';
 import { RefundsService } from './refunds.service';
+import { ticketingAttempts } from '../telemetry/metrics';
 
 export type TicketingOutcome = 'confirmed' | 'retrying' | 'exhausted' | 'skipped';
 
@@ -103,7 +104,9 @@ export class TicketingService {
     const acquired = await this.redis.set(key, token, 'PX', LOCK_TTL_MS, 'NX');
     if (acquired !== 'OK') return 'skipped';
     try {
-      return await this.attempt(bookingId, now);
+      const outcome = await this.attempt(bookingId, now);
+      if (outcome !== 'skipped') ticketingAttempts.add(1, { outcome });
+      return outcome;
     } finally {
       await this.redis.eval(RELEASE_LOCK, 1, key, token);
     }

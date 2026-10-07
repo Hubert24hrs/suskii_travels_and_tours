@@ -25,6 +25,7 @@ import type { mockPaymentResultSchema, mockPaymentSchema } from './bookings.sche
 import { paymentReturnUrl } from './booking-urls';
 import { RefundsService } from './refunds.service';
 import { TicketingService } from './ticketing.service';
+import { paymentWebhooks, payments } from '../telemetry/metrics';
 
 type Tx = Prisma.TransactionClient;
 
@@ -76,9 +77,13 @@ export class PaymentEventsService {
         { provider: providerName, reason: (error as Error).name },
         'webhook rejected',
       );
+      paymentWebhooks.add(1, { provider: providerName, result: 'rejected' });
       throw invalidWebhook();
     }
-    if (!event) return 'ignored';
+    if (!event) {
+      paymentWebhooks.add(1, { provider: providerName, result: 'ignored' });
+      return 'ignored';
+    }
     try {
       event = await provider.confirm(event);
     } catch (error) {
@@ -87,9 +92,14 @@ export class PaymentEventsService {
           { provider: providerName, type: event.type },
           'webhook not confirmed by provider',
         );
+        paymentWebhooks.add(1, { provider: providerName, result: 'unconfirmed' });
         throw invalidWebhook();
       }
-      if (error instanceof PaymentProviderUnavailableError) throw paymentProviderDown();
+      if (error instanceof PaymentProviderUnavailableError) {
+        paymentWebhooks.add(1, { provider: providerName, result: 'provider_unavailable' });
+        throw paymentProviderDown();
+      }
+      paymentWebhooks.add(1, { provider: providerName, result: 'failed' });
       throw error;
     }
     return this.apply(providerName, event);
@@ -126,10 +136,15 @@ export class PaymentEventsService {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        paymentWebhooks.add(1, { provider, result: 'duplicate' });
         return 'duplicate';
       }
+      paymentWebhooks.add(1, { provider, result: 'failed' });
       throw error;
     }
+    paymentWebhooks.add(1, { provider, result: 'processed' });
+    if (!event.type.startsWith('refund.'))
+      payments.add(1, { provider, outcome: processed.outcome });
     this.logger.log(
       { provider, type: event.type, outcome: processed.outcome },
       'payment event processed',

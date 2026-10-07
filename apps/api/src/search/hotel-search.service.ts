@@ -58,6 +58,7 @@ import type {
 import { SearchLogService } from './search-log.service';
 import { queryHash, SearchStore, type SearchMeta } from './search-store';
 import { SupplierRunner } from './supplier-runner';
+import { quotes } from '../telemetry/metrics';
 
 type HotelSearchResultDto = z.infer<typeof hotelSearchResultSchema>;
 type HotelDetailDto = z.infer<typeof hotelDetailSchema>;
@@ -311,6 +312,7 @@ export class HotelSearchService {
         expiresAt: new Date(fresh.expiresAt),
       },
     });
+    quotes.add(1, { vertical: 'hotels' });
     const nights = nightsOf(meta.request);
     return {
       quoteId: quote.id,

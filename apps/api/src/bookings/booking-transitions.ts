@@ -7,6 +7,7 @@ import type { BookingActorType, BookingStatus, Prisma } from '../generated/prism
 import { bookingConflict } from './booking.errors';
 import { canTransition, nextStatus, type BookingEvent } from './booking-state-machine';
 import { RELEASING_STATUSES, settleSeats } from './seat-inventory';
+import { bookingTransitions } from '../telemetry/metrics';
 
 type Tx = Prisma.TransactionClient;
 
@@ -81,6 +82,7 @@ export class BookingTransitions {
       data: { ...options.data, status: to },
     });
     if (count !== 1) throw bookingConflict();
+    bookingTransitions.add(1, { event, to });
     // Package and tour seats follow the booking (ADR-025), in the same transaction.
     if (to === 'CONFIRMED') await settleSeats(tx, booking.id, 'sold');
     else if (RELEASING_STATUSES.includes(to)) await settleSeats(tx, booking.id, 'released');

@@ -19,6 +19,40 @@ export const searches = meter.createCounter('suskii.search.requests', {
   description: 'Searches by vertical, cache hit and completeness',
 });
 
+// Business flow (ADR-047). Counters are recorded where the outcome is known; those inside a
+// transaction count the attempt (a rolled-back transaction is rare and retried).
+
+/** Quotes (Offer rows) by vertical: the step before checkout in the search-to-book funnel. */
+export const quotes = meter.createCounter('suskii.quotes', {
+  description: 'Quotes created by vertical',
+});
+
+export const bookingsCreated = meter.createCounter('suskii.bookings.created', {
+  description: 'Bookings created at checkout by vertical and sales channel',
+});
+
+export const bookingTransitions = meter.createCounter('suskii.booking.transitions', {
+  description: 'Booking status changes by event and new status',
+});
+
+/** Webhook deliveries by provider and result (processed, duplicate, rejected, ...). */
+export const paymentWebhooks = meter.createCounter('suskii.payment_webhooks', {
+  description: 'Payment webhook deliveries by provider and result',
+});
+
+/** Verified payment events by provider and outcome (paid, failed, expired, held_for_review). */
+export const payments = meter.createCounter('suskii.payments', {
+  description: 'Payment outcomes by provider',
+});
+
+export const ticketingAttempts = meter.createCounter('suskii.ticketing.attempts', {
+  description: 'Ticketing attempts by outcome (confirmed, retrying, exhausted)',
+});
+
+export const refundAttempts = meter.createCounter('suskii.refunds', {
+  description: 'Refund executions by outcome (succeeded, processing, failed, needs_review)',
+});
+
 /**
  * Field Core Web Vitals from the website (ADR-044), by page template and device class. Buckets
  * are finer around the "good" thresholds so dashboards can read the 75th percentile accurately.

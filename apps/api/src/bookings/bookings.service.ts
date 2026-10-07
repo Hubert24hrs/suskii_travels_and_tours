@@ -77,6 +77,7 @@ import {
   contactContext,
   passportContext,
 } from '../crypto/encryption-contexts';
+import { bookingsCreated } from '../telemetry/metrics';
 
 /** Prices are held for at most this long after pricing (ADR-014). */
 export const PRICE_HOLD_MS = 30 * 60_000;
@@ -452,6 +453,7 @@ export class BookingsService {
       await this.transitions.apply(tx, { id: bookingId, status: 'DRAFT' }, 'price', actor);
       if (userId) await this.saveTravellers(tx, userId, passengers, actor);
     });
+    bookingsCreated.add(1, { vertical: data.vertical, channel: data.channel });
 
     const booking = await this.reload(bookingId);
     return { booking: await this.present(booking), accessToken };
