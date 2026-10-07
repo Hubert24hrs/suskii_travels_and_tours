@@ -1,0 +1,246 @@
+# Prometheus alert rules for Suskii (ADR-047). Metric names follow the default OTLP-to-Prometheus
+# translation: dots become underscores, counters gain _total and units become suffixes
+# (suskii.ticketing.oldest_age in seconds is suskii_ticketing_oldest_age_seconds).
+#
+# Severity: `page` wakes someone (money or tickets at risk now); `ticket` is for working hours.
+# Every alert links its runbook (docs/runbooks, phase 11F). Check with:
+#   promtool check rules infra/observability/alerts/suskii.rules.yml
+#   promtool test rules infra/observability/alerts/suskii.rules.test.yml
+groups:
+  - name: suskii-payments
+    rules:
+      - alert: PaymentWebhookProcessingFailed
+        expr: sum by (provider) (increase(suskii_payment_webhooks_total{result="failed"}[10m])) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.provider }} webhooks are failing inside the API'
+          description: >-
+            Verified payment events could not be applied. Providers retry, but payments stay
+            unconfirmed until the cause is fixed.
+          runbook: docs/runbooks/payment-provider-outage.md
+
+      - alert: PaymentWebhooksRejected
+        expr: >-
+          sum by (provider) (increase(suskii_payment_webhooks_total{result=~"rejected|unconfirmed"}[15m]))
+          > 20
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Many {{ $labels.provider }} webhooks fail signature or provider checks'
+          description: >-
+            A rotated webhook secret, a misconfigured endpoint, or someone probing the webhook
+            route. Compare with the provider's delivery log.
+          runbook: docs/runbooks/payment-provider-outage.md
+
+      - alert: PaymentProviderUnavailable
+        expr: >-
+          sum by (provider) (increase(suskii_payment_webhooks_total{result="provider_unavailable"}[10m]))
+          > 3
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.provider }} cannot confirm payments'
+          description: >-
+            Webhooks arrive but the provider's verification API does not answer, so payments
+            cannot be confirmed. Reconciliation catches up once it is back.
+          runbook: docs/runbooks/payment-provider-outage.md
+
+      - alert: PaymentSuccessRateLow
+        expr: >-
+          (
+            sum(increase(suskii_payments_total{outcome=~"paid|partially_paid|held_for_review"}[1h]))
+            / sum(increase(suskii_payments_total[1h]))
+          ) < 0.5
+          and sum(increase(suskii_payments_total[1h])) > 20
+        for: 15m
+        labels:
+          severity: page
+        annotations:
+          summary: 'Fewer than half of payment attempts succeed'
+          description: >-
+            Check the provider status page and the failure reasons in the console before
+            switching providers.
+          runbook: docs/runbooks/payment-provider-outage.md
+
+      - alert: PaymentRiskReviewsWaiting
+        expr: max(suskii_payment_risk_reviews_open) > 0
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: '{{ $value }} captured payments wait for a finance review'
+          description: >-
+            Held bookings are not ticketed until finance approves (ADR-040); fares on hold can
+            lapse.
+
+  - name: suskii-ticketing
+    rules:
+      - alert: TicketingBacklog
+        expr: max(suskii_bookings_in_flight{status="TICKETING"}) > 10
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: '{{ $value }} paid bookings are waiting for tickets'
+          runbook: docs/runbooks/ticketing-backlog.md
+
+      - alert: TicketingStuck
+        expr: max(suskii_ticketing_oldest_age_seconds) > 1800
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A paid booking has waited more than 30 minutes for its ticket'
+          runbook: docs/runbooks/ticketing-backlog.md
+
+      - alert: TicketingExhausted
+        expr: sum(increase(suskii_ticketing_attempts_total{outcome="exhausted"}[30m])) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: 'Ticketing gave up on a booking'
+          description: >-
+            The booking moved to REFUND_PENDING. Contact the traveller and decide between a
+            manual booking and the refund.
+          runbook: docs/runbooks/ticketing-backlog.md
+
+      - alert: RefundsNeedReview
+        expr: max(suskii_refunds_open{status="needs_review"}) > 0
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: '{{ $value }} refunds need a person to check them'
+          description: >-
+            A provider call ended ambiguously; finance confirms with the provider before
+            anything is retried (ADR-019).
+
+  - name: suskii-api
+    rules:
+      - alert: ApiErrorRateHigh
+        expr: >-
+          (
+            sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+            / sum(rate(http_server_request_duration_seconds_count[5m]))
+          ) > 0.02
+          and sum(rate(http_server_request_duration_seconds_count[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: 'More than 2% of API requests fail'
+          description: Sentry groups the errors behind this rate (ADR-046).
+
+      - alert: ApiLatencyHigh
+        expr: >-
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_server_request_duration_seconds_bucket{http_route!~".*/searches.*"}[10m]))
+          ) > 0.3
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'API p95 above 300 ms outside search'
+          description: The spec's API target (PROJECT_SPEC.json#/performance/api_targets).
+
+      - alert: SupplierErrorRateHigh
+        expr: >-
+          (
+            sum by (supplier) (rate(suskii_supplier_calls_total{outcome!="ok"}[10m]))
+            / sum by (supplier) (rate(suskii_supplier_calls_total[10m]))
+          ) > 0.2
+          and sum by (supplier) (rate(suskii_supplier_calls_total[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: '{{ $labels.supplier }} fails more than 20% of calls'
+          description: >-
+            Searches return partial results and the circuit breaker may open. Bookings on this
+            supplier can fail.
+          runbook: docs/runbooks/supplier-outage.md
+
+  - name: suskii-workers
+    rules:
+      - alert: QueueBacklog
+        expr: max by (queue) (suskii_queue_jobs{state="waiting"}) > 100
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: '{{ $value }} jobs wait in the {{ $labels.queue }} queue'
+          description: The workers cannot keep up; check that they run and add replicas.
+
+      - alert: WorkerJobsFailing
+        expr: sum by (queue) (increase(suskii_worker_jobs_total{outcome="failed"}[30m])) > 3
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Jobs on the {{ $labels.queue }} queue keep failing'
+          description: Sentry has the failures with the API request id of each (ADR-046).
+
+      - alert: WorkerMetricsMissing
+        expr: absent(suskii_queue_jobs)
+        for: 15m
+        labels:
+          severity: page
+        annotations:
+          summary: 'No queue metrics: the worker may be down'
+          description: >-
+            Without the worker, unpaid bookings do not expire, tickets are not retried and
+            refunds are not sent.
+          runbook: docs/runbooks/ticketing-backlog.md
+
+  - name: suskii-database
+    rules:
+      - alert: DatabaseConnectionsHigh
+        # Every API replica reports the same database-wide numbers: take the maximum per state.
+        expr: >-
+          sum(max by (state) (suskii_db_connections{state!="max"}))
+          / max(suskii_db_connections{state="max"}) > 0.8
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: 'The database is above 80% of its connection limit'
+          description: >-
+            New requests will soon fail to connect. Look for a connection leak or too many
+            replicas for the pool size before raising the limit.
+          runbook: docs/runbooks/database-restore.md
+
+  - name: suskii-web-vitals
+    rules:
+      # The spec's field targets at the 75th percentile (ADR-044), with enough visits to judge.
+      - alert: WebVitalsLcpSlow
+        expr: >-
+          histogram_quantile(0.75, sum by (le, page) (rate(suskii_web_vitals_lcp_milliseconds_bucket[1h])))
+          > 2000
+          and sum by (page) (rate(suskii_web_vitals_lcp_milliseconds_count[1h])) > 0.02
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'LCP p75 on {{ $labels.page }} is above 2 s'
+
+      - alert: WebVitalsInpSlow
+        expr: >-
+          histogram_quantile(0.75, sum by (le, page) (rate(suskii_web_vitals_inp_milliseconds_bucket[1h])))
+          > 200
+          and sum by (page) (rate(suskii_web_vitals_inp_milliseconds_count[1h])) > 0.02
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'INP p75 on {{ $labels.page }} is above 200 ms'
+
+      - alert: WebVitalsLayoutShift
+        expr: >-
+          histogram_quantile(0.75, sum by (le, page) (rate(suskii_web_vitals_cls_bucket[1h]))) > 0.1
+          and sum by (page) (rate(suskii_web_vitals_cls_count[1h])) > 0.02
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'CLS p75 on {{ $labels.page }} is above 0.1'

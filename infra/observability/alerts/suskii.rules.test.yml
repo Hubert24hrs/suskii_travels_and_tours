@@ -1,0 +1,93 @@
+# Unit tests for the alert rules: promtool test rules infra/observability/alerts/suskii.rules.test.yml
+rule_files:
+  - suskii.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: a failed webhook pages at once
+    interval: 1m
+    input_series:
+      - series: 'suskii_payment_webhooks_total{provider="paystack", result="failed"}'
+        values: '0 0 1 1 1'
+      - series: 'suskii_payment_webhooks_total{provider="paystack", result="processed"}'
+        values: '0 5 10 15 20'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PaymentWebhookProcessingFailed
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PaymentWebhookProcessingFailed
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              provider: paystack
+            exp_annotations:
+              summary: 'paystack webhooks are failing inside the API'
+              description: >-
+                Verified payment events could not be applied. Providers retry, but payments
+                stay unconfirmed until the cause is fixed.
+              runbook: docs/runbooks/payment-provider-outage.md
+
+  - name: ticketing pages once the oldest booking waits 30 minutes, not before
+    interval: 1m
+    input_series:
+      # Every API replica reports the same gauge.
+      - series: 'suskii_ticketing_oldest_age_seconds{instance="api-1"}'
+        values: '1500+60x20'
+      - series: 'suskii_ticketing_oldest_age_seconds{instance="api-2"}'
+        values: '1500+60x20'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: TicketingStuck
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: TicketingStuck
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'A paid booking has waited more than 30 minutes for its ticket'
+              runbook: docs/runbooks/ticketing-backlog.md
+
+  - name: database connections compare one replica's view with the limit
+    interval: 1m
+    input_series:
+      # Two replicas each report 45 active and 40 idle of max 100: 85%, not 170%.
+      - series: 'suskii_db_connections{instance="api-1", state="active"}'
+        values: '45x15'
+      - series: 'suskii_db_connections{instance="api-2", state="active"}'
+        values: '45x15'
+      - series: 'suskii_db_connections{instance="api-1", state="idle"}'
+        values: '40x15'
+      - series: 'suskii_db_connections{instance="api-2", state="idle"}'
+        values: '40x15'
+      - series: 'suskii_db_connections{instance="api-1", state="max"}'
+        values: '100x15'
+      - series: 'suskii_db_connections{instance="api-2", state="max"}'
+        values: '100x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: DatabaseConnectionsHigh
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'The database is above 80% of its connection limit'
+              description: >-
+                New requests will soon fail to connect. Look for a connection leak or too many
+                replicas for the pool size before raising the limit.
+              runbook: docs/runbooks/database-restore.md
+
+  - name: the API error rate needs enough traffic to page
+    interval: 1m
+    input_series:
+      # 3% errors but only 0.1 requests a second: quiet.
+      - series: 'http_server_request_duration_seconds_count{http_response_status_code="500"}'
+        values: '0+0.18x30'
+      - series: 'http_server_request_duration_seconds_count{http_response_status_code="200"}'
+        values: '0+5.82x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ApiErrorRateHigh
+        exp_alerts: []

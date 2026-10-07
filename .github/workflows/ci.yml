@@ -92,6 +92,21 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      # Alert rules (ADR-047): syntax and unit tests with a pinned, checksum-verified promtool.
+      - name: Check alert rules
+        run: |
+          archive="$RUNNER_TEMP/prometheus.tar.gz"
+          curl -fsSL -o "$archive" \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          echo "${PROMETHEUS_SHA256}  ${archive}" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" --strip-components=1 \
+            "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          "$RUNNER_TEMP/promtool" check rules infra/observability/alerts/suskii.rules.yml
+          "$RUNNER_TEMP/promtool" test rules infra/observability/alerts/suskii.rules.test.yml
+        env:
+          PROMETHEUS_VERSION: 3.14.0
+          PROMETHEUS_SHA256: f665c6da19eb7ba399c915d30c7d9793c9b417bf8a749b504bc470678631478d
+
       - name: Lint
         run: pnpm lint ${{ env.AFFECTED }}
 
