@@ -1,5 +1,6 @@
 import { Queue, QueueEvents } from 'bullmq';
 import { Redis } from 'ioredis';
+import { noopErrorReporter } from '@suskii/shared';
 import { pino } from 'pino';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
@@ -50,7 +51,7 @@ describe.skipIf(!redisUrl)('refresh queue (Redis)', () => {
       prunePushTokens: vi.fn(() => Promise.resolve({ deleted: 0 })),
     };
     const config = loadConfig({ REDIS_URL: redisUrl, REFRESH_CONCURRENCY: '3' });
-    const component = createRefreshQueue(config, api, pino({ level: 'silent' }));
+    const component = createRefreshQueue(config, api, pino({ level: 'silent' }), noopErrorReporter);
     await component.start();
     cleanup.push(() => component.stop());
 

@@ -175,4 +175,25 @@ describe('internal API client', () => {
     });
     await expect(offline.pruneSnapshots()).rejects.toMatchObject({ status: 0, retryable: true });
   });
+
+  it('sends a fresh request id with every call and keeps it on failures', async () => {
+    const fetch = vi.fn((request: Request) =>
+      Promise.resolve(
+        request.url.endsWith('/refresh-targets')
+          ? reply(200, { dealRoutes: [], hotelDestinations: [] })
+          : reply(503, { type: 'x' }),
+      ),
+    );
+    const api = createInternalApi({
+      baseUrl: 'http://api',
+      token: TOKEN,
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    });
+    await api.refreshTargets();
+    const error = await failure(api.pruneSnapshots());
+    const ids = fetch.mock.calls.map(([request]) => request.headers.get('X-Request-Id'));
+    for (const id of ids) expect(id).toMatch(/^worker-[0-9a-f-]{36}$/);
+    expect(new Set(ids).size).toBe(2);
+    expect(error.requestId).toBe(ids[1]);
+  });
 });

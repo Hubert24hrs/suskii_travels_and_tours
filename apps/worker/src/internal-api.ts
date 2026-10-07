@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { components, paths } from '@suskii/api-client/schema';
 import createClient from 'openapi-fetch';
 
@@ -22,6 +24,8 @@ export class InternalApiError extends Error {
   constructor(
     readonly operation: string,
     readonly status: number,
+    /** The `X-Request-Id` sent with the call; the API logs the same id. */
+    readonly requestId?: string,
   ) {
     super(`${operation} failed with status ${status}`);
     this.name = 'InternalApiError';
@@ -91,101 +95,117 @@ export function createInternalApi(options: InternalApiOptions): InternalApi & Bo
   });
   const timeoutMs = options.timeoutMs ?? 60_000;
 
+  // Every call carries its own request id, so a failed sweep can be found in the API's logs.
   const call = async <T>(
     operation: string,
-    request: (signal: AbortSignal) => Promise<{ data?: T; response: Response }>,
+    request: (
+      signal: AbortSignal,
+      headers: Record<string, string>,
+    ) => Promise<{ data?: T; response: Response }>,
     timeout = timeoutMs,
   ): Promise<T> => {
+    const requestId = `worker-${randomUUID()}`;
     let result: { data?: T; response: Response };
     try {
-      result = await request(AbortSignal.timeout(timeout));
+      result = await request(AbortSignal.timeout(timeout), { 'X-Request-Id': requestId });
     } catch {
-      throw new InternalApiError(operation, 0);
+      throw new InternalApiError(operation, 0, requestId);
     }
-    if (result.data === undefined) throw new InternalApiError(operation, result.response.status);
+    if (result.data === undefined)
+      throw new InternalApiError(operation, result.response.status, requestId);
     return result.data;
   };
 
   return {
     refreshTargets: () =>
-      call('listRefreshTargets', (signal) =>
-        client.GET('/v1/internal/refresh-targets', { signal }),
+      call('listRefreshTargets', (signal, headers) =>
+        client.GET('/v1/internal/refresh-targets', { signal, headers }),
       ),
     refreshDealRoute: (routeId) =>
-      call('refreshDealRoute', (signal) =>
+      call('refreshDealRoute', (signal, headers) =>
         client.POST('/v1/internal/deals/routes/{routeId}/refresh', {
           params: { path: { routeId } },
           signal,
+          headers,
         }),
       ),
     refreshDestination: (destinationId) =>
-      call('refreshHotelDestination', (signal) =>
+      call('refreshHotelDestination', (signal, headers) =>
         client.POST('/v1/internal/destinations/{destinationId}/refresh', {
           params: { path: { destinationId } },
           signal,
+          headers,
         }),
       ),
     pruneSnapshots: () =>
-      call('pruneSnapshots', (signal) => client.POST('/v1/internal/snapshots/prune', { signal })),
+      call('pruneSnapshots', (signal, headers) =>
+        client.POST('/v1/internal/snapshots/prune', { signal, headers }),
+      ),
     prunePushTokens: () =>
-      call('prunePushTokens', (signal) =>
-        client.POST('/v1/internal/push-tokens/prune', { signal }),
+      call('prunePushTokens', (signal, headers) =>
+        client.POST('/v1/internal/push-tokens/prune', { signal, headers }),
       ),
     expireDueBookings: () =>
-      call('expireDueBookings', (signal) =>
-        client.POST('/v1/internal/bookings/expire-due', { signal }),
+      call('expireDueBookings', (signal, headers) =>
+        client.POST('/v1/internal/bookings/expire-due', { signal, headers }),
       ),
     // The API stops starting attempts after 20 s, but one supplier booking may take up to 45 s.
     ticketDueBookings: () =>
       call(
         'ticketDueBookings',
-        (signal) => client.POST('/v1/internal/bookings/ticket-due', { signal }),
+        (signal, headers) => client.POST('/v1/internal/bookings/ticket-due', { signal, headers }),
         TICKETING_TIMEOUT_MS,
       ),
     reconcilePayments: () =>
       call(
         'reconcileBookingPayments',
-        (signal) => client.POST('/v1/internal/bookings/reconcile-payments', { signal }),
+        (signal, headers) =>
+          client.POST('/v1/internal/bookings/reconcile-payments', { signal, headers }),
         MONEY_SWEEP_TIMEOUT_MS,
       ),
     processDuePaymentPlans: () =>
       call(
         'processDuePaymentPlans',
-        (signal) => client.POST('/v1/internal/bookings/payment-plans-due', { signal }),
+        (signal, headers) =>
+          client.POST('/v1/internal/bookings/payment-plans-due', { signal, headers }),
         MONEY_SWEEP_TIMEOUT_MS,
       ),
     processDueRefunds: () =>
       call(
         'processDueRefunds',
-        (signal) => client.POST('/v1/internal/bookings/refunds-due', { signal }),
+        (signal, headers) => client.POST('/v1/internal/bookings/refunds-due', { signal, headers }),
         MONEY_SWEEP_TIMEOUT_MS,
       ),
     scanDueVisaDocuments: () =>
       call(
         'scanDueVisaDocuments',
-        (signal) => client.POST('/v1/internal/visa/scan-due', { signal }),
+        (signal, headers) => client.POST('/v1/internal/visa/scan-due', { signal, headers }),
         MONEY_SWEEP_TIMEOUT_MS,
       ),
     pruneVisaDocuments: () =>
-      call('pruneVisaDocuments', (signal) => client.POST('/v1/internal/visa/prune', { signal })),
+      call('pruneVisaDocuments', (signal, headers) =>
+        client.POST('/v1/internal/visa/prune', { signal, headers }),
+      ),
     runPriceAlerts: () =>
       call(
         'runPriceAlerts',
-        (signal) => client.POST('/v1/internal/price-alerts/run', { signal }),
+        (signal, headers) => client.POST('/v1/internal/price-alerts/run', { signal, headers }),
         PRICE_ALERT_TIMEOUT_MS,
       ),
     runReminders: () =>
-      call('runReminders', (signal) => client.POST('/v1/internal/reminders/run', { signal })),
+      call('runReminders', (signal, headers) =>
+        client.POST('/v1/internal/reminders/run', { signal, headers }),
+      ),
     runReferrals: () =>
       call(
         'runReferrals',
-        (signal) => client.POST('/v1/internal/referrals/run', { signal }),
+        (signal, headers) => client.POST('/v1/internal/referrals/run', { signal, headers }),
         MONEY_SWEEP_TIMEOUT_MS,
       ),
     runRetention: () =>
       call(
         'runRetention',
-        (signal) => client.POST('/v1/internal/retention/run', { signal }),
+        (signal, headers) => client.POST('/v1/internal/retention/run', { signal, headers }),
         RETENTION_TIMEOUT_MS,
       ),
   };

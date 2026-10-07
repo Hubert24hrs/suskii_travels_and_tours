@@ -24,7 +24,14 @@ describe('loadConfig', () => {
       REMINDER_SWEEP_MINUTES: 15,
       REFERRAL_SWEEP_MINUTES: 60,
       RETENTION_SWEEP_INTERVAL_HOURS: 24,
+      OTEL_SERVICE_NAME: 'suskii-worker',
     });
+  });
+
+  it('refuses a malformed Sentry DSN without echoing it', () => {
+    expect(() => loadConfig({ SENTRY_DSN: 'http://leaky-key@sentry.example.com/1' })).toThrow(
+      /^Invalid worker environment: SENTRY_DSN: Expected https:\/\/<key>@<host>\/<project>$/,
+    );
   });
 
   it('coerces numbers and treats empty values as unset', () => {

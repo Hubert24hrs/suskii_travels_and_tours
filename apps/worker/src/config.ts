@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { parseDsn } from '@suskii/shared';
 import { z } from 'zod';
 
 /** Prefix of the local development token in .env.example; refused in production (ADR-011). */
@@ -53,6 +54,17 @@ const envSchema = z
     REFERRAL_SWEEP_MINUTES: minutes(60),
     /** How often records past their retention period are purged (ADR-039). */
     RETENTION_SWEEP_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+
+    /** Queue and job metrics are exported here when set (ADR-047). */
+    OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
+    OTEL_SERVICE_NAME: z.string().min(1).default('suskii-worker'),
+    /** Jobs that fail for good are reported to Sentry with this DSN (ADR-046). */
+    SENTRY_DSN: z
+      .string()
+      .refine((value) => parseDsn(value) !== null, 'Expected https://<key>@<host>/<project>')
+      .optional(),
+    SENTRY_ENVIRONMENT: z.string().min(1).max(64).optional(),
+    SENTRY_RELEASE: z.string().min(1).max(128).optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

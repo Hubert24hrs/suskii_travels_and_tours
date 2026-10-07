@@ -1,3 +1,4 @@
+import { type ErrorReporter } from '@suskii/shared';
 import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 
@@ -12,6 +13,7 @@ import { type WorkerConfig } from './config.js';
 import { type BookingsApi } from './internal-api.js';
 import { type WorkerComponent } from './lifecycle.js';
 import { type Logger } from './logger.js';
+import { instrumentWorker, observeQueue } from './telemetry.js';
 
 const PREFIX = 'suskii';
 
@@ -24,10 +26,12 @@ export function createBookingsQueue(
   config: WorkerConfig,
   api: BookingsApi,
   logger: Logger,
+  errors: ErrorReporter,
 ): WorkerComponent {
   let connection: Redis | undefined;
   let queue: Queue | undefined;
   let worker: Worker | undefined;
+  let unobserve: (() => void) | undefined;
 
   return {
     name: 'bookings-queue',
@@ -40,9 +44,13 @@ export function createBookingsQueue(
         prefix: PREFIX,
         concurrency: 1,
       });
-      worker.on('failed', (job, error) => {
-        logger.warn({ job: job?.name, err: error.message }, 'booking sweep failed');
+      instrumentWorker(worker, {
+        queue: BOOKINGS_QUEUE,
+        message: 'booking sweep failed',
+        logger,
+        errors,
       });
+      unobserve = observeQueue(activeQueue);
       const repeat = { every: config.BOOKINGS_SWEEP_INTERVAL_SECONDS * 1000, immediately: true };
       // Sweeps repeat every minute anyway, so a failed run is not retried and history stays short.
       const opts = { attempts: 1, removeOnComplete: 100, removeOnFail: 100 };
@@ -76,6 +84,7 @@ export function createBookingsQueue(
       );
     },
     async stop() {
+      unobserve?.();
       await worker?.close();
       await queue?.close();
       await connection?.quit();

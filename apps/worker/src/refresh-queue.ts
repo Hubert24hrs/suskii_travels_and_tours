@@ -1,3 +1,4 @@
+import { type ErrorReporter } from '@suskii/shared';
 import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 
@@ -6,6 +7,7 @@ import { type InternalApi } from './internal-api.js';
 import { type WorkerComponent } from './lifecycle.js';
 import { type Logger } from './logger.js';
 import { JOB, processRefreshJob, REFRESH_QUEUE } from './refresh-jobs.js';
+import { instrumentWorker, observeQueue } from './telemetry.js';
 
 const PREFIX = 'suskii';
 
@@ -17,10 +19,12 @@ export function createRefreshQueue(
   config: WorkerConfig,
   api: InternalApi,
   logger: Logger,
+  errors: ErrorReporter,
 ): WorkerComponent {
   let connection: Redis | undefined;
   let queue: Queue | undefined;
   let worker: Worker | undefined;
+  let unobserve: (() => void) | undefined;
 
   return {
     name: 'refresh-queue',
@@ -48,12 +52,13 @@ export function createRefreshQueue(
           limiter: { max: config.REFRESH_RATE_PER_MINUTE, duration: 60_000 },
         },
       );
-      worker.on('failed', (job, error) => {
-        logger.warn(
-          { job: job?.name, attempts: job?.attemptsMade, err: error.message },
-          'refresh job failed',
-        );
+      instrumentWorker(worker, {
+        queue: REFRESH_QUEUE,
+        message: 'refresh job failed',
+        logger,
+        errors,
       });
+      unobserve = observeQueue(activeQueue);
       const every = (minutes: number) => ({ every: minutes * 60_000, immediately: true });
       await activeQueue.upsertJobScheduler(
         JOB.planDeals,
@@ -88,6 +93,7 @@ export function createRefreshQueue(
       );
     },
     async stop() {
+      unobserve?.();
       await worker?.close();
       await queue?.close();
       await connection?.quit();
