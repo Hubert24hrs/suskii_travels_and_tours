@@ -1,4 +1,4 @@
-import * as z from 'zod';
+import { z } from './zod-setup';
 
 import { emailSchema, phoneSchema } from './auth';
 import { countryCodeSchema } from './country-code';

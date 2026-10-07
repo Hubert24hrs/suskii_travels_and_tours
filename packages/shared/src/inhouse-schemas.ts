@@ -1,4 +1,4 @@
-import * as z from 'zod';
+import { z } from './zod-setup';
 
 import {
   ADDON_DETAIL_FIELDS,

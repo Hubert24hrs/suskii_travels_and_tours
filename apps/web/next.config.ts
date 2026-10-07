@@ -25,7 +25,16 @@ const nextConfig: NextConfig = {
   // The root CLAUDE.md is the single agent guide (as Turborepo's agentGuidance: false).
   agentRules: false,
   // Workspace packages ship TypeScript source.
-  transpilePackages: ['@suskii/ui-web', '@suskii/i18n', '@suskii/api-client'],
+  transpilePackages: ['@suskii/ui-web', '@suskii/i18n', '@suskii/api-client', '@suskii/shared'],
+  turbopack: {
+    // @suskii/shared is published as one bundled file (for the API and the worker), which
+    // Turbopack cannot split. Its source lets the homepage keep only the modules it uses
+    // (ADR-013); `sideEffects` in its package.json marks zod-setup as the only side effect.
+    resolveAlias: {
+      '@suskii/shared/lite': '../../packages/shared/src/lite.ts',
+      '@suskii/shared': '../../packages/shared/src/index.ts',
+    },
+  },
   experimental: {
     optimizePackageImports: ['@suskii/ui-web'],
   },

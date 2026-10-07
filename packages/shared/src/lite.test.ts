@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,5 +30,18 @@ describe('@suskii/shared/lite', () => {
     for (const [name, value] of Object.entries(lite)) {
       expect(main[name as keyof typeof main], name).toBe(value);
     }
+  });
+});
+
+describe('zod-setup', () => {
+  it('is the only module that imports Zod, so browsers turn off its JIT before any schema', () => {
+    const direct = readdirSync(SRC).filter(
+      (file) =>
+        file.endsWith('.ts') &&
+        !file.endsWith('.test.ts') &&
+        file !== 'zod-setup.ts' &&
+        /from 'zod(?:\/[^']*)?'/.test(readFileSync(join(SRC, file), 'utf8')),
+    );
+    expect(direct).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import * as z from 'zod';
+import { z } from './zod-setup';
 
 import { NOTIFICATION_CATEGORIES, NOTIFICATION_CHANNELS, PRIME_PERIODS } from './accounts';
 import { currencyCodeSchema } from './currency';

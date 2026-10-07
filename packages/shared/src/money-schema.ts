@@ -1,4 +1,4 @@
-import * as z from 'zod';
+import { z } from './zod-setup';
 
 import { CURRENCY_PATTERN } from './money';
 

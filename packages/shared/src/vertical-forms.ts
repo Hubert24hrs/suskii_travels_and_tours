@@ -1,4 +1,4 @@
-import * as z from 'zod';
+import { z } from './zod-setup';
 
 import { countryCodeSchema } from './country-code';
 import {

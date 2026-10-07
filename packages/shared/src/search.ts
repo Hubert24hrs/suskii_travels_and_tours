@@ -1,4 +1,4 @@
-import * as z from 'zod';
+import { z } from './zod-setup';
 
 import { addDays, daysBetween, earliestToday, isValidDate } from './time';
 import {

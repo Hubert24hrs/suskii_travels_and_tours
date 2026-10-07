@@ -1,4 +1,4 @@
-import * as z from 'zod';
+import { z } from './zod-setup';
 
 import { MAX_TRAVELLERS, MIN_ADULTS, TRAVELLER_ISSUES, totalTravellers } from './traveller-rules';
 
