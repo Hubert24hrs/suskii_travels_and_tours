@@ -29613,6 +29613,7 @@
         }
       },
       "Problem413": {
+        "description": "Payload too large",
         "content": {
           "application/problem+json": {
             "schema": {
@@ -29622,6 +29623,7 @@
         }
       },
       "Problem415": {
+        "description": "Unsupported media type",
         "content": {
           "application/problem+json": {
             "schema": {

@@ -6678,6 +6678,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
+        /** @description Payload too large */
         Problem413: {
             headers: {
                 [name: string]: unknown;
@@ -6686,6 +6687,7 @@ export interface components {
                 "application/problem+json": components["schemas"]["ProblemDetails"];
             };
         };
+        /** @description Unsupported media type */
         Problem415: {
             headers: {
                 [name: string]: unknown;

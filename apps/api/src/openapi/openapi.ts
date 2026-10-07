@@ -74,6 +74,8 @@ const STATUS_TEXT: Record<number, string> = {
   404: 'Not found',
   409: 'Conflict',
   410: 'Gone',
+  413: 'Payload too large',
+  415: 'Unsupported media type',
   422: 'Unprocessable content',
   426: 'App update required',
   429: 'Too many requests',
@@ -376,7 +378,8 @@ export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
       .map((status) => [
         `Problem${status}`,
         {
-          description: STATUS_TEXT[status],
+          // OpenAPI requires a description on every response.
+          description: STATUS_TEXT[status] ?? 'Problem',
           content: {
             'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } },
           },
