@@ -1,3 +1,4 @@
+import { parseDsn } from '@suskii/shared';
 import { z } from 'zod';
 
 const booleanish = z
@@ -154,6 +155,14 @@ export const envSchema = z
 
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     OTEL_SERVICE_NAME: z.string().min(1).default('suskii-api'),
+    /** Error reports go to Sentry with this DSN (ADR-046); without one they are only logged. */
+    SENTRY_DSN: z
+      .string()
+      .refine((value) => parseDsn(value) !== null, 'Expected https://<key>@<host>/<project>')
+      .optional(),
+    SENTRY_ENVIRONMENT: z.string().min(1).max(64).optional(),
+    /** The deployed version (the git SHA), so reports match the uploaded source maps. */
+    SENTRY_RELEASE: z.string().min(1).max(128).optional(),
 
     /** Enabled flight suppliers (feature flags). `duffel` needs DUFFEL_API_TOKEN. */
     FLIGHT_SUPPLIERS: csv(z.enum(['mock', 'duffel'])).default(['mock']),

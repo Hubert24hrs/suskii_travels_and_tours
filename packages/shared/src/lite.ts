@@ -192,3 +192,18 @@ export {
   type WebVitalsDevice,
   type WebVitalsPage,
 } from './web-vitals';
+export {
+  ERROR_TAG_KEYS,
+  buildErrorEvent,
+  createSentryReporter,
+  noopErrorReporter,
+  parseDsn,
+  parseStack,
+  scrubText,
+  type ErrorPlatform,
+  type ErrorReporter,
+  type ErrorReporterOptions,
+  type ErrorTagKey,
+  type ErrorTags,
+  type ReportFetch,
+} from './error-reporting';

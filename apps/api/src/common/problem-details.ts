@@ -3,10 +3,13 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  Optional,
   type ArgumentsHost,
   type ExceptionFilter,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+
+import { ErrorReporter } from '../telemetry/error-reporter';
 
 /** RFC 9457 problem details. Extension members (e.g. `errors`) are allowed. */
 export interface ProblemDetails {
@@ -105,6 +108,8 @@ function isClientHttpError(value: unknown): value is { status: number } {
 export class ProblemDetailsFilter implements ExceptionFilter {
   private readonly logger = new Logger(ProblemDetailsFilter.name);
 
+  constructor(@Optional() private readonly errors?: ErrorReporter) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
     const request = http.getRequest<Request & { id?: unknown }>();
@@ -116,6 +121,16 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         { err: exception, requestId: request.id },
         exception instanceof Error ? exception.message : 'Unhandled exception',
       );
+      // Deliberate 5xx problems (a supplier or provider is down) are metrics, not bugs.
+      if (!(exception instanceof ProblemDetailsException)) {
+        const route = (request as unknown as { route?: { path?: unknown } }).route?.path;
+        void this.errors?.capture(exception, {
+          ...(typeof request.id === 'string' ? { requestId: request.id } : {}),
+          route: typeof route === 'string' ? route : 'unmatched',
+          method: request.method,
+          status: problem.status,
+        });
+      }
     }
 
     if (exception instanceof ProblemDetailsException) {
