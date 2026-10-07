@@ -95,8 +95,6 @@ describe('SegmentedControl', () => {
   it('moves the selection with arrow keys', async () => {
     const screen = await render(<TripType />);
     await userEvent.click(screen.getByRole('radio', { name: 'Round trip' }));
-    // Radix checks the radio that receives focus while an arrow key is held, as it is during a
-    // real key press; an instant synthetic press/release would release before focus moves.
     await userEvent.keyboard('{ArrowRight>}');
     await expect.element(screen.getByRole('radio', { name: 'One way' })).toBeChecked();
     await userEvent.keyboard('{/ArrowRight}');
