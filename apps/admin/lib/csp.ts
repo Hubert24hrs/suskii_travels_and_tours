@@ -4,11 +4,14 @@ export interface CspOptions {
   development: boolean;
   /** Only over HTTPS: upgrading plain-HTTP localhost calls would break local and CI runs. */
   upgradeInsecureRequests: boolean;
+  /** Where error reports go (the Sentry DSN's origin), when reporting is on (ADR-046). */
+  errorReportOrigin?: string | undefined;
 }
 
 /**
  * Strict nonce-based Content Security Policy for the console (ADR-010, ADR-033). Scripts run only
- * with the per-request nonce; the only other origin is the API; nothing may frame the console.
+ * with the per-request nonce; the only other origins are the API and, when set, the error
+ * reporting endpoint; nothing may frame the console.
  */
 export function buildCsp(options: CspOptions): string {
   const directives: [string, ...string[]][] = [
@@ -23,7 +26,12 @@ export function buildCsp(options: CspOptions): string {
     ['style-src', "'self'", "'unsafe-inline'"],
     ['img-src', "'self'", 'data:', 'blob:'],
     ['font-src', "'self'"],
-    ['connect-src', "'self'", options.apiOrigin],
+    [
+      'connect-src',
+      "'self'",
+      options.apiOrigin,
+      ...(options.errorReportOrigin ? [options.errorReportOrigin] : []),
+    ],
     ['frame-src', "'none'"],
     ['object-src', "'none'"],
     ['base-uri', "'none'"],

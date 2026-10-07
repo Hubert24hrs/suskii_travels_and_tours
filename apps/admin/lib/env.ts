@@ -7,4 +7,8 @@ export const publicEnv = {
   apiBaseUrl: (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000').replace(/\/$/, ''),
   /** The console's own origin (only used to decide on upgrade-insecure-requests). */
   adminUrl: (process.env.NEXT_PUBLIC_ADMIN_URL ?? 'http://localhost:3001').replace(/\/$/, ''),
+  /** Sentry DSN for the console's error reports (public by design; ADR-046). */
+  sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN ?? '',
+  sentryEnvironment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
+  sentryRelease: process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? '',
 } as const;

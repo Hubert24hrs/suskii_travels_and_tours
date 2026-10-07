@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from 'next';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 
+import { ErrorReporting } from '../components/error-reporting';
 import { t } from '../lib/i18n';
 
 import { bodyFont, headingFont } from './fonts';
@@ -29,6 +30,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={DEFAULT_LOCALE} className={`${headingFont.variable} ${bodyFont.variable}`}>
       <body>
         <Providers>{children}</Providers>
+        <ErrorReporting />
       </body>
     </html>
   );
