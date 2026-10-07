@@ -46,6 +46,8 @@ catalog:
   '@daypicker/react': ^10.0.1
   date-fns: ^4.4.0
   clsx: ^2.1.1
+  # Field Core Web Vitals on the website (ADR-044), loaded after the page is interactive.
+  web-vitals: ^6.2.2
   tailwind-merge: ^3.7.0
   class-variance-authority: ^0.7.1
   lucide-react: ^1.48.0

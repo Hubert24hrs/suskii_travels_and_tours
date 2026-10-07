@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 
 import { SiteFooter } from '../components/layout/site-footer';
 import { SiteHeader, UtilityBar } from '../components/layout/site-header';
+import { WebVitalsReporter } from '../components/web-vitals-reporter';
 import { api } from '../lib/api';
 import { publicEnv } from '../lib/env';
 import { getI18n, type ErrorMessages } from '../lib/i18n';
@@ -56,6 +57,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </I18nProvider>
         </main>
         <SiteFooter site={site} />
+        <WebVitalsReporter />
       </body>
     </html>
   );
