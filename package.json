@@ -20,6 +20,7 @@
     "clean": "turbo run clean",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "security:checklist": "node scripts/security-checklist.mjs",
     "infra:up": "docker compose up -d --wait",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f",

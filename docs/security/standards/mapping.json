@@ -1,0 +1,1558 @@
+{
+  "$comment": "Reviewed mapping of OWASP ASVS 5.0.0 levels 1-2 and MASVS 2.x to this repository. Edit statuses here, then run `pnpm security:checklist` to regenerate docs/security/checklist.md.",
+  "statuses": {
+    "met": "Implemented and verified in this repository.",
+    "partial": "Partly implemented; the note says what is missing and when it lands.",
+    "deployment": "Depends on production infrastructure set up in phase 12; the note says what the application already does.",
+    "accepted": "A documented deviation with compensating controls (ADR-048).",
+    "not-applicable": "The platform does not use the technology or feature."
+  },
+  "reviewed": "2026-10-12",
+  "requirements": {
+    "V1.1.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/contract/contract.ts", "apps/api/src/app.setup.ts"],
+      "note": "Express parses JSON, query strings and path parameters once; Zod validates the decoded values and nothing decodes them again afterwards."
+    },
+    "V1.1.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/notifications/templates.ts", "apps/web/components/json-ld.tsx"],
+      "note": "Encoding happens at the sink: React escapes text at render, Prisma passes parameters to the driver, email templates escape HTML as they render, nodemailer encodes headers."
+    },
+    "V1.2.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/notifications/templates.ts", "apps/web/components/json-ld.tsx"],
+      "note": "React escapes element text and attributes; the email templates escape every inserted value; response headers are set from validated values only."
+    },
+    "V1.2.2": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/content/content.schemas.ts",
+        "apps/api/src/admin/admin-content.schemas.ts",
+        "apps/web/components/account/use-account.ts"
+      ],
+      "note": "URLs are built with URL, URLSearchParams and encodeURIComponent. CMS links and trust-signal evidence must be https; return paths after sign-in must be same-site (safeNext)."
+    },
+    "V1.2.3": {
+      "status": "met",
+      "evidence": ["apps/web/components/json-ld.tsx"],
+      "note": "JSON comes from JSON.stringify; JSON-LD escapes `<` so it cannot close the script element. No script is assembled from strings."
+    },
+    "V1.2.4": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/catalog/catalog.service.ts",
+        "apps/api/src/crypto/encrypted-fields.ts"
+      ],
+      "note": "Prisma queries and tagged-template raw SQL are parameterised. The one use of unsafe raw SQL (key rotation) takes table and column names from the static ENCRYPTED_FIELDS registry and passes values as parameters."
+    },
+    "V1.2.5": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The applications never start operating system processes."
+    },
+    "V1.2.6": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No LDAP."
+    },
+    "V1.2.7": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No XPath or XML processing."
+    },
+    "V1.2.8": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No LaTeX processing."
+    },
+    "V1.2.9": {
+      "status": "met",
+      "evidence": ["apps/api/src/catalog/catalog.service.ts", "packages/shared/src/inhouse.ts"],
+      "note": "Regular expressions are built only from constants. Search text reaches PostgreSQL trigram functions as a query parameter, never as a pattern."
+    },
+    "V1.3.1": {
+      "status": "not-applicable",
+      "evidence": ["apps/api/src/content/content.schemas.ts"],
+      "note": "No WYSIWYG or HTML input: CMS content is structured plain text that React renders as text."
+    },
+    "V1.3.2": {
+      "status": "met",
+      "evidence": ["apps/web/lib/csp.ts", "apps/admin/lib/csp.ts"],
+      "note": "No eval or new Function in application code. Production CSPs omit unsafe-eval, so the browser would refuse it anyway (development builds need it for React Refresh)."
+    },
+    "V1.3.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/contract/contract.ts", "packages/shared/src/inhouse.ts"],
+      "note": "Values bound for file names, storage keys, slugs and search are schema-checked for character set and length, and file names are reduced to a safe form."
+    },
+    "V1.3.4": {
+      "status": "not-applicable",
+      "evidence": ["packages/shared/src/inhouse.ts"],
+      "note": "Users cannot upload SVG: documents are accepted only as PDF, JPEG or PNG by content. The only SVGs are QR codes drawn locally."
+    },
+    "V1.3.5": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No user-supplied Markdown, CSS, XSL or similar is rendered."
+    },
+    "V1.3.6": {
+      "status": "met",
+      "evidence": ["docs/security/external-communications.md", "apps/web/next.config.ts"],
+      "note": "Outbound hosts come from configuration or constants; no request makes the server fetch a URL it supplies. next/image loads only https images from IMAGE_REMOTE_HOSTS; trust-signal evidence URLs are stored, never fetched."
+    },
+    "V1.3.7": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/notifications/templates.ts",
+        "apps/api/src/documents/booking-pdf.ts"
+      ],
+      "note": "Email and PDF templates are code; user values are inserted as escaped data, never as template source."
+    },
+    "V1.3.8": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No JNDI (no Java)."
+    },
+    "V1.3.9": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/search/search-store.ts",
+        "apps/api/src/rate-limit/rate-limit.guard.ts"
+      ],
+      "note": "No memcache. Redis keys are built from validated ids and HMAC digests, and values are JSON."
+    },
+    "V1.3.10": {
+      "status": "met",
+      "evidence": ["packages/i18n/src/translator.ts"],
+      "note": "Message formats come only from the typed catalog; user values are arguments, never formats."
+    },
+    "V1.3.11": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/notifications/email.ts",
+        "apps/api/src/notifications/templates.ts"
+      ],
+      "note": "Recipient addresses pass Zod email validation; nodemailer encodes headers and rejects line breaks; subjects come from the catalog."
+    },
+    "V1.4.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is written in TypeScript and runs on memory-safe JavaScript runtimes (Node.js, browsers, Hermes); no native code of ours handles input."
+    },
+    "V1.4.2": {
+      "status": "met",
+      "evidence": ["packages/shared/src/money.ts", "apps/api/src/pricing/pricing.schemas.ts"],
+      "note": "Money is bigint minor units; numeric inputs are schema-bounded integers."
+    },
+    "V1.4.3": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is written in TypeScript and runs on memory-safe JavaScript runtimes (Node.js, browsers, Hermes); no native code of ours handles input."
+    },
+    "V1.5.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No XML is parsed."
+    },
+    "V1.5.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/contract/contract.ts"],
+      "note": "Only JSON.parse followed by Zod parsing into plain objects; no class-based or native deserialization of untrusted data."
+    },
+    "V2.1.1": {
+      "status": "met",
+      "evidence": ["apps/api/openapi.json", "packages/shared/src/money-schema.ts"],
+      "note": "Every route publishes its Zod input schemas in openapi.json (formats, lengths, enums, patterns). Shared schemas define emails, phones, airport codes, money and passengers."
+    },
+    "V2.1.2": {
+      "status": "met",
+      "evidence": [
+        "packages/shared/src/passenger-rules.ts",
+        "packages/shared/src/search.ts",
+        "docs/security/business-limits.md"
+      ],
+      "note": "Cross-field rules live in shared code used by API and clients: document expiry after travel, infants per adult, legs in order, check-out after check-in, stay length."
+    },
+    "V2.1.3": {
+      "status": "met",
+      "evidence": ["docs/security/business-limits.md"],
+      "note": ""
+    },
+    "V2.2.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/contract/contract.ts", "apps/api/openapi.json"],
+      "note": "All input is validated against schemas with allowlisted values, patterns and ranges (level 2: all input)."
+    },
+    "V2.2.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/contract/contract.interceptor.ts"],
+      "note": "The API validates every request; client-side checks reuse the same rules for usability only."
+    },
+    "V2.2.3": {
+      "status": "met",
+      "evidence": ["packages/shared/src/passenger-rules.ts", "packages/shared/src/search.ts"],
+      "note": ""
+    },
+    "V2.3.1": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/bookings/booking-state-machine.ts",
+        "apps/api/src/bookings/booking-transitions.ts"
+      ],
+      "note": "Bookings move only through the audited state machine; payment, ticketing and refunds check the current status."
+    },
+    "V2.3.2": {
+      "status": "met",
+      "evidence": [
+        "docs/security/business-limits.md",
+        "apps/api/src/rate-limit/rate-limit.decorator.ts"
+      ],
+      "note": ""
+    },
+    "V2.3.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/bookings/booking-transitions.ts", "apps/api/src/ledger"],
+      "note": "Status changes, ledger postings and audit entries are written in one database transaction."
+    },
+    "V2.3.4": {
+      "status": "met",
+      "evidence": ["apps/api/src/bookings/seat-inventory.ts"],
+      "note": "Seats are reserved with a conditional update inside the booking transaction (409 sold-out)."
+    },
+    "V2.4.1": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/rate-limit",
+        "apps/api/src/bot-protection",
+        "apps/api/src/attestation",
+        "docs/security/business-limits.md"
+      ],
+      "note": ""
+    },
+    "V3.2.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/app.setup.ts", "apps/api/src/visa/visa.controller.ts"],
+      "note": "The API sends CSP default-src 'none', nosniff and exact JSON content types. Files are served as attachments with nosniff and a sandbox CSP."
+    },
+    "V3.2.2": {
+      "status": "met",
+      "evidence": ["apps/web/components/json-ld.tsx"],
+      "note": "React renders data as text; the only raw HTML is escaped JSON-LD and QR codes drawn locally."
+    },
+    "V3.3.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/cookies.ts", "apps/web/lib/cookie-names.ts"],
+      "note": "Session cookies are Secure with the __Secure- prefix; the website's own cookies use __Host- in production. Plain-HTTP development drops the prefixes."
+    },
+    "V3.3.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/cookies.ts", "apps/web/lib/cookie-consent.ts"],
+      "note": "Access and CSRF cookies are SameSite=Lax, the refresh cookie Strict (and only sent to /v1/auth), preference and consent cookies Lax."
+    },
+    "V3.3.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/cookies.ts", "apps/web/lib/cookie-names.ts"],
+      "note": "The API's session cookies are designed to be shared between the web host and the API host (COOKIE_DOMAIN), so they use __Secure-. Every other cookie uses __Host-."
+    },
+    "V3.3.4": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/cookies.ts"],
+      "note": "Access and refresh cookies are HttpOnly and set only through Set-Cookie. The CSRF cookie is readable on purpose so the page can echo it."
+    },
+    "V3.4.1": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/app.setup.ts",
+        "apps/web/next.config.ts",
+        "apps/admin/next.config.ts"
+      ],
+      "note": "HSTS max-age two years with includeSubDomains and preload on API, web and console responses."
+    },
+    "V3.4.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/app.setup.ts", "apps/api/src/config/env.schema.ts"],
+      "note": "CORS answers only origins in CORS_ORIGINS (required in production); admin origins must also be listed."
+    },
+    "V3.4.3": {
+      "status": "met",
+      "evidence": ["apps/web/lib/csp.ts", "apps/admin/lib/csp.ts", "apps/api/src/app.setup.ts"],
+      "note": "Per-response nonce CSP with strict-dynamic, object-src 'none' and base-uri 'none' on web and console; default-src 'none' on the API."
+    },
+    "V3.4.4": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/app.setup.ts",
+        "apps/web/next.config.ts",
+        "apps/admin/next.config.ts"
+      ],
+      "note": ""
+    },
+    "V3.4.5": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/app.setup.ts",
+        "apps/web/next.config.ts",
+        "apps/admin/next.config.ts"
+      ],
+      "note": "Referrer-Policy strict-origin-when-cross-origin everywhere; guest tokens travel in URL fragments, which are never sent."
+    },
+    "V3.4.6": {
+      "status": "met",
+      "evidence": ["apps/web/lib/csp.ts", "apps/admin/lib/csp.ts", "apps/api/src/app.setup.ts"],
+      "note": "frame-ancestors 'none' on every response of the web, console and API."
+    },
+    "V3.5.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/csrf.service.ts", "apps/api/test/cookie-csrf.e2e-spec.ts"],
+      "note": "Cookie-authenticated unsafe requests need a session-bound CSRF token in X-CSRF-Token; admin calls also need an allowlisted Origin."
+    },
+    "V3.5.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/csrf.service.ts", "apps/api/test/cookie-csrf.e2e-spec.ts"],
+      "note": "Sensitive calls require X-CSRF-Token (not CORS-safelisted) and JSON bodies, so they always trigger a preflight."
+    },
+    "V3.5.3": {
+      "status": "met",
+      "evidence": ["apps/api/openapi.json"],
+      "note": "State changes use POST, PUT, PATCH or DELETE; emailed links open pages that send the token with POST."
+    },
+    "V3.5.4": {
+      "status": "met",
+      "evidence": [
+        "docs/decisions/ADR-033-admin-console-staff-sessions-and-origin-isolation.md",
+        "apps/api/src/config/env.schema.ts"
+      ],
+      "note": "Website, console and API are separate applications on separate hosts; production requires https admin origins. Final hostnames are set in phase 12."
+    },
+    "V3.5.5": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No postMessage listeners."
+    },
+    "V3.7.1": {
+      "status": "met",
+      "evidence": ["apps/web/package.json"],
+      "note": "React, Next.js and React Native only; no plugins."
+    },
+    "V3.7.2": {
+      "status": "met",
+      "evidence": [
+        "apps/web/components/account/use-account.ts",
+        "apps/api/src/payments/payment-provider.ts"
+      ],
+      "note": "Redirects go to same-site paths (safeNext) or to the checkout URL a configured payment provider returns from its API."
+    },
+    "V4.1.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/app.setup.ts"],
+      "note": "JSON and problem+json responses carry charset=utf-8; Next.js pages declare UTF-8."
+    },
+    "V4.1.2": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "Edge configuration (phase 12): redirect HTTP to HTTPS only on the web and console hosts; the API host answers HTTPS only. HSTS preload already covers all three."
+    },
+    "V4.1.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/app.setup.ts", "apps/api/src/common/client-country.middleware.ts"],
+      "note": "Client IPs come from X-Forwarded-For only through TRUST_PROXY_HOPS trusted hops; the country header is read only when configured for an edge that overwrites it. The edge settings are part of phase 12."
+    },
+    "V4.2.1": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "Node's HTTP parser rejects messages with conflicting Content-Length and Transfer-Encoding; load balancer settings come with phase 12."
+    },
+    "V4.3.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No GraphQL."
+    },
+    "V4.3.2": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No GraphQL."
+    },
+    "V4.4.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebSockets."
+    },
+    "V4.4.2": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebSockets."
+    },
+    "V4.4.3": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebSockets."
+    },
+    "V4.4.4": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebSockets."
+    },
+    "V5.1.1": {
+      "status": "met",
+      "evidence": [
+        "docs/decisions/ADR-026-visa-assistance-and-document-security.md",
+        "docs/security/business-limits.md"
+      ],
+      "note": "Visa documents: PDF, JPEG or PNG by content, 10 MB, 60 per application, scanned before anyone can open them; infected files are deleted and the traveller is asked for another. No archives."
+    },
+    "V5.2.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/visa/visa-documents.service.ts"],
+      "note": "Uploads are read with a size limit after the ownership check."
+    },
+    "V5.2.2": {
+      "status": "met",
+      "evidence": ["packages/shared/src/inhouse.ts", "apps/api/src/visa/visa-documents.service.ts"],
+      "note": "The type is decided from the magic bytes; the stored name gets the extension of that type, so name and content always match. Anything else is refused."
+    },
+    "V5.2.3": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "Compressed files are not accepted."
+    },
+    "V5.3.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/documents/object-storage.ts"],
+      "note": "Uploads go to private object storage, never to a served folder, and are only returned as attachments."
+    },
+    "V5.3.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/documents/object-storage.ts"],
+      "note": "Storage keys are generated ids; user file names are only shown, after sanitising."
+    },
+    "V5.4.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/visa/visa.controller.ts"],
+      "note": "Downloads set Content-Disposition attachment with a generated, sanitised file name."
+    },
+    "V5.4.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/visa/visa.controller.ts", "packages/shared/src/inhouse.ts"],
+      "note": "File names are reduced to letters, digits, dot, dash and underscore before use in headers."
+    },
+    "V5.4.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/visa/antivirus.ts", "apps/api/src/config/env.schema.ts"],
+      "note": "ClamAV scans every document; production refuses the mock scanner."
+    },
+    "V6.1.1": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md", "docs/security/business-limits.md"],
+      "note": ""
+    },
+    "V6.1.2": {
+      "status": "met",
+      "evidence": ["packages/shared/src/auth.ts", "docs/security/authentication.md"],
+      "note": ""
+    },
+    "V6.1.3": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md"],
+      "note": ""
+    },
+    "V6.2.1": {
+      "status": "met",
+      "evidence": ["packages/shared/src/auth.ts"],
+      "note": "At least 10 characters."
+    },
+    "V6.2.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/me.controller.ts"],
+      "note": ""
+    },
+    "V6.2.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/auth.service.ts"],
+      "note": ""
+    },
+    "V6.2.4": {
+      "status": "met",
+      "evidence": ["apps/api/src/crypto/common-passwords.ts"],
+      "note": "9,126 common passwords that meet the length rule."
+    },
+    "V6.2.5": {
+      "status": "met",
+      "evidence": ["packages/shared/src/auth.ts"],
+      "note": "No composition rules."
+    },
+    "V6.2.6": {
+      "status": "met",
+      "evidence": [
+        "apps/web/components/account/auth-forms.tsx",
+        "apps/mobile/src/components/account/reauth.tsx"
+      ],
+      "note": "Password fields are masked (type=password, secureTextEntry), with a show toggle."
+    },
+    "V6.2.7": {
+      "status": "met",
+      "evidence": ["apps/web/components/account/auth-forms.tsx"],
+      "note": "No paste blocking; current-password and new-password autocomplete for password managers."
+    },
+    "V6.2.8": {
+      "status": "met",
+      "evidence": ["packages/shared/src/auth.ts"],
+      "note": "Passwords are hashed exactly as typed: no trimming, truncation or case change."
+    },
+    "V6.2.9": {
+      "status": "met",
+      "evidence": ["packages/shared/src/auth.ts"],
+      "note": "Up to 128 characters."
+    },
+    "V6.2.10": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md"],
+      "note": "No periodic rotation."
+    },
+    "V6.2.11": {
+      "status": "met",
+      "evidence": ["apps/api/src/crypto/password-policy.ts", "packages/shared/src/auth.ts"],
+      "note": ""
+    },
+    "V6.2.12": {
+      "status": "met",
+      "evidence": ["apps/api/src/crypto/breached-password.ts"],
+      "note": "Have I Been Pwned range API (k-anonymity). If it does not answer within 2.5 s the check is skipped and logged."
+    },
+    "V6.3.1": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/login-throttle.service.ts",
+        "apps/api/src/rate-limit/rate-limit.decorator.ts",
+        "docs/security/authentication.md"
+      ],
+      "note": ""
+    },
+    "V6.3.2": {
+      "status": "met",
+      "evidence": ["apps/api/prisma/seed.ts"],
+      "note": "No default accounts. The optional seeded admin needs SEED_ADMIN_* and is refused in production."
+    },
+    "V6.3.3": {
+      "status": "accepted",
+      "evidence": [
+        "docs/decisions/ADR-048-security-verification-and-accepted-risks.md",
+        "docs/security/authentication.md"
+      ],
+      "note": "Staff must use MFA. For travellers MFA is offered but optional; compensating controls and the rationale are in ADR-048."
+    },
+    "V6.3.4": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md", "apps/api/src/auth/auth.service.ts"],
+      "note": "Every pathway ends in completeSignIn(), which applies MFA and auditing the same way."
+    },
+    "V6.4.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/auth.service.ts"],
+      "note": "No system-generated passwords. Verification and reset links are 256-bit, single use, 24 hours and 30 minutes."
+    },
+    "V6.4.2": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md"],
+      "note": "No password hints or security questions."
+    },
+    "V6.4.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/auth.service.ts"],
+      "note": "Reset never signs the person in, ends every session, and MFA is still asked at the next sign-in."
+    },
+    "V6.4.4": {
+      "status": "met",
+      "evidence": [
+        "docs/runbooks/session-revocation.md",
+        "apps/api/src/admin/admin-users.service.ts"
+      ],
+      "note": ""
+    },
+    "V6.5.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/mfa.service.ts", "apps/api/src/auth/otp.service.ts"],
+      "note": "TOTP steps, recovery codes and texted codes are each usable once."
+    },
+    "V6.5.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/mfa.service.ts"],
+      "note": "Recovery codes (50 bits) are stored with argon2id."
+    },
+    "V6.5.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/crypto/random.ts", "apps/api/src/auth/mfa.service.ts"],
+      "note": ""
+    },
+    "V6.5.4": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/otp.service.ts", "apps/api/src/auth/mfa.service.ts"],
+      "note": "Texted codes: 6 digits. Recovery codes: 50 bits."
+    },
+    "V6.5.5": {
+      "status": "accepted",
+      "evidence": [
+        "docs/decisions/ADR-048-security-verification-and-accepted-risks.md",
+        "apps/api/src/crypto/totp.ts",
+        "apps/api/src/auth/otp.service.ts"
+      ],
+      "note": "Texted codes live 5 minutes. TOTP uses 30-second steps and accepts one step of clock drift (RFC 6238), each step once; see ADR-048."
+    },
+    "V6.6.1": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/otp.service.ts",
+        "packages/i18n/src/messages/en.ts",
+        "docs/security/authentication.md"
+      ],
+      "note": "Texted codes go only to the number they prove; an authenticator is offered to every traveller, and phone sign-in and the profile explain the risk of texted codes."
+    },
+    "V6.6.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/otp.service.ts"],
+      "note": "Codes are bound to their purpose and number; a new request replaces the old code."
+    },
+    "V6.6.3": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/otp.service.ts",
+        "apps/api/src/rate-limit/rate-limit.decorator.ts"
+      ],
+      "note": "5 attempts per code, 3 sends per number per 10 minutes, per-IP limits."
+    },
+    "V6.8.1": {
+      "status": "met",
+      "evidence": ["apps/api/prisma/schema.prisma", "apps/api/src/auth/social.service.ts"],
+      "note": "Social identities are unique by provider and subject; linking needs a verified email."
+    },
+    "V6.8.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/social.service.ts"],
+      "note": ""
+    },
+    "V6.8.3": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No SAML."
+    },
+    "V6.8.4": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md"],
+      "note": "Provider sign-in counts as one factor; staff and step-up need our own TOTP."
+    },
+    "V7.1.1": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md"],
+      "note": "Includes the justification against NIST SP 800-63B for traveller sessions."
+    },
+    "V7.1.2": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md"],
+      "note": ""
+    },
+    "V7.1.3": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md"],
+      "note": ""
+    },
+    "V7.2.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/auth.guard.ts"],
+      "note": ""
+    },
+    "V7.2.2": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/tokens/access-token.service.ts",
+        "apps/api/src/auth/session.service.ts"
+      ],
+      "note": ""
+    },
+    "V7.2.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/session.service.ts"],
+      "note": "Refresh tokens are 256 random bits."
+    },
+    "V7.2.4": {
+      "status": "accepted",
+      "evidence": [
+        "docs/decisions/ADR-048-security-verification-and-accepted-risks.md",
+        "docs/security/authentication.md"
+      ],
+      "note": "Every sign-in, including MFA completion, issues new tokens. Re-authentication and step-up raise assurance on the current session without rotating it; see ADR-048."
+    },
+    "V7.3.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/session.service.ts", "docs/security/authentication.md"],
+      "note": ""
+    },
+    "V7.3.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/session.service.ts", "docs/security/authentication.md"],
+      "note": ""
+    },
+    "V7.4.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/auth.guard.ts", "apps/api/src/auth/session.service.ts"],
+      "note": "Revoked sessions go on a Redis denylist, so their access tokens fail at once."
+    },
+    "V7.4.2": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/admin/admin-users.service.ts",
+        "apps/api/src/privacy/account-deletion.service.ts"
+      ],
+      "note": ""
+    },
+    "V7.4.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/auth.service.ts", "apps/api/src/auth/me.controller.ts"],
+      "note": "A password change ends the other sessions; reset ends all; the session list can sign out every other device."
+    },
+    "V7.4.4": {
+      "status": "met",
+      "evidence": [
+        "apps/web/components/account/account-shell.tsx",
+        "apps/admin/components/auth.tsx"
+      ],
+      "note": ""
+    },
+    "V7.4.5": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/admin/admin-users.service.ts",
+        "apps/api/scripts/revoke-sessions.ts"
+      ],
+      "note": ""
+    },
+    "V7.5.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/me.controller.ts", "apps/api/src/auth/reauth.service.ts"],
+      "note": "Phone changes and MFA enrolment need a fresh proof; disabling MFA or new recovery codes need a code; email cannot be changed."
+    },
+    "V7.5.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/me.controller.ts"],
+      "note": "Signing out another device needs a fresh proof."
+    },
+    "V7.6.1": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md"],
+      "note": ""
+    },
+    "V7.6.2": {
+      "status": "met",
+      "evidence": ["docs/security/authentication.md"],
+      "note": "Sessions start only from an explicit sign-in; there is no silent single sign-on."
+    },
+    "V8.1.1": {
+      "status": "met",
+      "evidence": ["docs/security/access-control.md", "packages/shared/src/rbac.ts"],
+      "note": ""
+    },
+    "V8.1.2": {
+      "status": "met",
+      "evidence": ["docs/security/access-control.md"],
+      "note": ""
+    },
+    "V8.2.1": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/permissions.guard.ts",
+        "apps/api/test/admin-matrix.e2e-spec.ts"
+      ],
+      "note": ""
+    },
+    "V8.2.2": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/bookings/bookings.service.ts",
+        "apps/api/test/idor-matrix.e2e-spec.ts"
+      ],
+      "note": ""
+    },
+    "V8.2.3": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/contract/contract.interceptor.ts",
+        "docs/security/access-control.md"
+      ],
+      "note": "Responses are filtered through their schema; restricted fields are masked or never included."
+    },
+    "V8.3.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/permissions.guard.ts", "docs/security/access-control.md"],
+      "note": ""
+    },
+    "V8.4.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "Single-tenant platform."
+    },
+    "V9.1.1": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/tokens/access-token.service.ts",
+        "apps/api/src/auth/social.service.ts"
+      ],
+      "note": ""
+    },
+    "V9.1.2": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/tokens/access-token.service.ts",
+        "apps/api/src/auth/social.service.ts"
+      ],
+      "note": "Access tokens: EdDSA only. Provider ID tokens: RS256 or ES256 only."
+    },
+    "V9.1.3": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/tokens/access-token.service.ts",
+        "apps/api/src/auth/social.service.ts"
+      ],
+      "note": "Keys come from configuration or fixed provider JWKS URLs; jku, x5u and jwk headers are ignored."
+    },
+    "V9.2.1": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/tokens/access-token.service.ts",
+        "apps/api/src/auth/social.service.ts"
+      ],
+      "note": ""
+    },
+    "V9.2.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/tokens/access-token.service.ts"],
+      "note": "Access tokens carry typ at+jwt and are checked for it; ID tokens are accepted only by the social sign-in route."
+    },
+    "V9.2.3": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/tokens/access-token.service.ts",
+        "apps/api/src/auth/social.service.ts"
+      ],
+      "note": ""
+    },
+    "V9.2.4": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/tokens/access-token.service.ts"],
+      "note": "One signing key for one audience (the API)."
+    },
+    "V10.1.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/cookies.ts", "apps/mobile/src/lib/session.ts"],
+      "note": "On the web, tokens live in HttpOnly cookies the page cannot read, and the refresh cookie only reaches /v1/auth. The app keeps the access token in memory and the refresh token in the Keychain or Keystore."
+    },
+    "V10.1.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/social.service.ts"],
+      "note": "Each provider sign-in uses a fresh single-use nonce issued by the API; the JSON-only endpoint behind the CORS allowlist cannot be called cross-site."
+    },
+    "V10.2.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No OAuth code flow: the web and the app get ID tokens from the providers' own SDKs with our nonce."
+    },
+    "V10.2.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/social.service.ts"],
+      "note": "The issuer is checked against the expected value for each provider."
+    },
+    "V10.3.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/tokens/access-token.service.ts"],
+      "note": ""
+    },
+    "V10.3.2": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/tokens/access-token.service.ts",
+        "apps/api/src/auth/permissions.guard.ts"
+      ],
+      "note": "Decisions use sub, roles and the session id."
+    },
+    "V10.3.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/tokens/access-token.service.ts"],
+      "note": "Users are identified by sub (a UUID) from our own issuer."
+    },
+    "V10.3.4": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/auth/tokens/access-token.service.ts",
+        "apps/api/src/auth/decorators.ts"
+      ],
+      "note": "The mfa claim and the server-side step-up time gate staff and step-up routes."
+    },
+    "V10.4.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.4.2": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.4.3": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.4.4": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.4.6": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.4.7": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.4.10": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.4.11": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.4.5": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/session.service.ts"],
+      "note": "Applied to our own refresh tokens: rotation on every use, reuse ends the session."
+    },
+    "V10.4.8": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/session.service.ts"],
+      "note": "Applied to our own refresh tokens: 90 days absolute."
+    },
+    "V10.4.9": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/me.controller.ts"],
+      "note": "Applied to our own sessions: travellers see and sign out devices; staff can sign out any account."
+    },
+    "V10.5.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/social.service.ts"],
+      "note": ""
+    },
+    "V10.5.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/social.service.ts", "apps/api/prisma/schema.prisma"],
+      "note": ""
+    },
+    "V10.5.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/social.service.ts"],
+      "note": "No discovery metadata: issuers and JWKS URLs are fixed in code."
+    },
+    "V10.5.4": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/social.service.ts"],
+      "note": "The audience must be one of our configured client ids."
+    },
+    "V10.5.5": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No OIDC back-channel logout."
+    },
+    "V10.6.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.6.2": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.7.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.7.2": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V10.7.3": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "The platform is not an OAuth authorization server or OpenID provider. It issues its own session tokens and relies on Google and Apple only as identity providers."
+    },
+    "V11.1.1": {
+      "status": "met",
+      "evidence": ["docs/security/crypto-inventory.md", "docs/runbooks/key-rotation.md"],
+      "note": "Generation, custody, rotation, compromise and retirement, following the NIST SP 800-57 life-cycle phases."
+    },
+    "V11.1.2": {
+      "status": "met",
+      "evidence": [
+        "docs/security/crypto-inventory.md",
+        "apps/api/src/crypto/encryption-contexts.ts"
+      ],
+      "note": ""
+    },
+    "V11.2.1": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/crypto/field-encryption.ts",
+        "apps/api/src/crypto/password-hasher.ts"
+      ],
+      "note": "Node.js crypto (OpenSSL), jose and argon2; nothing hand-rolled."
+    },
+    "V11.2.2": {
+      "status": "met",
+      "evidence": ["docs/security/crypto-inventory.md"],
+      "note": "Ciphertexts carry a key id, tokens a kid, password hashes their parameters."
+    },
+    "V11.2.3": {
+      "status": "met",
+      "evidence": ["docs/security/crypto-inventory.md"],
+      "note": ""
+    },
+    "V11.3.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/crypto/field-encryption.ts"],
+      "note": ""
+    },
+    "V11.3.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/crypto/field-encryption.ts"],
+      "note": "AES-256-GCM only."
+    },
+    "V11.3.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/crypto/field-encryption.ts"],
+      "note": "GCM with the record-bound context as additional data."
+    },
+    "V11.4.1": {
+      "status": "met",
+      "evidence": ["docs/security/crypto-inventory.md"],
+      "note": "SHA-256 and SHA-512 for general use. SHA-1 appears only inside HMAC-SHA-1 for TOTP (RFC 6238) and in the Have I Been Pwned k-anonymity protocol, where it protects nothing. No MD5."
+    },
+    "V11.4.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/crypto/password-hasher.ts"],
+      "note": "argon2id, 19 MiB, 2 passes, rehash on sign-in when parameters rise."
+    },
+    "V11.4.3": {
+      "status": "met",
+      "evidence": ["docs/security/crypto-inventory.md"],
+      "note": ""
+    },
+    "V11.4.4": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No keys are derived from passwords."
+    },
+    "V11.5.1": {
+      "status": "accepted",
+      "evidence": [
+        "docs/decisions/ADR-048-security-verification-and-accepted-risks.md",
+        "apps/api/src/crypto/random.ts"
+      ],
+      "note": "Tokens and secrets are 256-bit from the CSPRNG. Voucher codes carry about 99 bits; see ADR-048."
+    },
+    "V11.6.1": {
+      "status": "met",
+      "evidence": ["apps/api/scripts/generate-secrets.ts"],
+      "note": "Ed25519 keys from Node's generator."
+    },
+    "V12.1.1": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "The edge TLS policy (TLS 1.2 and 1.3, 1.3 preferred) comes with phase 12. Node clients already refuse anything below TLS 1.2."
+    },
+    "V12.1.2": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "Cipher suites are set with the edge TLS policy in phase 12."
+    },
+    "V12.1.3": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No mTLS client certificates."
+    },
+    "V12.2.1": {
+      "status": "deployment",
+      "evidence": ["apps/api/src/app.setup.ts", "apps/web/next.config.ts"],
+      "note": "HSTS with preload is already on every response; the edge serves TLS only (phase 12)."
+    },
+    "V12.2.2": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "Publicly trusted certificates are issued at the edge in phase 12."
+    },
+    "V12.3.1": {
+      "status": "deployment",
+      "evidence": ["apps/api/src/config/env.schema.ts", "docs/security/external-communications.md"],
+      "note": "The application refuses plaintext in production for providers, Postgres, Redis, the worker-to-API hop, OTLP and SMTP, except declared private paths. ClamAV has no TLS and must run on the same host or a private network (phase 12)."
+    },
+    "V12.3.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/config/env.schema.ts", "docs/security/external-communications.md"],
+      "note": "No client disables certificate verification; production Postgres URLs require sslmode with verification."
+    },
+    "V12.3.3": {
+      "status": "deployment",
+      "evidence": ["apps/api/src/config/env.schema.ts", "apps/worker/src/config.ts"],
+      "note": "The worker must call the API over https in production. The web and console servers' API URLs are set to https in phase 12."
+    },
+    "V12.3.4": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "Internal certificates and CA pinning for managed services are set up in phase 12."
+    },
+    "V13.1.1": {
+      "status": "met",
+      "evidence": ["docs/security/external-communications.md"],
+      "note": ""
+    },
+    "V13.2.1": {
+      "status": "partial",
+      "evidence": ["apps/api/src/internal", "apps/api/src/config/env.schema.ts"],
+      "note": "The worker authenticates to the internal API with a static bearer token over TLS, and the services use password credentials for Postgres and Redis. Phase 12 replaces these with workload identity and short-lived credentials."
+    },
+    "V13.2.2": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "Separate least-privilege database roles for the application and migrations, and scoped cloud identities, come with phase 12."
+    },
+    "V13.2.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/config/env.schema.ts", "apps/worker/src/config.ts"],
+      "note": "Production refuses the local development token; every secret is generated per environment."
+    },
+    "V13.2.4": {
+      "status": "met",
+      "evidence": ["docs/security/external-communications.md"],
+      "note": "Application-level allowlist of hosts; an egress firewall follows in phase 12."
+    },
+    "V13.2.5": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "Egress network policy in phase 12."
+    },
+    "V13.3.1": {
+      "status": "deployment",
+      "evidence": ["docs/security/crypto-inventory.md"],
+      "note": "Secrets live in the cloud secret manager (phase 12); the application reads them only from the environment."
+    },
+    "V13.3.2": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "Per-service access to secrets is set up with the secret manager in phase 12."
+    },
+    "V13.4.1": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "Container images are built without source control metadata in phase 12."
+    },
+    "V13.4.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/config/env.schema.ts", "apps/api/src/common/problem-details.ts"],
+      "note": "Production builds only. Production refuses mock providers, the demo seed and the seeded admin, and responses never contain stack traces."
+    },
+    "V13.4.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/app.setup.ts"],
+      "note": "The API serves no static files; Next.js serves only public assets, without listings."
+    },
+    "V13.4.4": {
+      "status": "deployment",
+      "evidence": [],
+      "note": "The API answers TRACE with 404 (checked 2026-10-12). The edge blocks TRACE on every host in phase 12."
+    },
+    "V13.4.5": {
+      "status": "met",
+      "evidence": ["apps/api/src/app.setup.ts", "apps/worker/src/health-server.ts"],
+      "note": "No API documentation UI in any environment; the worker's health port is internal; metrics are pushed over OTLP, not exposed."
+    },
+    "V14.1.1": {
+      "status": "met",
+      "evidence": ["docs/security/data-classification.md"],
+      "note": ""
+    },
+    "V14.1.2": {
+      "status": "met",
+      "evidence": ["docs/security/data-classification.md"],
+      "note": ""
+    },
+    "V14.2.1": {
+      "status": "accepted",
+      "evidence": [
+        "docs/decisions/ADR-048-security-verification-and-accepted-risks.md",
+        "apps/api/src/visa/visa-documents.service.ts"
+      ],
+      "note": "Tokens travel in headers, bodies or URL fragments. The exception is signed document links, whose query carries a 5-minute signature for one document; see ADR-048."
+    },
+    "V14.2.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/app.setup.ts", "apps/web/lib/api.ts"],
+      "note": "API responses are Cache-Control no-store; the website caches only public reads."
+    },
+    "V14.2.3": {
+      "status": "met",
+      "evidence": ["apps/web/lib/cookie-catalog.ts", "docs/security/logging-inventory.md"],
+      "note": "No third-party trackers; error reports are scrubbed; optional categories need consent."
+    },
+    "V14.2.4": {
+      "status": "met",
+      "evidence": [
+        "docs/security/data-classification.md",
+        "packages/shared/src/log-redaction.ts",
+        "apps/api/src/crypto/encryption-contexts.ts"
+      ],
+      "note": ""
+    },
+    "V14.3.1": {
+      "status": "met",
+      "evidence": ["apps/web/components/account/use-account.ts", "apps/mobile/src/lib/session.ts"],
+      "note": "Sign-out clears tokens, booking tokens and cached personal data on the web and in the app."
+    },
+    "V14.3.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/app.setup.ts"],
+      "note": "Cache-Control no-store on every API response; private pages render their data client-side from the API."
+    },
+    "V14.3.3": {
+      "status": "met",
+      "evidence": ["apps/web/lib/cookie-catalog.ts"],
+      "note": "Browser storage holds preferences, recent searches, guest booking tokens (session-scoped) and, for one tab, a surname typed for the add-on lookup."
+    },
+    "V15.1.1": {
+      "status": "met",
+      "evidence": ["SECURITY.md", "docs/security/dependency-exceptions.md"],
+      "note": ""
+    },
+    "V15.1.2": {
+      "status": "met",
+      "evidence": [".github/workflows/security.yml", "pnpm-lock.yaml"],
+      "note": "CycloneDX SBOM on every security run; packages come only from the npm registry with a frozen lockfile."
+    },
+    "V15.1.3": {
+      "status": "met",
+      "evidence": ["docs/security/business-limits.md"],
+      "note": ""
+    },
+    "V15.2.1": {
+      "status": "met",
+      "evidence": [".github/workflows/security.yml", "docs/security/dependency-exceptions.md"],
+      "note": "CI fails on high or critical advisories; exceptions are reviewed monthly."
+    },
+    "V15.2.2": {
+      "status": "met",
+      "evidence": ["docs/security/business-limits.md", "apps/api/src/suppliers/circuit-breaker.ts"],
+      "note": ""
+    },
+    "V15.2.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/config/env.schema.ts"],
+      "note": "Production refuses mock adapters, the demo seed and development tokens; test code is not part of the builds."
+    },
+    "V15.3.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/contract/contract.interceptor.ts"],
+      "note": ""
+    },
+    "V15.3.2": {
+      "status": "met",
+      "evidence": ["docs/security/external-communications.md"],
+      "note": "Every outbound HTTP client uses redirect: error."
+    },
+    "V15.3.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/contract/contract.ts"],
+      "note": "Zod drops fields that a body schema does not list."
+    },
+    "V15.3.4": {
+      "status": "met",
+      "evidence": ["apps/api/src/app.setup.ts"],
+      "note": "TRUST_PROXY_HOPS decides how much of X-Forwarded-For to trust; the edge is configured to overwrite it in phase 12."
+    },
+    "V15.3.5": {
+      "status": "met",
+      "evidence": ["packages/config/eslint/base.mjs", "apps/api/src/contract/contract.ts"],
+      "note": "TypeScript strict mode, eqeqeq, and schema-typed inputs."
+    },
+    "V15.3.6": {
+      "status": "met",
+      "evidence": ["apps/api/src/contract/contract.ts"],
+      "note": "Inputs become new objects through Zod; lookups use Map and Set; no deep merges of user input."
+    },
+    "V15.3.7": {
+      "status": "met",
+      "evidence": ["apps/api/src/contract/contract.ts"],
+      "note": "Body, query and path each have their own schema; repeated parameters fail validation."
+    },
+    "V16.1.1": {
+      "status": "met",
+      "evidence": ["docs/security/logging-inventory.md"],
+      "note": ""
+    },
+    "V16.2.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/logging/logging.module.ts", "apps/api/src/audit/audit.service.ts"],
+      "note": "Timestamp, request id, route, actor and target on log lines and audit entries."
+    },
+    "V16.2.2": {
+      "status": "met",
+      "evidence": ["docs/security/logging-inventory.md"],
+      "note": "UTC timestamps everywhere; host clocks are kept in sync by the managed runtime."
+    },
+    "V16.2.3": {
+      "status": "met",
+      "evidence": ["docs/security/logging-inventory.md"],
+      "note": ""
+    },
+    "V16.2.4": {
+      "status": "met",
+      "evidence": ["apps/api/src/logging/logging.module.ts"],
+      "note": "JSON lines with a request id shared across services."
+    },
+    "V16.2.5": {
+      "status": "met",
+      "evidence": [
+        "packages/shared/src/log-redaction.ts",
+        "apps/api/src/logging/logging.module.ts",
+        "apps/api/src/logging/logging.module.spec.ts"
+      ],
+      "note": ""
+    },
+    "V16.3.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/audit/audit.service.ts", "apps/api/src/auth/auth.service.ts"],
+      "note": ""
+    },
+    "V16.3.2": {
+      "status": "met",
+      "evidence": ["apps/api/src/auth/permissions.guard.ts", "apps/api/src/audit/audit.service.ts"],
+      "note": ""
+    },
+    "V16.3.3": {
+      "status": "met",
+      "evidence": ["apps/api/src/logging/logging.module.ts", "docs/security/logging-inventory.md"],
+      "note": "Validation failures, rate limits and bot-check failures are logged; 403 and 429 at warn."
+    },
+    "V16.3.4": {
+      "status": "met",
+      "evidence": ["apps/api/src/common/problem-details.ts", "docs/security/logging-inventory.md"],
+      "note": ""
+    },
+    "V16.4.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/logging/logging.module.ts"],
+      "note": "JSON encoding escapes control characters."
+    },
+    "V16.4.2": {
+      "status": "deployment",
+      "evidence": ["apps/api/src/audit/audit.service.ts", "docs/security/logging-inventory.md"],
+      "note": "The audit log is append-only in the database. Access to the log service is configured in phase 12."
+    },
+    "V16.4.3": {
+      "status": "deployment",
+      "evidence": ["docs/security/logging-inventory.md"],
+      "note": "Logs leave each container on stdout; shipping to a separate log service is part of phase 12."
+    },
+    "V16.5.1": {
+      "status": "met",
+      "evidence": ["apps/api/src/common/problem-details.ts"],
+      "note": ""
+    },
+    "V16.5.2": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/suppliers/circuit-breaker.ts",
+        "apps/api/src/search/supplier-runner.ts"
+      ],
+      "note": ""
+    },
+    "V16.5.3": {
+      "status": "met",
+      "evidence": [
+        "apps/api/src/bookings/booking-transitions.ts",
+        "docs/security/business-limits.md"
+      ],
+      "note": "Errors roll transactions back; credential checks fail closed. Only the request rate limiter fails open, by documented choice."
+    },
+    "V17.1.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebRTC, TURN, media or signalling servers."
+    },
+    "V17.2.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebRTC, TURN, media or signalling servers."
+    },
+    "V17.2.2": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebRTC, TURN, media or signalling servers."
+    },
+    "V17.2.3": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebRTC, TURN, media or signalling servers."
+    },
+    "V17.2.4": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebRTC, TURN, media or signalling servers."
+    },
+    "V17.3.1": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebRTC, TURN, media or signalling servers."
+    },
+    "V17.3.2": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No WebRTC, TURN, media or signalling servers."
+    },
+    "MASVS-STORAGE-1": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/lib/secure-storage.ts", "apps/mobile/src/lib/cache.ts"],
+      "note": "Tokens and keys in the Keychain or Keystore (this device only); personal data offline in AES-256 MMKV; never AsyncStorage."
+    },
+    "MASVS-STORAGE-2": {
+      "status": "met",
+      "evidence": [
+        "apps/mobile/app.config.ts",
+        "apps/mobile/src/lib/error-reporting.ts",
+        "apps/mobile/scripts/scan-bundle.mjs"
+      ],
+      "note": "Backups disabled, screen capture blocked on sensitive screens, scrubbed error reports, exports deleted after sharing, and a secret scan of the bundle."
+    },
+    "MASVS-CRYPTO-1": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/lib/cache.ts"],
+      "note": "Platform keystores and MMKV AES-256; keys from the platform CSPRNG."
+    },
+    "MASVS-CRYPTO-2": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/lib/cache.ts", "apps/mobile/src/lib/secure-storage.ts"],
+      "note": "The cache key is generated on the device, kept in the keystore and replaced on sign-out and account deletion."
+    },
+    "MASVS-AUTH-1": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/lib/session.ts", "apps/mobile/src/lib/api.ts"],
+      "note": "Short-lived bearer token in memory, refresh token in the keystore, single-flight refresh; the server decides everything."
+    },
+    "MASVS-AUTH-2": {
+      "status": "not-applicable",
+      "evidence": [],
+      "note": "No local (biometric or device credential) authentication."
+    },
+    "MASVS-AUTH-3": {
+      "status": "met",
+      "evidence": [
+        "apps/mobile/src/components/account/reauth.tsx",
+        "apps/api/src/auth/reauth.service.ts"
+      ],
+      "note": "Export, deletion, phone changes and signing out other devices need a fresh proof."
+    },
+    "MASVS-NETWORK-1": {
+      "status": "met",
+      "evidence": ["apps/mobile/app.config.ts", "apps/mobile/src/config.ts"],
+      "note": "HTTPS only; cleartext is allowed only in development variants."
+    },
+    "MASVS-NETWORK-2": {
+      "status": "accepted",
+      "evidence": ["docs/decisions/ADR-048-security-verification-and-accepted-risks.md"],
+      "note": "No certificate pinning; see ADR-048."
+    },
+    "MASVS-PLATFORM-1": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/lib/deep-links.ts", "apps/mobile/src/lib/deep-links.test.ts"],
+      "note": "Incoming URLs pass an allowlist; app links are verified; guest tokens never reach the router."
+    },
+    "MASVS-PLATFORM-2": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/lib/payment.ts"],
+      "note": "No WebViews: hosted checkout opens in the system browser session."
+    },
+    "MASVS-PLATFORM-3": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/hooks/use-sensitive-screen.ts"],
+      "note": "Sensitive screens block capture and hide in the app switcher; secret fields are masked."
+    },
+    "MASVS-CODE-1": {
+      "status": "accepted",
+      "evidence": ["docs/decisions/ADR-048-security-verification-and-accepted-risks.md"],
+      "note": "Targets Android API 36; supports Android 7.0 and iOS 15.1 and later for reach in the primary market; see ADR-048."
+    },
+    "MASVS-CODE-2": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/lib/app-update.ts", "apps/api/src/common/app-version.guard.ts"],
+      "note": "MOBILE_MIN_VERSION blocks builds below a version and the app asks for the update."
+    },
+    "MASVS-CODE-3": {
+      "status": "met",
+      "evidence": [".github/workflows/security.yml", ".github/dependabot.yml"],
+      "note": ""
+    },
+    "MASVS-CODE-4": {
+      "status": "met",
+      "evidence": ["packages/shared/src/checkout-draft.ts", "apps/mobile/src/lib/deep-links.ts"],
+      "note": "Shared schemas validate input on the device; the API validates again."
+    },
+    "MASVS-RESILIENCE-1": {
+      "status": "partial",
+      "evidence": [
+        "apps/mobile/src/lib/attestation.ts",
+        "docs/decisions/ADR-023-device-attestation-and-mobile-bot-protection.md"
+      ],
+      "note": "App Attest and Play Integrity are wired with report and strict modes; real verifiers need the owner's Apple and Google accounts (open owner question)."
+    },
+    "MASVS-RESILIENCE-2": {
+      "status": "accepted",
+      "evidence": ["docs/decisions/ADR-048-security-verification-and-accepted-risks.md"],
+      "note": "No anti-tampering beyond attestation; see ADR-048."
+    },
+    "MASVS-RESILIENCE-3": {
+      "status": "accepted",
+      "evidence": ["docs/decisions/ADR-048-security-verification-and-accepted-risks.md"],
+      "note": "No obfuscation beyond Hermes bytecode; the bundle holds no secrets (scanned); see ADR-048."
+    },
+    "MASVS-RESILIENCE-4": {
+      "status": "accepted",
+      "evidence": ["docs/decisions/ADR-048-security-verification-and-accepted-risks.md"],
+      "note": "No anti-debugging; see ADR-048."
+    },
+    "MASVS-PRIVACY-1": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/lib/push.ts", "apps/mobile/src/lib/visa-upload.ts"],
+      "note": "Push permission only after a booking or from Account; documents only through the system picker; no location, contacts or photos access."
+    },
+    "MASVS-PRIVACY-2": {
+      "status": "met",
+      "evidence": ["apps/mobile/src/lib/error-reporting.ts"],
+      "note": "No advertising ids or trackers; error reports carry no personal data."
+    },
+    "MASVS-PRIVACY-3": {
+      "status": "partial",
+      "evidence": ["apps/web/lib/cookie-catalog.ts"],
+      "note": "The privacy policy text and the store privacy labels come from the owner (open owner question)."
+    },
+    "MASVS-PRIVACY-4": {
+      "status": "met",
+      "evidence": [
+        "apps/mobile/src/lib/data-export.ts",
+        "apps/api/src/privacy/account-deletion.service.ts"
+      ],
+      "note": "Data export and account deletion in the app; notification preferences per channel."
+    }
+  }
+}

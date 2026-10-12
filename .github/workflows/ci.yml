@@ -92,6 +92,10 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      # ASVS and MASVS checklist (ADR-048): every requirement mapped, evidence paths exist, page current.
+      - name: Check security checklist
+        run: pnpm security:checklist --check
+
       # Alert rules (ADR-047): syntax and unit tests with a pinned, checksum-verified promtool.
       - name: Check alert rules
         run: |
