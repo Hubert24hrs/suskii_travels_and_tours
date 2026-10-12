@@ -134,6 +134,15 @@ describe('parseEnv', () => {
     expect(declared).not.toMatch(/DATABASE_URL|REDIS_URL/);
   });
 
+  it('pauses only enabled payment providers', () => {
+    expect(
+      parseEnv({ ...base, PAYMENT_PROVIDERS_PAUSED: 'mock' }).PAYMENT_PROVIDERS_PAUSED,
+    ).toEqual(['mock']);
+    expect(() => parseEnv({ ...base, PAYMENT_PROVIDERS_PAUSED: 'stripe' })).toThrow(
+      /PAYMENT_PROVIDERS_PAUSED/,
+    );
+  });
+
   it('requires TLS to suppliers and telemetry in production, except a local collector', () => {
     const production = (overrides: Record<string, string>) => {
       try {

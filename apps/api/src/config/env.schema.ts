@@ -203,6 +203,13 @@ export const envSchema = z
      * settle the booking's currency; the first is the default.
      */
     PAYMENT_PROVIDERS: csv(z.enum(['mock', 'paystack', 'flutterwave', 'stripe'])).default(['mock']),
+    /**
+     * Enabled providers that take no new payments, for an outage (docs/runbooks): their webhooks,
+     * reconciliation and refunds keep working, which removing them from PAYMENT_PROVIDERS breaks.
+     */
+    PAYMENT_PROVIDERS_PAUSED: csv(z.enum(['mock', 'paystack', 'flutterwave', 'stripe'])).default(
+      [],
+    ),
     PAYSTACK_SECRET_KEY: z.string().min(16).optional(),
     PAYSTACK_API_URL: z.url().default('https://api.paystack.co'),
     FLUTTERWAVE_SECRET_KEY: z.string().min(16).optional(),
@@ -350,6 +357,8 @@ export const envSchema = z
       require('PAYMENT_PROVIDERS', 'enable at least one payment provider');
     if (new Set(env.PAYMENT_PROVIDERS).size !== env.PAYMENT_PROVIDERS.length)
       require('PAYMENT_PROVIDERS', 'list each provider once');
+    if (env.PAYMENT_PROVIDERS_PAUSED.some((name) => !env.PAYMENT_PROVIDERS.includes(name)))
+      require('PAYMENT_PROVIDERS_PAUSED', 'may only name providers in PAYMENT_PROVIDERS');
     if (env.PAYMENT_PROVIDERS.includes('paystack') && !env.PAYSTACK_SECRET_KEY)
       require('PAYSTACK_SECRET_KEY', 'is required when PAYMENT_PROVIDERS includes paystack');
     if (env.PAYMENT_PROVIDERS.includes('flutterwave')) {

@@ -68,7 +68,13 @@ export class ContentService {
         .map(({ slug, page }) => ({ slug, title: page?.title ?? slug, group: page?.group ?? '' }))
         .sort((a, b) => a.slug.localeCompare(b.slug)),
       trustSignals,
-      paymentMethods: paymentMethodsFor(enabledPaymentProviders(this.config.PAYMENT_PROVIDERS)),
+      paymentMethods: paymentMethodsFor(
+        enabledPaymentProviders(
+          this.config.PAYMENT_PROVIDERS.filter(
+            (name) => !this.config.PAYMENT_PROVIDERS_PAUSED.includes(name),
+          ),
+        ),
+      ),
     };
   }
 

@@ -5,7 +5,11 @@ import { APP_CONFIG, type AppConfig } from '../config/config';
 import { FlutterwavePaymentProvider } from './flutterwave/flutterwave-payment-provider';
 import { MockPaymentProvider } from './mock-payment-provider';
 import type { PaymentProvider } from './payment-provider';
-import { PAYMENT_PROVIDER_LIST, PaymentProviders } from './payment-providers';
+import {
+  PAUSED_PAYMENT_PROVIDERS,
+  PAYMENT_PROVIDER_LIST,
+  PaymentProviders,
+} from './payment-providers';
 import { PaystackPaymentProvider } from './paystack/paystack-payment-provider';
 import { StripePaymentProvider } from './stripe/stripe-payment-provider';
 
@@ -47,6 +51,11 @@ function providerList(config: AppConfig, mock: MockPaymentProvider): PaymentProv
       provide: PAYMENT_PROVIDER_LIST,
       inject: [APP_CONFIG, MockPaymentProvider],
       useFactory: providerList,
+    },
+    {
+      provide: PAUSED_PAYMENT_PROVIDERS,
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) => config.PAYMENT_PROVIDERS_PAUSED,
     },
     PaymentProviders,
   ],
