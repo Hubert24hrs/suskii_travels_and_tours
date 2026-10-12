@@ -140,7 +140,7 @@ catalog:
   react-dom: 19.2.3
   '@types/react': ~19.2.18
   '@types/react-dom': ~19.2.7
-  next: 16.3.6
+  next: 16.3.8
 
   # Mobile (versions from expo@57 bundledNativeModules.json)
   expo: ~57.0.25

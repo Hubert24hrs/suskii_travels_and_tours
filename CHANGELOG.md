@@ -87,6 +87,11 @@ All notable changes to this project are documented here. The format follows
 - The website's own cookies are named `__Host-suskii_currency`, `__Host-suskii_locale` and
   `__Host-suskii_consent` in production.
 
+#### Security
+
+- Next.js 16.3.8 (GHSA-cjq9-62q9-8jv4, SSRF in image optimisation). `eslint-config-next` stays
+  at 16.3.6: pnpm's trust policy refuses a dependency of 16.3.8 that lost its provenance.
+
 #### Fixed
 
 - Every form has a method, so a submit before hydration can no longer put personal data in
