@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -91,5 +91,25 @@ describe('observability configuration', () => {
     }
     expect(checked).toBeGreaterThan(50);
     expect(unknown).toEqual([]);
+  });
+
+  it('gives every paging alert a runbook, and every runbook exists', () => {
+    const rules = readFileSync(
+      join(ROOT, 'infra', 'observability', 'alerts', 'suskii.rules.yml'),
+      'utf8',
+    );
+    const alerts = rules.split(/^\s*- alert: /m).slice(1);
+    expect(alerts.length).toBeGreaterThan(10);
+    const problems: string[] = [];
+    for (const block of alerts) {
+      const name = block.split('\n')[0]?.trim() ?? '';
+      const runbook = /^\s*runbook: (\S+)\s*$/m.exec(block)?.[1];
+      if (runbook === undefined) {
+        if (block.includes('severity: page')) problems.push(`${name}: pages without a runbook`);
+      } else if (!existsSync(join(ROOT, runbook))) {
+        problems.push(`${name}: ${runbook} does not exist`);
+      }
+    }
+    expect(problems).toEqual([]);
   });
 });

@@ -3,7 +3,8 @@
 # (suskii.ticketing.oldest_age in seconds is suskii_ticketing_oldest_age_seconds).
 #
 # Severity: `page` wakes someone (money or tickets at risk now); `ticket` is for working hours.
-# Every alert links its runbook (docs/runbooks, phase 11F). Check with:
+# Every paging alert links its runbook (docs/runbooks; a unit test checks the files exist).
+# Check with:
 #   promtool check rules infra/observability/alerts/suskii.rules.yml
 #   promtool test rules infra/observability/alerts/suskii.rules.test.yml
 groups:
@@ -132,6 +133,7 @@ groups:
         annotations:
           summary: 'More than 2% of API requests fail'
           description: Sentry groups the errors behind this rate (ADR-046).
+          runbook: docs/runbooks/README.md
 
       - alert: ApiLatencyHigh
         expr: >-
