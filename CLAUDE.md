@@ -45,7 +45,7 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | 8     | Packages, tours, visa and add-ons                | Done        |
 | 9     | Accounts, Suskii Prime, referrals, notifications | Done        |
 | 10    | Admin console                                    | Done        |
-| 11    | Hardening                                        | Not started |
+| 11    | Hardening                                        | Done        |
 | 12    | Deployment and release                           | Not started |
 | 13    | Optional: AI trip search                         | Not started |
 
@@ -66,45 +66,54 @@ packages/
   ui-native/      NativeWind components (TS source), bottom sheets, Jest + RNTL tests
   api-client/     Generated OpenAPI types + openapi-fetch client + TanStack Query hooks (TS source)
   i18n/           Typed message catalogs (en-NG/GB/US), translator, Intl formatters (TS source)
-infra/        Terraform + Helm (phase 12). Local infra lives in the root docker-compose.yml
-docs/         decisions/ (ADRs), phases/ (phase plans), runbooks and security docs later
+infra/        observability/ (Grafana dashboards, Prometheus alert rules); Terraform + Helm in phase 12
+load/         k6 load test (load/k6/api.js), run in CI against the e2e stack
+scripts/      Repo-level tools: security-checklist.mjs (ASVS/MASVS checklist generator)
+docs/         decisions/ (ADRs), phases/ (plans), security/ (threat model, checklist, inventories), runbooks/
 ```
 
 ## Commands
 
 Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 
-| Command                                           | What it does                                                        |
-| ------------------------------------------------- | ------------------------------------------------------------------- |
-| `pnpm install`                                    | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)   |
-| `pnpm infra:up`                                   | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)       |
-| `pnpm infra:down`                                 | Stop local infra (data kept in named volumes)                       |
-| `pnpm dev`                                        | Run every app in watch mode through Turborepo                       |
-| `pnpm build`                                      | Build every workspace (dependencies first)                          |
-| `pnpm lint`                                       | ESLint (type-aware) in every workspace                              |
-| `pnpm typecheck`                                  | `tsc --noEmit` in every workspace                                   |
-| `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native) |
-| `pnpm build:storybook`                            | Static Storybook for ui-web                                         |
-| `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                   |
-| `pnpm test:e2e`                                   | API, web and admin e2e suites, one after the other (Docker or URLs) |
-| `pnpm --filter @suskii/web test:e2e`              | Web e2e + Lighthouse against built web, API and worker (see notes)  |
-| `pnpm --filter @suskii/admin test:e2e`            | Admin e2e: staff journeys, audit log, axe (built admin and API)     |
-| `pnpm --filter @suskii/web lighthouse [url]`      | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)     |
-| `pnpm --filter @suskii/web check:classes`         | Fail if a Tailwind class used in web/ui-web generates no CSS        |
-| `pnpm --filter @suskii/worker refresh:once`       | Refresh every deal route and destination once (API must run)        |
-| `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema           |
-| `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                 |
-| `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`             |
-| `pnpm --filter @suskii/api db:seed:demo`          | Sample packages, tours, add-ons and visa data (refused in prod)     |
-| `docker compose --profile av up -d clamav`        | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)     |
-| `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                |
-| `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)            |
-| `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)              |
-| `pnpm --filter @suskii/mobile android`            | Build and run the development build on an Android emulator          |
-| `pnpm --filter @suskii/mobile scan:bundle dist`   | Secret scan of the mobile export (`--self-test` checks the scanner) |
-| `pnpm --filter @suskii/web e2e:stack`             | Run the e2e stack (API, worker refresh, web) for Maestro flows      |
-| `pnpm format` / `format:check`                    | Prettier write / check                                              |
-| `pnpm --filter @suskii/api dev`                   | Run a single workspace                                              |
+| Command                                           | What it does                                                         |
+| ------------------------------------------------- | -------------------------------------------------------------------- |
+| `pnpm install`                                    | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)    |
+| `pnpm infra:up`                                   | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)        |
+| `pnpm infra:down`                                 | Stop local infra (data kept in named volumes)                        |
+| `pnpm dev`                                        | Run every app in watch mode through Turborepo                        |
+| `pnpm build`                                      | Build every workspace (dependencies first)                           |
+| `pnpm lint`                                       | ESLint (type-aware) in every workspace                               |
+| `pnpm typecheck`                                  | `tsc --noEmit` in every workspace                                    |
+| `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native)  |
+| `pnpm build:storybook`                            | Static Storybook for ui-web                                          |
+| `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                    |
+| `pnpm test:e2e`                                   | API, web and admin e2e suites, one after the other (Docker or URLs)  |
+| `pnpm --filter @suskii/web test:e2e`              | Web e2e + Lighthouse against built web, API and worker (see notes)   |
+| `pnpm --filter @suskii/admin test:e2e`            | Admin e2e: staff journeys, audit log, axe (built admin and API)      |
+| `pnpm --filter @suskii/web lighthouse [url]`      | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)      |
+| `pnpm --filter @suskii/web check:classes`         | Fail if a Tailwind class used in web/ui-web generates no CSS         |
+| `pnpm --filter @suskii/worker refresh:once`       | Refresh every deal route and destination once (API must run)         |
+| `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema            |
+| `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                  |
+| `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`              |
+| `pnpm --filter @suskii/api db:seed:demo`          | Sample packages, tours, add-ons and visa data (refused in prod)      |
+| `docker compose --profile av up -d clamav`        | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)      |
+| `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                 |
+| `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)             |
+| `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)               |
+| `pnpm --filter @suskii/mobile android`            | Build and run the development build on an Android emulator           |
+| `pnpm --filter @suskii/mobile scan:bundle dist`   | Secret scan of the mobile export (`--self-test` checks the scanner)  |
+| `pnpm --filter @suskii/web e2e:stack`             | Run the e2e stack (API, worker refresh, web) for Maestro flows       |
+| `pnpm format` / `format:check`                    | Prettier write / check                                               |
+| `pnpm security:checklist` (`--check` in CI)       | Regenerate `docs/security/checklist.md` from the reviewed mapping    |
+| `pnpm --filter @suskii/api test:cov`              | API unit tests with the 80% gates (also `@suskii/shared`)            |
+| `pnpm --filter @suskii/ui-web test:visual`        | Screenshot tests (baselines from the `visual-baselines` workflow)    |
+| `k6 run load/k6/api.js`                           | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`) |
+| `promtool check rules` / `test rules`             | Validate `infra/observability/alerts` (CI pins promtool)             |
+| `pnpm --filter @suskii/api keys:reencrypt`        | Rewrite field encryption under the current key (dry run first)       |
+| `pnpm --filter @suskii/api sessions:revoke`       | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)    |
+| `pnpm --filter @suskii/api dev`                   | Run a single workspace                                               |
 
 Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, Expo Metro `8081`,
 Postgres `5432`, Redis `6379`, Mailpit SMTP `1025` and UI `8025`. Docker ports bind to `127.0.0.1` only.
@@ -424,6 +433,41 @@ Tooling notes for agents:
 - Admin e2e tests sign each persona in once (`signIn` uses the next TOTP step) and look up alerts
   with `alertWith` (Next's route announcer is an empty alert) and toasts with `expectToast`.
 
+### Hardening (phase 11, ADR-037 to ADR-048)
+
+- Security documents live in `docs/security/` and must change with the code they describe:
+  new personal data goes in `data-classification.md`, a new sign-in path or session rule in
+  `authentication.md`, a new permission or field rule in `access-control.md`, a new outbound host
+  in `external-communications.md`, a new expensive feature or limit in `business-limits.md`,
+  a new key in `crypto-inventory.md`. Requirement statuses live in
+  `docs/security/standards/mapping.json`; run `pnpm security:checklist` after editing it (CI
+  fails on unmapped ids, missing evidence paths or a stale page).
+- Logs carry ids and reasons, never values. A field that can hold a secret or personal data
+  goes in `SENSITIVE_LOG_FIELDS` (`packages/shared/src/log-redaction.ts`); redaction covers the
+  top level and three levels below. Record security events with `AuditService.record()`.
+- Report unexpected errors through the `ErrorReporter` (API: injected, global; worker:
+  `createErrorReporter`; web and admin: `lib/error-reporter.ts`; app: `lib/error-reporting.ts`).
+  Tags only from `ERROR_TAG_KEYS`; messages are scrubbed, but never put personal data in them.
+- Metrics: define instruments in `apps/api/src/telemetry/metrics.ts` (or the worker's
+  `telemetry.ts`). Dashboards and alert rules may only use defined metrics, and a paging alert
+  needs an existing runbook (`observability.spec.ts`); CI runs promtool on the rules.
+- Outbound HTTP uses `redirect: 'error'` and a timeout. Production refuses plain http for every
+  provider, the internal API, Postgres, Redis, OTLP (except localhost) and SMTP.
+- Every `<form>` has a `method` (`post` for personal data, `get` only for searches); a lint rule
+  enforces it.
+- Website cookies and storage keys go in `apps/web/lib/cookie-catalog.ts` (an e2e test fails on
+  anything unlisted). The site's own cookies are named with `hostCookie()` (`__Host-` in
+  production); optional categories run only after `hasCookieConsent()`.
+- Beacon routes (`text/plain` bodies, such as web-vitals) are listed in `BEACON_PATHS` and
+  declared `beacon: true` in the contract; they are capped at 8 KB.
+- ui-web merges classes with the token-aware `cn` (no tailwind-merge at runtime); the homepage
+  JavaScript budget is 170 kB (ADR-043) and the Lighthouse gate checks LCP, CLS and TBT.
+- Money, pricing, booking lifecycle and auth modules keep 80% coverage (`test:cov` in CI).
+- Retire app builds with `MOBILE_MIN_VERSION` (the API answers 426 and the app shows an update
+  screen). Pause a failing payment provider with `PAYMENT_PROVIDERS_PAUSED`, never by removing
+  it from `PAYMENT_PROVIDERS` (that orphans its webhooks and refunds).
+- Incidents follow `docs/runbooks/`. Disclosure and remediation time frames are in `SECURITY.md`.
+
 ### Security guardrails
 
 - Never commit `.env` files, secrets, or real supplier credentials. Use `.env.example` placeholders.
@@ -494,6 +538,18 @@ Tooling notes for agents:
 - [ADR-034: Admin route permission matrix and audit coverage](docs/decisions/ADR-034-admin-route-permission-matrix-and-audit-coverage.md)
 - [ADR-035: Admin-managed pricing, promos, deals and content](docs/decisions/ADR-035-admin-managed-pricing-promos-deals-and-content.md)
 - [ADR-036: Admin dashboards and reporting](docs/decisions/ADR-036-admin-dashboards-and-reporting.md)
+- [ADR-037: Session limits, staff lifetimes and step-up](docs/decisions/ADR-037-session-limits-staff-lifetimes-and-step-up.md)
+- [ADR-038: Social nonces, key rotation and transport security](docs/decisions/ADR-038-social-nonces-key-rotation-and-transport-security.md)
+- [ADR-039: Data retention](docs/decisions/ADR-039-data-retention.md)
+- [ADR-040: Payment risk review](docs/decisions/ADR-040-payment-risk-review.md)
+- [ADR-041: Retiring old app versions](docs/decisions/ADR-041-retiring-old-app-versions.md)
+- [ADR-042: Cookie consent](docs/decisions/ADR-042-cookie-consent.md)
+- [ADR-043: Homepage JavaScript at 170 kB](docs/decisions/ADR-043-homepage-javascript-at-170-kb.md)
+- [ADR-044: Measuring web performance in the lab and the field](docs/decisions/ADR-044-measuring-web-performance-in-the-lab-and-the-field.md)
+- [ADR-045: API load testing with k6](docs/decisions/ADR-045-api-load-testing-with-k6.md)
+- [ADR-046: Error reporting](docs/decisions/ADR-046-error-reporting.md)
+- [ADR-047: Metrics, dashboards and alerts](docs/decisions/ADR-047-metrics-dashboards-and-alerts.md)
+- [ADR-048: Security verification checklist and accepted risks](docs/decisions/ADR-048-security-verification-and-accepted-risks.md)
 
 ## Open questions for the owner
 
@@ -530,4 +586,11 @@ checks. Added in phase 10: the production console host (`ADMIN_ORIGINS`) and off
 addresses for `ADMIN_IP_ALLOWLIST`, the first super admins and who holds each staff role, the
 evidence documents for regulated trust claims (IATA accreditation, traveller counts) before
 anyone verifies them, and whether markup and fee changes should need a second approver like
-refunds (today one `pricing:manage` holder applies them, audited).
+refunds (today one `pricing:manage` holder applies them, audited). Added in phase 11: the
+Sentry organisation and data region (`SENTRY_DSN` and the public DSNs), the metrics backend,
+the on-call tool and who receives `page` alerts, the security contact (or turning on GitHub
+private vulnerability reporting, which `SECURITY.md` points to), confirmation of the accepted
+risks in ADR-048 (optional traveller MFA, Android 7 and iOS 15.1 support, no certificate
+pinning), recovery objectives for database restores, the payment risk thresholds and watched
+countries or routes (`PAYMENT_RISK_*`), the cookie policy text, and someone with iOS and
+Android devices to run the screen reader checklist before the first store release.

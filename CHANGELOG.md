@@ -6,6 +6,95 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 11: Hardening (2026-10-12)
+
+#### Added
+
+- Accounts and sessions (ADR-037, ADR-038):
+  - Passwords are refused when common (9,126-entry list), breached (Have I Been Pwned range
+    API) or built on context words or the account's own details.
+  - Recovery codes are stored with argon2id.
+  - Changing the phone, enrolling MFA and signing out other devices need a fresh proof.
+  - Sessions are capped (10 per traveller, 3 per staff member); staff sessions last at most 12
+    hours, with a 30-minute idle limit.
+  - The riskiest admin actions need step-up; `sessions:revoke` signs accounts out in bulk for
+    incidents.
+  - Google and Apple sign-in need a single-use nonce issued by the API.
+  - Field encryption keys have ids, previous keys stay readable, and `keys:reencrypt` rewrites
+    ciphertexts under the new key.
+  - Production refuses plaintext Postgres, Redis and worker-to-API connections.
+  - Phone sign-in warns that texted codes can be intercepted.
+- Privacy (ADR-039, ADR-042):
+  - Every table has a retention rule, and a daily sweep purges what is past its period.
+  - Cookie settings record each choice through the API before any optional category runs; a
+    catalog lists every cookie and storage key, and an e2e test fails on anything unlisted.
+  - Guest booking tokens are forgotten on sign-out and account deletion.
+- Payment risk review (ADR-040): captured card payments are scored. At or above the threshold
+  the booking stays PAID and waits in a finance queue (approve, or reject with a full refund).
+- Old app versions (ADR-041): `MOBILE_MIN_VERSION` makes the API refuse older builds, and the app
+  shows an update screen.
+- Supply chain and security CI (`.github/workflows/security.yml`,
+  `docs/security/dependency-exceptions.md`):
+  - gitleaks, `pnpm audit`, Trivy and Semgrep, with pinned, checksum-verified tools;
+  - a CycloneDX SBOM;
+  - overrides for vulnerable transitive packages;
+  - release cooldowns and trust guards in pnpm;
+  - a passive OWASP ZAP scan of the e2e stack, triaged in `docs/security/zap-baseline.md`.
+- Tests:
+  - an object-level authorisation matrix over every owned-resource route;
+  - 80% coverage gates on money, pricing, lifecycle and auth;
+  - screenshot tests for key ui-web components;
+  - a k6 load test of catalog reads and the booking journey in CI (ADR-045).
+- Performance (ADR-043, ADR-044):
+  - The homepage ships 168.5 kB of JavaScript under a 170 kB budget. Shared code compiles from
+    source, ui-web uses native tabs, segmented control and combobox, and `cn` no longer needs
+    tailwind-merge.
+  - The Lighthouse gate checks LCP, CLS and TBT.
+  - The website reports field Core Web Vitals to `POST /v1/telemetry/web-vitals` (text/plain
+    beacons, sampled), recorded as metrics by page template and device.
+- Error reporting (ADR-046): API, worker, website, console and app report unexpected errors to
+  Sentry, with scrubbed messages and allowlisted tags only. Request ids join the website, the API
+  and the worker.
+- Metrics and alerts (ADR-047):
+  - business counters (quotes, bookings, transitions, webhooks, payments, ticketing, refunds);
+  - operational gauges (bookings in flight, oldest ticketing wait, open refunds and risk reviews,
+    database connections);
+  - worker queue and job metrics;
+  - three Grafana dashboards and 19 Prometheus alert rules, checked by promtool in CI and by a
+    test that every metric, and every paging alert's runbook, exists.
+- Security documentation (`docs/security/`): threat model (STRIDE for authentication, payments,
+  bookings and documents), authentication and sessions, access control, cryptography inventory
+  and key policy, data classification, logging inventory, external communications, business
+  limits and heavy functions. `SECURITY.md` covers disclosure and remediation time frames.
+- Security checklist (ADR-048): every ASVS 5.0.0 level 1 and 2 requirement and every MASVS
+  control, mapped with status and evidence in `docs/security/standards/mapping.json`.
+  `pnpm security:checklist` generates `docs/security/checklist.md`; CI checks that the mapping
+  is complete, the evidence paths exist and the page is current.
+- Runbooks (`docs/runbooks/`): payment provider outage, supplier outage, ticketing backlog,
+  database restore (rehearsed locally with `pg_dump` and `pg_restore`), key rotation, session
+  revocation and account recovery, and a manual VoiceOver and TalkBack checklist.
+- `PAYMENT_PROVIDERS_PAUSED`: stops new payments through a failing provider while its webhooks,
+  reconciliation and refunds keep working.
+
+#### Changed
+
+- Log redaction covers the top level and three levels below of every log object; the worker
+  uses the same field list as the API (`SENSITIVE_LOG_FIELDS`). 403 and 429 responses log at
+  `warn`, and non-admin authorization denials are logged.
+- Production also requires TLS for the Duffel API, the OTLP collector (unless on localhost) and
+  SMTP (STARTTLS when not implicit TLS). The Sentry sender refuses redirects and times out
+  after 5 seconds.
+- The website's own cookies are named `__Host-suskii_currency`, `__Host-suskii_locale` and
+  `__Host-suskii_consent` in production.
+
+#### Fixed
+
+- Every form has a method, so a submit before hydration can no longer put personal data in
+  the URL (a lint rule enforces it).
+- Every problem response is described in the OpenAPI document.
+- AES-GCM requires full-length authentication tags.
+- A just-confirmed booking keeps polling until its documents exist (web and app).
+
 ### Phase 10: Admin console (2026-10-06)
 
 #### Added
