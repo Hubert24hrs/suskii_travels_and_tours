@@ -132,6 +132,8 @@ describe('createSentryReporter', () => {
       'https://o1.ingest.sentry.io/api/4504/envelope/?sentry_version=7&sentry_key=abc123public&sentry_client=suskii%2F1',
     );
     expect(init.headers).toBeUndefined();
+    expect(init.redirect).toBe('error');
+    expect(init.signal).toBeInstanceOf(AbortSignal);
     const [header, item, event] = (init.body as string)
       .split('\n')
       .map((line) => JSON.parse(line) as Record<string, unknown>);

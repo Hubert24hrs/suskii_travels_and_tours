@@ -41,6 +41,8 @@ export class SmtpEmailProvider extends EmailProvider {
       host: config.SMTP_HOST,
       port: config.SMTP_PORT,
       secure: config.SMTP_SECURE,
+      // Production never sends mail in plaintext: without implicit TLS, STARTTLS is mandatory.
+      requireTLS: config.NODE_ENV === 'production' && !config.SMTP_SECURE,
       ...(config.SMTP_USER && config.SMTP_PASSWORD
         ? { auth: { user: config.SMTP_USER, pass: config.SMTP_PASSWORD } }
         : {}),

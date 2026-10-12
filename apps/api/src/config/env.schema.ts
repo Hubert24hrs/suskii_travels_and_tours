@@ -6,6 +6,12 @@ const booleanish = z
   .transform((value) => value === 'true' || value === '1' || value === 'yes');
 
 /** True when a Postgres URL makes the driver insist on TLS (never echoes the URL). */
+/** An https URL, or plain http to a collector on the same host (a sidecar). */
+export function isTlsOrLoopback(url: string): boolean {
+  const { protocol, hostname } = new URL(url);
+  return protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
+}
+
 function requiresTls(databaseUrl: string): boolean {
   const params = new URL(databaseUrl).searchParams;
   const sslmode = params.get('sslmode');
@@ -402,9 +408,17 @@ export const envSchema = z
     if (!env.ALLOW_MOCK_PROVIDERS && env.ANTIVIRUS_PROVIDER === 'mock')
       require('ANTIVIRUS_PROVIDER', 'uploaded documents must be scanned by a real scanner');
     // Real providers must be called over TLS with their production hosts' defaults or overrides.
-    for (const key of ['PAYSTACK_API_URL', 'FLUTTERWAVE_API_URL', 'STRIPE_API_URL'] as const) {
+    for (const key of [
+      'PAYSTACK_API_URL',
+      'FLUTTERWAVE_API_URL',
+      'STRIPE_API_URL',
+      'DUFFEL_API_URL',
+    ] as const) {
       if (!env[key].startsWith('https://')) require(key, 'must use https in production');
     }
+    // Telemetry may go to a collector on the same host; anywhere else it needs TLS.
+    if (env.OTEL_EXPORTER_OTLP_ENDPOINT && !isTlsOrLoopback(env.OTEL_EXPORTER_OTLP_ENDPOINT))
+      require('OTEL_EXPORTER_OTLP_ENDPOINT', 'must use https in production unless the collector is on localhost');
     if (!env.ALLOW_MOCK_PROVIDERS && env.OBJECT_STORAGE === 'filesystem')
       require('OBJECT_STORAGE', 'filesystem storage is not allowed in production');
   });

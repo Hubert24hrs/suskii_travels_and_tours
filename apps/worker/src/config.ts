@@ -7,6 +7,12 @@ import { z } from 'zod';
 /** Prefix of the local development token in .env.example; refused in production (ADR-011). */
 const LOCAL_INTERNAL_TOKEN_PREFIX = 'local-dev-only-';
 
+/** An https URL, or plain http to a collector on the same host (a sidecar). */
+function isTlsOrLoopback(url: string): boolean {
+  const { protocol, hostname } = new URL(url);
+  return protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
+}
+
 const minutes = (fallback: number) => z.coerce.number().int().min(5).max(10_080).default(fallback);
 const booleanish = z
   .enum(['true', 'false', '1', '0'])
@@ -80,6 +86,13 @@ const envSchema = z
         code: 'custom',
         path: ['API_INTERNAL_URL'],
         message: 'must be https in production unless API_INTERNAL_ALLOW_PLAINTEXT=true',
+      });
+    }
+    if (env.OTEL_EXPORTER_OTLP_ENDPOINT && !isTlsOrLoopback(env.OTEL_EXPORTER_OTLP_ENDPOINT)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OTEL_EXPORTER_OTLP_ENDPOINT'],
+        message: 'must use https in production unless the collector is on localhost',
       });
     }
     if (!env.INTERNAL_API_TOKEN) {

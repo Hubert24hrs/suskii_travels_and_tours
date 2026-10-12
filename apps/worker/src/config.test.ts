@@ -81,4 +81,20 @@ describe('loadConfig', () => {
       }).API_INTERNAL_ALLOW_PLAINTEXT,
     ).toBe(true);
   });
+
+  it('requires TLS to the metrics collector in production unless it runs on localhost', () => {
+    const production = {
+      NODE_ENV: 'production',
+      INTERNAL_API_TOKEN: 'a-real-service-token-0123456789abcdef',
+      REDIS_URL: 'rediss://cache.internal:6380',
+      API_INTERNAL_URL: 'https://api.internal',
+    };
+    expect(() =>
+      loadConfig({ ...production, OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel.internal:4318' }),
+    ).toThrow(/OTEL_EXPORTER_OTLP_ENDPOINT/);
+    expect(
+      loadConfig({ ...production, OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318' })
+        .OTEL_EXPORTER_OTLP_ENDPOINT,
+    ).toBe('http://localhost:4318');
+  });
 });

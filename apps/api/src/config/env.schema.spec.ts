@@ -134,6 +134,29 @@ describe('parseEnv', () => {
     expect(declared).not.toMatch(/DATABASE_URL|REDIS_URL/);
   });
 
+  it('requires TLS to suppliers and telemetry in production, except a local collector', () => {
+    const production = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({ ...base, NODE_ENV: 'production', ...overrides });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    const plaintext = production({
+      DUFFEL_API_URL: 'http://api.duffel.com',
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel.example.com:4318',
+    });
+    expect(plaintext).toContain('DUFFEL_API_URL');
+    expect(plaintext).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
+    expect(production({ OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318' })).not.toContain(
+      'OTEL_EXPORTER_OTLP_ENDPOINT',
+    );
+    expect(production({ OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otel.example.com' })).not.toContain(
+      'OTEL_EXPORTER_OTLP_ENDPOINT',
+    );
+  });
+
   it('defaults push and attestation to mocks outside production, off by default', () => {
     const env = parseEnv(base);
     expect(env.PUSH_PROVIDER).toBe('mock');

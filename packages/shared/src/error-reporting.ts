@@ -10,13 +10,17 @@ export type ErrorPlatform = 'node' | 'javascript';
 /** The part of `fetch` the reporter uses; shared code compiles without DOM types. */
 export type ReportFetch = (
   url: string,
-  init: { method: 'POST'; body: string; keepalive: boolean },
+  init: { method: 'POST'; body: string; keepalive: boolean; redirect: 'error'; signal?: unknown },
 ) => Promise<{ status: number }>;
+
+/** How long one report may take before it is abandoned. */
+const SEND_TIMEOUT_MS = 5000;
 
 /** Runtime globals that Node, browsers and React Native provide (Hermes lacks Web Crypto). */
 const runtime = globalThis as unknown as {
   fetch?: ReportFetch;
   crypto?: { getRandomValues?: (data: Uint8Array) => Uint8Array };
+  AbortSignal?: { timeout?: (ms: number) => unknown };
 };
 
 export interface ErrorReporterOptions {
@@ -243,10 +247,13 @@ export function createSentryReporter(options: ErrorReporterOptions): ErrorReport
           JSON.stringify(event),
         ].join('\n');
         const auth = `sentry_version=7&sentry_key=${encodeURIComponent(dsn.publicKey)}&sentry_client=suskii%2F1`;
+        // Never follow a redirect away from the ingest host, and never wait on it for long.
         const response = await send(`${dsn.url}?${auth}`, {
           method: 'POST',
           body,
           keepalive: true,
+          redirect: 'error',
+          signal: runtime.AbortSignal?.timeout?.(SEND_TIMEOUT_MS),
         });
         if (response.status === 429) pausedUntil = at + 60_000;
       } catch {
