@@ -1,0 +1,56 @@
+# Cryptography inventory and key policy
+
+Every key, algorithm and certificate the platform uses (ASVS V11.1). Review it whenever a change
+adds or retires one, and at least once a year. ADR-007, ADR-015, ADR-026 and ADR-038 explain the
+designs; `apps/api/src/crypto` holds the implementations.
+
+## Keys and secrets
+
+| Key                                                                         | Algorithm and size                                                                     | Used for                                                             | Stored                                                    | Rotation                                                                                               |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`                                        | Ed25519 (EdDSA)                                                                        | Signing access tokens (15 minutes)                                   | Secret manager                                            | Yearly or on suspicion; old public keys stay in `JWT_PREVIOUS_PUBLIC_KEYS` for one token lifetime      |
+| `FIELD_ENCRYPTION_KEY` (+ `_KEY_ID`)                                        | AES-256-GCM, 96-bit nonce, 128-bit tag                                                 | Encrypted columns, wrapped visa document keys, idempotent responses  | Secret manager (KMS in phase 12)                          | Yearly or on suspicion: new key id, old key in `FIELD_ENCRYPTION_PREVIOUS_KEYS`, then `keys:reencrypt` |
+| `HMAC_SECRET`                                                               | HKDF-SHA-256 to per-purpose 256-bit keys, HMAC-SHA-256                                 | Lookup hashes (emails, phones, guest tokens, vouchers), signed links | Secret manager                                            | On suspicion only: every lookup hash changes, so rotation needs a planned re-hash                      |
+| `INTERNAL_API_TOKEN`                                                        | 256-bit random bearer                                                                  | Worker to API (`/v1/internal`)                                       | Secret manager                                            | Yearly or on suspicion; restart API and worker together                                                |
+| Payment provider secrets                                                    | Provider-defined (HMAC-SHA-512 Paystack, HMAC-SHA-256 Stripe, shared hash Flutterwave) | API calls and webhook signatures                                     | Secret manager                                            | When the provider or the owner rotates them                                                            |
+| `TURNSTILE_SECRET_KEY`, `DUFFEL_API_TOKEN`, Expo, SMS and email credentials | Provider-defined                                                                       | Bot checks, supplier, push, messages                                 | Secret manager                                            | When the provider or the owner rotates them                                                            |
+| Per-document visa keys                                                      | AES-256-GCM, generated per file                                                        | Visa document content                                                | Wrapped with the field key, bound to `visa-document:{id}` | Re-wrapped by `keys:reencrypt`; content is not re-encrypted                                            |
+| App cache key (mobile)                                                      | 256-bit random, MMKV AES-256                                                           | Offline trips and booking copies                                     | Keychain / Keystore, this device only                     | Replaced on sign-out and account deletion                                                              |
+| App Attest / Play Integrity keys                                            | Platform-managed (P-256)                                                               | Device attestation (ADR-023)                                         | Secure Enclave / Google                                   | Platform-managed                                                                                       |
+| TLS certificates                                                            | Edge-managed (phase 12)                                                                | Public hosts; Postgres and Redis TLS in production                   | Load balancer / managed service                           | Automatic renewal                                                                                      |
+
+Generate fresh values with `pnpm --filter @suskii/api keys:generate`. Never reuse a key across
+environments, and never commit one (gitleaks and push protection check every push).
+
+## Derived values and algorithms
+
+| Value                                         | Construction                                                                                                                                                                                                                |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Passwords, recovery codes                     | argon2id, 19 MiB memory, 2 passes, parallelism 1 (OWASP minimum); passwords rehashed on sign-in when parameters rise. Recovery codes carry 50 bits; codes issued before phase 11 were HMACs and work until used or replaced |
+| Refresh tokens                                | 256-bit random; stored as SHA-256; rotated on every use with reuse detection                                                                                                                                                |
+| CSRF tokens                                   | HMAC-SHA-256 bound to the session id                                                                                                                                                                                        |
+| Guest booking tokens                          | 256-bit random; stored as HMAC (`booking-token` purpose)                                                                                                                                                                    |
+| Email, password-reset and verification tokens | 256-bit random, short-lived, single use, stored hashed                                                                                                                                                                      |
+| SMS codes                                     | 6 random digits (CSPRNG), 5 minutes, single use, attempt-limited                                                                                                                                                            |
+| TOTP                                          | RFC 6238, HMAC-SHA-1 (the standard authenticator apps support), 30 s step, replay-protected; secret encrypted                                                                                                               |
+| Signed document and add-on links              | HMAC-SHA-256 over purpose, id and expiry; minutes long                                                                                                                                                                      |
+| Voucher codes                                 | 100 bits random; HMAC for lookup plus AES-GCM ciphertext                                                                                                                                                                    |
+| Encryption context                            | Every ciphertext is bound to its row (`booking:{id}:contact`, ...) through the GCM additional data (`apps/api/src/crypto/encryption-contexts.ts`)                                                                           |
+| Breached-password check                       | SHA-1 prefix to Have I Been Pwned (k-anonymity). SHA-1 is required by that protocol and protects nothing here                                                                                                               |
+
+Random values come from Node's `crypto` (CSPRNG) through `apps/api/src/crypto/random.ts`.
+`Math.random` appears only where unpredictability does not matter (sampling web-vitals reports,
+jitter, and error event ids on Hermes without Web Crypto).
+
+## Policy
+
+1. **Approved algorithms.** AES-256-GCM, Ed25519, HMAC-SHA-256, HKDF-SHA-256, argon2id,
+   SHA-256 and SHA-512, and TLS 1.2 or 1.3. Anything else needs an ADR.
+2. **Agility.** Ciphertexts carry a key id (ADR-038). Tokens carry `kid`. Password hashes carry
+   their parameters. Each can change without a flag day.
+3. **Separation.** One key per purpose. HMAC keys are derived per purpose, never shared.
+4. **Custody.** Keys live only in the secret manager and in process memory. Staff never see
+   production keys; deployments inject them.
+5. **Compromise.** Follow `docs/runbooks/key-rotation.md` at once, then record the incident.
+6. **Retirement.** A retired key is destroyed once nothing encrypted or signed with it remains
+   (`keys:reencrypt` reports that).
