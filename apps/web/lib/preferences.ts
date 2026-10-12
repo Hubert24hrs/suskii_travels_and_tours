@@ -10,9 +10,11 @@ import {
   type LocaleCode,
 } from '@suskii/shared';
 
+import { hostCookie } from './cookie-names';
+
 /** Functional preference cookies (no consent needed): display currency and locale (ADR-010). */
-export const CURRENCY_COOKIE = 'suskii_currency';
-export const LOCALE_COOKIE = 'suskii_locale';
+export const CURRENCY_COOKIE = hostCookie('suskii_currency');
+export const LOCALE_COOKIE = hostCookie('suskii_locale');
 
 export interface Preferences {
   locale: LocaleCode;

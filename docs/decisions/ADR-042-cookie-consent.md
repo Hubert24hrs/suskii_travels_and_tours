@@ -37,8 +37,8 @@ There is no analytics or marketing tag. `POSTHOG_KEY` in `.env.example` is unuse
 3. **Recorded before stored.**
    - Saving in the dialog first calls `POST /v1/privacy/cookie-consents` with a random consent id,
      the policy version and the choices. Only after a 201 does the browser write the
-     `suskii_consent` cookie (`<version>.<consentId>.<flags>`, one year, `SameSite=Lax`, `Secure`
-     on https) and fire `suskii:consent`.
+     `__Host-suskii_consent` cookie (`<version>.<consentId>.<flags>`, one year, `SameSite=Lax`,
+     `Secure`; plain `suskii_consent` in development) and fire `suskii:consent`.
    - When recording fails, nothing changes and the visitor is told.
    - Each save adds a row, so the history of choices for a consent id stays provable.
 4. **Pseudonymous records.**

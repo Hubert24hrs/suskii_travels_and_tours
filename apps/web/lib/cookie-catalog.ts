@@ -45,7 +45,7 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
     duration: 'refreshToken',
   },
   {
-    name: 'suskii_currency',
+    name: '__Host-suskii_currency',
     kind: 'cookie',
     category: 'necessary',
     provider: 'suskii',
@@ -53,7 +53,7 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
     duration: 'oneYear',
   },
   {
-    name: 'suskii_locale',
+    name: '__Host-suskii_locale',
     kind: 'cookie',
     category: 'necessary',
     provider: 'suskii',
@@ -61,7 +61,7 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
     duration: 'oneYear',
   },
   {
-    name: 'suskii_consent',
+    name: '__Host-suskii_consent',
     kind: 'cookie',
     category: 'necessary',
     provider: 'suskii',
@@ -110,8 +110,8 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
   },
 ];
 
-/** Development serves plain HTTP, where the API drops the `__Secure-` prefix. */
-const bare = (name: string): string => name.replace(/^__Secure-/, '');
+/** Development serves plain HTTP, where the `__Secure-` and `__Host-` prefixes are dropped. */
+const bare = (name: string): string => name.replace(/^__(?:Secure|Host)-/, '');
 
 /** The catalog entry that covers a stored name, if any. */
 export function catalogEntryFor(

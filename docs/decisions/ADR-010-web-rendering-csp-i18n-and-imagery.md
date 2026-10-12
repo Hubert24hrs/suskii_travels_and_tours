@@ -36,7 +36,8 @@ The experimental hash-based alternative (SRI) does not cover Next's inline scrip
 ### Preferences without locale-prefixed URLs
 
 Currency (header selector) and locale (footer selector) are stored in functional cookies
-(`suskii_currency`, `suskii_locale`; no consent needed) set by a server action. The three supported
+(`__Host-suskii_currency`, `__Host-suskii_locale` in production; no consent needed) set by a
+server action. The three supported
 locales are all English and differ only in formatting, so URLs stay unprefixed and canonical. When
 French or Pidgin arrive, locale-prefixed routes and `hreflang` replace the cookie.
 

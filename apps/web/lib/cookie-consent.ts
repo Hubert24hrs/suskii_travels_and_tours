@@ -10,14 +10,17 @@ import {
 } from '@suskii/shared/lite';
 
 import { browserApi } from './browser-api';
+import { hostCookie, SECURE_COOKIES } from './cookie-names';
 import { readCookie } from './session';
+
+const CONSENT_COOKIE = hostCookie(COOKIE_CONSENT_COOKIE);
 
 /** Fired on `window` after a new choice is recorded and stored. */
 export const CONSENT_EVENT = 'suskii:consent';
 
 /** The visitor's recorded choice under the current policy, or null. Client only. */
 export function readCookieConsent(): CookieConsent | null {
-  return parseCookieConsent(readCookie(COOKIE_CONSENT_COOKIE));
+  return parseCookieConsent(readCookie(CONSENT_COOKIE));
 }
 
 /**
@@ -57,8 +60,8 @@ export async function saveCookieConsent(choices: CookieChoices): Promise<CookieC
   } catch {
     return null;
   }
-  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = `${COOKIE_CONSENT_COOKIE}=${formatCookieConsent(consent)}; Path=/; Max-Age=${
+  const secure = SECURE_COOKIES ? '; Secure' : '';
+  document.cookie = `${CONSENT_COOKIE}=${formatCookieConsent(consent)}; Path=/; Max-Age=${
     COOKIE_CONSENT_MAX_AGE_DAYS * 86_400
   }; SameSite=Lax${secure}`;
   window.dispatchEvent(new Event(CONSENT_EVENT));

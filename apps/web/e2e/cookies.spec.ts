@@ -24,7 +24,7 @@ async function openCookieSettings(page: Page) {
 }
 
 const consentCookie = async (page: Page) =>
-  (await page.context().cookies()).find((cookie) => cookie.name === 'suskii_consent')?.value;
+  (await page.context().cookies()).find((cookie) => cookie.name === '__Host-suskii_consent')?.value;
 
 test.describe('cookies', () => {
   test('lists every cookie and storage key the site sets', async ({ page }) => {

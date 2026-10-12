@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 
 import { isSupportedCurrency, isSupportedLocale } from '@suskii/shared';
 
+import { SECURE_COOKIES } from '../lib/cookie-names';
 import { CURRENCY_COOKIE, LOCALE_COOKIE } from '../lib/preferences';
 
 const ONE_YEAR = 365 * 24 * 60 * 60;
@@ -14,7 +15,7 @@ async function setPreference(name: string, value: string): Promise<void> {
     maxAge: ONE_YEAR,
     sameSite: 'lax',
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: SECURE_COOKIES,
   });
 }
 

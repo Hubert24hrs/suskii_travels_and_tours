@@ -11,7 +11,7 @@ test.describe('preferences and sign-ups', () => {
     await expect(page.locator('#deals article').first()).toContainText('$');
     await expect(page.locator('#deals article').first()).not.toContainText('₦');
     const cookies = await context.cookies();
-    expect(cookies.find((cookie) => cookie.name === 'suskii_currency')?.value).toBe('USD');
+    expect(cookies.find((cookie) => cookie.name === '__Host-suskii_currency')?.value).toBe('USD');
   });
 
   test('switching language changes the document locale', async ({ page }) => {
