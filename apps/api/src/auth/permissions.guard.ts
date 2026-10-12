@@ -1,4 +1,10 @@
-import { Inject, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  type CanActivate,
+  type ExecutionContext,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 import { hasPermissions, isStaff, type Permission } from '@suskii/shared';
@@ -21,6 +27,8 @@ import { SessionService } from './session.service';
  */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
+  private readonly logger = new Logger(PermissionsGuard.name);
+
   constructor(
     private readonly reflector: Reflector,
     private readonly audit: AuditService,
@@ -56,17 +64,19 @@ export class PermissionsGuard implements CanActivate {
     else if (!hasPermissions(auth.roles, required)) reason = 'missing_permission';
 
     if (reason) {
+      const route = request.route
+        ? String((request.route as { path: unknown }).path)
+        : request.path;
       if (adminRoute) {
         await this.audit.record({
           action: 'rbac.access_denied',
           actorUserId: auth.userId,
           context: requestContext(request),
-          metadata: {
-            reason,
-            route: request.route ? String((request.route as { path: unknown }).path) : request.path,
-            required,
-          },
+          metadata: { reason, route, required },
         });
+      } else {
+        // Customer routes: a log line (ids only) rather than an audit row per refusal.
+        this.logger.warn({ userId: auth.userId, reason, route, required }, 'authorization denied');
       }
       throw forbidden();
     }

@@ -413,3 +413,4 @@ export {
   type ErrorTags,
   type ReportFetch,
 } from './error-reporting';
+export { LOG_REDACTION_DEPTH, SENSITIVE_LOG_FIELDS, sensitiveLogPaths } from './log-redaction';

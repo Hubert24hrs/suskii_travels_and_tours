@@ -1,33 +1,19 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import { Module } from '@nestjs/common';
+import { sensitiveLogPaths } from '@suskii/shared';
 import { LoggerModule } from 'nestjs-pino';
 
 import { resolveRequestId } from '../common/request-id';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 
-/** Never log credentials, tokens, OTPs or personal data. */
+/** Never log credentials, tokens, OTPs or personal data (docs/security/logging-inventory.md). */
 export const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
   'req.headers["x-csrf-token"]',
   'res.headers["set-cookie"]',
-  '*.password',
-  '*.newPassword',
-  '*.currentPassword',
-  '*.token',
-  '*.accessToken',
-  '*.refreshToken',
-  '*.code',
-  '*.otp',
-  '*.secret',
-  '*.idToken',
-  '*.mfaToken',
-  '*.recoveryCode',
-  '*.csrfToken',
-  '*.email',
-  '*.phone',
-  '*.passportNumber',
+  ...sensitiveLogPaths(),
 ];
 
 const pathOnly = (url: string | undefined): string | undefined => url?.split('?')[0];
@@ -45,6 +31,13 @@ const pathOnly = (url: string | undefined): string | undefined => url?.split('?'
             return id;
           },
           redact: { paths: REDACT_PATHS, censor: '[redacted]' },
+          // Refusals by a security control stand out from ordinary 4xx traffic.
+          customLogLevel: (_req: IncomingMessage, res: ServerResponse, error?: Error) =>
+            error !== undefined || res.statusCode >= 500
+              ? 'error'
+              : res.statusCode === 403 || res.statusCode === 429
+                ? 'warn'
+                : 'info',
           autoLogging: {
             // Probes, and web-vitals beacons (a page view sends one; their values are metrics).
             ignore: (req: IncomingMessage) =>
