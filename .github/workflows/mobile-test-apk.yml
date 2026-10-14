@@ -1,0 +1,134 @@
+name: Mobile test APK
+
+# A sideloadable Android test build for people trying the app on a real phone, before the owner's
+# Expo account exists (store and tester builds then move to EAS, mobile-release.yml). It is the
+# CI release APK built for phone CPUs (arm64-v8a, armeabi-v7a), signed with the debug key, scanned
+# for secrets, and published as the `mobile-test-apk` pre-release so it has a stable download URL:
+# https://github.com/<owner>/<repo>/releases/download/mobile-test-apk/suskii-travels-test.apk
+#
+# The e2e variant allows plain http, so the app can talk to a stack on the tester's own network
+# (`api_url` such as http://192.168.1.20:4000). Mock attestation; not for production.
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: API base URL the app calls (http allowed for a local stack)
+        default: http://localhost:4000
+      web_url:
+        description: Website base URL (booking links and legal pages)
+        default: http://localhost:3000
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-test-apk
+  cancel-in-progress: true
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  EXPO_NO_TELEMETRY: 1
+  APP_VARIANT: e2e
+  EXPO_PUBLIC_ATTESTATION: mock
+  EXPO_PUBLIC_API_BASE_URL: ${{ inputs.api_url }}
+  EXPO_PUBLIC_WEB_BASE_URL: ${{ inputs.web_url }}
+  GITLEAKS_VERSION: 8.30.1
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+  RELEASE_TAG: mobile-test-apk
+  APK_NAME: suskii-travels-test.apk
+
+jobs:
+  apk:
+    name: Build and publish the test APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      # Only to replace the `mobile-test-apk` pre-release.
+      contents: write
+    steps:
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore Gradle cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mobile/app.config.ts') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the app's workspace dependencies
+        run: pnpm exec turbo run build --filter=@suskii/mobile^...
+
+      - name: Generate the native Android project
+        working-directory: apps/mobile
+        run: pnpm exec expo prebuild --platform android --clean --no-install
+
+      # Same memory settings as the CI build (mobile.yml); phone CPUs instead of the emulator's.
+      - name: Build the release APK (arm64-v8a, armeabi-v7a)
+        working-directory: apps/mobile/android
+        timeout-minutes: 60
+        run: >-
+          ./gradlew assembleRelease -x lintVitalRelease
+          -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+          --no-daemon "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC"
+          "-Pkotlin.daemon.jvmargs=-Xmx3g"
+
+      - name: Scan the APK for secrets
+        run: |
+          apk=apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          rm -rf apk-contents && mkdir apk-contents && unzip -q "$apk" -d apk-contents
+          node apps/mobile/scripts/scan-bundle.mjs --self-test
+          node apps/mobile/scripts/scan-bundle.mjs apk-contents
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks dir apk-contents --redact --no-banner
+          cp "$apk" "$APK_NAME"
+          sha256sum "$APK_NAME" | tee "$APK_NAME.sha256"
+
+      - name: Upload the APK as a run artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: suskii-travels-test-apk
+          path: |
+            ${{ env.APK_NAME }}
+            ${{ env.APK_NAME }}.sha256
+          retention-days: 14
+
+      # Replaced on every run so the download URL (and any QR code pointing at it) stays the same.
+      - name: Publish the pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create "$RELEASE_TAG" "$APK_NAME" "$APK_NAME.sha256" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Android test build (${GITHUB_SHA::7})" \
+            --notes "Test APK from ${GITHUB_SHA::7} on ${GITHUB_REF_NAME}. Signed with the debug key, mock attestation, API ${EXPO_PUBLIC_API_BASE_URL}. Not for production."
+          echo "Download: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${APK_NAME}" >> "$GITHUB_STEP_SUMMARY"
