@@ -16,21 +16,23 @@ the platform runs for users. Each exception is listed here and by id in `pnpm-wo
 Transitive packages forced to a fixed release in `pnpm-workspace.yaml` (`overrides`), until the
 parent package depends on it:
 
-| Package          | Fixed in | Pulled in by                                      | Advisory                                 |
-| ---------------- | -------- | ------------------------------------------------- | ---------------------------------------- |
-| `deepmerge-ts`   | 8.0.0    | `@prisma/config` (pins 7.1.5; only `deepmerge()`) | GHSA-ggr8-5vv4-36mx                      |
-| `mysql2`         | 3.22.0   | the Prisma CLI (MySQL driver; unused here)        | GHSA-3f6p-5ww8-9rcr                      |
-| `shell-quote`    | 1.11.0   | `react-devtools-core` (React Native dev tooling)  | GHSA-pqg4-j6r4-53mv                      |
-| `source-map-js`  | 1.2.2    | `postcss`, Tailwind                               | GHSA-68fv-2mgg-jv7q                      |
-| `handlebars`     | 4.7.10   | `ts-jest` (tests only)                            | GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f |
-| `undici`         | 8.12.3   | `testcontainers` (tests only)                     | GHSA-xjj6-f33q-929c                      |
-| `fast-uri`       | 3.1.9    | `ajv` in commitlint (developer tooling)           | GHSA-w74x-v6f9-j3xg                      |
-| `zod` (4.x)      | 4.6.7    | `eslint-plugin-react-hooks` (lint only)           | GHSA-mrhx-c7xc-m3w5                      |
-| `zod` (Expo CLI) | 4.6.7    | `@expo/cli` (pins 3.x; dev-tools plugin schemas)  | GHSA-mrhx-c7xc-m3w5                      |
+| Package            | Fixed in | Pulled in by                                               | Advisory                                 |
+| ------------------ | -------- | ---------------------------------------------------------- | ---------------------------------------- |
+| `deepmerge-ts`     | 8.0.0    | `@prisma/config` (pins 7.1.5; only `deepmerge()`)          | GHSA-ggr8-5vv4-36mx                      |
+| `mysql2`           | 3.22.0   | the Prisma CLI (MySQL driver; unused here)                 | GHSA-3f6p-5ww8-9rcr                      |
+| `shell-quote`      | 1.11.0   | `react-devtools-core` (React Native dev tooling)           | GHSA-pqg4-j6r4-53mv                      |
+| `source-map-js`    | 1.2.2    | `postcss`, Tailwind                                        | GHSA-68fv-2mgg-jv7q                      |
+| `handlebars`       | 4.7.10   | `ts-jest` (tests only)                                     | GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f |
+| `undici`           | 8.12.3   | `testcontainers` (tests only)                              | GHSA-xjj6-f33q-929c                      |
+| `fast-uri`         | 3.1.9    | `ajv` in commitlint (developer tooling)                    | GHSA-w74x-v6f9-j3xg                      |
+| `zod` (4.x)        | 4.6.7    | `eslint-plugin-react-hooks` (lint only)                    | GHSA-mrhx-c7xc-m3w5                      |
+| `zod` (Expo CLI)   | 4.6.7    | `@expo/cli` (pins 3.x; dev-tools plugin schemas)           | GHSA-mrhx-c7xc-m3w5                      |
+| `zod` (Lighthouse) | 4.6.7    | `chromium-bidi` via puppeteer (pins 3.x; BiDi mapper only) | GHSA-mrhx-c7xc-m3w5                      |
 
 Prisma's CLI (`generate`, `migrate deploy`, `migrate status`) was checked with the
 `deepmerge-ts` 8 override. The Expo CLI was checked with zod 4: its plugin and MCP schemas accept
-and reject the same input, `expo export` and `expo prebuild` complete, and the bundle scan is clean.
+and reject the same input, `expo export` and `expo prebuild` complete, and the bundle scan is clean. Lighthouse was run end to end with chromium-bidi on zod 4: puppeteer only loads the BiDi
+mapper for the WebDriver BiDi protocol, and Lighthouse drives Chrome over CDP.
 
 ## Open advisories (not ignored)
 
