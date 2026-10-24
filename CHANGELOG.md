@@ -60,6 +60,16 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
 - Booking pages and the data export no longer fail on a stored price without a fare.
 - A late driver location fix no longer moves the driver back in time or fails the speed check.
 - Model years show without a thousands separator.
+- The app reaches the API again on devices: the retired-version hook returned the response,
+  which openapi-fetch refuses from Expo's fetch, so every call failed (since phase 11).
+- Ride cancellation fees and driver earnings are converted at the booking's own exchange rate,
+  and drivers earn their share of the metered fare only (not of VAT or service fees).
+- Ride PIN guesses are checked one at a time, and a ride handed back after a lockout can be
+  started by the next driver.
+- A driver suspended mid-trip keeps sending positions until the ride ends; a driver whose offer
+  lapses stops receiving the ride's live updates.
+- Each rental licence upload is its own file, so a running scan cannot approve a newer upload.
+- Offline boarding scans are held to the server clock (no future times, at most 48 hours old).
 
 #### Known issues
 
