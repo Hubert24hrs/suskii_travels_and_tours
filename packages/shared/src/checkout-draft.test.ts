@@ -229,7 +229,17 @@ describe('in-house checkout helpers', () => {
         addon: { startDate: '2026-12-01', endDate: '2026-12-08', travellers: counts },
       }),
     ).toMatchObject({ lastTravelDate: '2026-12-08', international: false });
-    expect(inhouseFacts({ package: null, tour: null, visa: null, addon: null })).toBeNull();
+    expect(
+      inhouseFacts({ bus: { departsAtLocal: '2026-12-04T07:00', travellers: counts } }),
+    ).toEqual({
+      counts,
+      firstTravelDate: '2026-12-04',
+      lastTravelDate: '2026-12-04',
+      international: false,
+    });
+    expect(
+      inhouseFacts({ package: null, tour: null, visa: null, addon: null, bus: null }),
+    ).toBeNull();
   });
 
   it('flags applicants whose nationality differs from the visa checked', () => {

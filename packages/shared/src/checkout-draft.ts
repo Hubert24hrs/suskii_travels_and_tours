@@ -242,12 +242,15 @@ export interface InhouseFactsInput {
   tour?: { startsAtLocal: string; travellers: TravellerCounts } | null;
   visa?: { travelDate: string; travellers: TravellerCounts } | null;
   addon?: { startDate: string; endDate: string; travellers: TravellerCounts } | null;
+  /** Interstate buses: one adult passenger per seat, names and dates of birth only. */
+  bus?: { departsAtLocal: string; travellers: TravellerCounts } | null;
 }
 
 /**
  * The facts an in-house product's travellers are checked against, as the API does (ADR-025):
- * passports for packages that need them and every visa applicant; tours and add-ons check names,
- * ages and counts only. `null` when the quote has no in-house item.
+ * passports for packages that need them and every visa applicant; tours, add-ons and buses
+ * (domestic, ADR-049) check names, ages and counts only. `null` when the quote has no in-house
+ * item with travellers (rides and rentals name one guest instead).
  */
 export function inhouseFacts(item: InhouseFactsInput): ItineraryFacts | null {
   if (item.package)
@@ -280,6 +283,15 @@ export function inhouseFacts(item: InhouseFactsInput): ItineraryFacts | null {
       lastTravelDate: item.addon.endDate,
       international: false,
     };
+  if (item.bus) {
+    const day = item.bus.departsAtLocal.slice(0, 10);
+    return {
+      counts: item.bus.travellers,
+      firstTravelDate: day,
+      lastTravelDate: day,
+      international: false,
+    };
+  }
   return null;
 }
 
