@@ -4,8 +4,10 @@ import * as camera from 'expo-camera';
 import { getDocumentAsync } from 'expo-document-picker';
 import { File } from 'expo-file-system';
 
-import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
+import { openSecureCache, secureCache } from '../lib/cache';
+import { json, mockApi, offline, renderWithApp, signedInSession } from '../test/app';
 import {
+  carsFeatures,
   OFFER_ID,
   RIDE_ID,
   VEHICLE_ID,
@@ -15,6 +17,7 @@ import {
   rideOffer,
   ridePlaces,
 } from '../test/fixtures';
+import { ticketSigner } from '../test/tickets';
 
 import { DriverScreen } from './driver-screen';
 import { OperatorScanScreen } from './operator-scan-screen';
@@ -324,5 +327,85 @@ describe('operator ticket scanning', () => {
     expect(await screen.findByTestId('scan-result')).toHaveTextContent(
       `${m.mobile.cars.operator.results.invalid}${m.mobile.cars.operator.reasons.bad_signature}`,
     );
+  });
+
+  it('checks tickets on the phone while offline and uploads the scans later', async () => {
+    await openSecureCache();
+    secureCache().clearAll();
+    const keys = ticketSigner();
+    const now = Math.floor(Date.now() / 1000);
+    const qr = keys.ticket({
+      tid: '0192d3a0-7c1e-7b2a-9f00-00000000c131',
+      trp: '0192d3a0-7c1e-7b2a-9f00-00000000c101',
+      st: '1A',
+      nbf: now - 600,
+      exp: now + 3600,
+    });
+    let online = true;
+    const { calls } = mockApi({
+      'GET /v1/cars/features': () => json({ ...carsFeatures, offlineQr: true }),
+      'GET /v1/buses/ticket-keys': () => json({ keys: [{ kid: keys.kid, spki: keys.spki }] }),
+      'GET /v1/operator/trips': () => json({ trips: [] }),
+      'POST /v1/operator/tickets/scan': (request) =>
+        online ? json({ result: 'invalid', reason: 'malformed', ticket: null }) : offline(request),
+      'POST /v1/operator/tickets/sync': () =>
+        json({ results: [{ result: 'boarded', reason: null, ticket: null }] }),
+    });
+    await renderWithApp(
+      <OperatorScanScreen />,
+      await signedInSession({ roles: ['customer', 'operator_agent'] }),
+    );
+    // Online first: the phone saves the public keys.
+    await waitFor(() =>
+      expect(calls.some((request) => request.url.endsWith('/v1/buses/ticket-keys'))).toBe(true),
+    );
+
+    online = false;
+    await fireEvent.changeText(screen.getByTestId('scan-manual'), qr);
+    await fireEvent.press(screen.getByTestId('scan-check'));
+    expect(await screen.findByTestId('scan-result')).toHaveTextContent(
+      /Boarded offline: seat 1A.*confirmed when the scan uploads/,
+    );
+    expect(screen.getByTestId('scan-offline-queue')).toHaveTextContent(
+      /^1 offline scan waiting to upload/,
+    );
+    // The same pass again is refused by the phone itself.
+    await fireEvent.press(screen.getByTestId('scan-another'));
+    await fireEvent.changeText(screen.getByTestId('scan-manual'), qr);
+    await fireEvent.press(screen.getByTestId('scan-check'));
+    expect(await screen.findByTestId('scan-result')).toHaveTextContent(
+      /Already used: seat 1A, boarded on this phone at/,
+    );
+    expect(screen.getByTestId('scan-offline-queue')).toHaveTextContent(
+      /^1 offline scan waiting to upload/,
+    );
+
+    online = true;
+    await fireEvent.press(screen.getByTestId('scan-sync'));
+    expect(await screen.findByText('1 offline scan uploaded.')).toBeOnTheScreen();
+    const upload = calls.find((request) => request.url.endsWith('/tickets/sync'));
+    expect(await upload?.json()).toEqual({
+      scans: [{ qrPayload: qr, scannedAt: expect.any(String) as string }],
+    });
+    expect(screen.queryByText(/waiting to upload/)).toBeNull();
+  });
+
+  it('says it cannot check tickets offline before the keys were ever saved', async () => {
+    await openSecureCache();
+    secureCache().clearAll();
+    mockApi({
+      'GET /v1/operator/trips': () => json({ trips: [] }),
+      'POST /v1/operator/tickets/scan': offline,
+    });
+    await renderWithApp(
+      <OperatorScanScreen />,
+      await signedInSession({ roles: ['customer', 'operator_agent'] }),
+    );
+    await fireEvent.changeText(await screen.findByTestId('scan-manual'), PAYLOAD);
+    await fireEvent.press(screen.getByTestId('scan-check'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      m.mobile.cars.operator.offline.noKeys,
+    );
+    expect(screen.queryByTestId('scan-result')).toBeNull();
   });
 });

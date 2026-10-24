@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import type { Schemas } from '../lib/api';
 import { attestationHeader } from '../lib/attestation';
+import { offlineScanner } from '../lib/offline-scan';
 import { tripStore } from '../lib/trips';
 
 import { useApp } from './app-provider';
@@ -114,17 +115,23 @@ export function useAuth() {
     [api],
   );
 
-  /** Forgets the account on this phone: account trips, cached queries and tokens. */
+  /** Forgets the account on this phone: account trips, offline scans, cached queries and tokens. */
   const forgetAccount = useCallback(async (): Promise<void> => {
     tripStore.forgetAccount();
+    offlineScanner.forget();
     queryClient.clear();
     await session.clear();
   }, [session, queryClient]);
 
-  /** Stops account pushes, revokes the refresh token, then forgets the account locally. */
+  /**
+   * Uploads queued offline scans, stops account pushes, revokes the refresh token, then forgets
+   * the account locally.
+   */
   const signOut = useCallback(async (): Promise<void> => {
     const refreshToken = session.refreshToken();
     try {
+      // An operator agent's offline scans go up while the session still exists.
+      if (offlineScanner.pending().length > 0) await offlineScanner.sync(api);
       await api.DELETE('/v1/me/push-token');
       if (refreshToken) await api.POST('/v1/auth/logout', { body: { refreshToken } });
     } catch {

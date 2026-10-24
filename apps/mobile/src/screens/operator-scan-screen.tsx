@@ -4,15 +4,22 @@ import { Button, Card, DateRangePicker, Input } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Stack } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { RequireAccount } from '../components/account/require-account';
 import { Notice } from '../components/states';
+import { isNetworkError } from '../lib/api';
+import { useCarsFeatures } from '../lib/cars';
 import { fromIso, toIso, todayIso } from '../lib/dates';
+import { offlineScanner, type OfflineVerdict } from '../lib/offline-scan';
 import { useApp, useT } from '../providers/app-provider';
 
 type ScanResult = Schemas['TicketScanResult'];
+/** What the scanner shows: the API's verdict, or the phone's own while offline. */
+type Shown =
+  | { source: 'api'; scan: ScanResult }
+  | { source: 'phone'; verdict: Exclude<OfflineVerdict, { result: 'no_keys' }> };
 
 /** Green to board, red for everything else: readable at a glance in a queue. */
 const RESULT_TONE: Record<ScanResult['result'], string> = {
@@ -23,6 +30,15 @@ const RESULT_TONE: Record<ScanResult['result'], string> = {
   invalid: 'bg-danger',
 };
 
+/** How many uploaded scans the API took, and how many it disputed; null when none went up. */
+function summarise(results: readonly ScanResult[]): { uploaded: number; conflicts: number } | null {
+  if (results.length === 0) return null;
+  return {
+    uploaded: results.length,
+    conflicts: results.filter((scan) => scan.result !== 'boarded').length,
+  };
+}
+
 function Scanner() {
   const { api } = useApp();
   const { t, locale } = useT();
@@ -31,12 +47,56 @@ function Scanner() {
   // Yesterday too: a late-night departure is still boarding after midnight.
   const [earliest] = useState(() => new Date(Date.now() - 86_400_000));
   const [manual, setManual] = useState('');
-  const [result, setResult] = useState<ScanResult | null>(null);
+  const [result, setResult] = useState<Shown | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // The camera reports the same code many times a second: one check at a time.
   const checking = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
+  const features = useCarsFeatures();
+  const offlineQr = features?.offlineQr;
+  const [pending, setPending] = useState(() => offlineScanner.pending().length);
+  const [synced, setSynced] = useState<{ uploaded: number; conflicts: number } | null>(null);
+
+  const upload = async () => {
+    try {
+      const summary = summarise(await offlineScanner.sync(api));
+      if (summary) {
+        setSynced(summary);
+        void trips.refetch();
+      }
+    } catch {
+      // Still offline: the queue stays for the next try.
+    } finally {
+      setPending(offlineScanner.pending().length);
+    }
+  };
+
+  // Online with offline scanning on: save the current keys and upload what was scanned offline.
+  // Switched off: forget the keys (scans already queued still upload).
+  useEffect(() => {
+    if (offlineQr === undefined) return;
+    if (!offlineQr) {
+      offlineScanner.forgetKeys();
+      return;
+    }
+    let cancelled = false;
+    offlineScanner
+      .refreshKeys(api)
+      .then(() => offlineScanner.sync(api))
+      .then((results) => {
+        if (cancelled) return;
+        const summary = summarise(results);
+        if (summary) setSynced(summary);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setPending(offlineScanner.pending().length);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, offlineQr]);
 
   const trips = useQuery({
     queryKey: ['operator-trips', date],
@@ -60,12 +120,24 @@ function Scanner() {
         body: { qrPayload: payload },
       });
       if (data) {
-        setResult(data);
+        setResult({ source: 'api', scan: data });
         setManual('');
         void trips.refetch();
+        if (offlineScanner.pending().length > 0) void upload();
       } else setError(t('mobile.cars.operator.error'));
-    } catch {
-      setError(t('mobile.networkError'));
+    } catch (failure) {
+      // No connection: the phone checks the ticket itself when it holds the keys.
+      if (isNetworkError(failure) && offlineScanner.hasKeys()) {
+        const verdict = offlineScanner.scan(payload);
+        if (verdict.result === 'no_keys') setError(t('mobile.cars.operator.offline.noKeys'));
+        else {
+          setResult({ source: 'phone', verdict });
+          setManual('');
+          setPending(offlineScanner.pending().length);
+        }
+      } else if (isNetworkError(failure)) {
+        setError(t('mobile.cars.operator.offline.noKeys'));
+      } else setError(t('mobile.networkError'));
     } finally {
       checking.current = false;
       setBusy(false);
@@ -89,6 +161,41 @@ function Scanner() {
       case 'not_found':
       case 'invalid':
         return t(`mobile.cars.operator.results.${scan.result}`);
+    }
+  };
+
+  /** Tone, headline and detail of what to show for a scan. */
+  const outcome = (shown: Shown): { tone: string; title: string; detail: string | null } => {
+    if (shown.source === 'api') {
+      return {
+        tone: RESULT_TONE[shown.scan.result],
+        title: message(shown.scan),
+        detail: shown.scan.reason ? t(`mobile.cars.operator.reasons.${shown.scan.reason}`) : null,
+      };
+    }
+    const { verdict } = shown;
+    switch (verdict.result) {
+      case 'boarded':
+        return {
+          tone: RESULT_TONE.boarded,
+          title: t('mobile.cars.operator.offline.boarded', { seat: verdict.claims.st }),
+          detail: t('mobile.cars.operator.offline.boardedNote'),
+        };
+      case 'already_boarded':
+        return {
+          tone: RESULT_TONE.already_boarded,
+          title: t('mobile.cars.operator.offline.alreadyBoarded', {
+            seat: verdict.claims.st,
+            time: format.dateTime(verdict.boardedAt),
+          }),
+          detail: null,
+        };
+      case 'invalid':
+        return {
+          tone: RESULT_TONE.invalid,
+          title: t('mobile.cars.operator.results.invalid'),
+          detail: t(`mobile.cars.operator.reasons.${verdict.reason}`),
+        };
     }
   };
 
@@ -134,17 +241,42 @@ function Scanner() {
       </Card>
 
       <Card className="gap-3 p-4">
+        {pending > 0 || synced ? (
+          <View testID="scan-offline-queue" className="gap-2">
+            {pending > 0 ? (
+              <>
+                <Text className="font-body-bold text-body-sm text-foreground">
+                  {t('mobile.cars.operator.offline.pending', { count: pending })}
+                </Text>
+                <Button testID="scan-sync" variant="secondary" onPress={() => void upload()}>
+                  {t('mobile.cars.operator.offline.sync')}
+                </Button>
+              </>
+            ) : null}
+            {synced ? (
+              <Text
+                accessibilityLiveRegion="polite"
+                className="font-body text-body-sm text-foreground"
+              >
+                {t('mobile.cars.operator.offline.synced', { count: synced.uploaded })}
+                {synced.conflicts > 0
+                  ? ` ${t('mobile.cars.operator.offline.conflicts', { count: synced.conflicts })}`
+                  : ''}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         {result ? (
           <View className="gap-3">
             <View
               testID="scan-result"
               accessibilityLiveRegion="assertive"
-              className={`gap-2 rounded-lg p-4 ${RESULT_TONE[result.result]}`}
+              className={`gap-2 rounded-lg p-4 ${outcome(result).tone}`}
             >
-              <Text className="font-heading text-h4 text-on-status">{message(result)}</Text>
-              {result.reason ? (
+              <Text className="font-heading text-h4 text-on-status">{outcome(result).title}</Text>
+              {outcome(result).detail ? (
                 <Text className="font-body text-body-sm text-on-status">
-                  {t(`mobile.cars.operator.reasons.${result.reason}`)}
+                  {outcome(result).detail}
                 </Text>
               ) : null}
             </View>
