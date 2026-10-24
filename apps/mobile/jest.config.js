@@ -4,6 +4,10 @@ module.exports = {
   testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
   setupFiles: ['<rootDir>/jest.setup.js'],
   clearMocks: true,
+  // Screen tests render the whole app (providers, router, queries). Alone each takes well under a
+  // second, but beside a full `turbo run` (Next.js builds, type checks) some exceeded Jest's
+  // 5-second default; the limit guards against hangs, not slowness.
+  testTimeout: 20_000,
   moduleNameMapper: { '\\.css$': '<rootDir>/src/test/style-mock.js' },
   // Worklets' resolver picks its JS implementation instead of the native module in tests.
   resolver: require.resolve('react-native-worklets/jest/resolver'),
