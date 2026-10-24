@@ -99,15 +99,22 @@ export class RentalsService {
     this.assertLicenceOpen(reservation);
     const licence = reservation.licence;
     if (!licence) throw rentalConflict('Enter your licence number first');
+    // Every upload is its own file (sealed to the licence id): a scan still reading an earlier
+    // upload cannot clear this one (its guard compares storage keys), and a failed upload never
+    // removes the file the licence points to.
     const sealed = await this.files.seal(
       licence.id,
       bytes,
-      `rentals/${reservationId}/licence`,
+      `rentals/${reservationId}/licence/${uuidv7()}`,
       rentalLicenceKeyContext(licence.id),
     );
-    // The same id seals every upload of this licence; the newest file replaces the stored one.
+    let replaced: string | null = null;
     try {
       await this.prisma.$transaction(async (tx) => {
+        // Two uploads at once: the second sees (and later removes) the first one's file.
+        const [current] = await tx.$queryRaw<{ storage_key: string | null }[]>`
+          SELECT storage_key FROM rental_licences WHERE id = ${licence.id}::uuid FOR UPDATE`;
+        replaced = current?.storage_key ?? null;
         await tx.rentalLicence.update({
           where: { id: licence.id },
           data: {
@@ -138,6 +145,7 @@ export class RentalsService {
       await this.files.delete(sealed.storageKey);
       throw error;
     }
+    if (replaced) await this.files.delete(replaced);
     this.background.run('rental-licence-scan', () => this.scan(licence.id));
     return this.get(reservationId, renter.userId);
   }
