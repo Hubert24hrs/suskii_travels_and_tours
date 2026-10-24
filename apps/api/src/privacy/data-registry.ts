@@ -36,6 +36,9 @@ export const EXPORT_SECTIONS = [
   'priceAlerts',
   'newsletter',
   'activity',
+  'rides',
+  'emergencyContacts',
+  'driving',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -381,6 +384,130 @@ export const DATA_REGISTRY = {
     deletion: 'delete',
     retention: { kind: 'account' },
     note: 'Watched routes.',
+  },
+
+  // --- Cars: buses, rides and car rental (ADR-049 to ADR-053) ------------------------------
+  BusOperator: reference('Bus operators.'),
+  OperatorMember: {
+    section: 'profile',
+    deletion: 'delete',
+    retention: { kind: 'account' },
+    note: 'Which operator an agent boards passengers for; removed with the account.',
+  },
+  BusTerminal: reference('Bus terminals.'),
+  BusRoute: reference('Bus routes.'),
+  BusLayout: reference('Coach seat maps.'),
+  BusTrip: reference('Bus departures and fares.'),
+  BusSeatHold: {
+    section: null,
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'bus-seat-holds' },
+    note: 'Ten-minute seat holds: an account id or a token HMAC and an IP HMAC; purged after they lapse.',
+  },
+  BusSeatAssignment: {
+    section: 'bookings',
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'Booking' },
+    note: 'Seat numbers sold to a booking.',
+  },
+  BusTicket: {
+    section: 'bookings',
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'Booking' },
+    note: 'Boarding passes: seat, status and boarding time (the passenger name stays on the booking).',
+  },
+  BusTicketScan: {
+    section: null,
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'ticket-scans' },
+    note: 'Scan log for duplicate-boarding checks: ticket, agent and result ids only.',
+  },
+  RidePlace: reference('Curated pickup places.'),
+  RideFareRule: reference('Ride fare tables.'),
+  Driver: {
+    section: 'driving',
+    deletion: 'redact',
+    retention: { kind: 'account' },
+    note: 'Driver profile: names, NIN, licence and bank details are cleared on deletion; ratings and status stay for safety records.',
+  },
+  DriverVehicle: {
+    section: 'driving',
+    deletion: 'redact',
+    retention: { kind: 'account' },
+    note: 'Vehicles a driver registered; the plate is cleared on deletion, the model kept for past rides.',
+  },
+  DriverDocument: {
+    section: 'driving',
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'driver-documents' },
+    note: 'Licence, vehicle papers and selfie: bytes deleted and keys destroyed when superseded, rejected or the account goes.',
+  },
+  Ride: {
+    section: 'rides',
+    deletion: 'redact',
+    retention: { kind: 'rule', rule: 'ride-locations' },
+    note: 'Kept with its booking; pickup and drop-off are coarsened to about 1 km and the route cleared after RIDE_PING_RETENTION_DAYS, or at deletion.',
+  },
+  RideEvent: {
+    section: 'rides',
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'Booking' },
+    note: 'Ride status changes with actor kinds and ids.',
+  },
+  RideOffer: {
+    section: null,
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'ride-offers' },
+    note: 'Which driver was offered which ride: ids, distances and outcomes.',
+  },
+  RideLocationPing: {
+    section: 'rides',
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'ride-location-pings' },
+    note: 'Driver positions during a ride, deleted after RIDE_PING_RETENTION_DAYS (ADR-053).',
+  },
+  RideRating: {
+    section: 'rides',
+    deletion: 'redact',
+    retention: { kind: 'parent', parent: 'Booking' },
+    note: 'Stars kept for driver quality; comments cleared on deletion.',
+  },
+  RideShareLink: {
+    section: null,
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'ride-share-links' },
+    note: 'Live-trip link token HMACs: credentials, never exported.',
+  },
+  SafetyIncident: {
+    section: 'rides',
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'safety-incidents' },
+    note: 'SOS and safety signals: kept two years after resolution as a safety record.',
+  },
+  EmergencyContact: {
+    section: 'emergencyContacts',
+    deletion: 'delete',
+    retention: { kind: 'account' },
+    note: 'Trusted contacts texted on SOS (third parties): encrypted, removed with the account.',
+  },
+  DriverPayout: {
+    section: 'driving',
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'driver-payouts' },
+    note: 'Transfers of earnings: amounts and outcomes, kept for FINANCIAL_RECORDS_RETENTION_YEARS.',
+  },
+  RentalVehicle: reference('Rental fleet.'),
+  RentalReservation: {
+    section: 'bookings',
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'Booking' },
+    note: 'Rental period, chauffeur choice and deposit outcome.',
+  },
+  RentalHandover: {
+    section: 'bookings',
+    deletion: 'redact',
+    retention: { kind: 'parent', parent: 'Booking' },
+    note: 'Odometer, fuel and damage notes at pickup and return; notes cleared with the booking.',
   },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 

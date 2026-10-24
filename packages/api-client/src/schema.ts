@@ -6055,6 +6055,15 @@ export interface components {
             "newsletter-pending": number;
             "cookie-consents": number;
             "closed-bookings": number;
+            "bus-seat-holds": number;
+            "ticket-scans": number;
+            "ride-offers": number;
+            "ride-location-pings": number;
+            "ride-locations": number;
+            "ride-share-links": number;
+            "safety-incidents": number;
+            "driver-documents": number;
+            "driver-payouts": number;
         };
         RevokedSessions: {
             revoked: number;
@@ -6631,7 +6640,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "cancellation_fee" | "referral_reward";
+                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "cancellation_fee" | "referral_reward" | "ride_earnings" | "payout_sent" | "payout_settled" | "payout_failed";
                 amount: components["schemas"]["Money"];
                 bookingId: string | null;
                 /** Format: date-time */

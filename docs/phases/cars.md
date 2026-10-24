@@ -1,6 +1,6 @@
 # Cars: buses, rides and car rental
 
-Status: in progress (P0 done)
+Status: in progress (P0 to P2 done)
 
 Task: `suskii-cars-v1`. It adds three ground-transport products, together called **Cars**:
 
@@ -147,3 +147,6 @@ conflict and its resolution:
 | 11  | The `roles` enum in responses gains `driver` and `operator_agent`, and the `vertical` enum gains `buses`, `rides` and `rentals`. Only accounts or bookings that use Cars carry them, and that needs a Cars-aware client, so existing app builds never receive them. Recorded against the mobile response-shape gate as additive | P1      |
 | 12  | `driver` and `operator_agent` are not staff roles (`NON_STAFF_ROLES`): no console, no MFA requirement; their routes also check record ownership                                                                                                                                                                                 | P1      |
 | 13  | Product and feature flags are checked by a global guard that runs before authentication, so a disabled product answers 404 to everyone                                                                                                                                                                                          | P1      |
+| 14  | Account deletion keeps its existing blocker codes: a live ride counts as `booking_in_progress`, unpaid driver earnings or a pending payout as `wallet_balance`. Clients and the mobile response shape stay as they are                                                                                                          | P2      |
+| 15  | Deleting a driver's account turns the driver into a tombstone (names, NIN, licence, bank details and plates cleared, documents destroyed, status `suspended`); ratings and past rides stay as the safety record                                                                                                                 | P2      |
+| 16  | Ride pickup and drop-off are rounded to two decimals (about 1 km) and the route dropped `RIDE_PING_RETENTION_DAYS` after the ride ends; pings are deleted then. Partial unique indexes and an exclusion constraint are raw SQL, which Prisma leaves alone (checked with `migrate diff`)                                         | P2      |

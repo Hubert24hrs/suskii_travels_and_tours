@@ -9,6 +9,8 @@ import { ObjectStorage } from '../documents/object-storage';
 import type { BookingStatus } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 
+import { redactCarsBooking } from './cars-redaction';
+
 /**
  * The purge rules of the daily retention sweep (ADR-039). Each table that grows with use names
  * its rule (or another job, or why it stays) in `DATA_REGISTRY`; `data-registry.spec.ts` checks
@@ -26,6 +28,16 @@ export const RETENTION_RULES = [
   'newsletter-pending',
   'cookie-consents',
   'closed-bookings',
+  // Cars (ADR-049 to ADR-053).
+  'bus-seat-holds',
+  'ticket-scans',
+  'ride-offers',
+  'ride-location-pings',
+  'ride-locations',
+  'ride-share-links',
+  'safety-incidents',
+  'driver-documents',
+  'driver-payouts',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -51,7 +63,25 @@ export const RETENTION_DAYS = {
   'newsletter-pending': 30,
   /** Cookie choices: a year in force plus a year to answer questions about them (ADR-042). */
   'cookie-consents': 730,
-} as const satisfies Record<Exclude<RetentionRule, 'closed-bookings'>, number>;
+  /** After the hold lapsed: enough to answer disputes about a lost seat. */
+  'bus-seat-holds': 30,
+  /** Boarding scans: a year, for duplicate-boarding and fraud questions. */
+  'ticket-scans': 365,
+  /** Who was offered which ride: three months of dispatch history. */
+  'ride-offers': 90,
+  /** After the link expired. */
+  'ride-share-links': 30,
+  /** After the incident was resolved: a two-year safety record. */
+  'safety-incidents': 730,
+  /** Superseded or rejected driver documents, and every document of a rejected application. */
+  'driver-documents': 90,
+} as const satisfies Record<
+  Exclude<
+    RetentionRule,
+    'closed-bookings' | 'ride-location-pings' | 'ride-locations' | 'driver-payouts'
+  >,
+  number
+>;
 
 /** Bookings that will not change again: their money is settled and nothing is due. */
 const CLOSED_STATUSES: BookingStatus[] = [
@@ -64,6 +94,13 @@ const CLOSED_STATUSES: BookingStatus[] = [
 const REDACTED_NAME = 'REDACTED';
 const DAY_MS = 86_400_000;
 const BATCH = 200;
+
+const daysBefore = (now: Date, days: number): Date => new Date(now.getTime() - days * DAY_MS);
+const yearsBefore = (now: Date, years: number): Date => {
+  const cutoff = new Date(now);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - years);
+  return cutoff;
+};
 
 export type RetentionRun = Record<RetentionRule, number>;
 
@@ -148,6 +185,49 @@ export class RetentionService {
         }),
       ),
       'closed-bookings': await this.anonymiseClosedBookings(now),
+      'bus-seat-holds': counts(
+        await this.prisma.busSeatHold.deleteMany({
+          where: { expiresAt: { lt: before('bus-seat-holds') } },
+        }),
+      ),
+      'ticket-scans': counts(
+        await this.prisma.busTicketScan.deleteMany({
+          where: { createdAt: { lt: before('ticket-scans') } },
+        }),
+      ),
+      'ride-offers': counts(
+        await this.prisma.rideOffer.deleteMany({
+          where: { createdAt: { lt: before('ride-offers') }, status: { not: 'open' } },
+        }),
+      ),
+      'ride-location-pings': counts(
+        await this.prisma.rideLocationPing.deleteMany({
+          where: { createdAt: { lt: daysBefore(now, this.config.RIDE_PING_RETENTION_DAYS) } },
+        }),
+      ),
+      'ride-locations': await this.coarsenRideLocations(
+        daysBefore(now, this.config.RIDE_PING_RETENTION_DAYS),
+        now,
+      ),
+      'ride-share-links': counts(
+        await this.prisma.rideShareLink.deleteMany({
+          where: { expiresAt: { lt: before('ride-share-links') } },
+        }),
+      ),
+      'safety-incidents': counts(
+        await this.prisma.safetyIncident.deleteMany({
+          where: { status: 'resolved', resolvedAt: { lt: before('safety-incidents') } },
+        }),
+      ),
+      'driver-documents': await this.pruneDriverDocuments(before('driver-documents'), now),
+      'driver-payouts': counts(
+        await this.prisma.driverPayout.deleteMany({
+          where: {
+            status: { not: 'pending' },
+            createdAt: { lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS) },
+          },
+        }),
+      ),
     };
     await this.audit.record({
       action: 'retention.swept',
@@ -155,6 +235,61 @@ export class RetentionService {
       metadata: { ...run },
     });
     return run;
+  }
+
+  /**
+   * Finished rides keep their fare and booking, but pickup and drop-off are rounded to two
+   * decimal places (about 1 km) and the planned route is cleared (ADR-053).
+   */
+  private async coarsenRideLocations(cutoff: Date, now: Date): Promise<number> {
+    return this.prisma.$executeRaw`
+      UPDATE rides
+         SET pickup_lat = round(pickup_lat::numeric, 2)::float8,
+             pickup_lng = round(pickup_lng::numeric, 2)::float8,
+             dropoff_lat = round(dropoff_lat::numeric, 2)::float8,
+             dropoff_lng = round(dropoff_lng::numeric, 2)::float8,
+             polyline = '',
+             locations_redacted_at = ${now}
+       WHERE locations_redacted_at IS NULL
+         AND status IN ('completed', 'cancelled', 'no_driver')
+         AND updated_at < ${cutoff}`;
+  }
+
+  /**
+   * Driver documents that no longer serve vetting: superseded or rejected ones, and every
+   * document of a rejected application, once the period has passed. The row stays as metadata;
+   * the bytes and the wrapped key go, so any copy of the blob is unreadable.
+   */
+  private async pruneDriverDocuments(cutoff: Date, now: Date): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const due = await this.prisma.driverDocument.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            { supersededAt: { lt: cutoff } },
+            { status: 'rejected', reviewedAt: { lt: cutoff } },
+            { driver: { status: 'rejected', reviewedAt: { lt: cutoff } } },
+          ],
+        },
+        select: { id: true, storageKey: true },
+        take: BATCH,
+      });
+      if (due.length === 0) return total;
+      await this.prisma.driverDocument.updateMany({
+        where: { id: { in: due.map((document) => document.id) } },
+        data: { deletedAt: now, storageKey: null, wrappedKey: '' },
+      });
+      for (const { storageKey } of due) {
+        if (!storageKey) continue;
+        try {
+          await this.storage.delete(storageKey);
+        } catch (error) {
+          this.logger.warn({ err: error }, 'could not delete a stored driver document');
+        }
+      }
+      total += due.length;
+    }
   }
 
   /** Clears the personal data left on bookings closed for longer than the financial period. */
@@ -211,6 +346,7 @@ export class RetentionService {
           await tx.$executeRaw`
             UPDATE booking_items SET payload = payload - 'detailsEncrypted'
              WHERE booking_id = ${booking.id}::uuid AND payload ? 'detailsEncrypted'`;
+          await redactCarsBooking(tx, booking.id);
         });
         for (const { storageKey } of booking.documents) {
           try {
