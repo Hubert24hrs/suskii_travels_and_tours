@@ -618,6 +618,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/finance/discrepancies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ledger reconciliation discrepancies (open first-detected first) */
+        get: operations["adminListReconciliationDiscrepancies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/finance/discrepancies/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a discrepancy as corrected (checked again) or accepted
+         * @description 409 `discrepancy-resolved` when it is no longer open.
+         */
+        post: operations["adminResolveReconciliationDiscrepancy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/finance/payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Driver payouts, newest first (no bank details) */
+        get: operations["adminListDriverPayouts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ground/layouts": {
         parameters: {
             query?: never;
@@ -3549,6 +3603,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/finance/driver-payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Follow up pending payouts and send due driver earnings in one batch */
+        post: operations["runDriverPayouts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/finance/reconcile-ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Compare captured payments, refunds and payouts with the ledger and the provider */
+        post: operations["reconcileLedger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/price-alerts/run": {
         parameters: {
             query?: never;
@@ -5406,6 +5494,25 @@ export interface components {
             online: boolean;
             reviewedAt: string | null;
         };
+        AdminDriverPayouts: {
+            payouts: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                driverId: string;
+                driverName: string;
+                amount: components["schemas"]["Money"];
+                /** @enum {string} */
+                status: "pending" | "paid" | "failed";
+                provider: string;
+                failureReason: string | null;
+                batchId: string | null;
+                attempts: number;
+                /** Format: date-time */
+                createdAt: string;
+                settledAt: string | null;
+            }[];
+        };
         AdminDrivers: {
             drivers: {
                 /** Format: uuid */
@@ -6768,6 +6875,11 @@ export interface components {
         };
         DriverEarnings: {
             balance: components["schemas"]["Money"];
+            summary: {
+                timeZone: string;
+                today: components["schemas"]["Money"];
+                last7Days: components["schemas"]["Money"];
+            };
             rides: {
                 /** Format: uuid */
                 rideId: string;
@@ -6784,6 +6896,12 @@ export interface components {
                 createdAt: string;
                 settledAt: string | null;
             }[];
+        };
+        DriverPayoutRun: {
+            sent: number;
+            paid: number;
+            failed: number;
+            pending: number;
         };
         DriverProfile: {
             /** Format: uuid */
@@ -7477,6 +7595,11 @@ export interface components {
             } & {
                 [key: string]: unknown;
             })[];
+        };
+        LedgerReconciliationRun: {
+            checked: number;
+            discrepancies: number;
+            unconfirmed: number;
         };
         LoginRequestInput: {
             email: string;
@@ -8214,6 +8337,31 @@ export interface components {
             mfa: boolean;
             recentSignInMinutes: number;
         };
+        ReconciliationDiscrepancies: {
+            discrepancies: components["schemas"]["ReconciliationDiscrepancy"][];
+        };
+        ReconciliationDiscrepancy: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "ledger_missing" | "ledger_amount" | "provider_status" | "provider_amount" | "orphan_ledger";
+            /** @enum {string} */
+            subjectType: "payment" | "refund" | "payout";
+            /** Format: uuid */
+            subjectId: string;
+            bookingId: string | null;
+            expected: components["schemas"]["Money"] | null;
+            actual: components["schemas"]["Money"] | null;
+            /** @enum {string} */
+            status: "open" | "resolved";
+            resolution: ("corrected" | "accepted") | null;
+            resolvedById: string | null;
+            resolvedAt: string | null;
+            /** Format: date-time */
+            detectedAt: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+        };
         RecoveryCodes: {
             recoveryCodes: string[];
         };
@@ -8516,6 +8664,7 @@ export interface components {
             "safety-incidents": number;
             "driver-documents": number;
             "driver-payouts": number;
+            "reconciliation-discrepancies": number;
             "rental-licences": number;
             "rental-photos": number;
         };
@@ -10730,6 +10879,100 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListReconciliationDiscrepancies: {
+        parameters: {
+            query?: {
+                status?: "open" | "resolved";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationDiscrepancies"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminResolveReconciliationDiscrepancy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    resolution: "corrected" | "accepted";
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListDriverPayouts: {
+        parameters: {
+            query?: {
+                status?: "pending" | "paid" | "failed";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDriverPayouts"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -16554,6 +16797,56 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    runDriverPayouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverPayoutRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    reconcileLedger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerReconciliationRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

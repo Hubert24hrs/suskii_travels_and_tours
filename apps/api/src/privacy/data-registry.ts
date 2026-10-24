@@ -497,6 +497,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'rule', rule: 'driver-payouts' },
     note: 'Transfers of earnings: amounts and outcomes, kept for FINANCIAL_RECORDS_RETENTION_YEARS.',
   },
+  ReconciliationDiscrepancy: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'reconciliation-discrepancies' },
+    note: 'Ledger and provider differences: ids, amounts and the resolution; no personal data.',
+  },
   RentalVehicle: reference('Rental fleet.'),
   RentalReservation: {
     section: 'rentals',

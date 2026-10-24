@@ -38,6 +38,7 @@ export const RETENTION_RULES = [
   'safety-incidents',
   'driver-documents',
   'driver-payouts',
+  'reconciliation-discrepancies',
   'rental-licences',
   'rental-photos',
 ] as const;
@@ -86,6 +87,7 @@ export const RETENTION_DAYS = {
     | 'ride-location-pings'
     | 'ride-locations'
     | 'driver-payouts'
+    | 'reconciliation-discrepancies'
     | 'rental-photos'
   >,
   number
@@ -238,6 +240,15 @@ export class RetentionService {
           where: {
             status: { not: 'pending' },
             createdAt: { lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS) },
+          },
+        }),
+      ),
+      // Resolved ones only; an open discrepancy is kept until finance closes it.
+      'reconciliation-discrepancies': counts(
+        await this.prisma.reconciliationDiscrepancy.deleteMany({
+          where: {
+            status: 'resolved',
+            resolvedAt: { lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS) },
           },
         }),
       ),

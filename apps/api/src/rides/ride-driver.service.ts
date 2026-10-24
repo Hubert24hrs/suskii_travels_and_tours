@@ -2,10 +2,12 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
 import {
+  addDays,
   distanceToRouteMetres,
   decodePolyline,
   haversineMetres,
   localDate,
+  localToUtc,
   money,
   RIDE_LIVE_STATUSES,
   RIDE_PIN_MAX_ATTEMPTS,
@@ -69,6 +71,9 @@ export interface DriverCaller {
  * earnings posting, and handing a ride back to matching. Every route checks that the ride is
  * the caller's own; anything else answers 404.
  */
+/** Drivers' earnings days follow Lagos time (Cars operates in Nigeria first, ADR-053). */
+const EARNINGS_TIME_ZONE = 'Africa/Lagos';
+
 @Injectable()
 export class RideDriverService {
   constructor(
@@ -396,8 +401,15 @@ export class RideDriverService {
       }),
     ]);
     const ngn = accounts.find((account) => account.currency === 'NGN') ?? accounts[0];
+    const currency = ngn?.currency ?? 'NGN';
+    const earned = ngn ? await this.earnedSince(ngn.id, new Date()) : { today: 0n, week: 0n };
     return {
-      balance: toWire(money(ngn?.balanceMinor ?? 0n, ngn?.currency ?? 'NGN')),
+      balance: toWire(money(ngn?.balanceMinor ?? 0n, currency)),
+      summary: {
+        timeZone: EARNINGS_TIME_ZONE,
+        today: toWire(money(earned.today, currency)),
+        last7Days: toWire(money(earned.week, currency)),
+      },
       rides: rides.map((ride) => ({
         rideId: ride.id,
         completedAt: ride.completedAt?.toISOString() ?? null,
@@ -416,6 +428,29 @@ export class RideDriverService {
         settledAt: payout.settledAt?.toISOString() ?? null,
       })),
     };
+  }
+
+  /**
+   * Fares and cancellation-fee shares credited today and over the last seven days (today
+   * included), by Lagos calendar day. Payouts and their reversals are not earnings.
+   */
+  private async earnedSince(
+    accountId: string,
+    now: Date,
+  ): Promise<{ today: bigint; week: bigint }> {
+    const today = localDate(now, EARNINGS_TIME_ZONE);
+    const todayStart = localToUtc(`${today}T00:00`, EARNINGS_TIME_ZONE);
+    const weekStart = localToUtc(`${addDays(today, -6)}T00:00`, EARNINGS_TIME_ZONE);
+    const [row] = await this.prisma.$queryRaw<{ today: bigint; week: bigint }[]>`
+      SELECT COALESCE(SUM(e.amount_minor) FILTER (WHERE e.created_at >= ${todayStart}), 0)::bigint AS today,
+             COALESCE(SUM(e.amount_minor), 0)::bigint AS week
+      FROM ledger_entries e
+      JOIN ledger_transactions t ON t.id = e.transaction_id
+      WHERE e.account_id = ${accountId}::uuid
+        AND e.direction = 'credit'
+        AND e.created_at >= ${weekStart}
+        AND t.kind IN ('ride_earnings', 'cancellation_fee')`;
+    return row ?? { today: 0n, week: 0n };
   }
 
   /** The caller's driver record; 404 for accounts that never applied. */

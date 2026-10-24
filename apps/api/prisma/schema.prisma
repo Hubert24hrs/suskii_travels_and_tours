@@ -1071,6 +1071,8 @@ model Payment {
   /// Issuing country of the card and an HMAC of the provider's card identifier, when reported.
   cardCountry           String?       @map("card_country") @db.Char(2)
   cardFingerprintHash   String?       @map("card_fingerprint_hash")
+  /// When the reconciliation sweep last compared it with the ledger and the provider.
+  ledgerCheckedAt       DateTime?     @map("ledger_checked_at") @db.Timestamptz(3)
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -1082,6 +1084,7 @@ model Payment {
   @@index([bookingId])
   @@index([status, expiresAt])
   @@index([ipHash, createdAt])
+  @@index([status, ledgerCheckedAt])
   @@map("payments")
 }
 
@@ -1344,6 +1347,8 @@ model Refund {
   attempts          Int               @default(0)
   processedAt       DateTime?         @map("processed_at") @db.Timestamptz(3)
   settledAt         DateTime?         @map("settled_at") @db.Timestamptz(3)
+  /// When the reconciliation sweep last compared it with the ledger.
+  ledgerCheckedAt   DateTime?         @map("ledger_checked_at") @db.Timestamptz(3)
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -1353,6 +1358,7 @@ model Refund {
   @@unique([provider, providerRefundId])
   @@index([status, updatedAt])
   @@index([bookingId])
+  @@index([status, ledgerCheckedAt])
   @@map("refunds")
 }
 
@@ -2376,6 +2382,8 @@ model Driver {
   licenceReference       String?      @map("licence_reference")
   /// Bank details for payouts (`{ bankCode, accountNumber, accountName }`), encrypted.
   payoutAccountEncrypted String?      @map("payout_account_encrypted")
+  /// When the bank details last changed: a payout the bank rejected waits for new ones.
+  payoutAccountUpdatedAt DateTime?    @map("payout_account_updated_at") @db.Timestamptz(3)
   ratingSum              Int          @default(0) @map("rating_sum")
   ratingCount            Int          @default(0) @map("rating_count")
   online                 Boolean      @default(false)
@@ -2648,7 +2656,8 @@ model EmergencyContact {
   @@map("emergency_contacts")
 }
 
-/// A transfer of a driver's earnings to their bank (ADR-051).
+/// A transfer of a driver's earnings to their bank (ADR-051). At most one is pending per driver
+/// and currency (partial unique index `driver_payouts_one_pending`).
 model DriverPayout {
   id                String       @id @default(uuid(7)) @db.Uuid
   driverId          String       @map("driver_id") @db.Uuid
@@ -2658,6 +2667,11 @@ model DriverPayout {
   provider          String
   providerReference String?      @map("provider_reference")
   failureReason     String?      @map("failure_reason")
+  /// The payout run that sent it; one provider batch per run.
+  batchId           String?      @map("batch_id") @db.Uuid
+  /// Provider calls made for it (a lost answer is asked again with the same reference).
+  attempts          Int          @default(0)
+  ledgerCheckedAt   DateTime?    @map("ledger_checked_at") @db.Timestamptz(3)
   settledAt         DateTime?    @map("settled_at") @db.Timestamptz(3)
   createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
@@ -2665,7 +2679,57 @@ model DriverPayout {
 
   @@index([driverId, createdAt])
   @@index([status])
+  @@index([batchId])
+  @@index([status, ledgerCheckedAt])
   @@map("driver_payouts")
+}
+
+enum DiscrepancyKind {
+  ledger_missing
+  ledger_amount
+  provider_status
+  provider_amount
+  orphan_ledger
+}
+
+enum DiscrepancySubject {
+  payment
+  refund
+  payout
+}
+
+enum DiscrepancyStatus {
+  open
+  resolved
+}
+
+enum DiscrepancyResolution {
+  /// The underlying record was fixed; the next sweep checks it again and reopens it if not.
+  corrected
+  /// A known difference (a provider fee, a manual transfer); it stays resolved.
+  accepted
+}
+
+/// Where the ledger, our payment records and the provider disagree (ADR-051). Ids and amounts only.
+model ReconciliationDiscrepancy {
+  id            String                 @id @default(uuid(7)) @db.Uuid
+  kind          DiscrepancyKind
+  subjectType   DiscrepancySubject     @map("subject_type")
+  subjectId     String                 @map("subject_id") @db.Uuid
+  bookingId     String?                @map("booking_id") @db.Uuid
+  currency      String?                @db.Char(3)
+  expectedMinor BigInt?                @map("expected_minor")
+  actualMinor   BigInt?                @map("actual_minor")
+  status        DiscrepancyStatus      @default(open)
+  resolution    DiscrepancyResolution?
+  resolvedById  String?                @map("resolved_by_id") @db.Uuid
+  resolvedAt    DateTime?              @map("resolved_at") @db.Timestamptz(3)
+  detectedAt    DateTime               @default(now()) @map("detected_at") @db.Timestamptz(3)
+  lastSeenAt    DateTime               @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+
+  @@unique([subjectType, subjectId, kind], map: "reconciliation_discrepancies_subject_id_kind_key")
+  @@index([status, detectedAt])
+  @@map("reconciliation_discrepancies")
 }
 
 /// A car Suskii rents out, with or without a chauffeur (ADR-051).
