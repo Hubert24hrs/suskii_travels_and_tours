@@ -65,6 +65,21 @@ export const itemServices = (item: { services: unknown }): ExtraSelection[] =>
   fromJsonValue<ExtraSelection[]>(item.services);
 export const bookingPrice = (booking: { price: unknown }): BookingPriceDto =>
   booking.price as BookingPriceDto;
+/**
+ * A Cars fare by its parts (P9). Stored prices are cast, not parsed, so a row without a fare
+ * (written by hand or before prices carried one) shows no breakdown rather than failing the
+ * booking page or the data export.
+ */
+function priceLines(payload: ItemPayload, price: BookingPriceDto) {
+  const fare = (price as Partial<BookingPriceDto>).fare;
+  if (!fare) return null;
+  return (
+    carsPriceBreakdown(payload, fromWire(fare))?.map((line) => ({
+      ...line,
+      amount: toWire(line.amount),
+    })) ?? null
+  );
+}
 export const pendingPrice = (booking: { pendingPrice: unknown }): PendingPrice | null =>
   booking.pendingPrice ? fromJsonValue<PendingPrice>(booking.pendingPrice) : null;
 
@@ -231,12 +246,7 @@ export function toBookingDto(
     cancellation: view.cancellation
       ? { refundBps: view.cancellation.refundBps, refund: toWire(view.cancellation.refund) }
       : null,
-    priceBreakdown: view.showPriceBreakdown
-      ? (carsPriceBreakdown(payload, fromWire(price.fare))?.map((line) => ({
-          ...line,
-          amount: toWire(line.amount),
-        })) ?? null)
-      : null,
+    priceBreakdown: view.showPriceBreakdown ? priceLines(payload, price) : null,
     busTickets: view.busTickets.map((ticket) => ({
       id: ticket.id,
       seatNumber: ticket.seatNumber,
