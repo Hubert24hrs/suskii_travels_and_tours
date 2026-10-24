@@ -48,6 +48,9 @@ tags:
       id: passengers.0.title-ms
 - tapOn:
     id: passengers.0.title-ms
+- scrollUntilVisible:
+    element:
+      id: passengers.0.gender-f
 - tapOn:
     id: passengers.0.gender-f
 - scrollUntilVisible:
@@ -78,6 +81,9 @@ tags:
     id: passengers.0.nationality
 - inputText: Nigeria
 - hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.nationality-option-NG
 - tapOn:
     id: passengers.0.nationality-option-NG
 - scrollUntilVisible:
@@ -85,6 +91,9 @@ tags:
       id: passengers.1.title-mr
 - tapOn:
     id: passengers.1.title-mr
+- scrollUntilVisible:
+    element:
+      id: passengers.1.gender-m
 - tapOn:
     id: passengers.1.gender-m
 - scrollUntilVisible:
@@ -115,6 +124,9 @@ tags:
     id: passengers.1.nationality
 - inputText: Nigeria
 - hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.1.nationality-option-NG
 - tapOn:
     id: passengers.1.nationality-option-NG
 - scrollUntilVisible:
