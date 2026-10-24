@@ -379,6 +379,10 @@ describe('buses (e2e)', () => {
       const off = await createTestApp({ RATE_LIMIT_ENABLED: false, CARS_BUSES_ENABLED: false });
       try {
         await off.http().get('/v1/buses/cities').expect(404);
+        // Clients learn which products to show.
+        const features = await off.http().get('/v1/cars/features').expect(200);
+        expect(features.body).toMatchObject({ buses: false, rides: true, rentals: true });
+        expect(features.headers['cache-control']).toBe('public, max-age=60');
         await off
           .http()
           .post('/v1/operator/tickets/scan')

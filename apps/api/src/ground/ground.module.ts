@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 
 import { APP_CONFIG, type AppConfig } from '../config/config';
 
+import { CarsFeaturesController } from './cars-features.controller';
 import { CarsFeatureGuard, CarsFlags } from './cars-flags';
 import { KycProvider, MockKycProvider } from './kyc';
 import { MapsProvider, MockMapsProvider, OsrmMapsProvider, RoutingService } from './maps';
@@ -14,6 +15,7 @@ import { TicketSigner } from './ticket-signer';
  */
 @Global()
 @Module({
+  controllers: [CarsFeaturesController],
   providers: [
     CarsFlags,
     CarsFeatureGuard,

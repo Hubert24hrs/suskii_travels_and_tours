@@ -12732,6 +12732,41 @@
         }
       }
     },
+    "/v1/cars/features": {
+      "get": {
+        "operationId": "getCarsFeatures",
+        "summary": "Cars products and features that are switched on",
+        "tags": [
+          "Cars"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarsFeatures"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/catalog/airports/{iataCode}": {
       "get": {
         "operationId": "getAirport",
@@ -28273,6 +28308,46 @@
         "required": [
           "code",
           "name"
+        ],
+        "additionalProperties": false
+      },
+      "CarsFeatures": {
+        "type": "object",
+        "properties": {
+          "buses": {
+            "type": "boolean"
+          },
+          "rides": {
+            "type": "boolean"
+          },
+          "rentals": {
+            "type": "boolean"
+          },
+          "bundles": {
+            "type": "boolean"
+          },
+          "priceBreakdown": {
+            "type": "boolean"
+          },
+          "safetySuite": {
+            "type": "boolean"
+          },
+          "offlineQr": {
+            "type": "boolean"
+          },
+          "departurePlanner": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "buses",
+          "rides",
+          "rentals",
+          "bundles",
+          "priceBreakdown",
+          "safetySuite",
+          "offlineQr",
+          "departurePlanner"
         ],
         "additionalProperties": false
       },
