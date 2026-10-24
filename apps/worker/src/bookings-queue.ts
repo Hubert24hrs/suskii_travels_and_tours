@@ -6,6 +6,7 @@ import {
   ACCOUNT_JOB,
   BOOKING_JOB,
   BOOKINGS_QUEUE,
+  FINANCE_JOB,
   processBookingJob,
   VISA_JOB,
 } from './bookings-jobs.js';
@@ -76,6 +77,16 @@ export function createBookingsQueue(
         ACCOUNT_JOB.referrals,
         { every: config.REFERRAL_SWEEP_MINUTES * 60_000, immediately: true },
         { name: ACCOUNT_JOB.referrals, opts },
+      );
+      await activeQueue.upsertJobScheduler(
+        FINANCE_JOB.reconcileLedger,
+        { every: config.LEDGER_RECONCILE_INTERVAL_MINUTES * 60_000, immediately: true },
+        { name: FINANCE_JOB.reconcileLedger, opts },
+      );
+      await activeQueue.upsertJobScheduler(
+        FINANCE_JOB.driverPayouts,
+        { every: config.DRIVER_PAYOUT_INTERVAL_HOURS * 3_600_000, immediately: true },
+        { name: FINANCE_JOB.driverPayouts, opts },
       );
       await activeQueue.upsertJobScheduler(
         ACCOUNT_JOB.retention,

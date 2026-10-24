@@ -3,7 +3,9 @@ import { UnrecoverableError } from 'bullmq';
 import {
   InternalApiError,
   type BookingsApi,
+  type DriverPayoutRun,
   type ExpiryRun,
+  type LedgerReconciliationRun,
   type PaymentRun,
   type PlanRun,
   type ReferralRun,
@@ -25,7 +27,8 @@ import { type Logger } from './logger.js';
  * followed up. Visa documents whose background scan was lost are scanned again every few
  * minutes, and documents past their retention period are deleted daily (ADR-026). Check-in and
  * Prime reminders and referral qualification run every few minutes (ADR-030, ADR-031), and the
- * retention sweep daily (ADR-039). The API owns
+ * retention sweep daily (ADR-039). Captured payments, refunds and driver payouts are compared
+ * with the ledger hourly, and driver earnings are paid out daily (ADR-051). The API owns
  * the state machine, the ledger, locking and backoff; the worker only keeps the clock.
  */
 export const BOOKINGS_QUEUE = 'bookings';
@@ -42,6 +45,12 @@ export const BOOKING_JOB = {
 export const VISA_JOB = {
   scan: 'visa-documents-scan',
   prune: 'visa-documents-prune',
+} as const;
+
+/** Money sweeps with their own schedules (ADR-051): reconciliation and driver payouts. */
+export const FINANCE_JOB = {
+  reconcileLedger: 'finance-reconcile-ledger',
+  driverPayouts: 'finance-driver-payouts',
 } as const;
 
 /** Account sweeps (ADR-030 to ADR-032): database work only, so they share this queue. */
@@ -83,6 +92,8 @@ export async function processBookingJob(
   | ReminderRun
   | ReferralRun
   | RetentionRun
+  | LedgerReconciliationRun
+  | DriverPayoutRun
 > {
   switch (job.name) {
     case BOOKING_JOB.expire: {
@@ -159,6 +170,22 @@ export async function processBookingJob(
       if (Object.values(result).some((count) => count > 0)) {
         deps.logger.info(result, 'records past retention purged');
       }
+      return result;
+    }
+    case FINANCE_JOB.reconcileLedger: {
+      const result = await sweep(() => deps.api.reconcileLedger());
+      if (result.discrepancies > 0) {
+        deps.logger.warn(
+          { discrepancies: result.discrepancies },
+          'ledger reconciliation raised discrepancies for finance',
+        );
+      } else if (result.checked > 0) deps.logger.info(result, 'ledger reconciled');
+      return result;
+    }
+    case FINANCE_JOB.driverPayouts: {
+      const result = await sweep(() => deps.api.runDriverPayouts());
+      if (result.sent > 0 || result.paid > 0) deps.logger.info(result, 'driver payouts processed');
+      if (result.failed > 0) deps.logger.warn({ failed: result.failed }, 'driver payouts failed');
       return result;
     }
     default:

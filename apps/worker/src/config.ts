@@ -51,6 +51,10 @@ const envSchema = z
     VISA_SCAN_INTERVAL_SECONDS: z.coerce.number().int().min(60).max(3600).default(300),
     /** How often rides are matched to drivers (ADR-053); offers last RIDE_OFFER_SECONDS. */
     RIDES_DISPATCH_INTERVAL_SECONDS: z.coerce.number().int().min(1).max(60).default(5),
+    /** Driver earnings above DRIVER_PAYOUT_MIN_MINOR are sent to their banks this often (ADR-051). */
+    DRIVER_PAYOUT_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+    /** Captured payments, refunds and payouts are compared with the ledger this often (ADR-051). */
+    LEDGER_RECONCILE_INTERVAL_MINUTES: minutes(60),
     /** How often documents past their retention period are deleted. */
     VISA_PRUNE_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
     /**
