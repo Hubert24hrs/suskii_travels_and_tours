@@ -1,0 +1,124 @@
+# End-to-end audit, 2026-10-24
+
+Whole-platform audit at the end of the Cars task (`docs/phases/cars.md`, P10): every customer
+journey, the console, concurrency, access control, dependencies and secrets, on branch
+`feature/cars` with mock providers only (no real payment, KYC, maps or SMS provider was called).
+
+**Verdict: not releasable yet.** Every journey passes and every code finding is fixed with a
+regression test, but six high and three critical dependency advisories remain open (all mitigated,
+unreachable or developer-only; see F1 to F6). The push condition of the audit brief ("no
+critical/high findings remain") is therefore not met.
+
+## Environment
+
+| Item      | Value                                                                                   |
+| --------- | --------------------------------------------------------------------------------------- |
+| Runtime   | Node 24 (`/tmp` toolchain), pnpm 10.33, Turborepo 2.11                                  |
+| Services  | Local PostgreSQL 16 and Redis 7; Testcontainers not used (no Docker daemon)             |
+| Browser   | Playwright Chromium 1194 (headless)                                                     |
+| Providers | Mock flight and hotel suppliers, mock payments, mock KYC, mock maps, mock SMS and email |
+| Tools     | gitleaks 8 and promtool 3 (pinned, checksum-verified); k6 v2.2.0 (CI's pin and SHA-256) |
+
+## Journeys
+
+Each row passed on the final code (after every fix below). Web and console suites run against
+production builds; the API suite runs the whole application in process.
+
+| Journey                                                                 | Web e2e (Playwright)                                                                       | API e2e (Jest)                                  | App (Jest)                                        |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------- |
+| Flight: search, filters, fare details, checkout, pay, ticket, e-ticket  | `booking.spec.ts` flight journey, with the departure planner                               | `bookings`, `payments`                          | `checkout-screen`, `trip-screen`                  |
+| Flight price change at payment, consent                                 | `booking.spec.ts` price re-check                                                           | `payments`                                      | —                                                 |
+| Book on hold and pay later; installments and refund of a cancelled plan | `booking.spec.ts` flexible payment                                                         | `payments`, `ledger`                            | —                                                 |
+| Hotel: search, sort, filters, rates, guests, pay, voucher               | `booking.spec.ts` hotel journey, with the rental suggestion                                | `bookings`, `search`                            | —                                                 |
+| Buses: search, seat map, hold, guest checkout, two QR passes, PDF       | `cars.spec.ts` buses                                                                       | `buses` (50 parallel holds, scans, sync)        | `cars-screens` (search, hold, passes)             |
+| Rides: request, pay, dispatch, accept, PIN, live tracking, share, SOS   | `cars.spec.ts` rides                                                                       | `rides`, `drivers`, `cars-p9` (route deviation) | `cars-screens`, `driver-screens`                  |
+| Car rental: search, book, licence, handover, deposit                    | `cars.spec.ts` car rental                                                                  | `rentals`, `cars-payments`                      | `cars-screens`                                    |
+| Fare breakdown, departure planner, trip suggestions (P9)                | `cars.spec.ts`, `booking.spec.ts`                                                          | `cars-p9`                                       | `cars-checkout`, `trip-planning`                  |
+| Offline boarding scans (P9)                                             | n/a (app only)                                                                             | `buses` (sync, conflicts)                       | `offline-scan`, `driver-screens`                  |
+| Packages, tours, visa assistance, add-ons                               | `inhouse.spec.ts`                                                                          | `inhouse`, `visa`                               | `inhouse-trip`, `product-screen`                  |
+| Accounts, Prime, referrals, alerts, export and deletion, sign-out       | `account.spec.ts`                                                                          | `accounts`, `prime`, `engagement`, `cars-data`  | `account-screens`, `auth-screens`, `prime-screen` |
+| Homepage, search, SEO, hydration, cookies, budgets, responsive          | `home`, `search`, `seo`, `hydration`, `cookies`, `performance`, `responsive`, `web-vitals` | `platform`, `home`, `catalog`, `web-vitals`     | `home-screen`                                     |
+| Lighthouse (LCP, CLS, TBT gates)                                        | `lighthouse.spec.ts`                                                                       |                                                 |                                                   |
+| Console: staff sign-in with MFA, bookings, refunds, content, Cars desks | Admin `e2e/*.spec.ts` (14 tests, axe and audit log included)                               | `admin-console`, `admin-matrix`, `admin-audit`  |                                                   |
+
+Results of the final runs:
+
+| Suite                               | Result                                                                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Web e2e incl. Lighthouse            | 77 passed                                                                                                        |
+| Admin e2e                           | 14 passed                                                                                                        |
+| API e2e                             | 36 of 36 files, 424 of 424 tests                                                                                 |
+| Lint, typecheck, unit tests, builds | 39 of 39 turbo tasks, forced (no cache)                                                                          |
+| OpenAPI drift (`pnpm generate:api`) | none                                                                                                             |
+| Expo export and bundle secret scan  | clean (61 files)                                                                                                 |
+| promtool rules and tests            | pass                                                                                                             |
+| Security checklist (`--check`)      | 277 requirements mapped, up to date                                                                              |
+| k6 against the e2e stack (1 minute) | all thresholds met; p95 read 58 ms, write 33 ms, search 16 ms; 0 of 1,807 requests failed; 1,806 of 1,806 checks |
+
+## Concurrency and access control
+
+| Check                                                      | Evidence                                                                                  | Result |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------ |
+| 50 parallel holds on one seat: exactly one wins            | `apps/api/test/buses.e2e-spec.ts:145`                                                     | Pass   |
+| Two overlapping rentals of one car: one wins               | `apps/api/test/rentals.e2e-spec.ts:256`, exclusion constraint `cars-data.e2e-spec.ts:306` | Pass   |
+| Competing ride acceptances: one wins, others kept out      | `apps/api/test/rides.e2e-spec.ts:244`                                                     | Pass   |
+| Customer balance never below zero under concurrency        | `apps/api/test/ledger.e2e-spec.ts:58`                                                     | Pass   |
+| Concurrent refresh with one token counts as reuse          | `apps/api/test/auth.e2e-spec.ts:280`                                                      | Pass   |
+| Other people's resources answer 404 (every path parameter) | `apps/api/test/idor-matrix.e2e-spec.ts` (now including the planner routes, F12)           | Pass   |
+| Operator agents cannot board another operator's tickets    | `apps/api/test/buses.e2e-spec.ts:254`                                                     | Pass   |
+| Riders cannot read or stream another rider's ride          | `apps/api/test/rides.e2e-spec.ts:496`, `:631`                                             | Pass   |
+| Every admin route checks its permission and audits writes  | `admin-matrix.e2e-spec.ts`, `admin-audit.e2e-spec.ts`                                     | Pass   |
+
+## Supply chain and secrets
+
+- `pnpm audit` before the audit: 5 critical, 11 high, 33 moderate, 6 low. After: 3 critical,
+  6 high, 3 moderate, 1 low (F1 to F6 and F17).
+- gitleaks over the branch history (41 commits since the base branch): no leaks. Over the
+  working tree: 24 hits, all in untracked, ignored build output (`.next` caches and manifests,
+  `storybook-static`); nothing tracked.
+- Not run here: Semgrep (its registry is not reachable through this environment's proxy), ZAP
+  and Trivy (they run in `security.yml` in CI), Maestro (needs an Android emulator; CI's
+  `mobile-e2e` job).
+
+## Findings
+
+Severity follows the advisory for dependencies and impact for code. Every fixed code finding has
+a regression test that failed before the fix.
+
+| ID  | Severity | Area                      | Where                                                                                  | Finding                                                                                                                                 | Reproduce                                                                | Status                                                                                                                                         |
+| --- | -------- | ------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1  | Critical | Dependency (web, console) | `pnpm-workspace.yaml` catalog `next: 16.3.8`                                           | GHSA-2464-fhr4-w9xw (sharp RCE), GHSA-673q-mjm6-r5xr (`use cache` RCE), GHSA-p3m5-59mp-jv5r (Server Action DoS); fixed in 16.4.1        | `pnpm audit`                                                             | Open. Upgrade blocked by the trust policy (`semver@6.3.1`). Mitigated: sharp 0.35.5 resolved; no `use cache`; no Server Actions left (F7)      |
+| F2  | Critical | Dependency (dev)          | catalog `storybook: ^10.6.0`                                                           | GHSA-f2ph-cmg5-wxc8, GHSA-px85-f4q5-jh77 (dev server code injection); fixed in 10.6.2                                                   | `pnpm audit`                                                             | Open. Same trust-policy block. Developer machines only                                                                                         |
+| F3  | High     | Dependency (API)          | `body-parser` 2.3.0 via Express                                                        | GHSA-27r3-jxmh-p828: compressed bodies with trailing bytes stall the parser; fixed in 2.4.0 (published 2026-10-22)                      | `pnpm audit`                                                             | Open until 2026-10-25 (release cooldown). Mitigated: `apps/api/src/app.setup.ts:70` refuses compressed bodies (415); `platform.e2e-spec.ts:97` |
+| F4  | High     | Dependency (API)          | `multer` 2.4.0 via `@nestjs/platform-express`                                          | GHSA-q7qp-rjg7-q26m; fixed in 2.5.0 (published 2026-10-22)                                                                              | `pnpm audit`                                                             | Open until 2026-10-25. Unreachable: the API never parses multipart bodies                                                                      |
+| F5  | High     | Dependency (dev)          | `zod` 3.25.76 via `expo` > `@expo/cli`                                                 | GHSA-mrhx-c7xc-m3w5; no fixed 3.x release                                                                                               | `pnpm audit`                                                             | Open. The CLI validates local configuration only                                                                                               |
+| F6  | High     | Dependency (API)          | catalog `zod: ^4.6.5`                                                                  | GHSA-mrhx-c7xc-m3w5: memory exhaustion validating oversized collections                                                                 | `pnpm audit`                                                             | Fixed: 4.6.7, and an override for the lint plugin's copy                                                                                       |
+| F7  | High     | Web                       | `apps/web/app/actions.ts` (removed)                                                    | The currency and locale selectors were Server Actions, which F1's GHSA-p3m5 needs                                                       | `grep -r "use server" apps/web`                                          | Fixed: `apps/web/app/preferences/[name]/route.ts:40` (origin check, 204 or 303); `preferences.spec.ts`                                         |
+| F8  | Critical | Dependency (tests)        | `handlebars` 4.7.9 via `ts-jest`                                                       | GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f                                                                                                | `pnpm audit`                                                             | Fixed: override 4.7.10                                                                                                                         |
+| F9  | High     | Dependency (dev)          | `vite` 8.3.1, `vitest` 5.0.2, `undici` 8.11.2                                          | Dev server and test client advisories (GHSA-587h-7wmj-h5pm, GHSA-xjj6-f33q-929c and moderates)                                          | `pnpm audit`                                                             | Fixed: vite 8.3.x, vitest 5.0.5, undici override 8.12.3, fast-uri override 3.1.9                                                               |
+| F10 | Moderate | Dependency (API)          | catalog `nodemailer: ^10.0.12`                                                         | Address parser turns display text into recipients (three advisories)                                                                    | `pnpm audit`                                                             | Fixed: 10.1.7                                                                                                                                  |
+| F11 | Medium   | API                       | `apps/api/src/bookings/booking-presenter.ts:73`                                        | The P9 fare breakdown read `price.fare` unconditionally; a stored price without one failed the booking page and the account data export | Create a ride booking with `price: {}`, then `POST /v1/me/data-export`   | Fixed; `cars-data.e2e-spec.ts` (export) passes                                                                                                 |
+| F12 | Medium   | API tests                 | `apps/api/test/idor-matrix.e2e-spec.ts:106`                                            | The departure planner and trip suggestions were not in the IDOR matrix                                                                  | Run the matrix: "classifies every operation" lists both                  | Fixed: both answer 404 to another account, another booking's token and anonymous callers, 200 to the owner                                     |
+| F13 | Medium   | Web                       | `apps/web/components/checkout/trip-planning.tsx:182`                                   | The planner reused the payment plan's heading id: two regions with one name and a duplicate id on held bookings (axe `landmark-unique`) | Hold a flight, open the booking, run axe                                 | Fixed; `booking.spec.ts` flexible payment passes                                                                                               |
+| F14 | Low      | API                       | `apps/api/src/rides/ride-driver.service.ts:157`                                        | A location fix sent late (older than the last) was timed as 1 s after it and, when accepted, moved the driver back in time              | Go online, then post a fix 2 km away with `recordedAt` 90 s earlier: 422 | Fixed; `rides.e2e-spec.ts:551`                                                                                                                 |
+| F15 | Low      | API                       | `apps/api/src/planning/trip-planning.service.ts`                                       | The planner hard-coded the 15-minute to 7-day ride window instead of `RIDE_SCHEDULE_LEAD_MINUTES` and `RIDE_SCHEDULE_MAX_DAYS`          | Set `RIDE_SCHEDULE_MAX_DAYS=3`: plans still offer rides 6 days ahead     | Fixed                                                                                                                                          |
+| F16 | Low      | API contract              | `apps/api/src/planning/planning.schemas.ts`                                            | The airport ride suggestion gave a wall time in the arrival city, which a client in another zone would misread                          | Read `cars-suggestions` from a phone outside Nigeria                     | Fixed before release: `scheduledFor` is an instant                                                                                             |
+| F17 | Low      | Web, console              | `apps/web/next.config.ts`, `apps/admin/next.config.ts`                                 | `/favicon.ico` answered 404; Chromium requests it during some redirects, which failed the sign-out e2e intermittently                   | Sign out (redirect to `/`) a few times and watch the console             | Fixed: 308 to `/icon.svg`; `seo.spec.ts`                                                                                                       |
+| F18 | Low      | Tests                     | `apps/mobile/jest.config.js`, `packages/ui-web/src/test/setup.ts`                      | Screen tests timed out (5 s Jest default, 1 s Testing Library default) when a full `turbo run` built Next.js alongside                  | `pnpm turbo run lint typecheck test build --force`                       | Fixed: 20 s per test, 5 s async queries; forced full run 39/39                                                                                 |
+| F19 | Low      | API tests                 | `apps/api/test/cars-p9.e2e-spec.ts:296`                                                | The route deviation test sent future timestamps, which the location endpoint rightly refuses                                            | Run the test before the fix: 422                                         | Fixed (the test was wrong, not the code)                                                                                                       |
+| F20 | Low      | Clients                   | rental and driver vehicle years                                                        | Model years rendered as "2,021" (numeric parameters are grouped)                                                                        | Open a rental booking                                                    | Fixed in P7 (decision 57)                                                                                                                      |
+| F21 | Moderate | Dependency (app)          | `decode-uri-component` 0.2.2 via `expo-router` > `query-string`                        | GHSA-vcc3-ghjq-m6fr: slow decoding of malformed percent-encoding                                                                        | `pnpm audit`                                                             | Accepted until Expo updates: needs a 0.2 to 0.5 jump inside Expo Router; links are allowlisted by `resolveIncomingUrl()` first                 |
+| F22 | Moderate | Dependency (build)        | `uuid` 7 via `xcode`, `postcss-selector-parser` 6 via Tailwind 3, `esbuild` 0.27 (low) | Build-time tooling advisories with no user input                                                                                        | `pnpm audit`                                                             | Accepted: build machines only                                                                                                                  |
+| F23 | Info     | Supply chain              | `eslint-config-next`                                                                   | 16.4.2 pulls `eslint-import-resolver-typescript@3.10.1`, a trust downgrade                                                              | Bump the catalog and `pnpm install`                                      | Stays at 16.3.6 (lint only)                                                                                                                    |
+| F24 | Info     | Secrets                   | `.next/`, `storybook-static/`                                                          | gitleaks flags generated keys in untracked build output                                                                                 | `gitleaks dir .`                                                         | No action: ignored and never committed                                                                                                         |
+
+## What blocks a release
+
+1. **F1 and F2** need the owner to decide on the pnpm trust policy: `semver@6.3.1` (published in
+   2023 after semver 7.5.x, which had provenance) is a known false positive, and any re-resolution
+   of the Babel graph reaches it. Options: a `trustPolicyExclude` entry for that exact version, or
+   wait for Babel to move off semver 6.
+2. **F3 and F4** clear on their own: on or after 2026-10-25 12:00 UTC, add overrides for
+   `body-parser@2.4.0` and `multer@2.5.0` and reinstall (no policy change needed). Keep the
+   compressed-body refusal.
+3. **F5** needs an Expo CLI release on zod 4.
