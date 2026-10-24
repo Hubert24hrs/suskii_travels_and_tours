@@ -53,7 +53,7 @@ export const hasAskedForPush = (): boolean => preferences.getBoolean(ASKED_KEY) 
 
 const platform = (): 'ios' | 'android' => (Platform.OS === 'ios' ? 'ios' : 'android');
 
-/** Follows a booking on this device (guests and owners); best effort. */
+/** Follows a booking on this device (guests and owners); best effort, false when offline. */
 export async function followBooking(
   api: ApiClient,
   bookingId: string,
@@ -62,19 +62,27 @@ export async function followBooking(
 ): Promise<boolean> {
   const token = await devicePushToken(ask);
   if (!token) return false;
-  const { response } = await api.PUT('/v1/bookings/{bookingId}/push-token', {
-    params: { path: { bookingId }, header: headers },
-    body: { token, platform: platform() },
-  });
-  return response.ok;
+  try {
+    const { response } = await api.PUT('/v1/bookings/{bookingId}/push-token', {
+      params: { path: { bookingId }, header: headers },
+      body: { token, platform: platform() },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
-/** Registers the device for the signed-in account (tied to this session). */
+/** Registers the device for the signed-in account (tied to this session); false when offline. */
 export async function followAccount(api: ApiClient, ask: boolean): Promise<boolean> {
   const token = await devicePushToken(ask);
   if (!token) return false;
-  const { response } = await api.PUT('/v1/me/push-token', {
-    body: { token, platform: platform() },
-  });
-  return response.ok;
+  try {
+    const { response } = await api.PUT('/v1/me/push-token', {
+      body: { token, platform: platform() },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }

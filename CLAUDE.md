@@ -361,7 +361,10 @@ Tooling notes for agents:
   `passengers.0.surname`; choices: `{testID}-{value}`; suggestions: `{testID}-option-{key}`).
 - Account screens wrap their content in `RequireAccount` and live under `app/account/*`.
   Deleting the account or signing out goes through `useAuth().forgetAccount()` / `signOut()`,
-  which clear tokens, account trips and cached queries. Files with personal data (the data
+  which clear tokens and run `forgetAccountData()` (account trips, booking copies and documents
+  that are not guest trips, scanning keys, cached queries). `AppProvider` runs the same when the
+  API refuses the refresh token (`SessionStore.onRevoked`); keep new account data in that one
+  function. Files with personal data (the data
   export) are written to the cache, handed to the share sheet and deleted when it closes.
 - Visa uploads come from the system document picker (`lib/visa-upload.ts`), which deletes its
   cache copy once read; the raw bytes are the request body. Voucher QR codes are drawn on the
@@ -474,8 +477,10 @@ Tooling notes for agents:
 - Maps, KYC and payouts sit behind `MapsProvider` (mock, OSRM), `KycProvider` and
   `PayoutProvider` with mock adapters; production refuses mock routing and KYC while rides are on.
 - The app: Cars screens follow the mobile rules above. Offline boarding (`lib/offline-scan.ts`)
-  keeps ticket keys, the scan queue and boarded tickets in `secureCache()`; sign-out uploads the
-  queue and clears all three. The camera is used only on the operator scan screen.
+  keeps ticket keys, the scan queue and boarded tickets in `secureCache()`. Each queued scan
+  names its agent and uploads only under that agent; sign-out uploads the queue, clears the keys
+  and boarded tickets, and keeps unsent scans for their agent for 48 hours
+  (`OFFLINE_SCAN_MAX_AGE_MS`). The camera is used only on the operator scan screen.
 - Personal data in Cars is mapped in `docs/privacy/cars-data-map.md`; metrics in
   `telemetry/metrics.ts` and `operations-metrics.ts`; runbooks for safety incidents, stuck rides,
   the driver document backlog and an offline scanner are in `docs/runbooks/`.

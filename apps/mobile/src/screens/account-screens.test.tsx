@@ -8,7 +8,7 @@ import { Share } from 'react-native';
 import { createBareApi } from '../lib/api';
 import { offlineScanner } from '../lib/offline-scan';
 import { tripStore } from '../lib/trips';
-import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
+import { USER_ID, json, mockApi, renderWithApp, signedInSession } from '../test/app';
 import { ALERT_ID, myReferrals, notificationPreferences, priceAlert } from '../test/fixtures';
 import { ticketSigner } from '../test/tickets';
 
@@ -65,15 +65,49 @@ describe('AccountScreen', () => {
     const session = await signedInSession({ roles: ['customer', 'operator_agent'] });
     await renderWithApp(<AccountScreen />, session);
     await offlineScanner.refreshKeys(createBareApi());
-    expect(offlineScanner.scan(qr).result).toBe('boarded');
+    expect(offlineScanner.scan(qr, USER_ID).result).toBe('boarded');
 
     await fireEvent.press(screen.getByRole('button', { name: m.mobile.account.signOut }));
     await waitFor(() => expect(session.signedIn).toBe(false));
     expect(order).toEqual(['sync', 'logout']);
     const upload = calls.find((call) => call.url.endsWith('/v1/operator/tickets/sync'));
     expect(((await upload?.json()) as { scans: unknown[] }).scans).toHaveLength(1);
-    expect(offlineScanner.pending()).toEqual([]);
+    expect(offlineScanner.pending(USER_ID)).toEqual([]);
     expect(offlineScanner.hasKeys()).toBe(false);
+  });
+
+  it('keeps scans that could not upload for the same agent, never for the next account', async () => {
+    const keys = ticketSigner();
+    const now = Math.floor(Date.now() / 1000);
+    const qr = keys.ticket({
+      tid: '0192d3a0-7c1e-7b2a-9f00-00000000c131',
+      trp: '0192d3a0-7c1e-7b2a-9f00-00000000c101',
+      st: '1A',
+      nbf: now - 600,
+      exp: now + 3600,
+    });
+    mockApi({
+      'GET /v1/me/wallet': () => json({ balances: [], movements: [] }),
+      'GET /v1/buses/ticket-keys': () => json({ keys: [{ kid: keys.kid, spki: keys.spki }] }),
+      // No signal: every call fails before an answer.
+      'POST /v1/operator/tickets/sync': () =>
+        Promise.reject(new TypeError('Network request failed')),
+      'DELETE /v1/me/push-token': () => Promise.reject(new TypeError('Network request failed')),
+      'POST /v1/auth/logout': () => Promise.reject(new TypeError('Network request failed')),
+    });
+    const session = await signedInSession({ roles: ['customer', 'operator_agent'] });
+    await renderWithApp(<AccountScreen />, session);
+    await offlineScanner.refreshKeys(createBareApi());
+    expect(offlineScanner.scan(qr, USER_ID).result).toBe('boarded');
+
+    await fireEvent.press(screen.getByRole('button', { name: m.mobile.account.signOut }));
+    await waitFor(() => expect(session.signedIn).toBe(false));
+    // Signed out without signal: the keys go, the scan waits for this agent.
+    expect(offlineScanner.hasKeys()).toBe(false);
+    expect(offlineScanner.pending('0192d3a0-7c1e-7b2a-9f00-00000000dddd')).toEqual([]);
+    expect(offlineScanner.pending(USER_ID)).toEqual([
+      expect.objectContaining({ qrPayload: qr, agent: USER_ID }),
+    ]);
   });
 
   it('asks visitors to sign in on account screens', async () => {

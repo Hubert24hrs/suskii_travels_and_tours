@@ -75,6 +75,15 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
 - A rental's reservation deposit follows an accepted re-price, and the deposit-release refund is
   no longer recorded as cancelling the booking.
 - The Expo CLI gets a fixed zod (scoped override).
+- App: a session the API revokes now also clears the account's trips, booking copies, saved
+  documents and scanning keys from the phone, and sign-out removes booking copies and documents
+  opened from links or notifications; a refresh that answers after sign-out or a new sign-in is
+  dropped.
+- App: offline boarding scans name the agent who made them, upload only under that agent and
+  survive a sign-out without signal (48 hours); the encrypted cache opens once on a cold start
+  with a deep link; a failed start retries instead of leaving a blank screen; turning on
+  notifications offline shows a message instead of failing silently; only real transport
+  failures count as offline.
 
 #### Known issues
 

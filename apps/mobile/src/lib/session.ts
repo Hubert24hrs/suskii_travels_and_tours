@@ -21,6 +21,7 @@ export class SessionStore {
   private refreshValue: string | undefined;
   private inflight: Promise<string | undefined> | null = null;
   private readonly listeners = new Set<() => void>();
+  private readonly revokedListeners = new Set<() => void>();
   user: AuthUser | null = null;
 
   constructor(private readonly refreshCall: (refreshToken: string) => Promise<RefreshOutcome>) {}
@@ -93,13 +94,28 @@ export class SessionStore {
     return () => this.listeners.delete(listener);
   }
 
+  /**
+   * Runs `listener` after the API rejects the refresh token (signed out on another device, the
+   * password changed, the session revoked) and the tokens are gone, so the account's data on this
+   * phone can go too.
+   */
+  onRevoked(listener: () => void): () => void {
+    this.revokedListeners.add(listener);
+    return () => {
+      this.revokedListeners.delete(listener);
+    };
+  }
+
   private async rotate(): Promise<string | undefined> {
     const token = this.refreshValue;
     if (!token) return undefined;
     const outcome = await this.refreshCall(token);
+    // Signed out, or into another account, while the call ran: the answer is the old session's.
+    if (this.refreshValue !== token) return undefined;
     if (outcome === 'unavailable') return undefined;
     if (outcome === 'invalid') {
       await this.clear();
+      for (const listener of this.revokedListeners) listener();
       return undefined;
     }
     await this.save(outcome);

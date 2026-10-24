@@ -73,4 +73,13 @@ export const documentStore = {
     if (directory.exists) directory.delete();
     secureCache().remove(indexKey(bookingId));
   },
+
+  /** On sign-out: deletes the saved documents of every booking except `keep` (guest trips). */
+  removeAllExcept(keep: readonly string[]): void {
+    const prefix = indexKey('');
+    for (const key of secureCache().getAllKeys()) {
+      const bookingId = key.slice(prefix.length);
+      if (key.startsWith(prefix) && !keep.includes(bookingId)) documentStore.remove(bookingId);
+    }
+  },
 };

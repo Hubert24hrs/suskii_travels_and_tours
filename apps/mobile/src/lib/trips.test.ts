@@ -171,10 +171,15 @@ describe('tripStore', () => {
     tripStore.saveBooking(booking({ id: OTHER_ID }));
     tripStore.saveAccountTrips([summaryOf(booking()), summaryOf(booking({ id: OTHER_ID }))]);
 
+    // Opened from a notification: an account booking that is not in the cached list.
+    const opened = '0192d3a0-7c1e-7b2a-9f00-00000000beef';
+    tripStore.saveBooking(booking({ id: opened }));
+
     tripStore.forgetAccount();
 
     expect(tripStore.accountTrips()).toEqual([]);
     expect(tripStore.cachedBooking(OTHER_ID)).toBeNull();
+    expect(tripStore.cachedBooking(opened)).toBeNull();
     expect(tripStore.cachedBooking(BOOKING_ID)).not.toBeNull();
   });
 

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { OFFLINE_SCAN_MAX_AGE_MS } from '@suskii/shared';
 import type { z } from 'zod';
 
 import { AuditService } from '../audit/audit.service';
@@ -29,9 +30,6 @@ const NOT_FOUND: ScanResult = { result: 'not_found', reason: null, ticket: null 
  * else gets `not_found`, like a missing ticket), and a conditional update boards each ticket once.
  * Scans made offline are uploaded later through `sync`; a second boarding is reported and audited.
  */
-/** How long an offline scan may wait for upload: a long trip, then a day without signal. */
-const OFFLINE_SCAN_MAX_AGE_MS = 48 * 3_600_000;
-
 @Injectable()
 export class BusTicketsService {
   constructor(
