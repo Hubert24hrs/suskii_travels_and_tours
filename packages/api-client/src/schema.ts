@@ -2710,6 +2710,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cars/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cars products and features that are switched on */
+        get: operations["getCarsFeatures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalog/airports/{iataCode}": {
         parameters: {
             query?: never;
@@ -6438,6 +6455,16 @@ export interface components {
         Carrier: {
             code: string;
             name: string;
+        };
+        CarsFeatures: {
+            buses: boolean;
+            rides: boolean;
+            rentals: boolean;
+            bundles: boolean;
+            priceBreakdown: boolean;
+            safetySuite: boolean;
+            offlineQr: boolean;
+            departurePlanner: boolean;
         };
         CatalogCreated: {
             /** Format: uuid */
@@ -15278,6 +15305,30 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getCarsFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarsFeatures"];
+                };
+            };
+            400: components["responses"]["Problem400"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
