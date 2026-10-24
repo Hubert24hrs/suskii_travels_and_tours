@@ -27,7 +27,7 @@ tags:
 - tapOn:
     id: product-sample-lagos-city-highlights
 
-# One adult on the first open departure (the screen picks it), then a quote.
+# Two adults (the screen's default group) on the first open departure it picks, then a quote.
 - extendedWaitUntil:
     visible:
       id: product-tour
@@ -38,7 +38,7 @@ tags:
 - tapOn:
     id: product-book
 
-# Guest checkout: a tour at home needs no passport.
+# Guest checkout for both travellers: a tour at home needs no passport.
 - extendedWaitUntil:
     visible:
       id: checkout
@@ -80,6 +80,43 @@ tags:
 - hideKeyboard
 - tapOn:
     id: passengers.0.nationality-option-NG
+- scrollUntilVisible:
+    element:
+      id: passengers.1.title-mr
+- tapOn:
+    id: passengers.1.title-mr
+- tapOn:
+    id: passengers.1.gender-m
+- scrollUntilVisible:
+    element:
+      id: passengers.1.givenNames
+- tapOn:
+    id: passengers.1.givenNames
+- inputText: Chidi
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.1.surname
+- tapOn:
+    id: passengers.1.surname
+- inputText: Eze
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.1.dateOfBirth
+- tapOn:
+    id: passengers.1.dateOfBirth
+- inputText: 1990-03-02
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.1.nationality
+- tapOn:
+    id: passengers.1.nationality
+- inputText: Nigeria
+- hideKeyboard
+- tapOn:
+    id: passengers.1.nationality-option-NG
 - scrollUntilVisible:
     element:
       id: contact-email
@@ -131,6 +168,7 @@ tags:
 - scrollUntilVisible:
     element:
       id: voucher-code
+    centerElement: true
     timeout: 60000
 - assertVisible:
     id: voucher-qr
