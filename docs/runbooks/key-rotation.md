@@ -83,6 +83,25 @@ Rotating it changes every digest. Before rotating, plan for these effects:
 
 Steps: set the new secret, deploy the API, then tell support which effects to expect.
 
+## Bus ticket signing key (`CARS_TICKET_SIGNING_KEY`, `CARS_TICKET_PREVIOUS_PUBLIC_KEYS`)
+
+Boarding passes carry the `kid` of the key that signed them, and scanners verify offline with
+the public keys from `GET /v1/buses/ticket-keys` (the current key plus
+`CARS_TICKET_PREVIOUS_PUBLIC_KEYS`, `|`-separated).
+
+- **Scheduled:**
+  1. Put the current public key into `CARS_TICKET_PREVIOUS_PUBLIC_KEYS` and a new private key
+     from `keys:generate` into `CARS_TICKET_SIGNING_KEY`, then deploy. New passes use the new
+     key; passes already issued keep verifying.
+  2. Scanners pick up the new key list the next time they are online; ask operators to open the
+     scan screen on a connection before their next departures.
+  3. Remove the old public key once the last pass it signed is past its boarding window (6
+     hours after that departure). Removing it sooner makes those passes scan as `unknown_key`.
+- **Compromise:** rotate without keeping the old public key, so forged passes stop verifying at
+  once. Passes already issued then scan as `unknown_key`: reissue them by asking travellers to
+  reopen their booking (the passes are re-signed on read) and tell operators to check the
+  manifest until every scanner has the new key.
+
 ## Internal API token (`INTERNAL_API_TOKEN`)
 
 The worker uses it to call `/v1/internal`. Set the new value for the API and the worker, then

@@ -91,3 +91,56 @@ tests:
       - eval_time: 25m
         alertname: ApiErrorRateHigh
         exp_alerts: []
+
+  - name: an SOS pages at once
+    interval: 1m
+    input_series:
+      - series: 'suskii_ride_sos_total{instance="api-1", by="rider"}'
+        values: '0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: RideSosRaised
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'A rider or driver raised an SOS'
+              description: >-
+                Someone on a ride asked for help. Open the incident in the console (Rides and
+                safety) and follow the safety runbook now; their emergency contacts have been
+                texted.
+              runbook: docs/runbooks/ride-safety-incident.md
+
+  - name: a stalled dispatcher pages, a search inside the timeout does not
+    interval: 1m
+    input_series:
+      - series: 'suskii_rides_oldest_search_age_seconds{instance="api-1"}'
+        values: '120 180 240 300 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 960 1020 1080 1140 1200 1260 1320'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: RideDispatchStalled
+        exp_alerts: []
+      - eval_time: 31m
+        alertname: RideDispatchStalled
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'A ride has searched for a driver for over 15 minutes'
+              description: >-
+                Searches end with a refund after RIDE_MATCH_TIMEOUT_SECONDS (5 minutes), so the
+                dispatcher has stopped: riders are waiting on a paid ride that nobody is offered.
+              runbook: docs/runbooks/stuck-ride.md
+
+  - name: the no-driver rate needs enough searches
+    interval: 1m
+    input_series:
+      # Half the searches fail, but only 6 in the hour: quiet.
+      - series: 'suskii_ride_matches_total{instance="api-1", outcome="no_driver"}'
+        values: '0+0.05x90'
+      - series: 'suskii_ride_matches_total{instance="api-1", outcome="assigned"}'
+        values: '0+0.05x90'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: RideNoDriverRateHigh
+        exp_alerts: []
