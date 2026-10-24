@@ -31,3 +31,15 @@ export const kilometres = (metres: number): number => Math.round(metres / 100) /
 /** A wall-clock date and time typed as YYYY-MM-DDTHH:mm. */
 export const LOCAL_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 export const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** One value of a route parameter (Expo Router gives arrays for repeated keys). */
+export const routeParam = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
+/** An instant as the phone's wall time (YYYY-MM-DDTHH:mm), or '' when it is not one. */
+export function deviceLocalTime(instant: string | undefined): string {
+  const date = instant ? new Date(instant) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}

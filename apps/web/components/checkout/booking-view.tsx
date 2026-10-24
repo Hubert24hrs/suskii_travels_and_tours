@@ -19,6 +19,7 @@ import { hasCarsItem } from './cars-details';
 import { InhouseDetails, inhouseKind } from './inhouse-details';
 import { MethodChoice, type ProviderName } from './payment-choice';
 import { PlanPanel, RefundList } from './plan-panel';
+import { TripPlanning } from './trip-planning';
 
 type Booking = Schemas['Booking'];
 type Phase =
@@ -566,6 +567,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
             ) : null}
           </Card>
           <TripExtras booking={booking} />
+          <TripPlanning booking={booking} />
           {booking.documents.length > 0 ? (
             <Card asChild className="flex flex-col gap-3 p-4">
               <section aria-labelledby="booking-documents">

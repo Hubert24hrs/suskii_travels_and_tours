@@ -10,6 +10,7 @@ import { PlanPanel, RefundList } from '../components/booking/plan-panel';
 import { BoardingPasses } from '../components/cars/boarding-passes';
 import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
 import { RentalLicence } from '../components/cars/rental-licence';
+import { TripPlanning } from '../components/cars/trip-planning';
 import { InhouseSummary, inhouseKind } from '../components/inhouse/inhouse-summary';
 import { VoucherCard } from '../components/inhouse/voucher-card';
 import { Loading, Notice, OfflineBanner } from '../components/states';
@@ -508,6 +509,8 @@ export function TripScreen() {
             ) : null}
           </Card>
         ) : null}
+
+        {!offline ? <TripPlanning booking={booking} /> : null}
 
         {plan ? (
           <PlanPanel
