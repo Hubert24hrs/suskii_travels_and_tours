@@ -11,6 +11,7 @@ import {
 
 import { browserApi } from './browser-api';
 import { hostCookie, SECURE_COOKIES } from './cookie-names';
+import { randomUuid } from './random-uuid';
 import { readCookie } from './session';
 
 const CONSENT_COOKIE = hostCookie(COOKIE_CONSENT_COOKIE);
@@ -31,16 +32,6 @@ export function hasCookieConsent(category: OptionalCookieCategory): boolean {
   return readCookieConsent()?.choices[category] === true;
 }
 
-function randomId(): string {
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  // Plain-HTTP development hosts other than localhost lack randomUUID: build a version 4 UUID.
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
-  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
 /**
  * Records the choice with the API first and only then stores it in the consent cookie, so an
  * optional category is never enabled without a record. Returns null when recording failed (the
@@ -49,7 +40,7 @@ function randomId(): string {
 export async function saveCookieConsent(choices: CookieChoices): Promise<CookieConsent | null> {
   const consent: CookieConsent = {
     version: COOKIE_POLICY_VERSION,
-    consentId: readCookieConsent()?.consentId ?? randomId(),
+    consentId: readCookieConsent()?.consentId ?? randomUuid(),
     choices,
   };
   try {

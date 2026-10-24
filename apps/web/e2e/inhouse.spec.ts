@@ -178,6 +178,11 @@ test.describe('tours and add-ons', () => {
   });
 
   test('collects transfer details for a standalone airport transfer', async ({ page, request }) => {
+    // As on a plain-HTTP host other than localhost (a phone on the local network), where browsers
+    // hide crypto.randomUUID: checkout still sends its idempotency keys.
+    await page.addInitScript(() => {
+      Reflect.deleteProperty(Crypto.prototype, 'randomUUID');
+    });
     const lagos = (await (await request.get(`${API}/v1/catalog/airports/LOS`)).json()) as {
       cityId: string;
     };
