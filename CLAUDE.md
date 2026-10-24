@@ -49,6 +49,10 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 | 12    | Deployment and release                           | Not started |
 | 13    | Optional: AI trip search                         | Not started |
 
+Cars (buses, rides and car rental; task `suskii-cars-v1`, outside the numbered phases): P0 to P10
+done, P11 (docs and pull request) in progress. Plan, decisions and status: `docs/phases/cars.md`;
+audit: `docs/audits/e2e-audit.md`.
+
 ## Repository layout
 
 ```
@@ -439,6 +443,41 @@ Tooling notes for agents:
 - Admin e2e tests sign each persona in once (`signIn` uses the next TOTP step) and look up alerts
   with `alertWith` (Next's route announcer is an empty alert) and toasts with `expectToast`.
 
+### Cars (apps/api ground, buses, rides, drivers, rentals, planning; ADR-049 to ADR-053)
+
+- Every Cars product and feature sits behind `CarsFlags.enabled()` (`CARS_*_ENABLED`; unset is on
+  outside production, off in production). Routes take `@CarsFeatureRoute('...')` and answer 404
+  while off; clients read `GET /v1/cars/features` and hide what is off.
+- Buses: seats are held only through `BusHoldsService` (Redis Lua, all or nothing, 10 minutes,
+  `BUS_MAX_ACTIVE_HOLDS`) and sold through the booking pipeline. Boarding passes are signed by
+  `TicketSigner` (`SUSKII-T1.<kid>.<claims>.<signature>`, ids and the boarding window only) and
+  re-signed on every read; the payload is never stored. Scans go through `BusTicketsService`
+  (`scan`, `sync` for offline scanners); the first scan wins and later ones are audited.
+- Rides: status changes only through `RideTransitions.apply()`; one acceptance wins (conditional
+  update plus a unique live ride per driver). Driver positions enter only through
+  `RideDriverService.location()` (service area, speed between fixes, late fixes never rewind);
+  riders and share links see `roundPoint()` positions. SOS, PIN lockout and route deviation go
+  through `SafetyService.raise()`.
+- Drivers: NIN and licence numbers are encrypted (`driver:{id}:nin`, `:licence`) with HMACs for
+  uniqueness; documents only through `DriverDocumentsService`; earnings leave only through
+  `DriverPayoutsService`.
+- Rentals: availability is the database exclusion constraint (with `RENTAL_TURNAROUND_HOURS`),
+  never an application check; handover records are immutable and photos are sealed per file.
+- Fare breakdown lines come from `carsPriceBreakdown()` (allocated from the priced fare, so they
+  add up and show no margin); `priceBreakdown` is an additive field. The departure planner and
+  trip suggestions (`TripPlanningService`) load bookings through `BookingsService.load()`, use
+  the `RIDE_SCHEDULE_*` window and only ever prefill searches.
+- Maps, KYC and payouts sit behind `MapsProvider` (mock, OSRM), `KycProvider` and
+  `PayoutProvider` with mock adapters; production refuses mock routing and KYC while rides are on.
+- The app: Cars screens follow the mobile rules above. Offline boarding (`lib/offline-scan.ts`)
+  keeps ticket keys, the scan queue and boarded tickets in `secureCache()`; sign-out uploads the
+  queue and clears all three. The camera is used only on the operator scan screen.
+- Personal data in Cars is mapped in `docs/privacy/cars-data-map.md`; metrics in
+  `telemetry/metrics.ts` and `operations-metrics.ts`; runbooks for safety incidents, stuck rides,
+  the driver document backlog and an offline scanner are in `docs/runbooks/`.
+- The website has no Server Actions (Next.js advisory GHSA-p3m5-59mp-jv5r applies to apps with
+  one until Next.js 16.4 can be installed); preferences post to `app/preferences/[name]/route.ts`.
+
 ### Hardening (phase 11, ADR-037 to ADR-048)
 
 - Security documents live in `docs/security/` and must change with the code they describe:
@@ -556,6 +595,11 @@ Tooling notes for agents:
 - [ADR-046: Error reporting](docs/decisions/ADR-046-error-reporting.md)
 - [ADR-047: Metrics, dashboards and alerts](docs/decisions/ADR-047-metrics-dashboards-and-alerts.md)
 - [ADR-048: Security verification checklist and accepted risks](docs/decisions/ADR-048-security-verification-and-accepted-risks.md)
+- [ADR-049: Cars product boundaries](docs/decisions/ADR-049-cars-product-boundaries.md)
+- [ADR-050: Cars threat model](docs/decisions/ADR-050-cars-threat-model.md)
+- [ADR-051: Cars payments, holds and deposits](docs/decisions/ADR-051-cars-payments-holds-and-deposits.md)
+- [ADR-052: Cars realtime transport](docs/decisions/ADR-052-cars-realtime-transport.md)
+- [ADR-053: Cars geo storage](docs/decisions/ADR-053-cars-geo-storage.md)
 
 ## Open questions for the owner
 
@@ -599,4 +643,9 @@ private vulnerability reporting, which `SECURITY.md` points to), confirmation of
 risks in ADR-048 (optional traveller MFA, Android 7 and iOS 15.1 support, no certificate
 pinning), recovery objectives for database restores, the payment risk thresholds and watched
 countries or routes (`PAYMENT_RISK_*`), the cookie policy text, and someone with iOS and
-Android devices to run the screen reader checklist before the first store release.
+Android devices to run the screen reader checklist before the first store release. Added by
+Cars: the maps and routing provider, the KYC provider for drivers, bus operator APIs or manual
+inventory (manual by default), cash for rides (off by default), VAT on Cars fares
+(`CARS_VAT_BPS`, placeholder 0), the payout provider, and whether to admit `semver@6.3.1` past
+the pnpm trust policy so Next.js 16.4 and Storybook 10.6.3 can be installed
+(`docs/security/dependency-exceptions.md`).

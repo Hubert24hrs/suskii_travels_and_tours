@@ -41,7 +41,17 @@
     "primary_market": "Nigeria, then wider Africa, then global",
     "currencies": { "default": "NGN", "supported": ["NGN", "USD", "GBP", "EUR", "GHS", "KES", "ZAR"] },
     "locales": { "default": "en-NG", "supported": ["en-NG", "en-GB", "en-US"], "note": "i18n-ready from day one (all strings in message catalogs); add fr and pcm later." },
-    "verticals": ["flights", "hotels", "packages", "tours", "visa", "travel_addons"]
+    "verticals": [
+      "flights",
+      "hotels",
+      "packages",
+      "tours",
+      "visa",
+      "travel_addons",
+      "buses",
+      "rides",
+      "rentals"
+    ]
   },
 
   "brand_and_compliance_guardrails": {
@@ -320,6 +330,28 @@
       "Clear disclaimer: Suskii provides assistance; approval is by the issuing government"
     ],
     "travel_addons": ["Travel insurance, airport transfers, eSIM, lounge access, extra baggage, seat selection; purchasable standalone or attached to a booking"],
+    "cars": {
+      "summary": "Ground transport added by the suskii-cars-v1 task (docs/phases/cars.md, ADR-049 to ADR-053), on the same booking, payment, ledger and refund pipeline as every other vertical. Each product and feature has a CARS_*_ENABLED flag.",
+      "buses": [
+        "Interstate search by city pair and day, seat map, 10-minute all-or-nothing seat holds (Redis), guest or account checkout without passports",
+        "One Ed25519-signed QR boarding pass per seat (no personal data in the code), PDF and in-app; operator agents board each ticket once, online or offline"
+      ],
+      "rides": [
+        "Intrastate rides, now or scheduled (15 minutes to 7 days), between curated pick-up places, with an upfront fare from city fare rules",
+        "Vetted drivers (documents, vehicle, KYC adapter), dispatch with offers and timeouts, rider PIN to start, live tracking over WebSocket with polling fallback, share link, SOS with emergency contacts, ratings, earnings and payouts"
+      ],
+      "car_rental": [
+        "Self-drive or chauffeured cars per branch city, availability enforced by a database exclusion constraint, refundable deposit, delivery option",
+        "Driving licence check for self-drive, handover records with condition photos, deposit release with deductions"
+      ],
+      "flagged_features": [
+        "Unified price breakdown: the fare by its parts, allocated server-side so it adds up and never shows the margin",
+        "Departure planner: when to leave a place for a flight or bus, with a ride booked for that time",
+        "Trip bundling: an airport ride, a car and onward buses suggested as prefilled searches",
+        "Safety suite: route deviation incidents on top of SOS and PIN lockout",
+        "Offline QR: operator phones check ticket signatures without a connection and upload the scans later"
+      ]
+    },
     "flexible_payment": {
       "modes": [
         "Book on hold: reserve where the supplier allows a hold, pay in full before the hold deadline",
@@ -667,6 +699,7 @@
     "Should Suskii Travels share user identity (single sign-on) with Suskii Errands, or remain a separate account system?",
     "Target cloud: GCP or AWS?",
     "Brand assets (logo, wordmark, photography) and legal entity details for footer and policies",
-    "Suskii Prime pricing and exact benefits"
+    "Suskii Prime pricing and exact benefits",
+    "Cars: maps and routing provider (self-hosted OSRM, Google or Mapbox), KYC provider for drivers, bus operator APIs or manual inventory (manual by default), cash for rides (off by default), VAT on Cars fares (CARS_VAT_BPS placeholder 0) and the driver payout provider"
   ]
 }
