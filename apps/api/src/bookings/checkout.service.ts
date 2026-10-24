@@ -67,6 +67,7 @@ import {
 } from './bookings.service';
 import { InhouseCatalog } from './inhouse-catalog';
 import { inhouseOfferId } from './inhouse-items';
+import { syncRentalDeposit } from './seat-inventory';
 import { TicketingService } from './ticketing.service';
 
 /** Unpaid statuses that expire at the payment deadline (held bookings follow their plan). */
@@ -534,6 +535,7 @@ export class CheckoutService {
         services: fresh.services as unknown as Prisma.InputJsonValue,
       },
     });
+    await syncRentalDeposit(tx, itemId, fresh.payload);
   }
 
   /** Expires unpaid bookings whose payment deadline has passed (held bookings: see plans). */

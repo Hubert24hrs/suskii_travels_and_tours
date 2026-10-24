@@ -105,7 +105,11 @@ export class BookingDocumentsService {
     private readonly signer: TicketSigner,
   ) {}
 
-  /** Makes sure every document of a confirmed booking exists; returns them (e.g. for email). */
+  /**
+   * Makes sure every document of a confirmed booking exists; returns them (e.g. for email).
+   * Boarding passes are rendered on every read and never stored: their QR codes are re-signed each
+   * time, so a rotated key or a voided seat never lingers in a saved file (ADR-050).
+   */
   async ensure(bookingId: string, regenerate = false): Promise<GeneratedDocument[]> {
     const booking = await this.prisma.booking.findUniqueOrThrow({
       where: { id: bookingId },
@@ -118,7 +122,9 @@ export class BookingDocumentsService {
       const type = documentType(payload);
       if (!type) continue;
       const existing = booking.documents.find((document) => document.type === type);
-      const stored = existing && !regenerate ? await this.storage.get(existing.storageKey) : null;
+      const fresh = type === 'bus_ticket';
+      const stored =
+        existing && !regenerate && !fresh ? await this.storage.get(existing.storageKey) : null;
       if (existing && stored) {
         documents.push({
           type,
@@ -131,7 +137,12 @@ export class BookingDocumentsService {
       const bytes = await this.render(booking, item, payload);
       const storageKey = `bookings/${booking.id}/${FILE_PREFIX[type]}.pdf`;
       const fileName = `Suskii-${FILE_PREFIX[type]}-${booking.reference}.pdf`;
-      await this.storage.put(storageKey, bytes, 'application/pdf');
+      if (fresh) {
+        // A file saved before passes were rendered per read goes.
+        if (existing) await this.storage.delete(existing.storageKey);
+      } else {
+        await this.storage.put(storageKey, bytes, 'application/pdf');
+      }
       await this.record(booking.id, type, { storageKey, fileName, sizeBytes: bytes.byteLength });
       documents.push({ type, fileName, contentType: 'application/pdf', bytes });
     }
@@ -170,7 +181,8 @@ export class BookingDocumentsService {
   ): Promise<{ fileName: string; bytes: Uint8Array }> {
     const document = booking.documents.find((candidate) => candidate.id === documentId);
     if (!document) throw new NotFoundException();
-    const stored = await this.storage.get(document.storageKey);
+    const stored =
+      document.type === 'bus_ticket' ? null : await this.storage.get(document.storageKey);
     if (stored) return { fileName: document.fileName, bytes: stored };
     const regenerated = (await this.ensure(booking.id, true)).find(
       (candidate) => candidate.type === document.type,

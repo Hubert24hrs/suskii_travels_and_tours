@@ -249,6 +249,22 @@ export async function claimRental(
 }
 
 /**
+ * A re-priced rental (the car's deposit changed and the customer accepted) keeps its reservation's
+ * deposit equal to the one the booking charges, so the release refunds what was paid.
+ */
+export async function syncRentalDeposit(
+  tx: Tx,
+  bookingItemId: string,
+  payload: { kind: string; charge?: { deposit: { minor: bigint } } },
+): Promise<void> {
+  if (payload.kind !== 'rental' || !payload.charge) return;
+  await tx.rentalReservation.updateMany({
+    where: { bookingItemId, depositReleasedAt: null },
+    data: { depositMinor: payload.charge.deposit.minor },
+  });
+}
+
+/**
  * A booking that will not go ahead frees its car (expiry, cancellation, refund). A rental that
  * has started (checked out) keeps its record; returning the car ends it.
  */

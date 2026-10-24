@@ -70,6 +70,11 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
   lapses stops receiving the ride's live updates.
 - Each rental licence upload is its own file, so a running scan cannot approve a newer upload.
 - Offline boarding scans are held to the server clock (no future times, at most 48 hours old).
+- Boarding passes are rendered on every read and never stored; a bus booking cannot be cancelled
+  after departure or once a passenger boarded; payment closes 30 minutes before departure.
+- A rental's reservation deposit follows an accepted re-price, and the deposit-release refund is
+  no longer recorded as cancelling the booking.
+- The Expo CLI gets a fixed zod (scoped override).
 
 #### Known issues
 

@@ -527,6 +527,8 @@ export function cancellationTerms(
   if (status !== 'CONFIRMED') return null;
   const tiers = cancellationTiers(payload);
   if (!tiers) return null;
+  // The tiers count days; a bus that has already left cannot be cancelled on its own day.
+  if (payload.kind === 'bus' && now.getTime() >= Date.parse(payload.departsAtUtc)) return null;
   const { startDate, timeZone } = cancellationClock(payload);
   const today = localDate(now, timeZone);
   if (today > startDate) return null;

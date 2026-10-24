@@ -29,6 +29,7 @@ import type {
   TravelPackage,
   VisaProduct,
 } from '../generated/prisma/client';
+import { SALES_CLOSE_MINUTES } from '../buses/bus-holds.service';
 import { PrismaService } from '../infra/prisma.service';
 import { storedBenefits } from '../prime/prime-status';
 import { OfferUnavailableError } from '../suppliers/supplier.errors';
@@ -307,7 +308,11 @@ export class InhouseCatalog {
       case 'bus': {
         // The seats are already the booking's (ADR-051); only the trip and its fare can change.
         const trip = await this.prisma.busTrip.findUnique({ where: { id: payload.tripId } });
-        if (trip?.status !== 'scheduled' || trip.departsAt <= now) {
+        // Sales close before departure, as for searches and holds.
+        if (
+          trip?.status !== 'scheduled' ||
+          trip.departsAt.getTime() <= now.getTime() + SALES_CLOSE_MINUTES * 60_000
+        ) {
           throw unavailable('The departure is no longer on sale');
         }
         return { ...payload, unitPrice: money(trip.fareMinor, trip.currency) };
