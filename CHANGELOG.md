@@ -79,6 +79,10 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
   documents and scanning keys from the phone, and sign-out removes booking copies and documents
   opened from links or notifications; a refresh that answers after sign-out or a new sign-in is
   dropped.
+- Refunds settled by hand that had never reached their provider now move the money out of the
+  booking first (or credit the wallet), instead of failing or borrowing another refund's
+  in-flight money; an interrupted wallet refund is credited by the sweep, never sent to the card
+  provider.
 - App: offline boarding scans name the agent who made them, upload only under that agent and
   survive a sign-out without signal (48 hours); the encrypted cache opens once on a cold start
   with a deep link; a failed start retries instead of leaving a blank screen; turning on

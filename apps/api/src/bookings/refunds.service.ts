@@ -463,21 +463,11 @@ export class RefundsService {
         where: { id: refund.bookingId },
         select: { userId: true },
       });
-      if (!booking.userId) return this.failNow(refund, 'no_wallet');
+      const userId = booking.userId;
+      if (!userId) return this.failNow(refund, 'no_wallet');
       try {
         await this.prisma.$transaction(async (tx) => {
-          await this.ledger.post(tx, {
-            key: `refund:${refund.id}:to-wallet`,
-            kind: 'refund_to_wallet',
-            bookingId: refund.bookingId,
-            paymentId: refund.paymentId,
-            refundId: refund.id,
-            lines: transfer(
-              sourceAccount(refund),
-              { kind: 'wallet', userId: booking.userId ?? '', currency: refund.currency },
-              money(refund.amountMinor, refund.currency),
-            ),
-          });
+          await this.postToWallet(tx, refund, userId);
           await tx.refund.update({
             where: { id: refund.id },
             data: { status: 'succeeded', settledAt: new Date() },
@@ -497,20 +487,7 @@ export class RefundsService {
     const provider = this.providers.find(refund.provider);
     if (!provider) return this.review(refund, 'provider_disabled');
     try {
-      await this.prisma.$transaction((tx) =>
-        this.ledger.post(tx, {
-          key: `refund:${refund.id}:initiated`,
-          kind: 'refund_initiated',
-          bookingId: refund.bookingId,
-          paymentId: refund.paymentId,
-          refundId: refund.id,
-          lines: transfer(
-            sourceAccount(refund),
-            inFlight(refund),
-            money(refund.amountMinor, refund.currency),
-          ),
-        }),
-      );
+      await this.prisma.$transaction((tx) => this.postInitiated(tx, refund));
     } catch (error) {
       if (error instanceof InsufficientBalanceError)
         return this.failNow(refund, 'insufficient_balance');
@@ -588,25 +565,70 @@ export class RefundsService {
     if (changed) await this.alertFailed(refundId, reason);
   }
 
-  /** Money reached the customer: in-flight becomes paid out, and the booking may close. */
+  private postToWallet(tx: Tx, refund: Refund, userId: string): Promise<unknown> {
+    return this.ledger.post(tx, {
+      key: `refund:${refund.id}:to-wallet`,
+      kind: 'refund_to_wallet',
+      bookingId: refund.bookingId,
+      paymentId: refund.paymentId,
+      refundId: refund.id,
+      lines: transfer(
+        sourceAccount(refund),
+        { kind: 'wallet', userId, currency: refund.currency },
+        money(refund.amountMinor, refund.currency),
+      ),
+    });
+  }
+
+  private postInitiated(tx: Tx, refund: Refund): Promise<unknown> {
+    return this.ledger.post(tx, {
+      key: `refund:${refund.id}:initiated`,
+      kind: 'refund_initiated',
+      bookingId: refund.bookingId,
+      paymentId: refund.paymentId,
+      refundId: refund.id,
+      lines: transfer(
+        sourceAccount(refund),
+        inFlight(refund),
+        money(refund.amountMinor, refund.currency),
+      ),
+    });
+  }
+
+  /**
+   * Money reached the customer: in-flight becomes paid out, and the booking may close. A refund
+   * settled by hand may never have been sent (its provider was switched off, or the process
+   * stopped between claiming and posting it): its money then leaves the source first, or goes to
+   * the wallet for a wallet refund. Postings are idempotent by key, so nothing moves twice.
+   */
   private async settleTx(
     tx: Tx,
     refund: Refund,
     providerRefundId: string | null,
   ): Promise<boolean> {
     if (refund.status === 'succeeded') return false;
-    await this.ledger.post(tx, {
-      key: `refund:${refund.id}:settled`,
-      kind: 'refund_settled',
-      bookingId: refund.bookingId,
-      paymentId: refund.paymentId,
-      refundId: refund.id,
-      lines: transfer(
-        inFlight(refund),
-        { kind: 'psp', provider: refund.provider, currency: refund.currency },
-        money(refund.amountMinor, refund.currency),
-      ),
-    });
+    if (refund.destination === 'wallet') {
+      const { userId } = await tx.booking.findUniqueOrThrow({
+        where: { id: refund.bookingId },
+        select: { userId: true },
+      });
+      if (!userId) throw refundInvalid('Guest bookings cannot be refunded to a wallet.');
+      await this.postToWallet(tx, refund, userId);
+    } else {
+      await this.postInitiated(tx, refund);
+      await this.ledger.post(tx, {
+        key: `refund:${refund.id}:settled`,
+        kind: 'refund_settled',
+        bookingId: refund.bookingId,
+        paymentId: refund.paymentId,
+        refundId: refund.id,
+        lines: transfer(
+          inFlight(refund),
+          { kind: 'psp', provider: refund.provider, currency: refund.currency },
+          money(refund.amountMinor, refund.currency),
+        ),
+      });
+    }
     await tx.refund.update({
       where: { id: refund.id },
       data: {
@@ -707,7 +729,7 @@ export class RefundsService {
       const byOurs = await tx.refund
         .findUnique({ where: { id: event.refundId } })
         .catch(() => null);
-      if (byOurs?.provider === provider) return byOurs;
+      if (byOurs?.provider === provider && byOurs.destination !== 'wallet') return byOurs;
     }
     if (event.providerRefundId) {
       const byTheirs = await tx.refund.findUnique({
@@ -723,6 +745,8 @@ export class RefundsService {
       where: {
         provider,
         providerRefundId: null,
+        // Wallet refunds never reach the provider, so its events cannot be about them.
+        destination: { not: 'wallet' },
         status: { in: ['processing', 'needs_review'] },
         amountMinor: event.amount.minor,
         currency: event.amount.currency,
@@ -762,6 +786,12 @@ export class RefundsService {
     });
     for (const refund of processing) {
       if (Date.now() > stopStartingAt) return counts;
+      // Interrupted between claim and posting: a wallet credit never involves the provider.
+      if (refund.destination === 'wallet') {
+        await this.settle(refund.id, null);
+        counts.settled += 1;
+        continue;
+      }
       const provider = this.providers.find(refund.provider);
       if (!provider) continue;
       try {
@@ -801,6 +831,7 @@ export class RefundsService {
     const reviews = await this.prisma.refund.findMany({
       where: {
         status: 'needs_review',
+        destination: { not: 'wallet' },
         updatedAt: { lt: new Date(now.getTime() - RECONCILE_AFTER_MS) },
       },
       include: { payment: true },
