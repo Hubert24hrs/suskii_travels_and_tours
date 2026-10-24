@@ -1,7 +1,9 @@
 import {
   add,
+  convert,
   fromWire,
   multiply,
+  parseRate,
   sum,
   zero,
   toWire,
@@ -206,3 +208,18 @@ export function priceBookingItem(
 }
 
 export const totalOf = (price: BookingPriceDto): Money => fromWire(price.total);
+
+/**
+ * An amount in an item's own currency (a fare rule's fee, a metered fare) in the booking's
+ * currency, at the exchange rate the booking was priced with (`price.fx`), so it matches what the
+ * customer was charged. Rounds down: fees and shares never grow in conversion.
+ */
+export function atBookedRate(amount: Money, price: Pick<BookingPriceDto, 'total' | 'fx'>): Money {
+  const currency = price.total.currency;
+  if (amount.currency === currency) return amount;
+  const fx = price.fx;
+  if (fx?.from !== amount.currency || fx.to !== currency) {
+    throw new Error(`The booking has no rate from ${amount.currency} to ${currency}`);
+  }
+  return convert(amount, parseRate(fx.from, fx.to, fx.rate), 'floor');
+}

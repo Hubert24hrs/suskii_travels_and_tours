@@ -2,7 +2,12 @@ import type { AddressInfo } from 'node:net';
 
 import { WebSocket } from 'ws';
 
+import { convert, driverShare, money, parseRate, subtract } from '@suskii/shared';
+
 import { sessionCookieNames } from '../src/auth/cookies';
+import { itemPayload } from '../src/bookings/booking-presenter';
+import { RideEventsPublisher } from '../src/rides/ride-events.publisher';
+import type { RideItemPayload } from '../src/bookings/inhouse-items';
 
 import { bearer, signUp } from './helpers/flows';
 import { staffSession } from './helpers/cars';
@@ -328,6 +333,50 @@ describe('rides (e2e)', () => {
       ).toBe(1);
     });
 
+    it('counts parallel PIN guesses one at a time, and lets the next driver start a handed-back ride', async () => {
+      const first = await driverSession(ctx, 'guess-driver@example.com', north(400));
+      const { rideId } = await requestRide(ctx, rider.headers);
+      await assign(rideId, first);
+      await ctx.http().post(`/v1/drivers/me/rides/${rideId}/arrive`).set(first.headers).expect(200);
+      const pin = (await getRide(rideId).expect(200)).body.pin as string;
+      const wrong = ['0000', '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999']
+        .filter((guess) => guess !== pin)
+        .slice(0, 8);
+      const answers = await Promise.all(
+        wrong.map((guess) =>
+          ctx
+            .http()
+            .post(`/v1/drivers/me/rides/${rideId}/start`)
+            .set(first.headers)
+            .send({ pin: guess }),
+        ),
+      );
+      // Five guesses are counted, the fifth locks the ride, the rest are refused unchecked.
+      expect(answers.map((answer) => answer.status).sort()).toEqual([
+        422, 422, 422, 422, 423, 423, 423, 423,
+      ]);
+      expect(await ctx.prisma.ride.findUniqueOrThrow({ where: { id: rideId } })).toMatchObject({
+        pinAttempts: 5,
+        pinLockedAt: expect.any(Date),
+      });
+
+      // The driver hands the ride back; the next one can start it with the rider's PIN.
+      await ctx.http().post(`/v1/drivers/me/rides/${rideId}/cancel`).set(first.headers).expect(204);
+      await ctx.prisma.driver.updateMany({
+        where: { user: { email: 'guess-driver@example.com' } },
+        data: { online: false },
+      });
+      const next = await driverSession(ctx, 'next-driver@example.com', north(600));
+      await assign(rideId, next);
+      await ctx.http().post(`/v1/drivers/me/rides/${rideId}/arrive`).set(next.headers).expect(200);
+      await ctx
+        .http()
+        .post(`/v1/drivers/me/rides/${rideId}/start`)
+        .set(next.headers)
+        .send({ pin })
+        .expect(200);
+    });
+
     it('texts emergency contacts on SOS and queues the incident for the safety desk', async () => {
       await ctx
         .http()
@@ -469,6 +518,85 @@ describe('rides (e2e)', () => {
       expect(state.body.currentRideId).toBeNull();
     });
 
+    it('converts the fee and the driver share at the booked rate, and keeps VAT with the platform', async () => {
+      const vat = ctx.config.CARS_VAT_BPS;
+      ctx.config.CARS_VAT_BPS = 750;
+      try {
+        const driver = await driverSession(ctx, 'usd-driver@example.com', north(500));
+        /** The ride's fare in its rule's currency (NGN) and the rate it was booked at. */
+        const booked = async (bookingId: string) => {
+          const booking = await ctx.prisma.booking.findUniqueOrThrow({
+            where: { id: bookingId },
+            include: { items: true },
+          });
+          const fx = (booking.price as { fx: { from: string; to: string; rate: string } }).fx;
+          const item = booking.items[0];
+          if (!item) throw new Error('booking without an item');
+          return {
+            payload: itemPayload(item) as RideItemPayload,
+            rate: parseRate(fx.from, fx.to, fx.rate),
+          };
+        };
+
+        // A late cancellation keeps the NGN 500 fee in dollars (32 cents), not the whole fare.
+        const late = await requestRide(ctx, rider.headers, { currency: 'USD' });
+        await assign(late.rideId, driver);
+        await ctx.prisma.ride.update({
+          where: { id: late.rideId },
+          data: { assignedAt: new Date(Date.now() - 10 * 60_000) },
+        });
+        const { rate } = await booked(late.bookingId);
+        const fee = convert(money(50_000n, 'NGN'), rate, 'floor');
+        expect(fee).toEqual(money(32n, 'USD'));
+        const cancelled = await ctx
+          .http()
+          .post(`/v1/rides/${late.rideId}/cancel`)
+          .set(rider.headers)
+          .expect(200);
+        expect(cancelled.body.fee).toEqual({ amountMinor: 32, currency: 'USD' });
+        expect(cancelled.body.refund).toEqual({
+          amountMinor: late.totalMinor - 32,
+          currency: 'USD',
+        });
+
+        // A completed ride pays the driver 80% of the metered fare: not of the VAT or booking fee.
+        const done = await requestRide(ctx, rider.headers, { currency: 'USD' });
+        await assign(done.rideId, driver);
+        const pin = ((await getRide(done.rideId).expect(200)).body as { pin: string }).pin;
+        const drive = (step: string) =>
+          ctx.http().post(`/v1/drivers/me/rides/${done.rideId}/${step}`).set(driver.headers);
+        await drive('arrive').expect(200);
+        await drive('start').send({ pin }).expect(200);
+        await drive('complete').expect(200);
+        const ride = await booked(done.bookingId);
+        const metered = subtract(ride.payload.fare.total, ride.payload.fare.bookingFee);
+        const expected = driverShare(convert(metered, ride.rate, 'floor'), 8_000);
+        const earned = await ctx.prisma.ledgerEntry.findFirstOrThrow({
+          where: {
+            transaction: { idempotencyKey: `ride:${done.rideId}:completed` },
+            account: { code: { contains: 'driver-earnings' } },
+          },
+        });
+        expect(earned.amountMinor).toBe(expected.minor);
+        // A share of everything paid would include the 7.5% VAT.
+        const ofPaid =
+          (BigInt(done.totalMinor) * metered.minor * 8_000n) /
+          (ride.payload.fare.total.minor * 10_000n);
+        expect(earned.amountMinor).toBeLessThan(ofPaid);
+        const earnings = await ctx
+          .http()
+          .get('/v1/drivers/me/earnings')
+          .set(driver.headers)
+          .expect(200);
+        expect(earnings.body.rides[0].earnings).toEqual({
+          amountMinor: Number(expected.minor),
+          currency: 'USD',
+        });
+      } finally {
+        ctx.config.CARS_VAT_BPS = vat;
+      }
+    });
+
     it('lets staff stop a ride and refund it in full', async () => {
       const driver = await driverSession(ctx, 'stop-driver@example.com', north(500));
       const { rideId, bookingId, totalMinor } = await requestRide(ctx, rider.headers);
@@ -546,6 +674,35 @@ describe('rides (e2e)', () => {
         .send({ position: north(500) })
         .expect(409);
       expect(refused.body).toMatchObject({ reason: 'not_approved' });
+    });
+
+    it("keeps a suspended driver's ride under way on the map until it ends", async () => {
+      const driver = await driverSession(ctx, 'mid-trip-driver@example.com', north(500));
+      const { rideId } = await requestRide(ctx, rider.headers);
+      await assign(rideId, driver);
+      const pin = (await getRide(rideId).expect(200)).body.pin as string;
+      const drive = (step: string) =>
+        ctx.http().post(`/v1/drivers/me/rides/${rideId}/${step}`).set(driver.headers);
+      await drive('arrive').expect(200);
+      await drive('start').send({ pin }).expect(200);
+      // Suspended mid-trip, as the safety desk would.
+      await ctx.prisma.driver.update({
+        where: { id: driver.driverId },
+        data: {
+          status: 'suspended',
+          online: false,
+          lastLat: null,
+          lastLng: null,
+          lastLocationAt: null,
+        },
+      });
+      const ping = (position: { lat: number; lng: number }) =>
+        ctx.http().post('/v1/drivers/me/location').set(driver.headers).send({ position });
+      await ping(north(450)).expect(204);
+      expect(await ctx.prisma.rideLocationPing.count({ where: { rideId } })).toBeGreaterThan(0);
+      await drive('complete').expect(200);
+      const refused = await ping(north(400)).expect(409);
+      expect(refused.body).toMatchObject({ reason: 'offline' });
     });
 
     it('takes a fix that arrives late without moving the driver back in time', async () => {
@@ -688,6 +845,30 @@ describe('rides (e2e)', () => {
       expect(location).toMatchObject({ rideId, etaSeconds: expect.any(Number) });
       own.socket.terminate();
       other.socket.terminate();
+    });
+
+    it('stops streaming a ride to a driver once their offer is gone', async () => {
+      const offered = await driverSession(ctx, 'ws-offered@example.com', north(300));
+      const { rideId } = await requestRide(ctx, rider.headers);
+      const run = await dispatch(ctx);
+      expect(run.offered).toBeGreaterThanOrEqual(1);
+      const socket = await connect(offered.accessToken);
+      socket.socket.send(JSON.stringify({ type: 'subscribe', rideId }));
+      expect(await socket.next('subscribed')).toMatchObject({ rideId });
+      // The offer lapses: the next event for the ride ends the subscription instead of arriving.
+      await ctx.prisma.rideOffer.updateMany({
+        where: { rideId, driverId: offered.driverId },
+        data: { status: 'expired' },
+      });
+      await ctx.app
+        .get(RideEventsPublisher)
+        .toRide(rideId, { type: 'ride.updated', rideId, status: 'searching' });
+      expect(await socket.next('unsubscribed')).toEqual({ type: 'unsubscribed', rideId });
+      await ctx.app
+        .get(RideEventsPublisher)
+        .toRide(rideId, { type: 'ride.updated', rideId, status: 'searching' });
+      await expect(socket.next('ride.updated')).rejects.toThrow('no ride.updated message');
+      socket.socket.terminate();
     });
 
     it('closes sockets that never authenticate or send bad tokens', async () => {

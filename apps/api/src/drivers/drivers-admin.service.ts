@@ -232,7 +232,10 @@ export class DriversAdminService {
     await this.setStatus(driverId, 'rejected', reason, staff, ['pending'], 'driver.rejected');
   }
 
-  /** Stops a driver at once: offline, open offers withdrawn. A live ride continues to its end. */
+  /**
+   * Stops a driver at once: offline, open offers withdrawn. A live ride continues to its end (its
+   * positions still reach the rider and the route check).
+   */
   async suspend(driverId: string, reason: Reason, staff: StaffActor): Promise<void> {
     await this.notSelf(driverId, staff);
     await this.setStatus(driverId, 'suspended', reason, staff, ['approved'], 'driver.suspended');

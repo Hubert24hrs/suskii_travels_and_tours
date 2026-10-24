@@ -150,6 +150,7 @@ export async function requestRide(
     dropoff?: typeof IKEJA;
     category?: RideCategory;
     scheduledFor?: string;
+    currency?: string;
   } = {},
 ): Promise<{ rideId: string; bookingId: string; totalMinor: number }> {
   const quote = await ctx
@@ -162,6 +163,7 @@ export async function requestRide(
       pickup: options.pickup ?? IKEJA,
       dropoff: options.dropoff ?? VICTORIA_ISLAND,
       scheduledFor: options.scheduledFor ?? null,
+      ...(options.currency ? { currency: options.currency } : {}),
     })
     .expect(201);
   const created = await book(

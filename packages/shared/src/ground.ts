@@ -1,4 +1,4 @@
-import { add, money, multiply, multiplyRatio, sum, zero, type Money } from './money';
+import { add, minOf, money, multiply, multiplyRatio, sum, zero, type Money } from './money';
 
 /**
  * Cars: interstate buses, intrastate rides and car rental (ADR-049 to ADR-053). Zod-free, so
@@ -372,7 +372,9 @@ export function rideFare(
 
 /**
  * What cancelling a ride costs the rider (ADR-051): nothing before a driver accepts or within the
- * free window after; after that, the cancellation fee (never more than was paid).
+ * free window after; after that, the cancellation fee (never more than was paid). The fee is in
+ * the fare rule's currency; `toPaidCurrency` converts it when the ride was paid in another one
+ * (mixing currencies throws).
  */
 export function rideCancellationFee(
   rule: Pick<RideFareRule, 'cancellationFeeMinor' | 'freeCancelSeconds' | 'currency'>,
@@ -380,14 +382,14 @@ export function rideCancellationFee(
   assignedAt: Date | null,
   paid: Money,
   now: Date,
+  toPaidCurrency: (fee: Money) => Money = (fee) => fee,
 ): Money {
   if (status !== 'assigned' && status !== 'arrived') return zero(paid.currency);
   if (!assignedAt) return zero(paid.currency);
   if (now.getTime() - assignedAt.getTime() <= rule.freeCancelSeconds * 1000) {
     return zero(paid.currency);
   }
-  const fee = rule.cancellationFeeMinor < paid.minor ? rule.cancellationFeeMinor : paid.minor;
-  return money(fee, paid.currency);
+  return minOf(toPaidCurrency(money(rule.cancellationFeeMinor, rule.currency)), paid);
 }
 
 /** A driver's share of an amount, rounded down; the platform keeps the remainder. */
