@@ -5,6 +5,7 @@ import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 
 import type { AppConfig } from './config/config';
+import { RideRealtimeGateway } from './rides/ride-realtime.gateway';
 
 /** Browser features a JSON API never needs. */
 const PERMISSIONS_POLICY =
@@ -80,5 +81,7 @@ export function configureApp<T extends NestExpressApplication>(app: T, config: A
   // Public routes live under /v1/...; infra probes are VERSION_NEUTRAL.
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.enableShutdownHooks();
+  // Live ride updates share the API's port, TLS and load balancer (ADR-052).
+  app.get(RideRealtimeGateway, { strict: false }).attach(app.getHttpServer());
   return app;
 }

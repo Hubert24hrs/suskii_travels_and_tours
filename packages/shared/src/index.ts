@@ -491,12 +491,16 @@ export {
 } from './ground';
 export {
   busSeatLayoutSchema,
+  driverApplicationSchema,
+  driverVehicleSchema,
   emergencyContactSchema,
   emergencyContactsSchema,
   geoPointSchema,
   handoverInputSchema,
+  licenceNumberSchema,
   nigeriaPointSchema,
   ninSchema,
+  payoutAccountSchema,
   placeSchema,
   plateSchema,
   ratingSchema,
@@ -505,8 +509,11 @@ export {
   seatNumberSchema,
   seatSelectionSchema,
   westAfricaPointSchema,
+  type DriverApplicationInput,
+  type DriverVehicleInput,
   type EmergencyContact,
   type HandoverInput,
+  type PayoutAccountInput,
   type RatingInput,
   type RideFareRuleInput,
 } from './ground-schemas';

@@ -1,14 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { randomInt } from 'node:crypto';
+
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   formatVoucherCode,
   primeTermEnd,
+  RIDE_PIN_LENGTH,
   VOUCHER_ALPHABET,
   VOUCHER_CODE_LENGTH,
   VOUCHER_QR_PREFIX,
 } from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import { PasswordHasher } from '../crypto/password-hasher';
 import { uuidv7 } from '../common/uuid';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { HmacService } from '../crypto/hmac.service';
@@ -17,7 +22,7 @@ import type { BookingVoucher, Prisma } from '../generated/prisma/client';
 
 import type { BookingItemRecord, BookingRecord } from './booking-presenter';
 import type { InhouseItemPayload } from './inhouse-items';
-import { voucherContext } from '../crypto/encryption-contexts';
+import { ridePinContext, voucherContext } from '../crypto/encryption-contexts';
 
 type Tx = Prisma.TransactionClient;
 
@@ -40,9 +45,11 @@ export interface VoucherView {
 @Injectable()
 export class InhouseFulfilment {
   constructor(
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly hmac: HmacService,
     private readonly encryption: FieldEncryption,
     private readonly audit: AuditService,
+    private readonly hasher: PasswordHasher,
   ) {}
 
   /** Idempotent: an item that already has its voucher or applications is left as it is. */
@@ -58,6 +65,8 @@ export class InhouseFulfilment {
       await this.startMembership(tx, booking, payload);
     } else if (payload.kind === 'bus') {
       await this.issueBusTickets(tx, booking.id, item.id);
+    } else if (payload.kind === 'ride') {
+      await this.createRide(tx, booking, item.id, payload);
     } else {
       const existing = await tx.bookingVoucher.findUnique({ where: { bookingItemId: item.id } });
       if (!existing) await this.createVoucher(tx, booking.id, item.id);
@@ -105,6 +114,64 @@ export class InhouseFulfilment {
       },
       tx,
     );
+  }
+
+  /**
+   * The paid ride (ADR-049): searching for a driver now, or scheduled until shortly before its
+   * pickup time (the dispatcher starts it). Its four-digit PIN is kept as an argon2 hash for the
+   * driver's check and encrypted for the rider's screen (ADR-050).
+   */
+  private async createRide(
+    tx: Tx,
+    booking: BookingRecord,
+    itemId: string,
+    payload: Extract<InhouseItemPayload, { kind: 'ride' }>,
+  ): Promise<void> {
+    if (await tx.ride.findUnique({ where: { bookingItemId: itemId }, select: { id: true } }))
+      return;
+    if (!booking.userId) throw new Error(`Ride booking ${booking.id} has no account`);
+    const now = new Date();
+    const leadMs = this.config.RIDE_SCHEDULE_LEAD_MINUTES * 60_000;
+    const scheduled =
+      payload.scheduledFor !== null && Date.parse(payload.scheduledFor) - leadMs > now.getTime();
+    const status = scheduled ? 'scheduled' : 'searching';
+    const id = uuidv7();
+    const pin = String(randomInt(0, 10_000)).padStart(RIDE_PIN_LENGTH, '0');
+    await tx.ride.create({
+      data: {
+        id,
+        bookingId: booking.id,
+        bookingItemId: itemId,
+        riderUserId: booking.userId,
+        category: payload.category,
+        status,
+        cityName: payload.cityName,
+        pickupLabel: payload.pickup.label,
+        pickupLat: payload.pickup.lat,
+        pickupLng: payload.pickup.lng,
+        dropoffLabel: payload.dropoff.label,
+        dropoffLat: payload.dropoff.lat,
+        dropoffLng: payload.dropoff.lng,
+        scheduledFor: payload.scheduledFor ? new Date(payload.scheduledFor) : null,
+        polyline: payload.polyline,
+        distanceMetres: payload.distanceMetres,
+        durationSeconds: payload.durationSeconds,
+        fareMinor: booking.totalMinor,
+        currency: booking.currency,
+        pinHash: await this.hasher.hash(pin),
+        pinEncrypted: this.encryption.encrypt(pin, ridePinContext(id)),
+        searchStartedAt: scheduled ? null : now,
+        events: {
+          create: {
+            event: 'created',
+            fromStatus: status,
+            toStatus: status,
+            actorKind: 'system',
+            metadata: { bookingId: booking.id },
+          },
+        },
+      },
+    });
   }
 
   /** One boarding pass per sold seat (ADR-050); the QR payload is signed when shown. */

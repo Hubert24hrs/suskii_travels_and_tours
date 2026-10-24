@@ -1,6 +1,7 @@
 import { z } from './zod-setup';
 
 import { phoneSchema } from './auth';
+import { personNameSchema } from './passengers';
 import {
   FUEL_EIGHTHS_MAX,
   layoutSeats,
@@ -8,6 +9,7 @@ import {
   NIGERIA_BOUNDS,
   RATING_MAX,
   RATING_MIN,
+  RIDE_CATEGORIES,
   RIDE_PIN_PATTERN,
   SEAT_NUMBER_PATTERN,
   WEST_AFRICA_BOUNDS,
@@ -94,6 +96,44 @@ export const plateSchema = z
   .toUpperCase()
   .regex(/^[A-Z0-9][A-Z0-9 -]{3,10}[A-Z0-9]$/, 'invalid_plate');
 
+/** A Nigerian driver's licence number as printed (letters and digits, 6 to 20). */
+export const licenceNumberSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z0-9]{6,20}$/, 'invalid_licence');
+
+const isoDay = z.iso.date();
+
+/** A driver application (ADR-050): identity and licence, checked through the KYC adapter. */
+export const driverApplicationSchema = z.object({
+  givenNames: personNameSchema,
+  surname: personNameSchema,
+  dateOfBirth: isoDay,
+  cityName: z.string().trim().min(2).max(80),
+  nin: ninSchema,
+  licenceNumber: licenceNumberSchema,
+  licenceExpiresOn: isoDay,
+});
+
+export const driverVehicleSchema = z.object({
+  make: z.string().trim().min(1).max(40),
+  model: z.string().trim().min(1).max(40),
+  year: z.number().int().min(1990).max(2100),
+  colour: z.string().trim().min(2).max(30),
+  plate: plateSchema,
+  category: z.enum(RIDE_CATEGORIES),
+  seats: z.number().int().min(2).max(8),
+  insuranceExpiresOn: isoDay,
+});
+
+/** Where payouts go (Nigerian NUBAN: 10 digits; bank code from the bank list). */
+export const payoutAccountSchema = z.object({
+  bankCode: z.string().regex(/^\d{3,6}$/, 'invalid_bank_code'),
+  accountNumber: z.string().regex(/^\d{10}$/, 'invalid_account_number'),
+  accountName: z.string().trim().min(2).max(100),
+});
+
 /** What a handover records (ADR-051): odometer, fuel, and damage notes. */
 export const handoverInputSchema = z.object({
   odometerKm: z.number().int().min(0).max(2_000_000),
@@ -102,6 +142,9 @@ export const handoverInputSchema = z.object({
 });
 
 export type EmergencyContact = z.infer<typeof emergencyContactSchema>;
+export type DriverApplicationInput = z.infer<typeof driverApplicationSchema>;
+export type DriverVehicleInput = z.infer<typeof driverVehicleSchema>;
+export type PayoutAccountInput = z.infer<typeof payoutAccountSchema>;
 export type HandoverInput = z.infer<typeof handoverInputSchema>;
 export type RideFareRuleInput = z.infer<typeof rideFareRuleSchema>;
 export type RatingInput = z.infer<typeof ratingSchema>;
