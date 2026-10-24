@@ -340,7 +340,11 @@ Tooling notes for agents:
   (Keychain / Keystore, this device only). Personal data kept offline goes in `secureCache()`
   (AES-256 MMKV); `preferences` holds settings only. Never use AsyncStorage for either.
 - `appConfig` (`src/config.ts`) is the only reader of `EXPO_PUBLIC_*`. Those values are inlined
-  in the bundle and public; a secret there fails the bundle scan.
+  in the bundle and public; a secret there fails the bundle scan. The `e2e` variant (test APK)
+  may override the API and website origins from Account, Test server (ADR-054); no other variant
+  reads that setting.
+- openapi-fetch middleware must not return the response it was given: Expo's fetch answers with
+  its own class, which fails openapi-fetch's `instanceof Response` check (return nothing).
 - Incoming URLs go through `resolveIncomingUrl()` (allowlist); add a path there and in the app
   link paths in `app.config.ts`, with a test. Guest access tokens never reach the router.
 - Payments: `startPayment()` then `openHostedCheckout()` (system browser session, never a
@@ -600,6 +604,7 @@ Tooling notes for agents:
 - [ADR-051: Cars payments, holds and deposits](docs/decisions/ADR-051-cars-payments-holds-and-deposits.md)
 - [ADR-052: Cars realtime transport](docs/decisions/ADR-052-cars-realtime-transport.md)
 - [ADR-053: Cars geo storage](docs/decisions/ADR-053-cars-geo-storage.md)
+- [ADR-054: Server address in the Android test build](docs/decisions/ADR-054-test-build-server-address.md)
 
 ## Open questions for the owner
 
