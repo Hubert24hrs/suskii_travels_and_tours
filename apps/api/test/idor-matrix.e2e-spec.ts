@@ -85,6 +85,8 @@ interface Fixture {
   sessionId: string;
   busHoldId: string;
   rideId: string;
+  /** A Lagos ride place, where the flight leaves from (departure planner). */
+  ridePlaceId: string;
   reservationId: string;
 }
 
@@ -95,10 +97,17 @@ interface Case {
   headers?: Record<string, string>;
   /** Raw request body (uploads). */
   raw?: { contentType: string; bytes: Buffer };
+  /** Query string, kept out of `path` so the path still matches the operation's template. */
+  query?: (f: Fixture) => Record<string, string>;
 }
 
 const CASES: Record<string, Case> = {
   getBooking: { path: (f) => `/v1/bookings/${f.flightBookingId}` },
+  getDeparturePlan: {
+    path: (f) => `/v1/bookings/${f.flightBookingId}/departure-plan`,
+    query: (f) => ({ from: f.ridePlaceId }),
+  },
+  getCarsSuggestions: { path: (f) => `/v1/bookings/${f.flightBookingId}/cars-suggestions` },
   cancelBooking: { path: (f) => `/v1/bookings/${f.flightBookingId}/cancel` },
   downloadBookingDocument: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/documents/${f.bookingDocumentId}`,
@@ -456,6 +465,10 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
     const staff = await staffSession(ctx, 'idor-rides@suskii.test', ['operations']);
     await rideCatalog(ctx, bearer(staff.accessToken));
     const { rideId } = await requestRide(ctx, auth);
+    const places = await ctx.http().get('/v1/rides/places').expect(200);
+    const ridePlace = (places.body.places as { id: string; name: string }[]).find(
+      (place) => place.name === 'Eko Hotel',
+    );
     // A paid self-drive rental.
     const car = await rentalVehicle(ctx, bearer(staff.accessToken));
     const { reservationId } = await paidRental(ctx, auth, {
@@ -466,6 +479,7 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
 
     return {
       rideId,
+      ridePlaceId: ridePlace?.id ?? '',
       reservationId,
       busHoldId: hold.body.holdId as string,
       flightBookingId: flight.bookingId,
@@ -482,6 +496,7 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
   function call(operation: Operation, testCase: Case, headers: Record<string, string>) {
     let request = ctx.http()[operation.method](testCase.path(fixture)).set(headers);
     if (testCase.headers) request = request.set(testCase.headers);
+    if (testCase.query) request = request.query(testCase.query(fixture));
     if (operation.idempotent) request = request.set('Idempotency-Key', idempotencyKey());
     if (testCase.raw) {
       return request.set('Content-Type', testCase.raw.contentType).send(testCase.raw.bytes);
