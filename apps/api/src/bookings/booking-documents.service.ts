@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { daysBetween, money } from '@suskii/shared';
+import { daysBetween, money, utcToLocal } from '@suskii/shared';
 
 import {
   documentDateTime,
+  renderBusTicketsPdf,
   renderInhouseVoucherPdf,
   renderTicketPdf,
   renderVisaConfirmationPdf,
@@ -14,12 +15,14 @@ import {
 import { VISA_DISCLAIMER } from '../notifications/templates';
 import { ObjectStorage } from '../documents/object-storage';
 import { Prisma, type BookingDocumentType } from '../generated/prisma/client';
+import { TicketSigner } from '../ground/ticket-signer';
 import { PrismaService } from '../infra/prisma.service';
 import { FxService } from '../pricing/fx.service';
 
 import { bookedRate, isInhouse, type ItemPayload } from './booking-pricing';
+import { busTicketViews } from './bus-tickets';
 import { InhouseFulfilment } from './inhouse-fulfilment';
-import type { InhouseItemPayload } from './inhouse-items';
+import type { BusItemPayload, InhouseItemPayload } from './inhouse-items';
 import {
   BOOKING_INCLUDE,
   itemPayload,
@@ -41,6 +44,7 @@ const FILE_PREFIX: Record<BookingDocumentType, string> = {
   tour_voucher: 'tour-voucher',
   addon_voucher: 'add-on-voucher',
   visa_confirmation: 'visa-confirmation',
+  bus_ticket: 'boarding-passes',
 };
 
 /** Memberships have no travel document: the confirmation email is their receipt. */
@@ -52,6 +56,7 @@ const DOCUMENT_TYPE: Record<ItemPayload['kind'], BookingDocumentType | null> = {
   addon: 'addon_voucher',
   visa: 'visa_confirmation',
   membership: null,
+  bus: 'bus_ticket',
 };
 
 const documentType = (payload: ItemPayload): BookingDocumentType | null =>
@@ -93,6 +98,7 @@ export class BookingDocumentsService {
     private readonly storage: ObjectStorage,
     private readonly fx: FxService,
     private readonly fulfilment: InhouseFulfilment,
+    private readonly signer: TicketSigner,
   ) {}
 
   /** Makes sure every document of a confirmed booking exists; returns them (e.g. for email). */
@@ -177,6 +183,7 @@ export class BookingDocumentsService {
     const total = money(booking.totalMinor, booking.currency);
     const issuedAt = booking.confirmedAt ?? new Date();
     if (payload.kind === 'membership') throw new Error('Memberships have no document');
+    if (payload.kind === 'bus') return this.renderBus(booking, item, payload, total, issuedAt);
     if (isInhouse(payload)) return this.renderInhouse(booking, item, payload, total, issuedAt);
     if (payload.kind === 'flight') {
       const services = itemServices(item);
@@ -254,10 +261,45 @@ export class BookingDocumentsService {
     return renderVoucherPdf(voucher);
   }
 
+  /** Boarding passes, one page per seat with its signed QR code (ADR-050). */
+  private async renderBus(
+    booking: BookingRecord,
+    item: BookingRecord['items'][number],
+    payload: BusItemPayload,
+    total: ReturnType<typeof money>,
+    issuedAt: Date,
+  ): Promise<Uint8Array> {
+    const tickets = await this.prisma.busTicket.findMany({ where: { bookingItemId: item.id } });
+    const views = busTicketViews(tickets, booking.passengers, payload, this.signer);
+    return renderBusTicketsPdf({
+      reference: booking.reference,
+      issuedAt,
+      sample: payload.sample,
+      operatorName: payload.operatorName,
+      origin: payload.origin,
+      destination: payload.destination,
+      departsAtLocal: payload.departsAtLocal,
+      arrivesAtLocal: utcToLocal(new Date(payload.arrivesAtUtc), payload.timeZone),
+      tickets: views.flatMap((view) =>
+        view.qrPayload
+          ? [
+              {
+                seatNumber: view.seatNumber,
+                passenger: view.passengerName,
+                qrPayload: view.qrPayload,
+              },
+            ]
+          : [],
+      ),
+      cancellation: cancellationLines(payload.cancellationPolicy),
+      total,
+    });
+  }
+
   private async renderInhouse(
     booking: BookingRecord,
     item: BookingRecord['items'][number],
-    payload: Exclude<InhouseItemPayload, { kind: 'membership' }>,
+    payload: Exclude<InhouseItemPayload, { kind: 'membership' | 'bus' }>,
     total: ReturnType<typeof money>,
     issuedAt: Date,
   ): Promise<Uint8Array> {

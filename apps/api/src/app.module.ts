@@ -14,6 +14,7 @@ import { AttestationModule } from './attestation/attestation.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
+import { BusesModule } from './buses/buses.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { AppVersionGuard } from './common/app-version.guard';
 import { BeaconBodyMiddleware } from './common/beacon-body.middleware';
@@ -86,6 +87,7 @@ export class AppModule implements NestModule {
         NewsletterModule,
         BookingsModule,
         InhouseModule,
+        BusesModule,
         VisaModule,
         AccountsModule,
         PrivacyModule,

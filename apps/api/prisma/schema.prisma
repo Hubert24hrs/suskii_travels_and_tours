@@ -844,6 +844,8 @@ enum BookingDocumentType {
   tour_voucher
   addon_voucher
   visa_confirmation
+  /// Bus boarding passes, one page per seat (ADR-050).
+  bus_ticket
 }
 
 /// One purchase: a flight or a hotel stay now, several items later (packages, add-ons).

@@ -9,6 +9,7 @@ import {
   textListSchema,
   localDate,
   addonDetailFieldsSchema,
+  money,
   moneyWireSchema,
   primeTermEnd,
   type CancellationTier,
@@ -300,6 +301,14 @@ export class InhouseCatalog {
         // Price and benefits as the plan stands now; the term is fixed at confirmation.
         const { plan, price } = await this.primePlan(payload.productId, payload.unitPrice.currency);
         return { ...payload, unitPrice: price, benefits: storedBenefits(plan.benefits) };
+      }
+      case 'bus': {
+        // The seats are already the booking's (ADR-051); only the trip and its fare can change.
+        const trip = await this.prisma.busTrip.findUnique({ where: { id: payload.tripId } });
+        if (trip?.status !== 'scheduled' || trip.departsAt <= now) {
+          throw unavailable('The departure is no longer on sale');
+        }
+        return { ...payload, unitPrice: money(trip.fareMinor, trip.currency) };
       }
     }
   }

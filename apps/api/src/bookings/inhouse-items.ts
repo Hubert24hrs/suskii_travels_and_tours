@@ -3,7 +3,9 @@ import {
   cancellationRefund,
   localDate,
   multiply,
+  multiplyRatio,
   refundBpsFor,
+  utcToLocal,
   perPersonTotal,
   seatsFor,
   zero,
@@ -53,7 +55,9 @@ export type InhouseQuoteRequest =
       travellers: TravellerCounts;
       linkToken: string | null;
     }
-  | { kind: 'membership'; planSlug: string; currency: string };
+  | { kind: 'membership'; planSlug: string; currency: string }
+  // The hold token is never echoed: the hold id alone cannot be used by someone else.
+  | { kind: 'bus'; tripId: string; holdId: string };
 
 interface InhouseBase {
   productId: string;
@@ -152,8 +156,52 @@ export interface MembershipItemPayload extends InhouseBase {
   request: Extract<InhouseQuoteRequest, { kind: 'membership' }>;
 }
 
+/** A terminal as a ticket shows it. */
+export interface BusStop {
+  terminalId: string;
+  name: string;
+  cityName: string;
+  address: string;
+}
+
+/**
+ * Seats on an interstate bus departure (ADR-051), taken from a live seat hold. `travellers`
+ * counts one adult per seat: every passenger needs their own seat and pays the seat fare.
+ */
+export interface BusItemPayload extends InhouseBase {
+  kind: 'bus';
+  tripId: string;
+  holdId: string;
+  /** The hold lapses at this instant; the booking must be paid by then. */
+  holdExpiresAt: string;
+  operatorName: string;
+  origin: BusStop;
+  destination: BusStop;
+  /** Where the trip ends, for trip facts and add-ons. */
+  cityName: string;
+  countryCode: string;
+  /** The origin terminal's zone: departure times and cancellation days count there. */
+  timeZone: string;
+  departsAtLocal: string;
+  departsAtUtc: string;
+  arrivesAtUtc: string;
+  seats: string[];
+  amenities: string[];
+  /** Fare per seat. */
+  unitPrice: Money;
+  /** VAT in basis points at quote time (`CARS_VAT_BPS`, a placeholder until the owner decides). */
+  vatBps: number;
+  cancellationPolicy: CancellationTier[];
+  request: Extract<InhouseQuoteRequest, { kind: 'bus' }>;
+}
+
 export type InhouseItemPayload =
-  PackageItemPayload | TourItemPayload | VisaItemPayload | AddonItemPayload | MembershipItemPayload;
+  | PackageItemPayload
+  | TourItemPayload
+  | VisaItemPayload
+  | AddonItemPayload
+  | MembershipItemPayload
+  | BusItemPayload;
 
 export type InhouseKind = InhouseItemPayload['kind'];
 
@@ -163,6 +211,7 @@ export const INHOUSE_KINDS: readonly InhouseKind[] = [
   'visa',
   'addon',
   'membership',
+  'bus',
 ];
 
 export const INHOUSE_VERTICAL: Readonly<Record<InhouseKind, Vertical>> = {
@@ -171,7 +220,17 @@ export const INHOUSE_VERTICAL: Readonly<Record<InhouseKind, Vertical>> = {
   visa: 'visa',
   addon: 'travel_addons',
   membership: 'prime',
+  bus: 'buses',
 };
+
+/** Cars kinds (ADR-049): not sold on payment plans or with add-ons. */
+export const CARS_KINDS: readonly InhouseKind[] = ['bus'];
+export const isCarsKind = (kind: string): boolean =>
+  (CARS_KINDS as readonly string[]).includes(kind);
+
+/** VAT on a base price, rounded half-up to the minor unit (zero while the rate is unset). */
+export const vatOn = (base: Money, vatBps: number): Money =>
+  vatBps > 0 ? multiplyRatio(base, vatBps, 10_000, 'half-up') : zero(base.currency);
 
 /** A member is one person, the account holder. */
 export const MEMBERSHIP_TRAVELLERS: TravellerCounts = { adults: 1, children: 0, infants: 0 };
@@ -191,6 +250,9 @@ export function inhouseBasePrice(
     base = multiply(payload.unitPrice, travellerTotal(payload.travellers));
   } else if (payload.kind === 'membership') {
     base = payload.unitPrice;
+  } else if (payload.kind === 'bus') {
+    base = multiply(payload.unitPrice, payload.seats.length);
+    return { price: { base, taxes: vatOn(base, payload.vatBps) } };
   } else {
     base = multiply(payload.unitPrice, payload.units);
   }
@@ -216,6 +278,8 @@ export function inhouseCountry(payload: InhouseItemPayload): string | null {
       return payload.countryCode;
     case 'membership':
       return null;
+    case 'bus':
+      return payload.countryCode;
   }
 }
 
@@ -247,6 +311,11 @@ export function inhouseDates(payload: InhouseItemPayload): { start: string; end:
       return { start: payload.startsAtLocal.slice(0, 10), end: payload.startsAtLocal.slice(0, 10) };
     case 'visa':
       return { start: payload.travelDate, end: payload.travelDate };
+    case 'bus':
+      return {
+        start: payload.departsAtLocal.slice(0, 10),
+        end: utcToLocal(new Date(payload.arrivesAtUtc), payload.timeZone).slice(0, 10),
+      };
   }
 }
 
@@ -299,6 +368,8 @@ export function inhouseOfferId(payload: InhouseItemPayload): string {
       return `addon:${payload.productId}`;
     case 'membership':
       return `prime:${payload.productId}`;
+    case 'bus':
+      return `bus:${payload.tripId}`;
   }
 }
 

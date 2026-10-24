@@ -1,6 +1,6 @@
 # Cars: buses, rides and car rental
 
-Status: in progress (P0 to P2 done)
+Status: in progress (P0 to P3 done)
 
 Task: `suskii-cars-v1`. It adds three ground-transport products, together called **Cars**:
 
@@ -150,3 +150,9 @@ conflict and its resolution:
 | 14  | Account deletion keeps its existing blocker codes: a live ride counts as `booking_in_progress`, unpaid driver earnings or a pending payout as `wallet_balance`. Clients and the mobile response shape stay as they are                                                                                                          | P2      |
 | 15  | Deleting a driver's account turns the driver into a tombstone (names, NIN, licence, bank details and plates cleared, documents destroyed, status `suspended`); ratings and past rides stay as the safety record                                                                                                                 | P2      |
 | 16  | Ride pickup and drop-off are rounded to two decimals (about 1 km) and the route dropped `RIDE_PING_RETENTION_DAYS` after the ride ends; pings are deleted then. Partial unique indexes and an exclusion constraint are raw SQL, which Prisma leaves alone (checked with `migrate diff`)                                         | P2      |
+| 17  | Every bus passenger has a seat and pays the seat fare; infants on a lap are not sold online (owner question). Passengers give names and a date of birth, no passport (domestic)                                                                                                                                                 | P3      |
+| 18  | Sales close 30 minutes before departure. A ticket's QR code boards from 3 hours before to 6 hours after departure; the window is part of the signed payload, so offline scanners enforce it too                                                                                                                                 | P3      |
+| 19  | Boarding passes are a PDF (`bus_ticket` document, one page per seat with its QR code) attached to the confirmation email, and live in the booking (`busTickets`) for the web and the app                                                                                                                                        | P3      |
+| 20  | Staff make an account an operator agent from the console (`ground:manage`), which grants the `operator_agent` role; removing its last operator removes the role                                                                                                                                                                 | P3      |
+| 21  | Cancelling a departure refunds its paid bookings in full (`supplier_cancellation`, non-discretionary) and cancels the unpaid ones. Cars bookings take no payment plans and no linked add-ons                                                                                                                                    | P3      |
+| 22  | A booking cancelled before its hold lapses frees the seat in the database at once; the Redis key lapses on its own within the 10-minute hold, so the seat can show as held for a few minutes                                                                                                                                    | P3      |

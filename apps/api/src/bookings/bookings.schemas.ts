@@ -5,6 +5,7 @@ import {
   ADDON_PRICING_BASES,
   ADDON_PRODUCT_TYPES,
   BOOKING_STATUSES,
+  BUS_TICKET_STATUSES,
   CABIN_CLASSES,
   FLIGHT_NUMBER_PATTERN,
   VISA_APPLICATION_STATUSES,
@@ -270,6 +271,53 @@ export const membershipItemSchema = named(
   }),
 );
 
+const busStopSchema = z.object({
+  terminalId: z.uuid(),
+  name: z.string(),
+  cityName: z.string(),
+  address: z.string(),
+});
+
+/** Interstate bus seats (ADR-051). */
+export const busItemSchema = named(
+  'BusItem',
+  z.object({
+    product: productRefSchema,
+    operatorName: z.string(),
+    tripId: z.uuid(),
+    origin: busStopSchema,
+    destination: busStopSchema,
+    timeZone: z.string(),
+    departsAtLocal: z.string().meta({ description: 'Wall time at the origin terminal.' }),
+    departsAt: timestamp,
+    arrivesAt: timestamp,
+    seats: z.array(z.string()),
+    amenities: z.array(z.string()),
+    travellers: travellerCountsDtoSchema,
+    cancellationPolicy: z.array(cancellationTierDtoSchema),
+    holdExpiresAt: timestamp.meta({
+      description: 'The seats are held until then; pay before it or choose seats again.',
+    }),
+  }),
+);
+
+/** A boarding pass (ADR-050); the QR payload is signed and verifiable offline. */
+export const busTicketSchema = named(
+  'BusTicket',
+  z.object({
+    id: z.uuid(),
+    seatNumber: z.string(),
+    passengerName: z.string(),
+    status: z.enum(BUS_TICKET_STATUSES),
+    boardedAt: timestamp.nullable(),
+    qrPayload: z.string().nullable().meta({
+      description: 'What the QR code encodes while the ticket can board (no personal data).',
+    }),
+    validFrom: timestamp,
+    validUntil: timestamp,
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // Quotes (checkout)
 // ---------------------------------------------------------------------------
@@ -301,6 +349,7 @@ export const quoteSchema = named(
     visa: visaItemSchema.nullable(),
     addon: addonItemSchema.nullable(),
     membership: membershipItemSchema.nullable(),
+    bus: busItemSchema.nullable(),
     price: priceSchema.nullable().meta({
       description: 'In-house products: the priced total (flights and hotels: in the offer).',
     }),
@@ -527,6 +576,10 @@ export const bookingSchema = named(
     visa: visaItemSchema.nullable(),
     addon: addonItemSchema.nullable(),
     membership: membershipItemSchema.nullable(),
+    bus: busItemSchema.nullable(),
+    busTickets: z
+      .array(busTicketSchema)
+      .meta({ description: 'Boarding passes of a confirmed bus booking, one per seat.' }),
     voucher: z
       .object({
         code: z
@@ -580,6 +633,7 @@ export const bookingSchema = named(
           'tour_voucher',
           'addon_voucher',
           'visa_confirmation',
+          'bus_ticket',
         ]),
         fileName: z.string(),
         sizeBytes: z.number().int(),

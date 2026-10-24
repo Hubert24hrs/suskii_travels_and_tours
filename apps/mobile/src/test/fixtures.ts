@@ -102,6 +102,8 @@ export function booking(patch: Partial<Booking> = {}): Booking {
     visa: null,
     addon: null,
     membership: null,
+    bus: null,
+    busTickets: [],
     voucher: null,
     cancellation: null,
     addons: [],
@@ -200,6 +202,7 @@ export function flightQuote(patch: Partial<Schemas['Quote']> = {}): Schemas['Quo
     visa: null,
     addon: null,
     membership: null,
+    bus: null,
     price: null,
     payment: {
       providers: [{ name: 'mock', methods: ['card'] }],

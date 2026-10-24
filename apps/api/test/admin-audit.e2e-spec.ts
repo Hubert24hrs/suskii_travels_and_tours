@@ -703,6 +703,89 @@ describe('admin audit coverage (e2e)', () => {
     );
   });
 
+  it('ground: bus operators, agents, terminals, routes, layouts and departures', async () => {
+    const busPolicy = [
+      { daysBefore: 1, refundBps: 10_000 },
+      { daysBefore: 0, refundBps: 0 },
+    ];
+    const operator = await audited('adminCreateBusOperator', {}, (request) =>
+      request.send({ slug: 'audit-coaches', name: 'Audit Coaches', cancellationPolicy: busPolicy }),
+    );
+    const operatorId = operator.body.id as string;
+    await audited('adminUpdateBusOperator', { id: operatorId }, (request) =>
+      request.send({ status: 'published' }),
+    );
+    const agent = await signUp(ctx, 'audit-agent@example.com');
+    await audited('adminAddOperatorAgent', { id: operatorId, userId: agent.userId }, none);
+    await audited('adminRemoveOperatorAgent', { id: operatorId, userId: agent.userId }, none);
+    const terminal = async (slug: string, city: string) =>
+      (
+        await audited('adminCreateBusTerminal', {}, (request) =>
+          request.send({
+            slug,
+            name: `${city} terminal`,
+            cityName: city,
+            stateName: city,
+            countryCode: 'NG',
+            address: `${city} road`,
+            lat: 6.5,
+            lng: 3.4,
+            timeZone: 'Africa/Lagos',
+          }),
+        )
+      ).body.id as string;
+    const originId = await terminal('audit-lagos', 'Lagos');
+    const destinationId = await terminal('audit-ibadan', 'Ibadan');
+    await audited('adminUpdateBusTerminal', { id: destinationId }, (request) =>
+      request.send({ lat: 7.35, lng: 3.87 }),
+    );
+    const route = await audited('adminCreateBusRoute', {}, (request) =>
+      request.send({ operatorId, originId, destinationId, distanceKm: 128, durationMinutes: 150 }),
+    );
+    const routeId = route.body.id as string;
+    await audited('adminUpdateBusRoute', { id: routeId }, (request) =>
+      request.send({ durationMinutes: 160 }),
+    );
+    const layout = await audited('adminCreateBusLayout', {}, (request) =>
+      request.send({
+        operatorId,
+        name: 'Minibus',
+        layout: { rows: [['1A', '1B', '1C']] },
+        amenities: ['air_conditioning'],
+      }),
+    );
+    const layoutId = layout.body.id as string;
+    await audited('adminUpdateBusLayout', { id: layoutId }, (request) =>
+      request.send({ name: 'Minibus 3' }),
+    );
+    const trip = await audited('adminCreateBusTrip', {}, (request) =>
+      request.send({
+        routeId,
+        layoutId,
+        departsAtLocal: `${inDays(6)}T07:00`,
+        fareMinor: 850_000,
+        currency: 'NGN',
+      }),
+    );
+    await audited('adminScheduleBusTrips', {}, (request) =>
+      request.send({
+        routeId,
+        layoutId,
+        fromDate: inDays(7),
+        toDate: inDays(8),
+        times: ['06:30'],
+        fareMinor: 850_000,
+        currency: 'NGN',
+      }),
+    );
+    await audited('adminUpdateBusTrip', { id: trip.body.id as string }, (request) =>
+      request.send({ fareMinor: 900_000, blockedSeats: ['1A'] }),
+    );
+    await audited('adminCancelBusTrip', { id: trip.body.id as string }, (request) =>
+      request.send({ reason: 'weather' }),
+    );
+  });
+
   it('covered every admin mutation', () => {
     const missing = MUTATIONS.map((op) => op.operationId).filter((id) => !covered.has(id));
     expect(missing).toEqual([]);
