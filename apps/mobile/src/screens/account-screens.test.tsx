@@ -5,9 +5,12 @@ import { File } from 'expo-file-system';
 import { shareAsync } from 'expo-sharing';
 import { Share } from 'react-native';
 
+import { createBareApi } from '../lib/api';
+import { offlineScanner } from '../lib/offline-scan';
 import { tripStore } from '../lib/trips';
 import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
 import { ALERT_ID, myReferrals, notificationPreferences, priceAlert } from '../test/fixtures';
+import { ticketSigner } from '../test/tickets';
 
 import { AccountScreen } from './account-screen';
 import { NotificationSettingsScreen } from './notification-settings-screen';
@@ -33,6 +36,44 @@ describe('AccountScreen', () => {
     expect(router.push).toHaveBeenCalledWith('/account/privacy');
     await fireEvent.press(screen.getByRole('button', { name: m.account.nav.notifications }));
     expect(router.push).toHaveBeenCalledWith('/account/notifications');
+  });
+
+  it('uploads offline boarding scans before signing out, then leaves none on the phone', async () => {
+    const keys = ticketSigner();
+    const now = Math.floor(Date.now() / 1000);
+    const qr = keys.ticket({
+      tid: '0192d3a0-7c1e-7b2a-9f00-00000000c131',
+      trp: '0192d3a0-7c1e-7b2a-9f00-00000000c101',
+      st: '1A',
+      nbf: now - 600,
+      exp: now + 3600,
+    });
+    const order: string[] = [];
+    const { calls } = mockApi({
+      'GET /v1/me/wallet': () => json({ balances: [], movements: [] }),
+      'GET /v1/buses/ticket-keys': () => json({ keys: [{ kid: keys.kid, spki: keys.spki }] }),
+      'POST /v1/operator/tickets/sync': () => {
+        order.push('sync');
+        return json({ results: [{ result: 'boarded', reason: null, ticket: null }] });
+      },
+      'DELETE /v1/me/push-token': () => new Response(null, { status: 204 }),
+      'POST /v1/auth/logout': () => {
+        order.push('logout');
+        return new Response(null, { status: 204 });
+      },
+    });
+    const session = await signedInSession({ roles: ['customer', 'operator_agent'] });
+    await renderWithApp(<AccountScreen />, session);
+    await offlineScanner.refreshKeys(createBareApi());
+    expect(offlineScanner.scan(qr).result).toBe('boarded');
+
+    await fireEvent.press(screen.getByRole('button', { name: m.mobile.account.signOut }));
+    await waitFor(() => expect(session.signedIn).toBe(false));
+    expect(order).toEqual(['sync', 'logout']);
+    const upload = calls.find((call) => call.url.endsWith('/v1/operator/tickets/sync'));
+    expect(((await upload?.json()) as { scans: unknown[] }).scans).toHaveLength(1);
+    expect(offlineScanner.pending()).toEqual([]);
+    expect(offlineScanner.hasKeys()).toBe(false);
   });
 
   it('asks visitors to sign in on account screens', async () => {
@@ -285,6 +326,7 @@ describe('PrivacyScreen', () => {
 
   it('deletes the account after the password and DELETE, then forgets it on the phone', async () => {
     const forget = jest.spyOn(tripStore, 'forgetAccount');
+    const forgetScans = jest.spyOn(offlineScanner, 'forget');
     const { calls } = mockApi({
       ...routes({ allowed: true, blockers: [] }),
       'POST /v1/me/deletion': () => json({ status: 'deleted' }),
@@ -306,6 +348,7 @@ describe('PrivacyScreen', () => {
     );
     expect(session.signedIn).toBe(false);
     expect(forget).toHaveBeenCalled();
+    expect(forgetScans).toHaveBeenCalled();
     const request = calls.find(
       (call) => call.url.endsWith('/v1/me/deletion') && call.method === 'POST',
     );

@@ -1139,6 +1139,27 @@ export const en = {
         },
         scanAnother: 'Scan another',
         error: 'We could not check this ticket. Try again.',
+        offline: {
+          boarded: 'Boarded offline: seat {seat}',
+          boardedNote: 'Checked on this phone. It is confirmed when the scan uploads.',
+          alreadyBoarded: 'Already used: seat {seat}, boarded on this phone at {time}',
+          noKeys:
+            'You are offline and this phone cannot check tickets yet. Open this screen once online first.',
+          pending: {
+            one: '{count} offline scan waiting to upload',
+            other: '{count} offline scans waiting to upload',
+          },
+          sync: 'Upload now',
+          synced: {
+            one: '{count} offline scan uploaded.',
+            other: '{count} offline scans uploaded.',
+          },
+          conflicts: {
+            one: '{count} needs checking: boarded on another phone, cancelled or not for your departures.',
+            other:
+              '{count} need checking: boarded on another phone, cancelled or not for your departures.',
+          },
+        },
       },
     },
   },
