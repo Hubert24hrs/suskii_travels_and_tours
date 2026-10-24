@@ -484,8 +484,9 @@ Tooling notes for agents:
 - Personal data in Cars is mapped in `docs/privacy/cars-data-map.md`; metrics in
   `telemetry/metrics.ts` and `operations-metrics.ts`; runbooks for safety incidents, stuck rides,
   the driver document backlog and an offline scanner are in `docs/runbooks/`.
-- The website has no Server Actions (Next.js advisory GHSA-p3m5-59mp-jv5r applies to apps with
-  one until Next.js 16.4 can be installed); preferences post to `app/preferences/[name]/route.ts`.
+- The website has no Server Actions; preferences post to `app/preferences/[name]/route.ts`
+  (route handlers keep the CSRF and origin checks in one place). Semver 6 is overridden to 7
+  (`semver@<7`) so Babel's graph never needs `semver@6.3.1`, which the trust policy refuses.
 
 ### Hardening (phase 11, ADR-037 to ADR-048)
 
@@ -610,6 +611,7 @@ Tooling notes for agents:
 - [ADR-052: Cars realtime transport](docs/decisions/ADR-052-cars-realtime-transport.md)
 - [ADR-053: Cars geo storage](docs/decisions/ADR-053-cars-geo-storage.md)
 - [ADR-054: Server address in the Android test build](docs/decisions/ADR-054-test-build-server-address.md)
+- [ADR-055: Semver 6 override instead of a trust policy exception](docs/decisions/ADR-055-semver-6-override-instead-of-a-trust-policy-exception.md)
 
 ## Open questions for the owner
 
@@ -656,6 +658,4 @@ countries or routes (`PAYMENT_RISK_*`), the cookie policy text, and someone with
 Android devices to run the screen reader checklist before the first store release. Added by
 Cars: the maps and routing provider, the KYC provider for drivers, bus operator APIs or manual
 inventory (manual by default), cash for rides (off by default), VAT on Cars fares
-(`CARS_VAT_BPS`, placeholder 0), the payout provider, and whether to admit `semver@6.3.1` past
-the pnpm trust policy so Next.js 16.4 and Storybook 10.6.3 can be installed
-(`docs/security/dependency-exceptions.md`).
+(`CARS_VAT_BPS`, placeholder 0), and the payout provider.

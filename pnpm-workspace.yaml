@@ -57,12 +57,12 @@ catalog:
   '@fontsource-variable/dm-sans': ^5.3.0
 
   # Storybook and browser tests (packages/ui-web)
-  storybook: ^10.6.0
-  '@storybook/react': ^10.6.0
-  '@storybook/react-vite': ^10.6.0
-  '@storybook/addon-a11y': ^10.6.0
-  '@storybook/addon-docs': ^10.6.0
-  eslint-plugin-storybook: ^10.6.0
+  storybook: ^10.6.3
+  '@storybook/react': ^10.6.3
+  '@storybook/react-vite': ^10.6.3
+  '@storybook/addon-a11y': ^10.6.3
+  '@storybook/addon-docs': ^10.6.3
+  eslint-plugin-storybook: ^10.6.3
   vite: ^8.3.4
   '@vitejs/plugin-react': ^6.1.1
   '@vitest/browser-playwright': ^5.0.5
@@ -142,7 +142,7 @@ catalog:
   react-dom: 19.2.3
   '@types/react': ~19.2.18
   '@types/react-dom': ~19.2.7
-  next: 16.3.8
+  next: 16.4.1
 
   # Mobile (versions from expo@57 bundledNativeModules.json)
   expo: ~57.0.25
@@ -262,6 +262,10 @@ overrides:
   # The Expo CLI pins zod 3, which has no fixed release (GHSA-mrhx-c7xc-m3w5). It only builds
   # dev-tools plugin schemas with object, string, enum and array, which zod 4 keeps as they are.
   '@expo/cli>zod': ^4.6.7
+  # Babel 7, eslint-plugin-import/react and istanbul pin semver 6, whose only release with the
+  # ReDoS fix (6.3.1) has no provenance, so the pnpm trust policy refuses it whenever the graph
+  # is re-resolved. They call satisfies, intersects, lt, gt, valid and parse, unchanged in 7.
+  semver@<7: ^7.8.5
   # Lighthouse's puppeteer pulls chromium-bidi, which pins zod 3 (same advisory). Its zod schemas
   # only run in the WebDriver BiDi mapper, which puppeteer loads on demand; Lighthouse uses CDP.
   'chromium-bidi>zod': ^4.6.7

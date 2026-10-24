@@ -75,6 +75,9 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
 - A rental's reservation deposit follows an accepted re-price, and the deposit-release refund is
   no longer recorded as cancelling the booking.
 - The Expo CLI and Lighthouse's chromium-bidi get a fixed zod (scoped overrides).
+- Next.js 16.4.1 (web, console) and Storybook 10.6.3, fixing two critical and two high
+  advisories. The trust policy stays as it is: semver 6 users (Babel 7, two ESLint plugins,
+  istanbul) move to semver 7.8.5 instead of admitting `semver@6.3.1`, which has no provenance.
 - App: a session the API revokes now also clears the account's trips, booking copies, saved
   documents and scanning keys from the phone, and sign-out removes booking copies and documents
   opened from links or notifications; a refresh that answers after sign-out or a new sign-in is
@@ -92,8 +95,7 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
 
 #### Known issues
 
-- Next.js 16.4 and Storybook 10.6.3 are blocked by the pnpm trust policy (`semver@6.3.1`);
-  body-parser 2.4.0 and multer 2.5.0 wait for the release cooldown (2026-10-25). Exposure and
+- body-parser 2.4.0 and multer 2.5.0 wait for the release cooldown (2026-10-25). Exposure and
   mitigations: `docs/security/dependency-exceptions.md`.
 
 ### Phase 11: Hardening (2026-10-12)
