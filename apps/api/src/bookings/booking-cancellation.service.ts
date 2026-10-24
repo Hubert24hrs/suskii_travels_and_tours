@@ -63,6 +63,14 @@ export class BookingCancellationService {
           ? cancellationTerms(payload, current.status, paid, new Date())
           : null;
       if (!terms) throw notCancellable();
+      // Once the car is collected, the rental ends with its return, not a cancellation.
+      if (payload?.kind === 'rental' && item) {
+        const reservation = await tx.rentalReservation.findUnique({
+          where: { bookingItemId: item.id },
+          select: { status: true },
+        });
+        if (reservation?.status !== 'reserved') throw notCancellable();
+      }
       const fee = subtract(paid, terms.refund);
       if (fee.minor > 0n) {
         await this.ledger.post(tx, {

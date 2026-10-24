@@ -73,11 +73,13 @@ import { BookingFundsService } from './booking-funds.service';
 import { busTicketViews } from './bus-tickets';
 import { InhouseFulfilment } from './inhouse-fulfilment';
 import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
-import { claimBusSeats, reserveSeats } from './seat-inventory';
+import { RENTAL_RESERVATION_INCLUDE, rentalReservationView } from './rental-views';
+import { claimBusSeats, claimRental, reserveSeats } from './seat-inventory';
 import {
   addonDetailsContext,
   contactContext,
   passportContext,
+  rentalLicenceNumberContext,
 } from '../crypto/encryption-contexts';
 import { bookingsCreated } from '../telemetry/metrics';
 
@@ -199,8 +201,8 @@ export class BookingsService {
     const item = booking.items[0];
     if (!item) return EMPTY_VIEW;
     const payload = itemPayload(item);
-    const [voucher, linked, addons, applications, membership, busTickets, ride] = await Promise.all(
-      [
+    const [voucher, linked, addons, applications, membership, busTickets, ride, rental] =
+      await Promise.all([
         booking.status === 'CONFIRMED' && isInhouse(payload) && payload.kind !== 'visa'
           ? this.prisma.bookingVoucher.findUnique({ where: { bookingItemId: item.id } })
           : null,
@@ -248,13 +250,19 @@ export class BookingsService {
         payload.kind === 'ride'
           ? this.prisma.ride.findUnique({ where: { bookingItemId: item.id }, select: { id: true } })
           : null,
-      ],
-    );
+        payload.kind === 'rental'
+          ? this.prisma.rentalReservation.findUnique({
+              where: { bookingItemId: item.id },
+              include: RENTAL_RESERVATION_INCLUDE,
+            })
+          : null,
+      ]);
     return {
       voucher: voucher ? this.fulfilment.view(voucher) : null,
-      cancellation: isInhouse(payload)
-        ? cancellationTerms(payload, booking.status, paid, now)
-        : null,
+      cancellation:
+        isInhouse(payload) && (payload.kind !== 'rental' || rental?.status === 'reserved')
+          ? cancellationTerms(payload, booking.status, paid, now)
+          : null,
       linkedBooking: linked,
       addons: addons.flatMap((addon) => {
         const first = addon.items[0];
@@ -280,6 +288,14 @@ export class BookingsService {
       })),
       membershipTerm: membership,
       rideId: ride?.id ?? null,
+      rental: rental
+        ? rentalReservationView(rental, (licence) =>
+            this.encryption.decrypt(
+              licence.numberEncrypted,
+              rentalLicenceNumberContext(licence.id),
+            ),
+          )
+        : null,
       busTickets:
         payload.kind === 'bus'
           ? busTicketViews(busTickets, booking.passengers, payload, this.ticketSigner)
@@ -372,10 +388,11 @@ export class BookingsService {
     const now = new Date();
     if (quote.expiresAt <= now) throw offerUnavailable(payload.request);
     if (payload.kind === 'hotel' && !('query' in payload)) throw quoteExpired();
-    // A membership or a ride belongs to the account that asked for its quote (ADR-030,
-    // ADR-049): rides need an account for tracking, safety and the driver's contact.
+    // A membership, ride or rental belongs to the account that asked for its quote (ADR-030,
+    // ADR-049): rides need an account for tracking and safety, rentals for the licence check,
+    // handovers and the deposit refund.
     if (
-      (payload.kind === 'membership' || payload.kind === 'ride') &&
+      (payload.kind === 'membership' || payload.kind === 'ride' || payload.kind === 'rental') &&
       (!userId || quote.userId !== userId)
     ) {
       throw new NotFoundException();
@@ -458,7 +475,10 @@ export class BookingsService {
       },
       passengers: {
         create:
-          payload.kind === 'hotel' || payload.kind === 'membership' || payload.kind === 'ride'
+          payload.kind === 'hotel' ||
+          payload.kind === 'membership' ||
+          payload.kind === 'ride' ||
+          payload.kind === 'rental'
             ? input.guests.map((guest, index) => ({
                 id: uuidv7(),
                 position: index,
@@ -489,6 +509,8 @@ export class BookingsService {
           now,
         );
       }
+      // The car is blocked with the booking, or neither is written (exclusion constraint).
+      if (payload.kind === 'rental') await claimRental(tx, payload, itemId, this.config);
       await this.transitions.created(tx, { id: bookingId, status: 'DRAFT' }, actor);
       await this.transitions.apply(tx, { id: bookingId, status: 'DRAFT' }, 'price', actor);
       if (userId) await this.saveTravellers(tx, userId, passengers, actor);
@@ -553,8 +575,14 @@ export class BookingsService {
     payload: ItemPayload,
     userId: string | null,
   ): Promise<PreparedPassenger[]> {
-    if (payload.kind === 'hotel' || payload.kind === 'membership' || payload.kind === 'ride') {
-      // Hotel rooms take a lead guest each; a membership names its member, a ride its rider.
+    if (
+      payload.kind === 'hotel' ||
+      payload.kind === 'membership' ||
+      payload.kind === 'ride' ||
+      payload.kind === 'rental'
+    ) {
+      // Hotel rooms take a lead guest each; a membership names its member, a ride its rider and
+      // a rental its renter.
       const expected = payload.kind === 'hotel' ? payload.request.rooms.length : 1;
       if (input.passengers.length > 0 || input.guests.length !== expected) {
         throw passengersInvalid([

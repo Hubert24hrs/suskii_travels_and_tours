@@ -57,8 +57,10 @@ const DOCUMENT_TYPE: Record<ItemPayload['kind'], BookingDocumentType | null> = {
   visa: 'visa_confirmation',
   membership: null,
   bus: 'bus_ticket',
-  // A ride's receipt is its confirmation email and the booking page (ADR-049).
+  // A ride's receipt is its confirmation email and the booking page (ADR-049); a rental's
+  // pickup details live on the booking page and its record is the signed handover (ADR-051).
   ride: null,
+  rental: null,
 };
 
 const documentType = (payload: ItemPayload): BookingDocumentType | null =>
@@ -184,7 +186,7 @@ export class BookingDocumentsService {
   ): Promise<Uint8Array> {
     const total = money(booking.totalMinor, booking.currency);
     const issuedAt = booking.confirmedAt ?? new Date();
-    if (payload.kind === 'membership' || payload.kind === 'ride') {
+    if (payload.kind === 'membership' || payload.kind === 'ride' || payload.kind === 'rental') {
       throw new Error(`${payload.kind} bookings have no document`);
     }
     if (payload.kind === 'bus') return this.renderBus(booking, item, payload, total, issuedAt);
@@ -303,7 +305,7 @@ export class BookingDocumentsService {
   private async renderInhouse(
     booking: BookingRecord,
     item: BookingRecord['items'][number],
-    payload: Exclude<InhouseItemPayload, { kind: 'membership' | 'bus' | 'ride' }>,
+    payload: Exclude<InhouseItemPayload, { kind: 'membership' | 'bus' | 'ride' | 'rental' }>,
     total: ReturnType<typeof money>,
     issuedAt: Date,
   ): Promise<Uint8Array> {

@@ -38,6 +38,8 @@ export const RETENTION_RULES = [
   'safety-incidents',
   'driver-documents',
   'driver-payouts',
+  'rental-licences',
+  'rental-photos',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -75,10 +77,16 @@ export const RETENTION_DAYS = {
   'safety-incidents': 730,
   /** Superseded or rejected driver documents, and every document of a rejected application. */
   'driver-documents': 90,
+  /** After the car came back or the rental ended without one: the licence served its purpose. */
+  'rental-licences': 30,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
-    'closed-bookings' | 'ride-location-pings' | 'ride-locations' | 'driver-payouts'
+    | 'closed-bookings'
+    | 'ride-location-pings'
+    | 'ride-locations'
+    | 'driver-payouts'
+    | 'rental-photos'
   >,
   number
 >;
@@ -220,6 +228,11 @@ export class RetentionService {
         }),
       ),
       'driver-documents': await this.pruneDriverDocuments(before('driver-documents'), now),
+      'rental-licences': await this.pruneRentalLicences(before('rental-licences')),
+      'rental-photos': await this.pruneRentalPhotos(
+        daysBefore(now, this.config.RENTAL_PHOTO_RETENTION_DAYS),
+        now,
+      ),
       'driver-payouts': counts(
         await this.prisma.driverPayout.deleteMany({
           where: {
@@ -292,6 +305,76 @@ export class RetentionService {
     }
   }
 
+  /**
+   * Self-drive licences once the rental is over (returned, or released without a return): the
+   * row with its encrypted number goes, and the scan is deleted.
+   */
+  private async pruneRentalLicences(cutoff: Date): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const due = await this.prisma.rentalLicence.findMany({
+        where: {
+          reservation: {
+            OR: [
+              { status: 'returned', returnAt: { lt: cutoff } },
+              { active: false, updatedAt: { lt: cutoff } },
+            ],
+          },
+        },
+        select: { id: true, storageKey: true },
+        take: BATCH,
+      });
+      if (due.length === 0) return total;
+      await this.prisma.rentalLicence.deleteMany({
+        where: { id: { in: due.map((row) => row.id) } },
+      });
+      await this.deleteFiles(due.map((row) => row.storageKey));
+      total += due.length;
+    }
+  }
+
+  /**
+   * Handover photos after the dispute window (RENTAL_PHOTO_RETENTION_DAYS after the return, or
+   * after a rental that never started was released): files and keys destroyed, the immutable
+   * row kept as a record that evidence existed.
+   */
+  private async pruneRentalPhotos(cutoff: Date, now: Date): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const due = await this.prisma.rentalHandoverPhoto.findMany({
+        where: {
+          deletedAt: null,
+          reservation: {
+            OR: [
+              { status: 'returned', returnAt: { lt: cutoff } },
+              { active: false, updatedAt: { lt: cutoff } },
+            ],
+          },
+        },
+        select: { id: true, storageKey: true },
+        take: BATCH,
+      });
+      if (due.length === 0) return total;
+      await this.prisma.rentalHandoverPhoto.updateMany({
+        where: { id: { in: due.map((row) => row.id) } },
+        data: { storageKey: null, wrappedKey: '', deletedAt: now },
+      });
+      await this.deleteFiles(due.map((row) => row.storageKey));
+      total += due.length;
+    }
+  }
+
+  private async deleteFiles(keys: readonly (string | null)[]): Promise<void> {
+    for (const key of keys) {
+      if (!key) continue;
+      try {
+        await this.storage.delete(key);
+      } catch (error) {
+        this.logger.warn({ err: error }, 'could not delete a stored rental file');
+      }
+    }
+  }
+
   /** Clears the personal data left on bookings closed for longer than the financial period. */
   private async anonymiseClosedBookings(now: Date): Promise<number> {
     const cutoff = new Date(now);
@@ -306,6 +389,7 @@ export class RetentionService {
       });
       if (due.length === 0) return total;
       for (const booking of due) {
+        let carsFiles: string[] = [];
         await this.prisma.$transaction(async (tx) => {
           await tx.booking.update({
             where: { id: booking.id },
@@ -346,9 +430,12 @@ export class RetentionService {
           await tx.$executeRaw`
             UPDATE booking_items SET payload = payload - 'detailsEncrypted'
              WHERE booking_id = ${booking.id}::uuid AND payload ? 'detailsEncrypted'`;
-          await redactCarsBooking(tx, booking.id);
+          carsFiles = await redactCarsBooking(tx, booking.id);
         });
-        for (const { storageKey } of booking.documents) {
+        for (const storageKey of [
+          ...booking.documents.map((doc) => doc.storageKey),
+          ...carsFiles,
+        ]) {
           try {
             await this.storage.delete(storageKey);
           } catch (error) {

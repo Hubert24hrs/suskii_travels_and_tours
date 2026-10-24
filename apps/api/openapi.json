@@ -6264,6 +6264,1313 @@
         "x-step-up": true
       }
     },
+    "/v1/admin/rentals/reservations": {
+      "get": {
+        "operationId": "adminListRentalReservations",
+        "summary": "Rentals with licences, handovers and deposits",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "reserved",
+                "checked_out",
+                "returned",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "licence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending_upload",
+                "pending_scan",
+                "pending_review",
+                "approved",
+                "rejected"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRentalReservations"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ]
+      }
+    },
+    "/v1/admin/rentals/reservations/{reservationId}/deposit": {
+      "post": {
+        "operationId": "adminReleaseRentalDeposit",
+        "summary": "Release the deposit after check-in, keeping part of it with a reason",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "keptMinor": {
+                    "default": 0,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000000
+                  },
+                  "reason": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "damage",
+                          "fuel",
+                          "excess_mileage",
+                          "late_return",
+                          "cleaning",
+                          "other"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ],
+        "x-audit": [
+          "rental.deposit_released"
+        ]
+      }
+    },
+    "/v1/admin/rentals/reservations/{reservationId}/handovers": {
+      "post": {
+        "operationId": "adminRecordRentalHandover",
+        "summary": "Record check-out or check-in (cannot be changed afterwards)",
+        "description": "Check-out needs a confirmed booking and an approved licence in date (self-drive) or an approved driver as chauffeur. Check-in needs a check-out and an odometer reading no lower than it. 409 `rental-conflict` otherwise.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "odometerKm": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2000000
+                  },
+                  "fuelEighths": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8
+                  },
+                  "damageNotes": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "check_out",
+                      "check_in"
+                    ]
+                  },
+                  "photoIds": {
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "chauffeurDriverId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "odometerKm",
+                  "fuelEighths",
+                  "damageNotes",
+                  "kind",
+                  "photoIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ],
+        "x-audit": [
+          "rental.checked_out",
+          "rental.checked_in"
+        ]
+      }
+    },
+    "/v1/admin/rentals/reservations/{reservationId}/licence": {
+      "get": {
+        "operationId": "adminGetRentalLicence",
+        "summary": "The renter's licence scan (every read is audited)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ]
+      }
+    },
+    "/v1/admin/rentals/reservations/{reservationId}/licence/review": {
+      "post": {
+        "operationId": "adminReviewRentalLicence",
+        "summary": "Approve or reject the renter's licence",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "approve",
+                      "reject"
+                    ]
+                  },
+                  "reason": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "unreadable",
+                          "expired",
+                          "name_mismatch",
+                          "not_a_licence",
+                          "other"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ],
+        "x-audit": [
+          "rental.licence_reviewed"
+        ]
+      }
+    },
+    "/v1/admin/rentals/reservations/{reservationId}/photos": {
+      "post": {
+        "operationId": "adminUploadRentalPhoto",
+        "summary": "Upload a condition photo for the next handover",
+        "description": "Raw JPEG or PNG body; virus-scanned and encrypted. Attach it in the handover.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The photo.",
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalPhotoCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Problem413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Problem415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ],
+        "x-audit": [
+          "rental.photo_uploaded"
+        ]
+      }
+    },
+    "/v1/admin/rentals/reservations/{reservationId}/photos/{photoId}": {
+      "get": {
+        "operationId": "adminGetRentalPhoto",
+        "summary": "A condition photo (every read is audited)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "photoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ]
+      }
+    },
+    "/v1/admin/rentals/vehicles": {
+      "get": {
+        "operationId": "adminListRentalVehicles",
+        "summary": "The rental fleet",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRentalVehicles"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateRentalVehicle",
+        "summary": "Add a car (draft until published)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slug": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 80,
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  },
+                  "make": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  },
+                  "year": {
+                    "type": "integer",
+                    "minimum": 1990,
+                    "maximum": 2100
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "economy",
+                      "compact",
+                      "suv",
+                      "luxury",
+                      "van"
+                    ]
+                  },
+                  "transmission": {
+                    "type": "string",
+                    "enum": [
+                      "automatic",
+                      "manual"
+                    ]
+                  },
+                  "seats": {
+                    "type": "integer",
+                    "minimum": 2,
+                    "maximum": 20
+                  },
+                  "plate": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9][A-Z0-9 -]{3,10}[A-Z0-9]$"
+                  },
+                  "features": {
+                    "default": [],
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    }
+                  },
+                  "photoUrls": {
+                    "default": [],
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "artKey": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cityName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 80
+                  },
+                  "branchName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "branchAddress": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 300
+                  },
+                  "lat": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "lng": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 64
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "NGN",
+                      "USD",
+                      "GBP",
+                      "EUR",
+                      "GHS",
+                      "KES",
+                      "ZAR"
+                    ]
+                  },
+                  "dailyMinor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000000
+                  },
+                  "chauffeurDailyMinor": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "depositMinor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000000
+                  },
+                  "deliveryPerKmMinor": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "deliveryMaxKm": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "mileageKmPerDay": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "excessKmMinor": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "fuelPolicy": {
+                    "default": "full_to_full",
+                    "type": "string",
+                    "enum": [
+                      "full_to_full",
+                      "same_to_same"
+                    ]
+                  },
+                  "insuranceSummary": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "cancellationPolicy": {
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "daysBefore": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 365
+                        },
+                        "refundBps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      },
+                      "required": [
+                        "daysBefore",
+                        "refundBps"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "slug",
+                  "make",
+                  "model",
+                  "year",
+                  "category",
+                  "transmission",
+                  "seats",
+                  "plate",
+                  "cityName",
+                  "branchName",
+                  "branchAddress",
+                  "lat",
+                  "lng",
+                  "timeZone",
+                  "currency",
+                  "dailyMinor",
+                  "depositMinor",
+                  "cancellationPolicy"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ],
+        "x-audit": [
+          "rental.vehicle_created"
+        ]
+      }
+    },
+    "/v1/admin/rentals/vehicles/{id}": {
+      "patch": {
+        "operationId": "adminUpdateRentalVehicle",
+        "summary": "Change, publish or withdraw a car",
+        "description": "Booked rentals keep the rates they were quoted.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "make": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  },
+                  "year": {
+                    "type": "integer",
+                    "minimum": 1990,
+                    "maximum": 2100
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "economy",
+                      "compact",
+                      "suv",
+                      "luxury",
+                      "van"
+                    ]
+                  },
+                  "transmission": {
+                    "type": "string",
+                    "enum": [
+                      "automatic",
+                      "manual"
+                    ]
+                  },
+                  "seats": {
+                    "type": "integer",
+                    "minimum": 2,
+                    "maximum": 20
+                  },
+                  "features": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    }
+                  },
+                  "photoUrls": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "artKey": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cityName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 80
+                  },
+                  "branchName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "branchAddress": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 300
+                  },
+                  "lat": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "lng": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 64
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "NGN",
+                      "USD",
+                      "GBP",
+                      "EUR",
+                      "GHS",
+                      "KES",
+                      "ZAR"
+                    ]
+                  },
+                  "dailyMinor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000000000
+                  },
+                  "chauffeurDailyMinor": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "depositMinor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000000
+                  },
+                  "deliveryPerKmMinor": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "deliveryMaxKm": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "mileageKmPerDay": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "excessKmMinor": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "fuelPolicy": {
+                    "type": "string",
+                    "enum": [
+                      "full_to_full",
+                      "same_to_same"
+                    ]
+                  },
+                  "insuranceSummary": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "cancellationPolicy": {
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "daysBefore": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 365
+                        },
+                        "refundBps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      },
+                      "required": [
+                        "daysBefore",
+                        "refundBps"
+                      ]
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "published",
+                      "archived"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ground:manage"
+        ],
+        "x-audit": [
+          "rental.vehicle_updated"
+        ]
+      }
+    },
     "/v1/admin/rides/{rideId}/cancel": {
       "post": {
         "operationId": "adminCancelRide",
@@ -6972,7 +8279,6 @@
                     "maximum": 180
                   },
                   "active": {
-                    "default": true,
                     "type": "boolean"
                   }
                 }
@@ -18038,6 +19344,457 @@
         }
       }
     },
+    "/v1/rentals/reservations/{reservationId}": {
+      "get": {
+        "operationId": "getRentalReservation",
+        "summary": "Your rental's reservation and licence status",
+        "tags": [
+          "Rentals"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalReservation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/rentals/reservations/{reservationId}/licence": {
+      "put": {
+        "operationId": "submitRentalLicence",
+        "summary": "Give your driver's licence for a self-drive rental",
+        "description": "The number is encrypted and shown back as its last three characters. It must be valid until the car is due back. Replaces an earlier licence until one is approved.",
+        "tags": [
+          "Rentals"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "number": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9]{6,20}$"
+                  },
+                  "expiresOn": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                },
+                "required": [
+                  "number",
+                  "expiresOn"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalReservation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/rentals/reservations/{reservationId}/licence/document": {
+      "put": {
+        "operationId": "uploadRentalLicence",
+        "summary": "Upload a scan or photo of your licence",
+        "description": "Send the raw file as the body: PDF, JPEG or PNG, detected from the bytes (415 `document-type`), at most VISA_DOCUMENT_MAX_BYTES (413). Encrypted at rest, virus-scanned, then reviewed by staff before check-out.",
+        "tags": [
+          "Rentals"
+        ],
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The file itself.",
+          "content": {
+            "application/pdf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalReservation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Problem413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Problem415"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/rentals/vehicles": {
+      "get": {
+        "operationId": "searchRentalVehicles",
+        "summary": "Cars free for a period in a city",
+        "description": "Times are local to the branch (`YYYY-MM-DDTHH:mm`). 422 `quote-invalid` (`period_invalid`, `too_long`) for periods that cannot be booked.",
+        "tags": [
+          "Rentals"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "Lagos",
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "pickupAt",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+            }
+          },
+          {
+            "name": "returnAt",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "economy",
+                "compact",
+                "suv",
+                "luxury",
+                "van"
+              ]
+            }
+          },
+          {
+            "name": "chauffeur",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalSearchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/rentals/vehicles/{slug}": {
+      "get": {
+        "operationId": "getRentalVehicle",
+        "summary": "A rental car with its rates and policies",
+        "tags": [
+          "Rentals"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalVehicle"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/rentals/vehicles/{vehicleId}/availability": {
+      "get": {
+        "operationId": "getRentalAvailability",
+        "summary": "Periods a car is taken between two dates",
+        "tags": [
+          "Rentals"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalAvailability"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/rides": {
       "get": {
         "operationId": "listRides",
@@ -22773,6 +24530,7 @@
               "goodwill",
               "supplier_cancellation",
               "risk_rejected",
+              "deposit_release",
               "other"
             ]
           },
@@ -22914,6 +24672,526 @@
         },
         "required": [
           "refunds"
+        ],
+        "additionalProperties": false
+      },
+      "AdminRentalReservation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bookingReference": {
+            "type": "string"
+          },
+          "bookingStatus": {
+            "type": "string"
+          },
+          "vehicle": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "make": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "plate": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "make",
+              "model",
+              "plate"
+            ],
+            "additionalProperties": false
+          },
+          "renterName": {
+            "type": "string"
+          },
+          "pickupAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "returnAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "chauffeur": {
+            "type": "boolean"
+          },
+          "chauffeurDriverId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "delivery": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "lat": {
+                    "type": "number"
+                  },
+                  "lng": {
+                    "type": "number"
+                  },
+                  "km": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "label",
+                  "lat",
+                  "lng",
+                  "km"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "reserved",
+              "checked_out",
+              "returned",
+              "cancelled"
+            ]
+          },
+          "licenceRequired": {
+            "type": "boolean"
+          },
+          "licence": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending_upload",
+                      "pending_scan",
+                      "pending_review",
+                      "approved",
+                      "rejected"
+                    ]
+                  },
+                  "expiresOn": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "numberEndsWith": {
+                    "type": "string"
+                  },
+                  "rejectionReason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "status",
+                  "expiresOn",
+                  "numberEndsWith",
+                  "rejectionReason"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handovers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "check_out",
+                    "check_in"
+                  ]
+                },
+                "odometerKm": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "fuelEighths": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "damageNotes": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "photoIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "recordedById": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "odometerKm",
+                "fuelEighths",
+                "damageNotes",
+                "photoIds",
+                "recordedById",
+                "createdAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "deposit": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "depositReleasedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "depositKept": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "depositDeductionReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "bookingId",
+          "bookingReference",
+          "bookingStatus",
+          "vehicle",
+          "renterName",
+          "pickupAt",
+          "returnAt",
+          "chauffeur",
+          "chauffeurDriverId",
+          "delivery",
+          "status",
+          "licenceRequired",
+          "licence",
+          "handovers",
+          "deposit",
+          "depositReleasedAt",
+          "depositKept",
+          "depositDeductionReason"
+        ],
+        "additionalProperties": false
+      },
+      "AdminRentalReservations": {
+        "type": "object",
+        "properties": {
+          "reservations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRentalReservation"
+            }
+          }
+        },
+        "required": [
+          "reservations"
+        ],
+        "additionalProperties": false
+      },
+      "AdminRentalVehicles": {
+        "type": "object",
+        "properties": {
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "make": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "year": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "economy",
+                    "compact",
+                    "suv",
+                    "luxury",
+                    "van"
+                  ]
+                },
+                "transmission": {
+                  "type": "string",
+                  "enum": [
+                    "automatic",
+                    "manual"
+                  ]
+                },
+                "seats": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "features": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "photoUrls": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "artKey": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sample": {
+                  "type": "boolean"
+                },
+                "cityName": {
+                  "type": "string"
+                },
+                "branch": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "lat": {
+                      "type": "number"
+                    },
+                    "lng": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "address",
+                    "lat",
+                    "lng"
+                  ],
+                  "additionalProperties": false
+                },
+                "daily": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "chauffeurDaily": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "deposit": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "delivery": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "perKm": {
+                          "$ref": "#/components/schemas/Money"
+                        },
+                        "maxKm": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "perKm",
+                        "maxKm"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "mileage": {
+                  "type": "object",
+                  "properties": {
+                    "kmPerDay": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "excessKm": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/Money"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kmPerDay",
+                    "excessKm"
+                  ],
+                  "additionalProperties": false
+                },
+                "fuelPolicy": {
+                  "type": "string",
+                  "enum": [
+                    "full_to_full",
+                    "same_to_same"
+                  ]
+                },
+                "insuranceSummary": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "published",
+                    "archived"
+                  ]
+                },
+                "plate": {
+                  "type": "string"
+                },
+                "upcomingRentals": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "slug",
+                "make",
+                "model",
+                "year",
+                "category",
+                "transmission",
+                "seats",
+                "features",
+                "photoUrls",
+                "artKey",
+                "sample",
+                "cityName",
+                "branch",
+                "daily",
+                "chauffeurDaily",
+                "deposit",
+                "delivery",
+                "mileage",
+                "fuelPolicy",
+                "insuranceSummary",
+                "status",
+                "plate",
+                "upcomingRentals"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "vehicles"
         ],
         "additionalProperties": false
       },
@@ -23885,6 +26163,16 @@
               }
             ]
           },
+          "rental": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RentalItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "busTickets": {
             "type": "array",
             "items": {
@@ -24167,6 +26455,7 @@
           "membership",
           "bus",
           "ride",
+          "rental",
           "busTickets",
           "voucher",
           "cancellation",
@@ -24498,6 +26787,16 @@
             "items": {
               "$ref": "#/components/schemas/BookingExtra"
             }
+          },
+          "deposit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -24509,7 +26808,8 @@
           "total",
           "memberSaving",
           "fx",
-          "extras"
+          "extras",
+          "deposit"
         ],
         "additionalProperties": false
       },
@@ -30866,6 +33166,83 @@
             "properties": {
               "kind": {
                 "type": "string",
+                "const": "rental"
+              },
+              "vehicleId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "pickupAtLocal": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+              },
+              "returnAtLocal": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+              },
+              "chauffeur": {
+                "default": false,
+                "type": "boolean"
+              },
+              "delivery": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "lat": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90
+                      },
+                      "lng": {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "lat",
+                      "lng",
+                      "label"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "currency": {
+                "default": "NGN",
+                "type": "string",
+                "enum": [
+                  "NGN",
+                  "USD",
+                  "GBP",
+                  "EUR",
+                  "GHS",
+                  "KES",
+                  "ZAR"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "vehicleId",
+              "pickupAtLocal",
+              "returnAtLocal"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
                 "const": "ride"
               },
               "category": {
@@ -34750,6 +37127,16 @@
               }
             ]
           },
+          "rental": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RentalItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "price": {
             "anyOf": [
               {
@@ -34779,6 +37166,7 @@
           "membership",
           "bus",
           "ride",
+          "rental",
           "price",
           "payment"
         ],
@@ -35182,6 +37570,1011 @@
         ],
         "additionalProperties": false
       },
+      "RentalAvailability": {
+        "type": "object",
+        "properties": {
+          "vehicleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "blocked": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "until": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "from",
+                "until"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "vehicleId",
+          "timeZone",
+          "blocked"
+        ],
+        "additionalProperties": false
+      },
+      "RentalCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "RentalItem": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "sample": {
+                "type": "boolean"
+              },
+              "artKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "title",
+              "sample",
+              "artKey"
+            ],
+            "additionalProperties": false
+          },
+          "vehicle": {
+            "type": "object",
+            "properties": {
+              "make": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "year": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "economy",
+                  "compact",
+                  "suv",
+                  "luxury",
+                  "van"
+                ]
+              },
+              "transmission": {
+                "type": "string",
+                "enum": [
+                  "automatic",
+                  "manual"
+                ]
+              },
+              "seats": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "photoUrls": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "make",
+              "model",
+              "year",
+              "category",
+              "transmission",
+              "seats",
+              "features",
+              "photoUrls"
+            ],
+            "additionalProperties": false
+          },
+          "branch": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "address": {
+                "type": "string"
+              },
+              "lat": {
+                "type": "number"
+              },
+              "lng": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "name",
+              "address",
+              "lat",
+              "lng"
+            ],
+            "additionalProperties": false
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "pickupAtLocal": {
+            "type": "string"
+          },
+          "returnAtLocal": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "chauffeur": {
+            "type": "boolean"
+          },
+          "delivery": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "lat": {
+                    "type": "number"
+                  },
+                  "lng": {
+                    "type": "number"
+                  },
+                  "km": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "label",
+                  "lat",
+                  "lng",
+                  "km"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "charge": {
+            "type": "object",
+            "properties": {
+              "vehicle": {
+                "$ref": "#/components/schemas/Money"
+              },
+              "chauffeur": {
+                "$ref": "#/components/schemas/Money"
+              },
+              "delivery": {
+                "$ref": "#/components/schemas/Money"
+              },
+              "deposit": {
+                "$ref": "#/components/schemas/Money"
+              }
+            },
+            "required": [
+              "vehicle",
+              "chauffeur",
+              "delivery",
+              "deposit"
+            ],
+            "additionalProperties": false
+          },
+          "mileage": {
+            "type": "object",
+            "properties": {
+              "kmPerDay": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "excessKm": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "kmPerDay",
+              "excessKm"
+            ],
+            "additionalProperties": false
+          },
+          "fuelPolicy": {
+            "type": "string",
+            "enum": [
+              "full_to_full",
+              "same_to_same"
+            ]
+          },
+          "insuranceSummary": {
+            "type": "string"
+          },
+          "reservation": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "reserved",
+                      "checked_out",
+                      "returned",
+                      "cancelled"
+                    ]
+                  },
+                  "licenceRequired": {
+                    "type": "boolean"
+                  },
+                  "licence": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending_upload",
+                              "pending_scan",
+                              "pending_review",
+                              "approved",
+                              "rejected"
+                            ]
+                          },
+                          "expiresOn": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          },
+                          "numberEndsWith": {
+                            "type": "string"
+                          },
+                          "rejectionReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "status",
+                          "expiresOn",
+                          "numberEndsWith",
+                          "rejectionReason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "chauffeurAssigned": {
+                    "type": "boolean"
+                  },
+                  "checkedOutAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "checkedInAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "deposit": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "refund": {
+                            "$ref": "#/components/schemas/Money"
+                          },
+                          "kept": {
+                            "$ref": "#/components/schemas/Money"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "releasedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "refund",
+                          "kept",
+                          "reason",
+                          "releasedAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "status",
+                  "licenceRequired",
+                  "licence",
+                  "chauffeurAssigned",
+                  "checkedOutAt",
+                  "checkedInAt",
+                  "deposit"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "product",
+          "vehicle",
+          "branch",
+          "cityName",
+          "timeZone",
+          "pickupAtLocal",
+          "returnAtLocal",
+          "days",
+          "chauffeur",
+          "delivery",
+          "charge",
+          "mileage",
+          "fuelPolicy",
+          "insuranceSummary",
+          "reservation"
+        ],
+        "additionalProperties": false
+      },
+      "RentalPhotoCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "RentalReservation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "reserved",
+              "checked_out",
+              "returned",
+              "cancelled"
+            ]
+          },
+          "licenceRequired": {
+            "type": "boolean"
+          },
+          "licence": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending_upload",
+                      "pending_scan",
+                      "pending_review",
+                      "approved",
+                      "rejected"
+                    ]
+                  },
+                  "expiresOn": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "numberEndsWith": {
+                    "type": "string"
+                  },
+                  "rejectionReason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "status",
+                  "expiresOn",
+                  "numberEndsWith",
+                  "rejectionReason"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "bookingId",
+          "status",
+          "licenceRequired",
+          "licence"
+        ],
+        "additionalProperties": false
+      },
+      "RentalSearchResult": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "make": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "year": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "economy",
+                    "compact",
+                    "suv",
+                    "luxury",
+                    "van"
+                  ]
+                },
+                "transmission": {
+                  "type": "string",
+                  "enum": [
+                    "automatic",
+                    "manual"
+                  ]
+                },
+                "seats": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "features": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "photoUrls": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "artKey": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sample": {
+                  "type": "boolean"
+                },
+                "cityName": {
+                  "type": "string"
+                },
+                "branch": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "lat": {
+                      "type": "number"
+                    },
+                    "lng": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "address",
+                    "lat",
+                    "lng"
+                  ],
+                  "additionalProperties": false
+                },
+                "daily": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "chauffeurDaily": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "deposit": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "delivery": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "perKm": {
+                          "$ref": "#/components/schemas/Money"
+                        },
+                        "maxKm": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "perKm",
+                        "maxKm"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "mileage": {
+                  "type": "object",
+                  "properties": {
+                    "kmPerDay": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "excessKm": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/Money"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kmPerDay",
+                    "excessKm"
+                  ],
+                  "additionalProperties": false
+                },
+                "fuelPolicy": {
+                  "type": "string",
+                  "enum": [
+                    "full_to_full",
+                    "same_to_same"
+                  ]
+                },
+                "insuranceSummary": {
+                  "type": "string"
+                },
+                "estimate": {
+                  "type": "object",
+                  "properties": {
+                    "rental": {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    "deposit": {
+                      "$ref": "#/components/schemas/Money"
+                    }
+                  },
+                  "required": [
+                    "rental",
+                    "deposit"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "slug",
+                "make",
+                "model",
+                "year",
+                "category",
+                "transmission",
+                "seats",
+                "features",
+                "photoUrls",
+                "artKey",
+                "sample",
+                "cityName",
+                "branch",
+                "daily",
+                "chauffeurDaily",
+                "deposit",
+                "delivery",
+                "mileage",
+                "fuelPolicy",
+                "insuranceSummary",
+                "estimate"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "days",
+          "vehicles"
+        ],
+        "additionalProperties": false
+      },
+      "RentalVehicle": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "compact",
+              "suv",
+              "luxury",
+              "van"
+            ]
+          },
+          "transmission": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual"
+            ]
+          },
+          "seats": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "photoUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "artKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample": {
+            "type": "boolean"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "address": {
+                "type": "string"
+              },
+              "lat": {
+                "type": "number"
+              },
+              "lng": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "name",
+              "address",
+              "lat",
+              "lng"
+            ],
+            "additionalProperties": false
+          },
+          "daily": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "chauffeurDaily": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deposit": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "delivery": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "perKm": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "maxKm": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "perKm",
+                  "maxKm"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mileage": {
+            "type": "object",
+            "properties": {
+              "kmPerDay": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "excessKm": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "kmPerDay",
+              "excessKm"
+            ],
+            "additionalProperties": false
+          },
+          "fuelPolicy": {
+            "type": "string",
+            "enum": [
+              "full_to_full",
+              "same_to_same"
+            ]
+          },
+          "insuranceSummary": {
+            "type": "string"
+          },
+          "cancellationPolicy": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "daysBefore": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 365
+                },
+                "refundBps": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "daysBefore",
+                "refundBps"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "make",
+          "model",
+          "year",
+          "category",
+          "transmission",
+          "seats",
+          "features",
+          "photoUrls",
+          "artKey",
+          "sample",
+          "cityName",
+          "branch",
+          "daily",
+          "chauffeurDaily",
+          "deposit",
+          "delivery",
+          "mileage",
+          "fuelPolicy",
+          "insuranceSummary",
+          "cancellationPolicy",
+          "timeZone"
+        ],
+        "additionalProperties": false
+      },
       "ResetPasswordRequestInput": {
         "type": "object",
         "properties": {
@@ -35331,6 +38724,16 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "rental-licences": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "rental-photos": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -35353,7 +38756,9 @@
           "ride-share-links",
           "safety-incidents",
           "driver-documents",
-          "driver-payouts"
+          "driver-payouts",
+          "rental-licences",
+          "rental-photos"
         ],
         "additionalProperties": false
       },
@@ -39538,7 +42943,8 @@
                     "ride_earnings",
                     "payout_sent",
                     "payout_settled",
-                    "payout_failed"
+                    "payout_failed",
+                    "deposit_deduction"
                   ]
                 },
                 "amount": {

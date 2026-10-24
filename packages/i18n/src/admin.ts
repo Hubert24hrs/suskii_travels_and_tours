@@ -367,6 +367,7 @@ export const adminMessages = {
       goodwill: 'Goodwill',
       supplier_cancellation: 'Supplier cancellation',
       risk_rejected: 'Payment review rejected',
+      deposit_release: 'Rental deposit returned',
       other: 'Other',
     },
   },

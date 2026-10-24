@@ -1588,6 +1588,7 @@ export const en = {
         payout_sent: 'Payout',
         payout_settled: 'Payout',
         payout_failed: 'Payout returned',
+        deposit_deduction: 'Kept from a rental deposit',
       },
     },
     privacy: {

@@ -306,6 +306,11 @@ export const envSchema = z
     RIDE_FALLBACK_MAX_KM: z.coerce.number().int().min(5).max(500).default(80),
     RIDE_MAX_KM: z.coerce.number().int().min(5).max(1000).default(150),
     RIDE_PING_RETENTION_DAYS: z.coerce.number().int().min(7).max(365).default(90),
+    /** Rentals (ADR-051): turnaround between rentals, photo dispute window, delivery estimate. */
+    RENTAL_TURNAROUND_HOURS: z.coerce.number().int().min(0).max(48).default(3),
+    RENTAL_PHOTO_RETENTION_DAYS: z.coerce.number().int().min(30).max(730).default(180),
+    RENTAL_MIN_LEAD_HOURS: z.coerce.number().int().min(0).max(72).default(2),
+    RENTAL_MAX_ADVANCE_DAYS: z.coerce.number().int().min(1).max(365).default(180),
     /** Driver balances below this (NGN minor units) wait for the next payout run. */
     DRIVER_PAYOUT_MIN_MINOR: z.coerce.number().int().min(0).default(100_000),
     /** Price alerts (ADR-032): how often each is checked and the drop worth a notice. */

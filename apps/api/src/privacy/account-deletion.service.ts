@@ -177,7 +177,7 @@ export class AccountDeletionService {
         });
         const driverDocuments = await this.redactDriver(tx, userId, now);
 
-        await this.redactBookings(tx, userId, bookingIds, now);
+        const carsFiles = await this.redactBookings(tx, userId, bookingIds, now);
         await tx.bookingDocument.deleteMany({ where: { bookingId: { in: bookingIds } } });
         await tx.bookingNote.deleteMany({ where: { bookingId: { in: bookingIds } } });
         await tx.visaDocument.updateMany({
@@ -253,6 +253,7 @@ export class AccountDeletionService {
             ...bookings.flatMap((booking) => booking.documents.map((doc) => doc.storageKey)),
             ...visaDocuments.flatMap((document) => document.storageKey ?? []),
             ...driverDocuments,
+            ...carsFiles,
           ],
           retainedBookings: bookingIds.length,
         };
@@ -281,7 +282,7 @@ export class AccountDeletionService {
     userId: string,
     bookingIds: string[],
     now: Date,
-  ): Promise<void> {
+  ): Promise<string[]> {
     for (const bookingId of bookingIds) {
       await tx.booking.update({
         where: { id: bookingId },
@@ -318,7 +319,9 @@ export class AccountDeletionService {
         UPDATE booking_items SET payload = payload - 'detailsEncrypted'
          WHERE booking_id = ANY(${bookingIds}::uuid[]) AND payload ? 'detailsEncrypted'`;
     }
-    for (const bookingId of bookingIds) await redactCarsBooking(tx, bookingId);
+    const files: string[] = [];
+    for (const bookingId of bookingIds) files.push(...(await redactCarsBooking(tx, bookingId)));
+    return files;
   }
 
   /**

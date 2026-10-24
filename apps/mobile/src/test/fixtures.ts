@@ -76,6 +76,7 @@ export function booking(patch: Partial<Booking> = {}): Booking {
       memberSaving: null,
       fx: null,
       extras: [],
+      deposit: null,
     },
     pendingPriceChange: null,
     flight: {
@@ -104,6 +105,7 @@ export function booking(patch: Partial<Booking> = {}): Booking {
     membership: null,
     bus: null,
     ride: null,
+    rental: null,
     busTickets: [],
     voucher: null,
     cancellation: null,
@@ -205,6 +207,7 @@ export function flightQuote(patch: Partial<Schemas['Quote']> = {}): Schemas['Quo
     membership: null,
     bus: null,
     ride: null,
+    rental: null,
     price: null,
     payment: {
       providers: [{ name: 'mock', methods: ['card'] }],
@@ -344,7 +347,7 @@ export function tourBooking(patch: Partial<Booking> = {}): Booking {
     vertical: 'tours',
     flight: null,
     tour: tourItem,
-    price: { ...inhousePrice(9_500_000), extras: [] },
+    price: { ...inhousePrice(9_500_000), extras: [], deposit: null },
     paid: ngn(9_500_000),
     voucher: {
       code: 'U3N8-DCNR-NXZS-NXDA-293G',

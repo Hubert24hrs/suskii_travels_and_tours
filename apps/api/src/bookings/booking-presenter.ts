@@ -26,6 +26,7 @@ import {
 } from './booking-pricing';
 import { inhouseCountry, inhouseDates, inhouseItineraryFacts } from './inhouse-items';
 import { inhouseSections, type VisaApplicationSummaryDto } from './inhouse-presenter';
+import type { RentalReservationDto } from './rental-views';
 import type {
   BookingDto,
   BookingPriceDto,
@@ -106,6 +107,8 @@ export interface BookingView {
   busTickets: BusTicketView[];
   /** The ride a confirmed ride booking created (ADR-049). */
   rideId: string | null;
+  /** A rental's reservation progress (ADR-051). */
+  rental: RentalReservationDto | null;
 }
 
 export const EMPTY_VIEW: BookingView = {
@@ -117,6 +120,7 @@ export const EMPTY_VIEW: BookingView = {
   membershipTerm: null,
   busTickets: [],
   rideId: null,
+  rental: null,
 };
 
 const REFUND_VIEW = {
@@ -210,6 +214,7 @@ export function toBookingDto(
       linkedBooking: view.linkedBooking,
       membershipTerm: view.membershipTerm,
       rideId: view.rideId,
+      rental: view.rental,
     }),
     voucher: view.voucher
       ? {

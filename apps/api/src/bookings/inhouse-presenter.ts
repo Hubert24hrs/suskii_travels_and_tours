@@ -9,6 +9,7 @@ import type {
   addonItemSchema,
   busItemSchema,
   rideItemSchema,
+  rentalItemSchema,
   membershipItemSchema,
   packageItemSchema,
   tourItemSchema,
@@ -16,6 +17,7 @@ import type {
   visaItemSchema,
 } from './bookings.schemas';
 import type { InhouseItemPayload } from './inhouse-items';
+import type { RentalReservationDto } from './rental-views';
 
 export type PackageItemDto = z.infer<typeof packageItemSchema>;
 export type TourItemDto = z.infer<typeof tourItemSchema>;
@@ -25,6 +27,7 @@ export type VisaApplicationSummaryDto = z.infer<typeof visaApplicationSummarySch
 export type MembershipItemDto = z.infer<typeof membershipItemSchema>;
 export type BusItemDto = z.infer<typeof busItemSchema>;
 export type RideItemDto = z.infer<typeof rideItemSchema>;
+export type RentalItemDto = z.infer<typeof rentalItemSchema>;
 
 export interface InhouseSections {
   package: PackageItemDto | null;
@@ -34,6 +37,7 @@ export interface InhouseSections {
   membership: MembershipItemDto | null;
   bus: BusItemDto | null;
   ride: RideItemDto | null;
+  rental: RentalItemDto | null;
 }
 
 export const NO_INHOUSE: InhouseSections = {
@@ -44,6 +48,7 @@ export const NO_INHOUSE: InhouseSections = {
   membership: null,
   bus: null,
   ride: null,
+  rental: null,
 };
 
 const product = (payload: InhouseItemPayload) => ({
@@ -68,6 +73,7 @@ export function inhouseSections(
     linkedBooking?: { id: string; reference: string } | null;
     membershipTerm?: { startsAt: Date; endsAt: Date } | null;
     rideId?: string | null;
+    rental?: RentalReservationDto | null;
   } = {},
 ): InhouseSections {
   switch (payload.kind) {
@@ -215,6 +221,35 @@ export function inhouseSections(
           rideId: context.rideId ?? null,
         },
       };
+    case 'rental':
+      return {
+        ...NO_INHOUSE,
+        rental: {
+          product: product(payload),
+          vehicle: payload.vehicle,
+          branch: payload.branch,
+          cityName: payload.cityName,
+          timeZone: payload.timeZone,
+          pickupAtLocal: payload.pickupAtLocal,
+          returnAtLocal: payload.returnAtLocal,
+          days: payload.days,
+          chauffeur: payload.chauffeur,
+          delivery: payload.delivery,
+          charge: {
+            vehicle: toWire(payload.charge.vehicle),
+            chauffeur: toWire(payload.charge.chauffeur),
+            delivery: toWire(payload.charge.delivery),
+            deposit: toWire(payload.charge.deposit),
+          },
+          mileage: {
+            kmPerDay: payload.mileage.kmPerDay,
+            excessKm: payload.mileage.excessKm ? toWire(payload.mileage.excessKm) : null,
+          },
+          fuelPolicy: payload.fuelPolicy as 'full_to_full' | 'same_to_same',
+          insuranceSummary: payload.insuranceSummary,
+          reservation: context.rental ?? null,
+        },
+      };
     case 'flight':
     case 'hotel':
       return NO_INHOUSE;
@@ -235,6 +270,8 @@ export function inhouseSummary(payload: InhouseItemPayload): string {
       return `${payload.title} (${payload.period === 'year' ? 'yearly' : 'monthly'} membership)`;
     case 'bus':
       return `${payload.title}, ${documentDateTime(payload.departsAtLocal)}, seats ${payload.seats.join(', ')}`;
+    case 'rental':
+      return `${payload.title}, ${documentDateTime(payload.pickupAtLocal)} to ${documentDateTime(payload.returnAtLocal)}`;
     case 'ride':
       return `${payload.title}${payload.scheduledFor ? `, ${documentDateTime(utcToLocal(new Date(payload.scheduledFor), payload.timeZone))}` : ''}`;
   }

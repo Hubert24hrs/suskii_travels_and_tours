@@ -7,7 +7,10 @@ import {
   BOOKING_STATUSES,
   BUS_TICKET_STATUSES,
   CABIN_CLASSES,
+  RENTAL_CATEGORIES,
+  RENTAL_STATUSES,
   RIDE_CATEGORIES,
+  TRANSMISSIONS,
   FLIGHT_NUMBER_PATTERN,
   VISA_APPLICATION_STATUSES,
   PRIME_PERIODS,
@@ -339,6 +342,85 @@ export const rideItemSchema = named(
   }),
 );
 
+/** Where a self-drive rental's licence review stands (ADR-050). */
+export const RENTAL_LICENCE_STATES = [
+  'pending_upload',
+  'pending_scan',
+  'pending_review',
+  'approved',
+  'rejected',
+] as const;
+
+/** A car rental (ADR-051): the car, the period, the price parts and the reservation's progress. */
+export const rentalItemSchema = named(
+  'RentalItem',
+  z.object({
+    product: productRefSchema,
+    vehicle: z.object({
+      make: z.string(),
+      model: z.string(),
+      year: z.number().int(),
+      category: z.enum(RENTAL_CATEGORIES),
+      transmission: z.enum(TRANSMISSIONS),
+      seats: z.number().int(),
+      features: z.array(z.string()),
+      photoUrls: z.array(z.string()),
+    }),
+    branch: z.object({ name: z.string(), address: z.string(), lat: z.number(), lng: z.number() }),
+    cityName: z.string(),
+    timeZone: z.string(),
+    pickupAtLocal: z.string().meta({ description: 'Branch local time, YYYY-MM-DDTHH:mm.' }),
+    returnAtLocal: z.string(),
+    days: z.number().int().meta({ description: 'Started 24-hour periods charged.' }),
+    chauffeur: z.boolean(),
+    delivery: z
+      .object({ label: z.string(), lat: z.number(), lng: z.number(), km: z.number().int() })
+      .nullable()
+      .meta({ description: 'Delivered at pickup; the car comes back to the branch.' }),
+    charge: z.object({
+      vehicle: moneySchema,
+      chauffeur: moneySchema,
+      delivery: moneySchema,
+      deposit: moneySchema.meta({
+        description: 'Refundable; charged with the booking and refunded after the return.',
+      }),
+    }),
+    mileage: z.object({
+      kmPerDay: z.number().int().nullable().meta({ description: 'Null for unlimited mileage.' }),
+      excessKm: moneySchema.nullable(),
+    }),
+    fuelPolicy: z.enum(['full_to_full', 'same_to_same']),
+    insuranceSummary: z.string(),
+    reservation: z
+      .object({
+        id: z.uuid(),
+        status: z.enum(RENTAL_STATUSES),
+        licenceRequired: z.boolean(),
+        licence: z
+          .object({
+            status: z.enum(RENTAL_LICENCE_STATES),
+            expiresOn: isoDate,
+            numberEndsWith: z.string(),
+            rejectionReason: z.string().nullable(),
+          })
+          .nullable(),
+        chauffeurAssigned: z.boolean(),
+        checkedOutAt: timestamp.nullable(),
+        checkedInAt: timestamp.nullable(),
+        deposit: z
+          .object({
+            refund: moneySchema,
+            kept: moneySchema,
+            reason: z.string().nullable(),
+            releasedAt: timestamp,
+          })
+          .nullable(),
+      })
+      .nullable()
+      .meta({ description: 'Set once the booking exists.' }),
+  }),
+);
+
 /** A boarding pass (ADR-050); the QR payload is signed and verifiable offline. */
 export const busTicketSchema = named(
   'BusTicket',
@@ -389,6 +471,7 @@ export const quoteSchema = named(
     membership: membershipItemSchema.nullable(),
     bus: busItemSchema.nullable(),
     ride: rideItemSchema.nullable(),
+    rental: rentalItemSchema.nullable(),
     price: priceSchema.nullable().meta({
       description: 'In-house products: the priced total (flights and hotels: in the offer).',
     }),
@@ -481,7 +564,10 @@ export const bookingPriceSchema = named(
     extras: z
       .array(bookingExtraSchema)
       .meta({ description: 'Sold at supplier cost, no discount.' }),
-    total: moneySchema.meta({ description: 'fare + taxes + fees - discount + extras.' }),
+    deposit: moneySchema
+      .nullable()
+      .meta({ description: 'Rentals: refundable deposit, never marked up or discounted.' }),
+    total: moneySchema.meta({ description: 'fare + taxes + fees - discount + extras + deposit.' }),
   }),
 );
 export type BookingPriceDto = z.infer<typeof bookingPriceSchema>;
@@ -617,6 +703,7 @@ export const bookingSchema = named(
     membership: membershipItemSchema.nullable(),
     bus: busItemSchema.nullable(),
     ride: rideItemSchema.nullable(),
+    rental: rentalItemSchema.nullable(),
     busTickets: z
       .array(busTicketSchema)
       .meta({ description: 'Boarding passes of a confirmed bus booking, one per seat.' }),

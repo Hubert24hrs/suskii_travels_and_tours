@@ -192,3 +192,69 @@ export async function releaseBusSeats(tx: Tx, bookingId: string, now: Date): Pro
     data: { status: 'void' },
   });
 }
+
+export const vehicleUnavailable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'vehicle-unavailable',
+    'This car is no longer free for those dates',
+    'Someone booked it first. Choose other dates or another car.',
+  );
+
+/** Postgres refused the row because of the rental overlap exclusion constraint (23P01). */
+function overlapViolation(error: unknown): boolean {
+  const text = `${(error as { message?: string }).message ?? ''} ${JSON.stringify(
+    (error as { meta?: unknown }).meta ?? {},
+  )}`;
+  return text.includes('rental_reservations_no_overlap') || text.includes('23P01');
+}
+
+/**
+ * Blocks the car for the rental period plus the turnaround inside the booking-create transaction
+ * (ADR-051). The exclusion constraint on active reservations is the guarantee: of two concurrent
+ * bookings for overlapping periods exactly one commits, the other gets 409 `vehicle-unavailable`.
+ */
+export async function claimRental(
+  tx: Tx,
+  payload: {
+    vehicleId: string;
+    pickupAtUtc: string;
+    returnAtUtc: string;
+    chauffeur: boolean;
+    charge: { deposit: { minor: bigint; currency: string } };
+  },
+  bookingItemId: string,
+  config: { RENTAL_TURNAROUND_HOURS: number },
+): Promise<void> {
+  const returnAt = new Date(payload.returnAtUtc);
+  try {
+    // A lost race aborts the booking's transaction; the caller sees 409 and nothing is written.
+    await tx.rentalReservation.create({
+      data: {
+        vehicleId: payload.vehicleId,
+        bookingItemId,
+        pickupAt: new Date(payload.pickupAtUtc),
+        returnAt,
+        blockedUntil: new Date(returnAt.getTime() + config.RENTAL_TURNAROUND_HOURS * 3_600_000),
+        chauffeur: payload.chauffeur,
+        licenceRequired: !payload.chauffeur,
+        depositMinor: payload.charge.deposit.minor,
+        currency: payload.charge.deposit.currency,
+      },
+    });
+  } catch (error) {
+    if (overlapViolation(error)) throw vehicleUnavailable();
+    throw error;
+  }
+}
+
+/**
+ * A booking that will not go ahead frees its car (expiry, cancellation, refund). A rental that
+ * has started (checked out) keeps its record; returning the car ends it.
+ */
+export async function releaseRental(tx: Tx, bookingId: string): Promise<void> {
+  await tx.rentalReservation.updateMany({
+    where: { bookingItem: { bookingId }, active: true, status: 'reserved' },
+    data: { active: false, status: 'cancelled' },
+  });
+}

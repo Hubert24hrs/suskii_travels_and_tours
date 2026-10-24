@@ -6,7 +6,7 @@ import type { BookingActorType, BookingStatus, Prisma } from '../generated/prism
 
 import { bookingConflict } from './booking.errors';
 import { canTransition, nextStatus, type BookingEvent } from './booking-state-machine';
-import { releaseBusSeats, RELEASING_STATUSES, settleSeats } from './seat-inventory';
+import { releaseBusSeats, releaseRental, RELEASING_STATUSES, settleSeats } from './seat-inventory';
 import { bookingTransitions } from '../telemetry/metrics';
 
 type Tx = Prisma.TransactionClient;
@@ -88,6 +88,7 @@ export class BookingTransitions {
     else if (RELEASING_STATUSES.includes(to)) {
       await settleSeats(tx, booking.id, 'released');
       await releaseBusSeats(tx, booking.id, new Date());
+      await releaseRental(tx, booking.id);
     }
     await tx.bookingStatusHistory.create({
       data: {
