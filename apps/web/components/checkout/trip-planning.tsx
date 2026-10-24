@@ -179,8 +179,8 @@ function DeparturePlanner({ booking }: { booking: Booking }) {
 
   return (
     <Card asChild className="flex flex-col gap-3 p-4">
-      <section aria-labelledby="booking-plan" data-testid="departure-plan">
-        <h2 id="booking-plan" className="font-heading text-h4 font-bold text-heading">
+      <section aria-labelledby="booking-departure-plan" data-testid="departure-plan">
+        <h2 id="booking-departure-plan" className="font-heading text-h4 font-bold text-heading">
           {t('booking.cars.plan.heading')}
         </h2>
         {places.length === 0 ? (
