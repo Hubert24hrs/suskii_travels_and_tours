@@ -67,3 +67,8 @@ PostgreSQL build, including the alpine image and every managed offering.
   radii of a few kilometres.
 - Distance to a polyline is computed per ping in application code. That is cheap at one ping
   per 5 seconds per active ride.
+- `earthdistance` is not a trusted extension, so `CREATE EXTENSION` in the Cars migration needs
+  a role allowed to create extensions. The compose and CI users are superusers; on managed
+  Postgres (Cloud SQL, RDS) the provider's admin role can create it, so run `db:deploy` with that
+  role or create the extensions once before deploying. A migration run by a plain owner role
+  fails with `permission denied to create extension "earthdistance"` and changes nothing.
