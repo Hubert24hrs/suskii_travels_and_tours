@@ -247,18 +247,12 @@ describe('buses (e2e)', () => {
         .set(bearer(traveller.accessToken))
         .send({ qrPayload: payload })
         .expect(403);
+      const sync = (headers: Record<string, string>, scans: unknown[]) =>
+        ctx.http().post('/v1/operator/tickets/sync').set(headers).send({ scans }).expect(200);
       const departure = await ctx.prisma.busTrip.findUniqueOrThrow({
         where: { id: inventory.tripId },
       });
       const atGate = new Date(departure.departsAt.getTime() - 30 * 60_000).toISOString();
-      // Another operator's agent, inside the boarding window: as if the ticket did not exist.
-      const elsewhere = await ctx
-        .http()
-        .post('/v1/operator/tickets/sync')
-        .set(foreign)
-        .send({ scans: [{ qrPayload: payload, scannedAt: atGate }] })
-        .expect(200);
-      expect(elsewhere.body.results).toEqual([{ result: 'not_found', reason: null, ticket: null }]);
 
       // Boarding opens three hours before departure (five days away here).
       const early = await ctx
@@ -268,6 +262,25 @@ describe('buses (e2e)', () => {
         .send({ qrPayload: payload })
         .expect(200);
       expect(early.body).toMatchObject({ result: 'invalid', reason: 'not_yet_valid' });
+      // An offline upload cannot claim it was scanned at the gate five days from now.
+      const ahead = await sync(own, [{ qrPayload: payload, scannedAt: atGate }]);
+      expect(ahead.body.results).toEqual([
+        { result: 'invalid', reason: 'not_yet_valid', ticket: null },
+      ]);
+
+      // The same pass as it reads inside its boarding window.
+      const seconds = Math.floor(Date.now() / 1000);
+      const boarding = ctx.app.get(TicketSigner).sign({
+        tid: ticket?.id ?? '',
+        trp: inventory.tripId,
+        st: '3A',
+        nbf: seconds - 3_600,
+        exp: seconds + 3_600,
+      });
+      const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+      // Another operator's agent, inside the boarding window: as if the ticket did not exist.
+      const elsewhere = await sync(foreign, [{ qrPayload: boarding, scannedAt: minutesAgo(5) }]);
+      expect(elsewhere.body.results).toEqual([{ result: 'not_found', reason: null, ticket: null }]);
 
       const tampered = `${payload.slice(0, -4)}AAAA`;
       const forged = await ctx
@@ -278,17 +291,10 @@ describe('buses (e2e)', () => {
         .expect(200);
       expect(forged.body).toMatchObject({ result: 'invalid', reason: 'bad_signature' });
 
-      const synced = await ctx
-        .http()
-        .post('/v1/operator/tickets/sync')
-        .set(own)
-        .send({
-          scans: [
-            { qrPayload: payload, scannedAt: atGate },
-            { qrPayload: payload, scannedAt: new Date(Date.parse(atGate) + 60_000).toISOString() },
-          ],
-        })
-        .expect(200);
+      const synced = await sync(own, [
+        { qrPayload: boarding, scannedAt: minutesAgo(3) },
+        { qrPayload: boarding, scannedAt: minutesAgo(2) },
+      ]);
       expect(synced.body.results.map((result: { result: string }) => result.result)).toEqual([
         'boarded',
         'already_boarded',
