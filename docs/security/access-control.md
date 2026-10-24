@@ -46,6 +46,8 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Driver profile, documents, vehicles, payout account                                              | The applicant; payout changes need a recent sign-in. Staff with `drivers:review` (every document read audited)            |
 | Fare rules and ride places                                                                       | Staff with `ground:manage`                                                                                                |
 | Live ride board, staff ride stops, safety incidents                                              | Staff with `safety:manage` (operations, support)                                                                          |
+| Rental reservations and licences                                                                 | The renter's account only (rentals need an account); 404 for anyone else                                                  |
+| Rental fleet, licence review, handover photos, check-out and check-in, deposit release           | Staff with `ground:manage`; licence and photo reads audited                                                               |
 | Accounts                                                                                         | The owner; staff with `users:read` (view) or `users:manage` (disable, sign out, reset MFA)                                |
 | Audit log, dashboards                                                                            | Staff with `audit:read` or `reports:read`                                                                                 |
 
