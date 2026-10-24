@@ -27,3 +27,7 @@ export const driverDocumentKeyContext = (documentId: string): string =>
 export const ridePinContext = (rideId: string): string => `ride:${rideId}:pin`;
 export const emergencyContactContext = (contactId: string): string =>
   `emergency-contact:${contactId}`;
+export const rentalLicenceNumberContext = (licenceId: string): string =>
+  `rental-licence:${licenceId}:number`;
+export const rentalLicenceKeyContext = (licenceId: string): string => `rental-licence:${licenceId}`;
+export const rentalPhotoKeyContext = (photoId: string): string => `rental-photo:${photoId}`;

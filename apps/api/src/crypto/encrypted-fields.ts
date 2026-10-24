@@ -15,6 +15,9 @@ import {
   noteContext,
   passportContext,
   pushTokenContext,
+  rentalLicenceKeyContext,
+  rentalLicenceNumberContext,
+  rentalPhotoKeyContext,
   ridePinContext,
   voucherContext,
 } from './encryption-contexts';
@@ -144,6 +147,27 @@ export const ENCRYPTED_FIELDS: readonly EncryptedField[] = [
     contextColumn: 'id',
     context: driverDocumentKeyContext,
     purpose: 'Data key of a driver document (the file is sealed with it)',
+  },
+  {
+    table: 'rental_licences',
+    column: 'number_encrypted',
+    contextColumn: 'id',
+    context: rentalLicenceNumberContext,
+    purpose: "Renter's driver's licence number (self-drive)",
+  },
+  {
+    table: 'rental_licences',
+    column: 'wrapped_key',
+    contextColumn: 'id',
+    context: rentalLicenceKeyContext,
+    purpose: "Data key of the renter's licence scan",
+  },
+  {
+    table: 'rental_handover_photos',
+    column: 'wrapped_key',
+    contextColumn: 'id',
+    context: rentalPhotoKeyContext,
+    purpose: 'Data key of a check-out or check-in photo',
   },
   {
     table: 'rides',

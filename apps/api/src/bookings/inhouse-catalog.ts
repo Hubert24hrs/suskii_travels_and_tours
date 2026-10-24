@@ -10,6 +10,8 @@ import {
   localDate,
   addonDetailFieldsSchema,
   money,
+  multiply,
+  rentalCharge,
   moneyWireSchema,
   primeTermEnd,
   type CancellationTier,
@@ -318,6 +320,46 @@ export class InhouseCatalog {
           throw unavailable('The pickup time has passed');
         }
         return payload;
+      }
+      case 'rental': {
+        // The car is already the booking's (reservation row); today's rates apply to the period.
+        const vehicle = await this.prisma.rentalVehicle.findUnique({
+          where: { id: payload.vehicleId },
+        });
+        if (vehicle?.status !== 'published') throw unavailable('This car is no longer offered');
+        if (Date.parse(payload.pickupAtUtc) <= now.getTime()) {
+          throw unavailable('The pickup time has passed');
+        }
+        const charge = rentalCharge(
+          {
+            daily: money(vehicle.dailyMinor, vehicle.currency),
+            chauffeurDaily:
+              vehicle.chauffeurDailyMinor === null
+                ? null
+                : money(vehicle.chauffeurDailyMinor, vehicle.currency),
+            deposit: money(vehicle.depositMinor, vehicle.currency),
+          },
+          new Date(payload.pickupAtUtc),
+          new Date(payload.returnAtUtc),
+          payload.chauffeur,
+        );
+        if (!charge) throw unavailable('A chauffeur is no longer offered with this car');
+        const delivery =
+          payload.delivery && vehicle.deliveryPerKmMinor !== null
+            ? multiply(money(vehicle.deliveryPerKmMinor, vehicle.currency), payload.delivery.km)
+            : payload.charge.delivery;
+        if (payload.delivery && vehicle.deliveryPerKmMinor === null) {
+          throw unavailable('Delivery is no longer offered with this car');
+        }
+        return {
+          ...payload,
+          charge: {
+            vehicle: charge.vehicle,
+            chauffeur: charge.chauffeur,
+            delivery,
+            deposit: charge.deposit,
+          },
+        };
       }
     }
   }

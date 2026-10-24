@@ -39,6 +39,7 @@ export const EXPORT_SECTIONS = [
   'rides',
   'emergencyContacts',
   'driving',
+  'rentals',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -498,16 +499,28 @@ export const DATA_REGISTRY = {
   },
   RentalVehicle: reference('Rental fleet.'),
   RentalReservation: {
-    section: 'bookings',
+    section: 'rentals',
     deletion: 'retain',
     retention: { kind: 'parent', parent: 'Booking' },
     note: 'Rental period, chauffeur choice and deposit outcome.',
   },
   RentalHandover: {
-    section: 'bookings',
+    section: 'rentals',
     deletion: 'redact',
     retention: { kind: 'parent', parent: 'Booking' },
-    note: 'Odometer, fuel and damage notes at pickup and return; notes cleared with the booking.',
+    note: 'Odometer, fuel and damage notes at pickup and return; immutable evidence, notes cleared with the booking.',
+  },
+  RentalLicence: {
+    section: 'rentals',
+    deletion: 'redact',
+    retention: { kind: 'rule', rule: 'rental-licences' },
+    note: "Renter's licence for a self-drive rental: the number is cleared and the scan destroyed 30 days after return, or at deletion.",
+  },
+  RentalHandoverPhoto: {
+    section: null,
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'rental-photos' },
+    note: 'Condition photos at check-out and check-in: files and keys destroyed RENTAL_PHOTO_RETENTION_DAYS after return (dispute window), or at deletion.',
   },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 

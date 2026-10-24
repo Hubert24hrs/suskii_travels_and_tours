@@ -13,7 +13,9 @@ export type AccountRef =
   // and payouts sent to a driver's bank but not yet settled.
   | { kind: 'driver-earnings'; driverId: string; currency: string }
   | { kind: 'ride-commission'; currency: string }
-  | { kind: 'payouts-in-flight'; provider: string; currency: string };
+  | { kind: 'payouts-in-flight'; provider: string; currency: string }
+  // What a rental deposit kept for damage, fuel or extra mileage earned (ADR-051).
+  | { kind: 'rental-deductions'; currency: string };
 
 export interface AccountSpec {
   code: string;
@@ -101,6 +103,13 @@ export function accountSpec(ref: AccountRef): AccountSpec {
         type: 'liability',
         allowNegative: false,
       };
+    case 'rental-deductions':
+      return {
+        ...base,
+        code: `income:rental-deductions:${ref.currency}`,
+        type: 'income',
+        allowNegative: false,
+      };
   }
 }
 
@@ -122,5 +131,6 @@ export const LEDGER_KINDS = [
   'payout_sent',
   'payout_settled',
   'payout_failed',
+  'deposit_deduction',
 ] as const;
 export type LedgerKind = (typeof LEDGER_KINDS)[number];

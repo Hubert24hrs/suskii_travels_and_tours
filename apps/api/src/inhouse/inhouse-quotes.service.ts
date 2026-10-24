@@ -38,6 +38,7 @@ import { OfferUnavailableError } from '../suppliers/supplier.errors';
 
 import { BusHoldsService } from '../buses/bus-holds.service';
 import { BusesService } from '../buses/buses.service';
+import { RentalsCatalogService } from '../rentals/rentals-catalog.service';
 import { RidesCatalogService } from '../rides/rides-catalog.service';
 import { CarsFlags } from '../ground/cars-flags';
 
@@ -86,12 +87,18 @@ export class InhouseQuotesService {
     private readonly busHolds: BusHoldsService,
     private readonly buses: BusesService,
     private readonly rides: RidesCatalogService,
+    private readonly rentals: RentalsCatalogService,
   ) {}
 
   async create(input: InhouseQuoteInput, client: ClientContext): Promise<Quote> {
     // Suskii Prime is bought by an account for itself (ADR-030).
     if (input.kind === 'membership' && !client.userId) throw authenticationRequired();
     if (input.kind === 'bus') this.flags.require('buses');
+    if (input.kind === 'rental') {
+      this.flags.require('rentals');
+      // The renter's account carries the licence check, handovers and the deposit refund.
+      if (!client.userId) throw authenticationRequired();
+    }
     if (input.kind === 'ride') {
       this.flags.require('rides');
       // A ride needs an account: the rider follows it, is matched and is contacted (ADR-049).
@@ -174,6 +181,16 @@ export class InhouseQuotesService {
         return { kind: 'membership', planSlug: input.planSlug, currency: input.currency };
       case 'bus':
         return { kind: 'bus', tripId: '', holdId: input.holdId };
+      case 'rental':
+        return {
+          kind: 'rental',
+          vehicleId: input.vehicleId,
+          pickupAtLocal: input.pickupAtLocal,
+          returnAtLocal: input.returnAtLocal,
+          chauffeur: input.chauffeur,
+          delivery: input.delivery,
+          currency: input.currency,
+        };
       case 'ride':
         return {
           kind: 'ride',
@@ -204,6 +221,8 @@ export class InhouseQuotesService {
       }
       case 'ride':
         return this.rides.payload(input, now);
+      case 'rental':
+        return this.rentals.payload(input, now);
       case 'membership': {
         const plan = await this.prisma.primePlan.findUnique({ where: { slug: input.planSlug } });
         if (!plan) throw new OfferUnavailableError(INHOUSE_SUPPLIER, 'No such Prime plan');

@@ -39,6 +39,7 @@ export const REFUND_REASONS = [
   'goodwill',
   'supplier_cancellation',
   'risk_rejected',
+  'deposit_release',
   'other',
 ] as const;
 export type RefundReason = (typeof REFUND_REASONS)[number];

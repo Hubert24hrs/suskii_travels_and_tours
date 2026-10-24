@@ -162,6 +162,12 @@ export type AuditAction =
   | 'rental.checked_out'
   | 'rental.checked_in'
   | 'rental.deposit_released'
+  | 'rental.licence_submitted'
+  | 'rental.licence_uploaded'
+  | 'rental.licence_reviewed'
+  | 'rental.licence_accessed'
+  | 'rental.photo_uploaded'
+  | 'rental.photo_accessed'
   | 'account.emergency_contacts_updated';
 
 export interface AuditEvent {

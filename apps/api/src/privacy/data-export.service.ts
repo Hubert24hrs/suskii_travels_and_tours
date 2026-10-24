@@ -9,6 +9,7 @@ import {
   driverLicenceContext,
   driverNinContext,
   driverPayoutContext,
+  rentalLicenceNumberContext,
   emergencyContactContext,
 } from '../crypto/encryption-contexts';
 import { FieldEncryption } from '../crypto/field-encryption';
@@ -323,6 +324,7 @@ export class DataExportService {
       rides: await this.rides(userId),
       emergencyContacts: await this.emergencyContacts(userId),
       driving: await this.driving(userId),
+      rentals: await this.rentals(userId),
     };
 
     return {
@@ -458,6 +460,56 @@ export class DataExportService {
         createdAt: iso(incident.createdAt),
         resolvedAt: iso(incident.resolvedAt),
       })),
+    }));
+  }
+
+  /** Car rentals (ADR-051): periods, the licence given, handover readings and the deposit. */
+  private async rentals(userId: string): Promise<unknown> {
+    const rows = await this.prisma.rentalReservation.findMany({
+      where: { bookingItem: { booking: { userId } } },
+      include: {
+        vehicle: { select: { make: true, model: true, plate: true } },
+        licence: true,
+        handovers: {
+          include: { _count: { select: { photos: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        bookingItem: { select: { bookingId: true } },
+      },
+      orderBy: { pickupAt: 'desc' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      bookingId: row.bookingItem.bookingId,
+      vehicle: row.vehicle,
+      pickupAt: iso(row.pickupAt),
+      returnAt: iso(row.returnAt),
+      chauffeur: row.chauffeur,
+      status: row.status,
+      licence: row.licence
+        ? {
+            number: this.encryption.decrypt(
+              row.licence.numberEncrypted,
+              rentalLicenceNumberContext(row.licence.id),
+            ),
+            expiresOn: isoDate(row.licence.expiresOn),
+            status: row.licence.status,
+            scanOnFile: row.licence.storageKey !== null,
+          }
+        : null,
+      handovers: row.handovers.map((handover) => ({
+        kind: handover.kind,
+        odometerKm: handover.odometerKm,
+        fuelEighths: handover.fuelEighths,
+        damageNotes: handover.damageNotes,
+        photos: handover._count.photos,
+        recordedAt: iso(handover.createdAt),
+      })),
+      depositMinor: minor(row.depositMinor),
+      depositKeptMinor: minor(row.depositDeductionMinor),
+      depositDeductionReason: row.depositDeductionReason,
+      depositReleasedAt: iso(row.depositReleasedAt),
+      currency: row.currency,
     }));
   }
 

@@ -1312,6 +1312,8 @@ enum RefundReason {
   goodwill
   supplier_cancellation
   risk_rejected
+  /// A rental deposit coming back after the return (ADR-051).
+  deposit_release
   other
 }
 
@@ -2388,12 +2390,13 @@ model Driver {
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user      User             @relation(fields: [userId], references: [id], onDelete: Restrict)
-  vehicles  DriverVehicle[]
-  documents DriverDocument[]
-  rides     Ride[]
-  offers    RideOffer[]
-  payouts   DriverPayout[]
+  user             User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vehicles         DriverVehicle[]
+  documents        DriverDocument[]
+  rides            Ride[]
+  offers           RideOffer[]
+  payouts          DriverPayout[]
+  chauffeurRentals RentalReservation[]
 
   @@index([status, online])
   @@map("drivers")
@@ -2691,6 +2694,20 @@ model RentalVehicle {
   /// Null when the car is not offered with a chauffeur.
   chauffeurDailyMinor BigInt?        @map("chauffeur_daily_minor")
   depositMinor        BigInt         @map("deposit_minor")
+  /// Delivery to the customer's address, per started kilometre; null when not offered.
+  deliveryPerKmMinor  BigInt?        @map("delivery_per_km_minor")
+  /// Furthest delivery from the branch, straight-line kilometres.
+  deliveryMaxKm       Int?           @map("delivery_max_km")
+  /// Kilometres included per rental day; null for unlimited mileage.
+  mileageKmPerDay     Int?           @map("mileage_km_per_day")
+  /// Charged per kilometre over the allowance, deducted from the deposit at return.
+  excessKmMinor       BigInt?        @map("excess_km_minor")
+  /// `full_to_full` or `same_to_same`.
+  fuelPolicy          String         @default("full_to_full") @map("fuel_policy")
+  /// What the price includes (e.g. comprehensive cover, excess), shown with the car.
+  insuranceSummary    String         @default("") @map("insurance_summary")
+  /// Photos on `IMAGE_REMOTE_HOSTS` (https only).
+  photoUrls           String[]       @default([]) @map("photo_urls")
   /// Cancellation tiers (`CancellationTier[]`).
   cancellationPolicy  Json           @map("cancellation_policy")
   createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -2704,27 +2721,36 @@ model RentalVehicle {
 
 /// A booked rental period. An exclusion constraint keeps active periods of one car apart.
 model RentalReservation {
-  id                    String       @id @default(uuid(7)) @db.Uuid
-  vehicleId             String       @map("vehicle_id") @db.Uuid
-  bookingItemId         String       @unique @map("booking_item_id") @db.Uuid
-  pickupAt              DateTime     @map("pickup_at") @db.Timestamptz(3)
-  returnAt              DateTime     @map("return_at") @db.Timestamptz(3)
+  id                     String       @id @default(uuid(7)) @db.Uuid
+  vehicleId              String       @map("vehicle_id") @db.Uuid
+  bookingItemId          String       @unique @map("booking_item_id") @db.Uuid
+  pickupAt               DateTime     @map("pickup_at") @db.Timestamptz(3)
+  returnAt               DateTime     @map("return_at") @db.Timestamptz(3)
   /// `returnAt` plus the turnaround buffer: the end of the blocked period.
-  blockedUntil          DateTime     @map("blocked_until") @db.Timestamptz(3)
-  chauffeur             Boolean
-  status                RentalStatus @default(reserved)
+  blockedUntil           DateTime     @map("blocked_until") @db.Timestamptz(3)
+  chauffeur              Boolean
+  status                 RentalStatus @default(reserved)
   /// False once the booking releases the car (expired, cancelled, refunded).
-  active                Boolean      @default(true)
-  depositMinor          BigInt       @map("deposit_minor")
-  currency              String       @db.Char(3)
-  depositReleasedAt     DateTime?    @map("deposit_released_at") @db.Timestamptz(3)
-  depositDeductionMinor BigInt?      @map("deposit_deduction_minor")
-  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  active                 Boolean      @default(true)
+  depositMinor           BigInt       @map("deposit_minor")
+  currency               String       @db.Char(3)
+  depositReleasedAt      DateTime?    @map("deposit_released_at") @db.Timestamptz(3)
+  depositDeductionMinor  BigInt?      @map("deposit_deduction_minor")
+  /// Why part of the deposit was kept (`damage`, `fuel`, `excess_mileage`, `late_return`, ...).
+  depositDeductionReason String?      @map("deposit_deduction_reason")
+  /// Self-drive rentals need a reviewed driver's licence before check-out.
+  licenceRequired        Boolean      @default(false) @map("licence_required")
+  /// The vetted driver who chauffeurs, assigned at check-out.
+  chauffeurDriverId      String?      @map("chauffeur_driver_id") @db.Uuid
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  vehicle     RentalVehicle    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
-  bookingItem BookingItem      @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
-  handovers   RentalHandover[]
+  vehicle         RentalVehicle         @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  bookingItem     BookingItem           @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+  chauffeurDriver Driver?               @relation(fields: [chauffeurDriverId], references: [id], onDelete: Restrict)
+  handovers       RentalHandover[]
+  licence         RentalLicence?
+  photos          RentalHandoverPhoto[]
 
   @@index([vehicleId, pickupAt])
   @@map("rental_reservations")
@@ -2741,8 +2767,59 @@ model RentalHandover {
   recordedById  String       @map("recorded_by_id") @db.Uuid
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  reservation RentalReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reservation RentalReservation     @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  photos      RentalHandoverPhoto[]
 
   @@unique([reservationId, kind])
   @@map("rental_handovers")
+}
+
+/// The renter's driver's licence for a self-drive rental (ADR-050): number encrypted, the scan
+/// sealed like a visa document, reviewed by staff before check-out.
+model RentalLicence {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  reservationId   String    @unique @map("reservation_id") @db.Uuid
+  numberEncrypted String    @map("number_encrypted")
+  expiresOn       DateTime  @map("expires_on") @db.Date
+  /// `pending_upload`, `pending_scan`, `pending_review`, `approved` or `rejected`.
+  status          String    @default("pending_upload")
+  storageKey      String?   @map("storage_key")
+  /// Data key of the scan, wrapped with `rental-licence:{id}`; wiped on deletion.
+  wrappedKey      String    @default("") @map("wrapped_key")
+  sha256          String?
+  contentType     String?   @map("content_type")
+  sizeBytes       Int?      @map("size_bytes")
+  reviewedById    String?   @map("reviewed_by_id") @db.Uuid
+  reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  rejectionReason String?   @map("rejection_reason")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reservation RentalReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("rental_licences")
+}
+
+/// Photo evidence at check-out and check-in, sealed with a per-photo key (`rental-photo:{id}`).
+/// Attached to its handover once, then immutable (database trigger).
+model RentalHandoverPhoto {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  reservationId String    @map("reservation_id") @db.Uuid
+  handoverId    String?   @map("handover_id") @db.Uuid
+  storageKey    String?   @map("storage_key")
+  wrappedKey    String    @map("wrapped_key")
+  sha256        String
+  contentType   String    @map("content_type")
+  sizeBytes     Int       @map("size_bytes")
+  uploadedById  String    @map("uploaded_by_id") @db.Uuid
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  reservation RentalReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  handover    RentalHandover?   @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId])
+  @@index([handoverId])
+  @@map("rental_handover_photos")
 }

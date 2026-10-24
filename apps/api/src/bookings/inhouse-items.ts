@@ -1,10 +1,14 @@
 import {
+  add,
   addonUnits,
   cancellationRefund,
   localDate,
+  minOf,
+  money,
   multiply,
   multiplyRatio,
   refundBpsFor,
+  subtract,
   utcToLocal,
   perPersonTotal,
   seatsFor,
@@ -19,6 +23,7 @@ import {
   type PerPersonPrices,
   type PrimeBenefits,
   type PrimePeriod,
+  type RentalCategory,
   type RideCategory,
   type RideFareBreakdown,
   type RideFareRule,
@@ -61,6 +66,16 @@ export type InhouseQuoteRequest =
   | { kind: 'membership'; planSlug: string; currency: string }
   // The hold token is never echoed: the hold id alone cannot be used by someone else.
   | { kind: 'bus'; tripId: string; holdId: string }
+  | {
+      kind: 'rental';
+      vehicleId: string;
+      /** Local wall times at the branch (`YYYY-MM-DDTHH:mm`). */
+      pickupAtLocal: string;
+      returnAtLocal: string;
+      chauffeur: boolean;
+      delivery: RideStop | null;
+      currency: string;
+    }
   | {
       kind: 'ride';
       category: RideCategory;
@@ -241,6 +256,45 @@ export interface RideItemPayload extends InhouseBase {
   request: Extract<InhouseQuoteRequest, { kind: 'ride' }>;
 }
 
+/**
+ * A car rental (ADR-051): the car, the period and the price parts at quote time. The deposit is
+ * refundable and travels outside the pricing engine (never marked up, discounted or taxed); the
+ * reservation row, created with the booking, is what blocks the car (exclusion constraint).
+ */
+export interface RentalItemPayload extends InhouseBase {
+  kind: 'rental';
+  vehicleId: string;
+  vehicle: {
+    make: string;
+    model: string;
+    year: number;
+    category: RentalCategory;
+    transmission: 'automatic' | 'manual';
+    seats: number;
+    features: string[];
+    photoUrls: string[];
+  };
+  branch: { name: string; address: string; lat: number; lng: number };
+  cityName: string;
+  countryCode: string;
+  timeZone: string;
+  pickupAtLocal: string;
+  returnAtLocal: string;
+  pickupAtUtc: string;
+  returnAtUtc: string;
+  days: number;
+  chauffeur: boolean;
+  /** Delivery to the customer at pickup; the car comes back to the branch. */
+  delivery: (RideStop & { km: number }) | null;
+  charge: { vehicle: Money; chauffeur: Money; delivery: Money; deposit: Money };
+  mileage: { kmPerDay: number | null; excessKm: Money | null };
+  fuelPolicy: string;
+  insuranceSummary: string;
+  vatBps: number;
+  cancellationPolicy: CancellationTier[];
+  request: Extract<InhouseQuoteRequest, { kind: 'rental' }>;
+}
+
 export type InhouseItemPayload =
   | PackageItemPayload
   | TourItemPayload
@@ -248,7 +302,8 @@ export type InhouseItemPayload =
   | AddonItemPayload
   | MembershipItemPayload
   | BusItemPayload
-  | RideItemPayload;
+  | RideItemPayload
+  | RentalItemPayload;
 
 export type InhouseKind = InhouseItemPayload['kind'];
 
@@ -260,6 +315,7 @@ export const INHOUSE_KINDS: readonly InhouseKind[] = [
   'membership',
   'bus',
   'ride',
+  'rental',
 ];
 
 export const INHOUSE_VERTICAL: Readonly<Record<InhouseKind, Vertical>> = {
@@ -270,10 +326,11 @@ export const INHOUSE_VERTICAL: Readonly<Record<InhouseKind, Vertical>> = {
   membership: 'prime',
   bus: 'buses',
   ride: 'rides',
+  rental: 'rentals',
 };
 
 /** Cars kinds (ADR-049): not sold on payment plans or with add-ons. */
-export const CARS_KINDS: readonly InhouseKind[] = ['bus', 'ride'];
+export const CARS_KINDS: readonly InhouseKind[] = ['bus', 'ride', 'rental'];
 export const isCarsKind = (kind: string): boolean =>
   (CARS_KINDS as readonly string[]).includes(kind);
 
@@ -305,6 +362,10 @@ export function inhouseBasePrice(
   } else if (payload.kind === 'bus') {
     base = multiply(payload.unitPrice, payload.seats.length);
     return { price: { base, taxes: vatOn(base, payload.vatBps) } };
+  } else if (payload.kind === 'rental') {
+    // The deposit is not part of the price: it is added to the booking as its own line.
+    base = add(add(payload.charge.vehicle, payload.charge.chauffeur), payload.charge.delivery);
+    return { price: { base, taxes: vatOn(base, payload.vatBps) } };
   } else {
     base = multiply(payload.unitPrice, payload.units);
   }
@@ -332,6 +393,7 @@ export function inhouseCountry(payload: InhouseItemPayload): string | null {
       return null;
     case 'bus':
     case 'ride':
+    case 'rental':
       return payload.countryCode;
   }
 }
@@ -371,6 +433,8 @@ export function inhouseDates(payload: InhouseItemPayload): { start: string; end:
         start: payload.departsAtLocal.slice(0, 10),
         end: utcToLocal(new Date(payload.arrivesAtUtc), payload.timeZone).slice(0, 10),
       };
+    case 'rental':
+      return { start: payload.pickupAtLocal.slice(0, 10), end: payload.returnAtLocal.slice(0, 10) };
   }
 }
 
@@ -428,6 +492,8 @@ export function inhouseOfferId(payload: InhouseItemPayload): string {
       return `bus:${payload.tripId}`;
     case 'ride':
       return `ride:${payload.category}`;
+    case 'rental':
+      return `rental:${payload.vehicleId}`;
   }
 }
 
@@ -465,5 +531,11 @@ export function cancellationTerms(
   const today = localDate(now, timeZone);
   if (today > startDate) return null;
   const refundBps = refundBpsFor(tiers, startDate, today);
+  if (payload.kind === 'rental') {
+    // The deposit always comes back in full; the tiers apply to the rental itself (ADR-051).
+    const deposit = minOf(money(payload.charge.deposit.minor, paid.currency), paid);
+    const rental = subtract(paid, deposit);
+    return { refundBps, refund: add(deposit, cancellationRefund(rental, refundBps)) };
+  }
   return { refundBps, refund: cancellationRefund(paid, refundBps) };
 }

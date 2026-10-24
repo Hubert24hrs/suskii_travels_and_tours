@@ -33,6 +33,7 @@ import {
 } from '../bookings/bookings.schemas';
 import { named } from '../contract/contract';
 import { moneySchema } from '../pricing/pricing.schemas';
+import { localDateTimeSchema } from '../rentals/rentals.schemas';
 import { rideStopInputSchema } from '../rides/rides.schemas';
 
 const timestamp = z.iso.datetime();
@@ -352,6 +353,18 @@ export const inhouseQuoteRequestSchema = named(
         .nullable()
         .default(null)
         .meta({ description: "Guests: the hold's `holdToken`; accounts: null." }),
+      currency: currencyCodeSchema.default(DEFAULT_CURRENCY),
+    }),
+    z.object({
+      kind: z.literal('rental'),
+      vehicleId: z.uuid(),
+      pickupAtLocal: localDateTimeSchema.meta({ description: 'Branch local time.' }),
+      returnAtLocal: localDateTimeSchema,
+      chauffeur: z.boolean().default(false),
+      delivery: rideStopInputSchema
+        .nullable()
+        .default(null)
+        .meta({ description: 'Deliver the car here at pickup, where the car offers it.' }),
       currency: currencyCodeSchema.default(DEFAULT_CURRENCY),
     }),
     z.object({

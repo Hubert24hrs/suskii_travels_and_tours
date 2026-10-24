@@ -763,6 +763,14 @@ async function seedRentals(prisma: PrismaClient): Promise<void> {
       dailyMinor: naira(seed.daily),
       chauffeurDailyMinor: seed.chauffeur === null ? null : naira(seed.chauffeur),
       depositMinor: naira(seed.deposit),
+      // Delivery within 25 km at NGN 500 a kilometre; 200 km a day included, NGN 150 per extra km.
+      deliveryPerKmMinor: naira(500),
+      deliveryMaxKm: 25,
+      mileageKmPerDay: seed.category === 'luxury' ? 150 : 200,
+      excessKmMinor: naira(150),
+      fuelPolicy: 'full_to_full',
+      insuranceSummary:
+        'Sample cover: third party and theft; damage beyond the deposit is charged at cost.',
       cancellationPolicy: RENTAL_POLICY,
     };
     await prisma.rentalVehicle.upsert({

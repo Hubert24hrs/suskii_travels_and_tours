@@ -3,6 +3,7 @@ import {
   fromWire,
   multiply,
   sum,
+  zero,
   toWire,
   type FlightSearchRequest,
   type HotelSearchRequest,
@@ -170,12 +171,20 @@ export function priceBookingItem(
     const unit = servicePrice(fx, service, currency);
     return { service, quantity, unit, amount: multiply(unit, quantity) };
   });
+  // A rental deposit is refundable: added at face value, outside markup, fees and promos.
+  const deposit =
+    payload.kind === 'rental' && payload.charge.deposit.minor > 0n
+      ? fx.convert(payload.charge.deposit, currency)
+      : null;
   const total = add(
-    result.breakdown.total,
-    sum(
-      currency,
-      lines.map((line) => line.amount),
+    add(
+      result.breakdown.total,
+      sum(
+        currency,
+        lines.map((line) => line.amount),
+      ),
     ),
+    deposit ?? zero(currency),
   );
   return {
     price: {
@@ -188,6 +197,7 @@ export function priceBookingItem(
         unitPrice: toWire(line.unit),
         amount: toWire(line.amount),
       })),
+      deposit: deposit ? toWire(deposit) : null,
       total: toWire(total),
     },
     total,

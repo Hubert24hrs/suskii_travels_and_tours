@@ -1253,6 +1253,169 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/rentals/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rentals with licences, handovers and deposits */
+        get: operations["adminListRentalReservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rentals/reservations/{reservationId}/deposit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release the deposit after check-in, keeping part of it with a reason */
+        post: operations["adminReleaseRentalDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rentals/reservations/{reservationId}/handovers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record check-out or check-in (cannot be changed afterwards)
+         * @description Check-out needs a confirmed booking and an approved licence in date (self-drive) or an approved driver as chauffeur. Check-in needs a check-out and an odometer reading no lower than it. 409 `rental-conflict` otherwise.
+         */
+        post: operations["adminRecordRentalHandover"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rentals/reservations/{reservationId}/licence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The renter's licence scan (every read is audited) */
+        get: operations["adminGetRentalLicence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rentals/reservations/{reservationId}/licence/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve or reject the renter's licence */
+        post: operations["adminReviewRentalLicence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rentals/reservations/{reservationId}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a condition photo for the next handover
+         * @description Raw JPEG or PNG body; virus-scanned and encrypted. Attach it in the handover.
+         */
+        post: operations["adminUploadRentalPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rentals/reservations/{reservationId}/photos/{photoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A condition photo (every read is audited) */
+        get: operations["adminGetRentalPhoto"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rentals/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The rental fleet */
+        get: operations["adminListRentalVehicles"];
+        put?: never;
+        /** Add a car (draft until published) */
+        post: operations["adminCreateRentalVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rentals/vehicles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change, publish or withdraw a car
+         * @description Booked rentals keep the rates they were quoted.
+         */
+        patch: operations["adminUpdateRentalVehicle"];
+        trace?: never;
+    };
     "/v1/admin/rides/{rideId}/cancel": {
         parameters: {
             query?: never;
@@ -4431,6 +4594,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/rentals/reservations/{reservationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your rental's reservation and licence status */
+        get: operations["getRentalReservation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rentals/reservations/{reservationId}/licence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give your driver's licence for a self-drive rental
+         * @description The number is encrypted and shown back as its last three characters. It must be valid until the car is due back. Replaces an earlier licence until one is approved.
+         */
+        put: operations["submitRentalLicence"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rentals/reservations/{reservationId}/licence/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload a scan or photo of your licence
+         * @description Send the raw file as the body: PDF, JPEG or PNG, detected from the bytes (415 `document-type`), at most VISA_DOCUMENT_MAX_BYTES (413). Encrypted at rest, virus-scanned, then reviewed by staff before check-out.
+         */
+        put: operations["uploadRentalLicence"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rentals/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cars free for a period in a city
+         * @description Times are local to the branch (`YYYY-MM-DDTHH:mm`). 422 `quote-invalid` (`period_invalid`, `too_long`) for periods that cannot be booked.
+         */
+        get: operations["searchRentalVehicles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rentals/vehicles/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A rental car with its rates and policies */
+        get: operations["getRentalVehicle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rentals/vehicles/{vehicleId}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Periods a car is taken between two dates */
+        get: operations["getRentalAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/rides": {
         parameters: {
             query?: never;
@@ -5394,7 +5668,7 @@ export interface components {
             /** @enum {string} */
             destination: "original" | "wallet";
             /** @enum {string} */
-            reason: "duplicate_payment" | "amount_mismatch" | "late_payment" | "ticketing_failed" | "installment_default" | "customer_cancellation" | "goodwill" | "supplier_cancellation" | "risk_rejected" | "other";
+            reason: "duplicate_payment" | "amount_mismatch" | "late_payment" | "ticketing_failed" | "installment_default" | "customer_cancellation" | "goodwill" | "supplier_cancellation" | "risk_rejected" | "deposit_release" | "other";
             /** @enum {string} */
             status: "pending_approval" | "approved" | "processing" | "succeeded" | "failed" | "rejected" | "needs_review";
             automatic: boolean;
@@ -5415,6 +5689,112 @@ export interface components {
         };
         AdminRefundList: {
             refunds: components["schemas"]["AdminRefund"][];
+        };
+        AdminRentalReservation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bookingId: string;
+            bookingReference: string;
+            bookingStatus: string;
+            vehicle: {
+                /** Format: uuid */
+                id: string;
+                make: string;
+                model: string;
+                plate: string;
+            };
+            renterName: string;
+            /** Format: date-time */
+            pickupAt: string;
+            /** Format: date-time */
+            returnAt: string;
+            chauffeur: boolean;
+            chauffeurDriverId: string | null;
+            delivery: {
+                label: string;
+                lat: number;
+                lng: number;
+                km: number;
+            } | null;
+            /** @enum {string} */
+            status: "reserved" | "checked_out" | "returned" | "cancelled";
+            licenceRequired: boolean;
+            licence: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                status: "pending_upload" | "pending_scan" | "pending_review" | "approved" | "rejected";
+                /** Format: date */
+                expiresOn: string;
+                numberEndsWith: string;
+                rejectionReason: string | null;
+            } | null;
+            handovers: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "check_out" | "check_in";
+                odometerKm: number;
+                fuelEighths: number;
+                damageNotes: string | null;
+                photoIds: string[];
+                /** Format: uuid */
+                recordedById: string;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+            deposit: components["schemas"]["Money"];
+            depositReleasedAt: string | null;
+            depositKept: components["schemas"]["Money"] | null;
+            depositDeductionReason: string | null;
+        };
+        AdminRentalReservations: {
+            reservations: components["schemas"]["AdminRentalReservation"][];
+        };
+        AdminRentalVehicles: {
+            vehicles: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                make: string;
+                model: string;
+                year: number;
+                /** @enum {string} */
+                category: "economy" | "compact" | "suv" | "luxury" | "van";
+                /** @enum {string} */
+                transmission: "automatic" | "manual";
+                seats: number;
+                features: string[];
+                photoUrls: string[];
+                artKey: string | null;
+                sample: boolean;
+                cityName: string;
+                branch: {
+                    name: string;
+                    address: string;
+                    lat: number;
+                    lng: number;
+                };
+                daily: components["schemas"]["Money"];
+                chauffeurDaily: components["schemas"]["Money"] | null;
+                deposit: components["schemas"]["Money"];
+                delivery: {
+                    perKm: components["schemas"]["Money"];
+                    maxKm: number;
+                } | null;
+                mileage: {
+                    kmPerDay: number | null;
+                    excessKm: components["schemas"]["Money"] | null;
+                };
+                /** @enum {string} */
+                fuelPolicy: "full_to_full" | "same_to_same";
+                insuranceSummary: string;
+                /** @enum {string} */
+                status: "draft" | "published" | "archived";
+                plate: string;
+                upcomingRentals: number;
+            }[];
         };
         AdminTrustSignal: {
             key: string;
@@ -5594,6 +5974,7 @@ export interface components {
             membership: components["schemas"]["MembershipItem"] | null;
             bus: components["schemas"]["BusItem"] | null;
             ride: components["schemas"]["RideItem"] | null;
+            rental: components["schemas"]["RentalItem"] | null;
             busTickets: components["schemas"]["BusTicket"][];
             voucher: {
                 code: string;
@@ -5705,6 +6086,7 @@ export interface components {
                 provider: string;
             } | null;
             extras: components["schemas"]["BookingExtra"][];
+            deposit: components["schemas"]["Money"] | null;
         };
         BookingPriceChange: {
             previous: components["schemas"]["Money"];
@@ -7042,6 +7424,26 @@ export interface components {
             currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
         } | {
             /** @constant */
+            kind: "rental";
+            /** Format: uuid */
+            vehicleId: string;
+            pickupAtLocal: string;
+            returnAtLocal: string;
+            /** @default false */
+            chauffeur?: boolean;
+            /** @default null */
+            delivery?: {
+                lat: number;
+                lng: number;
+                label: string;
+            } | null;
+            /**
+             * @default NGN
+             * @enum {string}
+             */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+        } | {
+            /** @constant */
             kind: "ride";
             /** @enum {string} */
             category: "standard" | "comfort" | "xl";
@@ -7789,6 +8191,7 @@ export interface components {
             membership: components["schemas"]["MembershipItem"] | null;
             bus: components["schemas"]["BusItem"] | null;
             ride: components["schemas"]["RideItem"] | null;
+            rental: components["schemas"]["RentalItem"] | null;
             price: components["schemas"]["Price"] | null;
             payment: components["schemas"]["PaymentOptions"];
         };
@@ -7881,6 +8284,207 @@ export interface components {
             checkin: number;
             prime: number;
         };
+        RentalAvailability: {
+            /** Format: uuid */
+            vehicleId: string;
+            timeZone: string;
+            blocked: {
+                /** Format: date-time */
+                from: string;
+                /** Format: date-time */
+                until: string;
+            }[];
+        };
+        RentalCreated: {
+            /** Format: uuid */
+            id: string;
+        };
+        RentalItem: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                title: string;
+                sample: boolean;
+                artKey: string | null;
+            };
+            vehicle: {
+                make: string;
+                model: string;
+                year: number;
+                /** @enum {string} */
+                category: "economy" | "compact" | "suv" | "luxury" | "van";
+                /** @enum {string} */
+                transmission: "automatic" | "manual";
+                seats: number;
+                features: string[];
+                photoUrls: string[];
+            };
+            branch: {
+                name: string;
+                address: string;
+                lat: number;
+                lng: number;
+            };
+            cityName: string;
+            timeZone: string;
+            pickupAtLocal: string;
+            returnAtLocal: string;
+            days: number;
+            chauffeur: boolean;
+            delivery: {
+                label: string;
+                lat: number;
+                lng: number;
+                km: number;
+            } | null;
+            charge: {
+                vehicle: components["schemas"]["Money"];
+                chauffeur: components["schemas"]["Money"];
+                delivery: components["schemas"]["Money"];
+                deposit: components["schemas"]["Money"];
+            };
+            mileage: {
+                kmPerDay: number | null;
+                excessKm: components["schemas"]["Money"] | null;
+            };
+            /** @enum {string} */
+            fuelPolicy: "full_to_full" | "same_to_same";
+            insuranceSummary: string;
+            reservation: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                status: "reserved" | "checked_out" | "returned" | "cancelled";
+                licenceRequired: boolean;
+                licence: {
+                    /** @enum {string} */
+                    status: "pending_upload" | "pending_scan" | "pending_review" | "approved" | "rejected";
+                    expiresOn: string;
+                    numberEndsWith: string;
+                    rejectionReason: string | null;
+                } | null;
+                chauffeurAssigned: boolean;
+                checkedOutAt: string | null;
+                checkedInAt: string | null;
+                deposit: {
+                    refund: components["schemas"]["Money"];
+                    kept: components["schemas"]["Money"];
+                    reason: string | null;
+                    /** Format: date-time */
+                    releasedAt: string;
+                } | null;
+            } | null;
+        };
+        RentalPhotoCreated: {
+            /** Format: uuid */
+            id: string;
+        };
+        RentalReservation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bookingId: string;
+            /** @enum {string} */
+            status: "reserved" | "checked_out" | "returned" | "cancelled";
+            licenceRequired: boolean;
+            licence: {
+                /** @enum {string} */
+                status: "pending_upload" | "pending_scan" | "pending_review" | "approved" | "rejected";
+                /** Format: date */
+                expiresOn: string;
+                numberEndsWith: string;
+                rejectionReason: string | null;
+            } | null;
+        };
+        RentalSearchResult: {
+            days: number;
+            vehicles: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                make: string;
+                model: string;
+                year: number;
+                /** @enum {string} */
+                category: "economy" | "compact" | "suv" | "luxury" | "van";
+                /** @enum {string} */
+                transmission: "automatic" | "manual";
+                seats: number;
+                features: string[];
+                photoUrls: string[];
+                artKey: string | null;
+                sample: boolean;
+                cityName: string;
+                branch: {
+                    name: string;
+                    address: string;
+                    lat: number;
+                    lng: number;
+                };
+                daily: components["schemas"]["Money"];
+                chauffeurDaily: components["schemas"]["Money"] | null;
+                deposit: components["schemas"]["Money"];
+                delivery: {
+                    perKm: components["schemas"]["Money"];
+                    maxKm: number;
+                } | null;
+                mileage: {
+                    kmPerDay: number | null;
+                    excessKm: components["schemas"]["Money"] | null;
+                };
+                /** @enum {string} */
+                fuelPolicy: "full_to_full" | "same_to_same";
+                insuranceSummary: string;
+                estimate: {
+                    rental: components["schemas"]["Money"];
+                    deposit: components["schemas"]["Money"];
+                };
+            }[];
+        };
+        RentalVehicle: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            make: string;
+            model: string;
+            year: number;
+            /** @enum {string} */
+            category: "economy" | "compact" | "suv" | "luxury" | "van";
+            /** @enum {string} */
+            transmission: "automatic" | "manual";
+            seats: number;
+            features: string[];
+            photoUrls: string[];
+            artKey: string | null;
+            sample: boolean;
+            cityName: string;
+            branch: {
+                name: string;
+                address: string;
+                lat: number;
+                lng: number;
+            };
+            daily: components["schemas"]["Money"];
+            chauffeurDaily: components["schemas"]["Money"] | null;
+            deposit: components["schemas"]["Money"];
+            delivery: {
+                perKm: components["schemas"]["Money"];
+                maxKm: number;
+            } | null;
+            mileage: {
+                kmPerDay: number | null;
+                excessKm: components["schemas"]["Money"] | null;
+            };
+            /** @enum {string} */
+            fuelPolicy: "full_to_full" | "same_to_same";
+            insuranceSummary: string;
+            cancellationPolicy: {
+                daysBefore: number;
+                refundBps: number;
+            }[];
+            timeZone: string;
+        };
         ResetPasswordRequestInput: {
             token: string;
             password: string;
@@ -7912,6 +8516,8 @@ export interface components {
             "safety-incidents": number;
             "driver-documents": number;
             "driver-payouts": number;
+            "rental-licences": number;
+            "rental-photos": number;
         };
         RevokedSessions: {
             revoked: number;
@@ -8747,7 +9353,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "cancellation_fee" | "referral_reward" | "ride_earnings" | "payout_sent" | "payout_settled" | "payout_failed";
+                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "cancellation_fee" | "referral_reward" | "ride_earnings" | "payout_sent" | "payout_settled" | "payout_failed" | "deposit_deduction";
                 amount: components["schemas"]["Money"];
                 bookingId: string | null;
                 /** Format: date-time */
@@ -11693,6 +12299,443 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminListRentalReservations: {
+        parameters: {
+            query?: {
+                status?: "reserved" | "checked_out" | "returned" | "cancelled";
+                licence?: "pending_upload" | "pending_scan" | "pending_review" | "approved" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRentalReservations"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReleaseRentalDeposit: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 0 */
+                    keptMinor?: number;
+                    /** @default null */
+                    reason?: ("damage" | "fuel" | "excess_mileage" | "late_return" | "cleaning" | "other") | null;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRecordRentalHandover: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    odometerKm: number;
+                    fuelEighths: number;
+                    damageNotes: string | null;
+                    /** @enum {string} */
+                    kind: "check_out" | "check_in";
+                    photoIds: string[];
+                    /** @default null */
+                    chauffeurDriverId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetRentalLicence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReviewRentalLicence: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "approve" | "reject";
+                    /** @default null */
+                    reason?: ("unreadable" | "expired" | "name_mismatch" | "not_a_licence" | "other") | null;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUploadRentalPhoto: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        /** @description The photo. */
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RentalPhotoCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            413: components["responses"]["Problem413"];
+            415: components["responses"]["Problem415"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetRentalPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reservationId: string;
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListRentalVehicles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRentalVehicles"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateRentalVehicle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    slug: string;
+                    make: string;
+                    model: string;
+                    year: number;
+                    /** @enum {string} */
+                    category: "economy" | "compact" | "suv" | "luxury" | "van";
+                    /** @enum {string} */
+                    transmission: "automatic" | "manual";
+                    seats: number;
+                    plate: string;
+                    /** @default [] */
+                    features?: string[];
+                    /** @default [] */
+                    photoUrls?: string[];
+                    /** @default null */
+                    artKey?: string | null;
+                    cityName: string;
+                    branchName: string;
+                    branchAddress: string;
+                    lat: number;
+                    lng: number;
+                    timeZone: string;
+                    /** @enum {string} */
+                    currency: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                    dailyMinor: number;
+                    /** @default null */
+                    chauffeurDailyMinor?: number | null;
+                    depositMinor: number;
+                    /** @default null */
+                    deliveryPerKmMinor?: number | null;
+                    /** @default null */
+                    deliveryMaxKm?: number | null;
+                    /** @default null */
+                    mileageKmPerDay?: number | null;
+                    /** @default null */
+                    excessKmMinor?: number | null;
+                    /**
+                     * @default full_to_full
+                     * @enum {string}
+                     */
+                    fuelPolicy?: "full_to_full" | "same_to_same";
+                    /** @default  */
+                    insuranceSummary?: string;
+                    cancellationPolicy: {
+                        daysBefore: number;
+                        refundBps: number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RentalCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateRentalVehicle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    make?: string;
+                    model?: string;
+                    year?: number;
+                    /** @enum {string} */
+                    category?: "economy" | "compact" | "suv" | "luxury" | "van";
+                    /** @enum {string} */
+                    transmission?: "automatic" | "manual";
+                    seats?: number;
+                    features?: string[];
+                    photoUrls?: string[];
+                    artKey?: string | null;
+                    cityName?: string;
+                    branchName?: string;
+                    branchAddress?: string;
+                    lat?: number;
+                    lng?: number;
+                    timeZone?: string;
+                    /** @enum {string} */
+                    currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                    dailyMinor?: number;
+                    chauffeurDailyMinor?: number | null;
+                    depositMinor?: number;
+                    deliveryPerKmMinor?: number | null;
+                    deliveryMaxKm?: number | null;
+                    mileageKmPerDay?: number | null;
+                    excessKmMinor?: number | null;
+                    /** @enum {string} */
+                    fuelPolicy?: "full_to_full" | "same_to_same";
+                    insuranceSummary?: string;
+                    cancellationPolicy?: {
+                        daysBefore: number;
+                        refundBps: number;
+                    }[];
+                    /** @enum {string} */
+                    status?: "draft" | "published" | "archived";
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminCancelRide: {
         parameters: {
             query?: never;
@@ -11992,7 +13035,6 @@ export interface operations {
                     cityName?: string;
                     lat?: number;
                     lng?: number;
-                    /** @default true */
                     active?: boolean;
                 };
             };
@@ -17424,6 +18466,205 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getRentalReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RentalReservation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    submitRentalLicence: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    number: string;
+                    /** Format: date */
+                    expiresOn: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RentalReservation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    uploadRentalLicence: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                reservationId: string;
+            };
+            cookie?: never;
+        };
+        /** @description The file itself. */
+        requestBody: {
+            content: {
+                "application/pdf": string;
+                "image/jpeg": string;
+                "image/png": string;
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RentalReservation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            413: components["responses"]["Problem413"];
+            415: components["responses"]["Problem415"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    searchRentalVehicles: {
+        parameters: {
+            query: {
+                city?: string;
+                pickupAt: string;
+                returnAt: string;
+                category?: "economy" | "compact" | "suv" | "luxury" | "van";
+                chauffeur?: "true" | "false";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RentalSearchResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getRentalVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RentalVehicle"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getRentalAvailability: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RentalAvailability"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
