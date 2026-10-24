@@ -15,6 +15,7 @@ type Story = StoryObj<typeof meta>;
 export const Primary: Story = {};
 export const Secondary: Story = { args: { variant: 'secondary', children: 'Join Suskii Prime' } };
 export const Ghost: Story = { args: { variant: 'ghost', children: 'Learn more' } };
+export const Danger: Story = { args: { variant: 'danger', children: 'SOS' } };
 export const WithIcon: Story = {
   args: {
     children: (

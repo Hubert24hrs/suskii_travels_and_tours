@@ -19,6 +19,8 @@ export const buttonVariants = cva(
         // Orange takes dark text: white on the brand orange fails WCAG at every size (ADR-004).
         secondary: 'bg-accent text-on-accent hover:bg-accent-hover',
         ghost: 'bg-transparent text-primary hover:bg-primary-subtle',
+        // Emergencies only (ride SOS, ADR-050): white on the danger red passes WCAG AA.
+        danger: 'bg-danger text-on-status hover:shadow-card-hover',
       },
       fullWidth: {
         true: 'w-full',
