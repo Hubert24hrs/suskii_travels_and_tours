@@ -548,6 +548,40 @@ describe('rides (e2e)', () => {
       expect(refused.body).toMatchObject({ reason: 'not_approved' });
     });
 
+    it('takes a fix that arrives late without moving the driver back in time', async () => {
+      const driver = await driverSession(ctx, 'late-fix-driver@example.com', north(500));
+      await ctx
+        .http()
+        .post('/v1/drivers/me/online')
+        .set(driver.headers)
+        .send({ position: north(500) })
+        .expect(200);
+      const latest = await ctx.prisma.driver.findUniqueOrThrow({ where: { id: driver.driverId } });
+      // Queued on the phone: 2 km away, recorded 90 seconds before the latest fix (80 km/h).
+      await ctx
+        .http()
+        .post('/v1/drivers/me/location')
+        .set(driver.headers)
+        .send({
+          position: north(2_500),
+          recordedAt: new Date((latest.lastLocationAt?.getTime() ?? 0) - 90_000).toISOString(),
+        })
+        .expect(204);
+      const after = await ctx.prisma.driver.findUniqueOrThrow({ where: { id: driver.driverId } });
+      expect(after.lastLocationAt).toEqual(latest.lastLocationAt);
+      expect([after.lastLat, after.lastLng]).toEqual([latest.lastLat, latest.lastLng]);
+      // Still no teleporting: 30 km in the same 90 seconds is refused.
+      await ctx
+        .http()
+        .post('/v1/drivers/me/location')
+        .set(driver.headers)
+        .send({
+          position: north(30_000),
+          recordedAt: new Date((latest.lastLocationAt?.getTime() ?? 0) - 90_000).toISOString(),
+        })
+        .expect(422);
+    });
+
     it('needs an account to quote a ride and refuses trips outside a served city', async () => {
       await ctx
         .http()
