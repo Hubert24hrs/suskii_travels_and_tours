@@ -7,6 +7,7 @@ import { ATTESTATION_HEADER } from '../attestation/attestation.schemas';
 import { AuditService } from '../audit/audit.service';
 import { botCheckFailed } from '../bot-protection/errors';
 import { TurnstileVerifier } from '../bot-protection/turnstile';
+import { ProblemDetailsException } from '../common/problem-details';
 import { requestContext } from '../common/request-context';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { Contract } from '../contract/contract';
@@ -45,6 +46,9 @@ import { SocialNonces } from './social.service';
 
 const TAGS = ['Auth'];
 type Accepted = z.infer<typeof acceptedSchema>;
+
+const isUnauthorized = (error: unknown): boolean =>
+  error instanceof ProblemDetailsException && error.getStatus() === 401;
 
 @Public()
 @Controller('auth')
@@ -169,7 +173,9 @@ export class AuthController {
       const mfaEnabled = await this.mfa.isEnabled(session.user.id);
       return presentSession(session, mfaEnabled, transport, response, this.config);
     } catch (error) {
-      if (transport === 'cookie') clearSessionCookies(response, this.config);
+      // Only a dead session clears the cookies: an outage (500) must not sign the visitor out.
+      if (transport === 'cookie' && isUnauthorized(error))
+        clearSessionCookies(response, this.config);
       throw error;
     }
   }
