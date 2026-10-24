@@ -64,6 +64,28 @@ export const driverPayouts = meter.createCounter('suskii.driver_payouts', {
   description: 'Driver payouts by outcome and provider',
 });
 
+// Cars (ADR-049 to ADR-053). Attributes are outcomes only: no ride, trip or person ids.
+
+/** Bus seat hold attempts by outcome (held, seat_taken, hold_limit). */
+export const busHolds = meter.createCounter('suskii.bus.holds', {
+  description: 'Bus seat hold attempts by outcome',
+});
+
+/** Boarding pass scans by result and whether the scanner was offline (synced later). */
+export const busTicketScans = meter.createCounter('suskii.bus.ticket_scans', {
+  description: 'Bus boarding pass scans by result and offline flag',
+});
+
+/** Ride searches that ended, by outcome (assigned, no_driver). */
+export const rideMatches = meter.createCounter('suskii.ride.matches', {
+  description: 'Ride searches that ended, by outcome',
+});
+
+/** SOS alerts by who raised them (rider, driver). */
+export const rideSos = meter.createCounter('suskii.ride.sos', {
+  description: 'Ride SOS alerts by who raised them',
+});
+
 /**
  * Field Core Web Vitals from the website (ADR-044), by page template and device class. Buckets
  * are finer around the "good" thresholds so dashboards can read the 75th percentile accurately.

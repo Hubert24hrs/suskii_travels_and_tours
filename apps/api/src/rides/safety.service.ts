@@ -11,6 +11,7 @@ import { FieldEncryption } from '../crypto/field-encryption';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { SmsProvider } from '../notifications/sms';
+import { rideSos } from '../telemetry/metrics';
 
 import type { incidentListSchema, resolveIncidentSchema } from './rides.schemas';
 
@@ -95,6 +96,7 @@ export class SafetyService {
       context: caller.context,
       metadata: { incidentId: incident.id, by: isRider ? 'rider' : 'driver' },
     });
+    rideSos.add(1, { by: isRider ? 'rider' : 'driver' });
 
     let notified = 0;
     if (isRider) {

@@ -25,6 +25,7 @@ import { CarsFlags } from '../ground/cars-flags';
 import type { Driver } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { driverEarningsPrefix } from '../ledger/ledger-accounts';
+import { rideMatches } from '../telemetry/metrics';
 
 import {
   implausibleLocation,
@@ -239,6 +240,7 @@ export class RideDriverService {
       });
       return ride.id;
     });
+    rideMatches.add(1, { outcome: 'assigned' });
     await this.publisher.toRide(rideId, { type: 'ride.updated', rideId, status: 'assigned' });
     return this.driverRide(rideId, driver.id);
   }

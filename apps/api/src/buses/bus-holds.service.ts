@@ -11,6 +11,7 @@ import { randomToken } from '../crypto/random';
 import type { BusSeatHold } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { REDIS } from '../infra/redis';
+import { busHolds } from '../telemetry/metrics';
 import { seatTaken } from '../bookings/seat-inventory';
 
 /** Departures stop selling this long before they leave. */
@@ -102,6 +103,25 @@ export class BusHoldsService {
     seats: readonly string[],
     caller: HoldCaller,
     now = new Date(),
+  ): Promise<CreatedHold> {
+    try {
+      const hold = await this.place(tripId, seats, caller, now);
+      busHolds.add(1, { outcome: 'held' });
+      return hold;
+    } catch (error) {
+      const slug = error instanceof ProblemDetailsException ? error.slug : null;
+      if (slug === 'seat-taken' || slug === 'hold-limit') {
+        busHolds.add(1, { outcome: slug === 'seat-taken' ? 'seat_taken' : 'hold_limit' });
+      }
+      throw error;
+    }
+  }
+
+  private async place(
+    tripId: string,
+    seats: readonly string[],
+    caller: HoldCaller,
+    now: Date,
   ): Promise<CreatedHold> {
     const trip = await this.sellableTrip(tripId, now);
     const layout = trip.layout.layout as unknown as BusSeatLayout;
