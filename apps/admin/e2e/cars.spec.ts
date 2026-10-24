@@ -61,6 +61,8 @@ test('operations approves a driver application', async ({ page, stack }) => {
   await expect(page.getByRole('row', { name: /Toyota Camry/ })).toContainText(
     t('drivers.vehicleStatuses.approved'),
   );
+  // The model year reads as a year, not as a number with a thousands separator.
+  await expect(page.getByRole('row', { name: /Toyota Camry/ })).toContainText('(2018)');
 
   await page.getByTestId('approve-driver').click();
   const approve = page.getByRole('dialog', { name: t('drivers.approve') });

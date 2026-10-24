@@ -117,7 +117,7 @@ export function CarsDetails({
             {t('booking.cars.rental.vehicle', {
               make: rental.vehicle.make,
               model: rental.vehicle.model,
-              year: rental.vehicle.year,
+              year: String(rental.vehicle.year),
             })}
           </p>
           <Line>
