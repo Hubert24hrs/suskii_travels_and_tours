@@ -125,4 +125,6 @@ export const CARS_LIMITS = {
   shareIp: { name: 'ride-share-ip', limit: 120, windowSeconds: 60, by: 'ip' },
   uploadUser: { name: 'driver-upload-user', limit: 20, windowSeconds: 3600, by: 'user' },
   applyUser: { name: 'driver-apply-user', limit: 5, windowSeconds: 3600, by: 'user' },
+  /** Departure plans route through the maps provider: a few a minute is plenty. */
+  planIp: { name: 'trip-plan-ip', limit: 30, windowSeconds: 60, by: 'ip' },
 } as const satisfies Record<string, RateLimitPolicy>;

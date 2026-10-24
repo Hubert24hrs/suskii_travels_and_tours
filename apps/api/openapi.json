@@ -11481,6 +11481,134 @@
         }
       }
     },
+    "/v1/bookings/{bookingId}/cars-suggestions": {
+      "get": {
+        "operationId": "getCarsSuggestions",
+        "summary": "Rides, cars and buses that fit this trip",
+        "description": "For an upcoming flight: a ride from the arrival airport, a car for the stay and onward buses from the arrival city; for a hotel: a car for the stay. Each only while its product is on and has inventory there. Suggestions prefill the search forms; they book nothing.",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CarsSuggestions"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/bookings/{bookingId}/departure-plan": {
+      "get": {
+        "operationId": "getDeparturePlan",
+        "summary": "When to leave for the airport or the bus terminal",
+        "description": "For a flight or bus booking that has not left: the time to be there (check-in or boarding), the routed travel time from the chosen ride place plus a traffic allowance, the time to leave, and a ride to book for it. 422 `plan-unavailable` when the trip cannot be planned (no pick-up point for the airport or terminal, a place in another city, already left).",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeparturePlan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/bookings/{bookingId}/documents/{documentId}": {
       "get": {
         "operationId": "downloadBookingDocument",
@@ -26586,6 +26714,9 @@
               }
             ]
           },
+          "priceBreakdown": {
+            "$ref": "#/components/schemas/PriceBreakdown"
+          },
           "busTickets": {
             "type": "array",
             "items": {
@@ -26869,6 +27000,7 @@
           "bus",
           "ride",
           "rental",
+          "priceBreakdown",
           "busTickets",
           "voucher",
           "cancellation",
@@ -28348,6 +28480,110 @@
           "safetySuite",
           "offlineQr",
           "departurePlanner"
+        ],
+        "additionalProperties": false
+      },
+      "CarsSuggestions": {
+        "type": "object",
+        "properties": {
+          "ride": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "pickupPlaceId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "pickupLabel": {
+                    "type": "string"
+                  },
+                  "cityName": {
+                    "type": "string"
+                  },
+                  "scheduledForLocal": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "pickupPlaceId",
+                  "pickupLabel",
+                  "cityName",
+                  "scheduledForLocal"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rental": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "cityName": {
+                    "type": "string"
+                  },
+                  "pickupAtLocal": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+                  },
+                  "returnAtLocal": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+                  }
+                },
+                "required": [
+                  "cityName",
+                  "pickupAtLocal",
+                  "returnAtLocal"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bus": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "from",
+                  "date"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ride",
+          "rental",
+          "bus"
         ],
         "additionalProperties": false
       },
@@ -30287,6 +30523,188 @@
         "required": [
           "confirm"
         ]
+      },
+      "DeparturePlan": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "flight",
+              "bus"
+            ]
+          },
+          "departsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "destination": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "lat": {
+                "type": "number"
+              },
+              "lng": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "label",
+              "lat",
+              "lng"
+            ],
+            "additionalProperties": false
+          },
+          "bufferMinutes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "marginMinutes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "arriveBy": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "leaveBy": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "travel": {
+            "type": "object",
+            "properties": {
+              "durationSeconds": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "distanceMetres": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "estimate": {
+                "type": "string",
+                "enum": [
+                  "routed",
+                  "straight_line"
+                ]
+              }
+            },
+            "required": [
+              "durationSeconds",
+              "distanceMetres",
+              "estimate"
+            ],
+            "additionalProperties": false
+          },
+          "from": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "lat": {
+                "type": "number"
+              },
+              "lng": {
+                "type": "number"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "label",
+              "lat",
+              "lng",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "ride": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "pickup": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "lat": {
+                        "type": "number"
+                      },
+                      "lng": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "lat",
+                      "lng"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "dropoff": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "lat": {
+                        "type": "number"
+                      },
+                      "lng": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "lat",
+                      "lng"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "scheduledFor": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "pickup",
+                  "dropoff",
+                  "scheduledFor"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "departsAt",
+          "destination",
+          "bufferMinutes",
+          "marginMinutes",
+          "arriveBy",
+          "leaveBy",
+          "travel",
+          "from",
+          "ride"
+        ],
+        "additionalProperties": false
       },
       "DestinationInputInput": {
         "type": "object",
@@ -36887,6 +37305,57 @@
         ],
         "additionalProperties": false
       },
+      "PriceBreakdown": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "ride_base",
+                    "ride_distance",
+                    "ride_time",
+                    "ride_surge",
+                    "ride_minimum",
+                    "ride_booking_fee",
+                    "bus_seats",
+                    "rental_vehicle",
+                    "rental_chauffeur",
+                    "rental_delivery"
+                  ]
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "quantity": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "code",
+                "amount",
+                "quantity"
+              ],
+              "additionalProperties": false
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "PriceChange": {
         "anyOf": [
           {
@@ -37679,6 +38148,9 @@
               }
             ]
           },
+          "priceBreakdown": {
+            "$ref": "#/components/schemas/PriceBreakdown"
+          },
           "payment": {
             "$ref": "#/components/schemas/PaymentOptions"
           }
@@ -37700,6 +38172,7 @@
           "ride",
           "rental",
           "price",
+          "priceBreakdown",
           "payment"
         ],
         "additionalProperties": false

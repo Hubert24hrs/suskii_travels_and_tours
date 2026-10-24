@@ -27,6 +27,7 @@ import { FieldEncryption } from '../crypto/field-encryption';
 import { HmacService } from '../crypto/hmac.service';
 import { randomToken } from '../crypto/random';
 import { Prisma, type Traveller } from '../generated/prisma/client';
+import { CarsFlags } from '../ground/cars-flags';
 import { TicketSigner } from '../ground/ticket-signer';
 import { PrismaService } from '../infra/prisma.service';
 import { withCurrentTier } from '../prime/prime-status';
@@ -143,6 +144,7 @@ export class BookingsService {
     private readonly attestation: AttestationService,
     private readonly fulfilment: InhouseFulfilment,
     private readonly ticketSigner: TicketSigner,
+    private readonly flags: CarsFlags,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -288,6 +290,7 @@ export class BookingsService {
       })),
       membershipTerm: membership,
       rideId: ride?.id ?? null,
+      showPriceBreakdown: this.flags.enabled('price_breakdown'),
       rental: rental
         ? rentalReservationView(rental, (licence) =>
             this.encryption.decrypt(

@@ -1,6 +1,7 @@
 import {
   checkPassengers,
   daysBetween,
+  fromWire,
   money,
   subtract,
   toWire,
@@ -15,6 +16,7 @@ import type { Converter } from '../pricing/fx.service';
 
 import { maskEmail, maskPhone } from './booking-codes';
 import type { BusTicketView } from './bus-tickets';
+import { carsPriceBreakdown } from './cars-breakdown';
 import {
   bookedRate,
   isInhouse,
@@ -109,6 +111,8 @@ export interface BookingView {
   rideId: string | null;
   /** A rental's reservation progress (ADR-051). */
   rental: RentalReservationDto | null;
+  /** Split a Cars fare into its parts (`CARS_PRICE_BREAKDOWN_ENABLED`, Cars P9). */
+  showPriceBreakdown: boolean;
 }
 
 export const EMPTY_VIEW: BookingView = {
@@ -121,6 +125,7 @@ export const EMPTY_VIEW: BookingView = {
   busTickets: [],
   rideId: null,
   rental: null,
+  showPriceBreakdown: false,
 };
 
 const REFUND_VIEW = {
@@ -225,6 +230,12 @@ export function toBookingDto(
       : null,
     cancellation: view.cancellation
       ? { refundBps: view.cancellation.refundBps, refund: toWire(view.cancellation.refund) }
+      : null,
+    priceBreakdown: view.showPriceBreakdown
+      ? (carsPriceBreakdown(payload, fromWire(price.fare))?.map((line) => ({
+          ...line,
+          amount: toWire(line.amount),
+        })) ?? null)
       : null,
     busTickets: view.busTickets.map((ticket) => ({
       id: ticket.id,
