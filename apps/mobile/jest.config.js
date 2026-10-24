@@ -3,6 +3,7 @@ module.exports = {
   preset: 'jest-expo',
   testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
   setupFiles: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup-after-env.js'],
   clearMocks: true,
   // Screen tests render the whole app (providers, router, queries). Alone each takes well under a
   // second, but beside a full `turbo run` (Next.js builds, type checks) some exceeded Jest's
