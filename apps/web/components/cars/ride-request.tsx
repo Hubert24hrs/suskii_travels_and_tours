@@ -25,6 +25,28 @@ const ISSUE_KEYS: Record<string, IssueKey> = {
   category_unavailable: 'unavailable',
 };
 
+/** A `datetime-local` value for an instant, in the browser's zone (which the form reads back). */
+function localInput(instant: string | undefined): string {
+  const date = instant ? new Date(instant) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** A prefill from a link (`/rides?pickup=<place id>&at=<instant>`), such as a trip suggestion. */
+export interface RidePrefill {
+  pickup?: string;
+  at?: string;
+}
+
+const prefillPath = ({ pickup, at }: RidePrefill): string => {
+  const query = new URLSearchParams();
+  if (pickup) query.set('pickup', pickup);
+  if (at) query.set('at', at);
+  const search = query.toString();
+  return search ? `/rides?${search}` : '/rides';
+};
+
 /**
  * Requesting a ride (ADR-051): curated pick-up and drop-off places (no external geocoder,
  * ADR-053), a ride type and now or later, then a quote with the upfront fare and checkout.
@@ -33,21 +55,25 @@ const ISSUE_KEYS: Record<string, IssueKey> = {
 export function RideRequest({
   places,
   currency,
+  prefill = {},
 }: {
   places: readonly Place[];
   currency: CurrencyCode;
+  prefill?: RidePrefill;
 }) {
   const { t } = useCarsT();
   const router = useRouter();
   const { phase } = useAccount();
   const cities = [...new Set(places.map((place) => place.cityName))].sort();
-  const [city, setCity] = useState(cities[0] ?? '');
+  const start = places.find((place) => place.id === prefill.pickup);
+  const [city, setCity] = useState(start?.cityName ?? cities[0] ?? '');
   const inCity = places.filter((place) => place.cityName === city);
-  const [pickup, setPickup] = useState('');
+  const [pickup, setPickup] = useState(start?.id ?? '');
   const [dropoff, setDropoff] = useState('');
   const [category, setCategory] = useState<Category>('standard');
-  const [when, setWhen] = useState<'now' | 'later'>('now');
-  const [at, setAt] = useState('');
+  // The form only renders in the browser (after the account loads), so the zone is the visitor's.
+  const [at, setAt] = useState(() => localInput(prefill.at));
+  const [when, setWhen] = useState<'now' | 'later'>(at ? 'later' : 'now');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +83,7 @@ export function RideRequest({
       <Card className="flex flex-col items-start gap-3 p-6">
         <p className="font-body text-body text-foreground">{t('cars.signInNote')}</p>
         <AppLink
-          href={`/sign-in?next=${encodeURIComponent('/rides')}`}
+          href={`/sign-in?next=${encodeURIComponent(prefillPath(prefill))}`}
           className="inline-flex min-h-12 items-center justify-center rounded-md bg-accent px-6 font-body text-body font-bold text-on-accent focus-visible:focus-ring"
         >
           {t('cars.signInFirst')}

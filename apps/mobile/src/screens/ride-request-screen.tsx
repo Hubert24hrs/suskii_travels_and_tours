@@ -1,7 +1,7 @@
 import type { Schemas } from '@suskii/api-client';
 import { Button, Card, Input, SegmentedControl } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
-import { Stack, useRouter, type Href } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 
@@ -9,7 +9,7 @@ import { RequireAccount } from '../components/account/require-account';
 import { ChoiceChips } from '../components/booking/form-controls';
 import { Loading, Notice } from '../components/states';
 import { problemSlug } from '../lib/api';
-import { LOCAL_DATE_TIME } from '../lib/cars';
+import { LOCAL_DATE_TIME, deviceLocalTime, routeParam } from '../lib/cars';
 import { useApp, useT } from '../providers/app-provider';
 
 type Place = Schemas['RidePlaces']['places'][number];
@@ -28,12 +28,14 @@ function RideRequest() {
   const { api, currency } = useApp();
   const { t } = useT();
   const router = useRouter();
+  // A prefill from a trip suggestion: `/rides?pickup=<place id>&at=<instant>`.
+  const params = useLocalSearchParams<{ pickup?: string; at?: string }>();
   const [city, setCity] = useState('');
-  const [pickup, setPickup] = useState('');
+  const [pickup, setPickup] = useState(() => routeParam(params.pickup) ?? '');
   const [dropoff, setDropoff] = useState('');
   const [category, setCategory] = useState<Category>('standard');
-  const [when, setWhen] = useState<'now' | 'later'>('now');
-  const [at, setAt] = useState('');
+  const [at, setAt] = useState(() => deviceLocalTime(routeParam(params.at)));
+  const [when, setWhen] = useState<'now' | 'later'>(at ? 'later' : 'now');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +60,8 @@ function RideRequest() {
     );
   if (places.data.length === 0) return <Notice body={t('cars.rides.noPlaces')} />;
   const cities = [...new Set(places.data.map((place) => place.cityName))].sort();
-  const chosenCity = city.length > 0 ? city : (cities[0] ?? '');
+  const start = places.data.find((place) => place.id === pickup);
+  const chosenCity = city.length > 0 ? city : (start?.cityName ?? cities[0] ?? '');
   const inCity = places.data
     .filter((place) => place.cityName === chosenCity)
     .map((place) => ({ value: place.id, label: place.name }));

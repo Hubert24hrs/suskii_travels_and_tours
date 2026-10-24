@@ -136,6 +136,18 @@ test.describe('flight booking', () => {
     await expect(page.getByText(t('booking.extraBags', { count: 1 }))).toBeVisible();
     await expectNoAxeViolations(page);
 
+    // Departure planner (Cars P9): when to leave a Lagos place for the airport.
+    const planner = page.getByTestId('departure-plan');
+    await planner.locator('#plan-from').selectOption({ label: 'Yaba' });
+    await planner.getByRole('button', { name: t('booking.cars.plan.submit') }).click();
+    await expect(planner.getByTestId('plan-leave-by')).toContainText(
+      t('booking.cars.plan.leaveBy', { time: '' }).trim(),
+    );
+    await expect(planner).toContainText('Murtala Muhammed International Airport');
+    // Thirty days out is beyond the ride scheduling window, so no ride is offered.
+    await expect(planner.getByText(t('booking.cars.plan.noRide'))).toBeVisible();
+    await expectNoAxeViolations(page);
+
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.getByRole('button', { name: t('booking.download.e_ticket') }).click(),
@@ -354,6 +366,16 @@ test.describe('hotel booking', () => {
       page.getByRole('button', { name: t('booking.download.hotel_voucher') }),
     ).toBeVisible();
     await expectNoAxeViolations(page);
+
+    // Trip bundling (Cars P9): a car for the stay, offered as a prefilled rental search.
+    const rental = page.getByTestId('suggest-rental');
+    await expect(rental).toContainText(t('booking.cars.suggest.rental', { city: 'Lagos' }));
+    await rental.getByRole('link', { name: t('booking.cars.suggest.rentalAction') }).click();
+    await page.waitForURL(/\/rentals\?/);
+    const query = new URL(page.url()).searchParams;
+    expect(query.get('pickupAt')).toBe(`${isoDaysFromToday(30)}T10:00`);
+    expect(query.get('returnAt')).toBe(`${isoDaysFromToday(33)}T10:00`);
+    await expect(page.getByTestId('rental-cars')).toBeVisible();
   });
 });
 

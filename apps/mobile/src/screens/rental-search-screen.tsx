@@ -2,13 +2,13 @@ import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
 import { Badge, Button, Card, Input } from '@suskii/ui-native';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Stack, useRouter, type Href } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Checkbox, ChoiceChips } from '../components/booking/form-controls';
 import { Loading, Notice } from '../components/states';
-import { LOCAL_DATE_TIME } from '../lib/cars';
+import { LOCAL_DATE_TIME, routeParam } from '../lib/cars';
 import { daysFromToday } from '../lib/dates';
 import { useApp, useT } from '../providers/app-provider';
 
@@ -16,10 +16,33 @@ type Car = Schemas['RentalSearchResult']['vehicles'][number];
 const CATEGORIES = ['economy', 'compact', 'suv', 'luxury', 'van'] as const;
 type Category = (typeof CATEGORIES)[number];
 interface Search {
+  /** Only from a prefilled link; the form itself searches every city. */
+  city?: string;
   pickupAt: string;
   returnAt: string;
   category: Category | 'any';
   chauffeur: boolean;
+}
+
+/** A complete, ordered period from a link (a trip suggestion), searched straight away. */
+function prefilledSearch(params: {
+  city?: string | string[];
+  pickupAt?: string | string[];
+  returnAt?: string | string[];
+}): Search | null {
+  const city = routeParam(params.city);
+  const pickupAt = routeParam(params.pickupAt) ?? '';
+  const returnAt = routeParam(params.returnAt) ?? '';
+  if (!LOCAL_DATE_TIME.test(pickupAt) || !LOCAL_DATE_TIME.test(returnAt) || returnAt <= pickupAt) {
+    return null;
+  }
+  return {
+    ...(city ? { city } : {}),
+    pickupAt,
+    returnAt,
+    category: 'any',
+    chauffeur: false,
+  };
 }
 
 function CarCard({ car, search, days }: { car: Car; search: Search; days: number }) {
@@ -75,11 +98,13 @@ function CarCard({ car, search, days }: { car: Car; search: Search; days: number
 export function RentalSearchScreen() {
   const { api } = useApp();
   const { t } = useT();
-  const [pickupAt, setPickupAt] = useState(() => `${daysFromToday(5)}T10:00`);
-  const [returnAt, setReturnAt] = useState(() => `${daysFromToday(7)}T10:00`);
+  const params = useLocalSearchParams<{ city?: string; pickupAt?: string; returnAt?: string }>();
+  const [prefill] = useState(() => prefilledSearch(params));
+  const [pickupAt, setPickupAt] = useState(() => prefill?.pickupAt ?? `${daysFromToday(5)}T10:00`);
+  const [returnAt, setReturnAt] = useState(() => prefill?.returnAt ?? `${daysFromToday(7)}T10:00`);
   const [category, setCategory] = useState<Category | 'any'>('any');
   const [chauffeur, setChauffeur] = useState(false);
-  const [search, setSearch] = useState<Search | null>(null);
+  const [search, setSearch] = useState<Search | null>(prefill);
   const [error, setError] = useState<string | null>(null);
 
   const results = useQuery({
@@ -91,6 +116,7 @@ export function RentalSearchScreen() {
       const { data, response } = await api.GET('/v1/rentals/vehicles', {
         params: {
           query: {
+            ...(search.city ? { city: search.city } : {}),
             pickupAt: search.pickupAt,
             returnAt: search.returnAt,
             ...(search.category === 'any' ? {} : { category: search.category }),
@@ -113,7 +139,13 @@ export function RentalSearchScreen() {
       return;
     }
     setError(null);
-    setSearch({ pickupAt, returnAt, category, chauffeur });
+    setSearch({
+      ...(prefill?.city ? { city: prefill.city } : {}),
+      pickupAt,
+      returnAt,
+      category,
+      chauffeur,
+    });
   };
 
   return (

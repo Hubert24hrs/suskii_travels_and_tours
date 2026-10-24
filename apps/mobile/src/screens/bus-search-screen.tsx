@@ -2,12 +2,13 @@ import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
 import { Badge, Button, Card, DateRangePicker } from '@suskii/ui-native';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Stack, useRouter, type Href } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ChoiceChips } from '../components/booking/form-controls';
 import { Loading, Notice } from '../components/states';
+import { ISO_DAY, routeParam } from '../lib/cars';
 import { daysFromToday, fromIso, toIso } from '../lib/dates';
 import { useApp, useT } from '../providers/app-provider';
 
@@ -85,9 +86,14 @@ export function BusSearchScreen() {
   const { api, currency } = useApp();
   const { t, locale } = useT();
   const format = useFormatters();
-  const [from, setFrom] = useState('');
+  // A prefill from a trip suggestion: `/buses?from=<city>&date=<day>`.
+  const params = useLocalSearchParams<{ from?: string; date?: string }>();
+  const [from, setFrom] = useState(() => routeParam(params.from) ?? '');
   const [to, setTo] = useState('');
-  const [date, setDate] = useState(() => daysFromToday(3));
+  const [date, setDate] = useState(() => {
+    const day = routeParam(params.date);
+    return day && ISO_DAY.test(day) ? day : daysFromToday(3);
+  });
   const [seats, setSeats] = useState(1);
   const [search, setSearch] = useState<Search | null>(null);
   const [error, setError] = useState<string | null>(null);
