@@ -349,7 +349,10 @@ Tooling notes for agents:
   link paths in `app.config.ts`, with a test. Guest access tokens never reach the router.
 - Payments: `startPayment()` then `openHostedCheckout()` (system browser session, never a
   WebView); the trip screen polls, webhooks decide. Guest checkout and payment attach
-  `attestationHeader()`.
+  `attestationHeader()`. The API client feeds `X-Suskii-Attestation-Result` back to
+  `noteAttestationResult()`; the iOS key counts as attested only after `valid` (ADR-023).
+- Maestro flows live in `e2e/maestro` and run in order from `e2e/run-android.sh` (critical path,
+  bus, offline trip, then an in-house tour with the route restored); add new journeys there.
 - Wrap checkout, payment and document screens in `useSensitiveScreen()`.
 - Hermes implements only part of `Intl`. `src/polyfills.ts`, loaded first from `index.ts`, adds
   `PluralRules`, `RelativeTimeFormat`, `ListFormat`, `DisplayNames` and `Locale`; `@suskii/i18n` joins date

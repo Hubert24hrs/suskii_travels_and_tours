@@ -15,6 +15,8 @@ export const SECURE_KEYS = {
   cacheKey: 'cache.key',
   attestKeyId: 'attest.key-id',
   attestDone: 'attest.attested',
+  /** The key whose attestation was sent but not yet accepted by the API. */
+  attestPending: 'attest.pending',
 } as const;
 
 const bookingKey = (bookingId: string): string => `booking.${bookingId}`;

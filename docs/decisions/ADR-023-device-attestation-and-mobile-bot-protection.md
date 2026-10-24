@@ -36,6 +36,12 @@ security control: anyone can send it. Real verification needs the owner's Google
    logs failures without blocking (for rollout); `enforce` answers 403 `attestation-required`.
    Because the header is spoofable, this is defence in depth against modified apps, not against
    scripts, which remain limited by rate limits, lockout and the guest bot check.
+6. **Verdict to the app (2026-10-24, audit F48).** Wherever the guard evaluates a mobile request
+   it answers `X-Suskii-Attestation-Result: valid | invalid | missing`. The iOS app counts its App
+   Attest key as attested only after `valid` for the request that carried the attestation; a key
+   whose attestation got no verdict (offline, 5xx) or was later answered `invalid` is replaced,
+   because Apple attests a key once. Until an App Attest verifier exists, `report` mode therefore
+   attests a new key on each sensitive request; that churn stops once the verifier accepts them.
 
 ## Consequences
 

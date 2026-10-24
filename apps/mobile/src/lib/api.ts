@@ -3,6 +3,7 @@ import { createApiClient, type ApiClient, type Schemas } from '@suskii/api-clien
 import { appConfig, CLIENT_ID } from '../config';
 
 import { appUpdate } from './app-update';
+import { noteAttestationResult } from './attestation';
 
 export type { ApiClient, Schemas };
 
@@ -67,18 +68,28 @@ export function createAppApi(
       request.headers.set('Accept-Language', locale());
       return request;
     },
-    onResponse: noticeRetiredVersion,
+    onResponse: noticeResponse,
   });
   return client;
 }
 
 /**
- * The API answers 426 once this app version is retired: switch to the update screen. Returns
- * nothing so openapi-fetch keeps the response as it is: returning it would fail its
- * `instanceof Response` check on devices, where Expo's fetch answers with its own response class.
+ * Reads what every answer may tell the app: 426 once this version is retired (switch to the
+ * update screen) and the verdict on a device attestation the request carried. Returns nothing so
+ * openapi-fetch keeps the response as it is: returning it would fail its `instanceof Response`
+ * check on devices, where Expo's fetch answers with its own response class.
  */
-function noticeRetiredVersion({ response }: { response: Response }): undefined {
+function noticeResponse({
+  request,
+  response,
+}: {
+  request: Request;
+  response: Response;
+}): undefined {
   if (response.status === 426) appUpdate.markRequired();
+  if (request.headers.has('X-Suskii-Attestation')) {
+    void noteAttestationResult(response.headers.get('X-Suskii-Attestation-Result'));
+  }
   return undefined;
 }
 
@@ -90,7 +101,7 @@ export function createBareApi(fetchImpl: typeof globalThis.fetch = globalThis.fe
       request.headers.set('X-Suskii-Client', CLIENT_ID);
       return request;
     },
-    onResponse: noticeRetiredVersion,
+    onResponse: noticeResponse,
   });
   return client;
 }

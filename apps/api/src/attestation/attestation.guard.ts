@@ -8,6 +8,7 @@ import {
   type ExecutionContext,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import type { Response } from 'express';
 
 import type { AuthenticatedRequest } from '../auth/auth-context';
 import { ProblemDetailsException } from '../common/problem-details';
@@ -17,6 +18,12 @@ import { clientContext } from '../search/client-context';
 import { ATTESTATION_HEADER_NAME, AttestationService } from './attestation.service';
 
 export const DEVICE_ATTESTED = 'suskii:device-attested';
+
+/**
+ * The verdict on the request's attestation (`valid`, `invalid` or `missing`), so the app knows
+ * whether the API accepted its App Attest key before it switches to assertions (ADR-023).
+ */
+export const ATTESTATION_RESULT_HEADER = 'X-Suskii-Attestation-Result';
 
 /**
  * Marks a sensitive route (login, registration, payment start). Requests that identify as the
@@ -55,6 +62,7 @@ export class AttestationGuard implements CanActivate {
       Array.isArray(header) ? header[0] : header,
       action,
     );
+    context.switchToHttp().getResponse<Response>().setHeader(ATTESTATION_RESULT_HEADER, outcome);
     if (outcome === 'valid') return true;
     if (this.config.ATTESTATION_MODE === 'report') {
       this.logger.warn({ action, outcome }, 'attestation would have been refused (report mode)');

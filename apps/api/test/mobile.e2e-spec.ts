@@ -251,18 +251,32 @@ describe('mobile (e2e): trips, push, attestation and the app payment return', ()
     await signUp(ctx, 'amaka@example.com');
     const credentials = { email: 'amaka@example.com', password: PASSWORD };
 
+    // The app learns the verdict: it switches its App Attest key to assertions only on `valid`.
+    const result = (response: { headers: Record<string, unknown> }) =>
+      response.headers['x-suskii-attestation-result'];
+
     ctx.config.ATTESTATION_MODE = 'report';
-    await ctx.http().post('/v1/auth/login').set(MOBILE).send(credentials).expect(200);
+    const reported = await ctx.http().post('/v1/auth/login').set(MOBILE).send(credentials);
+    expect(reported.status).toBe(200);
+    expect(result(reported)).toBe('missing');
+    const forged = { ...MOBILE, 'X-Suskii-Attestation': attestation(await challenge(), 'mock:x') };
+    const tolerated = await ctx.http().post('/v1/auth/login').set(forged).send(credentials);
+    expect(tolerated.status).toBe(200);
+    expect(result(tolerated)).toBe('invalid');
 
     ctx.config.ATTESTATION_MODE = 'enforce';
     const refused = await ctx.http().post('/v1/auth/login').set(MOBILE).send(credentials);
     expect(refused.status).toBe(403);
     expect(refused.body.type).toContain('attestation-required');
+    expect(result(refused)).toBe('missing');
     // Build the header first: a request started inside the chain would reuse the test server.
     const attested = { ...MOBILE, 'X-Suskii-Attestation': attestation(await challenge()) };
-    await ctx.http().post('/v1/auth/login').set(attested).send(credentials).expect(200);
+    const accepted = await ctx.http().post('/v1/auth/login').set(attested).send(credentials);
+    expect(accepted.status).toBe(200);
+    expect(result(accepted)).toBe('valid');
     // Requests that do not claim to be the app are left to the other controls (ADR-023).
     const session = await ctx.http().post('/v1/auth/login').set(WEB).send(credentials).expect(200);
+    expect(result(session)).toBeUndefined();
 
     const auth = bearer(session.body.accessToken as string);
     const created = await createBooking(await oneWay(), { ...MOBILE, ...auth }).expect(201);
