@@ -51,10 +51,11 @@ records, and consent for anything optional.
 
 ## Operator agents
 
-| Data                      | Why                        | Where and how                                 | Who sees it                | Kept                    | Account deletion              |
-| ------------------------- | -------------------------- | --------------------------------------------- | -------------------------- | ----------------------- | ----------------------------- |
-| Membership of an operator | Scan only their departures | `operator_members` (account and operator ids) | Staff with `ground:manage` | While they are an agent | Removed with the account      |
-| Their scans               | Boarding record            | `bus_ticket_scans` (agent id)                 | Operations (audit log)     | 365 days                | Retained without contact data |
+| Data                      | Why                        | Where and how                                                                                                     | Who sees it                | Kept                                                                   | Account deletion                                                       |
+| ------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Membership of an operator | Scan only their departures | `operator_members` (account and operator ids)                                                                     | Staff with `ground:manage` | While they are an agent                                                | Removed with the account                                               |
+| Their scans               | Boarding record            | `bus_ticket_scans` (agent id)                                                                                     | Operations (audit log)     | 365 days                                                               | Retained without contact data                                          |
+| Offline scans             | Board without a connection | The agent's phone: QR payloads and scan times in the encrypted cache (`secureCache`), plus the public ticket keys | The agent                  | Until uploaded; tickets boarded on the phone until their window closes | Uploaded at sign-out when online, then cleared at sign-out or deletion |
 
 ## Not collected
 
