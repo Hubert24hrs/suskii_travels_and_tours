@@ -1,3 +1,5 @@
+import { SessionService } from '../src/auth/session.service';
+
 import { cookieHeader, parseSetCookies, register } from './helpers/flows';
 import { createTestApp, resetState, type TestContext } from './helpers/test-app';
 
@@ -116,6 +118,34 @@ describe('auth: web cookie transport and CSRF (e2e)', () => {
     expect(parseSetCookies(replay.headers['set-cookie']).get(AT)?.attributes).toMatch(
       /Expires=Thu, 01 Jan 1970/,
     );
+  });
+
+  it('keeps the cookies when a refresh fails for an outage, not a dead session', async () => {
+    const { body, cookies } = await cookieLogin('outage@example.com');
+    const jar = cookieHeader(cookies, [RT, CSRF]);
+    const rotate = jest
+      .spyOn(ctx.app.get(SessionService), 'rotate')
+      .mockRejectedValueOnce(new Error('database unavailable'));
+    try {
+      const failed = await ctx
+        .http()
+        .post('/v1/auth/refresh')
+        .set('Cookie', jar)
+        .set('X-CSRF-Token', body.csrfToken as string)
+        .send({})
+        .expect(500);
+      expect(failed.headers['set-cookie']).toBeUndefined();
+    } finally {
+      rotate.mockRestore();
+    }
+    // The same refresh cookie works once the database is back.
+    await ctx
+      .http()
+      .post('/v1/auth/refresh')
+      .set('Cookie', jar)
+      .set('X-CSRF-Token', body.csrfToken as string)
+      .send({})
+      .expect(200);
   });
 
   it('logs out with cookies (CSRF required) and clears them', async () => {
