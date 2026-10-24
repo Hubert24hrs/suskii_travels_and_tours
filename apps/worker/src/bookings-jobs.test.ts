@@ -2,7 +2,13 @@ import { UnrecoverableError } from 'bullmq';
 import { pino } from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ACCOUNT_JOB, BOOKING_JOB, processBookingJob, VISA_JOB } from './bookings-jobs.js';
+import {
+  ACCOUNT_JOB,
+  BOOKING_JOB,
+  FINANCE_JOB,
+  processBookingJob,
+  VISA_JOB,
+} from './bookings-jobs.js';
 import { InternalApiError, type BookingsApi } from './internal-api.js';
 
 const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
@@ -41,10 +47,13 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
       'safety-incidents': 0,
       'driver-documents': 0,
       'driver-payouts': 0,
+      'reconciliation-discrepancies': 0,
       'rental-licences': 0,
       'rental-photos': 0,
     }),
   ),
+  reconcileLedger: vi.fn(() => Promise.resolve({ checked: 12, discrepancies: 1, unconfirmed: 2 })),
+  runDriverPayouts: vi.fn(() => Promise.resolve({ sent: 3, paid: 2, failed: 1, pending: 0 })),
   ...overrides,
 });
 
@@ -60,6 +69,53 @@ describe('retention sweep', () => {
     const result = await processBookingJob({ name: ACCOUNT_JOB.retention }, { api, logger: log });
     expect(result).toMatchObject({ sessions: 3, 'closed-bookings': 1 });
     expect(log.info).toHaveBeenCalledWith(result, 'records past retention purged');
+  });
+});
+
+describe('finance sweeps', () => {
+  it('reconciles the ledger and warns finance about discrepancies', async () => {
+    const api = fakeApi();
+    const log = logger();
+    await expect(
+      processBookingJob({ name: FINANCE_JOB.reconcileLedger }, { api, logger: log }),
+    ).resolves.toEqual({ checked: 12, discrepancies: 1, unconfirmed: 2 });
+    expect(log.warn).toHaveBeenCalledWith(
+      { discrepancies: 1 },
+      'ledger reconciliation raised discrepancies for finance',
+    );
+    const clean = fakeApi({
+      reconcileLedger: vi.fn(() =>
+        Promise.resolve({ checked: 4, discrepancies: 0, unconfirmed: 0 }),
+      ),
+    });
+    const quiet = logger();
+    await processBookingJob({ name: FINANCE_JOB.reconcileLedger }, { api: clean, logger: quiet });
+    expect(quiet.warn).not.toHaveBeenCalled();
+    expect(quiet.info).toHaveBeenCalledWith(
+      { checked: 4, discrepancies: 0, unconfirmed: 0 },
+      'ledger reconciled',
+    );
+  });
+
+  it('runs driver payouts and reports failures', async () => {
+    const api = fakeApi();
+    const log = logger();
+    await processBookingJob({ name: FINANCE_JOB.driverPayouts }, { api, logger: log });
+    expect(api.runDriverPayouts).toHaveBeenCalledTimes(1);
+    expect(log.info).toHaveBeenCalledWith(
+      { sent: 3, paid: 2, failed: 1, pending: 0 },
+      'driver payouts processed',
+    );
+    expect(log.warn).toHaveBeenCalledWith({ failed: 1 }, 'driver payouts failed');
+  });
+
+  it('stops a payout run on a final API error', async () => {
+    const api = fakeApi({
+      runDriverPayouts: vi.fn(() => Promise.reject(new InternalApiError('runDriverPayouts', 401))),
+    });
+    await expect(
+      processBookingJob({ name: FINANCE_JOB.driverPayouts }, { api, logger: logger() }),
+    ).rejects.toBeInstanceOf(UnrecoverableError);
   });
 });
 

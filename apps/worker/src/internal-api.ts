@@ -20,6 +20,8 @@ export type ReminderRun = components['schemas']['ReminderRun'];
 export type RetentionRun = components['schemas']['RetentionRun'];
 export type RideDispatchRun = components['schemas']['RideDispatchRun'];
 export type DriverDocumentScanRun = components['schemas']['DriverDocumentScanRun'];
+export type LedgerReconciliationRun = components['schemas']['LedgerReconciliationRun'];
+export type DriverPayoutRun = components['schemas']['DriverPayoutRun'];
 
 /** A failed internal API call. `status` 0 means the API was unreachable or timed out. */
 export class InternalApiError extends Error {
@@ -71,6 +73,10 @@ export interface BookingsApi {
   readonly runReferrals: () => Promise<ReferralRun>;
   /** Records past their retention period are purged; long-closed bookings anonymised (ADR-039). */
   readonly runRetention: () => Promise<RetentionRun>;
+  /** Compares captured payments, refunds and payouts with the ledger (ADR-051). */
+  readonly reconcileLedger: () => Promise<LedgerReconciliationRun>;
+  /** Follows up pending driver payouts and sends due earnings in one batch (ADR-051). */
+  readonly runDriverPayouts: () => Promise<DriverPayoutRun>;
 }
 
 /** Cars rides (ADR-053): matching every few seconds, and driver documents whose scan was lost. */
@@ -220,6 +226,20 @@ export function createInternalApi(
         'runRetention',
         (signal, headers) => client.POST('/v1/internal/retention/run', { signal, headers }),
         RETENTION_TIMEOUT_MS,
+      ),
+    reconcileLedger: () =>
+      call(
+        'reconcileLedger',
+        (signal, headers) =>
+          client.POST('/v1/internal/finance/reconcile-ledger', { signal, headers }),
+        MONEY_SWEEP_TIMEOUT_MS,
+      ),
+    runDriverPayouts: () =>
+      call(
+        'runDriverPayouts',
+        (signal, headers) =>
+          client.POST('/v1/internal/finance/driver-payouts', { signal, headers }),
+        MONEY_SWEEP_TIMEOUT_MS,
       ),
     dispatchRides: () =>
       call(
