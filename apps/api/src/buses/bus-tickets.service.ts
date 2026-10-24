@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import type { RequestContext } from '../common/request-context';
 import { TicketSigner } from '../ground/ticket-signer';
 import { PrismaService } from '../infra/prisma.service';
+import { busTicketScans } from '../telemetry/metrics';
 
 import type {
   manifestSchema,
@@ -44,6 +45,16 @@ export class BusTicketsService {
     qrPayload: string,
     agent: Agent,
     options: { offline: boolean; scannedAt: Date } = { offline: false, scannedAt: new Date() },
+  ): Promise<ScanResult> {
+    const outcome = await this.check(qrPayload, agent, options);
+    busTicketScans.add(1, { result: outcome.result, offline: String(options.offline) });
+    return outcome;
+  }
+
+  private async check(
+    qrPayload: string,
+    agent: Agent,
+    options: { offline: boolean; scannedAt: Date },
   ): Promise<ScanResult> {
     const verdict = this.signer.verify(qrPayload, options.scannedAt);
     if (!verdict.valid) return { result: 'invalid', reason: verdict.reason, ticket: null };

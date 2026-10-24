@@ -10,6 +10,7 @@ import { randomToken } from '../crypto/random';
 import { CarsFlags } from '../ground/cars-flags';
 import { PrismaService } from '../infra/prisma.service';
 import { REDIS } from '../infra/redis';
+import { rideMatches } from '../telemetry/metrics';
 
 import { RideEventsPublisher } from './ride-events.publisher';
 import { RideSettlementService } from './ride-settlement.service';
@@ -170,6 +171,7 @@ export class RideDispatchService {
         });
         this.refunds.executeLater(refundIds);
         timedOut += 1;
+        rideMatches.add(1, { outcome: 'no_driver' });
         await this.publisher.toRide(id, { type: 'ride.updated', rideId: id, status: 'no_driver' });
       } catch (error) {
         this.logger.debug({ rideId: id, reason: (error as Error).name }, 'ride timeout skipped');
