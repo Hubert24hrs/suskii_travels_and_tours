@@ -152,6 +152,9 @@ describe('sessions: limits, staff lifetimes and step-up (e2e)', () => {
       .sort();
     expect(stepUp).toEqual(
       [
+        // Approving a driver grants a role; reinstating one puts them back on the road (ADR-050).
+        'adminApproveDriver',
+        'adminReinstateDriver',
         'adminApprovePaymentReview',
         'adminApproveRefund',
         'adminCreateFeeRule',

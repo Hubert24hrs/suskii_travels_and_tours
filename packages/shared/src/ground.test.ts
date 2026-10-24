@@ -217,6 +217,43 @@ describe('ride state machine', () => {
     expect(nextRideStatus('searching', 'timeout')).toBe('no_driver');
   });
 
+  it('allows exactly the moves in the table, from every status, for every event', () => {
+    // status -> event -> next status; anything missing must be refused.
+    const allowed: Partial<
+      Record<(typeof RIDE_STATUSES)[number], Partial<Record<(typeof RIDE_EVENTS)[number], string>>>
+    > = {
+      scheduled: { dispatch: 'searching', rider_cancel: 'cancelled', staff_cancel: 'cancelled' },
+      searching: {
+        accept: 'assigned',
+        rider_cancel: 'cancelled',
+        staff_cancel: 'cancelled',
+        timeout: 'no_driver',
+      },
+      assigned: {
+        arrive: 'arrived',
+        driver_cancel: 'searching',
+        rider_cancel: 'cancelled',
+        staff_cancel: 'cancelled',
+      },
+      arrived: {
+        start: 'in_progress',
+        driver_cancel: 'searching',
+        rider_cancel: 'cancelled',
+        staff_cancel: 'cancelled',
+      },
+      in_progress: { complete: 'completed', staff_cancel: 'cancelled' },
+    };
+    for (const status of RIDE_STATUSES) {
+      for (const event of RIDE_EVENTS) {
+        expect({ status, event, next: nextRideStatus(status, event) }).toEqual({
+          status,
+          event,
+          next: allowed[status]?.[event] ?? null,
+        });
+      }
+    }
+  });
+
   it('never leaves a finished ride', () => {
     for (const status of ['completed', 'cancelled', 'no_driver'] as const) {
       for (const event of RIDE_EVENTS) expect(nextRideStatus(status, event)).toBeNull();

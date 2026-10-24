@@ -19,6 +19,7 @@ import {
   signUp,
   type TokenSession,
 } from './helpers/flows';
+import { driverApplicant, IKEJA, requestRide, VICTORIA_ISLAND } from './helpers/rides';
 import { createTestApp, resetState, type TestContext } from './helpers/test-app';
 
 /**
@@ -783,6 +784,96 @@ describe('admin audit coverage (e2e)', () => {
     );
     await audited('adminCancelBusTrip', { id: trip.body.id as string }, (request) =>
       request.send({ reason: 'weather' }),
+    );
+  });
+
+  it('rides and drivers: fare rules, places, review, suspension, stops and incidents', async () => {
+    await audited('adminSaveRideFareRule', {}, (request) =>
+      request.send({
+        cityName: 'Lagos',
+        category: 'standard',
+        currency: 'NGN',
+        baseMinor: 50_000,
+        perKmMinor: 15_000,
+        perMinuteMinor: 2_000,
+        bookingFeeMinor: 20_000,
+        minimumMinor: 150_000,
+        cancellationFeeMinor: 50_000,
+        freeCancelSeconds: 120,
+        waitGraceSeconds: 300,
+        driverShareBps: 8_000,
+        surgeBps: 0,
+        active: true,
+      }),
+    );
+    const place = await audited('adminCreateRidePlace', {}, (request) =>
+      request.send({
+        name: 'Audit Airport',
+        kind: 'airport',
+        cityName: 'Lagos',
+        lat: IKEJA.lat,
+        lng: IKEJA.lng,
+      }),
+    );
+    await audited('adminUpdateRidePlace', { id: place.body.id as string }, (request) =>
+      request.send({ name: 'Audit Airport (MM2)' }),
+    );
+
+    const applicant = await driverApplicant(ctx, 'audit-driver@example.com');
+    const documents = await ctx.prisma.driverDocument.findMany({
+      where: { driverId: applicant.driverId, supersededAt: null },
+    });
+    for (const [index, document] of documents.entries()) {
+      const params = { driverId: applicant.driverId, documentId: document.id };
+      const send = (request: ReturnType<ReturnType<TestContext['http']>['post']>) =>
+        request.send({ decision: 'approve' });
+      if (index === 0) await audited('adminReviewDriverDocument', params, send);
+      else
+        await send(
+          ctx
+            .http()
+            .post(`/v1/admin/drivers/${applicant.driverId}/documents/${document.id}/review`)
+            .set(bearer(admin.accessToken)),
+        ).expect(204);
+    }
+    await audited(
+      'adminReviewDriverVehicle',
+      { driverId: applicant.driverId, vehicleId: applicant.vehicleId },
+      (request) => request.send({ decision: 'approve' }),
+    );
+    await audited('adminApproveDriver', { driverId: applicant.driverId }, (request) =>
+      request.send({}),
+    );
+    await audited('adminSuspendDriver', { driverId: applicant.driverId }, (request) =>
+      request.send({ reason: 'safety_concern' }),
+    );
+    await audited('adminReinstateDriver', { driverId: applicant.driverId }, none);
+    const rejected = await driverApplicant(ctx, 'audit-rejected@example.com');
+    await audited('adminRejectDriver', { driverId: rejected.driverId }, (request) =>
+      request.send({ reason: 'documents_unclear' }),
+    );
+
+    await ctx
+      .http()
+      .post('/v1/admin/rides/places')
+      .set(bearer(admin.accessToken))
+      .send({
+        name: 'Audit Hotel',
+        kind: 'landmark',
+        cityName: 'Lagos',
+        lat: VICTORIA_ISLAND.lat,
+        lng: VICTORIA_ISLAND.lng,
+      })
+      .expect(201);
+    const rider = await signUp(ctx, 'audit-rider@example.com');
+    const { rideId } = await requestRide(ctx, bearer(rider.accessToken));
+    const incident = await ctx.prisma.safetyIncident.create({ data: { kind: 'sos', rideId } });
+    await audited('adminAcknowledgeIncident', { id: incident.id }, none);
+    await audited('adminResolveIncident', { id: incident.id }, (request) =>
+      request.send({ resolution: 'false_alarm' }),
+    );
+    await audited('adminCancelRide', { rideId }, (request) =>
+      request.send({ reason: 'rider_request' }),
     );
   });
 
