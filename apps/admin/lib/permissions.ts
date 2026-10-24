@@ -27,6 +27,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/visa', label: 'nav.visa', anyOf: ['visa:process'] },
   { href: '/prime', label: 'nav.prime', anyOf: ['pricing:manage'] },
   { href: '/referrals', label: 'nav.referrals', anyOf: ['referrals:review'] },
+  // Cars (ADR-049 to ADR-051).
+  { href: '/ground', label: 'nav.ground', anyOf: ['ground:manage'] },
+  { href: '/drivers', label: 'nav.drivers', anyOf: ['drivers:review'] },
+  { href: '/rides', label: 'nav.rides', anyOf: ['safety:manage', 'ground:manage'] },
+  { href: '/rentals', label: 'nav.rentals', anyOf: ['ground:manage'] },
+  { href: '/finance', label: 'nav.finance', anyOf: ['finance:reconcile'] },
 ];
 
 export function grantedPermissions(roles: readonly Role[]): ReadonlySet<Permission> {
