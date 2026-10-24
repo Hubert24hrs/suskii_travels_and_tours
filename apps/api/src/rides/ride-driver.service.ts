@@ -139,7 +139,9 @@ export class RideDriverService {
   /**
    * A position from the driver's phone: inside the service area and no faster than a car from the
    * last one. During a live ride it is kept as a ping, checked against the planned route, and
-   * published rounded to the rider (ADR-052, ADR-053).
+   * published rounded to the rider (ADR-052, ADR-053). A fix the phone queued and sends late
+   * (older than the last one) is judged over the real gap between the two and kept in the ride's
+   * history, but never moves the driver back, re-runs the route check or reaches the rider.
    */
   async location(userId: string, position: GeoPoint, recordedAt?: string): Promise<void> {
     const driver = await this.driver(userId);
@@ -150,20 +152,25 @@ export class RideDriverService {
     if (at.getTime() > now.getTime() + 60_000 || at.getTime() < now.getTime() - 5 * 60_000) {
       throw implausibleLocation();
     }
-    if (driver.lastLat !== null && driver.lastLng !== null && driver.lastLocationAt) {
-      const seconds = Math.max(1, (at.getTime() - driver.lastLocationAt.getTime()) / 1000);
+    const last = driver.lastLocationAt;
+    if (driver.lastLat !== null && driver.lastLng !== null && last) {
+      const seconds = Math.max(1, Math.abs(at.getTime() - last.getTime()) / 1000);
       const metres = haversineMetres({ lat: driver.lastLat, lng: driver.lastLng }, position);
       if (metres / seconds > MAX_SPEED_METRES_PER_SECOND) throw implausibleLocation();
     }
-    await this.prisma.driver.update({
-      where: { id: driver.id },
-      data: { lastLat: position.lat, lastLng: position.lng, lastLocationAt: at },
-    });
+    const late = last !== null && at.getTime() < last.getTime();
+    if (!late) {
+      await this.prisma.driver.update({
+        where: { id: driver.id },
+        data: { lastLat: position.lat, lastLng: position.lng, lastLocationAt: at },
+      });
+    }
     const ride = await this.liveRide(driver.id);
     if (!ride) return;
     await this.prisma.rideLocationPing.create({
       data: { rideId: ride.id, lat: position.lat, lng: position.lng, recordedAt: at },
     });
+    if (late) return;
     if (ride.status === 'in_progress') await this.checkRoute(ride, position, at);
     await this.publisher.toRide(ride.id, {
       type: 'ride.location',
