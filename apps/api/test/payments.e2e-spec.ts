@@ -6,7 +6,9 @@ import { addDays, BOOKING_TERMS_VERSION, localDate } from '@suskii/shared';
 
 import { PaymentPlansService } from '../src/bookings/payment-plans.service';
 import { PaymentReconciliationService } from '../src/bookings/payment-reconciliation.service';
+import { RefundsService } from '../src/bookings/refunds.service';
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider';
+import { PaymentProviders } from '../src/payments/payment-providers';
 import { PricingService } from '../src/pricing/pricing.service';
 import { MockFlightSupplier } from '../src/suppliers/mock/mock-flight-supplier';
 
@@ -805,5 +807,103 @@ describe('payments (e2e): providers, ledger, plans and refunds', () => {
     expect(after.body.balances[0].amountMinor).toBe(
       first.total.amountMinor - second.total.amountMinor,
     );
+  });
+  it('settles a refund resolved by hand that never reached its provider', async () => {
+    const { id, token, total } = await domesticBooking();
+    const payment = await startPayment(id, token).expect(201);
+    await payWithMock(payment.body.checkoutUrl as string);
+    const paymentId = (
+      await ctx.prisma.payment.findFirstOrThrow({ where: { bookingId: id, status: 'succeeded' } })
+    ).id;
+    const finance = await staff('resolve-maker@suskii.test', ['finance']);
+    const approver = await staff('resolve-checker@suskii.test', ['super_admin']);
+    const created = await ctx
+      .http()
+      .post(`/v1/admin/bookings/${id}/refunds`)
+      .set('Idempotency-Key', idempotencyKey())
+      .set(finance.headers)
+      .send({ paymentId, amount: total, reason: 'goodwill', cancelBooking: true })
+      .expect(201);
+    const refundId = created.body.id as string;
+
+    // The provider is switched off when the refund runs: it waits for operations.
+    const providers = ctx.app.get(PaymentProviders);
+    const find = providers.find.bind(providers);
+    const off = jest
+      .spyOn(providers, 'find')
+      .mockImplementation((name) => (name === 'mock' ? undefined : find(name)));
+    try {
+      await ctx
+        .http()
+        .post(`/v1/admin/refunds/${refundId}/approve`)
+        .set(approver.headers)
+        .expect(200);
+      await ctx.background.drain();
+    } finally {
+      off.mockRestore();
+    }
+    expect(await ctx.prisma.refund.findUniqueOrThrow({ where: { id: refundId } })).toMatchObject({
+      status: 'needs_review',
+      failureReason: 'provider_disabled',
+    });
+
+    // Operations refunded it from the provider's dashboard and record that.
+    await ctx
+      .http()
+      .post(`/v1/admin/refunds/${refundId}/resolve`)
+      .set(approver.headers)
+      .send({ outcome: 'succeeded', providerRefundId: 'manual-refund-1' })
+      .expect(200);
+
+    expect((await getBooking(id, token)).status).toBe('REFUNDED');
+    expect(await balance(`booking:${id}:${total.currency}`)).toBe(0n);
+    expect(await balance(`refunds-in-flight:mock:${total.currency}`)).toBe(0n);
+    expect(await balance(`psp:mock:${total.currency}`)).toBe(0n);
+  });
+
+  it('credits a wallet refund that stopped before its posting, never through the provider', async () => {
+    const traveller = await signUp(ctx, 'stuck-wallet@example.com');
+    const account = bearer(traveller.accessToken);
+    const { id, total } = await domesticBooking(account);
+    const payment = await startPayment(id, account).expect(201);
+    await payWithMock(payment.body.checkoutUrl as string);
+    const paymentId = (
+      await ctx.prisma.payment.findFirstOrThrow({ where: { bookingId: id, status: 'succeeded' } })
+    ).id;
+    const finance = await staff('stuck-maker@suskii.test', ['finance']);
+    const created = await ctx
+      .http()
+      .post(`/v1/admin/bookings/${id}/refunds`)
+      .set('Idempotency-Key', idempotencyKey())
+      .set(finance.headers)
+      .send({
+        paymentId,
+        amount: total,
+        destination: 'wallet',
+        reason: 'customer_cancellation',
+        cancelBooking: true,
+      })
+      .expect(201);
+    const refundId = created.body.id as string;
+    // Claimed for execution, then the process stopped before the wallet posting.
+    await ctx.prisma.refund.update({
+      where: { id: refundId },
+      data: { status: 'processing', approvedAt: new Date(), attempts: 1 },
+    });
+    const providerRefund = jest.spyOn(ctx.app.get(MockPaymentProvider), 'refund');
+
+    try {
+      await ctx.app.get(RefundsService).processDue(new Date(Date.now() + 86_400_000));
+      expect(providerRefund).not.toHaveBeenCalled();
+    } finally {
+      providerRefund.mockRestore();
+    }
+    expect(await ctx.prisma.refund.findUniqueOrThrow({ where: { id: refundId } })).toMatchObject({
+      status: 'succeeded',
+    });
+    const wallet = await ctx.http().get('/v1/me/wallet').set(account).expect(200);
+    expect(wallet.body.balances).toEqual([total]);
+    expect((await getBooking(id, account)).status).toBe('REFUNDED');
+    expect(await balance(`refunds-in-flight:mock:${total.currency}`)).toBe(0n);
   });
 });
