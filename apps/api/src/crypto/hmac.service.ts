@@ -23,7 +23,12 @@ export type HmacPurpose =
   | 'addon-link'
   | 'visa-document-url'
   | 'referral-signal'
-  | 'card-fingerprint';
+  | 'card-fingerprint'
+  // Cars (ADR-050): one driver per NIN and licence, live-trip links, guest seat holds.
+  | 'driver-nin'
+  | 'driver-licence'
+  | 'ride-share'
+  | 'bus-hold';
 
 const PURPOSES: readonly HmacPurpose[] = [
   'ip',
@@ -42,6 +47,10 @@ const PURPOSES: readonly HmacPurpose[] = [
   'visa-document-url',
   'referral-signal',
   'card-fingerprint',
+  'driver-nin',
+  'driver-licence',
+  'ride-share',
+  'bus-hold',
 ];
 const HKDF_SALT = 'suskii-api:hmac:v1';
 

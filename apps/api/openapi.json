@@ -26719,6 +26719,51 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "bus-seat-holds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "ticket-scans": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "ride-offers": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "ride-location-pings": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "ride-locations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "ride-share-links": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "safety-incidents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "driver-documents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "driver-payouts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -26732,7 +26777,16 @@
           "search-logs",
           "newsletter-pending",
           "cookie-consents",
-          "closed-bookings"
+          "closed-bookings",
+          "bus-seat-holds",
+          "ticket-scans",
+          "ride-offers",
+          "ride-location-pings",
+          "ride-locations",
+          "ride-share-links",
+          "safety-incidents",
+          "driver-documents",
+          "driver-payouts"
         ],
         "additionalProperties": false
       },
@@ -29595,7 +29649,11 @@
                     "refund_failed",
                     "refund_to_wallet",
                     "cancellation_fee",
-                    "referral_reward"
+                    "referral_reward",
+                    "ride_earnings",
+                    "payout_sent",
+                    "payout_settled",
+                    "payout_failed"
                   ]
                 },
                 "amount": {

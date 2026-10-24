@@ -71,6 +71,10 @@ model User {
   referralsMade           Referral[]               @relation("Referrer")
   referredBy              Referral?                @relation("Referee")
   priceAlerts             PriceAlert[]
+  operatorMemberships     OperatorMember[]
+  driver                  Driver?
+  rides                   Ride[]                   @relation("RideRider")
+  emergencyContacts       EmergencyContact[]
 
   @@map("users")
 }
@@ -799,6 +803,10 @@ enum BookingItemType {
   visa
   addon
   membership
+  /// Cars (ADR-049).
+  bus
+  ride
+  rental
 }
 
 /// Where a booking item's seats on a departure stand (ADR-025).
@@ -885,6 +893,8 @@ model Booking {
   vouchers         BookingVoucher[]
   visaApplications VisaApplication[]
   items            BookingItem[]
+  busTickets       BusTicket[]
+  ride             Ride?
   passengers       BookingPassenger[]
   history          BookingStatusHistory[]
   payments         Payment[]
@@ -938,11 +948,15 @@ model BookingItem {
   seatState            SeatState?      @map("seat_state")
   createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  booking          Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  offer            Offer             @relation(fields: [offerId], references: [id], onDelete: Restrict)
-  packageDeparture PackageDeparture? @relation(fields: [packageDepartureId], references: [id], onDelete: Restrict)
-  tourDeparture    TourDeparture?    @relation(fields: [tourDepartureId], references: [id], onDelete: Restrict)
+  booking          Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  offer            Offer               @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  packageDeparture PackageDeparture?   @relation(fields: [packageDepartureId], references: [id], onDelete: Restrict)
+  tourDeparture    TourDeparture?      @relation(fields: [tourDepartureId], references: [id], onDelete: Restrict)
   vouchers         BookingVoucher[]
+  busSeats         BusSeatAssignment[]
+  busTickets       BusTicket[]
+  ride             Ride?
+  rental           RentalReservation?
 
   @@index([bookingId])
   @@index([packageDepartureId])
@@ -1960,4 +1974,773 @@ model BookingNote {
 
   @@index([bookingId, createdAt])
   @@map("booking_notes")
+}
+
+// ---------------------------------------------------------------------------
+// Cars: interstate buses, intrastate rides and car rental (ADR-049 to ADR-053)
+// ---------------------------------------------------------------------------
+
+enum BusTripStatus {
+  scheduled
+  boarding
+  departed
+  cancelled
+}
+
+enum BusTicketStatus {
+  valid
+  boarded
+  void
+}
+
+enum RideCategory {
+  standard
+  comfort
+  xl
+}
+
+enum RideStatus {
+  scheduled
+  searching
+  assigned
+  arrived
+  in_progress
+  completed
+  cancelled
+  no_driver
+}
+
+enum RideOfferStatus {
+  open
+  accepted
+  declined
+  expired
+  withdrawn
+}
+
+enum DriverStatus {
+  pending
+  approved
+  rejected
+  suspended
+}
+
+/// Vehicles a driver registers are reviewed like documents.
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+enum DriverDocumentKind {
+  licence
+  vehicle_registration
+  insurance
+  roadworthiness
+  selfie
+}
+
+enum DriverDocumentStatus {
+  pending
+  clean
+  approved
+  rejected
+}
+
+enum IncidentKind {
+  sos
+  route_deviation
+  pin_lockout
+  long_stop
+}
+
+enum IncidentStatus {
+  open
+  acknowledged
+  resolved
+}
+
+enum RentalCategory {
+  economy
+  compact
+  suv
+  luxury
+  van
+}
+
+enum Transmission {
+  automatic
+  manual
+}
+
+enum RentalStatus {
+  reserved
+  checked_out
+  returned
+  cancelled
+}
+
+enum HandoverKind {
+  check_out
+  check_in
+}
+
+enum PayoutStatus {
+  pending
+  paid
+  failed
+}
+
+/// A bus company whose tickets Suskii sells from inventory entered by staff (ADR-049).
+model BusOperator {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  slug               String        @unique
+  name               String
+  status             CatalogStatus @default(draft)
+  /// Demo inventory (`db:seed:demo`), badged "Sample".
+  sample             Boolean       @default(false)
+  /// Cancellation tiers for this operator's tickets (`CancellationTier[]`).
+  cancellationPolicy Json          @map("cancellation_policy")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  routes  BusRoute[]
+  layouts BusLayout[]
+  members OperatorMember[]
+
+  @@map("bus_operators")
+}
+
+/// Accounts that board this operator's passengers (role `operator_agent`, ADR-050).
+model OperatorMember {
+  operatorId String   @map("operator_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  operator BusOperator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([operatorId, userId])
+  @@index([userId])
+  @@map("operator_members")
+}
+
+/// A bus park or terminal, shared by the operators that use it.
+model BusTerminal {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  slug        String   @unique
+  name        String
+  cityName    String   @map("city_name")
+  stateName   String   @map("state_name")
+  countryCode String   @map("country_code") @db.Char(2)
+  address     String
+  lat         Float
+  lng         Float
+  timeZone    String   @map("time_zone")
+  active      Boolean  @default(true)
+  sample      Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  departures BusRoute[] @relation("BusRouteOrigin")
+  arrivals   BusRoute[] @relation("BusRouteDestination")
+
+  @@index([cityName])
+  @@map("bus_terminals")
+}
+
+/// An operator's service between two terminals.
+model BusRoute {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  operatorId      String   @map("operator_id") @db.Uuid
+  originId        String   @map("origin_terminal_id") @db.Uuid
+  destinationId   String   @map("destination_terminal_id") @db.Uuid
+  distanceKm      Int      @map("distance_km")
+  durationMinutes Int      @map("duration_minutes")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  operator    BusOperator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  origin      BusTerminal @relation("BusRouteOrigin", fields: [originId], references: [id], onDelete: Restrict)
+  destination BusTerminal @relation("BusRouteDestination", fields: [destinationId], references: [id], onDelete: Restrict)
+  trips       BusTrip[]
+
+  @@unique([operatorId, originId, destinationId])
+  @@index([originId, destinationId])
+  @@map("bus_routes")
+}
+
+/// A coach type and its seat map (`BusSeatLayout`).
+model BusLayout {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  operatorId String   @map("operator_id") @db.Uuid
+  name       String
+  layout     Json
+  seatCount  Int      @map("seat_count")
+  amenities  String[] @default([])
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  operator BusOperator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  trips    BusTrip[]
+
+  @@index([operatorId])
+  @@map("bus_layouts")
+}
+
+/// A dated departure with its fare and coach.
+model BusTrip {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  routeId        String        @map("route_id") @db.Uuid
+  layoutId       String        @map("layout_id") @db.Uuid
+  departsAt      DateTime      @map("departs_at") @db.Timestamptz(3)
+  /// Wall time at the origin terminal, YYYY-MM-DDTHH:mm.
+  departsAtLocal String        @map("departs_at_local")
+  arrivesAt      DateTime      @map("arrives_at") @db.Timestamptz(3)
+  fareMinor      BigInt        @map("fare_minor")
+  currency       String        @db.Char(3)
+  status         BusTripStatus @default(scheduled)
+  /// Seats kept off sale (crew, a broken seat).
+  blockedSeats   String[]      @default([]) @map("blocked_seats")
+  sample         Boolean       @default(false)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  route       BusRoute            @relation(fields: [routeId], references: [id], onDelete: Restrict)
+  layout      BusLayout           @relation(fields: [layoutId], references: [id], onDelete: Restrict)
+  holds       BusSeatHold[]
+  assignments BusSeatAssignment[]
+  tickets     BusTicket[]
+
+  @@index([routeId, departsAt])
+  @@index([status, departsAt])
+  @@map("bus_trips")
+}
+
+/// The record of a seat hold; Redis decides while it lives (ADR-051).
+model BusSeatHold {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tripId         String    @map("trip_id") @db.Uuid
+  seats          String[]
+  /// The holder: an account, or an HMAC of the guest's hold token.
+  userId         String?   @map("user_id") @db.Uuid
+  guestTokenHash String?   @map("guest_token_hash")
+  /// HMAC of the client IP, for the per-IP limit on live holds.
+  ipHash         String    @map("ip_hash")
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  releasedAt     DateTime? @map("released_at") @db.Timestamptz(3)
+  /// Set when a booking took the seats.
+  bookingItemId  String?   @unique @map("booking_item_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  trip BusTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, expiresAt])
+  @@index([userId, expiresAt])
+  @@index([ipHash, expiresAt])
+  @@index([expiresAt])
+  @@map("bus_seat_holds")
+}
+
+/// A seat sold to a booking item; released (`active` false) with the booking (ADR-051).
+model BusSeatAssignment {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tripId        String    @map("trip_id") @db.Uuid
+  seatNumber    String    @map("seat_number")
+  bookingItemId String    @map("booking_item_id") @db.Uuid
+  /// The booking passenger in this seat.
+  passengerId   String    @map("passenger_id") @db.Uuid
+  active        Boolean   @default(true)
+  releasedAt    DateTime? @map("released_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  trip        BusTrip     @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  bookingItem BookingItem @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+
+  @@index([bookingItemId])
+  @@index([tripId])
+  @@map("bus_seat_assignments")
+}
+
+/// A boarding pass per seat (ADR-050). Its QR payload is signed on demand, never stored.
+model BusTicket {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  bookingId     String          @map("booking_id") @db.Uuid
+  bookingItemId String          @map("booking_item_id") @db.Uuid
+  tripId        String          @map("trip_id") @db.Uuid
+  seatNumber    String          @map("seat_number")
+  passengerId   String          @map("passenger_id") @db.Uuid
+  status        BusTicketStatus @default(valid)
+  boardedAt     DateTime?       @map("boarded_at") @db.Timestamptz(3)
+  boardedById   String?         @map("boarded_by_id") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking     Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingItem BookingItem     @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+  trip        BusTrip         @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  scans       BusTicketScan[]
+
+  @@index([bookingItemId])
+  @@index([tripId])
+  @@map("bus_tickets")
+}
+
+/// Every scan of a ticket, online or uploaded later from an offline scanner (ADR-050).
+model BusTicketScan {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  ticketId    String   @map("ticket_id") @db.Uuid
+  agentUserId String   @map("agent_user_id") @db.Uuid
+  /// When the agent scanned (the device clock for offline scans).
+  scannedAt   DateTime @map("scanned_at") @db.Timestamptz(3)
+  offline     Boolean  @default(false)
+  /// `boarded`, `already_boarded` or `void`.
+  result      String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ticket BusTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("bus_ticket_scans")
+}
+
+/// Places riders pick from: terminals, airports and landmarks entered by staff (ADR-053).
+model RidePlace {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  /// `airport`, `terminal` or `landmark`.
+  kind      String
+  cityName  String   @map("city_name")
+  lat       Float
+  lng       Float
+  active    Boolean  @default(true)
+  sample    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([cityName, active])
+  @@map("ride_places")
+}
+
+/// Ride fares per city and category (ADR-051): data, not code.
+model RideFareRule {
+  id                   String       @id @default(uuid(7)) @db.Uuid
+  cityName             String       @map("city_name")
+  category             RideCategory
+  currency             String       @db.Char(3)
+  baseMinor            BigInt       @map("base_minor")
+  perKmMinor           BigInt       @map("per_km_minor")
+  perMinuteMinor       BigInt       @map("per_minute_minor")
+  bookingFeeMinor      BigInt       @map("booking_fee_minor")
+  minimumMinor         BigInt       @map("minimum_minor")
+  cancellationFeeMinor BigInt       @map("cancellation_fee_minor")
+  freeCancelSeconds    Int          @map("free_cancel_seconds")
+  waitGraceSeconds     Int          @map("wait_grace_seconds")
+  driverShareBps       Int          @map("driver_share_bps")
+  /// Demand pricing set by staff; capped at RIDE_SURGE_CAP_BPS when applied.
+  surgeBps             Int          @default(0) @map("surge_bps")
+  active               Boolean      @default(true)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([cityName, category])
+  @@map("ride_fare_rules")
+}
+
+/// A vetted independent driver (ADR-050). Identity numbers are encrypted and HMAC-indexed.
+model Driver {
+  id                     String       @id @default(uuid(7)) @db.Uuid
+  userId                 String       @unique @map("user_id") @db.Uuid
+  status                 DriverStatus @default(pending)
+  /// Demo drivers (`db:seed:demo`), badged "Sample".
+  sample                 Boolean      @default(false)
+  givenNames             String       @map("given_names")
+  surname                String
+  dateOfBirth            DateTime     @map("date_of_birth") @db.Date
+  cityName               String       @map("city_name")
+  ninEncrypted           String       @map("nin_encrypted")
+  /// HMAC of the NIN: one driver account per person.
+  ninHash                String       @unique @map("nin_hash")
+  /// KYC outcomes (`verified`, `mismatch`, `not_found`, `pending`) and provider references.
+  identityCheck          String       @default("pending") @map("identity_check")
+  identityReference      String?      @map("identity_reference")
+  licenceEncrypted       String       @map("licence_encrypted")
+  licenceHash            String       @unique @map("licence_hash")
+  licenceExpiresOn       DateTime     @map("licence_expires_on") @db.Date
+  licenceCheck           String       @default("pending") @map("licence_check")
+  licenceReference       String?      @map("licence_reference")
+  /// Bank details for payouts (`{ bankCode, accountNumber, accountName }`), encrypted.
+  payoutAccountEncrypted String?      @map("payout_account_encrypted")
+  ratingSum              Int          @default(0) @map("rating_sum")
+  ratingCount            Int          @default(0) @map("rating_count")
+  online                 Boolean      @default(false)
+  /// Last position, kept only while online (ADR-053).
+  lastLat                Float?       @map("last_lat")
+  lastLng                Float?       @map("last_lng")
+  lastLocationAt         DateTime?    @map("last_location_at") @db.Timestamptz(3)
+  reviewedById           String?      @map("reviewed_by_id") @db.Uuid
+  reviewedAt             DateTime?    @map("reviewed_at") @db.Timestamptz(3)
+  /// Why an application was rejected or a driver suspended (a short staff reason, no personal data).
+  statusReason           String?      @map("status_reason")
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vehicles  DriverVehicle[]
+  documents DriverDocument[]
+  rides     Ride[]
+  offers    RideOffer[]
+  payouts   DriverPayout[]
+
+  @@index([status, online])
+  @@map("drivers")
+}
+
+model DriverVehicle {
+  id                 String       @id @default(uuid(7)) @db.Uuid
+  driverId           String       @map("driver_id") @db.Uuid
+  make               String
+  model              String
+  year               Int
+  colour             String
+  plate              String       @unique
+  category           RideCategory
+  seats              Int
+  insuranceExpiresOn DateTime     @map("insurance_expires_on") @db.Date
+  status             ReviewStatus @default(pending)
+  /// The vehicle the driver drives today; at most one per driver.
+  active             Boolean      @default(false)
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  rides  Ride[]
+
+  @@index([driverId])
+  @@map("driver_vehicles")
+}
+
+/// A driver's document, sealed like visa documents (ADR-026, ADR-050).
+model DriverDocument {
+  id              String               @id @default(uuid(7)) @db.Uuid
+  driverId        String               @map("driver_id") @db.Uuid
+  kind            DriverDocumentKind
+  status          DriverDocumentStatus @default(pending)
+  storageKey      String?              @map("storage_key")
+  contentType     String               @map("content_type")
+  sizeBytes       Int                  @map("size_bytes")
+  sha256          String
+  /// Per-document key wrapped with `driver-document:{id}`; wiped on deletion.
+  wrappedKey      String               @map("wrapped_key")
+  expiresOn       DateTime?            @map("expires_on") @db.Date
+  reviewedById    String?              @map("reviewed_by_id") @db.Uuid
+  reviewedAt      DateTime?            @map("reviewed_at") @db.Timestamptz(3)
+  rejectionReason String?              @map("rejection_reason")
+  supersededAt    DateTime?            @map("superseded_at") @db.Timestamptz(3)
+  deletedAt       DateTime?            @map("deleted_at") @db.Timestamptz(3)
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, kind])
+  @@index([status, createdAt])
+  @@map("driver_documents")
+}
+
+/// A paid ride, created when its booking is confirmed (ADR-049).
+model Ride {
+  id                   String       @id @default(uuid(7)) @db.Uuid
+  bookingId            String       @unique @map("booking_id") @db.Uuid
+  bookingItemId        String       @unique @map("booking_item_id") @db.Uuid
+  riderUserId          String       @map("rider_user_id") @db.Uuid
+  driverId             String?      @map("driver_id") @db.Uuid
+  vehicleId            String?      @map("vehicle_id") @db.Uuid
+  category             RideCategory
+  status               RideStatus
+  cityName             String       @map("city_name")
+  pickupLabel          String       @map("pickup_label")
+  pickupLat            Float        @map("pickup_lat")
+  pickupLng            Float        @map("pickup_lng")
+  dropoffLabel         String       @map("dropoff_label")
+  dropoffLat           Float        @map("dropoff_lat")
+  dropoffLng           Float        @map("dropoff_lng")
+  /// Null for "now" rides.
+  scheduledFor         DateTime?    @map("scheduled_for") @db.Timestamptz(3)
+  /// Planned route (encoded polyline); cleared by the retention sweep.
+  polyline             String
+  distanceMetres       Int          @map("distance_metres")
+  durationSeconds      Int          @map("duration_seconds")
+  fareMinor            BigInt       @map("fare_minor")
+  currency             String       @db.Char(3)
+  /// argon2id hash of the four-digit PIN (ADR-050).
+  pinHash              String       @map("pin_hash")
+  /// The PIN itself, encrypted with `ride:{id}:pin`, so the rider's screen can show it.
+  pinEncrypted         String       @map("pin_encrypted")
+  pinAttempts          Int          @default(0) @map("pin_attempts")
+  pinLockedAt          DateTime?    @map("pin_locked_at") @db.Timestamptz(3)
+  searchStartedAt      DateTime?    @map("search_started_at") @db.Timestamptz(3)
+  assignedAt           DateTime?    @map("assigned_at") @db.Timestamptz(3)
+  arrivedAt            DateTime?    @map("arrived_at") @db.Timestamptz(3)
+  startedAt            DateTime?    @map("started_at") @db.Timestamptz(3)
+  completedAt          DateTime?    @map("completed_at") @db.Timestamptz(3)
+  cancelledAt          DateTime?    @map("cancelled_at") @db.Timestamptz(3)
+  /// `rider`, `driver`, `staff` or `system`.
+  cancelledBy          String?      @map("cancelled_by")
+  cancellationFeeMinor BigInt?      @map("cancellation_fee_minor")
+  /// Since when the driver has been off the planned route (ADR-053); null when on it.
+  offRouteSince        DateTime?    @map("off_route_since") @db.Timestamptz(3)
+  /// Location data was coarsened by the retention sweep.
+  locationsRedactedAt  DateTime?    @map("locations_redacted_at") @db.Timestamptz(3)
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking     Booking            @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  bookingItem BookingItem        @relation(fields: [bookingItemId], references: [id], onDelete: Restrict)
+  rider       User               @relation("RideRider", fields: [riderUserId], references: [id], onDelete: Restrict)
+  driver      Driver?            @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  vehicle     DriverVehicle?     @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  events      RideEvent[]
+  offers      RideOffer[]
+  pings       RideLocationPing[]
+  ratings     RideRating[]
+  shareLinks  RideShareLink[]
+  incidents   SafetyIncident[]
+
+  @@index([status, scheduledFor])
+  @@index([riderUserId, createdAt])
+  @@index([driverId, createdAt])
+  @@index([completedAt])
+  @@map("rides")
+}
+
+/// Every ride state change and who caused it (ADR-050).
+model RideEvent {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  rideId      String     @map("ride_id") @db.Uuid
+  event       String
+  fromStatus  RideStatus @map("from_status")
+  toStatus    RideStatus @map("to_status")
+  /// `rider`, `driver`, `staff` or `system`.
+  actorKind   String     @map("actor_kind")
+  actorUserId String?    @map("actor_user_id") @db.Uuid
+  /// Ids and reasons only.
+  metadata    Json       @default("{}")
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([rideId, createdAt])
+  @@map("ride_events")
+}
+
+/// A ride offered to one driver for `RIDE_OFFER_SECONDS` (ADR-052).
+model RideOffer {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  rideId         String          @map("ride_id") @db.Uuid
+  driverId       String          @map("driver_id") @db.Uuid
+  status         RideOfferStatus @default(open)
+  /// Straight-line distance from the driver to the pickup when offered.
+  distanceMetres Int             @map("distance_metres")
+  expiresAt      DateTime        @map("expires_at") @db.Timestamptz(3)
+  respondedAt    DateTime?       @map("responded_at") @db.Timestamptz(3)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ride   Ride   @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([rideId, driverId])
+  @@index([driverId, status])
+  @@index([status, expiresAt])
+  @@index([createdAt])
+  @@map("ride_offers")
+}
+
+/// Driver positions during a ride, kept RIDE_PING_RETENTION_DAYS (ADR-053).
+model RideLocationPing {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  rideId     String   @map("ride_id") @db.Uuid
+  lat        Float
+  lng        Float
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([rideId, recordedAt])
+  @@index([createdAt])
+  @@map("ride_location_pings")
+}
+
+model RideRating {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  rideId    String   @map("ride_id") @db.Uuid
+  /// `rider` rates the driver; `driver` rates the rider.
+  raterKind String   @map("rater_kind")
+  stars     Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@unique([rideId, raterKind])
+  @@map("ride_ratings")
+}
+
+/// A live-trip link (ADR-050): a 128-bit token stored as an HMAC.
+model RideShareLink {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  rideId    String    @map("ride_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([rideId])
+  @@index([expiresAt])
+  @@map("ride_share_links")
+}
+
+/// SOS alerts and automatic safety signals for staff triage (ADR-050).
+model SafetyIncident {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  kind             IncidentKind
+  status           IncidentStatus @default(open)
+  rideId           String?        @map("ride_id") @db.Uuid
+  reporterUserId   String?        @map("reporter_user_id") @db.Uuid
+  /// Where it happened (full precision, staff only).
+  lat              Float?
+  lng              Float?
+  acknowledgedById String?        @map("acknowledged_by_id") @db.Uuid
+  acknowledgedAt   DateTime?      @map("acknowledged_at") @db.Timestamptz(3)
+  resolvedById     String?        @map("resolved_by_id") @db.Uuid
+  resolvedAt       DateTime?      @map("resolved_at") @db.Timestamptz(3)
+  /// `false_alarm`, `assisted`, `escalated_to_police`, `driver_suspended` or `other`.
+  resolution       String?
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ride Ride? @relation(fields: [rideId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([rideId])
+  @@map("safety_incidents")
+}
+
+/// A rider's trusted contact, texted on SOS (ADR-050); name and phone encrypted together.
+model EmergencyContact {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  position         Int
+  /// `{ name, phone }` encrypted with `emergency-contact:{id}`.
+  contactEncrypted String   @map("contact_encrypted")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, position])
+  @@map("emergency_contacts")
+}
+
+/// A transfer of a driver's earnings to their bank (ADR-051).
+model DriverPayout {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  driverId          String       @map("driver_id") @db.Uuid
+  amountMinor       BigInt       @map("amount_minor")
+  currency          String       @db.Char(3)
+  status            PayoutStatus @default(pending)
+  provider          String
+  providerReference String?      @map("provider_reference")
+  failureReason     String?      @map("failure_reason")
+  settledAt         DateTime?    @map("settled_at") @db.Timestamptz(3)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Restrict)
+
+  @@index([driverId, createdAt])
+  @@index([status])
+  @@map("driver_payouts")
+}
+
+/// A car Suskii rents out, with or without a chauffeur (ADR-051).
+model RentalVehicle {
+  id                  String         @id @default(uuid(7)) @db.Uuid
+  slug                String         @unique
+  status              CatalogStatus  @default(draft)
+  sample              Boolean        @default(false)
+  make                String
+  model               String
+  year                Int
+  category            RentalCategory
+  transmission        Transmission
+  seats               Int
+  plate               String         @unique
+  features            String[]       @default([])
+  artKey              String?        @map("art_key")
+  cityName            String         @map("city_name")
+  branchName          String         @map("branch_name")
+  branchAddress       String         @map("branch_address")
+  lat                 Float
+  lng                 Float
+  timeZone            String         @map("time_zone")
+  currency            String         @db.Char(3)
+  dailyMinor          BigInt         @map("daily_minor")
+  /// Null when the car is not offered with a chauffeur.
+  chauffeurDailyMinor BigInt?        @map("chauffeur_daily_minor")
+  depositMinor        BigInt         @map("deposit_minor")
+  /// Cancellation tiers (`CancellationTier[]`).
+  cancellationPolicy  Json           @map("cancellation_policy")
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reservations RentalReservation[]
+
+  @@index([cityName, status])
+  @@map("rental_vehicles")
+}
+
+/// A booked rental period. An exclusion constraint keeps active periods of one car apart.
+model RentalReservation {
+  id                    String       @id @default(uuid(7)) @db.Uuid
+  vehicleId             String       @map("vehicle_id") @db.Uuid
+  bookingItemId         String       @unique @map("booking_item_id") @db.Uuid
+  pickupAt              DateTime     @map("pickup_at") @db.Timestamptz(3)
+  returnAt              DateTime     @map("return_at") @db.Timestamptz(3)
+  /// `returnAt` plus the turnaround buffer: the end of the blocked period.
+  blockedUntil          DateTime     @map("blocked_until") @db.Timestamptz(3)
+  chauffeur             Boolean
+  status                RentalStatus @default(reserved)
+  /// False once the booking releases the car (expired, cancelled, refunded).
+  active                Boolean      @default(true)
+  depositMinor          BigInt       @map("deposit_minor")
+  currency              String       @db.Char(3)
+  depositReleasedAt     DateTime?    @map("deposit_released_at") @db.Timestamptz(3)
+  depositDeductionMinor BigInt?      @map("deposit_deduction_minor")
+  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  vehicle     RentalVehicle    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  bookingItem BookingItem      @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+  handovers   RentalHandover[]
+
+  @@index([vehicleId, pickupAt])
+  @@map("rental_reservations")
+}
+
+/// The car's state when it leaves and when it comes back.
+model RentalHandover {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  reservationId String       @map("reservation_id") @db.Uuid
+  kind          HandoverKind
+  odometerKm    Int          @map("odometer_km")
+  fuelEighths   Int          @map("fuel_eighths")
+  damageNotes   String?      @map("damage_notes")
+  recordedById  String       @map("recorded_by_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  reservation RentalReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@unique([reservationId, kind])
+  @@map("rental_handovers")
 }

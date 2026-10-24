@@ -5,6 +5,12 @@ import { BOOKING_INCLUDE } from '../bookings/booking-presenter';
 import { BookingNotesService } from '../bookings/booking-notes.service';
 import { BookingsService, passportContext } from '../bookings/bookings.service';
 import { APP_CONFIG, type AppConfig } from '../config/config';
+import {
+  driverLicenceContext,
+  driverNinContext,
+  driverPayoutContext,
+  emergencyContactContext,
+} from '../crypto/encryption-contexts';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { PrismaService } from '../infra/prisma.service';
 import { benefitsView, storedBenefits } from '../prime/prime-status';
@@ -314,6 +320,9 @@ export class DataExportService {
         userAgent: event.userAgent,
         metadata: event.metadata,
       })),
+      rides: await this.rides(userId),
+      emergencyContacts: await this.emergencyContacts(userId),
+      driving: await this.driving(userId),
     };
 
     return {
@@ -325,6 +334,7 @@ export class DataExportService {
         'Amounts are in minor units of their currency (kobo for NGN).',
         'Passenger passport numbers on bookings show their last three characters; saved travellers include the full number.',
         'Visa documents and e-tickets are listed as metadata; download them from the booking while it is available.',
+        'Ride pickup and drop-off points are rounded to about 1 km after 90 days, and driver positions during a ride are deleted then.',
         `Financial records are kept for ${this.config.FINANCIAL_RECORDS_RETENTION_YEARS} years after account deletion, with contact details removed.`,
       ],
       data,
@@ -387,6 +397,173 @@ export class DataExportService {
       // The people referred are other accounts: only the outcome of each referral is theirs.
       referred: made.map(view),
       referredBy: referredBy ? view(referredBy) : null,
+    };
+  }
+
+  /** Rides taken as a rider (ADR-049): places, times, fare, ratings given and safety reports. */
+  private async rides(userId: string): Promise<unknown> {
+    const rides = await this.prisma.ride.findMany({
+      where: { riderUserId: userId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        events: { orderBy: { createdAt: 'asc' } },
+        ratings: true,
+        pings: {
+          orderBy: { recordedAt: 'asc' },
+          select: { lat: true, lng: true, recordedAt: true },
+        },
+        incidents: { where: { reporterUserId: userId }, orderBy: { createdAt: 'asc' } },
+      },
+    });
+    return rides.map((ride) => ({
+      id: ride.id,
+      bookingId: ride.bookingId,
+      category: ride.category,
+      status: ride.status,
+      pickup: { label: ride.pickupLabel, lat: ride.pickupLat, lng: ride.pickupLng },
+      dropoff: { label: ride.dropoffLabel, lat: ride.dropoffLat, lng: ride.dropoffLng },
+      scheduledFor: iso(ride.scheduledFor),
+      distanceMetres: ride.distanceMetres,
+      durationSeconds: ride.durationSeconds,
+      fareMinor: minor(ride.fareMinor),
+      currency: ride.currency,
+      cancellationFeeMinor: minor(ride.cancellationFeeMinor),
+      cancelledBy: ride.cancelledBy,
+      createdAt: iso(ride.createdAt),
+      startedAt: iso(ride.startedAt),
+      completedAt: iso(ride.completedAt),
+      cancelledAt: iso(ride.cancelledAt),
+      events: ride.events.map((event) => ({
+        createdAt: iso(event.createdAt),
+        event: event.event,
+        fromStatus: event.fromStatus,
+        toStatus: event.toStatus,
+        actorKind: event.actorKind,
+      })),
+      // The rider's own rating of the driver; the driver's rating of the rider is about them too.
+      ratings: ride.ratings.map((rating) => ({
+        raterKind: rating.raterKind,
+        stars: rating.stars,
+        comment: rating.raterKind === 'rider' ? rating.comment : null,
+        createdAt: iso(rating.createdAt),
+      })),
+      route: ride.pings.map((ping) => ({
+        lat: ping.lat,
+        lng: ping.lng,
+        recordedAt: iso(ping.recordedAt),
+      })),
+      safetyReports: ride.incidents.map((incident) => ({
+        kind: incident.kind,
+        status: incident.status,
+        createdAt: iso(incident.createdAt),
+        resolvedAt: iso(incident.resolvedAt),
+      })),
+    }));
+  }
+
+  private async emergencyContacts(userId: string): Promise<unknown> {
+    const contacts = await this.prisma.emergencyContact.findMany({
+      where: { userId },
+      orderBy: { position: 'asc' },
+    });
+    return contacts.map((contact) => ({
+      position: contact.position,
+      ...(JSON.parse(
+        this.encryption.decrypt(contact.contactEncrypted, emergencyContactContext(contact.id)),
+      ) as { name: string; phone: string }),
+      createdAt: iso(contact.createdAt),
+    }));
+  }
+
+  /** The account's driver profile (ADR-050): identity numbers are theirs, so they are included. */
+  private async driving(userId: string): Promise<unknown> {
+    const driver = await this.prisma.driver.findUnique({
+      where: { userId },
+      include: {
+        vehicles: { orderBy: { createdAt: 'asc' } },
+        documents: { orderBy: { createdAt: 'asc' } },
+        payouts: { orderBy: { createdAt: 'asc' } },
+      },
+    });
+    if (!driver) return null;
+    const rides = await this.prisma.ride.findMany({
+      where: { driverId: driver.id },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        status: true,
+        category: true,
+        cityName: true,
+        assignedAt: true,
+        completedAt: true,
+        distanceMetres: true,
+        fareMinor: true,
+        currency: true,
+      },
+    });
+    return {
+      status: driver.status,
+      givenNames: driver.givenNames,
+      surname: driver.surname,
+      dateOfBirth: isoDate(driver.dateOfBirth),
+      cityName: driver.cityName,
+      nin: this.encryption.decrypt(driver.ninEncrypted, driverNinContext(driver.id)),
+      identityCheck: driver.identityCheck,
+      licenceNumber: this.encryption.decrypt(
+        driver.licenceEncrypted,
+        driverLicenceContext(driver.id),
+      ),
+      licenceExpiresOn: isoDate(driver.licenceExpiresOn),
+      licenceCheck: driver.licenceCheck,
+      payoutAccount: driver.payoutAccountEncrypted
+        ? (JSON.parse(
+            this.encryption.decrypt(driver.payoutAccountEncrypted, driverPayoutContext(driver.id)),
+          ) as unknown)
+        : null,
+      rating:
+        driver.ratingCount > 0
+          ? { average: driver.ratingSum / driver.ratingCount, count: driver.ratingCount }
+          : null,
+      createdAt: iso(driver.createdAt),
+      reviewedAt: iso(driver.reviewedAt),
+      vehicles: driver.vehicles.map((vehicle) => ({
+        make: vehicle.make,
+        model: vehicle.model,
+        year: vehicle.year,
+        colour: vehicle.colour,
+        plate: vehicle.plate,
+        category: vehicle.category,
+        status: vehicle.status,
+        insuranceExpiresOn: isoDate(vehicle.insuranceExpiresOn),
+      })),
+      documents: driver.documents.map((document) => ({
+        id: document.id,
+        kind: document.kind,
+        status: document.status,
+        contentType: document.contentType,
+        sizeBytes: document.sizeBytes,
+        uploadedAt: iso(document.createdAt),
+        deletedAt: iso(document.deletedAt),
+      })),
+      // Rides driven: ids, times and fares; the riders are other people.
+      ridesDriven: rides.map((ride) => ({
+        id: ride.id,
+        status: ride.status,
+        category: ride.category,
+        cityName: ride.cityName,
+        assignedAt: iso(ride.assignedAt),
+        completedAt: iso(ride.completedAt),
+        distanceMetres: ride.distanceMetres,
+        fareMinor: minor(ride.fareMinor),
+        currency: ride.currency,
+      })),
+      payouts: driver.payouts.map((payout) => ({
+        amountMinor: minor(payout.amountMinor),
+        currency: payout.currency,
+        status: payout.status,
+        createdAt: iso(payout.createdAt),
+        settledAt: iso(payout.settledAt),
+      })),
     };
   }
 }

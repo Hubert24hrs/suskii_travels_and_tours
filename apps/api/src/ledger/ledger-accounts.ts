@@ -8,7 +8,12 @@ export type AccountRef =
   | { kind: 'wallet'; userId: string; currency: string }
   | { kind: 'refunds-in-flight'; provider: string; currency: string }
   | { kind: 'cancellation-fees'; currency: string }
-  | { kind: 'promotions'; currency: string };
+  | { kind: 'promotions'; currency: string }
+  // Cars (ADR-051): what a driver has earned and not yet been paid, the platform's commission,
+  // and payouts sent to a driver's bank but not yet settled.
+  | { kind: 'driver-earnings'; driverId: string; currency: string }
+  | { kind: 'ride-commission'; currency: string }
+  | { kind: 'payouts-in-flight'; provider: string; currency: string };
 
 export interface AccountSpec {
   code: string;
@@ -75,8 +80,32 @@ export function accountSpec(ref: AccountRef): AccountSpec {
         type: 'expense',
         allowNegative: false,
       };
+    case 'driver-earnings':
+      return {
+        ...base,
+        code: `${driverEarningsPrefix(ref.driverId)}${ref.currency}`,
+        type: 'liability',
+        allowNegative: false,
+      };
+    case 'ride-commission':
+      return {
+        ...base,
+        code: `income:ride-commission:${ref.currency}`,
+        type: 'income',
+        allowNegative: false,
+      };
+    case 'payouts-in-flight':
+      return {
+        ...base,
+        code: `payouts-in-flight:${ref.provider}:${ref.currency}`,
+        type: 'liability',
+        allowNegative: false,
+      };
   }
 }
+
+/** Code prefix of a driver's earnings accounts (one per currency). */
+export const driverEarningsPrefix = (driverId: string): string => `driver-earnings:${driverId}:`;
 
 /** Transaction kinds, for reporting and the wallet history. */
 export const LEDGER_KINDS = [
@@ -89,5 +118,9 @@ export const LEDGER_KINDS = [
   'refund_to_wallet',
   'cancellation_fee',
   'referral_reward',
+  'ride_earnings',
+  'payout_sent',
+  'payout_settled',
+  'payout_failed',
 ] as const;
 export type LedgerKind = (typeof LEDGER_KINDS)[number];

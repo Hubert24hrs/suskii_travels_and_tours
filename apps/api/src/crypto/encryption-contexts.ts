@@ -17,3 +17,13 @@ export const idempotencySealContext = (id: string): string => `idempotency:${id}
 export const documentKeyContext = (documentId: string): string => `visa-document:${documentId}`;
 export const documentNameContext = (documentId: string): string =>
   `visa-document:${documentId}:name`;
+// Cars (ADR-050).
+export const driverNinContext = (driverId: string): string => `driver:${driverId}:nin`;
+export const driverLicenceContext = (driverId: string): string => `driver:${driverId}:licence`;
+export const driverPayoutContext = (driverId: string): string =>
+  `driver:${driverId}:payout-account`;
+export const driverDocumentKeyContext = (documentId: string): string =>
+  `driver-document:${documentId}`;
+export const ridePinContext = (rideId: string): string => `ride:${rideId}:pin`;
+export const emergencyContactContext = (contactId: string): string =>
+  `emergency-contact:${contactId}`;

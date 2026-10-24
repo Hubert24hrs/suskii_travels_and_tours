@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 
-import { addDays } from '@suskii/shared';
+import { addDays, isStaff } from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
 import { SessionService } from '../auth/session.service';
@@ -12,8 +12,11 @@ import type { RequestContext } from '../common/request-context';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { HmacService } from '../crypto/hmac.service';
 import { ObjectStorage } from '../documents/object-storage';
-import type { BookingStatus, Prisma } from '../generated/prisma/client';
+import type { BookingStatus, Prisma, RideStatus } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
+import { driverEarningsPrefix } from '../ledger/ledger-accounts';
+
+import { redactCarsBooking } from './cars-redaction';
 
 type Tx = Prisma.TransactionClient;
 
@@ -39,6 +42,8 @@ const UNSETTLED: BookingStatus[] = [
   'REFUND_PENDING',
 ];
 const OPEN_REFUNDS = ['pending_approval', 'approved', 'processing', 'needs_review'] as const;
+const REDACTED = 'REDACTED';
+const LIVE_RIDE: RideStatus[] = ['scheduled', 'searching', 'assigned', 'arrived', 'in_progress'];
 
 export const tombstoneEmail = (userId: string): string => `deleted-${userId}@deleted.invalid`;
 
@@ -80,24 +85,51 @@ export class AccountDeletionService {
     tx: Tx | PrismaService = this.prisma,
     now = new Date(),
   ): Promise<DeletionBlocker[]> {
-    const [roles, unsettled, pendingPayments, confirmed, openVisa, openRefunds, wallets] =
-      await Promise.all([
-        tx.userRole.findMany({ where: { userId }, select: { roleKey: true } }),
-        tx.booking.count({ where: { userId, status: { in: UNSETTLED } } }),
-        tx.payment.count({
-          where: { booking: { userId }, status: 'pending', expiresAt: { gt: now } },
-        }),
-        tx.booking.findMany({
-          where: { userId, status: 'CONFIRMED' },
-          select: { items: { select: { payload: true }, orderBy: { createdAt: 'asc' }, take: 1 } },
-        }),
-        tx.visaApplication.count({ where: { booking: { userId }, closedAt: null } }),
-        tx.refund.count({ where: { booking: { userId }, status: { in: [...OPEN_REFUNDS] } } }),
-        tx.ledgerAccount.findMany({
-          where: { userId, code: { startsWith: 'wallet:' } },
-          select: { balanceMinor: true },
-        }),
-      ]);
+    const [
+      roles,
+      unsettled,
+      pendingPayments,
+      confirmed,
+      openVisa,
+      openRefunds,
+      wallets,
+      liveRides,
+      driver,
+    ] = await Promise.all([
+      tx.userRole.findMany({ where: { userId }, select: { roleKey: true } }),
+      tx.booking.count({ where: { userId, status: { in: UNSETTLED } } }),
+      tx.payment.count({
+        where: { booking: { userId }, status: 'pending', expiresAt: { gt: now } },
+      }),
+      tx.booking.findMany({
+        where: { userId, status: 'CONFIRMED' },
+        select: { items: { select: { payload: true }, orderBy: { createdAt: 'asc' }, take: 1 } },
+      }),
+      tx.visaApplication.count({ where: { booking: { userId }, closedAt: null } }),
+      tx.refund.count({ where: { booking: { userId }, status: { in: [...OPEN_REFUNDS] } } }),
+      tx.ledgerAccount.findMany({
+        where: { userId, code: { startsWith: 'wallet:' } },
+        select: { balanceMinor: true },
+      }),
+      // A ride booked or being driven is a booking in progress (ADR-049).
+      tx.ride.count({
+        where: {
+          status: { in: LIVE_RIDE },
+          OR: [{ riderUserId: userId }, { driver: { userId } }],
+        },
+      }),
+      tx.driver.findUnique({ where: { userId }, select: { id: true } }),
+    ]);
+    // Unpaid driver earnings and payouts on their way are money held for the account, like a
+    // wallet balance: support pays them out first.
+    const driverMoney = driver
+      ? (await tx.ledgerAccount.count({
+          where: {
+            code: { startsWith: driverEarningsPrefix(driver.id) },
+            balanceMinor: { not: 0n },
+          },
+        })) + (await tx.driverPayout.count({ where: { driverId: driver.id, status: 'pending' } }))
+      : 0;
     // A trip counts as finished the day after it ends, whatever the destination's time zone.
     const yesterday = addDays(now.toISOString().slice(0, 10), -1);
     const upcoming = confirmed.some((booking) => {
@@ -106,13 +138,14 @@ export class AccountDeletionService {
       return facts !== null && facts.endDate >= yesterday;
     });
     const result: DeletionBlocker[] = [];
-    if (roles.some((role) => role.roleKey !== 'customer')) result.push('staff_account');
-    if (unsettled > 0) result.push('booking_in_progress');
+    if (isStaff(roles.map((role) => role.roleKey))) result.push('staff_account');
+    if (unsettled > 0 || liveRides > 0) result.push('booking_in_progress');
     if (pendingPayments > 0) result.push('payment_in_progress');
     if (upcoming) result.push('upcoming_trip');
     if (openVisa > 0) result.push('visa_in_progress');
     if (openRefunds > 0) result.push('refund_in_progress');
-    if (wallets.some((wallet) => wallet.balanceMinor !== 0n)) result.push('wallet_balance');
+    if (wallets.some((wallet) => wallet.balanceMinor !== 0n) || driverMoney > 0)
+      result.push('wallet_balance');
     return result;
   }
 
@@ -142,6 +175,7 @@ export class AccountDeletionService {
           where: { application: { bookingId: { in: bookingIds } }, deletedAt: null },
           select: { id: true, storageKey: true },
         });
+        const driverDocuments = await this.redactDriver(tx, userId, now);
 
         await this.redactBookings(tx, userId, bookingIds, now);
         await tx.bookingDocument.deleteMany({ where: { bookingId: { in: bookingIds } } });
@@ -166,6 +200,8 @@ export class AccountDeletionService {
         await tx.priceAlert.deleteMany({ where: { userId } });
         await tx.referralCode.deleteMany({ where: { userId } });
         await tx.idempotencyKey.deleteMany({ where: { scope: `user:${userId}` } });
+        await tx.emergencyContact.deleteMany({ where: { userId } });
+        await tx.operatorMember.deleteMany({ where: { userId } });
         if (user.email) {
           await tx.newsletterSubscription.deleteMany({ where: { email: user.email } });
         }
@@ -216,6 +252,7 @@ export class AccountDeletionService {
           storageKeys: [
             ...bookings.flatMap((booking) => booking.documents.map((doc) => doc.storageKey)),
             ...visaDocuments.flatMap((document) => document.storageKey ?? []),
+            ...driverDocuments,
           ],
           retainedBookings: bookingIds.length,
         };
@@ -281,5 +318,48 @@ export class AccountDeletionService {
         UPDATE booking_items SET payload = payload - 'detailsEncrypted'
          WHERE booking_id = ANY(${bookingIds}::uuid[]) AND payload ? 'detailsEncrypted'`;
     }
+    for (const bookingId of bookingIds) await redactCarsBooking(tx, bookingId);
+  }
+
+  /**
+   * A driver profile becomes a tombstone (ADR-050): names, identity numbers, bank details and
+   * plates are cleared, documents destroyed; status, ratings and past rides stay as the safety
+   * record. Returns the storage keys to delete after the commit.
+   */
+  private async redactDriver(tx: Tx, userId: string, now: Date): Promise<string[]> {
+    const driver = await tx.driver.findUnique({ where: { userId }, select: { id: true } });
+    if (!driver) return [];
+    const documents = await tx.driverDocument.findMany({
+      where: { driverId: driver.id, deletedAt: null },
+      select: { id: true, storageKey: true },
+    });
+    await tx.driverDocument.updateMany({
+      where: { id: { in: documents.map((document) => document.id) } },
+      data: { storageKey: null, wrappedKey: '', deletedAt: now },
+    });
+    await tx.driver.update({
+      where: { id: driver.id },
+      data: {
+        givenNames: REDACTED,
+        surname: REDACTED,
+        ninEncrypted: '',
+        ninHash: `deleted:${driver.id}`,
+        licenceEncrypted: '',
+        licenceHash: `deleted:${driver.id}`,
+        payoutAccountEncrypted: null,
+        identityReference: null,
+        licenceReference: null,
+        status: 'suspended',
+        statusReason: 'account_deleted',
+        online: false,
+        lastLat: null,
+        lastLng: null,
+        lastLocationAt: null,
+      },
+    });
+    await tx.$executeRaw`
+      UPDATE driver_vehicles SET plate = 'DELETED-' || id::text, active = false
+       WHERE driver_id = ${driver.id}::uuid`;
+    return documents.flatMap((document) => document.storageKey ?? []);
   }
 }
