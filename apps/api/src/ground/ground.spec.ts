@@ -178,7 +178,7 @@ describe('mock KYC and payouts', () => {
     ).toBe('mismatch');
   });
 
-  it('pays once per reference', async () => {
+  it('pays once per reference, in batches, and reports later states', async () => {
     const payouts = new MockPayoutProvider();
     const request = {
       reference: 'payout:1',
@@ -187,11 +187,34 @@ describe('mock KYC and payouts', () => {
       accountNumber: '0123456789',
       accountName: 'Ada Obi',
     };
-    const first = await payouts.send(request);
-    expect(first.status).toBe('paid');
-    expect(await payouts.send({ ...request, accountNumber: '0000000000' })).toEqual(first);
-    expect(
-      (await payouts.send({ ...request, reference: 'payout:2', accountNumber: '1110000' })).status,
-    ).toBe('failed');
+    const [first] = await payouts.sendBatch([request]);
+    expect(first?.status).toBe('paid');
+    // The same reference again pays nothing new, whatever the request now says.
+    expect(await payouts.sendBatch([{ ...request, accountNumber: '0000000000' }])).toEqual([first]);
+    const [rejected, pending] = await payouts.sendBatch([
+      { ...request, reference: 'payout:2', accountNumber: '1110000' },
+      { ...request, reference: 'payout:3', accountNumber: '1119999' },
+    ]);
+    expect(rejected).toMatchObject({ status: 'failed', failureReason: 'account_rejected' });
+    expect(pending?.status).toBe('pending');
+    payouts.settlePending();
+    expect((await payouts.status('payout:3'))?.status).toBe('paid');
+    expect(await payouts.status('payout:404')).toBeNull();
+    expect(payouts.batches).toEqual([['payout:1'], ['payout:1'], ['payout:2', 'payout:3']]);
+    // A batch the provider received but did not answer: resending it is safe.
+    payouts.failNextBatches = 1;
+    const fourth = { ...request, reference: 'payout:4' };
+    await expect(payouts.sendBatch([fourth])).rejects.toThrow('timed out');
+    expect((await payouts.sendBatch([fourth]))[0]?.status).toBe('paid');
+    // A batch lost on the way: the provider knows nothing of it.
+    payouts.loseNextBatches = 1;
+    const fifth = { ...request, reference: 'payout:5' };
+    await expect(payouts.sendBatch([fifth])).rejects.toThrow('unreachable');
+    expect(await payouts.status('payout:5')).toBeNull();
+    await expect(
+      payouts.sendBatch(
+        Array.from({ length: 101 }, (_, i) => ({ ...request, reference: `p:${i}` })),
+      ),
+    ).rejects.toThrow('at most 100');
   });
 });

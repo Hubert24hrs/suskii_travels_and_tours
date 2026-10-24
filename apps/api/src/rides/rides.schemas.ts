@@ -253,6 +253,13 @@ export const driverEarningsSchema = named(
   'DriverEarnings',
   z.object({
     balance: moneySchema.meta({ description: 'Earned and not yet paid out.' }),
+    summary: z.object({
+      timeZone: z.string(),
+      today: moneySchema.meta({ description: 'Earned today (fares and cancellation fees).' }),
+      last7Days: moneySchema.meta({
+        description: 'Earned over the last seven days, today included.',
+      }),
+    }),
     rides: z.array(
       z.object({
         rideId: z.uuid(),

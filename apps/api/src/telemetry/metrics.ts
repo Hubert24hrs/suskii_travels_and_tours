@@ -53,6 +53,17 @@ export const refundAttempts = meter.createCounter('suskii.refunds', {
   description: 'Refund executions by outcome (succeeded, processing, failed, needs_review)',
 });
 
+/** New or reopened ledger reconciliation discrepancies by kind and subject (ADR-051). */
+export const reconciliationDiscrepancies = meter.createCounter(
+  'suskii.reconciliation.discrepancies',
+  { description: 'Ledger reconciliation discrepancies raised, by kind and subject' },
+);
+
+/** Driver payouts by outcome (sent, paid, failed) and provider (ADR-051). */
+export const driverPayouts = meter.createCounter('suskii.driver_payouts', {
+  description: 'Driver payouts by outcome and provider',
+});
+
 /**
  * Field Core Web Vitals from the website (ADR-044), by page template and device class. Buckets
  * are finer around the "good" thresholds so dashboards can read the 75th percentile accurately.

@@ -2696,6 +2696,207 @@
         ]
       }
     },
+    "/v1/admin/finance/discrepancies": {
+      "get": {
+        "operationId": "adminListReconciliationDiscrepancies",
+        "summary": "Ledger reconciliation discrepancies (open first-detected first)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "open",
+              "type": "string",
+              "enum": [
+                "open",
+                "resolved"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationDiscrepancies"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "finance:reconcile"
+        ]
+      }
+    },
+    "/v1/admin/finance/discrepancies/{id}/resolve": {
+      "post": {
+        "operationId": "adminResolveReconciliationDiscrepancy",
+        "summary": "Resolve a discrepancy as corrected (checked again) or accepted",
+        "description": "409 `discrepancy-resolved` when it is no longer open.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "resolution": {
+                    "type": "string",
+                    "enum": [
+                      "corrected",
+                      "accepted"
+                    ]
+                  }
+                },
+                "required": [
+                  "resolution"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "finance:reconcile"
+        ],
+        "x-audit": [
+          "reconciliation.discrepancy_resolved"
+        ]
+      }
+    },
+    "/v1/admin/finance/payouts": {
+      "get": {
+        "operationId": "adminListDriverPayouts",
+        "summary": "Driver payouts, newest first (no bank details)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "paid",
+                "failed"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDriverPayouts"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "finance:reconcile"
+        ]
+      }
+    },
     "/v1/admin/ground/layouts": {
       "get": {
         "operationId": "adminListBusLayouts",
@@ -15806,6 +16007,90 @@
         }
       }
     },
+    "/v1/internal/finance/driver-payouts": {
+      "post": {
+        "operationId": "runDriverPayouts",
+        "summary": "Follow up pending payouts and send due driver earnings in one batch",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriverPayoutRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/internal/finance/reconcile-ledger": {
+      "post": {
+        "operationId": "reconcileLedger",
+        "summary": "Compare captured payments, refunds and payouts with the ledger and the provider",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerReconciliationRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/price-alerts/run": {
       "post": {
         "operationId": "runPriceAlerts",
@@ -23082,6 +23367,99 @@
         ],
         "additionalProperties": false
       },
+      "AdminDriverPayouts": {
+        "type": "object",
+        "properties": {
+          "payouts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "driverId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "driverName": {
+                  "type": "string"
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "paid",
+                    "failed"
+                  ]
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "failureReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "batchId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "attempts": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "settledAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "driverId",
+                "driverName",
+                "amount",
+                "status",
+                "provider",
+                "failureReason",
+                "batchId",
+                "attempts",
+                "createdAt",
+                "settledAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "payouts"
+        ],
+        "additionalProperties": false
+      },
       "AdminDrivers": {
         "type": "object",
         "properties": {
@@ -29933,6 +30311,26 @@
           "balance": {
             "$ref": "#/components/schemas/Money"
           },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "timeZone": {
+                "type": "string"
+              },
+              "today": {
+                "$ref": "#/components/schemas/Money"
+              },
+              "last7Days": {
+                "$ref": "#/components/schemas/Money"
+              }
+            },
+            "required": [
+              "timeZone",
+              "today",
+              "last7Days"
+            ],
+            "additionalProperties": false
+          },
           "rides": {
             "type": "array",
             "items": {
@@ -30014,8 +30412,41 @@
         },
         "required": [
           "balance",
+          "summary",
           "rides",
           "payouts"
+        ],
+        "additionalProperties": false
+      },
+      "DriverPayoutRun": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "paid": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "sent",
+          "paid",
+          "failed",
+          "pending"
         ],
         "additionalProperties": false
       },
@@ -33378,6 +33809,32 @@
         },
         "required": [
           "keys"
+        ],
+        "additionalProperties": false
+      },
+      "LedgerReconciliationRun": {
+        "type": "object",
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "discrepancies": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "unconfirmed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "checked",
+          "discrepancies",
+          "unconfirmed"
         ],
         "additionalProperties": false
       },
@@ -37248,6 +37705,150 @@
         ],
         "additionalProperties": false
       },
+      "ReconciliationDiscrepancies": {
+        "type": "object",
+        "properties": {
+          "discrepancies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationDiscrepancy"
+            }
+          }
+        },
+        "required": [
+          "discrepancies"
+        ],
+        "additionalProperties": false
+      },
+      "ReconciliationDiscrepancy": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ledger_missing",
+              "ledger_amount",
+              "provider_status",
+              "provider_amount",
+              "orphan_ledger"
+            ]
+          },
+          "subjectType": {
+            "type": "string",
+            "enum": [
+              "payment",
+              "refund",
+              "payout"
+            ]
+          },
+          "subjectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bookingId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actual": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "resolved"
+            ]
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "corrected",
+                  "accepted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolvedById": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolvedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "subjectType",
+          "subjectId",
+          "bookingId",
+          "expected",
+          "actual",
+          "status",
+          "resolution",
+          "resolvedById",
+          "resolvedAt",
+          "detectedAt",
+          "lastSeenAt"
+        ],
+        "additionalProperties": false
+      },
       "RecoveryCodes": {
         "type": "object",
         "properties": {
@@ -38725,6 +39326,11 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "reconciliation-discrepancies": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "rental-licences": {
             "type": "integer",
             "minimum": 0,
@@ -38757,6 +39363,7 @@
           "safety-incidents",
           "driver-documents",
           "driver-payouts",
+          "reconciliation-discrepancies",
           "rental-licences",
           "rental-photos"
         ],

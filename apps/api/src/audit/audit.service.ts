@@ -168,6 +168,7 @@ export type AuditAction =
   | 'rental.licence_accessed'
   | 'rental.photo_uploaded'
   | 'rental.photo_accessed'
+  | 'reconciliation.discrepancy_resolved'
   | 'account.emergency_contacts_updated';
 
 export interface AuditEvent {

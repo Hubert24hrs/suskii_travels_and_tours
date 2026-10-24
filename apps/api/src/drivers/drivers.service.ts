@@ -243,6 +243,8 @@ export class DriversService {
             }),
             driverPayoutContext(driver.id),
           ),
+          // A payout the bank rejected is tried again only after the details change.
+          payoutAccountUpdatedAt: new Date(),
         },
       });
       await this.audit.record(

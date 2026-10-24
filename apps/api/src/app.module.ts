@@ -18,6 +18,7 @@ import { BusesModule } from './buses/buses.module';
 import { RidesModule } from './rides/rides.module';
 import { DriversModule } from './drivers/drivers.module';
 import { RentalsModule } from './rentals/rentals.module';
+import { FinanceModule } from './finance/finance.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { AppVersionGuard } from './common/app-version.guard';
 import { BeaconBodyMiddleware } from './common/beacon-body.middleware';
@@ -94,6 +95,7 @@ export class AppModule implements NestModule {
         RidesModule,
         DriversModule,
         RentalsModule,
+        FinanceModule,
         VisaModule,
         AccountsModule,
         PrivacyModule,
