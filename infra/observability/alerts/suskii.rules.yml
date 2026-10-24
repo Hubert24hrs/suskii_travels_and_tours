@@ -246,3 +246,127 @@ groups:
           severity: ticket
         annotations:
           summary: 'CLS p75 on {{ $labels.page }} is above 0.1'
+
+  # Cars (ADR-049 to ADR-053). Safety pages at once; the rest is for working hours.
+  - name: suskii-cars
+    rules:
+      - alert: RideSosRaised
+        expr: sum(increase(suskii_ride_sos_total[5m])) > 0
+        labels:
+          severity: page
+        annotations:
+          summary: 'A rider or driver raised an SOS'
+          description: >-
+            Someone on a ride asked for help. Open the incident in the console (Rides and safety)
+            and follow the safety runbook now; their emergency contacts have been texted.
+          runbook: docs/runbooks/ride-safety-incident.md
+
+      - alert: SafetyIncidentUnacknowledged
+        expr: sum(suskii_safety_incidents_open{status="open"}) > 0
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A safety incident has waited 10 minutes for a staff member'
+          description: >-
+            An SOS, a PIN lockout or a route deviation is still open with nobody on it. Acknowledge
+            it in the console before anything else.
+          runbook: docs/runbooks/ride-safety-incident.md
+
+      - alert: RideDispatchStalled
+        expr: max(suskii_rides_oldest_search_age_seconds) > 900
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A ride has searched for a driver for over 15 minutes'
+          description: >-
+            Searches end with a refund after RIDE_MATCH_TIMEOUT_SECONDS (5 minutes), so the
+            dispatcher has stopped: riders are waiting on a paid ride that nobody is offered.
+          runbook: docs/runbooks/stuck-ride.md
+
+      - alert: RideStuckInProgress
+        expr: max(suskii_rides_longest_trip_age_seconds) > 14400
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'A ride has been in progress for over 4 hours'
+          description: >-
+            The driver may have forgotten to complete it, or lost the app. Earnings and the
+            final fare wait until it ends.
+          runbook: docs/runbooks/stuck-ride.md
+
+      - alert: RideNoDriverRateHigh
+        expr: >-
+          (
+            sum(increase(suskii_ride_matches_total{outcome="no_driver"}[1h]))
+            / sum(increase(suskii_ride_matches_total[1h]))
+          ) > 0.3
+          and sum(increase(suskii_ride_matches_total[1h])) > 10
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Over 30% of ride searches end without a driver'
+          description: >-
+            Too few drivers online for demand, or offers that never reach them. Every such ride
+            is refunded in full.
+          runbook: docs/runbooks/stuck-ride.md
+
+      - alert: DriverDocumentBacklog
+        expr: >-
+          max(suskii_driver_documents_oldest_age_seconds) > 172800
+          or sum(suskii_driver_documents_awaiting_review) > 100
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Driver documents have waited over 2 days for review'
+          description: >-
+            Applicants cannot drive until their documents are approved. Reviewers hold the
+            drivers:review permission.
+          runbook: docs/runbooks/driver-document-backlog.md
+
+      - alert: BusDepartureNotScanned
+        expr: max(suskii_bus_trips_unscanned) > 0
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'A bus left with sold seats and nobody scanned on board'
+          description: >-
+            The operator's scanner is offline or not used. Offline scans sync when it reconnects;
+            until then the manifest is the record.
+          runbook: docs/runbooks/bus-scanner-offline.md
+
+      - alert: BusScansInvalid
+        expr: sum(increase(suskii_bus_ticket_scans_total{result="invalid"}[15m])) > 20
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Many scanned boarding passes fail the signature check'
+          description: >-
+            A scanner with an old key list, a rotated signing key, or forged passes at a terminal.
+          runbook: docs/runbooks/bus-scanner-offline.md
+
+      - alert: LedgerDiscrepanciesRaised
+        expr: sum(increase(suskii_reconciliation_discrepancies_total[1h])) > 0
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Ledger reconciliation found money that does not match'
+          description: >-
+            A payment, refund or payout whose postings or provider status disagree. Most often a
+            webhook that was never applied. Review it under Finance in the console.
+          runbook: docs/runbooks/failed-webhook-replay.md
+
+      - alert: DriverPayoutsFailing
+        expr: sum(increase(suskii_driver_payouts_total{outcome="failed"}[1d])) > 5
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'Several driver payouts failed today'
+          description: >-
+            Wrong bank details are retried once the driver updates them; other failures retry on
+            the next run. Check the payout list under Finance for a common reason.

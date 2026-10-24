@@ -12,6 +12,11 @@ the file does not exist.
 | [Database restore](database-restore.md)               | Data loss or corruption, a bad migration, connection exhaustion        |
 | [Key rotation](key-rotation.md)                       | A key or secret may have leaked, or its scheduled rotation is due      |
 | [Session revocation](session-revocation.md)           | Account takeover, a compromised staff account, account recovery        |
+| [Ride safety incident](ride-safety-incident.md)       | An SOS, a PIN lockout or a route deviation on a ride                   |
+| [Stuck ride](stuck-ride.md)                           | Rides wait for drivers, never end, or most searches find no driver     |
+| [Driver document backlog](driver-document-backlog.md) | Driver applications wait days for review, or scans stay pending        |
+| [Bus scanner offline](bus-scanner-offline.md)         | Departures leave with nobody scanned, or many passes fail to verify    |
+| [Failed webhook replay](failed-webhook-replay.md)     | Ledger discrepancies, or webhooks that failed and must be applied      |
 | [Screen reader checklist](screen-reader-checklist.md) | Before each release: manual VoiceOver and TalkBack checks              |
 
 ## Every incident
