@@ -2,6 +2,7 @@ import { addDays, BOOKING_TERMS_VERSION, localDate } from '@suskii/shared';
 
 import { committedOpenApi, staffSession, type HttpMethod } from './helpers/admin';
 import { bearer, signUp, type TokenSession } from './helpers/flows';
+import { localIn, paidRental, PNG, rentalVehicle } from './helpers/rentals';
 import { requestRide, rideCatalog } from './helpers/rides';
 import { createTestApp, resetState, type TestContext } from './helpers/test-app';
 
@@ -66,10 +67,12 @@ const NOT_OWNED: Record<string, string> = {
     "drivers only (403 otherwise); another driver's ride answers 404 (rides.e2e-spec.ts)",
   handBackRide:
     "drivers only (403 otherwise); another driver's ride answers 404 (rides.e2e-spec.ts)",
+  getRentalVehicle: 'published fleet, by slug',
+  getRentalAvailability: 'blocked periods of a published car, with no booking data',
 };
 
 /** Owned resources that only accounts can have: anonymous callers get 401, as on `/v1/me`. */
-const ACCOUNT_ONLY = /^\/v1\/(me|rides)\//;
+const ACCOUNT_ONLY = /^\/v1\/(me|rides|rentals\/reservations)\//;
 
 interface Fixture {
   flightBookingId: string;
@@ -82,6 +85,7 @@ interface Fixture {
   sessionId: string;
   busHoldId: string;
   rideId: string;
+  reservationId: string;
 }
 
 interface Case {
@@ -153,6 +157,15 @@ const CASES: Record<string, Case> = {
   shareRide: { path: (f) => `/v1/rides/${f.rideId}/share` },
   revokeRideShare: { path: (f) => `/v1/rides/${f.rideId}/share` },
   raiseRideSos: { path: (f) => `/v1/rides/${f.rideId}/sos`, body: () => ({}) },
+  getRentalReservation: { path: (f) => `/v1/rentals/reservations/${f.reservationId}` },
+  submitRentalLicence: {
+    path: (f) => `/v1/rentals/reservations/${f.reservationId}/licence`,
+    body: () => ({ number: 'LAGINTRUDER1', expiresOn: '2031-01-31' }),
+  },
+  uploadRentalLicence: {
+    path: (f) => `/v1/rentals/reservations/${f.reservationId}/licence/document`,
+    raw: { contentType: 'image/png', bytes: PNG },
+  },
 };
 
 interface Operation {
@@ -443,9 +456,17 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
     const staff = await staffSession(ctx, 'idor-rides@suskii.test', ['operations']);
     await rideCatalog(ctx, bearer(staff.accessToken));
     const { rideId } = await requestRide(ctx, auth);
+    // A paid self-drive rental.
+    const car = await rentalVehicle(ctx, bearer(staff.accessToken));
+    const { reservationId } = await paidRental(ctx, auth, {
+      vehicleId: car.id,
+      pickupAtLocal: localIn(5),
+      returnAtLocal: localIn(29),
+    });
 
     return {
       rideId,
+      reservationId,
       busHoldId: hold.body.holdId as string,
       flightBookingId: flight.bookingId,
       bookingDocumentId: flightBooking.body.documents[0].id as string,

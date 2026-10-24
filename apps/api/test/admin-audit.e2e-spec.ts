@@ -19,6 +19,7 @@ import {
   signUp,
   type TokenSession,
 } from './helpers/flows';
+import { localIn, paidRental, PNG as RENTAL_PNG } from './helpers/rentals';
 import { driverApplicant, IKEJA, requestRide, VICTORIA_ISLAND } from './helpers/rides';
 import { createTestApp, resetState, type TestContext } from './helpers/test-app';
 
@@ -874,6 +875,88 @@ describe('admin audit coverage (e2e)', () => {
     );
     await audited('adminCancelRide', { rideId }, (request) =>
       request.send({ reason: 'rider_request' }),
+    );
+  });
+
+  it('rentals: fleet, licence review, photos, handovers and the deposit', async () => {
+    const created = await audited('adminCreateRentalVehicle', {}, (request) =>
+      request.send({
+        slug: 'audit-corolla',
+        make: 'Toyota',
+        model: 'Corolla',
+        year: 2021,
+        category: 'economy',
+        transmission: 'automatic',
+        seats: 5,
+        plate: 'AUD-123-XY',
+        cityName: 'Lagos',
+        branchName: 'Ikeja branch',
+        branchAddress: '1 Obafemi Awolowo Way',
+        lat: 6.6,
+        lng: 3.35,
+        timeZone: 'Africa/Lagos',
+        currency: 'NGN',
+        dailyMinor: 4_500_000,
+        depositMinor: 10_000_000,
+        cancellationPolicy: policy,
+      }),
+    );
+    const vehicleId = created.body.id as string;
+    await audited('adminUpdateRentalVehicle', { id: vehicleId }, (request) =>
+      request.send({ status: 'published' }),
+    );
+    const renter = await signUp(ctx, 'audit-renter@example.com');
+    const renterHeaders = bearer(renter.accessToken);
+    const { reservationId } = await paidRental(ctx, renterHeaders, {
+      vehicleId,
+      pickupAtLocal: localIn(4),
+      returnAtLocal: localIn(28),
+    });
+    await ctx
+      .http()
+      .put(`/v1/rentals/reservations/${reservationId}/licence`)
+      .set(renterHeaders)
+      .send({ number: 'LAGAUDIT0001', expiresOn: '2031-01-31' })
+      .expect(200);
+    await ctx
+      .http()
+      .put(`/v1/rentals/reservations/${reservationId}/licence/document`)
+      .set(renterHeaders)
+      .set('Content-Type', 'image/png')
+      .send(RENTAL_PNG)
+      .expect(200);
+    await ctx.background.drain();
+    await audited('adminReviewRentalLicence', { reservationId }, (request) =>
+      request.send({ decision: 'approve' }),
+    );
+    const upload = async () =>
+      (
+        await audited('adminUploadRentalPhoto', { reservationId }, (request) =>
+          request.set('Content-Type', 'image/png').send(RENTAL_PNG),
+        )
+      ).body.id as string;
+    const out = await upload();
+    await audited('adminRecordRentalHandover', { reservationId }, (request) =>
+      request.send({
+        kind: 'check_out',
+        odometerKm: 100,
+        fuelEighths: 8,
+        damageNotes: null,
+        photoIds: [out],
+      }),
+    );
+    const back = await upload();
+    await audited('adminRecordRentalHandover', { reservationId }, (request) =>
+      request.send({
+        kind: 'check_in',
+        odometerKm: 250,
+        fuelEighths: 8,
+        damageNotes: null,
+        photoIds: [back],
+      }),
+    );
+    await audited('adminReleaseRentalDeposit', { reservationId }, (request) =>
+      request.send({ keptMinor: 0 }),
     );
   });
 
