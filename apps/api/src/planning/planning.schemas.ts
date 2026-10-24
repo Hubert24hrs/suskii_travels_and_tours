@@ -45,9 +45,10 @@ export const carsSuggestionsSchema = named(
         pickupPlaceId: z.uuid(),
         pickupLabel: z.string(),
         cityName: z.string(),
-        scheduledForLocal: localDateTime
-          .nullable()
-          .meta({ description: 'Pick-up time to suggest; null when it is too far ahead.' }),
+        scheduledFor: timestamp.nullable().meta({
+          description:
+            'Pick-up time to suggest, 30 minutes after landing; null outside the scheduling window.',
+        }),
       })
       .nullable()
       .meta({ description: 'A ride from the arrival airport.' }),

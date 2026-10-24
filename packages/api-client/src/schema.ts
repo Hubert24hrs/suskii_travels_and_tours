@@ -6513,7 +6513,7 @@ export interface components {
                 pickupPlaceId: string;
                 pickupLabel: string;
                 cityName: string;
-                scheduledForLocal: string | null;
+                scheduledFor: string | null;
             } | null;
             rental: {
                 cityName: string;
