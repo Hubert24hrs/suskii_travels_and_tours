@@ -1,0 +1,136 @@
+# Phase 8 in-house products on the phone: a guest books the sample Lagos tour (db:seed:demo on the
+# e2e stack), pays on the mock provider's hosted page, and the trip shows the voucher the API
+# issues when it confirms the booking. Runs last in run-android.sh, after the offline flow.
+appId: com.suskii.travels.e2e
+name: Tour with a voucher
+tags:
+  - inhouse
+---
+- launchApp
+- runFlow: subflows/dismiss-system-dialogs.yaml
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 60000
+
+# Tours are browsed, not searched: the catalog lists the sample inventory.
+- tapOn: Tours
+- tapOn:
+    id: browse-tours
+- extendedWaitUntil:
+    visible:
+      id: catalog-tour
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: product-sample-lagos-city-highlights
+- tapOn:
+    id: product-sample-lagos-city-highlights
+
+# One adult on the first open departure (the screen picks it), then a quote.
+- extendedWaitUntil:
+    visible:
+      id: product-tour
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: product-book
+- tapOn:
+    id: product-book
+
+# Guest checkout: a tour at home needs no passport.
+- extendedWaitUntil:
+    visible:
+      id: checkout
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: passengers.0.title-ms
+- tapOn:
+    id: passengers.0.title-ms
+- tapOn:
+    id: passengers.0.gender-f
+- scrollUntilVisible:
+    element:
+      id: passengers.0.givenNames
+- tapOn:
+    id: passengers.0.givenNames
+- inputText: Ngozi
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.surname
+- tapOn:
+    id: passengers.0.surname
+- inputText: Eze
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.dateOfBirth
+- tapOn:
+    id: passengers.0.dateOfBirth
+- inputText: 1992-08-14
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.nationality
+- tapOn:
+    id: passengers.0.nationality
+- inputText: Nigeria
+- hideKeyboard
+- tapOn:
+    id: passengers.0.nationality-option-NG
+- scrollUntilVisible:
+    element:
+      id: contact-email
+- tapOn:
+    id: contact-email
+- inputText: maestro.tour@example.com
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: contact-phone
+- tapOn:
+    id: contact-phone
+- inputText: '+2348030000001'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: accept-terms
+- tapOn:
+    id: accept-terms
+- scrollUntilVisible:
+    element:
+      id: checkout-submit
+- tapOn:
+    id: checkout-submit
+
+# The mock provider's hosted page, then back to the trip.
+- runFlow: subflows/chrome-first-run.yaml
+- extendedWaitUntil:
+    visible: 'Pay .*'
+    timeout: 60000
+- tapOn: 'Pay .*'
+- extendedWaitUntil:
+    visible: 'Open the Suskii app|Booking (?!reference).+'
+    timeout: 60000
+- runFlow:
+    when:
+      visible: Open the Suskii app
+    commands:
+      - tapOn: Open the Suskii app
+- extendedWaitUntil:
+    visible:
+      id: trip
+    timeout: 60000
+- extendedWaitUntil:
+    visible: Confirmed
+    timeout: 120000
+
+# The voucher: its code and the QR drawn on the phone.
+- scrollUntilVisible:
+    element:
+      id: voucher-code
+    timeout: 60000
+- assertVisible:
+    id: voucher-qr
