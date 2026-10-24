@@ -168,6 +168,8 @@ catalog:
   expo-document-picker: ~57.0.3
   expo-sharing: ~57.0.22
   expo-camera: ~57.0.6
+  # Ed25519 checks of bus ticket QR codes offline (operator scanner, audited, no native code)
+  '@noble/curves': 2.4.0
   expo-device: ~57.0.2
   expo-application: ~57.0.3
   expo-crypto: ~57.0.3

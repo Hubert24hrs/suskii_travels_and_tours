@@ -18,6 +18,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@noble/curves": "catalog:",
     "@expo-google-fonts/dm-sans": "catalog:",
     "@expo-google-fonts/plus-jakarta-sans": "catalog:",
     "@expo/app-integrity": "catalog:",
