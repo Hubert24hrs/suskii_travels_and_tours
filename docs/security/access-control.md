@@ -13,9 +13,14 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   declare `@AdminRoute(permission)`, which also requires a staff role, an MFA session, an
   allowlisted IP and, for cookies, an allowlisted origin. The riskiest admin mutations add
   `@StepUp()`.
-- **One catalog.** `ROLE_PERMISSIONS` (`packages/shared/src/rbac.ts`) maps the seven roles
+- **One catalog.** `ROLE_PERMISSIONS` (`packages/shared/src/rbac.ts`) maps the nine roles
   (`customer`, `super_admin`, `operations`, `finance`, `support`, `content_manager`,
-  `visa_officer`) to 19 permissions. The seed syncs it to the database for the console.
+  `visa_officer`, and the Cars roles `driver` and `operator_agent`) to 24 permissions. The seed
+  syncs it to the database for the console. Drivers and operator agents are not staff
+  (`NON_STAFF_ROLES`): no console, no MFA requirement, and their routes also check the record
+  (the driver assigned to a ride, the agent's operator) (ADR-049, ADR-050).
+- **Switched-off products.** A disabled Cars product (`CARS_*_ENABLED`) answers 404 on all its
+  routes, before authentication (`CarsFeatureGuard`).
 - **Checked automatically.** The OpenAPI build fails for an admin route without a permission or
   audit list. `admin-matrix.e2e-spec.ts` calls every admin route as every role and expects 403
   unless the role holds the permission. Denials are audited (`rbac.access_denied`) or logged
@@ -31,6 +36,9 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Visa applications                                                                                | The owner; staff with `visa:process`                                                                                      |
 | Visa document content                                                                            | Only through a signed link issued to the owner or an officer, valid for 5 minutes, and audited                            |
 | Add-on purchase for an existing booking                                                          | A short-lived signed link, or the booking reference with the lead passenger's surname (rate limited)                      |
+| Bus seat holds                                                                                   | The account that made it, or a guest with its hold token (an HMAC lookup); 404 for anyone else                            |
+| Bus manifests and ticket scans                                                                   | Operator agents (`tickets:scan`) of the departure's own operator; other agents get 404 or `not_found`                     |
+| Bus inventory (operators, terminals, routes, layouts, departures, agents)                        | Staff with `ground:manage`                                                                                                |
 | Accounts                                                                                         | The owner; staff with `users:read` (view) or `users:manage` (disable, sign out, reset MFA)                                |
 | Audit log, dashboards                                                                            | Staff with `audit:read` or `reports:read`                                                                                 |
 

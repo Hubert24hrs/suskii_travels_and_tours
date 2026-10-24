@@ -107,3 +107,22 @@ export const INHOUSE_LIMITS = {
   visaLinkIp: { name: 'visa-link-ip', limit: 120, windowSeconds: 600, by: 'ip' },
   voucherRedeemUser: { name: 'voucher-redeem-user', limit: 120, windowSeconds: 600, by: 'user' },
 } as const satisfies Record<string, RateLimitPolicy>;
+
+/** Cars (ADR-050): holds and quotes are scraping and hoarding targets; safety routes never starve. */
+export const CARS_LIMITS = {
+  catalogIp: { name: 'cars-catalog-ip', limit: 60, windowSeconds: 60, by: 'ip' },
+  holdIp: { name: 'bus-hold-ip', limit: 20, windowSeconds: 600, by: 'ip' },
+  holdUser: { name: 'bus-hold-user', limit: 20, windowSeconds: 600, by: 'user' },
+  scanUser: { name: 'ticket-scan-user', limit: 240, windowSeconds: 60, by: 'user' },
+  rideQuoteIp: { name: 'ride-quote-ip', limit: 30, windowSeconds: 60, by: 'ip' },
+  rideQuoteUser: { name: 'ride-quote-user', limit: 30, windowSeconds: 60, by: 'user' },
+  /** One position every five seconds, with slack for retries. */
+  locationUser: { name: 'driver-location-user', limit: 20, windowSeconds: 60, by: 'user' },
+  driverActionUser: { name: 'driver-action-user', limit: 60, windowSeconds: 60, by: 'user' },
+  rideActionUser: { name: 'ride-action-user', limit: 60, windowSeconds: 60, by: 'user' },
+  /** SOS is never limited below one a minute (ADR-050). */
+  sosUser: { name: 'ride-sos-user', limit: 5, windowSeconds: 60, by: 'user' },
+  shareIp: { name: 'ride-share-ip', limit: 120, windowSeconds: 60, by: 'ip' },
+  uploadUser: { name: 'driver-upload-user', limit: 20, windowSeconds: 3600, by: 'user' },
+  applyUser: { name: 'driver-apply-user', limit: 5, windowSeconds: 3600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;

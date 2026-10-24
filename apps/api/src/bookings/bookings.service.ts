@@ -27,6 +27,7 @@ import { FieldEncryption } from '../crypto/field-encryption';
 import { HmacService } from '../crypto/hmac.service';
 import { randomToken } from '../crypto/random';
 import { Prisma, type Traveller } from '../generated/prisma/client';
+import { TicketSigner } from '../ground/ticket-signer';
 import { PrismaService } from '../infra/prisma.service';
 import { withCurrentTier } from '../prime/prime-status';
 import { FxService } from '../pricing/fx.service';
@@ -69,9 +70,10 @@ import type { BookingDto, BookingSummaryDto, CreateBookingRequest } from './book
 import { BookingAccessLinks } from './booking-access-links';
 import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
+import { busTicketViews } from './bus-tickets';
 import { InhouseFulfilment } from './inhouse-fulfilment';
 import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
-import { reserveSeats } from './seat-inventory';
+import { claimBusSeats, reserveSeats } from './seat-inventory';
 import {
   addonDetailsContext,
   contactContext,
@@ -138,6 +140,7 @@ export class BookingsService {
     private readonly funds: BookingFundsService,
     private readonly attestation: AttestationService,
     private readonly fulfilment: InhouseFulfilment,
+    private readonly ticketSigner: TicketSigner,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -196,7 +199,7 @@ export class BookingsService {
     const item = booking.items[0];
     if (!item) return EMPTY_VIEW;
     const payload = itemPayload(item);
-    const [voucher, linked, addons, applications, membership] = await Promise.all([
+    const [voucher, linked, addons, applications, membership, busTickets] = await Promise.all([
       booking.status === 'CONFIRMED' && isInhouse(payload) && payload.kind !== 'visa'
         ? this.prisma.bookingVoucher.findUnique({ where: { bookingItemId: item.id } })
         : null,
@@ -237,6 +240,10 @@ export class BookingsService {
             select: { startsAt: true, endsAt: true },
           })
         : null,
+      // Boarding passes stay listed after boarding or a refund, with their status.
+      payload.kind === 'bus'
+        ? this.prisma.busTicket.findMany({ where: { bookingItemId: item.id } })
+        : [],
     ]);
     return {
       voucher: voucher ? this.fulfilment.view(voucher) : null,
@@ -267,6 +274,10 @@ export class BookingsService {
         updatedAt: application.updatedAt.toISOString(),
       })),
       membershipTerm: membership,
+      busTickets:
+        payload.kind === 'bus'
+          ? busTicketViews(busTickets, booking.passengers, payload, this.ticketSigner)
+          : [],
     };
   }
 
@@ -405,7 +416,12 @@ export class BookingsService {
       locale: input.locale,
       termsVersion: input.termsVersion,
       termsAcceptedAt: now,
-      paymentDeadline: earliest(offerExpiry, new Date(now.getTime() + PRICE_HOLD_MS)),
+      paymentDeadline: earliest(
+        payload.kind === 'bus'
+          ? earliest(offerExpiry, new Date(payload.holdExpiresAt))
+          : offerExpiry,
+        new Date(now.getTime() + PRICE_HOLD_MS),
+      ),
       linkedBookingId: payload.kind === 'addon' ? payload.linkedBookingId : null,
       items: {
         create: [
@@ -449,6 +465,20 @@ export class BookingsService {
       // Package and tour seats are taken with the booking, or neither is (ADR-025).
       if (seats) await reserveSeats(tx, seats);
       await tx.booking.create({ data: { ...data, reference } });
+      // Bus seats come from the traveller's live hold, in seat order (ADR-051).
+      if (payload.kind === 'bus') {
+        await claimBusSeats(
+          tx,
+          {
+            holdId: payload.holdId,
+            tripId: payload.tripId,
+            seats: payload.seats,
+            bookingItemId: itemId,
+            passengerIds: passengers.map((passenger) => passenger.id),
+          },
+          now,
+        );
+      }
       await this.transitions.created(tx, { id: bookingId, status: 'DRAFT' }, actor);
       await this.transitions.apply(tx, { id: bookingId, status: 'DRAFT' }, 'price', actor);
       if (userId) await this.saveTravellers(tx, userId, passengers, actor);

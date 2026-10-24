@@ -459,6 +459,233 @@ export interface paths {
         patch: operations["adminUpdateDestination"];
         trace?: never;
     };
+    "/v1/admin/ground/layouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Coach seat maps */
+        get: operations["adminListBusLayouts"];
+        put?: never;
+        /** Add a coach seat map to an operator */
+        post: operations["adminCreateBusLayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ground/layouts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a coach seat map */
+        patch: operations["adminUpdateBusLayout"];
+        trace?: never;
+    };
+    "/v1/admin/ground/operators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bus operators */
+        get: operations["adminListBusOperators"];
+        put?: never;
+        /** Create a bus operator (draft) */
+        post: operations["adminCreateBusOperator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ground/operators/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update, publish or archive a bus operator */
+        patch: operations["adminUpdateBusOperator"];
+        trace?: never;
+    };
+    "/v1/admin/ground/operators/{id}/agents/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Make an account one of the operator's boarding agents */
+        put: operations["adminAddOperatorAgent"];
+        post?: never;
+        /** Remove a boarding agent */
+        delete: operations["adminRemoveOperatorAgent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ground/routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bus routes */
+        get: operations["adminListBusRoutes"];
+        put?: never;
+        /** Add a route to an operator */
+        post: operations["adminCreateBusRoute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ground/routes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update or deactivate a bus route */
+        patch: operations["adminUpdateBusRoute"];
+        trace?: never;
+    };
+    "/v1/admin/ground/terminals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bus terminals */
+        get: operations["adminListBusTerminals"];
+        put?: never;
+        /** Create a bus terminal */
+        post: operations["adminCreateBusTerminal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ground/terminals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update or deactivate a bus terminal */
+        patch: operations["adminUpdateBusTerminal"];
+        trace?: never;
+    };
+    "/v1/admin/ground/trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bus departures in a date range */
+        get: operations["adminListBusTrips"];
+        put?: never;
+        /** Add a departure */
+        post: operations["adminCreateBusTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ground/trips/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change the fare, blocked seats or status of a departure */
+        patch: operations["adminUpdateBusTrip"];
+        trace?: never;
+    };
+    "/v1/admin/ground/trips/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a departure, refunding its paid bookings */
+        post: operations["adminCancelBusTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ground/trips/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add departures for a date range and daily times */
+        post: operations["adminScheduleBusTrips"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/package-departures/{id}": {
         parameters: {
             query?: never;
@@ -1853,6 +2080,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/buses/cities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cities with bus terminals */
+        get: operations["listBusCities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/buses/holds/{holdId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Release held seats
+         * @description Guests send the hold token in `X-Hold-Token`. A booked hold stays with its booking.
+         */
+        delete: operations["releaseBusHold"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/buses/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bus departures between two cities on a date
+         * @description Departures with at least `seats` seats left, priced per seat for the caller. Sales close 30 minutes before departure.
+         */
+        get: operations["searchBuses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/buses/ticket-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public keys for checking ticket QR codes offline */
+        get: operations["getBusTicketKeys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/buses/trips/{tripId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A bus departure with its live seat map
+         * @description 409 `trip-closed` once the departure is no longer on sale.
+         */
+        get: operations["getBusTrip"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/buses/trips/{tripId}/holds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hold seats for ten minutes
+         * @description Every seat is held or none (409 `seat-taken`). At most six seats per hold and two live holds per account (guests: per address), else 409 `hold-limit`. 422 `seat-invalid` for seats not on the map. Pay for the booking before `expiresAt`.
+         */
+        post: operations["createBusHold"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalog/airports/{iataCode}": {
         parameters: {
             query?: never;
@@ -3112,6 +3453,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/operator/tickets/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Board a passenger by their ticket QR code
+         * @description Checks the signature and boarding window, then boards the ticket once: `boarded`, `already_boarded` (with the first boarding time), `void` (cancelled or refunded), `not_found` or `invalid` with a reason.
+         */
+        post: operations["scanBusTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/operator/tickets/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload scans made offline
+         * @description Up to 200 scans, applied in the order they were made. A ticket boarded twice (two offline devices) answers `already_boarded` and is audited.
+         */
+        post: operations["syncBusTicketScans"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/operator/trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Departures of the agent's operators on a date */
+        get: operations["listOperatorTrips"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/operator/trips/{tripId}/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Passengers and boarding status of a departure */
+        get: operations["getBusManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/packages": {
         parameters: {
             query?: never;
@@ -3571,6 +3986,94 @@ export interface components {
             total: components["schemas"]["Money"];
             accountId: string | null;
             trip: components["schemas"]["BookingSummary"] | null;
+        };
+        AdminBusLayouts: {
+            layouts: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                operatorId: string;
+                name: string;
+                seatCount: number;
+                amenities: string[];
+                layout: {
+                    rows: (string | null)[][];
+                };
+            }[];
+        };
+        AdminBusOperators: {
+            operators: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                name: string;
+                /** @enum {string} */
+                status: "draft" | "published" | "archived";
+                sample: boolean;
+                cancellationPolicy: {
+                    daysBefore: number;
+                    refundBps: number;
+                }[];
+                agents: number;
+            }[];
+        };
+        AdminBusRoutes: {
+            routes: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                operatorId: string;
+                operatorName: string;
+                /** Format: uuid */
+                originId: string;
+                origin: string;
+                /** Format: uuid */
+                destinationId: string;
+                destination: string;
+                distanceKm: number;
+                durationMinutes: number;
+                active: boolean;
+            }[];
+        };
+        AdminBusTerminals: {
+            terminals: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                name: string;
+                cityName: string;
+                stateName: string;
+                countryCode: string;
+                address: string;
+                lat: number;
+                lng: number;
+                timeZone: string;
+                active: boolean;
+                sample: boolean;
+            }[];
+        };
+        AdminBusTrips: {
+            trips: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                routeId: string;
+                /** Format: uuid */
+                layoutId: string;
+                operatorName: string;
+                origin: string;
+                destination: string;
+                departsAtLocal: string;
+                /** Format: date-time */
+                departsAt: string;
+                /** @enum {string} */
+                status: "scheduled" | "boarding" | "departed" | "cancelled";
+                fare: components["schemas"]["Money"];
+                seatCount: number;
+                sold: number;
+                blockedSeats: string[];
+                sample: boolean;
+            }[];
         };
         AdminCmsBlock: {
             key: string;
@@ -4109,6 +4612,8 @@ export interface components {
             visa: components["schemas"]["VisaItem"] | null;
             addon: components["schemas"]["AddonItem"] | null;
             membership: components["schemas"]["MembershipItem"] | null;
+            bus: components["schemas"]["BusItem"] | null;
+            busTickets: components["schemas"]["BusTicket"][];
             voucher: {
                 code: string;
                 qrPayload: string;
@@ -4144,7 +4649,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                type: "e_ticket" | "hotel_voucher" | "package_voucher" | "tour_voucher" | "addon_voucher" | "visa_confirmation";
+                type: "e_ticket" | "hotel_voucher" | "package_voucher" | "tour_voucher" | "addon_voucher" | "visa_confirmation" | "bus_ticket";
                 fileName: string;
                 sizeBytes: number;
                 /** Format: date-time */
@@ -4277,6 +4782,184 @@ export interface components {
         BookingSummaryPage: {
             bookings: components["schemas"]["BookingSummary"][];
             nextCursor: string | null;
+        };
+        BusCities: {
+            cities: {
+                name: string;
+                stateName: string;
+                terminals: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    address: string;
+                }[];
+            }[];
+        };
+        BusHold: {
+            /** Format: uuid */
+            holdId: string;
+            holdToken: string | null;
+            /** Format: uuid */
+            tripId: string;
+            seats: string[];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        BusItem: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                title: string;
+                sample: boolean;
+                artKey: string | null;
+            };
+            operatorName: string;
+            /** Format: uuid */
+            tripId: string;
+            origin: {
+                /** Format: uuid */
+                terminalId: string;
+                name: string;
+                cityName: string;
+                address: string;
+            };
+            destination: {
+                /** Format: uuid */
+                terminalId: string;
+                name: string;
+                cityName: string;
+                address: string;
+            };
+            timeZone: string;
+            departsAtLocal: string;
+            /** Format: date-time */
+            departsAt: string;
+            /** Format: date-time */
+            arrivesAt: string;
+            seats: string[];
+            amenities: string[];
+            travellers: components["schemas"]["TravellerCounts"];
+            cancellationPolicy: components["schemas"]["CancellationTier"][];
+            /** Format: date-time */
+            holdExpiresAt: string;
+        };
+        BusManifest: {
+            /** Format: uuid */
+            tripId: string;
+            passengers: {
+                /** Format: uuid */
+                ticketId: string;
+                seatNumber: string;
+                passengerName: string;
+                /** @enum {string} */
+                status: "valid" | "boarded" | "void";
+                boardedAt: string | null;
+            }[];
+        };
+        BusSearchResult: {
+            trips: components["schemas"]["BusTripCard"][];
+        };
+        BusTicket: {
+            /** Format: uuid */
+            id: string;
+            seatNumber: string;
+            passengerName: string;
+            /** @enum {string} */
+            status: "valid" | "boarded" | "void";
+            boardedAt: string | null;
+            qrPayload: string | null;
+            /** Format: date-time */
+            validFrom: string;
+            /** Format: date-time */
+            validUntil: string;
+        };
+        BusTicketKeys: {
+            keys: {
+                kid: string;
+                spki: string;
+            }[];
+        };
+        BusTripCard: {
+            /** Format: uuid */
+            id: string;
+            operator: {
+                name: string;
+                slug: string;
+            };
+            sample: boolean;
+            origin: {
+                /** Format: uuid */
+                terminalId: string;
+                name: string;
+                cityName: string;
+                address: string;
+            };
+            destination: {
+                /** Format: uuid */
+                terminalId: string;
+                name: string;
+                cityName: string;
+                address: string;
+            };
+            timeZone: string;
+            departsAtLocal: string;
+            /** Format: date-time */
+            departsAt: string;
+            /** Format: date-time */
+            arrivesAt: string;
+            durationMinutes: number;
+            coach: string;
+            amenities: string[];
+            seatsLeft: number;
+            pricePerSeat: components["schemas"]["Money"];
+        };
+        BusTripDetail: {
+            /** Format: uuid */
+            id: string;
+            operator: {
+                name: string;
+                slug: string;
+            };
+            sample: boolean;
+            origin: {
+                /** Format: uuid */
+                terminalId: string;
+                name: string;
+                cityName: string;
+                address: string;
+            };
+            destination: {
+                /** Format: uuid */
+                terminalId: string;
+                name: string;
+                cityName: string;
+                address: string;
+            };
+            timeZone: string;
+            departsAtLocal: string;
+            /** Format: date-time */
+            departsAt: string;
+            /** Format: date-time */
+            arrivesAt: string;
+            durationMinutes: number;
+            coach: string;
+            amenities: string[];
+            seatsLeft: number;
+            pricePerSeat: components["schemas"]["Money"];
+            /** @enum {string} */
+            status: "scheduled" | "boarding" | "departed" | "cancelled";
+            seatMap: {
+                rows: ({
+                    seatNumber: string;
+                    /** @enum {string} */
+                    state: "available" | "held" | "sold" | "blocked";
+                } | null)[][];
+            };
+            cancellationPolicy: {
+                daysBefore: number;
+                refundBps: number;
+            }[];
         };
         CancellationTier: {
             daysBefore: number;
@@ -4978,6 +5661,10 @@ export interface components {
         ForgotPasswordRequestInput: {
             email: string;
         };
+        GroundCreated: {
+            /** Format: uuid */
+            id: string;
+        };
         HealthStatus: {
             /** @constant */
             status: "ok";
@@ -5235,6 +5922,18 @@ export interface components {
             /** @constant */
             kind: "membership";
             planSlug: string;
+            /**
+             * @default NGN
+             * @enum {string}
+             */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+        } | {
+            /** @constant */
+            kind: "bus";
+            /** Format: uuid */
+            holdId: string;
+            /** @default null */
+            holdToken?: string | null;
             /**
              * @default NGN
              * @enum {string}
@@ -5561,6 +6260,22 @@ export interface components {
             submittedAt: string | null;
             /** Format: date-time */
             updatedAt: string;
+        };
+        OperatorTrip: {
+            /** Format: uuid */
+            id: string;
+            operatorName: string;
+            origin: string;
+            destination: string;
+            departsAtLocal: string;
+            /** @enum {string} */
+            status: "scheduled" | "boarding" | "departed" | "cancelled";
+            seatCount: number;
+            sold: number;
+            boarded: number;
+        };
+        OperatorTripList: {
+            trips: components["schemas"]["OperatorTrip"][];
         };
         OtpDispatched: {
             /** @constant */
@@ -5941,6 +6656,7 @@ export interface components {
             visa: components["schemas"]["VisaItem"] | null;
             addon: components["schemas"]["AddonItem"] | null;
             membership: components["schemas"]["MembershipItem"] | null;
+            bus: components["schemas"]["BusItem"] | null;
             price: components["schemas"]["Price"] | null;
             payment: components["schemas"]["PaymentOptions"];
         };
@@ -6168,6 +6884,23 @@ export interface components {
             retrying: number;
             exhausted: number;
         };
+        TicketScanResult: {
+            /** @enum {string} */
+            result: "boarded" | "already_boarded" | "void" | "not_found" | "invalid";
+            reason: ("malformed" | "bad_signature" | "unknown_key" | "not_yet_valid" | "expired") | null;
+            ticket: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                tripId: string;
+                seatNumber: string;
+                passengerName: string;
+                boardedAt: string | null;
+            } | null;
+        };
+        TicketScanSync: {
+            results: components["schemas"]["TicketScanResult"][];
+        };
         TotpConfirmRequestInput: {
             code: string;
         };
@@ -6294,6 +7027,14 @@ export interface components {
                 issuingCountry: string;
                 expiryDate: string;
             } | null;
+        };
+        TripCancelled: {
+            refundedBookings: number;
+            releasedBookings: number;
+        };
+        TripsScheduled: {
+            created: number;
+            skipped: number;
         };
         TrustSignal: {
             key: string;
@@ -7691,6 +8432,709 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListBusLayouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBusLayouts"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateBusLayout: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    operatorId: string;
+                    name: string;
+                    layout: {
+                        rows: (string | null)[][];
+                    };
+                    amenities: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroundCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateBusLayout: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    layout?: {
+                        rows: (string | null)[][];
+                    };
+                    amenities?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListBusOperators: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBusOperators"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateBusOperator: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    slug: string;
+                    name: string;
+                    cancellationPolicy: {
+                        daysBefore: number;
+                        refundBps: number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroundCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateBusOperator: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** @enum {string} */
+                    status?: "draft" | "published" | "archived";
+                    cancellationPolicy?: {
+                        daysBefore: number;
+                        refundBps: number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminAddOperatorAgent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRemoveOperatorAgent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListBusRoutes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBusRoutes"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateBusRoute: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    operatorId: string;
+                    /** Format: uuid */
+                    originId: string;
+                    /** Format: uuid */
+                    destinationId: string;
+                    distanceKm: number;
+                    durationMinutes: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroundCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateBusRoute: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    distanceKm?: number;
+                    durationMinutes?: number;
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListBusTerminals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBusTerminals"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateBusTerminal: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    slug: string;
+                    name: string;
+                    cityName: string;
+                    stateName: string;
+                    countryCode: string;
+                    address: string;
+                    lat: number;
+                    lng: number;
+                    timeZone: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroundCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateBusTerminal: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    cityName?: string;
+                    stateName?: string;
+                    countryCode?: string;
+                    address?: string;
+                    lat?: number;
+                    lng?: number;
+                    timeZone?: string;
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListBusTrips: {
+        parameters: {
+            query: {
+                routeId?: string;
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBusTrips"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateBusTrip: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    routeId: string;
+                    /** Format: uuid */
+                    layoutId: string;
+                    departsAtLocal: string;
+                    fareMinor: number;
+                    currency: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroundCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateBusTrip: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fareMinor?: number;
+                    blockedSeats?: string[];
+                    /** @enum {string} */
+                    status?: "scheduled" | "boarding" | "departed";
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCancelBusTrip: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    reason: "operator_cancelled" | "weather" | "security" | "vehicle_fault" | "other";
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripCancelled"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminScheduleBusTrips: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    routeId: string;
+                    /** Format: uuid */
+                    layoutId: string;
+                    fromDate: string;
+                    toDate: string;
+                    times: string[];
+                    fareMinor: number;
+                    currency: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripsScheduled"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -10364,6 +11808,182 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    listBusCities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusCities"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    releaseBusHold: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest seat holds: the hold's `holdToken`. Account holds use the session instead. */
+                "X-Hold-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                holdId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    searchBuses: {
+        parameters: {
+            query: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                from: string;
+                to: string;
+                date: string;
+                seats?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusSearchResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getBusTicketKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusTicketKeys"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getBusTrip: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusTripDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    createBusHold: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    seats: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusHold"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getAirport: {
         parameters: {
             query?: never;
@@ -12591,6 +14211,137 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    scanBusTicket: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    qrPayload: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketScanResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    syncBusTicketScans: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    scans: {
+                        qrPayload: string;
+                        /** Format: date-time */
+                        scannedAt: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketScanSync"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listOperatorTrips: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorTripList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getBusManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusManifest"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

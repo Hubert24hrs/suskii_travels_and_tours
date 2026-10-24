@@ -43,6 +43,11 @@ const NOT_OWNED: Record<string, string> = {
   completeMockPayment: 'mock provider; completes through the signed webhook path',
   receivePaymentWebhook: 'provider callback, authenticated by its signature',
   getVisaDocumentContent: 'served only with a short-lived signed link (visa.e2e-spec.ts)',
+  getBusTrip: 'published departure and its seat map (no personal data)',
+  createBusHold:
+    'creates a new seat hold on a published departure; holds are tested as releaseBusHold',
+  getBusManifest:
+    "operator agents only (403 for everyone else); other operators' agents get 404 (buses.e2e-spec.ts)",
 };
 
 interface Fixture {
@@ -54,6 +59,7 @@ interface Fixture {
   travellerId: string;
   priceAlertId: string;
   sessionId: string;
+  busHoldId: string;
 }
 
 interface Case {
@@ -115,6 +121,7 @@ const CASES: Record<string, Case> = {
   deleteTraveller: { path: (f) => `/v1/me/travellers/${f.travellerId}` },
   deletePriceAlert: { path: (f) => `/v1/me/price-alerts/${f.priceAlertId}` },
   revokeSession: { path: (f) => `/v1/me/sessions/${f.sessionId}` },
+  releaseBusHold: { path: (f) => `/v1/buses/holds/${f.busHoldId}` },
 };
 
 interface Operation {
@@ -342,7 +349,67 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       .send({ origin: 'LOS', destination: 'DXB', departureDate: inDays(40), currency: 'NGN' })
       .expect(201);
 
+    // A bus seat hold, on a departure created straight in the database.
+    const operator = await ctx.prisma.busOperator.create({
+      data: {
+        slug: 'idor-coaches',
+        name: 'IDOR Coaches',
+        status: 'published',
+        cancellationPolicy: [],
+      },
+    });
+    const terminal = (slug: string) =>
+      ctx.prisma.busTerminal.create({
+        data: {
+          slug,
+          name: slug,
+          cityName: slug,
+          stateName: 'Lagos',
+          countryCode: 'NG',
+          address: 'Road',
+          lat: 6.5,
+          lng: 3.4,
+          timeZone: 'Africa/Lagos',
+        },
+      });
+    const route = await ctx.prisma.busRoute.create({
+      data: {
+        operatorId: operator.id,
+        originId: (await terminal('idor-from')).id,
+        destinationId: (await terminal('idor-to')).id,
+        distanceKm: 100,
+        durationMinutes: 120,
+      },
+    });
+    const layout = await ctx.prisma.busLayout.create({
+      data: {
+        operatorId: operator.id,
+        name: 'Two',
+        layout: { rows: [['1A', '1B']] },
+        seatCount: 2,
+      },
+    });
+    const departsAt = new Date(Date.now() + 3 * 86_400_000);
+    const trip = await ctx.prisma.busTrip.create({
+      data: {
+        routeId: route.id,
+        layoutId: layout.id,
+        departsAt,
+        departsAtLocal: `${inDays(3)}T07:00`,
+        arrivesAt: new Date(departsAt.getTime() + 7_200_000),
+        fareMinor: 500_000n,
+        currency: 'NGN',
+      },
+    });
+    const hold = await ctx
+      .http()
+      .post(`/v1/buses/trips/${trip.id}/holds`)
+      .set(auth)
+      .send({ seats: ['1A'] })
+      .expect(201);
+
     return {
+      busHoldId: hold.body.holdId as string,
       flightBookingId: flight.bookingId,
       bookingDocumentId: flightBooking.body.documents[0].id as string,
       visaBookingId,
@@ -436,6 +503,10 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
     ]);
     const alerts = await ctx.http().get('/v1/me/price-alerts').set(auth).expect(200);
     expect(alerts.body.alerts).toEqual([expect.objectContaining({ id: fixture.priceAlertId })]);
+    const busHold = await ctx.prisma.busSeatHold.findUniqueOrThrow({
+      where: { id: fixture.busHoldId },
+    });
+    expect(busHold.releasedAt).toBeNull();
     await ctx.http().get('/v1/me').set(auth).expect(200);
 
     // Nothing was attached to the owner's bookings either.

@@ -33,8 +33,9 @@ export interface VoucherView {
 /**
  * Fulfils in-house items when a paid booking is confirmed (ADR-028): packages, tours and add-ons
  * get a voucher with a random code (only its HMAC is looked up; the code is kept encrypted for
- * the PDF), visa assistance opens one application per applicant, and a Prime membership starts a
- * term, or extends the member's current one from its end (ADR-030).
+ * the PDF), visa assistance opens one application per applicant, a Prime membership starts a
+ * term, or extends the member's current one from its end (ADR-030), and bus seats get one
+ * boarding pass each (ADR-050).
  */
 @Injectable()
 export class InhouseFulfilment {
@@ -55,6 +56,8 @@ export class InhouseFulfilment {
       await this.openApplications(tx, booking, payload);
     } else if (payload.kind === 'membership') {
       await this.startMembership(tx, booking, payload);
+    } else if (payload.kind === 'bus') {
+      await this.issueBusTickets(tx, booking.id, item.id);
     } else {
       const existing = await tx.bookingVoucher.findUnique({ where: { bookingItemId: item.id } });
       if (!existing) await this.createVoucher(tx, booking.id, item.id);
@@ -102,6 +105,25 @@ export class InhouseFulfilment {
       },
       tx,
     );
+  }
+
+  /** One boarding pass per sold seat (ADR-050); the QR payload is signed when shown. */
+  private async issueBusTickets(tx: Tx, bookingId: string, itemId: string): Promise<void> {
+    const existing = await tx.busTicket.count({ where: { bookingItemId: itemId } });
+    if (existing > 0) return;
+    const seats = await tx.busSeatAssignment.findMany({
+      where: { bookingItemId: itemId, active: true },
+    });
+    if (seats.length === 0) throw new Error(`Bus booking item ${itemId} has no seats`);
+    await tx.busTicket.createMany({
+      data: seats.map((seat) => ({
+        bookingId,
+        bookingItemId: itemId,
+        tripId: seat.tripId,
+        seatNumber: seat.seatNumber,
+        passengerId: seat.passengerId,
+      })),
+    });
   }
 
   private async createVoucher(tx: Tx, bookingId: string, itemId: string): Promise<void> {

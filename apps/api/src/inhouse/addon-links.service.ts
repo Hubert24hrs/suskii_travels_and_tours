@@ -6,6 +6,7 @@ import { transliterateName } from '@suskii/shared';
 import { AuditService } from '../audit/audit.service';
 import { itemPayload } from '../bookings/booking-presenter';
 import { BookingsService, type BookingCaller } from '../bookings/bookings.service';
+import { isCarsKind } from '../bookings/inhouse-items';
 import { tripFacts, type TripFacts } from '../bookings/trip-facts';
 import { ProblemDetailsException } from '../common/problem-details';
 import { HmacService } from '../crypto/hmac.service';
@@ -148,8 +149,16 @@ export class AddonLinksService {
     });
     if (!booking) throw bookingNotFound();
     const item = booking.items[0];
-    const trip = item ? tripFacts(itemPayload(item)) : null;
-    if (!trip || booking.vertical === 'travel_addons' || !LINKABLE.includes(booking.status)) {
+    const payload = item ? itemPayload(item) : null;
+    const trip = payload ? tripFacts(payload) : null;
+    // Cars trips take no add-ons in this version (ADR-049).
+    if (
+      !trip ||
+      !payload ||
+      isCarsKind(payload.kind) ||
+      booking.vertical === 'travel_addons' ||
+      !LINKABLE.includes(booking.status)
+    ) {
       throw notLinkable();
     }
     return { bookingId: booking.id, reference: booking.reference, trip };

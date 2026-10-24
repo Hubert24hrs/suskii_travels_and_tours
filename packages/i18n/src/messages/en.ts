@@ -1195,6 +1195,7 @@ export const en = {
       tour_voucher: 'Download tour voucher (PDF)',
       addon_voucher: 'Download add-on voucher (PDF)',
       visa_confirmation: 'Download visa assistance confirmation (PDF)',
+      bus_ticket: 'Download boarding passes (PDF)',
     },
     downloadFailed: 'The download failed. Try again.',
     completePayment: 'Complete payment',
@@ -1583,6 +1584,10 @@ export const en = {
         refund_to_wallet: 'Refund to wallet',
         cancellation_fee: 'Cancellation fee',
         referral_reward: 'Referral reward',
+        ride_earnings: 'Ride earnings',
+        payout_sent: 'Payout',
+        payout_settled: 'Payout',
+        payout_failed: 'Payout returned',
       },
     },
     privacy: {

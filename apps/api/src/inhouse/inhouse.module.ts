@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { BookingsModule } from '../bookings/bookings.module';
+import { BusesModule } from '../buses/buses.module';
 
 import { AddonLinksService } from './addon-links.service';
 import { AdminCatalogController } from './admin-catalog.controller';
@@ -13,7 +14,7 @@ import { VouchersService } from './vouchers.service';
 
 /** Packages, tours and add-ons: catalog, quotes, add-on links, vouchers (phase 8, ADR-025). */
 @Module({
-  imports: [AuthModule, BookingsModule],
+  imports: [AuthModule, BookingsModule, BusesModule],
   controllers: [InhouseController, AdminCatalogController],
   providers: [
     InhouseCatalogService,

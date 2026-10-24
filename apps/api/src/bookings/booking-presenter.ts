@@ -14,6 +14,7 @@ import type { Prisma } from '../generated/prisma/client';
 import type { Converter } from '../pricing/fx.service';
 
 import { maskEmail, maskPhone } from './booking-codes';
+import type { BusTicketView } from './bus-tickets';
 import {
   bookedRate,
   isInhouse,
@@ -101,6 +102,8 @@ export interface BookingView {
   applications: VisaApplicationSummaryDto[];
   /** The Prime term a membership booking bought, once confirmed (ADR-030). */
   membershipTerm: { startsAt: Date; endsAt: Date } | null;
+  /** Boarding passes of a confirmed bus booking (ADR-050). */
+  busTickets: BusTicketView[];
 }
 
 export const EMPTY_VIEW: BookingView = {
@@ -110,6 +113,7 @@ export const EMPTY_VIEW: BookingView = {
   addons: [],
   applications: [],
   membershipTerm: null,
+  busTickets: [],
 };
 
 const REFUND_VIEW = {
@@ -213,6 +217,16 @@ export function toBookingDto(
     cancellation: view.cancellation
       ? { refundBps: view.cancellation.refundBps, refund: toWire(view.cancellation.refund) }
       : null,
+    busTickets: view.busTickets.map((ticket) => ({
+      id: ticket.id,
+      seatNumber: ticket.seatNumber,
+      passengerName: ticket.passengerName,
+      status: ticket.status,
+      boardedAt: ticket.boardedAt?.toISOString() ?? null,
+      qrPayload: ticket.qrPayload,
+      validFrom: ticket.validFrom.toISOString(),
+      validUntil: ticket.validUntil.toISOString(),
+    })),
     addons: view.addons,
     passengers: booking.passengers.map((passenger) => ({
       position: passenger.position,

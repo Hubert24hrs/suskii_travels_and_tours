@@ -376,6 +376,57 @@ export async function renderInhouseVoucherPdf(
   return pdf.save();
 }
 
+/** Bus boarding passes (ADR-050): one page per seat, each with its signed QR code. */
+export interface BusTicketsDocument {
+  reference: string;
+  issuedAt: Date;
+  sample: boolean;
+  operatorName: string;
+  origin: { name: string; address: string };
+  destination: { name: string; address: string };
+  departsAtLocal: string;
+  /** Arrival as local wall time at the destination. */
+  arrivesAtLocal: string;
+  tickets: { seatNumber: string; passenger: string; qrPayload: string }[];
+  cancellation: string[];
+  total: Money;
+}
+
+export async function renderBusTicketsPdf(document: BusTicketsDocument): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(`Boarding passes ${document.reference}`);
+  pdf.setAuthor('Suskii Travels and Tour');
+  pdf.setCreator('Suskii Travels');
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  for (const ticket of document.tickets) {
+    const writer = new Writer(pdf.addPage(PAGE), regular, bold);
+    writer.qr(ticket.qrPayload);
+    writer.line('Suskii Travels', { size: 18, bold: true, color: BRAND });
+    writer.line('Boarding pass', { size: 12, bold: true });
+    writer.gap(6);
+    if (document.sample) writer.line(SAMPLE_NOTE, { bold: true, color: MUTED });
+    writer.pair('Suskii reference', document.reference);
+    writer.pair('Passenger', ticket.passenger);
+    writer.pair('Seat', ticket.seatNumber);
+    writer.pair('Operator', document.operatorName);
+    writer.heading('Trip');
+    writer.pair('From', document.origin.name);
+    writer.line(document.origin.address, { color: MUTED });
+    writer.pair('To', document.destination.name);
+    writer.line(document.destination.address, { color: MUTED });
+    writer.pair('Departs', `${documentDateTime(document.departsAtLocal)} (local time)`);
+    writer.pair('Arrives about', `${documentDateTime(document.arrivesAtLocal)} (local time)`);
+    writer.heading('Payment and cancellation');
+    writer.pair('Total paid (all seats)', documentMoney(document.total));
+    for (const line of document.cancellation) writer.line(line);
+    writer.heading('At the terminal');
+    writer.line('Show the QR code and an ID at boarding. Each code boards one passenger once.');
+    writer.line(`Issued ${document.issuedAt.toISOString().slice(0, 10)}.`, { color: MUTED });
+  }
+  return pdf.save();
+}
+
 export async function renderVisaConfirmationPdf(
   confirmation: VisaConfirmationDocument,
 ): Promise<Uint8Array> {

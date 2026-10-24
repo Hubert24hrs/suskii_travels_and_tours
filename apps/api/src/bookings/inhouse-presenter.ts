@@ -5,6 +5,7 @@ import { documentDateTime } from '../documents/booking-pdf';
 import type { ItemPayload } from './booking-pricing';
 import type {
   addonItemSchema,
+  busItemSchema,
   membershipItemSchema,
   packageItemSchema,
   tourItemSchema,
@@ -19,6 +20,7 @@ export type VisaItemDto = z.infer<typeof visaItemSchema>;
 export type AddonItemDto = z.infer<typeof addonItemSchema>;
 export type VisaApplicationSummaryDto = z.infer<typeof visaApplicationSummarySchema>;
 export type MembershipItemDto = z.infer<typeof membershipItemSchema>;
+export type BusItemDto = z.infer<typeof busItemSchema>;
 
 export interface InhouseSections {
   package: PackageItemDto | null;
@@ -26,6 +28,7 @@ export interface InhouseSections {
   visa: VisaItemDto | null;
   addon: AddonItemDto | null;
   membership: MembershipItemDto | null;
+  bus: BusItemDto | null;
 }
 
 export const NO_INHOUSE: InhouseSections = {
@@ -34,6 +37,7 @@ export const NO_INHOUSE: InhouseSections = {
   visa: null,
   addon: null,
   membership: null,
+  bus: null,
 };
 
 const product = (payload: InhouseItemPayload) => ({
@@ -153,6 +157,26 @@ export function inhouseSections(
             : null,
         },
       };
+    case 'bus':
+      return {
+        ...NO_INHOUSE,
+        bus: {
+          product: product(payload),
+          operatorName: payload.operatorName,
+          tripId: payload.tripId,
+          origin: payload.origin,
+          destination: payload.destination,
+          timeZone: payload.timeZone,
+          departsAtLocal: payload.departsAtLocal,
+          departsAt: payload.departsAtUtc,
+          arrivesAt: payload.arrivesAtUtc,
+          seats: payload.seats,
+          amenities: payload.amenities,
+          travellers: counts(payload),
+          cancellationPolicy: payload.cancellationPolicy,
+          holdExpiresAt: payload.holdExpiresAt,
+        },
+      };
     case 'flight':
     case 'hotel':
       return NO_INHOUSE;
@@ -171,5 +195,7 @@ export function inhouseSummary(payload: InhouseItemPayload): string {
       return `${payload.title}, travelling ${documentDateTime(payload.travelDate)}`;
     case 'membership':
       return `${payload.title} (${payload.period === 'year' ? 'yearly' : 'monthly'} membership)`;
+    case 'bus':
+      return `${payload.title}, ${documentDateTime(payload.departsAtLocal)}, seats ${payload.seats.join(', ')}`;
   }
 }

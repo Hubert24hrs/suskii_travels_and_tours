@@ -341,6 +341,17 @@ export const inhouseQuoteRequestSchema = named(
       planSlug: z.string().trim().min(1).max(80),
       currency: currencyCodeSchema.default(DEFAULT_CURRENCY),
     }),
+    z.object({
+      kind: z.literal('bus'),
+      holdId: z.uuid().meta({ description: 'From `createBusHold`.' }),
+      holdToken: z
+        .string()
+        .max(100)
+        .nullable()
+        .default(null)
+        .meta({ description: "Guests: the hold's `holdToken`; accounts: null." }),
+      currency: currencyCodeSchema.default(DEFAULT_CURRENCY),
+    }),
   ]),
 );
 export type InhouseQuoteInput = z.output<typeof inhouseQuoteRequestSchema>;

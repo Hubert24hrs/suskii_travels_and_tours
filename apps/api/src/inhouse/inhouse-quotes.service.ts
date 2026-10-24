@@ -36,6 +36,10 @@ import type { ClientContext } from '../search/client-context';
 import { offerUnavailable } from '../search/search.errors';
 import { OfferUnavailableError } from '../suppliers/supplier.errors';
 
+import { BusHoldsService } from '../buses/bus-holds.service';
+import { BusesService } from '../buses/buses.service';
+import { CarsFlags } from '../ground/cars-flags';
+
 import { AddonLinksService } from './addon-links.service';
 import { INHOUSE_QUOTE_ISSUES, type InhouseQuoteInput } from './inhouse.schemas';
 import { quotes } from '../telemetry/metrics';
@@ -74,15 +78,19 @@ export class InhouseQuotesService {
     private readonly pricing: PricingService,
     private readonly quotes: QuotesService,
     private readonly links: AddonLinksService,
+    private readonly flags: CarsFlags,
+    private readonly busHolds: BusHoldsService,
+    private readonly buses: BusesService,
   ) {}
 
   async create(input: InhouseQuoteInput, client: ClientContext): Promise<Quote> {
     // Suskii Prime is bought by an account for itself (ADR-030).
     if (input.kind === 'membership' && !client.userId) throw authenticationRequired();
+    if (input.kind === 'bus') this.flags.require('buses');
     const now = new Date();
     let payload: InhouseItemPayload;
     try {
-      payload = await this.payload(input, now);
+      payload = await this.payload(input, now, client);
     } catch (error) {
       if (error instanceof OfferUnavailableError) throw offerUnavailable(this.request(input));
       throw error;
@@ -111,7 +119,11 @@ export class InhouseQuotesService {
         totalMinor: breakdown.total.minor,
         currency: input.currency,
         userId: client.userId,
-        expiresAt: new Date(now.getTime() + PRICE_HOLD_MS),
+        // A bus quote lasts no longer than its seat hold (ADR-051).
+        expiresAt:
+          payload.kind === 'bus'
+            ? new Date(Math.min(now.getTime() + PRICE_HOLD_MS, Date.parse(payload.holdExpiresAt)))
+            : new Date(now.getTime() + PRICE_HOLD_MS),
       },
     });
     quotes.add(1, { vertical: offer.vertical });
@@ -148,12 +160,27 @@ export class InhouseQuotesService {
         };
       case 'membership':
         return { kind: 'membership', planSlug: input.planSlug, currency: input.currency };
+      case 'bus':
+        return { kind: 'bus', tripId: '', holdId: input.holdId };
     }
   }
 
-  private async payload(input: InhouseQuoteInput, now: Date): Promise<InhouseItemPayload> {
+  private async payload(
+    input: InhouseQuoteInput,
+    now: Date,
+    client: ClientContext,
+  ): Promise<InhouseItemPayload> {
     const today = localDate(now, 'UTC');
     switch (input.kind) {
+      case 'bus': {
+        // Only the hold's owner can quote it: the account, or the guest with its token.
+        const hold = await this.busHolds.live(
+          input.holdId,
+          { userId: client.userId, ip: '', holdToken: input.holdToken },
+          now,
+        );
+        return this.buses.payload(hold, now);
+      }
       case 'membership': {
         const plan = await this.prisma.primePlan.findUnique({ where: { slug: input.planSlug } });
         if (!plan) throw new OfferUnavailableError(INHOUSE_SUPPLIER, 'No such Prime plan');
