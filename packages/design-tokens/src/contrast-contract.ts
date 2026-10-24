@@ -55,7 +55,7 @@ export const CONTRAST_CONTRACT: readonly ContrastRequirement[] = [
     foreground: 'on-status' as const,
     background: bg,
     minimum: WCAG_AA.text,
-    usage: `status badge label (${bg})`,
+    usage: `status badge label and danger (SOS) button (${bg})`,
   })),
   {
     foreground: 'primary',
