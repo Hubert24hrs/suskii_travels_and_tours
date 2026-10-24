@@ -529,6 +529,7 @@ overrides:
   source-map-js@<1.2.2: ^1.2.2
   fast-uri@<3.1.9: ^3.1.9
   zod@>=4.0.0 <4.6.6: ^4.6.7
+  '@expo/cli>zod': ^4.6.7
   handlebars@<4.7.10: ^4.7.10
   undici@>=8.0.0 <8.12.2: ^8.12.3
 
@@ -13789,7 +13790,7 @@ snapshots:
       toqr: 0.1.1
       wrap-ansi: 7.0.0
       ws: 8.22.0
-      zod: 3.25.76
+      zod: 4.6.7
     optionalDependencies:
       expo-router: 57.0.23(c21b7ed3e141d727f5a3453ee3a05ba1)
       react-native: 0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3)

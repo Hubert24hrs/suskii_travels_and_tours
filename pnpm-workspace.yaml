@@ -259,6 +259,9 @@ overrides:
   fast-uri@<3.1.9: ^3.1.9
   # eslint-plugin-react-hooks' config validation (GHSA-mrhx-c7xc-m3w5; lint only).
   zod@>=4.0.0 <4.6.6: ^4.6.7
+  # The Expo CLI pins zod 3, which has no fixed release (GHSA-mrhx-c7xc-m3w5). It only builds
+  # dev-tools plugin schemas with object, string, enum and array, which zod 4 keeps as they are.
+  '@expo/cli>zod': ^4.6.7
   # ts-jest's templating dependency (GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f; tests only).
   handlebars@<4.7.10: ^4.7.10
   # testcontainers' HTTP client (GHSA-xjj6-f33q-929c; tests only).
