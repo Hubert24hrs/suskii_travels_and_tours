@@ -223,9 +223,13 @@ describe('buses (e2e)', () => {
         ['3B', 'valid'],
       ]);
       expect(tickets[0]?.passengerName).toBe('ADA OKAFOR');
+      // An hour before the departure (07:00 in Lagos), whatever time of day the suite runs.
+      const departure = await ctx.prisma.busTrip.findUniqueOrThrow({
+        where: { id: inventory.tripId },
+      });
       const verdict = ctx.app
         .get(TicketSigner)
-        .verify(tickets[0]?.qrPayload ?? '', new Date(Date.now() + 5 * 86_400_000 - 3_600_000));
+        .verify(tickets[0]?.qrPayload ?? '', new Date(departure.departsAt.getTime() - 3_600_000));
       expect(verdict).toMatchObject({ valid: true, claims: { st: '3A', trp: inventory.tripId } });
       // The payload carries ids and the window only.
       expect(tickets[0]?.qrPayload).not.toContain('Okafor');
