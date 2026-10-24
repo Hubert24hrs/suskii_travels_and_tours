@@ -1,6 +1,7 @@
 /**
- * Sample in-house inventory and a sample Suskii Prime plan for local development and the e2e
- * suites (ADR-025, ADR-030):
+ * Sample in-house inventory, a sample Suskii Prime plan and sample Cars inventory (buses, ride
+ * fares and places, demo drivers, rental cars) for local development and the e2e suites (ADR-025,
+ * ADR-030, ADR-049):
  *
  *   pnpm --filter @suskii/api db:seed:demo
  *
@@ -17,6 +18,8 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { addDays, localToUtc } from '@suskii/shared';
 
 import { PrismaClient, type Prisma } from '../src/generated/prisma/client';
+
+import { seedCars } from './seed-demo-cars';
 
 const SAMPLE_NOTE = 'Sample inventory for development and testing; not a real offer.';
 
@@ -403,7 +406,10 @@ async function main(): Promise<void> {
     await seedAddons(prisma);
     await seedVisa(prisma);
     await seedPrime(prisma);
-    process.stdout.write('sample inventory ensured (packages, tours, add-ons, visa, Prime)\n');
+    await seedCars(prisma);
+    process.stdout.write(
+      'sample inventory ensured (packages, tours, add-ons, visa, Prime, Cars)\n',
+    );
   } finally {
     await prisma.$disconnect();
   }
