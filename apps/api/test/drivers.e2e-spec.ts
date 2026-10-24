@@ -253,6 +253,8 @@ describe('drivers (e2e)', () => {
     });
     const row = await ctx.prisma.driver.findUniqueOrThrow({ where: { id: applicant.driverId } });
     expect(row.payoutAccountEncrypted).not.toContain('0123456789');
+    // A payout the bank rejected is retried only after this changes (ADR-051).
+    expect(row.payoutAccountUpdatedAt).toBeInstanceOf(Date);
 
     // An old session must re-authenticate.
     await ctx.prisma.session.updateMany({

@@ -960,6 +960,21 @@ describe('admin audit coverage (e2e)', () => {
     );
   });
 
+  it('finance: resolving a reconciliation discrepancy', async () => {
+    const discrepancy = await ctx.prisma.reconciliationDiscrepancy.create({
+      data: {
+        kind: 'ledger_missing',
+        subjectType: 'payout',
+        subjectId: '0192f0e0-0000-7000-8000-00000000d15c',
+        currency: 'NGN',
+        expectedMinor: 100_000n,
+      },
+    });
+    await audited('adminResolveReconciliationDiscrepancy', { id: discrepancy.id }, (request) =>
+      request.send({ resolution: 'accepted' }),
+    );
+  });
+
   it('covered every admin mutation', () => {
     const missing = MUTATIONS.map((op) => op.operationId).filter((id) => !covered.has(id));
     expect(missing).toEqual([]);
