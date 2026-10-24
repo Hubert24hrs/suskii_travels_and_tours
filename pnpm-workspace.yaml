@@ -28,11 +28,11 @@ catalog:
   tsup: ^8.5.1
   tsx: ^4.23.15
   rimraf: ^6.1.3
-  vitest: ^5.0.2
-  '@vitest/coverage-v8': ^5.0.2
+  vitest: ^5.0.5
+  '@vitest/coverage-v8': ^5.0.5
 
   # Runtime libraries
-  zod: ^4.6.5
+  zod: ^4.6.7
   pino: ^10.3.1
   ws: ^8.22.0
   '@types/ws': ^8.18.2
@@ -63,9 +63,9 @@ catalog:
   '@storybook/addon-a11y': ^10.6.0
   '@storybook/addon-docs': ^10.6.0
   eslint-plugin-storybook: ^10.6.0
-  vite: ^8.3.1
+  vite: ^8.3.4
   '@vitejs/plugin-react': ^6.1.1
-  '@vitest/browser-playwright': ^5.0.2
+  '@vitest/browser-playwright': ^5.0.5
   vitest-browser-react: ^2.3.0
   playwright: ^1.63.0
   axe-core: ^4.13.0
@@ -102,7 +102,7 @@ catalog:
   helmet: ^8.3.0
   cookie-parser: ^1.4.7
   '@types/cookie-parser': ^1.4.10
-  nodemailer: ^10.0.12
+  nodemailer: ^10.1.7
   '@types/nodemailer': ^8.0.2
   '@opentelemetry/api': ^1.9.0
   '@opentelemetry/sdk-node': ^0.222.0
@@ -255,6 +255,14 @@ overrides:
   shell-quote@<1.11.0: ^1.11.0
   # postcss and Tailwind (GHSA-68fv-2mgg-jv7q).
   source-map-js@<1.2.2: ^1.2.2
+  # ajv in commitlint (GHSA-w74x-v6f9-j3xg; developer tooling).
+  fast-uri@<3.1.9: ^3.1.9
+  # eslint-plugin-react-hooks' config validation (GHSA-mrhx-c7xc-m3w5; lint only).
+  zod@>=4.0.0 <4.6.6: ^4.6.7
+  # ts-jest's templating dependency (GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f; tests only).
+  handlebars@<4.7.10: ^4.7.10
+  # testcontainers' HTTP client (GHSA-xjj6-f33q-929c; tests only).
+  undici@>=8.0.0 <8.12.2: ^8.12.3
 
 # High advisories with no fixed release, reviewed in docs/security/dependency-exceptions.md.
 # CI's `pnpm audit --prod --audit-level high` ignores only these ids; review them monthly.
