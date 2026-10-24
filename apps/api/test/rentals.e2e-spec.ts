@@ -1,3 +1,4 @@
+import { ObjectStorage } from '../src/documents/object-storage';
 import { redactCarsBooking } from '../src/privacy/cars-redaction';
 import { RetentionService } from '../src/privacy/retention.service';
 
@@ -251,6 +252,44 @@ describe('rentals (e2e)', () => {
       .set(staff)
       .expect(200);
     expect(Buffer.from(image.body as Buffer).equals(PNG)).toBe(true);
+  });
+
+  it('stores each licence upload as its own file and removes the one it replaces', async () => {
+    const car = await rentalVehicle(ctx, staff);
+    const { reservationId } = await paidRental(ctx, renter.headers, {
+      vehicleId: car.id,
+      pickupAtLocal: localIn(5),
+      returnAtLocal: localIn(5 + 24),
+    });
+    await ctx
+      .http()
+      .put(`/v1/rentals/reservations/${reservationId}/licence`)
+      .set(renter.headers)
+      .send({ number: 'LAG12345AA67', expiresOn: '2031-01-31' })
+      .expect(200);
+    const upload = async () => {
+      await ctx
+        .http()
+        .put(`/v1/rentals/reservations/${reservationId}/licence/document`)
+        .set(renter.headers)
+        .set('Content-Type', 'image/png')
+        .send(PNG)
+        .expect(200);
+      return (await ctx.prisma.rentalLicence.findFirstOrThrow({ where: { reservationId } }))
+        .storageKey;
+    };
+    const storage = ctx.app.get(ObjectStorage);
+    const first = await upload();
+    await ctx.background.drain();
+    const second = await upload();
+    // A scan that read the first file can no longer vouch for the second.
+    expect(first).not.toBeNull();
+    expect(second).not.toBe(first);
+    expect(await storage.get(first ?? '')).toBeNull();
+    expect(await storage.get(second ?? '')).not.toBeNull();
+    await ctx.background.drain();
+    const licence = await ctx.prisma.rentalLicence.findFirstOrThrow({ where: { reservationId } });
+    expect(licence).toMatchObject({ status: 'pending_review', storageKey: second });
   });
 
   it('lets exactly one of two overlapping bookings take the car', async () => {
