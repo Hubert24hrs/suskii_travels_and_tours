@@ -72,10 +72,14 @@ export function createAppApi(
   return client;
 }
 
-/** The API answers 426 once this app version is retired: switch to the update screen. */
-function noticeRetiredVersion({ response }: { response: Response }): Response {
+/**
+ * The API answers 426 once this app version is retired: switch to the update screen. Returns
+ * nothing so openapi-fetch keeps the response as it is: returning it would fail its
+ * `instanceof Response` check on devices, where Expo's fetch answers with its own response class.
+ */
+function noticeRetiredVersion({ response }: { response: Response }): undefined {
   if (response.status === 426) appUpdate.markRequired();
-  return response;
+  return undefined;
 }
 
 /** A client without credentials, for the refresh call itself. */
