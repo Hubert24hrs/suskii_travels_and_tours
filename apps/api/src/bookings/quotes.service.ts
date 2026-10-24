@@ -1,10 +1,11 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
-import { BOOKING_TERMS_VERSION, daysBetween, type Money } from '@suskii/shared';
+import { BOOKING_TERMS_VERSION, daysBetween, toWire, type Money } from '@suskii/shared';
 
 import { fromJsonValue } from '../common/json';
 import { APP_CONFIG, type AppConfig } from '../config/config';
+import { CarsFlags } from '../ground/cars-flags';
 import { PrismaService } from '../infra/prisma.service';
 import { withCurrentTier } from '../prime/prime-status';
 import { LedgerService } from '../ledger/ledger.service';
@@ -18,11 +19,14 @@ import { hotelPricingContext, toHotelRateDto } from '../search/hotel-search.serv
 import { offerUnavailable } from '../search/search.errors';
 
 import { bookedRate, isInhouse, priceItem, type ItemPayload } from './booking-pricing';
+import { carsPriceBreakdown, type PriceLine } from './cars-breakdown';
 import { inhouseSections, NO_INHOUSE } from './inhouse-presenter';
 import type { PaymentOptionsDto, quoteSchema } from './bookings.schemas';
 import { holdTerms, paymentOptionsDto, planOptions, planPolicy } from './payment-options';
 
 /** A quote as the checkout page shows it, priced for the current caller. */
+const toLineDto = (line: PriceLine) => ({ ...line, amount: toWire(line.amount) });
+
 @Injectable()
 export class QuotesService {
   constructor(
@@ -32,6 +36,7 @@ export class QuotesService {
     private readonly fx: FxService,
     private readonly providers: PaymentProviders,
     private readonly ledger: LedgerService,
+    private readonly flags: CarsFlags,
   ) {}
 
   /** Providers and flexible plans for the quoted total, before any extras (ADR-018). */
@@ -77,6 +82,7 @@ export class QuotesService {
       termsVersion: BOOKING_TERMS_VERSION,
       ...NO_INHOUSE,
       price: null,
+      priceBreakdown: null,
     };
     if (isInhouse(payload)) {
       const { breakdown } = priceItem(pricer, payload, client, now);
@@ -87,6 +93,9 @@ export class QuotesService {
         hotel: null,
         ...inhouseSections(payload),
         price: toPriceDto(breakdown),
+        priceBreakdown: this.flags.enabled('price_breakdown')
+          ? (carsPriceBreakdown(payload, breakdown.fare)?.map(toLineDto) ?? null)
+          : null,
         payment: await this.paymentOptions(payload, breakdown.total, client, now),
       };
     }

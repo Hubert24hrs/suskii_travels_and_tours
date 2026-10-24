@@ -37,6 +37,8 @@ import { named } from '../contract/contract';
 import { moneySchema, priceSchema } from '../pricing/pricing.schemas';
 import { flightOfferSchema, flightSliceSchema, hotelRateSchema } from '../search/search.schemas';
 
+import { PRICE_LINE_CODES } from './cars-breakdown';
+
 const timestamp = z.iso.datetime();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const bookingVerticalSchema = z.enum([
@@ -442,6 +444,28 @@ export const busTicketSchema = named(
 // Quotes (checkout)
 // ---------------------------------------------------------------------------
 
+/** A bus, ride or rental fare by its parts (unified price breakdown, Cars P9). */
+export const priceBreakdownSchema = named(
+  'PriceBreakdown',
+  z
+    .array(
+      z.object({
+        code: z.enum(PRICE_LINE_CODES),
+        amount: moneySchema,
+        quantity: z
+          .number()
+          .int()
+          .nullable()
+          .meta({ description: 'Seats or days the line covers, where it is charged that way.' }),
+      }),
+    )
+    .nullable()
+    .meta({
+      description:
+        'Cars only, while the price breakdown is switched on: the fare split into its parts, adding up to `price.fare`. Taxes, fees, discounts and a rental deposit stay their own lines.',
+    }),
+);
+
 export const quoteSchema = named(
   'Quote',
   z.object({
@@ -475,6 +499,7 @@ export const quoteSchema = named(
     price: priceSchema.nullable().meta({
       description: 'In-house products: the priced total (flights and hotels: in the offer).',
     }),
+    priceBreakdown: priceBreakdownSchema,
     payment: paymentOptionsSchema,
   }),
 );
@@ -704,6 +729,7 @@ export const bookingSchema = named(
     bus: busItemSchema.nullable(),
     ride: rideItemSchema.nullable(),
     rental: rentalItemSchema.nullable(),
+    priceBreakdown: priceBreakdownSchema,
     busTickets: z
       .array(busTicketSchema)
       .meta({ description: 'Boarding passes of a confirmed bus booking, one per seat.' }),

@@ -2405,6 +2405,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{bookingId}/cars-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rides, cars and buses that fit this trip
+         * @description For an upcoming flight: a ride from the arrival airport, a car for the stay and onward buses from the arrival city; for a hotel: a car for the stay. Each only while its product is on and has inventory there. Suggestions prefill the search forms; they book nothing.
+         */
+        get: operations["getCarsSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/departure-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * When to leave for the airport or the bus terminal
+         * @description For a flight or bus booking that has not left: the time to be there (check-in or boarding), the routed travel time from the chosen ride place plus a traffic allowance, the time to leave, and a ride to book for it. 422 `plan-unavailable` when the trip cannot be planned (no pick-up point for the airport or terminal, a place in another city, already left).
+         */
+        get: operations["getDeparturePlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{bookingId}/documents/{documentId}": {
         parameters: {
             query?: never;
@@ -6099,6 +6139,7 @@ export interface components {
             bus: components["schemas"]["BusItem"] | null;
             ride: components["schemas"]["RideItem"] | null;
             rental: components["schemas"]["RentalItem"] | null;
+            priceBreakdown: components["schemas"]["PriceBreakdown"];
             busTickets: components["schemas"]["BusTicket"][];
             voucher: {
                 code: string;
@@ -6465,6 +6506,24 @@ export interface components {
             safetySuite: boolean;
             offlineQr: boolean;
             departurePlanner: boolean;
+        };
+        CarsSuggestions: {
+            ride: {
+                /** Format: uuid */
+                pickupPlaceId: string;
+                pickupLabel: string;
+                cityName: string;
+                scheduledForLocal: string | null;
+            } | null;
+            rental: {
+                cityName: string;
+                pickupAtLocal: string;
+                returnAtLocal: string;
+            } | null;
+            bus: {
+                from: string;
+                date: string;
+            } | null;
         };
         CatalogCreated: {
             /** Format: uuid */
@@ -6880,6 +6939,50 @@ export interface components {
             recoveryCode?: string;
             /** @constant */
             confirm: "DELETE";
+        };
+        DeparturePlan: {
+            /** @enum {string} */
+            kind: "flight" | "bus";
+            /** Format: date-time */
+            departsAt: string;
+            destination: {
+                label: string;
+                lat: number;
+                lng: number;
+            };
+            bufferMinutes: number;
+            marginMinutes: number;
+            /** Format: date-time */
+            arriveBy: string;
+            /** Format: date-time */
+            leaveBy: string;
+            travel: {
+                durationSeconds: number;
+                distanceMetres: number;
+                /** @enum {string} */
+                estimate: "routed" | "straight_line";
+            };
+            from: {
+                label: string;
+                lat: number;
+                lng: number;
+                /** Format: uuid */
+                id: string;
+            };
+            ride: {
+                pickup: {
+                    label: string;
+                    lat: number;
+                    lng: number;
+                };
+                dropoff: {
+                    label: string;
+                    lat: number;
+                    lng: number;
+                };
+                /** Format: date-time */
+                scheduledFor: string;
+            } | null;
         };
         DestinationInputInput: {
             /** Format: uuid */
@@ -8206,6 +8309,12 @@ export interface components {
             retired: number;
             failed: number;
         };
+        PriceBreakdown: {
+            /** @enum {string} */
+            code: "ride_base" | "ride_distance" | "ride_time" | "ride_surge" | "ride_minimum" | "ride_booking_fee" | "bus_seats" | "rental_vehicle" | "rental_chauffeur" | "rental_delivery";
+            amount: components["schemas"]["Money"];
+            quantity: number | null;
+        }[] | null;
         PriceChange: {
             previous: components["schemas"]["Money"];
             current: components["schemas"]["Money"];
@@ -8343,6 +8452,7 @@ export interface components {
             ride: components["schemas"]["RideItem"] | null;
             rental: components["schemas"]["RentalItem"] | null;
             price: components["schemas"]["Price"] | null;
+            priceBreakdown: components["schemas"]["PriceBreakdown"];
             payment: components["schemas"]["PaymentOptions"];
         };
         ReadinessStatus: {
@@ -14761,6 +14871,69 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getCarsSuggestions: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CarsSuggestions"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getDeparturePlan: {
+        parameters: {
+            query: {
+                from: string;
+            };
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeparturePlan"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
