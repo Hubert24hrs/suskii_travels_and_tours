@@ -208,6 +208,12 @@ export function boardingWindow(
 /** Prefix of a signed bus ticket QR payload (ADR-050): `SUSKII-T1.<payload>.<signature>`. */
 export const TICKET_QR_PREFIX = 'SUSKII-T1';
 
+/**
+ * How far back an offline scan may date itself (ADR-050): the API clamps an older `scannedAt` to
+ * this window, and the app drops queued scans older than it.
+ */
+export const OFFLINE_SCAN_MAX_AGE_MS = 48 * 3_600_000;
+
 /** What a ticket QR code signs: ids and the boarding window, never personal data. */
 export interface TicketClaims {
   /** Ticket id. */

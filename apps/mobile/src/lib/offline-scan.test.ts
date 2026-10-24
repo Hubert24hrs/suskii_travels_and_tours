@@ -19,6 +19,8 @@ const claims = (tid: string, patch: Record<string, unknown> = {}) => ({
 });
 const TICKET_A = '0192d3a0-7c1e-7b2a-9f00-00000000c131';
 const TICKET_B = '0192d3a0-7c1e-7b2a-9f00-00000000c132';
+const AGENT = '0192d3a0-7c1e-7b2a-9f00-00000000a001';
+const OTHER_AGENT = '0192d3a0-7c1e-7b2a-9f00-00000000a002';
 
 /** A client over the fetch `mockApi` installs (created after it). */
 const api = () => createBareApi();
@@ -91,26 +93,26 @@ describe('offline ticket checks', () => {
           ],
         }),
     });
-    expect(offlineScanner.scan('anything', NOW)).toEqual({ result: 'no_keys' });
+    expect(offlineScanner.scan('anything', AGENT, NOW)).toEqual({ result: 'no_keys' });
     expect(await offlineScanner.refreshKeys(api())).toBe(1);
     expect(offlineScanner.hasKeys()).toBe(true);
 
     const a = keys.ticket(claims(TICKET_A));
     const b = keys.ticket(claims(TICKET_B, { st: '2A' }));
-    expect(offlineScanner.scan(a, NOW).result).toBe('boarded');
+    expect(offlineScanner.scan(a, AGENT, NOW).result).toBe('boarded');
     const later = new Date(NOW.getTime() + 60_000);
-    expect(offlineScanner.scan(a, later)).toEqual({
+    expect(offlineScanner.scan(a, AGENT, later)).toEqual({
       result: 'already_boarded',
       claims: claims(TICKET_A),
       boardedAt: NOW.toISOString(),
     });
-    expect(offlineScanner.scan(b, later).result).toBe('boarded');
-    expect(offlineScanner.pending()).toEqual([
-      { qrPayload: a, scannedAt: NOW.toISOString() },
-      { qrPayload: b, scannedAt: later.toISOString() },
+    expect(offlineScanner.scan(b, AGENT, later).result).toBe('boarded');
+    expect(offlineScanner.pending(AGENT)).toEqual([
+      { qrPayload: a, scannedAt: NOW.toISOString(), agent: AGENT },
+      { qrPayload: b, scannedAt: later.toISOString(), agent: AGENT },
     ]);
 
-    const results = await offlineScanner.sync(api());
+    const results = await offlineScanner.sync(api(), AGENT);
     expect(results.map((result) => result.result)).toEqual(['boarded', 'already_boarded']);
     const upload = calls.find((call) => call.url.endsWith('/v1/operator/tickets/sync'));
     expect(await upload?.json()).toEqual({
@@ -119,7 +121,7 @@ describe('offline ticket checks', () => {
         { qrPayload: b, scannedAt: later.toISOString() },
       ],
     });
-    expect(offlineScanner.pending()).toEqual([]);
+    expect(offlineScanner.pending(AGENT)).toEqual([]);
   });
 
   it('keeps the queue when the upload fails', async () => {
@@ -128,8 +130,74 @@ describe('offline ticket checks', () => {
       'POST /v1/operator/tickets/sync': () => json({ status: 503 }, 503),
     });
     await offlineScanner.refreshKeys(api());
-    offlineScanner.scan(keys.ticket(claims(TICKET_A)), NOW);
-    expect(await offlineScanner.sync(api())).toEqual([]);
-    expect(offlineScanner.pending()).toHaveLength(1);
+    offlineScanner.scan(keys.ticket(claims(TICKET_A)), AGENT, NOW);
+    expect(await offlineScanner.sync(api(), AGENT)).toEqual([]);
+    expect(offlineScanner.pending(AGENT)).toHaveLength(1);
+  });
+
+  it("uploads only the signed-in agent's scans and keeps scans made during the upload", async () => {
+    const a = keys.ticket(claims(TICKET_A));
+    const b = keys.ticket(claims(TICKET_B, { st: '2A' }));
+    const late = keys.ticket(claims('0192d3a0-7c1e-7b2a-9f00-00000000c133', { st: '3A' }));
+    const { calls } = mockApi({
+      'GET /v1/buses/ticket-keys': () => json({ keys: [{ kid: keys.kid, spki: keys.spki }] }),
+      'POST /v1/operator/tickets/sync': () => {
+        // Another scan lands while the upload is on its way.
+        offlineScanner.scan(late, AGENT, NOW);
+        return json({ results: [{ result: 'boarded', reason: null, ticket: null }] });
+      },
+    });
+    await offlineScanner.refreshKeys(api());
+    offlineScanner.scan(a, OTHER_AGENT, NOW);
+    offlineScanner.scan(b, AGENT, NOW);
+
+    await offlineScanner.sync(api(), AGENT);
+
+    const bodies = await Promise.all(
+      calls
+        .filter((call) => call.url.endsWith('/v1/operator/tickets/sync'))
+        .map((call) => call.json() as Promise<{ scans: unknown[] }>),
+    );
+    // The other agent's scan never goes up under this session, and the agent id never leaves.
+    expect(bodies[0]).toEqual({ scans: [{ qrPayload: b, scannedAt: NOW.toISOString() }] });
+    expect(bodies.flatMap((body) => body.scans)).not.toContainEqual(
+      expect.objectContaining({ qrPayload: a }),
+    );
+    expect(offlineScanner.pending(OTHER_AGENT)).toEqual([
+      { qrPayload: a, scannedAt: NOW.toISOString(), agent: OTHER_AGENT },
+    ]);
+    expect(offlineScanner.pending(AGENT)).toEqual([]);
+    expect(bodies.flatMap((body) => body.scans)).toContainEqual({
+      qrPayload: late,
+      scannedAt: NOW.toISOString(),
+    });
+  });
+
+  it('forgets keys and boardings on sign-out but keeps recent scans for their agent', async () => {
+    mockApi({
+      'GET /v1/buses/ticket-keys': () => json({ keys: [{ kid: keys.kid, spki: keys.spki }] }),
+    });
+    await offlineScanner.refreshKeys(api());
+    const old = new Date(NOW.getTime() - 49 * 3_600_000);
+    offlineScanner.scan(keys.ticket(claims(TICKET_A, { nbf: seconds(old) - 60 })), AGENT, old);
+    offlineScanner.scan(keys.ticket(claims(TICKET_B)), AGENT, NOW);
+
+    offlineScanner.forget(NOW);
+
+    expect(offlineScanner.hasKeys()).toBe(false);
+    // Older than the API's offline window: it would only be clamped, so it goes.
+    expect(offlineScanner.pending(AGENT)).toEqual([
+      expect.objectContaining({ scannedAt: NOW.toISOString() }),
+    ]);
+    offlineScanner.forget(new Date(NOW.getTime() + 49 * 3_600_000));
+    expect(offlineScanner.pending(AGENT)).toEqual([]);
+  });
+
+  it('ignores scans queued by builds that did not record the agent', () => {
+    secureCache().set(
+      'operator.scan-queue',
+      JSON.stringify([{ qrPayload: 'SUSKII-T1.a.b.c', scannedAt: NOW.toISOString() }]),
+    );
+    expect(offlineScanner.pending(AGENT)).toEqual([]);
   });
 });

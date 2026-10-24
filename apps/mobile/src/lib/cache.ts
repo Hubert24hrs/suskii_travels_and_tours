@@ -9,6 +9,7 @@ import { SECURE_KEYS, secureStorage } from './secure-storage';
  * `preferences` holds settings only (currency, recent searches) and is not encrypted.
  */
 let secure: MMKV | null = null;
+let opening: Promise<MMKV> | null = null;
 
 export const preferences: MMKV = createMMKV({ id: 'suskii.preferences' });
 
@@ -19,9 +20,20 @@ function newKey(): string {
   return Array.from(getRandomBytes(32), (byte) => KEY_ALPHABET[byte % 64]).join('');
 }
 
-/** Opens (once) the encrypted cache, creating its key on first launch. */
-export async function openSecureCache(): Promise<MMKV> {
-  if (secure) return secure;
+/**
+ * Opens (once) the encrypted cache, creating its key on first launch. Single flight: two callers
+ * on a first launch would otherwise each create a key, and the cache would be opened with one
+ * while the secure store keeps the other, so the next launch could not read it.
+ */
+export function openSecureCache(): Promise<MMKV> {
+  if (secure) return Promise.resolve(secure);
+  opening ??= open().finally(() => {
+    opening = null;
+  });
+  return opening;
+}
+
+async function open(): Promise<MMKV> {
   let key = await secureStorage.get(SECURE_KEYS.cacheKey);
   if (!key) {
     key = newKey();

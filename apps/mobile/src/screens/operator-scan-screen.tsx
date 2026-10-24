@@ -39,7 +39,7 @@ function summarise(results: readonly ScanResult[]): { uploaded: number; conflict
   };
 }
 
-function Scanner() {
+function Scanner({ agent }: { agent: string }) {
   const { api } = useApp();
   const { t, locale } = useT();
   const format = useFormatters();
@@ -55,12 +55,12 @@ function Scanner() {
   const [permission, requestPermission] = useCameraPermissions();
   const features = useCarsFeatures();
   const offlineQr = features?.offlineQr;
-  const [pending, setPending] = useState(() => offlineScanner.pending().length);
+  const [pending, setPending] = useState(() => offlineScanner.pending(agent).length);
   const [synced, setSynced] = useState<{ uploaded: number; conflicts: number } | null>(null);
 
   const upload = async () => {
     try {
-      const summary = summarise(await offlineScanner.sync(api));
+      const summary = summarise(await offlineScanner.sync(api, agent));
       if (summary) {
         setSynced(summary);
         void trips.refetch();
@@ -68,7 +68,7 @@ function Scanner() {
     } catch {
       // Still offline: the queue stays for the next try.
     } finally {
-      setPending(offlineScanner.pending().length);
+      setPending(offlineScanner.pending(agent).length);
     }
   };
 
@@ -83,7 +83,7 @@ function Scanner() {
     let cancelled = false;
     offlineScanner
       .refreshKeys(api)
-      .then(() => offlineScanner.sync(api))
+      .then(() => offlineScanner.sync(api, agent))
       .then((results) => {
         if (cancelled) return;
         const summary = summarise(results);
@@ -91,12 +91,12 @@ function Scanner() {
       })
       .catch(() => undefined)
       .finally(() => {
-        if (!cancelled) setPending(offlineScanner.pending().length);
+        if (!cancelled) setPending(offlineScanner.pending(agent).length);
       });
     return () => {
       cancelled = true;
     };
-  }, [api, offlineQr]);
+  }, [api, agent, offlineQr]);
 
   const trips = useQuery({
     queryKey: ['operator-trips', date],
@@ -123,17 +123,17 @@ function Scanner() {
         setResult({ source: 'api', scan: data });
         setManual('');
         void trips.refetch();
-        if (offlineScanner.pending().length > 0) void upload();
+        if (offlineScanner.pending(agent).length > 0) void upload();
       } else setError(t('mobile.cars.operator.error'));
     } catch (failure) {
       // No connection: the phone checks the ticket itself when it holds the keys.
       if (isNetworkError(failure) && offlineScanner.hasKeys()) {
-        const verdict = offlineScanner.scan(payload);
+        const verdict = offlineScanner.scan(payload, agent);
         if (verdict.result === 'no_keys') setError(t('mobile.cars.operator.offline.noKeys'));
         else {
           setResult({ source: 'phone', verdict });
           setManual('');
-          setPending(offlineScanner.pending().length);
+          setPending(offlineScanner.pending(agent).length);
         }
       } else if (isNetworkError(failure)) {
         setError(t('mobile.cars.operator.offline.noKeys'));
@@ -368,7 +368,7 @@ export function OperatorScanScreen() {
       <Stack.Screen options={{ title: t('mobile.cars.operator.title') }} />
       <RequireAccount>
         {user?.roles.includes('operator_agent') ? (
-          <Scanner />
+          <Scanner agent={user.id} />
         ) : (
           <Notice body={t('mobile.cars.operator.notAgent')} />
         )}

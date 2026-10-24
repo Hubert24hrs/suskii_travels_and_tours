@@ -16,6 +16,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { appUpdate } from '../src/lib/app-update';
+import { untilStarted } from '../src/lib/bootstrap';
 import { openSecureCache } from '../src/lib/cache';
 import { resolveNotificationPath } from '../src/lib/deep-links';
 import { configureNotifications } from '../src/lib/push';
@@ -23,17 +24,25 @@ import type { SessionStore } from '../src/lib/session';
 import { AppProvider, createSessionStore, deviceLocale, useT } from '../src/providers/app-provider';
 import { UpdateRequiredScreen } from '../src/screens/update-required-screen';
 
-/** Opens the encrypted cache and restores the session before the first screen renders. */
+/**
+ * Opens the encrypted cache and restores the session before the first screen renders, trying
+ * again until it works (the keychain is locked during a background start).
+ */
 function useBootstrap(): SessionStore | null {
   const [session, setSession] = useState<SessionStore | null>(null);
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      await openSecureCache();
-      const store = createSessionStore();
-      await store.load();
-      if (!cancelled) setSession(store);
-    })();
+    void untilStarted(
+      async () => {
+        await openSecureCache();
+        const store = createSessionStore();
+        await store.load();
+        return store;
+      },
+      { cancelled: () => cancelled },
+    ).then((store) => {
+      if (store && !cancelled) setSession(store);
+    });
     configureNotifications(getMessages(deviceLocale()).mobile.notificationChannel);
     return () => {
       cancelled = true;

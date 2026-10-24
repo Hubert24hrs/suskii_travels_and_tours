@@ -66,11 +66,14 @@ export const tripStore = {
     writeJson(secureCache(), ACCOUNT_TRIPS, trips);
   },
 
-  /** On sign-out: the account's list and the copies of its bookings go; guest trips stay. */
+  /**
+   * On sign-out: the account's list and every booking copy that is not a guest trip made here
+   * go (including bookings opened from a link or a notification, which are not in the list).
+   */
   forgetAccount(): void {
-    const guest = new Set(tripStore.deviceTripIds());
-    for (const trip of tripStore.accountTrips()) {
-      if (!guest.has(trip.id)) secureCache().remove(bookingKey(trip.id));
+    const guest = new Set(tripStore.deviceTripIds().map(bookingKey));
+    for (const key of secureCache().getAllKeys()) {
+      if (key.startsWith(bookingKey('')) && !guest.has(key)) secureCache().remove(key);
     }
     secureCache().remove(ACCOUNT_TRIPS);
   },

@@ -1,6 +1,6 @@
 import { ed25519 } from '@noble/curves/ed25519.js';
 import type { Schemas } from '@suskii/api-client';
-import { TICKET_QR_PREFIX, type TicketClaims } from '@suskii/shared';
+import { OFFLINE_SCAN_MAX_AGE_MS, TICKET_QR_PREFIX, type TicketClaims } from '@suskii/shared';
 
 import type { ApiClient } from './api';
 import { readJson, secureCache, writeJson } from './cache';
@@ -15,6 +15,10 @@ import { readJson, secureCache, writeJson } from './cache';
  * What it cannot know offline: cancellations and refunds since the keys were saved, and scans
  * on other phones. Both surface at sync. Everything is kept in the encrypted cache because a
  * valid QR payload is a boarding right.
+ *
+ * Each queued scan names the agent who made it and uploads only under that agent's session, so a
+ * scan made offline is neither lost when the agent signs out without signal nor uploaded under the
+ * next account on this phone. Scans older than the API's offline window are dropped.
  */
 
 const KEYS = 'operator.ticket-keys';
@@ -34,6 +38,8 @@ interface SavedKey {
 export interface QueuedScan {
   qrPayload: string;
   scannedAt: string;
+  /** The user id of the agent who scanned it. */
+  agent: string;
 }
 
 export type OfflineVerdict =
@@ -168,17 +174,24 @@ export const offlineScanner = {
     secureCache().remove(KEYS);
   },
 
-  /** Signing out: nothing an agent scanned may upload under the next account on this phone. */
-  forget(): void {
-    for (const key of [KEYS, QUEUE, BOARDED]) secureCache().remove(key);
+  /**
+   * Signing out: the keys and this phone's boardings go. Scans that have not uploaded stay
+   * queued for the agent who made them, until they are older than the API would accept.
+   */
+  forget(now = new Date()): void {
+    for (const key of [KEYS, BOARDED]) secureCache().remove(key);
+    const oldest = now.getTime() - OFFLINE_SCAN_MAX_AGE_MS;
+    const queue = queued().filter((scan) => Date.parse(scan.scannedAt) >= oldest);
+    if (queue.length > 0) writeJson(secureCache(), QUEUE, queue);
+    else secureCache().remove(QUEUE);
   },
 
   hasKeys(): boolean {
     return (readJson<SavedKey[]>(secureCache(), KEYS) ?? []).length > 0;
   },
 
-  /** Checks and boards a ticket on this phone, queueing the scan for the API. */
-  scan(qrPayload: string, now = new Date()): OfflineVerdict {
+  /** Checks and boards a ticket on this phone, queueing the scan for the API under `agent`. */
+  scan(qrPayload: string, agent: string, now = new Date()): OfflineVerdict {
     const keys = readJson<SavedKey[]>(secureCache(), KEYS) ?? [];
     if (keys.length === 0) return { result: 'no_keys' };
     const verdict = verifyTicket(qrPayload, keys, now);
@@ -197,32 +210,48 @@ export const offlineScanner = {
     boarded[verdict.claims.tid] = { at: now.toISOString(), exp: verdict.claims.exp };
     writeJson(secureCache(), BOARDED, boarded);
     writeJson(secureCache(), QUEUE, [
-      ...offlineScanner.pending(),
-      { qrPayload, scannedAt: now.toISOString() },
+      ...queued(),
+      { qrPayload, scannedAt: now.toISOString(), agent },
     ]);
     return verdict;
   },
 
-  pending(): QueuedScan[] {
-    return readJson<QueuedScan[]>(secureCache(), QUEUE) ?? [];
+  /** Scans waiting for upload under `agent`'s session. */
+  pending(agent: string): QueuedScan[] {
+    return queued().filter((scan) => scan.agent === agent);
   },
 
   /**
    * Uploads queued scans in the order they were made and drops those the API answered. Returns
    * the API's verdicts; anything but `boarded` is a conflict for the agent to look at.
    */
-  async sync(api: ApiClient): Promise<Schemas['TicketScanResult'][]> {
+  async sync(api: ApiClient, agent: string): Promise<Schemas['TicketScanResult'][]> {
     const results: Schemas['TicketScanResult'][] = [];
-    let queue = offlineScanner.pending();
-    while (queue.length > 0) {
-      const batch = queue.slice(0, SYNC_BATCH);
-      const { data } = await api.POST('/v1/operator/tickets/sync', { body: { scans: batch } });
+    let batch = offlineScanner.pending(agent).slice(0, SYNC_BATCH);
+    while (batch.length > 0) {
+      const { data } = await api.POST('/v1/operator/tickets/sync', {
+        body: { scans: batch.map(({ qrPayload, scannedAt }) => ({ qrPayload, scannedAt })) },
+      });
       if (!data) break;
       results.push(...data.results);
-      // Scans made while this upload ran stay queued.
-      queue = offlineScanner.pending().slice(batch.length);
-      writeJson(secureCache(), QUEUE, queue);
+      // Only the uploaded scans go: others' and those made while this upload ran stay queued.
+      const sent = new Set(batch.map(scanKey));
+      writeJson(
+        secureCache(),
+        QUEUE,
+        queued().filter((scan) => !sent.has(scanKey(scan))),
+      );
+      batch = offlineScanner.pending(agent).slice(0, SYNC_BATCH);
     }
     return results;
   },
 };
+
+/** Every queued scan, any agent's. Entries from builds that did not record the agent are skipped. */
+function queued(): QueuedScan[] {
+  const stored = readJson<Partial<QueuedScan>[]>(secureCache(), QUEUE) ?? [];
+  return stored.filter((scan): scan is QueuedScan => typeof scan.agent === 'string');
+}
+
+/** A ticket is boarded once per phone, so the agent, payload and time identify a queued scan. */
+const scanKey = (scan: QueuedScan): string => `${scan.agent}|${scan.scannedAt}|${scan.qrPayload}`;

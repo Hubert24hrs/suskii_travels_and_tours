@@ -101,5 +101,8 @@ export function problemSlug(error: unknown): string | null {
   return typeof type === 'string' ? (type.split(':').pop() ?? null) : null;
 }
 
-/** True for failures that mean "no network" rather than an API answer. */
-export const isNetworkError = (error: unknown): boolean => error instanceof TypeError;
+/**
+ * True for failures that mean "no network" rather than an API answer. Only the client's own
+ * `NetworkError`: any other TypeError is a bug, and must not pass for being offline.
+ */
+export const isNetworkError = (error: unknown): boolean => error instanceof NetworkError;

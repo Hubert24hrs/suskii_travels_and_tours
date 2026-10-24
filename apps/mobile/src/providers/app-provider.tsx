@@ -15,12 +15,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
 
+import { forgetAccountData } from '../lib/account-data';
 import { createAppApi, createBareApi, type ApiClient } from '../lib/api';
 import { preferences } from '../lib/cache';
 import { SessionStore, type AuthUser, type RefreshOutcome } from '../lib/session';
@@ -87,6 +89,8 @@ export function AppProvider({
   const [currency, setCurrencyState] = useState(storedCurrency);
   const [queryClient] = useState(() => injected ?? createQueryClient());
   const api = useMemo(() => createAppApi(session, () => locale), [session, locale]);
+  // Signed out by the API (revoked elsewhere): the account's data goes with the tokens.
+  useEffect(() => session.onRevoked(() => forgetAccountData(queryClient)), [session, queryClient]);
   const user = useSyncExternalStore(
     (listener) => session.subscribe(listener),
     () => session.user,

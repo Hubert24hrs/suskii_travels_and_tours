@@ -147,7 +147,11 @@ describe('error helpers', () => {
     expect(problemSlug({ type: 'urn:suskii:problem:price-changed' })).toBe('price-changed');
     expect(problemSlug({ title: 'x' })).toBeNull();
     expect(problemSlug(null)).toBeNull();
-    expect(isNetworkError(new TypeError('Network request failed'))).toBe(true);
+    expect(isNetworkError(new NetworkError(new Error('refused')))).toBe(true);
     expect(isNetworkError(new Error('500'))).toBe(false);
+    // A bug (reading a property of undefined) is not "offline".
+    expect(
+      isNetworkError(new TypeError("Cannot read properties of undefined (reading 'id')")),
+    ).toBe(false);
   });
 });

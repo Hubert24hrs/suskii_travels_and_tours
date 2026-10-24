@@ -85,6 +85,56 @@ describe('SessionStore', () => {
     expect(listener).toHaveBeenCalled();
   });
 
+  it('tells the app when the API revokes the session, and only then', async () => {
+    const outcome = jest.fn<Promise<RefreshOutcome>, [string]>(() =>
+      Promise.resolve('unavailable'),
+    );
+    const store = new SessionStore(outcome);
+    await store.save(session('access-1', 'refresh-1'));
+    const revoked = jest.fn(() => {
+      // The tokens are gone before the app forgets the account's data.
+      expect(store.signedIn).toBe(false);
+    });
+    const stop = store.onRevoked(revoked);
+
+    await store.refresh();
+    expect(revoked).not.toHaveBeenCalled();
+    outcome.mockResolvedValueOnce('invalid');
+    await store.refresh();
+    expect(revoked).toHaveBeenCalledTimes(1);
+
+    stop();
+    await store.save(session('access-2', 'refresh-2'));
+    outcome.mockResolvedValueOnce('invalid');
+    await store.refresh();
+    expect(revoked).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a refresh answer that arrives after the user signed out or into another account', async () => {
+    const answer = deferred<RefreshOutcome>();
+    const store = new SessionStore(() => answer.promise);
+    await store.save(session('access-1', 'refresh-1'));
+    const pending = store.refresh();
+
+    await store.clear();
+    answer.resolve(session('access-2', 'refresh-2'));
+
+    expect(await pending).toBeUndefined();
+    expect(store.signedIn).toBe(false);
+    expect(await SecureStore.getItemAsync(SECURE_KEYS.refreshToken)).toBeNull();
+
+    // Another account signed in while the old token was being refused: it stays signed in.
+    const refused = deferred<RefreshOutcome>();
+    const next = new SessionStore(() => refused.promise);
+    await next.save(session('access-1', 'refresh-1'));
+    const late = next.refresh();
+    await next.save(session('access-b', 'refresh-b'));
+    refused.resolve('invalid');
+    expect(await late).toBeUndefined();
+    expect(next.refreshToken()).toBe('refresh-b');
+    expect(next.signedIn).toBe(true);
+  });
+
   it('stays signed in while offline', async () => {
     const store = new SessionStore(() => Promise.resolve('unavailable'));
     await store.save(session('access-1', 'refresh-1'));
