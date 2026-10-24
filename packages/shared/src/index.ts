@@ -48,6 +48,7 @@ export {
   PERMISSIONS,
   ROLES,
   ROLE_PERMISSIONS,
+  NON_STAFF_ROLES,
   STAFF_ROLES,
   hasPermissions,
   isRole,

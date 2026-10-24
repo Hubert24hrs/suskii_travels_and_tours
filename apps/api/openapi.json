@@ -623,7 +623,10 @@
                 "tours",
                 "visa",
                 "travel_addons",
-                "prime"
+                "prime",
+                "buses",
+                "rides",
+                "rentals"
               ]
             }
           },
@@ -2488,7 +2491,10 @@
                 "tours",
                 "visa",
                 "travel_addons",
-                "prime"
+                "prime",
+                "buses",
+                "rides",
+                "rentals"
               ]
             }
           }
@@ -2695,7 +2701,10 @@
                 "tours",
                 "visa",
                 "travel_addons",
-                "prime"
+                "prime",
+                "buses",
+                "rides",
+                "rentals"
               ]
             }
           }
@@ -13976,7 +13985,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "createdAt": {
@@ -14175,7 +14187,10 @@
                         "tours",
                         "visa",
                         "travel_addons",
-                        "prime"
+                        "prime",
+                        "buses",
+                        "rides",
+                        "rentals"
                       ]
                     },
                     "count": {
@@ -14749,7 +14764,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "active": {
@@ -14932,7 +14950,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "priority": {
@@ -15594,7 +15615,10 @@
                 "tours",
                 "visa",
                 "travel_addons",
-                "prime"
+                "prime",
+                "buses",
+                "rides",
+                "rentals"
               ]
             }
           },
@@ -16138,7 +16162,9 @@
                 "finance",
                 "support",
                 "content_manager",
-                "visa_officer"
+                "visa_officer",
+                "driver",
+                "operator_agent"
               ]
             }
           },
@@ -16563,7 +16589,9 @@
                 "finance",
                 "support",
                 "content_manager",
-                "visa_officer"
+                "visa_officer",
+                "driver",
+                "operator_agent"
               ]
             }
           },
@@ -16624,7 +16652,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "createdAt": {
@@ -17676,7 +17707,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "createdAt": {
@@ -20015,7 +20049,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "active": {
@@ -20171,7 +20208,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "active": {
@@ -22576,7 +22616,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "priority": {
@@ -22809,7 +22852,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "priority": {
@@ -25662,7 +25708,10 @@
                 "tours",
                 "visa",
                 "travel_addons",
-                "prime"
+                "prime",
+                "buses",
+                "rides",
+                "rentals"
               ]
             }
           },
@@ -25813,7 +25862,10 @@
                 "tours",
                 "visa",
                 "travel_addons",
-                "prime"
+                "prime",
+                "buses",
+                "rides",
+                "rentals"
               ]
             }
           },
@@ -25979,7 +26031,10 @@
               "tours",
               "visa",
               "travel_addons",
-              "prime"
+              "prime",
+              "buses",
+              "rides",
+              "rentals"
             ]
           },
           "currency": {
@@ -26805,7 +26860,7 @@
         "properties": {
           "roles": {
             "minItems": 1,
-            "maxItems": 7,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "type": "string",
@@ -26816,7 +26871,9 @@
                 "finance",
                 "support",
                 "content_manager",
-                "visa_officer"
+                "visa_officer",
+                "driver",
+                "operator_agent"
               ]
             }
           }

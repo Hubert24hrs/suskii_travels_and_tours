@@ -32,6 +32,9 @@ enum RoleKey {
   support
   content_manager
   visa_officer
+  /// Cars (ADR-049): approved drivers and bus operators' boarding agents; not staff.
+  driver
+  operator_agent
 }
 
 model User {
@@ -384,6 +387,10 @@ enum Vertical {
   travel_addons
   /// Suskii Prime membership purchases (ADR-030).
   prime
+  /// Cars (ADR-049): interstate bus tickets, intrastate rides and car rental.
+  buses
+  rides
+  rentals
 }
 
 enum CabinClass {

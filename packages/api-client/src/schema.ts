@@ -3565,7 +3565,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             /** Format: date-time */
             createdAt: string;
             total: components["schemas"]["Money"];
@@ -3605,7 +3605,7 @@ export interface components {
                 }[];
                 byVertical: {
                     /** @enum {string} */
-                    vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+                    vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
                     count: number;
                 }[];
             };
@@ -3720,7 +3720,7 @@ export interface components {
             code: string;
             label: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             active: boolean;
             sortOrder: number;
             channel: ("web" | "mobile") | null;
@@ -3748,7 +3748,7 @@ export interface components {
         AdminMarkupRule: {
             name: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             priority: number;
             active: boolean;
             channel: ("web" | "mobile") | null;
@@ -3859,7 +3859,7 @@ export interface components {
             currency: string | null;
             maxDiscountMinor: number | null;
             minSpendMinor: number | null;
-            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime")[];
+            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals")[];
             validFrom: string | null;
             validTo: string | null;
             maxRedemptions: number | null;
@@ -3956,7 +3956,7 @@ export interface components {
             displayName: string | null;
             /** @enum {string} */
             status: "active" | "disabled" | "deleted";
-            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer")[];
+            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "driver" | "operator_agent")[];
             mfaEnabled: boolean;
             /** Format: date-time */
             createdAt: string;
@@ -4044,7 +4044,7 @@ export interface components {
             phone: string | null;
             phoneVerified: boolean;
             displayName: string | null;
-            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer")[];
+            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "driver" | "operator_agent")[];
             mfaEnabled: boolean;
             hasPassword: boolean;
         };
@@ -4055,7 +4055,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             /** Format: date-time */
             createdAt: string;
             paymentDeadline: string | null;
@@ -4245,7 +4245,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             /** Format: date-time */
             createdAt: string;
             total: components["schemas"]["Money"];
@@ -4739,7 +4739,7 @@ export interface components {
             code: string;
             label: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             active: boolean;
             sortOrder: number;
             channel: ("web" | "mobile") | null;
@@ -4759,7 +4759,7 @@ export interface components {
             code?: string;
             label?: string;
             /** @enum {string} */
-            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             active?: boolean;
             sortOrder?: number;
             channel?: ("web" | "mobile") | null;
@@ -5269,7 +5269,7 @@ export interface components {
         MarkupRuleInputInput: {
             name: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             priority: number;
             active: boolean;
             channel: ("web" | "mobile") | null;
@@ -5293,7 +5293,7 @@ export interface components {
         MarkupRulePatchInput: {
             name?: string;
             /** @enum {string} */
-            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             priority?: number;
             active?: boolean;
             channel?: ("web" | "mobile") | null;
@@ -5865,7 +5865,7 @@ export interface components {
             currency: string | null;
             maxDiscountMinor: number | null;
             minSpendMinor: number | null;
-            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime")[];
+            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals")[];
             validFrom: string | null;
             validTo: string | null;
             maxRedemptions: number | null;
@@ -5882,7 +5882,7 @@ export interface components {
             currency?: string | null;
             maxDiscountMinor?: number | null;
             minSpendMinor?: number | null;
-            verticals?: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime")[];
+            verticals?: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals")[];
             validFrom?: string | null;
             validTo?: string | null;
             maxRedemptions?: number | null;
@@ -5916,7 +5916,7 @@ export interface components {
             /** Format: uuid */
             quoteId: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             currency: string;
             /** Format: date-time */
             expiresAt: string;
@@ -6088,7 +6088,7 @@ export interface components {
             current: boolean;
         };
         SetRolesRequestInput: {
-            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer")[];
+            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "driver" | "operator_agent")[];
         };
         SignInResult: components["schemas"]["AuthSession"] | components["schemas"]["MfaChallenge"];
         SiteContent: {
@@ -7074,7 +7074,7 @@ export interface operations {
             query?: {
                 q?: string;
                 status?: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
-                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
                 from?: string;
                 to?: string;
                 cursor?: string;
@@ -7930,7 +7930,7 @@ export interface operations {
     adminListFeeRules: {
         parameters: {
             query?: {
-                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             };
             header?: never;
             path?: never;
@@ -8027,7 +8027,7 @@ export interface operations {
     adminListMarkupRules: {
         parameters: {
             query?: {
-                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime";
+                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
             };
             header?: never;
             path?: never;

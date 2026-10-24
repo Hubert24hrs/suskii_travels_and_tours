@@ -4,6 +4,7 @@ import {
   PERMISSIONS,
   ROLES,
   ROLE_PERMISSIONS,
+  NON_STAFF_ROLES,
   STAFF_ROLES,
   hasPermissions,
   isStaff,
@@ -38,9 +39,24 @@ describe('rbac catalog', () => {
     expect(hasPermissions(['support'], ['support:manage', 'refunds:approve'])).toBe(false);
   });
 
-  it('treats every non-customer role as staff', () => {
+  it('treats every role except customers, drivers and operator agents as staff', () => {
     expect(STAFF_ROLES).not.toContain('customer');
     expect(isStaff(['customer'])).toBe(false);
     expect(isStaff(['customer', 'visa_officer'])).toBe(true);
+    expect(isStaff(['customer', 'driver', 'operator_agent'])).toBe(false);
+    expect(STAFF_ROLES).toHaveLength(ROLES.length - NON_STAFF_ROLES.length);
+  });
+
+  it('keeps driving and ticket scanning away from staff roles and staff permissions away from drivers', () => {
+    expect(hasPermissions(['driver'], ['driving'])).toBe(true);
+    expect(hasPermissions(['operator_agent'], ['tickets:scan'])).toBe(true);
+    for (const role of ['driver', 'operator_agent'] as const) {
+      expect(hasPermissions([role], ['bookings:read'])).toBe(false);
+      expect(hasPermissions([role], ['ground:manage'])).toBe(false);
+    }
+    expect(
+      hasPermissions(['operations'], ['ground:manage', 'drivers:review', 'safety:manage']),
+    ).toBe(true);
+    expect(hasPermissions(['support'], ['safety:manage'])).toBe(true);
   });
 });

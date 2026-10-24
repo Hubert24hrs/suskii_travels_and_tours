@@ -193,6 +193,8 @@ export const adminMessages = {
     support: 'Support',
     content_manager: 'Content manager',
     visa_officer: 'Visa officer',
+    driver: 'Driver',
+    operator_agent: 'Bus operator agent',
   },
   verticals: {
     flights: 'Flights',
@@ -202,6 +204,9 @@ export const adminMessages = {
     visa: 'Visa',
     travel_addons: 'Add-ons',
     prime: 'Suskii Prime',
+    buses: 'Buses',
+    rides: 'Rides',
+    rentals: 'Car rental',
   },
   bookingStatus: {
     DRAFT: 'Draft',

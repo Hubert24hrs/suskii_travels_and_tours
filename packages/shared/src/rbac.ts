@@ -11,11 +11,18 @@ export const ROLES = [
   'support',
   'content_manager',
   'visa_officer',
+  // Cars (ADR-049): vetted independent drivers and bus operators' boarding agents. Neither is
+  // Suskii staff: no console, no MFA requirement, and their routes check record ownership too.
+  'driver',
+  'operator_agent',
 ] as const;
 export type Role = (typeof ROLES)[number];
 
+/** Roles held by people outside Suskii: travellers, drivers and operators' agents. */
+export const NON_STAFF_ROLES: readonly Role[] = ['customer', 'driver', 'operator_agent'];
+
 /** Staff roles must use MFA and may access /v1/admin routes. */
-export const STAFF_ROLES: readonly Role[] = ROLES.filter((role) => role !== 'customer');
+export const STAFF_ROLES: readonly Role[] = ROLES.filter((role) => !NON_STAFF_ROLES.includes(role));
 
 export const PERMISSIONS = {
   'profile:manage': 'Manage own profile, sessions and MFA',
@@ -37,6 +44,11 @@ export const PERMISSIONS = {
   'support:manage': 'Handle support tickets',
   'reports:read': 'View dashboards and reports',
   'audit:read': 'View the audit log',
+  'ground:manage': 'Manage bus operators, routes and trips, ride fares and the rental fleet',
+  'drivers:review': 'Review driver applications, documents and vehicles',
+  'safety:manage': 'Handle SOS alerts and ride safety incidents',
+  driving: 'Go online, accept and drive rides (approved drivers)',
+  'tickets:scan': "Scan and board tickets for the agent's own bus operator",
 } as const;
 export type Permission = keyof typeof PERMISSIONS;
 
@@ -55,6 +67,9 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'deals:manage',
     'referrals:review',
     'reports:read',
+    'ground:manage',
+    'drivers:review',
+    'safety:manage',
   ],
   finance: [
     'profile:manage',
@@ -66,10 +81,19 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'referrals:review',
     'reports:read',
   ],
-  support: ['profile:manage', 'bookings:read', 'users:read', 'refunds:request', 'support:manage'],
+  support: [
+    'profile:manage',
+    'bookings:read',
+    'users:read',
+    'refunds:request',
+    'support:manage',
+    'safety:manage',
+  ],
   // Regulated claims (IATA, traveller counts) are verified by super admins only.
   content_manager: ['profile:manage', 'cms:manage', 'catalog:manage', 'deals:manage'],
   visa_officer: ['profile:manage', 'bookings:read', 'visa:process'],
+  driver: ['profile:manage', 'driving'],
+  operator_agent: ['profile:manage', 'tickets:scan'],
 };
 
 export function isRole(value: string): value is Role {
