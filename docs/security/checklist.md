@@ -485,7 +485,7 @@ Everything that is not met or not applicable, for planning:
 
 | ID | Control | Status | Evidence | Note |
 | --- | --- | --- | --- | --- |
-| MASVS-PRIVACY-1 | The app minimizes access to sensitive data and resources. | Met | `apps/mobile/src/lib/push.ts`<br>`apps/mobile/src/lib/visa-upload.ts` | Push permission only after a booking or from Account; documents only through the system picker; no location, contacts or photos access. |
+| MASVS-PRIVACY-1 | The app minimizes access to sensitive data and resources. | Met | `apps/mobile/src/lib/push.ts`<br>`apps/mobile/src/lib/visa-upload.ts`<br>`apps/mobile/src/screens/operator-scan-screen.tsx`<br>`apps/mobile/app.config.ts` | Push permission only after a booking or from Account; documents (visa, licence, driver) only through the system picker; the camera only on the operator scan screen, for bus operator agents, as a barcode scanner without microphone; no location, contacts or photos access. |
 | MASVS-PRIVACY-2 | The app prevents identification of the user. | Met | `apps/mobile/src/lib/error-reporting.ts` | No advertising ids or trackers; error reports carry no personal data. |
 | MASVS-PRIVACY-3 | The app is transparent about data collection and usage. | Partial | `apps/web/lib/cookie-catalog.ts` | The privacy policy text and the store privacy labels come from the owner (open owner question). |
 | MASVS-PRIVACY-4 | The app offers user control over their data. | Met | `apps/mobile/src/lib/data-export.ts`<br>`apps/api/src/privacy/account-deletion.service.ts` | Data export and account deletion in the app; notification preferences per channel. |

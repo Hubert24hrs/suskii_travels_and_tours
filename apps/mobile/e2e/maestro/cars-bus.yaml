@@ -1,0 +1,165 @@
+# Cars P7: a guest books an interstate bus seat on the e2e stack (sample inventory from
+# db:seed:demo), pays on the mock provider's hosted page and keeps the QR boarding pass, which is
+# drawn on the phone from the booking (no image download). Runs after critical-path.yaml.
+appId: com.suskii.travels.e2e
+name: Bus seat with a QR boarding pass
+tags:
+  - cars
+---
+- launchApp
+- runFlow: subflows/dismiss-system-dialogs.yaml
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 60000
+
+# Home links the Cars hub while the API has a Cars product switched on.
+- scrollUntilVisible:
+    element:
+      id: home-cars
+- tapOn:
+    id: home-cars
+- extendedWaitUntil:
+    visible:
+      id: cars-buses
+    timeout: 30000
+- tapOn:
+    id: cars-buses
+
+# Lagos to Ibadan, one seat, on the form's default date (three days out).
+- extendedWaitUntil:
+    visible:
+      id: bus-from-Lagos
+    timeout: 30000
+- tapOn:
+    id: bus-from-Lagos
+- tapOn:
+    id: bus-to-Ibadan
+- tapOn:
+    id: bus-seats-1
+- scrollUntilVisible:
+    element:
+      id: bus-search-submit
+- tapOn:
+    id: bus-search-submit
+- extendedWaitUntil:
+    visible:
+      id: bus-trip-.*
+    timeout: 30000
+- tapOn:
+    id: bus-trip-.*
+    index: 0
+
+# The seat map: a seat near the back, held for 10 minutes while checking out.
+- extendedWaitUntil:
+    visible:
+      id: bus-trip
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: seat-3C
+- tapOn:
+    id: seat-3C
+- scrollUntilVisible:
+    element:
+      id: hold-seats
+- tapOn:
+    id: hold-seats
+
+# Checkout: names and a date of birth, no passport for a domestic bus.
+- extendedWaitUntil:
+    visible:
+      id: checkout
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: passengers.0.title-ms
+- tapOn:
+    id: passengers.0.title-ms
+- tapOn:
+    id: passengers.0.gender-f
+- scrollUntilVisible:
+    element:
+      id: passengers.0.givenNames
+- tapOn:
+    id: passengers.0.givenNames
+- inputText: Ada
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.surname
+- tapOn:
+    id: passengers.0.surname
+- inputText: Okafor
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.dateOfBirth
+- tapOn:
+    id: passengers.0.dateOfBirth
+- inputText: 1990-04-01
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.nationality
+- tapOn:
+    id: passengers.0.nationality
+- inputText: Nigeria
+- hideKeyboard
+- tapOn:
+    id: passengers.0.nationality-option-NG
+- assertNotVisible:
+    id: passengers.0.passportNumber
+- scrollUntilVisible:
+    element:
+      id: contact-email
+- tapOn:
+    id: contact-email
+- inputText: bus@example.com
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: contact-phone
+- tapOn:
+    id: contact-phone
+- inputText: '+2348030000000'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: accept-terms
+- tapOn:
+    id: accept-terms
+- scrollUntilVisible:
+    element:
+      id: checkout-submit
+- tapOn:
+    id: checkout-submit
+
+# The mock provider's hosted page, then back to the trip.
+- runFlow: subflows/chrome-first-run.yaml
+- extendedWaitUntil:
+    visible: 'Pay .*'
+    timeout: 60000
+- tapOn: 'Pay .*'
+- extendedWaitUntil:
+    visible: 'Open the Suskii app|Booking (?!reference).+'
+    timeout: 60000
+- runFlow:
+    when:
+      visible: Open the Suskii app
+    commands:
+      - tapOn: Open the Suskii app
+- extendedWaitUntil:
+    visible:
+      id: trip
+    timeout: 60000
+- extendedWaitUntil:
+    visible: Confirmed
+    timeout: 120000
+
+# The boarding pass for seat 3C, with its QR code.
+- scrollUntilVisible:
+    element:
+      id: ticket-qr-3C
+    timeout: 60000
+- assertVisible: 'Ready to board'
