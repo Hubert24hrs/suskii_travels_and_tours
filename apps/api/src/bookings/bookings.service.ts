@@ -29,6 +29,7 @@ import { randomToken } from '../crypto/random';
 import { Prisma, type Traveller } from '../generated/prisma/client';
 import { CarsFlags } from '../ground/cars-flags';
 import { TicketSigner } from '../ground/ticket-signer';
+import { SALES_CLOSE_MINUTES } from '../buses/bus-holds.service';
 import { PrismaService } from '../infra/prisma.service';
 import { withCurrentTier } from '../prime/prime-status';
 import { FxService } from '../pricing/fx.service';
@@ -75,7 +76,7 @@ import { busTicketViews } from './bus-tickets';
 import { InhouseFulfilment } from './inhouse-fulfilment';
 import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
 import { RENTAL_RESERVATION_INCLUDE, rentalReservationView } from './rental-views';
-import { claimBusSeats, claimRental, reserveSeats } from './seat-inventory';
+import { claimBusSeats, claimRental, reserveSeats, syncRentalDeposit } from './seat-inventory';
 import {
   addonDetailsContext,
   contactContext,
@@ -262,7 +263,9 @@ export class BookingsService {
     return {
       voucher: voucher ? this.fulfilment.view(voucher) : null,
       cancellation:
-        isInhouse(payload) && (payload.kind !== 'rental' || rental?.status === 'reserved')
+        isInhouse(payload) &&
+        (payload.kind !== 'rental' || rental?.status === 'reserved') &&
+        !busTickets.some((ticket) => ticket.status === 'boarded')
           ? cancellationTerms(payload, booking.status, paid, now)
           : null,
       linkedBooking: linked,
@@ -840,7 +843,12 @@ export class BookingsService {
     const now = new Date();
     const offerExpiry = pending.items
       .map((item) =>
-        item.payload.kind === 'flight' ? new Date(item.payload.offer.expiresAt) : null,
+        item.payload.kind === 'flight'
+          ? new Date(item.payload.offer.expiresAt)
+          : item.payload.kind === 'bus'
+            ? // Bus sales close before departure (holds and searches do the same).
+              new Date(Date.parse(item.payload.departsAtUtc) - SALES_CLOSE_MINUTES * 60_000)
+            : null,
       )
       .filter((date): date is Date => date !== null);
     // A held booking keeps its plan's deadline; its single payment becomes the new total.
@@ -880,6 +888,7 @@ export class BookingsService {
             totalMinor: agreed.minor,
           },
         });
+        await syncRentalDeposit(tx, item.id, item.payload);
       }
       await this.audit.record(
         {

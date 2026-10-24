@@ -1,3 +1,4 @@
+import { ObjectStorage } from '../src/documents/object-storage';
 import { TicketSigner } from '../src/ground/ticket-signer';
 
 import { bearer, grantRoles, PASSWORD, signUp } from './helpers/flows';
@@ -325,6 +326,92 @@ describe('buses (e2e)', () => {
         .expect(404);
       const keys = await ctx.http().get('/v1/buses/ticket-keys').expect(200);
       expect(keys.body.keys).toHaveLength(1);
+    });
+
+    it('renders boarding passes on every read and never stores them', async () => {
+      const { bookingId, token, booking } = await guestBooking();
+      const [document] = booking.documents as { id: string; type: string }[];
+      expect(document?.type).toBe('bus_ticket');
+      for (const _read of [1, 2]) {
+        const pdf = await ctx
+          .http()
+          .get(`/v1/bookings/${bookingId}/documents/${document?.id ?? ''}`)
+          .set(token)
+          .expect(200);
+        expect(pdf.headers['content-type']).toContain('application/pdf');
+      }
+      // Re-signed QR codes only: nothing that could outlive a key rotation or a voided seat.
+      expect(
+        await ctx.app.get(ObjectStorage).get(`bookings/${bookingId}/boarding-passes.pdf`),
+      ).toBeNull();
+    });
+
+    it('does not cancel once a passenger has boarded or the bus has left', async () => {
+      const boarded = await guestBooking(['5A']);
+      const [ticket] = boarded.booking.busTickets as Ticket[];
+      await ctx.prisma.busTicket.update({
+        where: { id: ticket?.id ?? '' },
+        data: { status: 'boarded', boardedAt: new Date() },
+      });
+      const seen = await ctx
+        .http()
+        .get(`/v1/bookings/${boarded.bookingId}`)
+        .set(boarded.token)
+        .expect(200);
+      expect(seen.body.cancellation).toBeNull();
+      await ctx
+        .http()
+        .post(`/v1/bookings/${boarded.bookingId}/cancel`)
+        .set(boarded.token)
+        .expect(409);
+
+      // Same local day, but an hour after the bus left: the day-count tiers alone would refund.
+      const left = await guestBooking(['6A']);
+      const item = await ctx.prisma.bookingItem.findFirstOrThrow({
+        where: { bookingId: left.bookingId },
+      });
+      await ctx.prisma.bookingItem.update({
+        where: { id: item.id },
+        data: {
+          payload: {
+            ...(item.payload as Record<string, unknown>),
+            departsAtUtc: new Date(Date.now() - 3_600_000).toISOString(),
+          },
+        },
+      });
+      const after = await ctx
+        .http()
+        .get(`/v1/bookings/${left.bookingId}`)
+        .set(left.token)
+        .expect(200);
+      expect(after.body.cancellation).toBeNull();
+      await ctx.http().post(`/v1/bookings/${left.bookingId}/cancel`).set(left.token).expect(409);
+      expect(await ctx.prisma.refund.count({ where: { bookingId: left.bookingId } })).toBe(0);
+    });
+
+    it('takes no payment once sales have closed before departure', async () => {
+      const held = (await hold(['7A']).expect(201)).body as Hold;
+      const quoted = await quote(held.holdId, held.holdToken).expect(201);
+      const created = await book(ctx, {
+        quoteId: quoted.body.quoteId,
+        passengers: [passenger('Ada', 'Okafor')],
+      });
+      expect(created.status).toBe(201);
+      const bookingId = created.body.booking.id as string;
+      const token = { 'X-Booking-Token': created.body.accessToken as string };
+      // The departure moves to 20 minutes from now: inside the 30-minute sales close.
+      await ctx.prisma.busTrip.update({
+        where: { id: inventory.tripId },
+        data: { departsAt: new Date(Date.now() + 20 * 60_000) },
+      });
+      const refused = await ctx
+        .http()
+        .post(`/v1/bookings/${bookingId}/payments`)
+        .set('Idempotency-Key', nextKey('e2e-bus-late'))
+        .set(token)
+        .send({})
+        .expect(410);
+      expect(refused.body.type).toBe('urn:suskii:problem:offer-unavailable');
     });
 
     it('cancels under the operator policy, voids the passes and frees the seats', async () => {

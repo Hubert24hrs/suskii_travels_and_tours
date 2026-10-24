@@ -444,6 +444,7 @@ export class RentalsAdminService {
         refund.minor > 0n
           ? await this.refunds.refundBookingBalance(tx, booking, 'deposit_release', {
               amount: refund,
+              cancelsBooking: false,
             })
           : [];
       await tx.rentalReservation.update({

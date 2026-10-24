@@ -183,7 +183,7 @@ export class RefundsService {
     tx: Tx,
     booking: { id: string; currency: string },
     reason: RefundReason,
-    options: { amount?: Money; needsApproval?: boolean } = {},
+    options: { amount?: Money; needsApproval?: boolean; cancelsBooking?: boolean } = {},
   ): Promise<string[]> {
     const balance = await this.ledger.balance(tx, {
       kind: 'booking',
@@ -211,7 +211,7 @@ export class RefundsService {
           amount: take,
           reason,
           source: 'booking',
-          cancelsBooking: true,
+          cancelsBooking: options.cancelsBooking ?? true,
           ...(options.needsApproval ? { needsApproval: true } : {}),
         }),
       );

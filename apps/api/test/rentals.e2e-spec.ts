@@ -3,7 +3,7 @@ import { redactCarsBooking } from '../src/privacy/cars-redaction';
 import { RetentionService } from '../src/privacy/retention.service';
 
 import { bearer, signUp } from './helpers/flows';
-import { payInFull, staffSession } from './helpers/cars';
+import { nextKey, payInFull, staffSession } from './helpers/cars';
 import { createDriver } from './helpers/rides';
 import {
   bookRental,
@@ -211,6 +211,8 @@ describe('rentals (e2e)', () => {
     expect(refunds.map((refund) => [refund.reason, Number(refund.amountMinor)])).toEqual([
       ['deposit_release', 8_000_000],
     ]);
+    // The rental went ahead: the deposit refund cancels nothing.
+    expect(refunds.map((refund) => refund.cancelsBooking)).toEqual([false]);
     const kept = await ctx.prisma.ledgerEntry.findFirst({
       where: {
         transaction: { idempotencyKey: `rental:${reservation.id}:deposit-deduction` },
@@ -392,6 +394,39 @@ describe('rentals (e2e)', () => {
       chauffeurDriverId: approved.driverId,
       depositMinor: 0n,
     });
+  });
+
+  it('keeps the reservation deposit equal to what an accepted re-price charges', async () => {
+    const car = await rentalVehicle(ctx, staff);
+    const period = { vehicleId: car.id, pickupAtLocal: localIn(6), returnAtLocal: localIn(6 + 24) };
+    const quote = await rentalQuote(ctx, renter.headers, period).expect(201);
+    const created = await bookRental(ctx, renter.headers, quote.body.quoteId as string).expect(201);
+    const bookingId = created.body.booking.id as string;
+    // The fleet raises the car's deposit before the renter pays.
+    await ctx
+      .http()
+      .patch(`/v1/admin/rentals/vehicles/${car.id}`)
+      .set(staff)
+      .send({ depositMinor: 12_000_000 })
+      .expect(204);
+    const changed = await ctx
+      .http()
+      .post(`/v1/bookings/${bookingId}/payments`)
+      .set('Idempotency-Key', nextKey('e2e-rental-reprice'))
+      .set(renter.headers)
+      .send({})
+      .expect(409);
+    expect(changed.body.type).toBe('urn:suskii:problem:price-changed');
+    await ctx
+      .http()
+      .post(`/v1/bookings/${bookingId}/price-consent`)
+      .set(renter.headers)
+      .send({ total: changed.body.priceChange.current })
+      .expect(200);
+    const reservation = await ctx.prisma.rentalReservation.findFirstOrThrow({
+      where: { bookingItem: { bookingId } },
+    });
+    expect(reservation.depositMinor).toBe(12_000_000n);
   });
 
   it('refunds the whole deposit when a rental is cancelled under its tiers', async () => {

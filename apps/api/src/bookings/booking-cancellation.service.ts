@@ -63,6 +63,13 @@ export class BookingCancellationService {
           ? cancellationTerms(payload, current.status, paid, new Date())
           : null;
       if (!terms) throw notCancellable();
+      // A passenger who boarded travelled: the booking ends with the trip, not a cancellation.
+      if (payload?.kind === 'bus' && item) {
+        const boarded = await tx.busTicket.count({
+          where: { bookingItemId: item.id, status: 'boarded' },
+        });
+        if (boarded > 0) throw notCancellable();
+      }
       // Once the car is collected, the rental ends with its return, not a cancellation.
       if (payload?.kind === 'rental' && item) {
         const reservation = await tx.rentalReservation.findUnique({
