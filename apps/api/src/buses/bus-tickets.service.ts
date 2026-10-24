@@ -29,6 +29,9 @@ const NOT_FOUND: ScanResult = { result: 'not_found', reason: null, ticket: null 
  * else gets `not_found`, like a missing ticket), and a conditional update boards each ticket once.
  * Scans made offline are uploaded later through `sync`; a second boarding is reported and audited.
  */
+/** How long an offline scan may wait for upload: a long trip, then a day without signal. */
+const OFFLINE_SCAN_MAX_AGE_MS = 48 * 3_600_000;
+
 @Injectable()
 export class BusTicketsService {
   constructor(
@@ -118,18 +121,24 @@ export class BusTicketsService {
     return { result, reason: null, ticket: view(boardedAt) };
   }
 
-  /** Scans an offline scanner stored, in the order they were made. */
+  /**
+   * Scans an offline scanner stored, in the order they were made. The phone's scan time decides
+   * the boarding window, so it is held to the server's clock: a time in the future counts as now
+   * (no boarding before the window opens), and one older than the offline limit as that limit.
+   */
   async sync(
     scans: readonly { qrPayload: string; scannedAt: string }[],
     agent: Agent,
   ): Promise<ScanResult[]> {
+    const now = Date.now();
     const ordered = [...scans].sort((a, b) => a.scannedAt.localeCompare(b.scannedAt));
     const results: ScanResult[] = [];
     for (const scan of ordered) {
+      const claimed = Date.parse(scan.scannedAt);
       results.push(
         await this.scan(scan.qrPayload, agent, {
           offline: true,
-          scannedAt: new Date(scan.scannedAt),
+          scannedAt: new Date(Math.min(now, Math.max(claimed, now - OFFLINE_SCAN_MAX_AGE_MS))),
         }),
       );
     }
