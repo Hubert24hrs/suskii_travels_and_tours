@@ -1,10 +1,11 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 
 import { localToUtc, utcToLocal, type GeoPoint } from '@suskii/shared';
 
 import { itemPayload } from '../bookings/booking-presenter';
 import { BookingsService, type BookingCaller } from '../bookings/bookings.service';
 import { ProblemDetailsException } from '../common/problem-details';
+import { APP_CONFIG, type AppConfig } from '../config/config';
 import { CarsFlags } from '../ground/cars-flags';
 import { RouteTooLongError, RoutingService } from '../ground/maps';
 import { PrismaService } from '../infra/prisma.service';
@@ -17,9 +18,6 @@ const FLIGHT_BUFFER_MINUTES = { domestic: 120, international: 180 } as const;
 const BUS_BUFFER_MINUTES = 30;
 /** Lagos traffic: an allowance on top of the routed time. */
 const TRAFFIC_MARGIN_MINUTES = 15;
-/** Rides can be scheduled from 15 minutes to 7 days ahead (ADR-051). */
-const RIDE_SCHEDULE_MIN_MS = 15 * 60_000;
-const RIDE_SCHEDULE_MAX_MS = 7 * 86_400_000;
 /** A ride from the airport, offered for this long after landing. */
 const ARRIVAL_RIDE_DELAY_MS = 30 * 60_000;
 const DEFAULT_RENTAL_DAYS = 3;
@@ -62,7 +60,16 @@ export class TripPlanningService {
     private readonly bookings: BookingsService,
     private readonly routing: RoutingService,
     private readonly flags: CarsFlags,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  /** Whether a ride can be booked this far ahead: the window rides use (ADR-051). */
+  private schedulable(ahead: number): boolean {
+    return (
+      ahead >= this.config.RIDE_SCHEDULE_LEAD_MINUTES * 60_000 &&
+      ahead <= this.config.RIDE_SCHEDULE_MAX_DAYS * 86_400_000
+    );
+  }
 
   async departurePlan(
     bookingId: string,
@@ -121,9 +128,7 @@ export class TripPlanningService {
       },
       from: { id: from.id, ...origin },
       ride:
-        this.flags.enabled('rides') &&
-        ahead >= RIDE_SCHEDULE_MIN_MS &&
-        ahead <= RIDE_SCHEDULE_MAX_MS
+        this.flags.enabled('rides') && this.schedulable(ahead)
           ? { pickup: origin, dropoff: destination, scheduledFor: iso(leaveBy) }
           : null,
     };
@@ -235,8 +240,7 @@ export class TripPlanningService {
       pickupPlaceId: airport.id,
       pickupLabel: airport.name,
       cityName: city,
-      scheduledFor:
-        ahead >= RIDE_SCHEDULE_MIN_MS && ahead <= RIDE_SCHEDULE_MAX_MS ? iso(pickup) : null,
+      scheduledFor: this.schedulable(ahead) ? iso(pickup) : null,
     };
   }
 

@@ -1821,7 +1821,7 @@ export const en = {
         estimate: 'Estimated without live routing.',
         book: 'Book a ride for {time}',
         signIn: 'Sign in to book a ride for this time',
-        noRide: 'Rides can be booked from 15 minutes to 7 days ahead.',
+        noRide: 'A ride cannot be booked for this time yet: it is too soon or too far ahead.',
         noPlaces: 'We have no pick-up places in {city} yet.',
         errors: {
           unavailable: 'We cannot plan a departure from that place. Try another one.',
