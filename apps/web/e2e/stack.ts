@@ -1,6 +1,6 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { createWriteStream, mkdirSync } from 'node:fs';
+import { createWriteStream, mkdirSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
 import { delimiter, join, resolve } from 'node:path';
@@ -175,6 +175,9 @@ export async function startStack(): Promise<Stack> {
 
   try {
     migrateAndSeed(databaseUrl);
+    // The seed gives rows new ids each run: API reads cached on disk by an earlier run (a bus
+    // trip, a rental car) would point at rows that no longer exist.
+    rmSync(join(WEB_DIR, '.next/cache/fetch-cache'), { recursive: true, force: true });
 
     // A throwaway service token per run; NODE_ENV=test keeps the repo .env out of the processes.
     const internalToken = randomBytes(32).toString('base64url');

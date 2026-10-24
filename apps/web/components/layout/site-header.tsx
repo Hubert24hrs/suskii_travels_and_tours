@@ -3,14 +3,14 @@ import { cn } from '@suskii/ui-web';
 import { MessageCircle, Phone } from 'lucide-react';
 
 import { setCurrency } from '../../app/actions';
-import type { SiteContent } from '../../lib/api';
+import { api, type SiteContent } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
 import { AccountLink } from '../account/account-link';
 import { AppLink } from '../app-link';
 
 import { Container } from './container';
 import { MobileMenu } from './mobile-menu';
-import { NAV_ITEMS, whatsappHref } from './nav-items';
+import { CARS_NAV_ITEMS, NAV_ITEMS, whatsappHref } from './nav-items';
 import { PreferenceSelect } from './preference-select';
 import { StickyHeader } from './sticky-header';
 
@@ -93,10 +93,17 @@ export async function UtilityBar({ site }: { site: SiteContent | null }) {
 /** Sticky header: wordmark (text until brand assets exist), primary nav, sign in, mobile drawer. */
 export async function SiteHeader({ site }: { site: SiteContent | null }) {
   const { t } = await getI18n();
-  const links = NAV_ITEMS.map((item) => ({
-    href: item.href,
-    label: t(`verticals.${item.vertical}`),
-  }));
+  const cars = await api.carsFeatures();
+  const links = [
+    ...NAV_ITEMS.map((item) => ({
+      href: item.href,
+      label: t(`verticals.${item.vertical}`),
+    })),
+    // One entry for buses, rides and car rental, to the hub listing what is switched on.
+    ...(CARS_NAV_ITEMS.some((item) => cars?.[item.product])
+      ? [{ href: '/cars', label: t('header.cars') }]
+      : []),
+  ];
   return (
     <StickyHeader>
       <Container className="flex h-16 items-center gap-2 lg:gap-8">

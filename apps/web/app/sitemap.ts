@@ -11,12 +11,13 @@ import { absoluteUrl } from '../lib/seo';
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection();
-  const [routes, destinations, site, packages, tours] = await Promise.all([
+  const [routes, destinations, site, packages, tours, cars] = await Promise.all([
     api.dealRoutes(),
     api.hotelDestinations('NGN'),
     api.site('en-NG'),
     api.packages({ currency: 'NGN', limit: '50' }),
     api.tours({ currency: 'NGN', limit: '50' }),
+    api.carsFeatures(),
   ]);
   const staticPaths = [
     '/',
@@ -28,6 +29,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/travel-add-ons',
     '/deals',
     '/prime',
+    // Cars landing pages, while their product is switched on (ADR-049).
+    ...(cars && (cars.buses || cars.rides || cars.rentals) ? ['/cars'] : []),
+    ...(cars?.buses ? ['/buses'] : []),
+    ...(cars?.rides ? ['/rides'] : []),
+    ...(cars?.rentals ? ['/rentals'] : []),
   ];
   return [
     ...staticPaths.map((path) => ({

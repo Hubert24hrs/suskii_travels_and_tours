@@ -73,6 +73,14 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
     (cityId, depart, back) =>
       `/travel-add-ons?type=insurance&dest=${cityId}&start=${depart}&end=${back}&adults=1`,
   ],
+  // Cars (ADR-049): search forms around server-formatted prices and dates. The hub, the ride
+  // form and a car's booking form show signed-out visitors links only, so there is nothing for
+  // this check to wait on there.
+  ['bus search', (_, depart) => `/buses?from=Lagos&to=Ibadan&date=${depart}&seats=1`],
+  [
+    'rental search',
+    (_, depart, back) => `/rentals?city=Lagos&pickupAt=${depart}T10%3A00&returnAt=${back}T10%3A00`,
+  ],
   ['sign in', () => '/sign-in'],
   ['register', () => '/register?ref=ABCDEFGH'],
 ];
