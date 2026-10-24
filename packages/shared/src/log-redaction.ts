@@ -23,6 +23,12 @@ export const SENSITIVE_LOG_FIELDS = [
   'phone',
   'passportNumber',
   'cardNumber',
+  // Cars (ADR-050): ride PINs, trip share tokens, ticket QR payloads and identity numbers.
+  'pin',
+  'shareToken',
+  'qrPayload',
+  'nin',
+  'licenceNumber',
 ] as const;
 
 /** How many levels below the log object's own keys the fields are still redacted. */
