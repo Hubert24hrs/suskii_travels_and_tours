@@ -922,6 +922,18 @@ export const en = {
         'Texted codes can be intercepted. For better protection, turn on an authenticator app under Security in your account on the Suskii website.',
       referralShare: 'Share your invite',
       referralMessage: 'Join me on Suskii with my invite code {code}: {url}',
+      testServer: {
+        heading: 'Test server',
+        intro:
+          'This test build talks to the API and website below. To try a stack on your computer, enter its addresses on your Wi-Fi network, then close the app and open it again.',
+        inUse: 'In use: {api}',
+        api: 'API address, for example http://192.168.1.20:4000',
+        web: 'Website address, for example http://192.168.1.20:3000',
+        invalid: 'Enter an address such as http://192.168.1.20:4000, without a path.',
+        save: 'Save server',
+        reset: 'Use the built-in server',
+        saved: 'Saved. Close the app and open it again to use it.',
+      },
     },
     auth: {
       signInTitle: 'Sign in',

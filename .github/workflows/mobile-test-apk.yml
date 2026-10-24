@@ -6,8 +6,10 @@ name: Mobile test APK
 # for secrets, and published as the `mobile-test-apk` pre-release so it has a stable download URL:
 # https://github.com/<owner>/<repo>/releases/download/mobile-test-apk/suskii-travels-test.apk
 #
-# The e2e variant allows plain http, so the app can talk to a stack on the tester's own network
-# (`api_url` such as http://192.168.1.20:4000). Mock attestation; not for production.
+# The e2e variant allows plain http, so the app can talk to a stack on the tester's own network.
+# Testers set that address in the app (Account, Test server; ADR-054), so the defaults below suit
+# everyone; `api_url` only changes where a fresh install points first. Mock attestation; not for
+# production.
 on:
   workflow_dispatch:
     inputs:

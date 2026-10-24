@@ -166,6 +166,31 @@ runs in a development build of the app rather than Expo Go.
 - **Store builds** go through EAS (`Mobile release` workflow) and need the owner's Expo, Apple and
   Google accounts.
 
+### Try the Android test build on a phone
+
+The `Mobile test APK` workflow publishes a sideloadable build at a fixed address:
+`https://github.com/Hubert24hrs/suskii_travels_and_tours/releases/download/mobile-test-apk/suskii-travels-test.apk`.
+It needs a running stack, which your phone reaches over your Wi-Fi (ADR-054):
+
+1. Find your computer's address on the network (Windows `ipconfig`, macOS
+   `ipconfig getifaddr en0`, Linux `hostname -I`), for example `192.168.1.20`. Phone and computer
+   must be on the same Wi-Fi, and the firewall must allow ports 3000 and 4000.
+2. With Docker running, build with the website pointed at that address, then start the stack
+   (Testcontainers starts Postgres and Redis, migrates and seeds sample data):
+
+   ```bash
+   pnpm install
+   NEXT_PUBLIC_API_BASE_URL=http://192.168.1.20:4000 pnpm build
+   E2E_PUBLIC_WEB_URL=http://192.168.1.20:3000 pnpm --filter @suskii/web e2e:stack
+   ```
+
+   In PowerShell set the variables first (`$env:NEXT_PUBLIC_API_BASE_URL = "http://192.168.1.20:4000"`).
+   Wait for `STACK READY`.
+
+3. Install the APK on the phone (allow installs from your browser), open it, go to **Account,
+   Test server**, enter `http://192.168.1.20:4000` and `http://192.168.1.20:3000`, save, then close
+   and reopen the app. Payments use the mock provider page; no real money moves.
+
 ## Cars: buses, rides and car rental
 
 Ground transport runs on the same booking, payment and ledger pipeline as the other products

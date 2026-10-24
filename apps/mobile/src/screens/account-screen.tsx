@@ -8,6 +8,7 @@ import { ChevronRight } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { TestServerCard } from '../components/account/test-server-card';
 import { appConfig } from '../config';
 import { followAccount } from '../lib/push';
 import { useApp, useT } from '../providers/app-provider';
@@ -162,6 +163,8 @@ export function AccountScreen() {
           />
         </ScrollView>
       </Card>
+
+      <TestServerCard />
 
       <Text className="font-body text-caption text-muted">{t('mobile.account.privacy')}</Text>
       <Text className="font-body text-caption text-muted">
