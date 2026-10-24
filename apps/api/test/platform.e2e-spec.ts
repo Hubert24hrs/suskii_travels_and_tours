@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
@@ -91,6 +92,18 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
       });
       const unsafe = await ctx.http().get('/health').set('X-Request-Id', 'bad id <script>');
       expect(unsafe.headers['x-request-id']).not.toContain('<');
+    });
+
+    it('refuses compressed request bodies before decompressing them', async () => {
+      for (const type of ['application/json', 'application/x-www-form-urlencoded']) {
+        await ctx
+          .http()
+          .post('/v1/auth/login')
+          .set('Content-Type', type)
+          .set('Content-Encoding', 'gzip')
+          .send(gzipSync(Buffer.from('{"email":"a@b.co","password":"x"}')))
+          .expect(415);
+      }
     });
 
     it('rejects oversized bodies with 413', async () => {
