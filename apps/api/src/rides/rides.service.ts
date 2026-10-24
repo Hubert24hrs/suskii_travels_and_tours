@@ -4,6 +4,8 @@ import type { z } from 'zod';
 import { money, rideCancellationFee, toWire, type RatingInput } from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
+import { bookingPrice } from '../bookings/booking-presenter';
+import { atBookedRate } from '../bookings/booking-pricing';
 import type { RideItemPayload } from '../bookings/inhouse-items';
 import { RefundsService } from '../bookings/refunds.service';
 import { fromJsonValue } from '../common/json';
@@ -91,7 +93,15 @@ export class RidesService {
         booking,
         money(0, booking.currency),
       );
-      const fee = rideCancellationFee(payload.rule, ride.status, ride.assignedAt, paid.refund, now);
+      const price = bookingPrice(booking);
+      const fee = rideCancellationFee(
+        payload.rule,
+        ride.status,
+        ride.assignedAt,
+        paid.refund,
+        now,
+        (amount) => atBookedRate(amount, price),
+      );
       await this.transitions.apply(
         tx,
         ride,

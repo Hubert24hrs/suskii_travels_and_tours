@@ -40,7 +40,7 @@ import { RideEventsPublisher } from './ride-events.publisher';
 import { RideSettlementService } from './ride-settlement.service';
 import { RideTransitions } from './ride-transitions';
 import {
-  estimatedEarnings,
+  driverEarnings,
   etaSeconds,
   lastPosition,
   RIDE_INCLUDE,
@@ -145,7 +145,9 @@ export class RideDriverService {
    */
   async location(userId: string, position: GeoPoint, recordedAt?: string): Promise<void> {
     const driver = await this.driver(userId);
-    if (!driver.online) throw notDriving('offline');
+    const ride = await this.liveRide(driver.id);
+    // Offline (or just suspended) drivers send no positions, except to finish a ride under way.
+    if (!driver.online && !ride) throw notDriving('offline');
     if (!withinBounds(position, this.flags.serviceArea)) throw implausibleLocation();
     const now = new Date();
     const at = recordedAt ? new Date(recordedAt) : now;
@@ -165,7 +167,6 @@ export class RideDriverService {
         data: { lastLat: position.lat, lastLng: position.lng, lastLocationAt: at },
       });
     }
-    const ride = await this.liveRide(driver.id);
     if (!ride) return;
     await this.prisma.rideLocationPing.create({
       data: { rideId: ride.id, lat: position.lat, lng: position.lng, recordedAt: at },
@@ -184,7 +185,14 @@ export class RideDriverService {
     const driver = await this.driver(userId);
     const rows = await this.prisma.rideOffer.findMany({
       where: { driverId: driver.id, status: 'open', expiresAt: { gt: new Date() } },
-      include: { ride: { include: { bookingItem: { select: { payload: true } } } } },
+      include: {
+        ride: {
+          include: {
+            bookingItem: { select: { payload: true } },
+            booking: { select: { price: true, currency: true } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
     return {
@@ -199,12 +207,7 @@ export class RideDriverService {
           dropoffLabel: offer.ride.dropoffLabel,
           distanceToPickupMetres: offer.distanceMetres,
           tripDistanceMetres: offer.ride.distanceMetres,
-          earnings: toWire(
-            money(
-              estimatedEarnings(payload, offer.ride.fareMinor, offer.ride.currency).minor,
-              offer.ride.currency,
-            ),
-          ),
+          earnings: toWire(driverEarnings(payload, offer.ride.booking)),
           expiresAt: offer.expiresAt.toISOString(),
         };
       }),
@@ -283,27 +286,30 @@ export class RideDriverService {
   /**
    * Starts the trip with the rider's PIN (ADR-050). A wrong PIN counts an attempt; the fifth
    * locks the ride and raises a safety incident. The attempt is kept even though the call fails.
+   * Guesses are checked one at a time under the ride's row lock, so parallel calls cannot get
+   * past the lockout or start a ride that another call has just locked.
    */
   async start(rideId: string, pin: string, caller: DriverCaller) {
-    const { driver, ride } = await this.assigned(rideId, caller.userId);
-    if (ride.pinLockedAt) throw pinLocked();
-    if (ride.status !== 'arrived') throw rideConflict();
-    if (await this.hasher.verify(ride.pinHash, pin)) {
-      await this.prisma.$transaction((tx) =>
-        this.transitions.apply(
+    const { driver } = await this.assigned(rideId, caller.userId);
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM rides WHERE id = ${rideId}::uuid FOR UPDATE`;
+      const ride = await tx.ride.findUniqueOrThrow({
+        where: { id: rideId },
+        select: { id: true, status: true, driverId: true, pinHash: true, pinLockedAt: true },
+      });
+      if (ride.driverId !== driver.id) return { kind: 'gone' } as const;
+      if (ride.pinLockedAt) return { kind: 'locked' } as const;
+      if (ride.status !== 'arrived') return { kind: 'conflict' } as const;
+      if (await this.hasher.verify(ride.pinHash, pin)) {
+        await this.transitions.apply(
           tx,
           ride,
           'start',
           { kind: 'driver', userId: caller.userId },
-          {
-            data: { startedAt: new Date() },
-          },
-        ),
-      );
-      await this.publisher.toRide(rideId, { type: 'ride.updated', rideId, status: 'in_progress' });
-      return this.driverRide(rideId, driver.id);
-    }
-    const attempts = await this.prisma.$transaction(async (tx) => {
+          { data: { startedAt: new Date() } },
+        );
+        return { kind: 'started' } as const;
+      }
       const updated = await tx.ride.update({
         where: { id: rideId },
         data: { pinAttempts: { increment: 1 } },
@@ -323,10 +329,26 @@ export class RideDriverService {
           tx,
         );
       }
-      return updated.pinAttempts;
+      return { kind: 'wrong', attempts: updated.pinAttempts } as const;
     });
-    if (attempts >= RIDE_PIN_MAX_ATTEMPTS) throw pinLocked();
-    throw pinInvalid(RIDE_PIN_MAX_ATTEMPTS - attempts);
+    switch (outcome.kind) {
+      case 'gone':
+        throw new NotFoundException();
+      case 'locked':
+        throw pinLocked();
+      case 'conflict':
+        throw rideConflict();
+      case 'started':
+        await this.publisher.toRide(rideId, {
+          type: 'ride.updated',
+          rideId,
+          status: 'in_progress',
+        });
+        return this.driverRide(rideId, driver.id);
+      case 'wrong':
+        if (outcome.attempts >= RIDE_PIN_MAX_ATTEMPTS) throw pinLocked();
+        throw pinInvalid(RIDE_PIN_MAX_ATTEMPTS - outcome.attempts);
+    }
   }
 
   async complete(rideId: string, caller: DriverCaller) {
@@ -377,7 +399,9 @@ export class RideDriverService {
             assignedAt: null,
             arrivedAt: null,
             searchStartedAt: new Date(),
+            // The lockout was this driver's; the next one starts with the rider's PIN afresh.
             pinAttempts: 0,
+            pinLockedAt: null,
           },
         },
       ),
@@ -399,7 +423,10 @@ export class RideDriverService {
       }),
       this.prisma.ride.findMany({
         where: { driverId: driver.id, status: 'completed' },
-        include: { bookingItem: { select: { payload: true } } },
+        include: {
+          bookingItem: { select: { payload: true } },
+          booking: { select: { price: true, currency: true } },
+        },
         orderBy: { completedAt: 'desc' },
         take: 50,
       }),
@@ -422,12 +449,7 @@ export class RideDriverService {
       rides: rides.map((ride) => ({
         rideId: ride.id,
         completedAt: ride.completedAt?.toISOString() ?? null,
-        earnings: toWire(
-          money(
-            estimatedEarnings(rideItemPayload(ride), ride.fareMinor, ride.currency).minor,
-            ride.currency,
-          ),
-        ),
+        earnings: toWire(driverEarnings(rideItemPayload(ride), ride.booking)),
       })),
       payouts: payouts.map((payout) => ({
         id: payout.id,
@@ -503,7 +525,7 @@ export class RideDriverService {
     return toDriverRide(
       ride,
       rider?.givenNames ?? '',
-      estimatedEarnings(rideItemPayload(ride), ride.fareMinor, ride.currency),
+      driverEarnings(rideItemPayload(ride), ride.booking),
     );
   }
 

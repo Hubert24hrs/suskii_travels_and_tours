@@ -45,6 +45,8 @@ interface Client {
   sessionId: string | null;
   driverId: string | null;
   channels: Set<string>;
+  /** Ride channels followed on an open offer (channel to ride id): re-checked on every message. */
+  offerChannels: Map<string, string>;
   alive: boolean;
   windowStart: number;
   windowCount: number;
@@ -147,6 +149,7 @@ export class RideRealtimeGateway implements OnModuleDestroy {
       sessionId: null,
       driverId: null,
       channels: new Set(),
+      offerChannels: new Map(),
       alive: true,
       windowStart: Date.now(),
       windowCount: 0,
@@ -214,11 +217,14 @@ export class RideRealtimeGateway implements OnModuleDestroy {
       return;
     }
     if (parsed.type === 'subscribe') {
-      if (!(await this.mayFollow(client, parsed.rideId))) {
+      const access = await this.access(client, parsed.rideId);
+      if (!access) {
         this.send(client, { type: 'error', code: 'not_found', rideId: parsed.rideId });
         return;
       }
-      await this.follow(client, rideChannel(parsed.rideId));
+      const channel = rideChannel(parsed.rideId);
+      await this.follow(client, channel);
+      if (access === 'offer') client.offerChannels.set(channel, parsed.rideId);
       this.send(client, { type: 'subscribed', rideId: parsed.rideId });
       return;
     }
@@ -265,21 +271,44 @@ export class RideRealtimeGateway implements OnModuleDestroy {
     this.send(client, { type: 'ready', driver: Boolean(driver) });
   }
 
-  /** The rider, the assigned driver, or a driver holding an open offer for the ride. */
-  private async mayFollow(client: Client, rideId: string): Promise<boolean> {
+  /**
+   * Who may follow a ride: its rider, its assigned driver, or (only while it lasts) a driver
+   * holding an open offer for it. Null for anyone else.
+   */
+  private async access(client: Client, rideId: string): Promise<'ride' | 'offer' | null> {
     const ride = await this.prisma.ride.findUnique({
       where: { id: rideId },
       select: { riderUserId: true, driverId: true },
     });
-    if (!ride) return false;
-    if (ride.riderUserId === client.userId) return true;
-    if (!client.driverId) return false;
-    if (ride.driverId === client.driverId) return true;
+    if (!ride) return null;
+    if (ride.riderUserId === client.userId) return 'ride';
+    if (!client.driverId) return null;
+    if (ride.driverId === client.driverId) return 'ride';
     const offer = await this.prisma.rideOffer.findFirst({
-      where: { rideId, driverId: client.driverId, status: 'open' },
+      where: { rideId, driverId: client.driverId, status: 'open', expiresAt: { gt: new Date() } },
       select: { id: true },
     });
-    return offer !== null;
+    return offer ? 'offer' : null;
+  }
+
+  /**
+   * A follower on an offer gets a ride's events only while the offer is open or once the ride is
+   * theirs; when it expires, is declined or another driver takes the ride, they stop following.
+   */
+  private async forwardOnOffer(
+    client: Client,
+    channel: string,
+    rideId: string,
+    payload: string,
+  ): Promise<void> {
+    const access = await this.access(client, rideId).catch(() => null);
+    if (!access) {
+      await this.unfollow(client, channel);
+      this.send(client, { type: 'unsubscribed', rideId });
+      return;
+    }
+    if (access === 'ride') client.offerChannels.delete(channel);
+    if (client.socket.readyState === WebSocket.OPEN) client.socket.send(payload);
   }
 
   private async follow(client: Client, channel: string): Promise<void> {
@@ -295,6 +324,7 @@ export class RideRealtimeGateway implements OnModuleDestroy {
   }
 
   private async unfollow(client: Client, channel: string): Promise<void> {
+    client.offerChannels.delete(channel);
     if (!client.channels.delete(channel)) return;
     const set = this.followers.get(channel);
     set?.delete(client);
@@ -308,8 +338,11 @@ export class RideRealtimeGateway implements OnModuleDestroy {
     if (!this.subscriber) {
       const subscriber = this.redis.duplicate({ lazyConnect: false });
       subscriber.on('message', (channel: string, payload: string) => {
-        for (const client of this.followers.get(channel) ?? []) {
-          if (client.socket.readyState === WebSocket.OPEN) client.socket.send(payload);
+        for (const client of [...(this.followers.get(channel) ?? [])]) {
+          if (client.socket.readyState !== WebSocket.OPEN) continue;
+          const offeredRide = client.offerChannels.get(channel);
+          if (offeredRide) void this.forwardOnOffer(client, channel, offeredRide, payload);
+          else client.socket.send(payload);
         }
       });
       subscriber.on('error', (error: Error) => {

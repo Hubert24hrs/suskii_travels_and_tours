@@ -33,7 +33,7 @@ import {
   plateSchema,
   seatSelectionSchema,
 } from './ground-schemas';
-import { add, money, sum } from './money';
+import { add, money, sum, type Money } from './money';
 
 const IKEJA: GeoPoint = { lat: 6.6018, lng: 3.3515 };
 const LEKKI: GeoPoint = { lat: 6.4698, lng: 3.5852 };
@@ -189,6 +189,19 @@ describe('ride fares', () => {
     expect(rideCancellationFee(RULE, 'arrived', assigned, money(30_000n, 'NGN'), at(900))).toEqual(
       money(30_000n, 'NGN'),
     );
+  });
+
+  it('converts the fee into the currency the ride was paid in, and never mixes the two', () => {
+    const assigned = new Date('2026-11-02T07:00:00Z');
+    const late = new Date(assigned.getTime() + 900_000);
+    // NGN 500 at NGN 1,500 to the dollar is 33 cents, not 50,000 cents capped at the fare.
+    const toUsd = (fee: Money) => money((fee.minor * 100n) / 150_000n, 'USD');
+    expect(
+      rideCancellationFee(RULE, 'assigned', assigned, money(1_500n, 'USD'), late, toUsd),
+    ).toEqual(money(33n, 'USD'));
+    expect(() =>
+      rideCancellationFee(RULE, 'assigned', assigned, money(1_500n, 'USD'), late),
+    ).toThrow(RangeError);
   });
 
   it('splits fares between driver and platform without losing a kobo', () => {

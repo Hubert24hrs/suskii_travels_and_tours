@@ -1,14 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import {
-  driverShare,
-  minOf,
-  money,
-  multiplyRatio,
-  subtract,
-  zero,
-  type Money,
-} from '@suskii/shared';
+import { driverShare, minOf, subtract, zero, type Money } from '@suskii/shared';
 
 import { BookingFundsService } from '../bookings/booking-funds.service';
 import { BookingTransitions, type BookingActor } from '../bookings/booking-transitions';
@@ -16,6 +8,8 @@ import type { RideItemPayload } from '../bookings/inhouse-items';
 import { RefundsService } from '../bookings/refunds.service';
 import type { Prisma } from '../generated/prisma/client';
 import { LedgerService, type LedgerLine } from '../ledger/ledger.service';
+
+import { driverEarnings } from './ride-views';
 
 type Tx = Prisma.TransactionClient;
 
@@ -47,28 +41,19 @@ export class RideSettlementService {
   ) {}
 
   /**
-   * The driver earns their share of the metered fare (the booking fee and VAT stay with the
-   * platform), in the booking's currency. Returns the earnings posted.
+   * The driver earns their share of the metered fare (the booking fee, VAT and service fees stay
+   * with the platform), in the booking's currency and never more than was paid. Returns the
+   * earnings posted.
    */
   async complete(
     tx: Tx,
     ride: { id: string; driverId: string | null },
     payload: RideItemPayload,
-    booking: BookingRef,
+    booking: BookingRef & { price: unknown },
   ): Promise<Money> {
     const paid = await this.funds.paid(tx, booking);
     if (paid.minor <= 0n || !ride.driverId) return zero(booking.currency);
-    const total = payload.fare.total.minor;
-    const metered = total - payload.fare.bookingFee.minor;
-    const earnings =
-      total > 0n && metered > 0n
-        ? multiplyRatio(
-            paid,
-            metered * BigInt(payload.rule.driverShareBps),
-            total * 10_000n,
-            'floor',
-          )
-        : zero(booking.currency);
+    const earnings = minOf(driverEarnings(payload, booking), paid);
     const commission = subtract(paid, earnings);
     await this.ledger.post(tx, {
       key: `ride:${ride.id}:completed`,
@@ -88,7 +73,7 @@ export class RideSettlementService {
   /** What a rider's cancellation would keep now (never more than was paid). */
   async previewCancellation(tx: Tx, booking: BookingRef, fee: Money): Promise<CancellationOutcome> {
     const paid = await this.funds.paid(tx, booking);
-    const kept = minOf(money(fee.minor, paid.currency), paid);
+    const kept = minOf(fee, paid);
     return { fee: kept, refund: subtract(paid, kept), refundIds: [] };
   }
 

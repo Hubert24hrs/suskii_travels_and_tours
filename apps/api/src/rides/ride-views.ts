@@ -1,13 +1,19 @@
 import {
+  driverShare,
   haversineMetres,
   money,
   RIDE_LIVE_STATUSES,
   roundPoint,
+  subtract,
   toWire,
+  zero,
   type GeoPoint,
+  type Money,
   type RideStatus,
 } from '@suskii/shared';
 
+import { bookingPrice } from '../bookings/booking-presenter';
+import { atBookedRate } from '../bookings/booking-pricing';
 import type { RideItemPayload } from '../bookings/inhouse-items';
 import type { Prisma } from '../generated/prisma/client';
 
@@ -38,6 +44,7 @@ export const RIDE_INCLUDE = {
     orderBy: { createdAt: 'desc' },
   },
   bookingItem: { select: { payload: true } },
+  booking: { select: { price: true, currency: true } },
 } satisfies Prisma.RideInclude;
 
 export type RideRecord = Prisma.RideGetPayload<{ include: typeof RIDE_INCLUDE }>;
@@ -165,13 +172,16 @@ export function toDriverRide(
   };
 }
 
-/** A driver's estimated share of a ride's fare, for offers and the driver's ride view. */
-export function estimatedEarnings(payload: RideItemPayload, fareMinor: bigint, currency: string) {
-  const total = payload.fare.total.minor;
-  const metered = total - payload.fare.bookingFee.minor;
-  if (total <= 0n || metered <= 0n) return { minor: 0n, currency };
-  return {
-    minor: (fareMinor * metered * BigInt(payload.rule.driverShareBps)) / (total * 10_000n),
-    currency,
-  };
+/**
+ * A driver's share of a ride's metered fare (ADR-051): the booking fee, VAT, service fees and any
+ * markup stay with the platform. In the booking's currency, at the rate the booking was priced
+ * with. Settlement posts this (never more than was paid); offers and the driver's views show it.
+ */
+export function driverEarnings(
+  payload: RideItemPayload,
+  booking: { price: unknown; currency: string },
+): Money {
+  const metered = subtract(payload.fare.total, payload.fare.bookingFee);
+  if (metered.minor <= 0n) return zero(booking.currency);
+  return driverShare(atBookedRate(metered, bookingPrice(booking)), payload.rule.driverShareBps);
 }
