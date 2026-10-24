@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 
 export interface PreferenceSelectProps {
-  /** Server action that stores the preference cookie. */
-  action: (formData: FormData) => Promise<void>;
+  /** The route that stores the preference cookie (`/preferences/<name>`). */
+  action: string;
   name: 'currency' | 'locale';
   label: string;
   value: string;
@@ -17,8 +17,9 @@ export interface PreferenceSelectProps {
 }
 
 /**
- * Currency or locale selector. Changing it submits the server action and refreshes the page so
- * server-rendered prices and dates update; without JavaScript the form still works via the button.
+ * Currency or locale selector. Changing it posts the form to its route and refreshes the page so
+ * server-rendered prices and dates update; without JavaScript the form still works via the button
+ * (the route sends the browser back to the page).
  */
 export function PreferenceSelect({
   action,
@@ -40,8 +41,11 @@ export function PreferenceSelect({
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         startTransition(async () => {
-          await action(data);
-          router.refresh();
+          try {
+            await fetch(action, { method: 'POST', body: data, headers: { Accept: '*/*' } });
+          } finally {
+            router.refresh();
+          }
         });
       }}
     >

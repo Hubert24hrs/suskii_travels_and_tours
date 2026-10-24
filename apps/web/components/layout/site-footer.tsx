@@ -1,6 +1,5 @@
 import { BRAND, SUPPORTED_LOCALES } from '@suskii/shared';
 
-import { setLocale } from '../../app/actions';
 import { api, type SiteContent } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
 import { AppLink } from '../app-link';
@@ -106,7 +105,7 @@ export async function SiteFooter({ site }: { site: SiteContent | null }) {
             {t('footer.preferences')}
           </h2>
           <PreferenceSelect
-            action={setLocale}
+            action="/preferences/locale"
             name="locale"
             label={t('footer.language')}
             value={locale}

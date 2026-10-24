@@ -2,7 +2,6 @@ import { BRAND, SUPPORTED_CURRENCIES } from '@suskii/shared';
 import { cn } from '@suskii/ui-web';
 import { MessageCircle, Phone } from 'lucide-react';
 
-import { setCurrency } from '../../app/actions';
 import { api, type SiteContent } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
 import { AccountLink } from '../account/account-link';
@@ -23,7 +22,7 @@ async function CurrencySelect({ className }: { className?: string }) {
   const { t, locale, currency } = await getI18n();
   return (
     <PreferenceSelect
-      action={setCurrency}
+      action="/preferences/currency"
       name="currency"
       label={t('header.currency')}
       value={currency}
