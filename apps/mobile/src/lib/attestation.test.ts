@@ -1,4 +1,6 @@
 import * as AppIntegrity from '@expo/app-integrity';
+import { waitFor } from '@testing-library/react-native';
+import * as SecureStore from 'expo-secure-store';
 import { createHash } from 'node:crypto';
 import { Platform } from 'react-native';
 
@@ -6,7 +8,8 @@ import { json, mockApi } from '../test/app';
 import { appConfig } from '../config';
 
 import { createBareApi } from './api';
-import { attestationHeader, base64UrlAscii } from './attestation';
+import { attestationHeader, base64UrlAscii, noteAttestationResult } from './attestation';
+import { SECURE_KEYS } from './secure-storage';
 
 jest.mock('../config', () => ({
   appConfig: { apiBaseUrl: 'http://api.test', attestation: 'mock', playIntegrityProject: '' },
@@ -49,6 +52,17 @@ describe('attestationHeader', () => {
     platform = jest.replaceProperty(Platform, 'OS', os);
   };
 
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    for (const key of [
+      SECURE_KEYS.attestKeyId,
+      SECURE_KEYS.attestDone,
+      SECURE_KEYS.attestPending,
+    ]) {
+      await SecureStore.deleteItemAsync(key);
+    }
+  });
+
   afterEach(() => {
     platform?.restore();
     Object.assign(appConfig, { attestation: 'mock', playIntegrityProject: '' });
@@ -67,7 +81,7 @@ describe('attestationHeader', () => {
     });
   });
 
-  it('attests the App Attest key once, then sends assertions', async () => {
+  it('attests the App Attest key once the API accepts it, then sends assertions', async () => {
     Object.assign(appConfig, { attestation: 'native' });
     challenges();
     const api = createBareApi();
@@ -80,6 +94,7 @@ describe('attestationHeader', () => {
     });
     expect(AppIntegrity.attestKeyAsync).toHaveBeenCalledWith('key-1', 'challenge-1');
 
+    await noteAttestationResult('valid');
     expect(decode(await attestationHeader(api))).toMatchObject({
       kind: 'assertion',
       token: 'assertion-object',
@@ -88,6 +103,65 @@ describe('attestationHeader', () => {
     });
     expect(AppIntegrity.generateKeyAsync).toHaveBeenCalledTimes(1);
     expect(AppIntegrity.generateAssertionAsync).toHaveBeenCalledWith('key-1', 'challenge-2');
+  });
+
+  it('replaces a key whose attestation the API never accepted, or rejected later', async () => {
+    Object.assign(appConfig, { attestation: 'native' });
+    challenges();
+    jest
+      .mocked(AppIntegrity.generateKeyAsync)
+      .mockResolvedValueOnce('key-a')
+      .mockResolvedValueOnce('key-b')
+      .mockResolvedValueOnce('key-c');
+    const api = createBareApi();
+
+    expect(decode(await attestationHeader(api))).toMatchObject({
+      kind: 'attestation',
+      keyId: 'key-a',
+    });
+    // The answer never came (offline, or a 5xx without a verdict): Apple attests a key once.
+    expect(decode(await attestationHeader(api))).toMatchObject({
+      kind: 'attestation',
+      keyId: 'key-b',
+    });
+    await noteAttestationResult('valid');
+    expect(decode(await attestationHeader(api))).toMatchObject({
+      kind: 'assertion',
+      keyId: 'key-b',
+    });
+
+    // The API no longer knows the key: the next request attests a new one.
+    await noteAttestationResult('invalid');
+    expect(decode(await attestationHeader(api))).toMatchObject({
+      kind: 'attestation',
+      keyId: 'key-c',
+    });
+    // A verdict without anything pending changes nothing.
+    await noteAttestationResult('missing');
+    await noteAttestationResult(null);
+    expect(await SecureStore.getItemAsync(SECURE_KEYS.attestPending)).toBe('key-c');
+  });
+
+  it('learns the verdict from any response to a request that carried the attestation', async () => {
+    Object.assign(appConfig, { attestation: 'native' });
+    challenges();
+    await SecureStore.setItemAsync(SECURE_KEYS.attestKeyId, 'key-z');
+    await SecureStore.setItemAsync(SECURE_KEYS.attestPending, 'key-z');
+    mockApi({
+      'POST /v1/auth/login': () =>
+        new Response(JSON.stringify({ status: 'mfa_required' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'X-Suskii-Attestation-Result': 'valid' },
+        }),
+    });
+    await createBareApi().POST('/v1/auth/login', {
+      params: { header: { 'X-Suskii-Attestation': 'evidence' } },
+      body: { email: 'a@example.com', password: 'a long passphrase', transport: 'token' },
+    });
+    await waitFor(async () =>
+      expect(await SecureStore.getItemAsync(SECURE_KEYS.attestDone)).toBe('1'),
+    );
+    expect(await SecureStore.getItemAsync(SECURE_KEYS.attestPending)).toBeNull();
   });
 
   it('binds a Play Integrity verdict to the challenge hash on Android', async () => {

@@ -52,21 +52,45 @@ async function androidEvidence(challenge: string): Promise<Evidence | null> {
   return { kind: 'integrity', token, keyId: null };
 }
 
+/**
+ * App Attest (Apple's recommended flow): one attestation per key, then assertions. The key counts
+ * as attested only once the API says it accepted the attestation (`noteAttestationResult`); a key
+ * whose attestation was never confirmed, or that the API later rejected, is replaced, because
+ * Apple attests a key only once.
+ */
 async function iosEvidence(challenge: string): Promise<Evidence | null> {
   if (!AppIntegrity.isSupported) return null;
   let keyId = await secureStorage.get(SECURE_KEYS.attestKeyId);
-  if (!keyId) {
+  if (keyId && (await secureStorage.get(SECURE_KEYS.attestDone)) === '1') {
+    const token = await AppIntegrity.generateAssertionAsync(keyId, challenge);
+    return { kind: 'assertion', token, keyId };
+  }
+  if (!keyId || (await secureStorage.get(SECURE_KEYS.attestPending)) === keyId) {
     keyId = await AppIntegrity.generateKeyAsync();
     await secureStorage.set(SECURE_KEYS.attestKeyId, keyId);
   }
-  // One attestation per key and install, then assertions (Apple's recommended flow).
-  if ((await secureStorage.get(SECURE_KEYS.attestDone)) !== '1') {
-    const token = await AppIntegrity.attestKeyAsync(keyId, challenge);
+  const token = await AppIntegrity.attestKeyAsync(keyId, challenge);
+  await secureStorage.set(SECURE_KEYS.attestPending, keyId);
+  return { kind: 'attestation', token, keyId };
+}
+
+/**
+ * The API's verdict on a request that carried an attestation (`X-Suskii-Attestation-Result`):
+ * `valid` confirms a pending App Attest key, `invalid` retires the key so the next request attests
+ * a new one. Android's Play Integrity tokens keep no state.
+ */
+export async function noteAttestationResult(result: string | null): Promise<void> {
+  if (result !== 'valid' && result !== 'invalid') return;
+  const keyId = await secureStorage.get(SECURE_KEYS.attestKeyId);
+  if (!keyId) return;
+  if (result === 'valid') {
+    if ((await secureStorage.get(SECURE_KEYS.attestPending)) !== keyId) return;
     await secureStorage.set(SECURE_KEYS.attestDone, '1');
-    return { kind: 'attestation', token, keyId };
+    await secureStorage.remove(SECURE_KEYS.attestPending);
+    return;
   }
-  const token = await AppIntegrity.generateAssertionAsync(keyId, challenge);
-  return { kind: 'assertion', token, keyId };
+  await secureStorage.remove(SECURE_KEYS.attestDone);
+  await secureStorage.set(SECURE_KEYS.attestPending, keyId);
 }
 
 /**

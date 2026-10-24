@@ -85,6 +85,10 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
 - A website session refresh that fails for an outage no longer clears the session cookies.
 - Result filters and sort respond at once on slow devices instead of snapping back until the
   URL update lands.
+- The API reports its verdict on a device attestation (`X-Suskii-Attestation-Result`); the iOS app
+  treats its App Attest key as attested only once the API accepted it, and replaces a key it never
+  confirmed or later rejected.
+- The Android end-to-end run also books a sample tour as a guest and checks the voucher.
 - Refunds settled by hand that had never reached their provider now move the money out of the
   booking first (or credit the wallet), instead of failing or borrowing another refund's
   in-flight money; an interrupted wallet refund is credited by the sweep, never sent to the card
