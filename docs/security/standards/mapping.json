@@ -1533,8 +1533,13 @@
     },
     "MASVS-PRIVACY-1": {
       "status": "met",
-      "evidence": ["apps/mobile/src/lib/push.ts", "apps/mobile/src/lib/visa-upload.ts"],
-      "note": "Push permission only after a booking or from Account; documents only through the system picker; no location, contacts or photos access."
+      "evidence": [
+        "apps/mobile/src/lib/push.ts",
+        "apps/mobile/src/lib/visa-upload.ts",
+        "apps/mobile/src/screens/operator-scan-screen.tsx",
+        "apps/mobile/app.config.ts"
+      ],
+      "note": "Push permission only after a booking or from Account; documents (visa, licence, driver) only through the system picker; the camera only on the operator scan screen, for bus operator agents, as a barcode scanner without microphone; no location, contacts or photos access."
     },
     "MASVS-PRIVACY-2": {
       "status": "met",

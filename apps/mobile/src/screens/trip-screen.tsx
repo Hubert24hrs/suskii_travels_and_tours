@@ -7,6 +7,9 @@ import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { PlanPanel, RefundList } from '../components/booking/plan-panel';
+import { BoardingPasses } from '../components/cars/boarding-passes';
+import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
+import { RentalLicence } from '../components/cars/rental-licence';
 import { InhouseSummary, inhouseKind } from '../components/inhouse/inhouse-summary';
 import { VoucherCard } from '../components/inhouse/voucher-card';
 import { Loading, Notice, OfflineBanner } from '../components/states';
@@ -368,6 +371,43 @@ export function TripScreen() {
                 : t('booking.membership.pending')}
             </Text>
           </Card>
+        ) : null}
+
+        {hasCarsItem(booking) ? (
+          <Card testID="trip-cars" className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {booking.bus
+                ? t('booking.cars.bus.heading')
+                : booking.ride
+                  ? t('booking.cars.ride.heading')
+                  : t('booking.cars.rental.heading')}
+            </Text>
+            <CarsSummary items={booking} />
+            {booking.ride ? (
+              booking.ride.rideId ? (
+                <Button
+                  testID="track-ride"
+                  onPress={() => router.push(`/rides/${booking.ride?.rideId ?? ''}` as Href)}
+                >
+                  {t('booking.cars.ride.track')}
+                </Button>
+              ) : (
+                <Text className="font-body text-body-sm text-foreground">
+                  {t('booking.cars.ride.pending')}
+                </Text>
+              )
+            ) : null}
+          </Card>
+        ) : null}
+        {booking.bus ? <BoardingPasses tickets={booking.busTickets} /> : null}
+        {booking.rental?.reservation?.licenceRequired && !offline ? (
+          status === 'PAID' || status === 'CONFIRMED' ? (
+            <RentalLicence reservationId={booking.rental.reservation.id} />
+          ) : (
+            <Text className="font-body text-body-sm text-foreground">
+              {t('booking.cars.rental.pending')}
+            </Text>
+          )
         ) : null}
 
         {inhouseKind(booking) ? (

@@ -19,11 +19,12 @@ function declaredType(name: string, mimeType: string | undefined): string | null
 }
 
 /**
- * Lets the traveller pick a PDF, JPEG or PNG for a visa checklist item (ADR-026) and reads it.
- * The picker's cache copy is deleted once read, so no passport scan lingers on the phone outside
- * the app's control; the upload itself is encrypted at rest and virus-scanned by the API.
+ * Lets the traveller pick a PDF, JPEG or PNG and reads it: visa checklist items (ADR-026), a
+ * renter's driving licence and a driver's documents (Cars, ADR-050). The picker's cache copy is
+ * deleted once read, so no scan lingers on the phone outside the app's control; the upload itself
+ * is encrypted at rest and virus-scanned by the API.
  */
-export async function pickVisaDocument(): Promise<PickedDocument | 'cancelled' | 'unsupported'> {
+export async function pickDocument(): Promise<PickedDocument | 'cancelled' | 'unsupported'> {
   const result = await getDocumentAsync({
     type: [...VISA_DOCUMENT_TYPES],
     copyToCacheDirectory: true,
@@ -44,3 +45,5 @@ export async function pickVisaDocument(): Promise<PickedDocument | 'cancelled' |
     }
   }
 }
+
+export const pickVisaDocument = pickDocument;

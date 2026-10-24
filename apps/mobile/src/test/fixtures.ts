@@ -524,3 +524,426 @@ export function membershipBooking(patch: Partial<Booking> = {}): Booking {
     ...patch,
   });
 }
+
+// Cars (ADR-049 to ADR-053): buses, rides and car rental.
+
+export const carsFeatures: Schemas['CarsFeatures'] = {
+  buses: true,
+  rides: true,
+  rentals: true,
+  bundles: false,
+  priceBreakdown: false,
+  safetySuite: false,
+  offlineQr: false,
+  departurePlanner: false,
+};
+
+export const BUS_TRIP_ID = '0192d3a0-7c1e-7b2a-9f00-00000000c101';
+const lagosTerminal = {
+  terminalId: '0192d3a0-7c1e-7b2a-9f00-00000000c111',
+  name: 'Jibowu Terminal',
+  cityName: 'Lagos',
+  address: 'Ikorodu Road, Jibowu',
+};
+const ibadanTerminal = {
+  terminalId: '0192d3a0-7c1e-7b2a-9f00-00000000c112',
+  name: 'Challenge Terminal',
+  cityName: 'Ibadan',
+  address: 'Challenge, Ibadan',
+};
+
+export const busCities: Schemas['BusCities'] = {
+  cities: [
+    {
+      name: 'Lagos',
+      stateName: 'Lagos',
+      terminals: [
+        { id: lagosTerminal.terminalId, name: lagosTerminal.name, address: lagosTerminal.address },
+      ],
+    },
+    {
+      name: 'Ibadan',
+      stateName: 'Oyo',
+      terminals: [
+        {
+          id: ibadanTerminal.terminalId,
+          name: ibadanTerminal.name,
+          address: ibadanTerminal.address,
+        },
+      ],
+    },
+  ],
+};
+
+export const busTripCard: Schemas['BusSearchResult']['trips'][number] = {
+  id: BUS_TRIP_ID,
+  operator: { name: 'Lagoon Express', slug: 'lagoon-express' },
+  sample: true,
+  origin: lagosTerminal,
+  destination: ibadanTerminal,
+  timeZone: 'Africa/Lagos',
+  departsAtLocal: '2026-11-02T07:00',
+  departsAt: '2026-11-02T06:00:00.000Z',
+  arrivesAt: '2026-11-02T08:30:00.000Z',
+  durationMinutes: 150,
+  coach: 'Toyota Hiace',
+  amenities: ['air_conditioning', 'a_future_amenity'],
+  seatsLeft: 12,
+  pricePerSeat: ngn(850_000),
+};
+
+export function busTrip(patch: Partial<Schemas['BusTripDetail']> = {}): Schemas['BusTripDetail'] {
+  return {
+    ...busTripCard,
+    status: 'scheduled',
+    seatMap: {
+      rows: [
+        [{ seatNumber: '1A', state: 'available' }, null, { seatNumber: '1B', state: 'sold' }],
+        [{ seatNumber: '2A', state: 'available' }, null, { seatNumber: '2B', state: 'available' }],
+      ],
+    },
+    cancellationPolicy: [{ daysBefore: 1, refundBps: 8_000 }],
+    ...patch,
+  };
+}
+
+export const BUS_HOLD_ID = '0192d3a0-7c1e-7b2a-9f00-00000000c121';
+const busItem: Schemas['BusItem'] = {
+  product: product('Lagos to Ibadan', 'sample-lagos-ibadan'),
+  operatorName: 'Lagoon Express',
+  tripId: BUS_TRIP_ID,
+  origin: lagosTerminal,
+  destination: ibadanTerminal,
+  timeZone: 'Africa/Lagos',
+  departsAtLocal: '2026-11-02T07:00',
+  departsAt: '2026-11-02T06:00:00.000Z',
+  arrivesAt: '2026-11-02T08:30:00.000Z',
+  seats: ['1A', '2A'],
+  amenities: ['air_conditioning'],
+  travellers: { adults: 2, children: 0, infants: 0 },
+  cancellationPolicy: [{ daysBefore: 1, refundBps: 8_000 }],
+  holdExpiresAt: '2026-10-01T09:10:00.000Z',
+};
+
+export function busQuote(): Schemas['Quote'] {
+  return {
+    ...flightQuote(),
+    vertical: 'buses',
+    flight: null,
+    bus: busItem,
+    price: inhousePrice(1_700_000),
+  };
+}
+
+const ticket = (seatNumber: string, passengerName: string): Schemas['BusTicket'] => ({
+  id: `0192d3a0-7c1e-7b2a-9f00-00000000c1${seatNumber === '1A' ? '31' : '32'}`,
+  seatNumber,
+  passengerName,
+  status: 'valid',
+  boardedAt: null,
+  qrPayload: `SUSKII-T1.${seatNumber}.eyJ0aWNrZXQiOiJzYW1wbGUifQ.c2lnbmF0dXJl`,
+  validFrom: '2026-11-02T03:00:00.000Z',
+  validUntil: '2026-11-02T12:00:00.000Z',
+});
+
+/** A confirmed two-seat bus booking with its boarding passes. */
+export function busBooking(patch: Partial<Booking> = {}): Booking {
+  return booking({
+    reference: 'BUS7Q2',
+    vertical: 'buses',
+    flight: null,
+    bus: busItem,
+    busTickets: [ticket('1A', 'Ada Okafor'), ticket('2A', 'Bola Okafor')],
+    price: { ...inhousePrice(1_700_000), extras: [], deposit: null },
+    paid: ngn(1_700_000),
+    documents: [],
+    ...patch,
+  });
+}
+
+export const RIDE_ID = '0192d3a0-7c1e-7b2a-9f00-00000000c201';
+const yaba = { label: 'Yaba', lat: 6.5095, lng: 3.3711 };
+const victoriaIsland = { label: 'Victoria Island', lat: 6.4281, lng: 3.4219 };
+
+export const ridePlaces: Schemas['RidePlaces'] = {
+  places: [
+    {
+      id: '0192d3a0-7c1e-7b2a-9f00-00000000c211',
+      name: 'Yaba',
+      kind: 'landmark',
+      cityName: 'Lagos',
+      lat: yaba.lat,
+      lng: yaba.lng,
+      sample: true,
+    },
+    {
+      id: '0192d3a0-7c1e-7b2a-9f00-00000000c212',
+      name: 'Victoria Island',
+      kind: 'landmark',
+      cityName: 'Lagos',
+      lat: victoriaIsland.lat,
+      lng: victoriaIsland.lng,
+      sample: true,
+    },
+  ],
+};
+
+const rideItem = (rideId: string | null): Schemas['RideItem'] => ({
+  product: product('Ride in Lagos', 'ride-lagos'),
+  category: 'standard',
+  cityName: 'Lagos',
+  pickup: yaba,
+  dropoff: victoriaIsland,
+  scheduledFor: null,
+  distanceMetres: 12_400,
+  durationSeconds: 1_800,
+  polyline: '',
+  estimate: 'routed',
+  fare: {
+    base: ngn(50_000),
+    distance: ngn(200_000),
+    time: ngn(50_000),
+    surge: ngn(0),
+    minimumTopUp: ngn(0),
+    bookingFee: ngn(20_000),
+    total: ngn(320_000),
+  },
+  cancellation: { fee: ngn(50_000), freeCancelSeconds: 120, waitGraceSeconds: 300 },
+  rideId,
+});
+
+export function rideQuote(): Schemas['Quote'] {
+  return {
+    ...flightQuote(),
+    vertical: 'rides',
+    flight: null,
+    ride: rideItem(null),
+    price: inhousePrice(320_000),
+  };
+}
+
+export function rideBooking(patch: Partial<Booking> = {}): Booking {
+  return booking({
+    reference: 'RIDE42',
+    vertical: 'rides',
+    flight: null,
+    ride: rideItem(RIDE_ID),
+    passengers: [],
+    price: { ...inhousePrice(320_000), extras: [], deposit: null },
+    paid: ngn(320_000),
+    documents: [],
+    ...patch,
+  });
+}
+
+export function ride(patch: Partial<Schemas['Ride']> = {}): Schemas['Ride'] {
+  return {
+    id: RIDE_ID,
+    bookingId: BOOKING_ID,
+    status: 'assigned',
+    category: 'standard',
+    cityName: 'Lagos',
+    pickup: yaba,
+    dropoff: victoriaIsland,
+    scheduledFor: null,
+    polyline: '',
+    distanceMetres: 12_400,
+    durationSeconds: 1_800,
+    fare: ngn(320_000),
+    pin: '4827',
+    driver: {
+      firstName: 'Tunde',
+      rating: 4.8,
+      vehicle: { make: 'Toyota', model: 'Corolla', colour: 'Silver', plate: 'KJA-123-AB' },
+    },
+    driverPosition: null,
+    etaSeconds: 240,
+    assignedAt: '2026-10-01T09:00:00.000Z',
+    arrivedAt: null,
+    startedAt: null,
+    completedAt: null,
+    cancelledAt: null,
+    cancelledBy: null,
+    cancellationFee: null,
+    rated: false,
+    sharing: null,
+    ...patch,
+  };
+}
+
+export const RESERVATION_ID = '0192d3a0-7c1e-7b2a-9f00-00000000c301';
+
+export const rentalVehicle: Schemas['RentalVehicle'] = {
+  id: '0192d3a0-7c1e-7b2a-9f00-00000000c311',
+  slug: 'sample-toyota-corolla',
+  make: 'Toyota',
+  model: 'Corolla',
+  year: 2021,
+  category: 'compact',
+  transmission: 'automatic',
+  seats: 5,
+  features: ['Bluetooth'],
+  photoUrls: [],
+  artKey: null,
+  sample: true,
+  cityName: 'Lagos',
+  branch: { name: 'Ikeja branch', address: 'Allen Avenue, Ikeja', lat: 6.6018, lng: 3.3515 },
+  daily: ngn(3_500_000),
+  chauffeurDaily: ngn(1_500_000),
+  deposit: ngn(10_000_000),
+  delivery: null,
+  mileage: { kmPerDay: null, excessKm: null },
+  fuelPolicy: 'full_to_full',
+  insuranceSummary: 'Comprehensive cover with an excess of NGN 250,000.',
+  cancellationPolicy: [{ daysBefore: 2, refundBps: 10_000 }],
+  timeZone: 'Africa/Lagos',
+};
+
+const rentalItem = (
+  reservation: Schemas['RentalItem']['reservation'] = null,
+): Schemas['RentalItem'] => ({
+  product: product('Toyota Corolla', rentalVehicle.slug),
+  vehicle: {
+    make: 'Toyota',
+    model: 'Corolla',
+    year: 2021,
+    category: 'compact',
+    transmission: 'automatic',
+    seats: 5,
+    features: ['Bluetooth'],
+    photoUrls: [],
+  },
+  branch: rentalVehicle.branch,
+  cityName: 'Lagos',
+  timeZone: 'Africa/Lagos',
+  pickupAtLocal: '2026-11-05T10:00',
+  returnAtLocal: '2026-11-07T10:00',
+  days: 2,
+  chauffeur: false,
+  delivery: null,
+  charge: {
+    vehicle: ngn(7_000_000),
+    chauffeur: ngn(0),
+    delivery: ngn(0),
+    deposit: ngn(10_000_000),
+  },
+  mileage: { kmPerDay: null, excessKm: null },
+  fuelPolicy: 'full_to_full',
+  insuranceSummary: rentalVehicle.insuranceSummary,
+  reservation,
+});
+
+export function rentalQuote(): Schemas['Quote'] {
+  return {
+    ...flightQuote(),
+    vertical: 'rentals',
+    flight: null,
+    rental: rentalItem(),
+    price: inhousePrice(7_000_000),
+  };
+}
+
+export function rentalBooking(patch: Partial<Booking> = {}): Booking {
+  return booking({
+    reference: 'CAR9K2',
+    vertical: 'rentals',
+    flight: null,
+    rental: rentalItem({
+      id: RESERVATION_ID,
+      status: 'reserved',
+      licenceRequired: true,
+      licence: null,
+      chauffeurAssigned: false,
+      checkedOutAt: null,
+      checkedInAt: null,
+      deposit: null,
+    }),
+    passengers: [],
+    price: { ...inhousePrice(7_000_000), extras: [], deposit: ngn(10_000_000) },
+    paid: ngn(17_000_000),
+    documents: [],
+    ...patch,
+  });
+}
+
+export function rentalReservation(
+  licence: Schemas['RentalReservation']['licence'] = null,
+): Schemas['RentalReservation'] {
+  return {
+    id: RESERVATION_ID,
+    bookingId: BOOKING_ID,
+    status: 'reserved',
+    licenceRequired: true,
+    licence,
+  };
+}
+
+export const DRIVER_ID = '0192d3a0-7c1e-7b2a-9f00-00000000c401';
+export const VEHICLE_ID = '0192d3a0-7c1e-7b2a-9f00-00000000c402';
+
+export function driverProfile(
+  patch: Partial<Schemas['DriverProfile']> = {},
+): Schemas['DriverProfile'] {
+  return {
+    id: DRIVER_ID,
+    status: 'pending',
+    statusReason: null,
+    givenNames: 'Chinedu',
+    surname: 'Okeke',
+    cityName: 'Lagos',
+    identityCheck: 'verified',
+    licenceCheck: 'verified',
+    licenceEndsWith: '567',
+    licenceExpiresOn: '2031-06-30',
+    rating: null,
+    ratingCount: 0,
+    documents: [],
+    vehicles: [],
+    payoutAccount: null,
+    missing: ['documents', 'vehicle', 'approval'],
+    sample: false,
+    createdAt: '2026-10-01T09:00:00.000Z',
+    ...patch,
+  };
+}
+
+export const OFFER_ID = '0192d3a0-7c1e-7b2a-9f00-00000000c411';
+
+export const rideOffer: Schemas['RideOffer'] = {
+  id: OFFER_ID,
+  rideId: RIDE_ID,
+  category: 'standard',
+  pickupLabel: 'Yaba',
+  pickup: { lat: yaba.lat, lng: yaba.lng },
+  dropoffLabel: 'Victoria Island',
+  distanceToPickupMetres: 1_200,
+  tripDistanceMetres: 12_400,
+  earnings: ngn(240_000),
+  expiresAt: '2026-10-01T09:00:15.000Z',
+};
+
+export function driverRide(patch: Partial<Schemas['DriverRide']> = {}): Schemas['DriverRide'] {
+  return {
+    id: RIDE_ID,
+    status: 'arrived',
+    category: 'standard',
+    riderFirstName: 'Ada',
+    pickup: yaba,
+    dropoff: victoriaIsland,
+    polyline: '',
+    distanceMetres: 12_400,
+    earnings: ngn(240_000),
+    pinLocked: false,
+    assignedAt: '2026-10-01T09:00:00.000Z',
+    arrivedAt: '2026-10-01T09:05:00.000Z',
+    startedAt: null,
+    ...patch,
+  };
+}
+
+export const driverEarnings: Schemas['DriverEarnings'] = {
+  balance: ngn(480_000),
+  summary: { timeZone: 'Africa/Lagos', today: ngn(240_000), last7Days: ngn(480_000) },
+  rides: [],
+  payouts: [],
+};

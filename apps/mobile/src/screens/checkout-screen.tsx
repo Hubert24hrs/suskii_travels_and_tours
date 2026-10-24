@@ -30,6 +30,7 @@ import {
   type PlanChoiceValue,
   type ProviderName,
 } from '../components/booking/payment-options';
+import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
 import { InhouseSummary } from '../components/inhouse/inhouse-summary';
 import { Loading, Notice } from '../components/states';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
@@ -68,12 +69,15 @@ const formPath = (path: string): string =>
 function draftFor(quote: Quote): CheckoutDraft {
   const counts =
     quote.flight?.offer.passengers ??
-    (quote.package ?? quote.tour ?? quote.visa ?? quote.addon)?.travellers;
+    (quote.package ?? quote.tour ?? quote.visa ?? quote.addon ?? quote.bus)?.travellers;
   // Visa assistance is for one nationality: every applicant starts with it (ADR-026).
   const passengers = counts ? passengerDrafts(counts, quote.visa?.nationality ?? '') : [];
+  // Hotels name a guest per room; a ride or a rental names its one rider or renter (ADR-051).
   const guests = quote.hotel
     ? quote.hotel.request.rooms.map(() => ({ givenNames: '', surname: '' }))
-    : [];
+    : quote.ride || quote.rental
+      ? [{ givenNames: '', surname: '' }]
+      : [];
   return { passengers, guests, email: '', phone: '', terms: false };
 }
 
@@ -257,7 +261,7 @@ function Checkout({ quote }: { quote: Quote }) {
         body: {
           quoteId: quote.quoteId,
           contact: { email: draft.email.trim(), phone: normalisePhone(draft.phone) },
-          ...(!quote.hotel
+          ...(draft.guests.length === 0
             ? {
                 passengers: draft.passengers.map((passenger) => ({
                   type: passenger.type,
@@ -403,7 +407,11 @@ function Checkout({ quote }: { quote: Quote }) {
           <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
             {quote.hotel ? t('checkout.stay') : t('checkout.trip')}
           </Text>
-          {inhouse ? <InhouseSummary items={quote} /> : null}
+          {hasCarsItem(quote) ? (
+            <CarsSummary items={quote} inCheckout />
+          ) : inhouse ? (
+            <InhouseSummary items={quote} />
+          ) : null}
           {quote.flight
             ? quote.flight.offer.slices.map((slice, index) => (
                 <Text key={index} className="font-body text-body-sm text-foreground">
@@ -505,6 +513,13 @@ function Checkout({ quote }: { quote: Quote }) {
             index={index}
             guest={guest}
             errors={errors}
+            label={
+              quote.ride
+                ? t('mobile.cars.rider')
+                : quote.rental
+                  ? t('mobile.cars.renter')
+                  : undefined
+            }
             onChange={(patch) =>
               setDraft((current) => ({
                 ...current,
@@ -589,6 +604,11 @@ function Checkout({ quote }: { quote: Quote }) {
                 {format.money(price.total)}
               </Text>
             </View>
+            {quote.rental && quote.rental.charge.deposit.amountMinor > 0 ? (
+              <Text testID="checkout-deposit" className="font-body text-body-sm text-foreground">
+                {t('checkout.depositNote', { amount: format.money(quote.rental.charge.deposit) })}
+              </Text>
+            ) : null}
             <Text className="font-body text-caption text-muted">{t('checkout.totalNote')}</Text>
           </Card>
         ) : null}

@@ -163,20 +163,24 @@ export function GuestForm({
   guest,
   onChange,
   errors,
+  label,
 }: {
   index: number;
   guest: GuestDraft;
   onChange: (patch: Partial<GuestDraft>) => void;
   errors: FieldIssues;
+  /** The heading; hotels name a lead guest per room by default. */
+  label?: string;
 }) {
   const { t } = useT();
   const prefix = `guests.${index}`;
   return (
     <Card className="gap-3 p-4">
       <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
-        {t('checkout.leadGuest', { number: index + 1 })}
+        {label ?? t('checkout.leadGuest', { number: index + 1 })}
       </Text>
       <Input
+        testID={`${prefix}.givenNames`}
         label={t('checkout.fields.givenNames')}
         value={guest.givenNames}
         onChangeText={(givenNames) => onChange({ givenNames })}
@@ -184,6 +188,7 @@ export function GuestForm({
         error={issueText(t, errors[`${prefix}.givenNames`])}
       />
       <Input
+        testID={`${prefix}.surname`}
         label={t('checkout.fields.surname')}
         value={guest.surname}
         onChangeText={(value) => onChange({ surname: value })}

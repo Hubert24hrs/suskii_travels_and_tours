@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DealList, useDeals } from '../components/deal-list';
 import { FlightSearchForm } from '../components/search/flight-search-form';
 import { HotelSearchForm } from '../components/search/hotel-search-form';
+import { anyCarsProduct, useCarsFeatures } from '../lib/cars';
 import { useT } from '../providers/app-provider';
 
 type Vertical = 'flights' | 'hotels' | 'packages' | 'tours';
@@ -37,6 +38,7 @@ export function HomeScreen() {
   const router = useRouter();
   const [vertical, setVertical] = useState<Vertical>('flights');
   const deals = useDeals(4);
+  const cars = useCarsFeatures();
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background">
       <ScrollView contentContainerClassName="gap-6 p-4 pb-12" keyboardShouldPersistTaps="handled">
@@ -69,6 +71,19 @@ export function HomeScreen() {
             <Browse vertical={vertical} />
           )}
         </Card>
+        {anyCarsProduct(cars) ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('mobile.home.carsHeading')}
+            </Text>
+            <Text className="font-body text-body-sm text-foreground">
+              {t('mobile.home.carsBody')}
+            </Text>
+            <Button testID="home-cars" variant="secondary" onPress={() => router.push('/cars')}>
+              {t('mobile.home.carsCta')}
+            </Button>
+          </Card>
+        ) : null}
         {deals.data && deals.data.length > 0 ? (
           <View className="gap-3">
             <Text accessibilityRole="header" className="font-heading text-h3 text-heading">

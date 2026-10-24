@@ -88,6 +88,18 @@ function Screens() {
       <Stack.Screen name="packages/[slug]" options={{ title: '' }} />
       <Stack.Screen name="tours/index" options={{ title: t('mobile.search.titles.tours') }} />
       <Stack.Screen name="tours/[slug]" options={{ title: '' }} />
+      <Stack.Screen name="cars" options={{ title: t('mobile.cars.title') }} />
+      <Stack.Screen name="buses/index" options={{ title: t('cars.buses.title') }} />
+      <Stack.Screen
+        name="buses/trips/[tripId]"
+        options={{ title: t('mobile.cars.busTripTitle') }}
+      />
+      <Stack.Screen name="rides/index" options={{ title: t('cars.rides.title') }} />
+      <Stack.Screen name="rides/[rideId]" options={{ title: t('cars.rides.live.title') }} />
+      <Stack.Screen name="rentals/index" options={{ title: t('cars.rentals.title') }} />
+      <Stack.Screen name="rentals/[slug]" options={{ title: '' }} />
+      <Stack.Screen name="driver/index" options={{ title: t('mobile.cars.driver.title') }} />
+      <Stack.Screen name="operator/scan" options={{ title: t('mobile.cars.operator.title') }} />
       <Stack.Screen name="account/profile" options={{ title: t('account.nav.overview') }} />
       <Stack.Screen
         name="account/notifications"
