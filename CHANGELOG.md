@@ -6,6 +6,67 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Cars: buses, rides and car rental (2026-10-24)
+
+Task `suskii-cars-v1` (`docs/phases/cars.md`, ADR-049 to ADR-053). Every product and feature is
+behind a `CARS_*_ENABLED` flag (on by default outside production) and reported by
+`GET /v1/cars/features`, so clients hide what is off.
+
+#### Added
+
+- Interstate buses: operators, terminals, routes, seat layouts and trips (admin); search, seat
+  map and 10-minute all-or-nothing seat holds in Redis; guest or account checkout; one
+  Ed25519-signed QR boarding pass per seat (`SUSKII-T1`, no personal data) with a PDF; operator
+  agents board each ticket once, see manifests and sync offline scans.
+- Intrastate rides: curated pick-up places and city fare rules; upfront fares (OSRM or a
+  straight-line fallback); paid bookings create the ride; dispatch with offers and timeouts; an
+  audited ride state machine; rider PIN to start; live tracking over WebSocket (Redis pub/sub)
+  with REST polling as the fallback; share links; SOS that texts emergency contacts; PIN lockout
+  and route deviation incidents; ratings; cancellation fees under the accepted terms.
+- Drivers: applications with NIN and licence (encrypted, KYC adapter), documents (sealed per
+  file, antivirus), vehicles, staff review, online and offline, offers, earnings in the ledger and
+  payouts (mock provider) with reconciliation.
+- Car rental: fleet per branch city; availability enforced by a database exclusion constraint
+  with a turnaround buffer; refundable deposit, chauffeur and delivery options; licence checks
+  for self-drive; immutable handover records with condition photos; deposit release with
+  deductions.
+- Website: `/cars`, `/buses`, `/rides`, `/rentals`, live ride and shared trip pages, Cars
+  checkout and booking views, boarding passes drawn from the signed payload.
+- Console: Buses, Drivers, Rides and safety, Rental desk and Finance sections.
+- App: Cars hub, bus search and seat map, QR passes on the trip screen (offline), ride request
+  and live ride, rental search and booking, licence upload, driver mode and ticket scanning with
+  the camera (`expo-camera`).
+- P9 features: the fare by its parts (`priceBreakdown` on quotes and bookings, additive),
+  the departure planner (`GET /v1/bookings/{id}/departure-plan`), trip suggestions
+  (`GET /v1/bookings/{id}/cars-suggestions`, prefilled searches only), route deviation
+  incidents, and offline boarding on operator phones (`@noble/curves` Ed25519, queued scans).
+- Privacy and operations: `docs/privacy/cars-data-map.md`; Cars metrics, a dashboard row and
+  alerts (SOS, unacknowledged incidents, stalled dispatch, document backlog, unscanned
+  departures, payouts); runbooks for safety incidents, stuck rides, the document backlog, an
+  offline scanner and webhook replay.
+- Whole-platform audit: `docs/audits/e2e-audit.md`.
+
+#### Changed
+
+- The website's currency and locale selectors post to `/preferences/{name}` (a route handler)
+  instead of Server Actions.
+- The API refuses compressed request bodies (415).
+- `/favicon.ico` redirects to `/icon.svg` on the website and the console.
+- zod 4.6.7, nodemailer 10.1.7, vite 8.3.x and vitest 5.0.5; overrides for handlebars, undici,
+  fast-uri and the lint plugin's zod.
+
+#### Fixed
+
+- Booking pages and the data export no longer fail on a stored price without a fare.
+- A late driver location fix no longer moves the driver back in time or fails the speed check.
+- Model years show without a thousands separator.
+
+#### Known issues
+
+- Next.js 16.4 and Storybook 10.6.3 are blocked by the pnpm trust policy (`semver@6.3.1`);
+  body-parser 2.4.0 and multer 2.5.0 wait for the release cooldown (2026-10-25). Exposure and
+  mitigations: `docs/security/dependency-exceptions.md`.
+
 ### Phase 11: Hardening (2026-10-12)
 
 #### Added

@@ -166,6 +166,34 @@ runs in a development build of the app rather than Expo Go.
 - **Store builds** go through EAS (`Mobile release` workflow) and need the owner's Expo, Apple and
   Google accounts.
 
+## Cars: buses, rides and car rental
+
+Ground transport runs on the same booking, payment and ledger pipeline as the other products
+(`docs/phases/cars.md`, ADR-049 to ADR-053).
+
+- **Sample data**: `pnpm --filter @suskii/api db:seed:demo` adds bus operators and departures,
+  Lagos ride places and fare rules, demo drivers and rental cars (all flagged as samples).
+- **Flags**: `CARS_BUSES_ENABLED`, `CARS_RIDES_ENABLED`, `CARS_RENTALS_ENABLED` and the feature
+  flags (`CARS_PRICE_BREAKDOWN_ENABLED`, `CARS_DEPARTURE_PLANNER_ENABLED`, `CARS_BUNDLES_ENABLED`,
+  `CARS_SAFETY_SUITE_ENABLED`, `CARS_OFFLINE_QR_ENABLED`) are on when unset outside production
+  and must be set explicitly in production. `GET /v1/cars/features` tells clients what is on.
+- **Keys**: `pnpm --filter @suskii/api keys:generate` also prints `CARS_TICKET_SIGNING_KEY` (the
+  Ed25519 key that signs boarding passes); without it the API signs with a key that changes on
+  every restart. Rotation keeps the old public key in `CARS_TICKET_PREVIOUS_PUBLIC_KEYS`
+  (`docs/runbooks/key-rotation.md`).
+- **Providers**: maps, KYC and payouts default to mock adapters (`MAPS_PROVIDER`,
+  `KYC_PROVIDER`, `PAYOUT_PROVIDER`); `MAPS_PROVIDER=osrm` with `OSRM_URL` uses a self-hosted
+  OSRM. With rides on, production refuses mock routing and KYC unless
+  `ALLOW_MOCK_PROVIDERS=true`.
+- **Trying it**: book a bus or a rental on `/buses` or `/rentals`. Rides need a signed-in rider
+  and an approved driver who is online near the pick-up (the API e2e helpers in
+  `apps/api/test/helpers/rides.ts` show the whole sequence). Operator agents (role
+  `operator_agent`, granted by staff with `ground:manage` when they add the account to an
+  operator) scan boarding passes in the app.
+- **Tests**: `buses`, `rides`, `drivers`, `rentals`, `cars-data`, `cars-payments` and `cars-p9`
+  in the API e2e suite; `e2e/cars.spec.ts` on the website; `cars.spec.ts` in the console; the
+  app's `cars-*`, `driver-screens`, `trip-planning` and `offline-scan` tests.
+
 ## Contributing
 
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`,
