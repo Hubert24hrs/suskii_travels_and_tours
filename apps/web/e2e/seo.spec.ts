@@ -42,6 +42,13 @@ test.describe('crawling and sharing', () => {
     expect(manifest.icons.length).toBeGreaterThan(0);
   });
 
+  test('points the browser default /favicon.ico at the SVG icon', async ({ request }) => {
+    const favicon = await request.get('/favicon.ico', { maxRedirects: 0 });
+    expect(favicon.status()).toBe(308);
+    expect(favicon.headers().location).toBe('/icon.svg');
+    expect((await request.get('/icon.svg')).headers()['content-type']).toContain('image/svg+xml');
+  });
+
   test('route pages carry their own metadata and breadcrumbs', async ({ page }) => {
     await page.goto('/flights/lagos-to-london');
     await expect(page).toHaveTitle(/Lagos to London/);

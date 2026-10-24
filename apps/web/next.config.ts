@@ -46,6 +46,11 @@ const nextConfig: NextConfig = {
   headers() {
     return Promise.resolve([{ source: '/:path*', headers: SECURITY_HEADERS }]);
   },
+  // Browsers still ask for /favicon.ico now and then (before the page's icon link is read, as
+  // during a redirect); the icon is an SVG, so point them at it instead of answering 404.
+  redirects() {
+    return Promise.resolve([{ source: '/favicon.ico', destination: '/icon.svg', permanent: true }]);
+  },
 };
 
 export default nextConfig;
