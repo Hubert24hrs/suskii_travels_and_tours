@@ -94,6 +94,22 @@ jest.mock('expo-document-picker', () => ({
 }));
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(() => Promise.resolve()) }));
 
+// The camera: permission granted unless a test says otherwise; the view renders nothing, and
+// tests scan by calling the `onBarcodeScanned` prop the last render received.
+jest.mock('expo-camera', () => {
+  const permission = { granted: true, canAskAgain: true, status: 'granted' };
+  const state = { onBarcodeScanned: null };
+  const CameraView = (props) => {
+    state.onBarcodeScanned = props.onBarcodeScanned ?? null;
+    return null;
+  };
+  return {
+    CameraView,
+    useCameraPermissions: jest.fn(() => [permission, jest.fn(() => Promise.resolve(permission))]),
+    __camera: state,
+  };
+});
+
 // App-private files: an in-memory file system with the same `File` / `Directory` surface.
 jest.mock('expo-file-system', () => {
   const files = new Set();

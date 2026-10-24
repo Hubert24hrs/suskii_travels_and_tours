@@ -95,6 +95,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-localization',
     'expo-web-browser',
     ['expo-notifications', { color: color.primary, defaultChannel: 'bookings' }],
+    // Bus operator agents scan boarding passes (Cars, ADR-050); no recording, no microphone.
+    [
+      'expo-camera',
+      {
+        cameraPermission: 'Allow Suskii Travels to use the camera to scan boarding pass QR codes.',
+        microphonePermission: false,
+        recordAudioAndroid: false,
+        barcodeScannerEnabled: true,
+      },
+    ],
     ['expo-build-properties', { android: { usesCleartextTraffic: insecureAllowed } }],
   ],
   experiments: { typedRoutes: true },

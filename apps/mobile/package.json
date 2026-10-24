@@ -39,6 +39,7 @@
     "expo": "catalog:",
     "expo-application": "catalog:",
     "expo-build-properties": "catalog:",
+    "expo-camera": "catalog:",
     "expo-constants": "catalog:",
     "expo-crypto": "catalog:",
     "expo-dev-client": "catalog:",
