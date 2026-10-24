@@ -500,7 +500,7 @@ function DriverBody({ driver }: { driver: Driver }) {
                   colour: row.colour,
                   make: row.make,
                   model: row.model,
-                  year: row.year,
+                  year: String(row.year),
                   plate: row.plate,
                 }),
             },

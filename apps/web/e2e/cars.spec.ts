@@ -197,6 +197,8 @@ test.describe('car rental', () => {
 
     await page.waitForURL(/\/checkout\//);
     await expect(page.getByTestId('checkout-deposit')).toBeVisible();
+    // The model year reads as a year, not as a number with a thousands separator.
+    await expect(page.getByTestId('cars-details')).toContainText(/\((19|20)\d{2}\)/);
     await page.locator('#guest-0-givenNames').fill('Ada');
     await page.locator('#guest-0-surname').fill('Okafor');
     await contactAndTerms(page, 'renter@example.com');
