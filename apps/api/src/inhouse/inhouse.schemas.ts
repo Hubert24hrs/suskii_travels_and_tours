@@ -19,6 +19,7 @@ import {
   meetingPointSchema,
   moneyWireSchema,
   perPersonPricesSchema,
+  RIDE_CATEGORIES,
   slugSchema,
   textListSchema,
   VISA_PURPOSES,
@@ -32,6 +33,7 @@ import {
 } from '../bookings/bookings.schemas';
 import { named } from '../contract/contract';
 import { moneySchema } from '../pricing/pricing.schemas';
+import { rideStopInputSchema } from '../rides/rides.schemas';
 
 const timestamp = z.iso.datetime();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
@@ -350,6 +352,18 @@ export const inhouseQuoteRequestSchema = named(
         .nullable()
         .default(null)
         .meta({ description: "Guests: the hold's `holdToken`; accounts: null." }),
+      currency: currencyCodeSchema.default(DEFAULT_CURRENCY),
+    }),
+    z.object({
+      kind: z.literal('ride'),
+      category: z.enum(RIDE_CATEGORIES),
+      pickup: rideStopInputSchema,
+      dropoff: rideStopInputSchema,
+      scheduledFor: z.iso
+        .datetime({ offset: true })
+        .nullable()
+        .default(null)
+        .meta({ description: 'Null for now; otherwise 15 minutes to 7 days ahead.' }),
       currency: currencyCodeSchema.default(DEFAULT_CURRENCY),
     }),
   ]),

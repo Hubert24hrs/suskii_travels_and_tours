@@ -74,6 +74,7 @@ import { TravellersService } from './travellers.service';
     PaymentReviewsService,
   ],
   exports: [
+    BookingFundsService,
     BookingNotesService,
     TicketingService,
     CheckoutService,

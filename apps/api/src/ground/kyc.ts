@@ -50,18 +50,22 @@ const reference = (value: string): string =>
 
 /**
  * Development and test KYC (refused in production with rides on, unless ALLOW_MOCK_PROVIDERS).
- * Numbers starting `000` are not found and `999` mismatch, so every outcome can be exercised;
- * everything else verifies.
+ * Numbers starting `000` are not found, `999` mismatch and `555` make the provider unavailable,
+ * so every outcome (and the manual-review fallback) can be exercised; everything else verifies.
  */
 @Injectable()
 export class MockKycProvider extends KycProvider {
   readonly name = 'mock';
 
   verifyIdentity(input: IdentityCheckInput): Promise<KycResult> {
+    if (input.nin.startsWith('555')) return Promise.reject(new KycUnavailableError('mock outage'));
     return Promise.resolve({ outcome: outcome(input.nin), reference: reference(input.nin) });
   }
 
   verifyLicence(input: LicenceCheckInput): Promise<KycResult> {
+    if (input.licenceNumber.startsWith('555')) {
+      return Promise.reject(new KycUnavailableError('mock outage'));
+    }
     return Promise.resolve({
       outcome: outcome(input.licenceNumber),
       reference: reference(input.licenceNumber),

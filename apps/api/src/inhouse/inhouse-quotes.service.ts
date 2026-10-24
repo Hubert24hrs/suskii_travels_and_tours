@@ -38,6 +38,7 @@ import { OfferUnavailableError } from '../suppliers/supplier.errors';
 
 import { BusHoldsService } from '../buses/bus-holds.service';
 import { BusesService } from '../buses/buses.service';
+import { RidesCatalogService } from '../rides/rides-catalog.service';
 import { CarsFlags } from '../ground/cars-flags';
 
 import { AddonLinksService } from './addon-links.service';
@@ -55,6 +56,9 @@ export const quoteInvalid = (code: QuoteIssue): ProblemDetailsException =>
     'Change the travellers or dates and try again.',
     { code },
   );
+
+/** Ride fares hold for five minutes: traffic and surge move faster than other prices. */
+const RIDE_QUOTE_MS = 5 * 60_000;
 
 const seatsLeft = (departure: { capacity: number; seatsReserved: number; seatsSold: number }) =>
   departure.capacity - departure.seatsReserved - departure.seatsSold;
@@ -81,12 +85,18 @@ export class InhouseQuotesService {
     private readonly flags: CarsFlags,
     private readonly busHolds: BusHoldsService,
     private readonly buses: BusesService,
+    private readonly rides: RidesCatalogService,
   ) {}
 
   async create(input: InhouseQuoteInput, client: ClientContext): Promise<Quote> {
     // Suskii Prime is bought by an account for itself (ADR-030).
     if (input.kind === 'membership' && !client.userId) throw authenticationRequired();
     if (input.kind === 'bus') this.flags.require('buses');
+    if (input.kind === 'ride') {
+      this.flags.require('rides');
+      // A ride needs an account: the rider follows it, is matched and is contacted (ADR-049).
+      if (!client.userId) throw authenticationRequired();
+    }
     const now = new Date();
     let payload: InhouseItemPayload;
     try {
@@ -119,11 +129,13 @@ export class InhouseQuotesService {
         totalMinor: breakdown.total.minor,
         currency: input.currency,
         userId: client.userId,
-        // A bus quote lasts no longer than its seat hold (ADR-051).
+        // A bus quote lasts no longer than its seat hold; a ride fare for five minutes (ADR-051).
         expiresAt:
           payload.kind === 'bus'
             ? new Date(Math.min(now.getTime() + PRICE_HOLD_MS, Date.parse(payload.holdExpiresAt)))
-            : new Date(now.getTime() + PRICE_HOLD_MS),
+            : payload.kind === 'ride'
+              ? new Date(now.getTime() + RIDE_QUOTE_MS)
+              : new Date(now.getTime() + PRICE_HOLD_MS),
       },
     });
     quotes.add(1, { vertical: offer.vertical });
@@ -162,6 +174,15 @@ export class InhouseQuotesService {
         return { kind: 'membership', planSlug: input.planSlug, currency: input.currency };
       case 'bus':
         return { kind: 'bus', tripId: '', holdId: input.holdId };
+      case 'ride':
+        return {
+          kind: 'ride',
+          category: input.category,
+          pickup: input.pickup,
+          dropoff: input.dropoff,
+          scheduledFor: input.scheduledFor,
+          currency: input.currency,
+        };
     }
   }
 
@@ -181,6 +202,8 @@ export class InhouseQuotesService {
         );
         return this.buses.payload(hold, now);
       }
+      case 'ride':
+        return this.rides.payload(input, now);
       case 'membership': {
         const plan = await this.prisma.primePlan.findUnique({ where: { slug: input.planSlug } });
         if (!plan) throw new OfferUnavailableError(INHOUSE_SUPPLIER, 'No such Prime plan');

@@ -23,7 +23,8 @@ import { Contract, fileResponse } from '../contract/contract';
 import { INHOUSE_LIMITS, RateLimit } from '../rate-limit/rate-limit.decorator';
 import { clientContext } from '../search/client-context';
 
-import { documentTooLarge, documentType, VisaDocumentsService } from './visa-documents.service';
+import { readUpload } from './upload-body';
+import { VisaDocumentsService } from './visa-documents.service';
 import {
   applicationParamsSchema,
   documentContentQuerySchema,
@@ -49,29 +50,6 @@ const FILE_NAME_HEADER = {
   required: false,
   description: 'The original file name, URI-encoded (shown to the traveller and visa officers).',
 };
-
-/**
- * The upload's bytes, read here with a hard size limit: no body parser buffers them for us (JSON
- * is the only parsed type), so an oversized upload is refused before it is read in full.
- */
-async function readUpload(request: AuthenticatedRequest, maxBytes: number): Promise<Buffer> {
-  const declared = Number(request.headers['content-length']);
-  if (Number.isFinite(declared) && declared > maxBytes) throw documentTooLarge(maxBytes);
-  const type = (request.headers['content-type'] ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
-  if (!(VISA_DOCUMENT_URL_TYPES as readonly string[]).includes(type)) throw documentType();
-  if (Buffer.isBuffer(request.body)) {
-    if (request.body.byteLength > maxBytes) throw documentTooLarge(maxBytes);
-    return request.body;
-  }
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const chunk of request as AsyncIterable<Buffer>) {
-    size += chunk.byteLength;
-    if (size > maxBytes) throw documentTooLarge(maxBytes);
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks);
-}
 
 function fileName(request: AuthenticatedRequest): string {
   const raw = request.headers['x-file-name'];

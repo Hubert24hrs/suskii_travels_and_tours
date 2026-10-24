@@ -310,6 +310,15 @@ export class InhouseCatalog {
         }
         return { ...payload, unitPrice: money(trip.fareMinor, trip.currency) };
       }
+      case 'ride': {
+        // The upfront fare stands for the quote's life (ADR-051); only a withdrawn fare stops it.
+        const rule = await this.prisma.rideFareRule.findUnique({ where: { id: payload.rule.id } });
+        if (!rule?.active) throw unavailable('Rides are not available here right now');
+        if (payload.scheduledFor && Date.parse(payload.scheduledFor) <= now.getTime()) {
+          throw unavailable('The pickup time has passed');
+        }
+        return payload;
+      }
     }
   }
 }

@@ -59,6 +59,7 @@
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
     "uqr": "catalog:",
+    "ws": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -76,6 +77,7 @@
     "@types/nodemailer": "catalog:",
     "@types/pg": "catalog:",
     "@types/supertest": "catalog:",
+    "@types/ws": "catalog:",
     "csv-parse": "catalog:",
     "csv-stringify": "catalog:",
     "eslint": "catalog:",

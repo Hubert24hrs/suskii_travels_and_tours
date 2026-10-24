@@ -104,6 +104,8 @@ export interface BookingView {
   membershipTerm: { startsAt: Date; endsAt: Date } | null;
   /** Boarding passes of a confirmed bus booking (ADR-050). */
   busTickets: BusTicketView[];
+  /** The ride a confirmed ride booking created (ADR-049). */
+  rideId: string | null;
 }
 
 export const EMPTY_VIEW: BookingView = {
@@ -114,6 +116,7 @@ export const EMPTY_VIEW: BookingView = {
   applications: [],
   membershipTerm: null,
   busTickets: [],
+  rideId: null,
 };
 
 const REFUND_VIEW = {
@@ -206,6 +209,7 @@ export function toBookingDto(
       applications: view.applications,
       linkedBooking: view.linkedBooking,
       membershipTerm: view.membershipTerm,
+      rideId: view.rideId,
     }),
     voucher: view.voucher
       ? {

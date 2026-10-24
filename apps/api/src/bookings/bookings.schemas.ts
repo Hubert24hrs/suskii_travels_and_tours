@@ -7,6 +7,7 @@ import {
   BOOKING_STATUSES,
   BUS_TICKET_STATUSES,
   CABIN_CLASSES,
+  RIDE_CATEGORIES,
   FLIGHT_NUMBER_PATTERN,
   VISA_APPLICATION_STATUSES,
   PRIME_PERIODS,
@@ -301,6 +302,43 @@ export const busItemSchema = named(
   }),
 );
 
+const rideStopSchema = z.object({ label: z.string(), lat: z.number(), lng: z.number() });
+
+/** An intrastate ride (ADR-051): the upfront fare and what it was computed from. */
+export const rideItemSchema = named(
+  'RideItem',
+  z.object({
+    product: productRefSchema,
+    category: z.enum(RIDE_CATEGORIES),
+    cityName: z.string(),
+    pickup: rideStopSchema,
+    dropoff: rideStopSchema,
+    scheduledFor: timestamp.nullable().meta({ description: 'Null to ride now.' }),
+    distanceMetres: z.number().int(),
+    durationSeconds: z.number().int(),
+    polyline: z.string().meta({ description: 'Planned route, encoded polyline (precision 5).' }),
+    estimate: z.enum(['routed', 'straight_line']).meta({
+      description:
+        '`straight_line` when routing was unavailable and the capped estimate priced it.',
+    }),
+    fare: z.object({
+      base: moneySchema,
+      distance: moneySchema,
+      time: moneySchema,
+      surge: moneySchema,
+      minimumTopUp: moneySchema,
+      bookingFee: moneySchema,
+      total: moneySchema,
+    }),
+    cancellation: z.object({
+      fee: moneySchema.meta({ description: 'Kept when cancelling after the free window.' }),
+      freeCancelSeconds: z.number().int(),
+      waitGraceSeconds: z.number().int(),
+    }),
+    rideId: z.uuid().nullable().meta({ description: 'Set once the booking is confirmed.' }),
+  }),
+);
+
 /** A boarding pass (ADR-050); the QR payload is signed and verifiable offline. */
 export const busTicketSchema = named(
   'BusTicket',
@@ -350,6 +388,7 @@ export const quoteSchema = named(
     addon: addonItemSchema.nullable(),
     membership: membershipItemSchema.nullable(),
     bus: busItemSchema.nullable(),
+    ride: rideItemSchema.nullable(),
     price: priceSchema.nullable().meta({
       description: 'In-house products: the priced total (flights and hotels: in the offer).',
     }),
@@ -577,6 +616,7 @@ export const bookingSchema = named(
     addon: addonItemSchema.nullable(),
     membership: membershipItemSchema.nullable(),
     bus: busItemSchema.nullable(),
+    ride: rideItemSchema.nullable(),
     busTickets: z
       .array(busTicketSchema)
       .meta({ description: 'Boarding passes of a confirmed bus booking, one per seat.' }),

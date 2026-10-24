@@ -1,11 +1,14 @@
 import type { z } from 'zod';
 
+import { money, toWire, utcToLocal } from '@suskii/shared';
+
 import { documentDateTime } from '../documents/booking-pdf';
 
 import type { ItemPayload } from './booking-pricing';
 import type {
   addonItemSchema,
   busItemSchema,
+  rideItemSchema,
   membershipItemSchema,
   packageItemSchema,
   tourItemSchema,
@@ -21,6 +24,7 @@ export type AddonItemDto = z.infer<typeof addonItemSchema>;
 export type VisaApplicationSummaryDto = z.infer<typeof visaApplicationSummarySchema>;
 export type MembershipItemDto = z.infer<typeof membershipItemSchema>;
 export type BusItemDto = z.infer<typeof busItemSchema>;
+export type RideItemDto = z.infer<typeof rideItemSchema>;
 
 export interface InhouseSections {
   package: PackageItemDto | null;
@@ -29,6 +33,7 @@ export interface InhouseSections {
   addon: AddonItemDto | null;
   membership: MembershipItemDto | null;
   bus: BusItemDto | null;
+  ride: RideItemDto | null;
 }
 
 export const NO_INHOUSE: InhouseSections = {
@@ -38,6 +43,7 @@ export const NO_INHOUSE: InhouseSections = {
   addon: null,
   membership: null,
   bus: null,
+  ride: null,
 };
 
 const product = (payload: InhouseItemPayload) => ({
@@ -61,6 +67,7 @@ export function inhouseSections(
     applications?: VisaApplicationSummaryDto[];
     linkedBooking?: { id: string; reference: string } | null;
     membershipTerm?: { startsAt: Date; endsAt: Date } | null;
+    rideId?: string | null;
   } = {},
 ): InhouseSections {
   switch (payload.kind) {
@@ -177,6 +184,37 @@ export function inhouseSections(
           holdExpiresAt: payload.holdExpiresAt,
         },
       };
+    case 'ride':
+      return {
+        ...NO_INHOUSE,
+        ride: {
+          product: product(payload),
+          category: payload.category,
+          cityName: payload.cityName,
+          pickup: payload.pickup,
+          dropoff: payload.dropoff,
+          scheduledFor: payload.scheduledFor,
+          distanceMetres: payload.distanceMetres,
+          durationSeconds: payload.durationSeconds,
+          polyline: payload.polyline,
+          estimate: payload.estimate,
+          fare: {
+            base: toWire(payload.fare.base),
+            distance: toWire(payload.fare.distance),
+            time: toWire(payload.fare.time),
+            surge: toWire(payload.fare.surge),
+            minimumTopUp: toWire(payload.fare.minimumTopUp),
+            bookingFee: toWire(payload.fare.bookingFee),
+            total: toWire(payload.fare.total),
+          },
+          cancellation: {
+            fee: toWire(money(payload.rule.cancellationFeeMinor, payload.rule.currency)),
+            freeCancelSeconds: payload.rule.freeCancelSeconds,
+            waitGraceSeconds: payload.rule.waitGraceSeconds,
+          },
+          rideId: context.rideId ?? null,
+        },
+      };
     case 'flight':
     case 'hotel':
       return NO_INHOUSE;
@@ -197,5 +235,7 @@ export function inhouseSummary(payload: InhouseItemPayload): string {
       return `${payload.title} (${payload.period === 'year' ? 'yearly' : 'monthly'} membership)`;
     case 'bus':
       return `${payload.title}, ${documentDateTime(payload.departsAtLocal)}, seats ${payload.seats.join(', ')}`;
+    case 'ride':
+      return `${payload.title}${payload.scheduledFor ? `, ${documentDateTime(utcToLocal(new Date(payload.scheduledFor), payload.timeZone))}` : ''}`;
   }
 }

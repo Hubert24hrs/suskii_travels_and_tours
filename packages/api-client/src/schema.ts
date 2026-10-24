@@ -459,6 +459,165 @@ export interface paths {
         patch: operations["adminUpdateDestination"];
         trace?: never;
     };
+    "/v1/admin/drivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Driver applications and drivers */
+        get: operations["adminListDrivers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/{driverId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A driver with documents, vehicles and check results
+         * @description Identity numbers are never shown; KYC references are.
+         */
+        get: operations["adminGetDriver"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/{driverId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a driver (grants the driver role)
+         * @description 409 `driver-not-ready` with `missing` until identity and licence are verified, every document is approved and a vehicle is approved and insured.
+         */
+        post: operations["adminApproveDriver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/{driverId}/documents/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The file of a driver document (every read is audited) */
+        get: operations["adminGetDriverDocumentContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/{driverId}/documents/{documentId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve or reject a document */
+        post: operations["adminReviewDriverDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/{driverId}/reinstate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reinstate a suspended driver */
+        post: operations["adminReinstateDriver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/{driverId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject an application */
+        post: operations["adminRejectDriver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/{driverId}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend a driver (offline at once, offers withdrawn) */
+        post: operations["adminSuspendDriver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/{driverId}/vehicles/{vehicleId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve or reject a vehicle */
+        post: operations["adminReviewDriverVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ground/layouts": {
         parameters: {
             query?: never;
@@ -1092,6 +1251,146 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rides/{rideId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop a ride and refund it in full */
+        post: operations["adminCancelRide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rides/fare-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ride fare rules */
+        get: operations["adminListRideFareRules"];
+        /**
+         * Create or replace the fare rule for a city and category
+         * @description Booked rides keep the terms they were quoted with.
+         */
+        put: operations["adminSaveRideFareRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rides/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SOS alerts, PIN lockouts and route deviations */
+        get: operations["adminListSafetyIncidents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rides/incidents/{id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take an incident */
+        post: operations["adminAcknowledgeIncident"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rides/incidents/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close an incident with its outcome */
+        post: operations["adminResolveIncident"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rides/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rides not yet finished, with exact driver positions */
+        get: operations["adminListLiveRides"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rides/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a place rides can start or end at */
+        post: operations["adminCreateRidePlace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rides/places/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change or deactivate a place */
+        patch: operations["adminUpdateRidePlace"];
         trace?: never;
     };
     "/v1/admin/tour-departures/{id}": {
@@ -2427,6 +2726,362 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/drivers/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply to drive
+         * @description One application per account and per person (409 `driver-exists`). 422 `driver-too-young` under 18, `licence-expiring` with under 30 days left. A KYC check the provider could not answer stays `pending` for a staff member to complete.
+         */
+        post: operations["applyToDrive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/documents/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload a document (licence, registration, insurance, roadworthiness, selfie)
+         * @description Send the raw file as the body: PDF, JPEG or PNG, detected from the bytes (415 `document-type`), at most VISA_DOCUMENT_MAX_BYTES (413). Replaces an earlier upload of the kind; staff review it after a virus scan.
+         */
+        put: operations["uploadDriverDocument"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/earnings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Earnings balance, recent rides and payouts */
+        get: operations["getDriverEarnings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report the driver's position
+         * @description At most one every 5 seconds. Positions outside the service area, too far from the last one for the time elapsed, or timestamped outside the last five minutes are refused (422 `location-implausible`).
+         */
+        post: operations["reportDriverLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open ride offers */
+        get: operations["listRideOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/offers/{offerId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a ride offer
+         * @description One acceptance wins: 409 `offer-gone` when the offer expired or the ride moved on, 409 `ride-in-progress` while driving another ride.
+         */
+        post: operations["acceptRideOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/offers/{offerId}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline a ride offer */
+        post: operations["declineRideOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/offline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop receiving offers (clears the last position)
+         * @description 409 `ride-in-progress` during a ride.
+         */
+        post: operations["goOffline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/online": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start receiving ride offers
+         * @description 409 `cannot-drive` with `reason` (`not_approved`, `checks_pending`, `licence_expired`, `no_vehicle`, `insurance_expired`) until every vetting gate passes. 422 `location-implausible` outside the service area.
+         */
+        post: operations["goOnline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/payout-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the bank account payouts go to
+         * @description Needs a sign-in in the last few minutes or re-authentication (401 `reauthentication-required`): redirecting payouts is what an account takeover would try first.
+         */
+        put: operations["setDriverPayoutAccount"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your driver profile and what is still missing */
+        get: operations["getDriverProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/ride": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The driver's live ride, if any */
+        get: operations["getCurrentDriverRide"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/rides/{rideId}/arrive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tell the rider the driver is at the pickup */
+        post: operations["arriveForRide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/rides/{rideId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand a ride back before the trip starts
+         * @description The ride searches for another driver; it is never offered to this driver again.
+         */
+        post: operations["handBackRide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/rides/{rideId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete the trip
+         * @description Posts the driver's share of the fare to their earnings.
+         */
+        post: operations["completeRide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/rides/{rideId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the trip with the rider's PIN
+         * @description 422 `pin-invalid` with `attemptsLeft`; the fifth wrong PIN locks the ride (423 `pin-locked`) and alerts the safety team.
+         */
+        post: operations["startRide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Online status and current ride */
+        get: operations["getDriverState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a vehicle for review
+         * @description At most three; 409 `plate-taken` for a plate already registered.
+         */
+        post: operations["addDriverVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/drivers/me/vehicles/{vehicleId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Drive an approved vehicle from now on */
+        post: operations["activateDriverVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/flights/offers/{offerId}": {
         parameters: {
             query?: never;
@@ -2714,6 +3369,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/drivers/documents/scan-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan driver documents whose background scan did not finish */
+        post: operations["scanDueDriverDocuments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/price-alerts/run": {
         parameters: {
             query?: never;
@@ -2813,6 +3485,26 @@ export interface paths {
          * @description Rows removed (or bookings anonymised) per rule. Idempotent; the worker calls it daily.
          */
         post: operations["runRetention"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/rides/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start scheduled rides, expire offers, time out searches and offer rides to drivers
+         * @description Does nothing while rides are off or another run holds the lock.
+         */
+        post: operations["dispatchRides"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2960,6 +3652,24 @@ export interface paths {
         put?: never;
         /** Send the email verification link again */
         post: operations["resendEmailVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/emergency-contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Emergency contacts */
+        get: operations["getEmergencyContacts"];
+        /** Replace the emergency contacts */
+        put: operations["setEmergencyContacts"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3684,6 +4394,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/trips/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A shared ride */
+        get: operations["getSharedRide"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/quotes/{quoteId}": {
         parameters: {
             query?: never;
@@ -3696,6 +4423,141 @@ export interface paths {
          * @description Priced for the caller. An expired quote answers 410 with the original search request.
          */
         get: operations["getQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's rides, newest first */
+        get: operations["listRides"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rides/{rideId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A ride with its driver, live position, ETA and PIN
+         * @description The driver position is rounded to about 110 m and shown only while the ride is live. Follow changes on the `/v1/ws/rides` socket, or poll this route every 5 seconds.
+         */
+        get: operations["getRide"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rides/{rideId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a ride
+         * @description Free until a driver accepts and for the fare rule's free window after; then the cancellation fee is kept and the rest refunded. 409 `ride-conflict` once the trip has started or ended.
+         */
+        post: operations["cancelRide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rides/{rideId}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rate the driver of a completed ride
+         * @description Once per ride; 409 `rating-closed` before completion or for a second rating.
+         */
+        post: operations["rateRide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rides/{rideId}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a live-trip link
+         * @description The token is shown once and replaces any earlier link. The link shows the driver, vehicle and a rounded position, nothing about the rider, and expires 30 minutes after the trip.
+         */
+        post: operations["shareRide"];
+        /** Stop sharing a ride */
+        delete: operations["revokeRideShare"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rides/{rideId}/sos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Raise an SOS on a ride
+         * @description For the ride's rider or driver. Records an incident for the safety team and texts the rider's emergency contacts before answering. Call the emergency number too.
+         */
+        post: operations["raiseRideSos"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rides/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Airports, terminals and landmarks rides can start or end at */
+        get: operations["listRidePlaces"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4203,6 +5065,96 @@ export interface components {
         AdminDestinationList: {
             destinations: components["schemas"]["AdminDestination"][];
         };
+        AdminDriver: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "suspended";
+            statusReason: ("documents_unclear" | "documents_expired" | "identity_mismatch" | "licence_invalid" | "vehicle_unsuitable" | "rating_below_minimum" | "safety_concern" | "fraud" | "other") | null;
+            givenNames: string;
+            surname: string;
+            cityName: string;
+            /** @enum {string} */
+            identityCheck: "pending" | "verified" | "mismatch" | "not_found";
+            /** @enum {string} */
+            licenceCheck: "pending" | "verified" | "mismatch" | "not_found";
+            licenceEndsWith: string;
+            /** Format: date */
+            licenceExpiresOn: string;
+            rating: number | null;
+            ratingCount: number;
+            documents: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "licence" | "vehicle_registration" | "insurance" | "roadworthiness" | "selfie";
+                /** @enum {string} */
+                status: "pending" | "clean" | "approved" | "rejected";
+                contentType: string;
+                sizeBytes: number;
+                rejectionReason: ("documents_unclear" | "documents_expired" | "identity_mismatch" | "licence_invalid" | "vehicle_unsuitable" | "rating_below_minimum" | "safety_concern" | "fraud" | "other") | null;
+                /** Format: date-time */
+                createdAt: string;
+                reviewedAt: string | null;
+            }[];
+            vehicles: {
+                /** Format: uuid */
+                id: string;
+                make: string;
+                model: string;
+                year: number;
+                colour: string;
+                plate: string;
+                /** @enum {string} */
+                category: "standard" | "comfort" | "xl";
+                seats: number;
+                /** Format: date */
+                insuranceExpiresOn: string;
+                /** @enum {string} */
+                status: "pending" | "approved" | "rejected";
+                active: boolean;
+            }[];
+            payoutAccount: {
+                bankCode: string;
+                accountEndsWith: string;
+                accountName: string;
+            } | null;
+            missing: ("identity_check" | "licence_check" | "documents" | "vehicle" | "approval")[];
+            sample: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            userId: string;
+            /** Format: date */
+            dateOfBirth: string;
+            identityReference: string | null;
+            licenceReference: string | null;
+            online: boolean;
+            reviewedAt: string | null;
+        };
+        AdminDrivers: {
+            drivers: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                userId: string;
+                /** @enum {string} */
+                status: "pending" | "approved" | "rejected" | "suspended";
+                name: string;
+                cityName: string;
+                /** @enum {string} */
+                identityCheck: "pending" | "verified" | "mismatch" | "not_found";
+                /** @enum {string} */
+                licenceCheck: "pending" | "verified" | "mismatch" | "not_found";
+                documentsAwaitingReview: number;
+                vehiclesAwaitingReview: number;
+                online: boolean;
+                rating: number | null;
+                sample: boolean;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
         AdminFaq: {
             /** @enum {string} */
             locale: "en-NG" | "en-GB" | "en-US";
@@ -4247,6 +5199,34 @@ export interface components {
         };
         AdminFeeRuleList: {
             rules: components["schemas"]["AdminFeeRule"][];
+        };
+        AdminLiveRides: {
+            rides: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                bookingId: string;
+                /** @enum {string} */
+                status: "scheduled" | "searching" | "assigned" | "arrived" | "in_progress" | "completed" | "cancelled" | "no_driver";
+                /** @enum {string} */
+                category: "standard" | "comfort" | "xl";
+                cityName: string;
+                driverId: string | null;
+                driverPosition: {
+                    lat: number;
+                    lng: number;
+                    /** Format: date-time */
+                    at: string;
+                } | null;
+                pickup: {
+                    lat: number;
+                    lng: number;
+                };
+                offRoute: boolean;
+                openIncidents: number;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
         };
         AdminMarkupRule: {
             name: string;
@@ -4613,6 +5593,7 @@ export interface components {
             addon: components["schemas"]["AddonItem"] | null;
             membership: components["schemas"]["MembershipItem"] | null;
             bus: components["schemas"]["BusItem"] | null;
+            ride: components["schemas"]["RideItem"] | null;
             busTickets: components["schemas"]["BusTicket"][];
             voucher: {
                 code: string;
@@ -5301,6 +6282,9 @@ export interface components {
             /** @default null */
             governmentFeeNote?: string | null;
         };
+        CurrentDriverRide: {
+            ride: components["schemas"]["DriverRide"] | null;
+        };
         DataExportRequestInput: {
             password?: string;
             code?: string;
@@ -5396,6 +6380,123 @@ export interface components {
             sortOrder?: number;
             imageUrl?: string | null;
             published?: boolean;
+        };
+        DriverDocumentScanRun: {
+            scanned: number;
+        };
+        DriverEarnings: {
+            balance: components["schemas"]["Money"];
+            rides: {
+                /** Format: uuid */
+                rideId: string;
+                completedAt: string | null;
+                earnings: components["schemas"]["Money"];
+            }[];
+            payouts: {
+                /** Format: uuid */
+                id: string;
+                amount: components["schemas"]["Money"];
+                /** @enum {string} */
+                status: "pending" | "paid" | "failed";
+                /** Format: date-time */
+                createdAt: string;
+                settledAt: string | null;
+            }[];
+        };
+        DriverProfile: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "suspended";
+            statusReason: ("documents_unclear" | "documents_expired" | "identity_mismatch" | "licence_invalid" | "vehicle_unsuitable" | "rating_below_minimum" | "safety_concern" | "fraud" | "other") | null;
+            givenNames: string;
+            surname: string;
+            cityName: string;
+            /** @enum {string} */
+            identityCheck: "pending" | "verified" | "mismatch" | "not_found";
+            /** @enum {string} */
+            licenceCheck: "pending" | "verified" | "mismatch" | "not_found";
+            licenceEndsWith: string;
+            /** Format: date */
+            licenceExpiresOn: string;
+            rating: number | null;
+            ratingCount: number;
+            documents: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "licence" | "vehicle_registration" | "insurance" | "roadworthiness" | "selfie";
+                /** @enum {string} */
+                status: "pending" | "clean" | "approved" | "rejected";
+                contentType: string;
+                sizeBytes: number;
+                rejectionReason: ("documents_unclear" | "documents_expired" | "identity_mismatch" | "licence_invalid" | "vehicle_unsuitable" | "rating_below_minimum" | "safety_concern" | "fraud" | "other") | null;
+                /** Format: date-time */
+                createdAt: string;
+                reviewedAt: string | null;
+            }[];
+            vehicles: {
+                /** Format: uuid */
+                id: string;
+                make: string;
+                model: string;
+                year: number;
+                colour: string;
+                plate: string;
+                /** @enum {string} */
+                category: "standard" | "comfort" | "xl";
+                seats: number;
+                /** Format: date */
+                insuranceExpiresOn: string;
+                /** @enum {string} */
+                status: "pending" | "approved" | "rejected";
+                active: boolean;
+            }[];
+            payoutAccount: {
+                bankCode: string;
+                accountEndsWith: string;
+                accountName: string;
+            } | null;
+            missing: ("identity_check" | "licence_check" | "documents" | "vehicle" | "approval")[];
+            sample: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        DriverRide: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "scheduled" | "searching" | "assigned" | "arrived" | "in_progress" | "completed" | "cancelled" | "no_driver";
+            /** @enum {string} */
+            category: "standard" | "comfort" | "xl";
+            riderFirstName: string;
+            pickup: {
+                label: string;
+                lat: number;
+                lng: number;
+            };
+            dropoff: {
+                label: string;
+                lat: number;
+                lng: number;
+            };
+            polyline: string;
+            distanceMetres: number;
+            earnings: components["schemas"]["Money"];
+            pinLocked: boolean;
+            assignedAt: string | null;
+            arrivedAt: string | null;
+            startedAt: string | null;
+        };
+        DriverState: {
+            online: boolean;
+            currentRideId: string | null;
+        };
+        EmergencyContacts: {
+            contacts: {
+                name: string;
+                phone: string;
+            }[];
         };
         ExtraSelectionInput: {
             serviceId: string;
@@ -5939,6 +7040,28 @@ export interface components {
              * @enum {string}
              */
             currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+        } | {
+            /** @constant */
+            kind: "ride";
+            /** @enum {string} */
+            category: "standard" | "comfort" | "xl";
+            pickup: {
+                lat: number;
+                lng: number;
+                label: string;
+            };
+            dropoff: {
+                lat: number;
+                lng: number;
+                label: string;
+            };
+            /** @default null */
+            scheduledFor?: string | null;
+            /**
+             * @default NGN
+             * @enum {string}
+             */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
         };
         Jwks: {
             keys: ({
@@ -6442,6 +7565,14 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        PayoutAccountRequestInput: {
+            account: {
+                bankCode: string;
+                accountNumber: string;
+                accountName: string;
+            };
+            reauth?: components["schemas"]["DataExportRequestInput"];
+        };
         PerPersonPrice: {
             adult: components["schemas"]["Money"];
             child: components["schemas"]["Money"] | null;
@@ -6657,6 +7788,7 @@ export interface components {
             addon: components["schemas"]["AddonItem"] | null;
             membership: components["schemas"]["MembershipItem"] | null;
             bus: components["schemas"]["BusItem"] | null;
+            ride: components["schemas"]["RideItem"] | null;
             price: components["schemas"]["Price"] | null;
             payment: components["schemas"]["PaymentOptions"];
         };
@@ -6784,6 +7916,208 @@ export interface components {
         RevokedSessions: {
             revoked: number;
         };
+        Ride: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bookingId: string;
+            /** @enum {string} */
+            status: "scheduled" | "searching" | "assigned" | "arrived" | "in_progress" | "completed" | "cancelled" | "no_driver";
+            /** @enum {string} */
+            category: "standard" | "comfort" | "xl";
+            cityName: string;
+            pickup: {
+                label: string;
+                lat: number;
+                lng: number;
+            };
+            dropoff: {
+                label: string;
+                lat: number;
+                lng: number;
+            };
+            scheduledFor: string | null;
+            polyline: string;
+            distanceMetres: number;
+            durationSeconds: number;
+            fare: components["schemas"]["Money"];
+            pin: string | null;
+            driver: {
+                firstName: string;
+                rating: number | null;
+                vehicle: {
+                    make: string;
+                    model: string;
+                    colour: string;
+                    plate: string;
+                };
+            } | null;
+            driverPosition: {
+                lat: number;
+                lng: number;
+                /** Format: date-time */
+                at: string;
+            } | null;
+            etaSeconds: number | null;
+            assignedAt: string | null;
+            arrivedAt: string | null;
+            startedAt: string | null;
+            completedAt: string | null;
+            cancelledAt: string | null;
+            cancelledBy: ("rider" | "driver" | "staff" | "system") | null;
+            cancellationFee: components["schemas"]["Money"] | null;
+            rated: boolean;
+            sharing: {
+                /** Format: date-time */
+                expiresAt: string;
+            } | null;
+        };
+        RideCancellation: {
+            ride: components["schemas"]["Ride"];
+            fee: components["schemas"]["Money"];
+            refund: components["schemas"]["Money"];
+        };
+        RideConfigCreated: {
+            /** Format: uuid */
+            id: string;
+        };
+        RideDispatchRun: {
+            started: number;
+            offered: number;
+            expired: number;
+            timedOut: number;
+        };
+        RideFareRules: {
+            rules: {
+                cityName: string;
+                /** @enum {string} */
+                category: "standard" | "comfort" | "xl";
+                currency: string;
+                baseMinor: number;
+                perKmMinor: number;
+                perMinuteMinor: number;
+                bookingFeeMinor: number;
+                minimumMinor: number;
+                cancellationFeeMinor: number;
+                freeCancelSeconds: number;
+                waitGraceSeconds: number;
+                driverShareBps: number;
+                surgeBps: number;
+                active: boolean;
+                /** Format: uuid */
+                id: string;
+            }[];
+        };
+        RideItem: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                title: string;
+                sample: boolean;
+                artKey: string | null;
+            };
+            /** @enum {string} */
+            category: "standard" | "comfort" | "xl";
+            cityName: string;
+            pickup: {
+                label: string;
+                lat: number;
+                lng: number;
+            };
+            dropoff: {
+                label: string;
+                lat: number;
+                lng: number;
+            };
+            scheduledFor: string | null;
+            distanceMetres: number;
+            durationSeconds: number;
+            polyline: string;
+            /** @enum {string} */
+            estimate: "routed" | "straight_line";
+            fare: {
+                base: components["schemas"]["Money"];
+                distance: components["schemas"]["Money"];
+                time: components["schemas"]["Money"];
+                surge: components["schemas"]["Money"];
+                minimumTopUp: components["schemas"]["Money"];
+                bookingFee: components["schemas"]["Money"];
+                total: components["schemas"]["Money"];
+            };
+            cancellation: {
+                fee: components["schemas"]["Money"];
+                freeCancelSeconds: number;
+                waitGraceSeconds: number;
+            };
+            rideId: string | null;
+        };
+        RideList: {
+            rides: components["schemas"]["Ride"][];
+            nextCursor: string | null;
+        };
+        RideOffer: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            rideId: string;
+            /** @enum {string} */
+            category: "standard" | "comfort" | "xl";
+            pickupLabel: string;
+            pickup: {
+                lat: number;
+                lng: number;
+            };
+            dropoffLabel: string;
+            distanceToPickupMetres: number;
+            tripDistanceMetres: number;
+            earnings: components["schemas"]["Money"];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        RideOfferList: {
+            offers: components["schemas"]["RideOffer"][];
+        };
+        RidePlaces: {
+            places: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                /** @enum {string} */
+                kind: "airport" | "terminal" | "landmark";
+                cityName: string;
+                lat: number;
+                lng: number;
+                sample: boolean;
+            }[];
+        };
+        RideShareCreated: {
+            token: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        SafetyIncidents: {
+            incidents: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "sos" | "route_deviation" | "pin_lockout" | "long_stop";
+                /** @enum {string} */
+                status: "open" | "acknowledged" | "resolved";
+                rideId: string | null;
+                /** @enum {string} */
+                reporter: "rider" | "driver" | "system";
+                position: {
+                    lat: number;
+                    lng: number;
+                } | null;
+                /** Format: date-time */
+                createdAt: string;
+                acknowledgedAt: string | null;
+                resolvedAt: string | null;
+                resolution: string | null;
+            }[];
+        };
         SaveCmsBlockRequestInput: {
             content: {
                 [key: string]: unknown;
@@ -6814,6 +8148,32 @@ export interface components {
         };
         SetRolesRequestInput: {
             roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "driver" | "operator_agent")[];
+        };
+        SharedRide: {
+            /** @enum {string} */
+            status: "scheduled" | "searching" | "assigned" | "arrived" | "in_progress" | "completed" | "cancelled" | "no_driver";
+            cityName: string;
+            pickupLabel: string;
+            dropoffLabel: string;
+            driver: {
+                firstName: string;
+                rating: number | null;
+                vehicle: {
+                    make: string;
+                    model: string;
+                    colour: string;
+                    plate: string;
+                };
+            } | null;
+            driverPosition: {
+                lat: number;
+                lng: number;
+                /** Format: date-time */
+                at: string;
+            } | null;
+            etaSeconds: number | null;
+            /** Format: date-time */
+            updatedAt: string;
         };
         SignInResult: components["schemas"]["AuthSession"] | components["schemas"]["MfaChallenge"];
         SiteContent: {
@@ -6856,6 +8216,12 @@ export interface components {
              */
             transport?: "cookie" | "token";
             referralCode?: string;
+        };
+        SosResult: {
+            /** Format: uuid */
+            incidentId: string;
+            contactsNotified: number;
+            emergencyNumber: string;
         };
         StartPaymentRequestInput: {
             /** @default null */
@@ -7495,6 +8861,15 @@ export interface components {
         };
         /** @description Unprocessable content */
         Problem422: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description Problem */
+        Problem423: {
             headers: {
                 [name: string]: unknown;
             };
@@ -8432,6 +9807,323 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListDrivers: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected" | "suspended";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDrivers"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetDriver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                driverId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDriver"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminApproveDriver: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                driverId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    manualIdentityCheck?: boolean;
+                    /** @default false */
+                    manualLicenceCheck?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetDriverDocumentContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                driverId: string;
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReviewDriverDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                driverId: string;
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "approve" | "reject";
+                    /** @default null */
+                    reason?: ("documents_unclear" | "documents_expired" | "identity_mismatch" | "licence_invalid" | "vehicle_unsuitable" | "rating_below_minimum" | "safety_concern" | "fraud" | "other") | null;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReinstateDriver: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                driverId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRejectDriver: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                driverId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    reason: "documents_unclear" | "documents_expired" | "identity_mismatch" | "licence_invalid" | "vehicle_unsuitable" | "rating_below_minimum" | "safety_concern" | "fraud" | "other";
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminSuspendDriver: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                driverId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    reason: "documents_unclear" | "documents_expired" | "identity_mismatch" | "licence_invalid" | "vehicle_unsuitable" | "rating_below_minimum" | "safety_concern" | "fraud" | "other";
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReviewDriverVehicle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                driverId: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "approve" | "reject";
+                    /** @default null */
+                    reason?: ("documents_unclear" | "documents_expired" | "identity_mismatch" | "licence_invalid" | "vehicle_unsuitable" | "rating_below_minimum" | "safety_concern" | "fraud" | "other") | null;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -9996,6 +11688,328 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCancelRide: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    reason: "safety" | "driver_unreachable" | "rider_request" | "fraud" | "other";
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListRideFareRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideFareRules"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminSaveRideFareRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cityName: string;
+                    /** @enum {string} */
+                    category: "standard" | "comfort" | "xl";
+                    currency: string;
+                    baseMinor: number;
+                    perKmMinor: number;
+                    perMinuteMinor: number;
+                    bookingFeeMinor: number;
+                    minimumMinor: number;
+                    cancellationFeeMinor: number;
+                    freeCancelSeconds: number;
+                    waitGraceSeconds: number;
+                    driverShareBps: number;
+                    surgeBps: number;
+                    active: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideConfigCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListSafetyIncidents: {
+        parameters: {
+            query?: {
+                status?: "open" | "acknowledged" | "resolved";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SafetyIncidents"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminAcknowledgeIncident: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminResolveIncident: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    resolution: "false_alarm" | "assisted" | "escalated_to_police" | "driver_suspended" | "other";
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListLiveRides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLiveRides"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateRidePlace: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @enum {string} */
+                    kind: "airport" | "terminal" | "landmark";
+                    cityName: string;
+                    lat: number;
+                    lng: number;
+                    /** @default true */
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideConfigCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateRidePlace: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** @enum {string} */
+                    kind?: "airport" | "terminal" | "landmark";
+                    cityName?: string;
+                    lat?: number;
+                    lng?: number;
+                    /** @default true */
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -12331,6 +14345,652 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    applyToDrive: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    givenNames: string;
+                    surname: string;
+                    /** Format: date */
+                    dateOfBirth: string;
+                    cityName: string;
+                    nin: string;
+                    licenceNumber: string;
+                    /** Format: date */
+                    licenceExpiresOn: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverProfile"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    uploadDriverDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                kind: "licence" | "vehicle_registration" | "insurance" | "roadworthiness" | "selfie";
+            };
+            cookie?: never;
+        };
+        /** @description The file itself. */
+        requestBody: {
+            content: {
+                "application/pdf": string;
+                "image/jpeg": string;
+                "image/png": string;
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverProfile"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            413: components["responses"]["Problem413"];
+            415: components["responses"]["Problem415"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getDriverEarnings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverEarnings"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    reportDriverLocation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    position: {
+                        lat: number;
+                        lng: number;
+                    };
+                    /** Format: date-time */
+                    recordedAt?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listRideOffers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideOfferList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    acceptRideOffer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverRide"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    declineRideOffer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                offerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    goOffline: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverState"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    goOnline: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    position: {
+                        lat: number;
+                        lng: number;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverState"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    setDriverPayoutAccount: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayoutAccountRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverProfile"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getDriverProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverProfile"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getCurrentDriverRide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentDriverRide"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    arriveForRide: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverRide"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    handBackRide: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    completeRide: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverRide"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    startRide: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    pin: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverRide"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            423: components["responses"]["Problem423"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getDriverState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverState"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    addDriverVehicle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    make: string;
+                    model: string;
+                    year: number;
+                    colour: string;
+                    plate: string;
+                    /** @enum {string} */
+                    category: "standard" | "comfort" | "xl";
+                    seats: number;
+                    /** Format: date */
+                    insuranceExpiresOn: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverProfile"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    activateDriverVehicle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverProfile"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getFlightOffer: {
         parameters: {
             query?: {
@@ -12831,6 +15491,32 @@ export interface operations {
             503: components["responses"]["Problem503"];
         };
     };
+    scanDueDriverDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverDocumentScanRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     runPriceAlerts: {
         parameters: {
             query?: never;
@@ -12976,6 +15662,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetentionRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    dispatchRides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideDispatchRun"];
                 };
             };
             400: components["responses"]["Problem400"];
@@ -13258,6 +15970,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getEmergencyContacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyContacts"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    setEmergencyContacts: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    contacts: {
+                        name: string;
+                        phone: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyContacts"];
                 };
             };
             400: components["responses"]["Problem400"];
@@ -14600,6 +17374,33 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getSharedRide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedRide"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getQuote: {
         parameters: {
             query?: never;
@@ -14623,6 +17424,261 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listRides: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getRide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ride"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    cancelRide: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideCancellation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    rateRide: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    stars: number;
+                    comment: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ride"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    shareRide: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideShareCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    revokeRideShare: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    raiseRideSos: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                rideId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    position?: {
+                        lat: number;
+                        lng: number;
+                    } | null;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SosResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listRidePlaces: {
+        parameters: {
+            query?: {
+                city?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RidePlaces"];
+                };
+            };
+            400: components["responses"]["Problem400"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

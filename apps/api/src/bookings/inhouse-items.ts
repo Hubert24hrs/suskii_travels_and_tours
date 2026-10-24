@@ -19,6 +19,9 @@ import {
   type PerPersonPrices,
   type PrimeBenefits,
   type PrimePeriod,
+  type RideCategory,
+  type RideFareBreakdown,
+  type RideFareRule,
   type TravellerCounts,
   type VisaPurpose,
 } from '@suskii/shared';
@@ -57,7 +60,15 @@ export type InhouseQuoteRequest =
     }
   | { kind: 'membership'; planSlug: string; currency: string }
   // The hold token is never echoed: the hold id alone cannot be used by someone else.
-  | { kind: 'bus'; tripId: string; holdId: string };
+  | { kind: 'bus'; tripId: string; holdId: string }
+  | {
+      kind: 'ride';
+      category: RideCategory;
+      pickup: RideStop;
+      dropoff: RideStop;
+      scheduledFor: string | null;
+      currency: string;
+    };
 
 interface InhouseBase {
   productId: string;
@@ -195,13 +206,49 @@ export interface BusItemPayload extends InhouseBase {
   request: Extract<InhouseQuoteRequest, { kind: 'bus' }>;
 }
 
+/** A pickup or drop-off point as the rider chose it. */
+export interface RideStop {
+  label: string;
+  lat: number;
+  lng: number;
+}
+
+/**
+ * An intrastate ride (ADR-051), paid upfront at the quoted fare. Confirming the booking creates
+ * the `Ride`; the fare-rule terms in force at quote time (cancellation fee, free window, driver
+ * share) travel with it, so a later fare change never alters a booked ride.
+ */
+export interface RideItemPayload extends InhouseBase {
+  kind: 'ride';
+  category: RideCategory;
+  cityName: string;
+  countryCode: string;
+  timeZone: string;
+  pickup: RideStop;
+  dropoff: RideStop;
+  /** ISO instant for a scheduled ride; null to ride now. */
+  scheduledFor: string | null;
+  /** The ride's local date (pickup day). */
+  startDate: string;
+  distanceMetres: number;
+  durationSeconds: number;
+  /** Planned route, encoded polyline (precision 5). */
+  polyline: string;
+  estimate: 'routed' | 'straight_line';
+  fare: RideFareBreakdown;
+  rule: RideFareRule & { id: string };
+  vatBps: number;
+  request: Extract<InhouseQuoteRequest, { kind: 'ride' }>;
+}
+
 export type InhouseItemPayload =
   | PackageItemPayload
   | TourItemPayload
   | VisaItemPayload
   | AddonItemPayload
   | MembershipItemPayload
-  | BusItemPayload;
+  | BusItemPayload
+  | RideItemPayload;
 
 export type InhouseKind = InhouseItemPayload['kind'];
 
@@ -212,6 +259,7 @@ export const INHOUSE_KINDS: readonly InhouseKind[] = [
   'addon',
   'membership',
   'bus',
+  'ride',
 ];
 
 export const INHOUSE_VERTICAL: Readonly<Record<InhouseKind, Vertical>> = {
@@ -221,10 +269,11 @@ export const INHOUSE_VERTICAL: Readonly<Record<InhouseKind, Vertical>> = {
   addon: 'travel_addons',
   membership: 'prime',
   bus: 'buses',
+  ride: 'rides',
 };
 
 /** Cars kinds (ADR-049): not sold on payment plans or with add-ons. */
-export const CARS_KINDS: readonly InhouseKind[] = ['bus'];
+export const CARS_KINDS: readonly InhouseKind[] = ['bus', 'ride'];
 export const isCarsKind = (kind: string): boolean =>
   (CARS_KINDS as readonly string[]).includes(kind);
 
@@ -250,6 +299,9 @@ export function inhouseBasePrice(
     base = multiply(payload.unitPrice, travellerTotal(payload.travellers));
   } else if (payload.kind === 'membership') {
     base = payload.unitPrice;
+  } else if (payload.kind === 'ride') {
+    base = payload.fare.total;
+    return { price: { base, taxes: vatOn(base, payload.vatBps) } };
   } else if (payload.kind === 'bus') {
     base = multiply(payload.unitPrice, payload.seats.length);
     return { price: { base, taxes: vatOn(base, payload.vatBps) } };
@@ -279,6 +331,7 @@ export function inhouseCountry(payload: InhouseItemPayload): string | null {
     case 'membership':
       return null;
     case 'bus':
+    case 'ride':
       return payload.countryCode;
   }
 }
@@ -307,6 +360,8 @@ export function inhouseDates(payload: InhouseItemPayload): { start: string; end:
     case 'addon':
     case 'membership':
       return { start: payload.startDate, end: payload.endDate };
+    case 'ride':
+      return { start: payload.startDate, end: payload.startDate };
     case 'tour':
       return { start: payload.startsAtLocal.slice(0, 10), end: payload.startsAtLocal.slice(0, 10) };
     case 'visa':
@@ -351,7 +406,8 @@ export function cancellationClock(payload: InhouseItemPayload): {
  * whose refunds go through staff (ADR-030).
  */
 export function cancellationTiers(payload: InhouseItemPayload): CancellationTier[] | null {
-  return payload.kind === 'visa' || payload.kind === 'membership'
+  // Rides are cancelled through the ride, under the fare rule's fee (ADR-051).
+  return payload.kind === 'visa' || payload.kind === 'membership' || payload.kind === 'ride'
     ? null
     : payload.cancellationPolicy;
 }
@@ -370,6 +426,8 @@ export function inhouseOfferId(payload: InhouseItemPayload): string {
       return `prime:${payload.productId}`;
     case 'bus':
       return `bus:${payload.tripId}`;
+    case 'ride':
+      return `ride:${payload.category}`;
   }
 }
 

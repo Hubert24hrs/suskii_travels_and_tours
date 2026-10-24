@@ -199,52 +199,57 @@ export class BookingsService {
     const item = booking.items[0];
     if (!item) return EMPTY_VIEW;
     const payload = itemPayload(item);
-    const [voucher, linked, addons, applications, membership, busTickets] = await Promise.all([
-      booking.status === 'CONFIRMED' && isInhouse(payload) && payload.kind !== 'visa'
-        ? this.prisma.bookingVoucher.findUnique({ where: { bookingItemId: item.id } })
-        : null,
-      booking.linkedBookingId
-        ? this.prisma.booking.findUnique({
-            where: { id: booking.linkedBookingId },
-            select: { id: true, reference: true },
-          })
-        : null,
-      booking.vertical === 'travel_addons'
-        ? []
-        : this.prisma.booking.findMany({
-            // Only the same traveller's add-ons: someone else may have linked one by reference.
-            where: {
-              linkedBookingId: booking.id,
-              status: { not: 'DRAFT' },
-              ...(booking.userId
-                ? { userId: booking.userId }
-                : { userId: null, contactEmailHash: booking.contactEmailHash }),
-            },
-            orderBy: { createdAt: 'asc' },
-            select: {
-              id: true,
-              reference: true,
-              status: true,
-              items: { select: { payload: true }, take: 1, orderBy: { createdAt: 'asc' } },
-            },
-          }),
-      payload.kind === 'visa'
-        ? this.prisma.visaApplication.findMany({
-            where: { bookingId: booking.id },
-            orderBy: { applicantPosition: 'asc' },
-          })
-        : [],
-      payload.kind === 'membership'
-        ? this.prisma.primeMembership.findUnique({
-            where: { bookingId: booking.id },
-            select: { startsAt: true, endsAt: true },
-          })
-        : null,
-      // Boarding passes stay listed after boarding or a refund, with their status.
-      payload.kind === 'bus'
-        ? this.prisma.busTicket.findMany({ where: { bookingItemId: item.id } })
-        : [],
-    ]);
+    const [voucher, linked, addons, applications, membership, busTickets, ride] = await Promise.all(
+      [
+        booking.status === 'CONFIRMED' && isInhouse(payload) && payload.kind !== 'visa'
+          ? this.prisma.bookingVoucher.findUnique({ where: { bookingItemId: item.id } })
+          : null,
+        booking.linkedBookingId
+          ? this.prisma.booking.findUnique({
+              where: { id: booking.linkedBookingId },
+              select: { id: true, reference: true },
+            })
+          : null,
+        booking.vertical === 'travel_addons'
+          ? []
+          : this.prisma.booking.findMany({
+              // Only the same traveller's add-ons: someone else may have linked one by reference.
+              where: {
+                linkedBookingId: booking.id,
+                status: { not: 'DRAFT' },
+                ...(booking.userId
+                  ? { userId: booking.userId }
+                  : { userId: null, contactEmailHash: booking.contactEmailHash }),
+              },
+              orderBy: { createdAt: 'asc' },
+              select: {
+                id: true,
+                reference: true,
+                status: true,
+                items: { select: { payload: true }, take: 1, orderBy: { createdAt: 'asc' } },
+              },
+            }),
+        payload.kind === 'visa'
+          ? this.prisma.visaApplication.findMany({
+              where: { bookingId: booking.id },
+              orderBy: { applicantPosition: 'asc' },
+            })
+          : [],
+        payload.kind === 'membership'
+          ? this.prisma.primeMembership.findUnique({
+              where: { bookingId: booking.id },
+              select: { startsAt: true, endsAt: true },
+            })
+          : null,
+        // Boarding passes stay listed after boarding or a refund, with their status.
+        payload.kind === 'bus'
+          ? this.prisma.busTicket.findMany({ where: { bookingItemId: item.id } })
+          : [],
+        payload.kind === 'ride'
+          ? this.prisma.ride.findUnique({ where: { bookingItemId: item.id }, select: { id: true } })
+          : null,
+      ],
+    );
     return {
       voucher: voucher ? this.fulfilment.view(voucher) : null,
       cancellation: isInhouse(payload)
@@ -274,6 +279,7 @@ export class BookingsService {
         updatedAt: application.updatedAt.toISOString(),
       })),
       membershipTerm: membership,
+      rideId: ride?.id ?? null,
       busTickets:
         payload.kind === 'bus'
           ? busTicketViews(busTickets, booking.passengers, payload, this.ticketSigner)
@@ -366,8 +372,12 @@ export class BookingsService {
     const now = new Date();
     if (quote.expiresAt <= now) throw offerUnavailable(payload.request);
     if (payload.kind === 'hotel' && !('query' in payload)) throw quoteExpired();
-    // A membership belongs to the account that asked for its quote (ADR-030).
-    if (payload.kind === 'membership' && (!userId || quote.userId !== userId)) {
+    // A membership or a ride belongs to the account that asked for its quote (ADR-030,
+    // ADR-049): rides need an account for tracking, safety and the driver's contact.
+    if (
+      (payload.kind === 'membership' || payload.kind === 'ride') &&
+      (!userId || quote.userId !== userId)
+    ) {
       throw new NotFoundException();
     }
 
@@ -448,7 +458,7 @@ export class BookingsService {
       },
       passengers: {
         create:
-          payload.kind === 'hotel' || payload.kind === 'membership'
+          payload.kind === 'hotel' || payload.kind === 'membership' || payload.kind === 'ride'
             ? input.guests.map((guest, index) => ({
                 id: uuidv7(),
                 position: index,
@@ -543,8 +553,8 @@ export class BookingsService {
     payload: ItemPayload,
     userId: string | null,
   ): Promise<PreparedPassenger[]> {
-    if (payload.kind === 'hotel' || payload.kind === 'membership') {
-      // Hotel rooms take a lead guest each; a membership names its one member.
+    if (payload.kind === 'hotel' || payload.kind === 'membership' || payload.kind === 'ride') {
+      // Hotel rooms take a lead guest each; a membership names its member, a ride its rider.
       const expected = payload.kind === 'hotel' ? payload.request.rooms.length : 1;
       if (input.passengers.length > 0 || input.guests.length !== expected) {
         throw passengersInvalid([
