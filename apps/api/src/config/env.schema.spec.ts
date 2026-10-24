@@ -225,4 +225,29 @@ describe('parseEnv', () => {
     );
     expect(() => parseEnv({ ...base, INTERNAL_API_TOKEN: 'short' })).toThrow(/INTERNAL_API_TOKEN/);
   });
+
+  it('leaves Cars products off in production and requires their real providers when on', () => {
+    const env = parseEnv(base);
+    expect(env.CARS_RIDES_ENABLED).toBeUndefined();
+    expect(env.BUS_SEAT_HOLD_MINUTES).toBe(10);
+    expect(env.MAPS_PROVIDER).toBe('mock');
+    expect(() => parseEnv({ ...base, MAPS_PROVIDER: 'osrm' })).toThrow(/OSRM_URL/);
+    let message = '';
+    try {
+      parseEnv({
+        ...base,
+        NODE_ENV: 'production',
+        CARS_BUSES_ENABLED: 'true',
+        CARS_RIDES_ENABLED: 'true',
+        MAPS_PROVIDER: 'osrm',
+        OSRM_URL: 'http://osrm.internal:5000',
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    for (const key of ['CARS_TICKET_SIGNING_KEY', 'KYC_PROVIDER', 'PAYOUT_PROVIDER', 'OSRM_URL']) {
+      expect(message).toContain(key);
+    }
+    expect(message).not.toContain('MAPS_PROVIDER:');
+  });
 });

@@ -9,6 +9,8 @@ import { generateKeyPairSync, randomBytes } from 'node:crypto';
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
 const base64Pem = (pem: string): string => Buffer.from(pem).toString('base64');
 
+const ticketKey = generateKeyPairSync('ed25519').privateKey;
+
 const lines = [
   '# Ed25519 access-token signing keys (base64 of the PEM).',
   `JWT_PRIVATE_KEY=${base64Pem(privateKey.export({ type: 'pkcs8', format: 'pem' }).toString())}`,
@@ -19,6 +21,8 @@ const lines = [
   'FIELD_ENCRYPTION_KEY_ID=k1',
   '# Master secret for HMAC subkeys (IP hashing, CSRF, OTP and recovery-code hashes).',
   `HMAC_SECRET=${randomBytes(48).toString('base64url')}`,
+  '# Ed25519 key that signs bus ticket QR codes (ADR-050).',
+  `CARS_TICKET_SIGNING_KEY=${base64Pem(ticketKey.export({ type: 'pkcs8', format: 'pem' }).toString())}`,
   '# Service token shared by the API and the worker for /v1/internal routes.',
   `INTERNAL_API_TOKEN=${randomBytes(32).toString('base64url')}`,
 ];

@@ -28,6 +28,8 @@ import type { AppConfig } from './config/config';
 import { ConfigModule } from './config/config.module';
 import { ContractInterceptor } from './contract/contract.interceptor';
 import { CryptoModule } from './crypto/crypto.module';
+import { CarsFeatureGuard } from './ground/cars-flags';
+import { GroundModule } from './ground/ground.module';
 import { HealthModule } from './health/health.module';
 import { InhouseModule } from './inhouse/inhouse.module';
 import { VisaModule } from './visa/visa.module';
@@ -67,6 +69,7 @@ export class AppModule implements NestModule {
         CryptoModule,
         AuditModule,
         LedgerModule,
+        GroundModule,
         NotificationsModule,
         PushModule,
         MessagingModule,
@@ -95,10 +98,11 @@ export class AppModule implements NestModule {
       ],
       providers: [
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },
-        // Guards run in this order: a retired app version (before anything else), who is
-        // calling, how often, what they may do, then (mobile sensitive routes) whether the
+        // Guards run in this order: a retired app version (before anything else), a switched-off
+        // Cars product (404 for everyone), who is calling, how often, what they may do, then (mobile sensitive routes) whether the
         // device is genuine.
         { provide: APP_GUARD, useClass: AppVersionGuard },
+        { provide: APP_GUARD, useExisting: CarsFeatureGuard },
         { provide: APP_GUARD, useExisting: AuthGuard },
         { provide: APP_GUARD, useClass: RateLimitGuard },
         { provide: APP_GUARD, useExisting: PermissionsGuard },

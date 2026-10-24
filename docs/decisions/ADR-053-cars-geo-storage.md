@@ -44,12 +44,13 @@ PostgreSQL build, including the alpine image and every managed offering.
      city scale. It triggers when more than `RIDE_DEVIATION_METRES` (500) for longer than 2
      minutes.
 5. **Maps provider adapters.**
-   - `MapsProvider` has `route(from, to)` and `geocode(query)`. Implementations are `mock`
-     (straight-line distance at 25 km/h city speed, deterministic, for tests and development)
-     and `osrm` (an HTTP adapter for a self-hosted OSRM).
+   - `MapsProvider` has `route(from, to)`. Implementations are `mock` (the straight line × 1.3
+     at 25 km/h city speed, deterministic, for tests and development) and `osrm` (an HTTP adapter
+     for a self-hosted OSRM, which receives coordinates only).
    - Google and Mapbox stay owner decisions (decision gate: cost and key ownership).
-   - Geocoding results are cached in Redis for 24 hours, keyed by an HMAC of the normalised
-     query, so addresses do not sit in Redis in clear.
+   - There is no external geocoder. Riders pick from curated places (terminals, airports and
+     landmarks entered by staff) or share their device position; free-text address search waits
+     for the owner's maps decision. No address leaves the platform, and none is cached.
 6. **Degradation.** If routing fails, quotes fall back to the straight-line estimate × 1.4.
    They are labelled `estimate: "straight_line"` and capped at `RIDE_FALLBACK_MAX_KM`, so a
    provider outage cannot produce absurd fares.

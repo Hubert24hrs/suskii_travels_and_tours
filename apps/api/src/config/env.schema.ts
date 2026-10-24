@@ -254,6 +254,60 @@ export const envSchema = z
     VISA_DOCUMENT_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
     /** Documents are deleted this many days after the application closes. */
     VISA_DOCUMENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+
+    /**
+     * Cars (ADR-049): each product is on outside production and off in production unless set.
+     * A disabled product's routes answer 404 and clients hide its entry points.
+     */
+    CARS_BUSES_ENABLED: booleanish.optional(),
+    CARS_RIDES_ENABLED: booleanish.optional(),
+    CARS_RENTALS_ENABLED: booleanish.optional(),
+    /** Widens the service area from Nigeria to West Africa (ADR-053). */
+    CARS_WEST_AFRICA_ENABLED: booleanish.default(false),
+    /** Cars features (task P9), each defaulting like the products. */
+    CARS_BUNDLES_ENABLED: booleanish.optional(),
+    CARS_PRICE_BREAKDOWN_ENABLED: booleanish.optional(),
+    CARS_SAFETY_SUITE_ENABLED: booleanish.optional(),
+    CARS_OFFLINE_QR_ENABLED: booleanish.optional(),
+    CARS_DEPARTURE_PLANNER_ENABLED: booleanish.optional(),
+    /**
+     * Ed25519 key that signs bus ticket QR codes (base64 of the PKCS#8 PEM). Unset outside
+     * production means a per-process key; previous public keys (base64 SPKI PEMs, `|`-separated)
+     * keep verifying tickets issued before a rotation.
+     */
+    CARS_TICKET_SIGNING_KEY: z.string().min(1).optional(),
+    CARS_TICKET_PREVIOUS_PUBLIC_KEYS: z.string().optional(),
+    /** VAT on Cars fares in basis points: a placeholder until the owner confirms tax rules. */
+    CARS_VAT_BPS: z.coerce.number().int().min(0).max(5000).default(0),
+    /** Bus seat holds (ADR-051). */
+    BUS_SEAT_HOLD_MINUTES: z.coerce.number().int().min(2).max(30).default(10),
+    BUS_MAX_ACTIVE_HOLDS: z.coerce.number().int().min(1).max(10).default(2),
+    /** Routing and geocoding (ADR-053): `mock` only outside production unless ALLOW_MOCK_PROVIDERS. */
+    MAPS_PROVIDER: z.enum(['mock', 'osrm']).default('mock'),
+    OSRM_URL: z.url().optional(),
+    MAPS_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(3000),
+    /** Driver identity checks and payouts: mock adapters until the owner picks providers. */
+    KYC_PROVIDER: z.enum(['mock']).default('mock'),
+    PAYOUT_PROVIDER: z.enum(['mock']).default('mock'),
+    /** Rides (ADR-051 to ADR-053). */
+    RIDE_SURGE_CAP_BPS: z.coerce.number().int().min(0).max(20_000).default(5000),
+    RIDE_MATCH_RADIUS_METRES: z.coerce.number().int().min(500).max(30_000).default(5000),
+    RIDE_OFFER_SECONDS: z.coerce.number().int().min(5).max(120).default(15),
+    /** A ride still unmatched after this long ends as `no_driver` and is refunded in full. */
+    RIDE_MATCH_TIMEOUT_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+    /** Scheduled rides start matching this long before pickup; they can be booked this far ahead. */
+    RIDE_SCHEDULE_LEAD_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
+    RIDE_SCHEDULE_MAX_DAYS: z.coerce.number().int().min(1).max(30).default(7),
+    /** Drivers whose last position is older than this are not offered rides. */
+    RIDE_LOCATION_FRESH_SECONDS: z.coerce.number().int().min(10).max(600).default(60),
+    RIDE_DEVIATION_METRES: z.coerce.number().int().min(100).max(10_000).default(500),
+    RIDE_DEVIATION_SECONDS: z.coerce.number().int().min(30).max(1800).default(120),
+    /** Longest trip quoted from the straight-line fallback, and longest intrastate trip. */
+    RIDE_FALLBACK_MAX_KM: z.coerce.number().int().min(5).max(500).default(80),
+    RIDE_MAX_KM: z.coerce.number().int().min(5).max(1000).default(150),
+    RIDE_PING_RETENTION_DAYS: z.coerce.number().int().min(7).max(365).default(90),
+    /** Driver balances below this (NGN minor units) wait for the next payout run. */
+    DRIVER_PAYOUT_MIN_MINOR: z.coerce.number().int().min(0).default(100_000),
     /** Price alerts (ADR-032): how often each is checked and the drop worth a notice. */
     PRICE_ALERT_INTERVAL_HOURS: z.coerce.number().int().min(1).max(48).default(6),
     PRICE_ALERT_MIN_DROP_BPS: z.coerce.number().int().min(100).max(9000).default(500),
@@ -344,6 +398,8 @@ export const envSchema = z
     if (env.FLIGHT_SUPPLIERS.includes('duffel') && !env.DUFFEL_API_TOKEN) {
       require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS includes duffel');
     }
+    if (env.MAPS_PROVIDER === 'osrm' && !env.OSRM_URL)
+      require('OSRM_URL', 'is required when MAPS_PROVIDER is osrm');
     if (env.FLIGHT_SUPPLIERS.length === 0)
       require('FLIGHT_SUPPLIERS', 'enable at least one supplier');
     if (env.HOTEL_SUPPLIERS.length === 0)
@@ -430,6 +486,19 @@ export const envSchema = z
       require('OTEL_EXPORTER_OTLP_ENDPOINT', 'must use https in production unless the collector is on localhost');
     if (!env.ALLOW_MOCK_PROVIDERS && env.OBJECT_STORAGE === 'filesystem')
       require('OBJECT_STORAGE', 'filesystem storage is not allowed in production');
+    // Cars products are off in production unless set; enabled ones need their real providers.
+    if (env.CARS_BUSES_ENABLED && !env.CARS_TICKET_SIGNING_KEY)
+      require('CARS_TICKET_SIGNING_KEY', 'is required in production when buses are enabled');
+    if (env.CARS_RIDES_ENABLED && !env.ALLOW_MOCK_PROVIDERS) {
+      if (env.MAPS_PROVIDER === 'mock')
+        require('MAPS_PROVIDER', 'mock routing is not allowed in production');
+      if (env.KYC_PROVIDER === 'mock')
+        require('KYC_PROVIDER', 'driver checks need a real KYC provider in production');
+      if (env.PAYOUT_PROVIDER === 'mock')
+        require('PAYOUT_PROVIDER', 'driver payouts need a real provider in production');
+    }
+    if (env.MAPS_PROVIDER === 'osrm' && env.OSRM_URL && !env.OSRM_URL.startsWith('https://'))
+      require('OSRM_URL', 'must use https in production');
   });
 
 export type Env = z.output<typeof envSchema>;
