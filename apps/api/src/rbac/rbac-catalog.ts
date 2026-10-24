@@ -5,11 +5,13 @@ import type { PrismaClient } from '../generated/prisma/client';
 const ROLE_DESCRIPTIONS: Record<Role, string> = {
   customer: 'Books and manages their own trips',
   super_admin: 'Full access, including roles and trust-signal verification',
-  operations: 'Bookings, catalog, deals and pricing',
+  operations: 'Bookings, catalog, deals, pricing and Cars operations',
   finance: 'Refund approvals and financial reports',
   support: 'Customer support and bookings',
   content_manager: 'CMS content',
   visa_officer: 'Visa applications and documents',
+  driver: 'Approved independent driver: rides only',
+  operator_agent: "Bus operator's boarding agent: scans that operator's tickets",
 };
 
 /**

@@ -42,6 +42,9 @@ export const bookingVerticalSchema = z.enum([
   'visa',
   'travel_addons',
   'prime',
+  'buses',
+  'rides',
+  'rentals',
 ]);
 const boardSchema = z.enum(['room_only', 'breakfast_included', 'half_board', 'full_board']);
 

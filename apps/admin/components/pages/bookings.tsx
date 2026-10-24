@@ -32,7 +32,18 @@ type Row = Schemas['AdminBookingRow'];
 type Detail = Schemas['AdminBookingDetail'];
 type Status = (typeof BOOKING_STATUSES)[number];
 
-const VERTICALS = ['flights', 'hotels', 'packages', 'tours', 'visa', 'travel_addons', 'prime'];
+const VERTICALS = [
+  'flights',
+  'hotels',
+  'packages',
+  'tours',
+  'visa',
+  'travel_addons',
+  'prime',
+  'buses',
+  'rides',
+  'rentals',
+];
 
 type StaffRefundReason = Schemas['CreateRefundRequestInput']['reason'];
 /** The reasons staff may give (the others are reserved for automatic refunds). */

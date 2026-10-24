@@ -45,6 +45,9 @@ export const VERTICALS = [
   'visa',
   'travel_addons',
   'prime',
+  'buses',
+  'rides',
+  'rentals',
 ] as const;
 type Vertical = (typeof VERTICALS)[number];
 
