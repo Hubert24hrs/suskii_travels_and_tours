@@ -504,6 +504,16 @@ describe('Cars data layer (e2e)', () => {
       dropoffLabel: 'Redacted',
       polyline: '',
     });
+    // The booking item and quote snapshots lose the places too, not just the ride row.
+    const item = await ctx.prisma.bookingItem.findFirstOrThrow({
+      where: { booking: { id: riddenRide?.bookingId } },
+      include: { offer: true },
+    });
+    for (const snapshot of [item.payload, item.offer.payload] as {
+      pickup: { label: string; lat: number };
+    }[]) {
+      expect(snapshot.pickup).toEqual(expect.objectContaining({ label: 'Redacted', lat: 6.6 }));
+    }
   });
 
   it('counts a live ride as a booking in progress', async () => {
