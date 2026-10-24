@@ -2,6 +2,7 @@ import { addDays, BOOKING_TERMS_VERSION, localDate } from '@suskii/shared';
 
 import { committedOpenApi, staffSession, type HttpMethod } from './helpers/admin';
 import { bearer, signUp, type TokenSession } from './helpers/flows';
+import { requestRide, rideCatalog } from './helpers/rides';
 import { createTestApp, resetState, type TestContext } from './helpers/test-app';
 
 /**
@@ -48,7 +49,27 @@ const NOT_OWNED: Record<string, string> = {
     'creates a new seat hold on a published departure; holds are tested as releaseBusHold',
   getBusManifest:
     "operator agents only (403 for everyone else); other operators' agents get 404 (buses.e2e-spec.ts)",
+  getSharedRide:
+    'public live-trip link addressed by a 128-bit token, no rider data (rides.e2e-spec.ts)',
+  uploadDriverDocument:
+    "the document kind; always the caller's own driver profile (drivers.e2e-spec.ts)",
+  activateDriverVehicle:
+    "the caller's own vehicles only; another applicant's vehicle answers 404 (drivers.e2e-spec.ts)",
+  acceptRideOffer:
+    "drivers only (403 otherwise); another driver's offer answers 404 (rides.e2e-spec.ts)",
+  declineRideOffer:
+    "drivers only (403 otherwise); another driver's offer answers 404 (rides.e2e-spec.ts)",
+  arriveForRide:
+    "drivers only (403 otherwise); another driver's ride answers 404 (rides.e2e-spec.ts)",
+  startRide: "drivers only (403 otherwise); another driver's ride answers 404 (rides.e2e-spec.ts)",
+  completeRide:
+    "drivers only (403 otherwise); another driver's ride answers 404 (rides.e2e-spec.ts)",
+  handBackRide:
+    "drivers only (403 otherwise); another driver's ride answers 404 (rides.e2e-spec.ts)",
 };
+
+/** Owned resources that only accounts can have: anonymous callers get 401, as on `/v1/me`. */
+const ACCOUNT_ONLY = /^\/v1\/(me|rides)\//;
 
 interface Fixture {
   flightBookingId: string;
@@ -60,6 +81,7 @@ interface Fixture {
   priceAlertId: string;
   sessionId: string;
   busHoldId: string;
+  rideId: string;
 }
 
 interface Case {
@@ -122,6 +144,15 @@ const CASES: Record<string, Case> = {
   deletePriceAlert: { path: (f) => `/v1/me/price-alerts/${f.priceAlertId}` },
   revokeSession: { path: (f) => `/v1/me/sessions/${f.sessionId}` },
   releaseBusHold: { path: (f) => `/v1/buses/holds/${f.busHoldId}` },
+  getRide: { path: (f) => `/v1/rides/${f.rideId}` },
+  cancelRide: { path: (f) => `/v1/rides/${f.rideId}/cancel` },
+  rateRide: {
+    path: (f) => `/v1/rides/${f.rideId}/rating`,
+    body: () => ({ stars: 1, comment: null }),
+  },
+  shareRide: { path: (f) => `/v1/rides/${f.rideId}/share` },
+  revokeRideShare: { path: (f) => `/v1/rides/${f.rideId}/share` },
+  raiseRideSos: { path: (f) => `/v1/rides/${f.rideId}/sos`, body: () => ({}) },
 };
 
 interface Operation {
@@ -408,7 +439,13 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       .send({ seats: ['1A'] })
       .expect(201);
 
+    // A paid ride, through the admin catalog and the booking pipeline.
+    const staff = await staffSession(ctx, 'idor-rides@suskii.test', ['operations']);
+    await rideCatalog(ctx, bearer(staff.accessToken));
+    const { rideId } = await requestRide(ctx, auth);
+
     return {
+      rideId,
       busHoldId: hold.body.holdId as string,
       flightBookingId: flight.bookingId,
       bookingDocumentId: flightBooking.body.documents[0].id as string,
@@ -448,7 +485,7 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
     const outcomes: string[] = [];
     for (const operation of owned) {
       const testCase = CASES[operation.operationId]!;
-      const account = operation.path.startsWith('/v1/me/');
+      const account = ACCOUNT_ONLY.test(operation.path);
       // A typo would also answer 404 (no such route): the path must fit the operation's template,
       // and the owner must be able to read it.
       const template = new RegExp(`^${operation.path.replace(/\{[^}]+\}/g, '[^/]+')}$`);

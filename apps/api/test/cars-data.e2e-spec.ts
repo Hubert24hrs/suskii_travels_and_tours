@@ -1,4 +1,7 @@
-import { BOOKING_TERMS_VERSION } from '@suskii/shared';
+import { BOOKING_TERMS_VERSION, money } from '@suskii/shared';
+
+import type { RideItemPayload } from '../src/bookings/inhouse-items';
+import { toJsonValue } from '../src/common/json';
 
 import { uuidv7 } from '../src/common/uuid';
 import {
@@ -46,6 +49,62 @@ describe('Cars data layer (e2e)', () => {
     await ctx.close();
   });
 
+  const ngn = (minor: number) => money(minor, 'NGN');
+  const stop = { label: 'Ikeja', lat: 6.6, lng: 3.35 };
+  /** A complete ride payload, so presenters (export, bookings) can render the item. */
+  const RIDE_PAYLOAD: RideItemPayload = {
+    kind: 'ride',
+    productId: uuidv7(),
+    slug: 'lagos-standard',
+    title: 'Ikeja to Victoria Island',
+    sample: false,
+    artKey: null,
+    travellers: { adults: 1, children: 0, infants: 0 },
+    category: 'standard',
+    cityName: 'Lagos',
+    countryCode: 'NG',
+    timeZone: 'Africa/Lagos',
+    pickup: stop,
+    dropoff: { label: 'Victoria Island', lat: 6.43, lng: 3.42 },
+    scheduledFor: null,
+    startDate: '2026-10-24',
+    distanceMetres: 21_000,
+    durationSeconds: 2_400,
+    polyline: '',
+    estimate: 'routed',
+    fare: {
+      base: ngn(50_000),
+      distance: ngn(30_000),
+      time: ngn(10_000),
+      surge: ngn(0),
+      minimumTopUp: ngn(0),
+      bookingFee: ngn(10_000),
+      total: ngn(100_000),
+    },
+    rule: {
+      id: uuidv7(),
+      currency: 'NGN',
+      baseMinor: 50_000n,
+      perKmMinor: 15_000n,
+      perMinuteMinor: 2_000n,
+      bookingFeeMinor: 10_000n,
+      minimumMinor: 100_000n,
+      cancellationFeeMinor: 50_000n,
+      freeCancelSeconds: 120,
+      waitGraceSeconds: 300,
+      driverShareBps: 8_000,
+    },
+    vatBps: 0,
+    request: {
+      kind: 'ride',
+      category: 'standard',
+      pickup: stop,
+      dropoff: { label: 'Victoria Island', lat: 6.43, lng: 3.42 },
+      scheduledFor: null,
+      currency: 'NGN',
+    },
+  };
+
   /** A booking with one item of `type`, created straight in the database. */
   async function booking(
     userId: string | null,
@@ -55,12 +114,14 @@ describe('Cars data layer (e2e)', () => {
     const bookingId = uuidv7();
     const itemId = uuidv7();
     const vertical = type === 'bus' ? 'buses' : type === 'ride' ? 'rides' : 'rentals';
+    const itemPayload = (kind: typeof type) =>
+      (kind === 'ride' ? toJsonValue(RIDE_PAYLOAD) : { kind }) as object;
     const offer = await ctx.prisma.offer.create({
       data: {
         vertical,
         supplier: 'suskii',
         supplierOfferId: `${type}:test`,
-        payload: { kind: type },
+        payload: itemPayload(type),
         supplierTotalMinor: 100_000n,
         supplierCurrency: 'NGN',
         price: {},
@@ -95,7 +156,7 @@ describe('Cars data layer (e2e)', () => {
               offerId: offer.id,
               supplier: 'suskii',
               supplierOfferId: `${type}:test`,
-              payload: { kind: type },
+              payload: itemPayload(type),
               totalMinor: 100_000n,
               currency: 'NGN',
             },
