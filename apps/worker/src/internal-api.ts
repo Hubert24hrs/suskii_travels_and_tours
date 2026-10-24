@@ -18,6 +18,8 @@ export type PriceAlertRun = components['schemas']['PriceAlertRun'];
 export type ReferralRun = components['schemas']['ReferralRun'];
 export type ReminderRun = components['schemas']['ReminderRun'];
 export type RetentionRun = components['schemas']['RetentionRun'];
+export type RideDispatchRun = components['schemas']['RideDispatchRun'];
+export type DriverDocumentScanRun = components['schemas']['DriverDocumentScanRun'];
 
 /** A failed internal API call. `status` 0 means the API was unreachable or timed out. */
 export class InternalApiError extends Error {
@@ -71,6 +73,12 @@ export interface BookingsApi {
   readonly runRetention: () => Promise<RetentionRun>;
 }
 
+/** Cars rides (ADR-053): matching every few seconds, and driver documents whose scan was lost. */
+export interface RidesApi {
+  readonly dispatchRides: () => Promise<RideDispatchRun>;
+  readonly scanDueDriverDocuments: () => Promise<DriverDocumentScanRun>;
+}
+
 export interface InternalApiOptions {
   baseUrl: string;
   token: string;
@@ -87,7 +95,12 @@ const RETENTION_TIMEOUT_MS = 300_000;
 /** A batch of price alerts runs a search per distinct route and date (cache hits are quick). */
 const PRICE_ALERT_TIMEOUT_MS = 300_000;
 
-export function createInternalApi(options: InternalApiOptions): InternalApi & BookingsApi {
+/** A dispatch run is database work only; anything slower than this is stuck. */
+const DISPATCH_TIMEOUT_MS = 20_000;
+
+export function createInternalApi(
+  options: InternalApiOptions,
+): InternalApi & BookingsApi & RidesApi {
   const client = createClient<paths>({
     baseUrl: options.baseUrl.replace(/\/$/, ''),
     headers: { Authorization: `Bearer ${options.token}` },
@@ -207,6 +220,19 @@ export function createInternalApi(options: InternalApiOptions): InternalApi & Bo
         'runRetention',
         (signal, headers) => client.POST('/v1/internal/retention/run', { signal, headers }),
         RETENTION_TIMEOUT_MS,
+      ),
+    dispatchRides: () =>
+      call(
+        'dispatchRides',
+        (signal, headers) => client.POST('/v1/internal/rides/dispatch', { signal, headers }),
+        DISPATCH_TIMEOUT_MS,
+      ),
+    scanDueDriverDocuments: () =>
+      call(
+        'scanDueDriverDocuments',
+        (signal, headers) =>
+          client.POST('/v1/internal/drivers/documents/scan-due', { signal, headers }),
+        MONEY_SWEEP_TIMEOUT_MS,
       ),
   };
 }

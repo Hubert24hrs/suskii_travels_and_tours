@@ -5,6 +5,7 @@ import { createInternalApi } from './internal-api.js';
 import { createLifecycle, type WorkerComponent } from './lifecycle.js';
 import { createLogger } from './logger.js';
 import { createRefreshQueue } from './refresh-queue.js';
+import { createRidesQueue } from './rides-queue.js';
 import { createErrorReporter, startMetrics } from './telemetry.js';
 
 loadDevelopmentEnvFile();
@@ -32,6 +33,7 @@ if (config.INTERNAL_API_TOKEN) {
   });
   components.push(createRefreshQueue(config, api, logger, errors));
   components.push(createBookingsQueue(config, api, logger, errors));
+  components.push(createRidesQueue(config, api, logger, errors));
 } else {
   logger.warn(
     'INTERNAL_API_TOKEN is not set; deals refreshes, booking expiry and ticketing retries are disabled',
