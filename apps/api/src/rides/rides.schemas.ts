@@ -302,15 +302,19 @@ export const fareRuleListSchema = named(
   }),
 );
 
-export const placeBodySchema = z.object({
+const placeFields = z.object({
   name: z.string().trim().min(2).max(120),
   kind: z.enum(['airport', 'terminal', 'landmark']),
   cityName: z.string().trim().min(2).max(80),
   lat: coordinate(-90, 90),
   lng: coordinate(-180, 180),
-  active: z.boolean().default(true),
+  active: z.boolean(),
 });
-export const placeUpdateSchema = placeBodySchema.partial();
+export const placeBodySchema = placeFields.extend({
+  active: placeFields.shape.active.default(true),
+});
+/** No defaults: a field left out of an update stays as it is. */
+export const placeUpdateSchema = placeFields.partial();
 
 export const createdSchema = named('RideConfigCreated', z.object({ id: z.uuid() }));
 
