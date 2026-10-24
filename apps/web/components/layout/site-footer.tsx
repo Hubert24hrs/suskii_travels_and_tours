@@ -1,13 +1,13 @@
 import { BRAND, SUPPORTED_LOCALES } from '@suskii/shared';
 
 import { setLocale } from '../../app/actions';
-import type { SiteContent } from '../../lib/api';
+import { api, type SiteContent } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
 import { AppLink } from '../app-link';
 import { CookieSettings } from '../cookies/cookie-settings';
 
 import { Container } from './container';
-import { NAV_ITEMS } from './nav-items';
+import { CARS_NAV_ITEMS, NAV_ITEMS } from './nav-items';
 import { PreferenceSelect } from './preference-select';
 
 const SOCIAL_LABELS: Record<string, string> = {
@@ -37,6 +37,7 @@ function Column({ title, children }: { title: string; children: React.ReactNode 
  */
 export async function SiteFooter({ site }: { site: SiteContent | null }) {
   const { t, locale, messages } = await getI18n();
+  const cars = await api.carsFeatures();
   const pages = (group: string) => site?.pages.filter((page) => page.group === group) ?? [];
   const pageLinks = (group: string) =>
     pages(group).map((page) => (
@@ -52,7 +53,7 @@ export async function SiteFooter({ site }: { site: SiteContent | null }) {
     <footer className="mt-16 border-t border-border bg-surface">
       <Container className="grid grid-cols-2 gap-8 py-12 md:grid-cols-4 lg:grid-cols-5">
         <Column title={t('footer.explore')}>
-          {NAV_ITEMS.map((item) => (
+          {[...NAV_ITEMS, ...CARS_NAV_ITEMS.filter((item) => cars?.[item.product])].map((item) => (
             <li key={item.href}>
               <AppLink href={item.href} className={linkClass}>
                 {t(`verticals.${item.vertical}`)}

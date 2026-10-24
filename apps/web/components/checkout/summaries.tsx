@@ -6,6 +6,7 @@ import { Badge, Card } from '@suskii/ui-web';
 import type { Schemas } from '../../lib/browser-api';
 
 import { useBookingT } from './checkout-messages';
+import { CarsDetails, hasCarsItem } from './cars-details';
 import { InhouseDetails, inhouseKind } from './inhouse-details';
 
 type Quote = Schemas['Quote'];
@@ -70,6 +71,14 @@ export function TripSummary({ quote }: { quote: Quote }) {
       </Card>
     );
   }
+  if (hasCarsItem(quote)) {
+    return (
+      <Card className="flex flex-col gap-3 p-4">
+        <h2 className="font-heading text-h4 font-bold text-heading">{t('checkout.trip')}</h2>
+        <CarsDetails items={quote} inCheckout />
+      </Card>
+    );
+  }
   if (inhouseKind(quote)) {
     return (
       <Card className="flex flex-col gap-3 p-4">
@@ -118,6 +127,8 @@ export interface PriceLines {
   payAtProperty: Money | null;
   /** In-house products have a price, not a fare, and usually no separate taxes. */
   inhouse?: boolean;
+  /** A rental's refundable deposit, charged with the booking on top of the price (ADR-051). */
+  deposit?: Money | null;
 }
 
 export function PriceSummary({ lines }: { lines: PriceLines }) {
@@ -163,6 +174,11 @@ export function PriceSummary({ lines }: { lines: PriceLines }) {
           <dd data-testid="checkout-total">{format.money(lines.total)}</dd>
         </div>
       </dl>
+      {lines.deposit ? (
+        <p className="font-body text-body-sm text-foreground" data-testid="checkout-deposit">
+          {t('checkout.depositNote', { amount: format.money(lines.deposit) })}
+        </p>
+      ) : null}
       <p className="font-body text-caption text-foreground">{t('checkout.totalNote')}</p>
       {lines.payAtProperty ? (
         <p className="font-body text-caption text-foreground">

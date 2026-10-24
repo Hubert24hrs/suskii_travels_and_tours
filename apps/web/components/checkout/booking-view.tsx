@@ -14,6 +14,8 @@ import { ResultsLoading } from '../results/result-states';
 
 import { useBookingT } from './checkout-messages';
 import { CancelUnderPolicy, TripExtras, VisaApplications, VoucherCard } from './inhouse-booking';
+import { CarsBooking } from './cars-booking';
+import { hasCarsItem } from './cars-details';
 import { InhouseDetails, inhouseKind } from './inhouse-details';
 import { MethodChoice, type ProviderName } from './payment-choice';
 import { PlanPanel, RefundList } from './plan-panel';
@@ -62,10 +64,14 @@ const ON_PLAN: readonly BookingStatus[] = ['HELD', 'PARTIALLY_PAID'];
  */
 const DOCUMENTS_WAIT_MS = 3 * 60_000;
 
-/** A booking confirmed moments ago whose documents (all but memberships have one) are not ready. */
+/**
+ * A booking confirmed moments ago whose documents are not ready (memberships, rides and rentals
+ * have none, ADR-051).
+ */
+const NO_DOCUMENTS: readonly Booking['vertical'][] = ['prime', 'rides', 'rentals'];
 const awaitingDocuments = (booking: Booking): boolean =>
   booking.status === 'CONFIRMED' &&
-  booking.vertical !== 'prime' &&
+  !NO_DOCUMENTS.includes(booking.vertical) &&
   booking.documents.length === 0 &&
   booking.confirmedAt !== null &&
   Date.now() - Date.parse(booking.confirmedAt) < DOCUMENTS_WAIT_MS;
@@ -390,6 +396,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
               </section>
             </Card>
           ) : null}
+          {hasCarsItem(booking) ? <CarsBooking booking={booking} reload={reload} /> : null}
           {kind ? (
             <Card asChild className="flex flex-col gap-3 p-4">
               <section aria-labelledby="booking-product">

@@ -84,12 +84,15 @@ function formPath(apiPath: string): string {
 function draftFor(quote: Quote): CheckoutDraft {
   const counts =
     quote.flight?.offer.passengers ??
-    (quote.package ?? quote.tour ?? quote.visa ?? quote.addon)?.travellers;
+    (quote.package ?? quote.tour ?? quote.visa ?? quote.addon ?? quote.bus)?.travellers;
   // Visa assistance is for one nationality: every applicant starts with it (ADR-026).
   const passengers = counts ? passengerDrafts(counts, quote.visa?.nationality ?? '') : [];
+  // Hotels name a guest per room; a ride or a rental names its one rider or renter (ADR-051).
   const guests = quote.hotel
     ? quote.hotel.request.rooms.map(() => ({ givenNames: '', surname: '' }))
-    : [];
+    : quote.ride || quote.rental
+      ? [{ givenNames: '', surname: '' }]
+      : [];
   return { passengers, guests, email: '', phone: '', terms: false };
 }
 
@@ -234,6 +237,10 @@ export function Checkout({
       },
       payAtProperty: quote.hotel?.rate.payAtProperty ?? null,
       inhouse: quote.price !== null,
+      deposit:
+        quote.rental && quote.rental.charge.deposit.amountMinor > 0
+          ? quote.rental.charge.deposit
+          : null,
     };
   }, [quote, draft, promo, services]);
 

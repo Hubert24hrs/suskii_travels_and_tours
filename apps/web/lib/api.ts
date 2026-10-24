@@ -146,6 +146,43 @@ export const api = {
     apiGet<Schemas['Airport']>(`/v1/catalog/airports/${encodeURIComponent(code)}`, {
       revalidate: ONE_DAY,
     }),
+  // Cars (ADR-049): switched-off products answer 404, which reads as "nothing to show".
+  carsFeatures: () =>
+    apiGet<Schemas['CarsFeatures']>('/v1/cars/features', {
+      revalidate: ONE_MINUTE,
+      tags: ['cars'],
+    }),
+  busCities: () =>
+    apiGet<Schemas['BusCities']>('/v1/buses/cities', { revalidate: FIVE_MINUTES, tags: ['cars'] }),
+  busSearch: (query: Record<string, string | undefined>) =>
+    apiGet<Schemas['BusSearchResult']>('/v1/buses/search', {
+      revalidate: ONE_MINUTE,
+      tags: ['cars'],
+      query,
+    }),
+  // Seats change by the second: the seat picker reads the map fresh.
+  busTrip: (tripId: string, currency: string) =>
+    apiGet<Schemas['BusTripDetail']>(`/v1/buses/trips/${encodeURIComponent(tripId)}`, {
+      revalidate: 0,
+      query: { currency },
+    }),
+  ridePlaces: (city?: string) =>
+    apiGet<Schemas['RidePlaces']>('/v1/rides/places', {
+      revalidate: FIVE_MINUTES,
+      tags: ['cars'],
+      query: { city },
+    }),
+  rentalSearch: (query: Record<string, string | undefined>) =>
+    apiGet<Schemas['RentalSearchResult']>('/v1/rentals/vehicles', {
+      revalidate: ONE_MINUTE,
+      tags: ['cars'],
+      query,
+    }),
+  rentalVehicle: (slug: string) =>
+    apiGet<Schemas['RentalVehicle']>(`/v1/rentals/vehicles/${encodeURIComponent(slug)}`, {
+      revalidate: FIVE_MINUTES,
+      tags: ['cars'],
+    }),
   // Plans are staff-managed data; the purchase quote re-reads the plan anyway (ADR-030).
   primePlans: (currency: string) =>
     apiGet<Schemas['PrimePlanList']>('/v1/prime/plans', {
