@@ -2,6 +2,7 @@ import type { components, paths } from '@suskii/api-client/schema';
 import createClient, { type Client } from 'openapi-fetch';
 
 import { CLIENT_ID, publicEnv } from './env';
+import { randomUuid } from './random-uuid';
 import { csrfToken, ensureFreshSession } from './session';
 
 export type Schemas = components['schemas'];
@@ -51,5 +52,5 @@ export const isRejectedPassword = (error: unknown): boolean => {
 
 /** A fresh key per logical write (booking, payment); retries of the same write reuse it. */
 export function idempotencyKey(): string {
-  return crypto.randomUUID();
+  return randomUuid();
 }
