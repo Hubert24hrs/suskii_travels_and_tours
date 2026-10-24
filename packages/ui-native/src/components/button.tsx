@@ -4,25 +4,29 @@ import { ActivityIndicator, Pressable, Text, type PressableProps } from 'react-n
 
 import { cn } from '../lib/cn';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 const containerClasses: Record<Variant, string> = {
   primary: 'bg-primary shadow-primary-button active:bg-primary-pressed',
   // Orange takes dark text: white on the brand orange fails WCAG at every size (ADR-004).
   secondary: 'bg-accent active:bg-accent-hover',
   ghost: 'bg-transparent active:bg-primary-subtle',
+  // SOS and other safety actions (same pairing as the web `danger` button).
+  danger: 'bg-danger active:opacity-90',
 };
 
 const labelClasses: Record<Variant, string> = {
   primary: 'text-on-primary',
   secondary: 'text-on-accent',
   ghost: 'text-primary',
+  danger: 'text-on-status',
 };
 
 const spinnerColor: Record<Variant, string> = {
   primary: color['on-primary'],
   secondary: color['on-accent'],
   ghost: color.primary,
+  danger: color['on-status'],
 };
 
 export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
