@@ -155,7 +155,7 @@ export class TripPlanningService {
             zone,
           );
       return {
-        ride: await this.airportRide(city, arrival, zone, now),
+        ride: await this.airportRide(city, arrival, now),
         rental: returnAt > pickupAt ? await this.rental(city, pickupAt, returnAt) : null,
         bus: await this.bus(city, outbound.arrivalLocal.slice(0, 10)),
       };
@@ -221,7 +221,6 @@ export class TripPlanningService {
   private async airportRide(
     city: string,
     arrival: Date,
-    timeZone: string,
     now: Date,
   ): Promise<CarsSuggestionsDto['ride']> {
     if (!this.flags.enabled('rides')) return null;
@@ -236,10 +235,8 @@ export class TripPlanningService {
       pickupPlaceId: airport.id,
       pickupLabel: airport.name,
       cityName: city,
-      scheduledForLocal:
-        ahead >= RIDE_SCHEDULE_MIN_MS && ahead <= RIDE_SCHEDULE_MAX_MS
-          ? utcToLocal(pickup, timeZone)
-          : null,
+      scheduledFor:
+        ahead >= RIDE_SCHEDULE_MIN_MS && ahead <= RIDE_SCHEDULE_MAX_MS ? iso(pickup) : null,
     };
   }
 

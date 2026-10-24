@@ -236,7 +236,7 @@ describe('Cars P9 features (e2e)', () => {
         pickupPlaceId: place('Murtala Muhammed Airport').id,
         cityName: 'Lagos',
       });
-      expect(suggestions.body.ride.scheduledForLocal).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+      expect(Date.parse(suggestions.body.ride.scheduledFor as string)).toBeGreaterThan(Date.now());
       expect(suggestions.body.rental).toMatchObject({ cityName: 'Lagos' });
       expect(suggestions.body.rental.returnAtLocal > suggestions.body.rental.pickupAtLocal).toBe(
         true,
