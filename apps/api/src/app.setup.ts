@@ -64,8 +64,11 @@ export function configureApp<T extends NestExpressApplication>(app: T, config: A
   app.use(cookieParser());
   // Explicit JSON body cap (Nest's default is the same, but it is a security control): larger
   // payloads get 413 before any parsing work. With `rawBody: true` on the application (main.ts,
-  // tests), the exact bytes are kept for webhook signature checks.
-  app.useBodyParser('json', { limit: '100kb' });
+  // tests), the exact bytes are kept for webhook signature checks. Compressed request bodies are
+  // refused with 415 before any decompression: no client or provider sends them, and inflating
+  // them is where body-parser 2.3 can be stalled (GHSA-27r3-jxmh-p828, docs/audits/e2e-audit.md).
+  app.useBodyParser('json', { limit: '100kb', inflate: false });
+  app.useBodyParser('urlencoded', { extended: true, limit: '100kb', inflate: false });
 
   app.enableCors({
     // Only allowlisted browser origins get CORS headers; server-to-server calls send no Origin.
