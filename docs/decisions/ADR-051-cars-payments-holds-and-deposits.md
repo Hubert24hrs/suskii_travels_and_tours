@@ -64,9 +64,24 @@ owner's merchant accounts):
    less platform commission, on a new driver-earnings account per driver.
    - Payouts are batched by the worker through `PayoutProvider`, which has a mock
      implementation only.
+   - Implemented in P6 (`DriverPayoutsService`): daily, approved drivers with bank details and
+     at least `DRIVER_PAYOUT_MIN_MINOR`, the whole balance per driver and currency in one
+     provider batch. `payout_sent` moves earnings to payouts-in-flight under a row lock on the
+     earnings account, and a partial unique index allows one pending payout per driver and
+     currency. The bank's answer posts `payout_settled` (out of the provider balance) or
+     `payout_failed` (back to earnings). Pending payouts are followed up by status and resent
+     with the same reference when the provider never received them. After `account_rejected`
+     the next attempt waits for new bank details; suspended drivers are held.
 5. **Cash is off at launch** (decision gate default) and is not implemented. Enabling it later
    needs an owner decision and an ADR: cash fares bypass the provider and need a
    driver-collects ledger flow.
+6. **Reconciliation (P6).** Hourly, `LedgerReconciliationService` compares each captured
+   payment, settled refund and finished payout once with its ledger postings, and checkout
+   payments with the provider's record. Capture postings of the last seven days whose payment
+   is not captured are flagged as orphans. Differences become `reconciliation_discrepancies`
+   for staff with `finance:reconcile` and an operations alert; nothing is corrected
+   automatically. `corrected` makes the next sweep check the record again (and reopen it);
+   `accepted` closes it.
 
 ### Rental deposits
 

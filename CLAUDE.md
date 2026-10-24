@@ -274,6 +274,12 @@ Tooling notes for agents:
   REFUNDED when nothing is left and no refund is open.
 - Emailed booking links carry a guest token in the URL fragment (`#access=`), stored as an HMAC
   (`BookingAccessLinks`); the web page moves it to session storage and strips it from the URL.
+- Ledger reconciliation (`LedgerReconciliationService`, hourly) compares each captured payment,
+  settled refund and finished driver payout with its postings (and the provider) and raises
+  `reconciliation_discrepancies` for `finance:reconcile`; it never corrects anything. Driver
+  earnings leave only through `DriverPayoutsService` (`payout_sent`/`settled`/`failed`, one
+  pending payout per driver and currency); never post to `driver-earnings` elsewhere except
+  ride settlement (ADR-051).
 
 ### Web (apps/web)
 

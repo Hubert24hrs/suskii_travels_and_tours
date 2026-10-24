@@ -82,6 +82,8 @@ without Redis, credential checks answer with an error instead of skipping the lo
 | Driver applications and documents  | KYC lookups; storage and antivirus                         | 5 applications an hour per user, one driver per NIN and licence; 20 uploads an hour per user, 40 per driver, size limit after the ownership check |
 | Rental search and quotes           | An availability query per car; a routing call per delivery | 60 a minute per IP for search; quotes signed in, 30-day maximum rental, 180-day horizon, delivery within the car's radius                         |
 | Rental licence and photo uploads   | Storage and antivirus                                      | 20 licence uploads an hour per user, size limit after the ownership check; 30 photos per rental, scanned before they count                        |
+| Ledger reconciliation              | A provider verification per captured checkout payment      | Worker hourly; 100 payments, refunds and payouts per run, each checked once; no new provider call after 20 s                                      |
+| Driver payouts                     | A bank transfer per driver                                 | Worker daily; one provider batch (100) per run; at least `DRIVER_PAYOUT_MIN_MINOR`; one pending payout per driver and currency                    |
 
 Capacity is checked by the k6 load test in CI (ADR-045). Locally it handled five times the
 spec's peak within the latency thresholds. The `QueueBacklog`, `ApiLatencyHigh` and

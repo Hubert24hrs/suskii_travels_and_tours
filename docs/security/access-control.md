@@ -48,6 +48,7 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Live ride board, staff ride stops, safety incidents                                              | Staff with `safety:manage` (operations, support)                                                                          |
 | Rental reservations and licences                                                                 | The renter's account only (rentals need an account); 404 for anyone else                                                  |
 | Rental fleet, licence review, handover photos, check-out and check-in, deposit release           | Staff with `ground:manage`; licence and photo reads audited                                                               |
+| Ledger reconciliation discrepancies, driver payout list                                          | Staff with `finance:reconcile` (finance, super admins); resolutions audited; payouts listed without bank details          |
 | Accounts                                                                                         | The owner; staff with `users:read` (view) or `users:manage` (disable, sign out, reset MFA)                                |
 | Audit log, dashboards                                                                            | Staff with `audit:read` or `reports:read`                                                                                 |
 
