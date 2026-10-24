@@ -535,6 +535,19 @@ export function BookingView({ bookingId }: { bookingId: string }) {
             <p className="font-heading text-h3 font-extrabold text-heading">
               {format.money(plan?.total ?? booking.price.total)}
             </p>
+            {booking.priceBreakdown && booking.priceBreakdown.length > 0 ? (
+              <dl
+                className="flex flex-col gap-1 font-body text-caption text-foreground"
+                data-testid="booking-price-lines"
+              >
+                {booking.priceBreakdown.map((line) => (
+                  <div key={line.code} className="flex justify-between gap-4">
+                    <dt>{t(`checkout.breakdown.${line.code}`, { count: line.quantity ?? 1 })}</dt>
+                    <dd>{format.money(line.amount)}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
             {booking.paid.amountMinor > 0 ? (
               <>
                 <p className="font-body text-body-sm text-foreground">{t('booking.paid')}</p>

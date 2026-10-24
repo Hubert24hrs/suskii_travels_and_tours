@@ -572,14 +572,27 @@ function Checkout({ quote }: { quote: Quote }) {
             <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
               {t('checkout.summary')}
             </Text>
-            <View className="flex-row justify-between">
-              <Text className="font-body text-body-sm text-foreground">
-                {inhouse ? t('checkout.basePrice') : t('checkout.fare')}
-              </Text>
-              <Text className="font-body text-body-sm text-foreground">
-                {format.money(price.fare)}
-              </Text>
-            </View>
+            {quote.priceBreakdown && quote.priceBreakdown.length > 0 ? (
+              quote.priceBreakdown.map((line) => (
+                <View key={line.code} testID="price-line" className="flex-row justify-between">
+                  <Text className="font-body text-body-sm text-foreground">
+                    {t(`checkout.breakdown.${line.code}`, { count: line.quantity ?? 1 })}
+                  </Text>
+                  <Text className="font-body text-body-sm text-foreground">
+                    {format.money(line.amount)}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View className="flex-row justify-between">
+                <Text className="font-body text-body-sm text-foreground">
+                  {inhouse ? t('checkout.basePrice') : t('checkout.fare')}
+                </Text>
+                <Text className="font-body text-body-sm text-foreground">
+                  {format.money(price.fare)}
+                </Text>
+              </View>
+            )}
             {inhouse && price.taxes.amountMinor === 0 ? null : (
               <View className="flex-row justify-between">
                 <Text className="font-body text-body-sm text-foreground">

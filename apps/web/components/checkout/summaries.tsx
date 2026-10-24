@@ -129,6 +129,8 @@ export interface PriceLines {
   inhouse?: boolean;
   /** A rental's refundable deposit, charged with the booking on top of the price (ADR-051). */
   deposit?: Money | null;
+  /** A bus, ride or rental fare by its parts, adding up to the fare (Cars P9). */
+  breakdown?: Schemas['PriceBreakdown'];
 }
 
 export function PriceSummary({ lines }: { lines: PriceLines }) {
@@ -141,10 +143,19 @@ export function PriceSummary({ lines }: { lines: PriceLines }) {
         {t('checkout.summary')}
       </h2>
       <dl className="flex flex-col gap-2 font-body text-body-sm text-foreground">
-        <div className="flex justify-between gap-4">
-          <dt>{lines.inhouse ? t('checkout.basePrice') : t('checkout.fare')}</dt>
-          <dd>{format.money(price.fare)}</dd>
-        </div>
+        {lines.breakdown && lines.breakdown.length > 0 ? (
+          lines.breakdown.map((line) => (
+            <div key={line.code} className="flex justify-between gap-4" data-testid="price-line">
+              <dt>{t(`checkout.breakdown.${line.code}`, { count: line.quantity ?? 1 })}</dt>
+              <dd>{format.money(line.amount)}</dd>
+            </div>
+          ))
+        ) : (
+          <div className="flex justify-between gap-4">
+            <dt>{lines.inhouse ? t('checkout.basePrice') : t('checkout.fare')}</dt>
+            <dd>{format.money(price.fare)}</dd>
+          </div>
+        )}
         {lines.inhouse && price.taxes.amountMinor === 0 ? null : (
           <div className="flex justify-between gap-4">
             <dt>{t('checkout.taxes')}</dt>

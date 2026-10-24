@@ -72,6 +72,33 @@ describe('Cars checkout on mobile', () => {
     expect(await screen.findByRole('button', { name: 'Nigeria' })).toBeOnTheScreen();
   });
 
+  it('shows a ride fare by its parts when the breakdown is on', async () => {
+    api({
+      ...rideQuote(),
+      priceBreakdown: [
+        { code: 'ride_base', amount: { amountMinor: 70_000, currency: 'NGN' }, quantity: null },
+        {
+          code: 'ride_distance',
+          amount: { amountMinor: 230_000, currency: 'NGN' },
+          quantity: null,
+        },
+        {
+          code: 'ride_booking_fee',
+          amount: { amountMinor: 20_000, currency: 'NGN' },
+          quantity: null,
+        },
+      ],
+    });
+    await renderWithApp(<CheckoutScreen />, await signedInSession());
+    const lines = await screen.findAllByTestId('price-line');
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toHaveTextContent(`${m.checkout.breakdown.ride_base}₦700`);
+    expect(lines[1]).toHaveTextContent(`${m.checkout.breakdown.ride_distance}₦2,300`);
+    expect(lines[2]).toHaveTextContent(`${m.checkout.breakdown.ride_booking_fee}₦200`);
+    expect(screen.queryByText(m.checkout.basePrice)).toBeNull();
+    expect(screen.getByTestId('checkout-total')).toHaveTextContent(/3,200/);
+  });
+
   it('books a ride for the named rider and sends guests, not passengers', async () => {
     const { calls } = api(rideQuote());
     await renderWithApp(<CheckoutScreen />, await signedInSession());

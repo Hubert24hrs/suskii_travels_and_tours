@@ -691,6 +691,18 @@ export const en = {
     deposit: 'Refundable deposit',
     depositNote:
       'Plus a refundable deposit of {amount}, paid with this booking and returned after the car comes back.',
+    breakdown: {
+      ride_base: 'Base fare',
+      ride_distance: 'Distance',
+      ride_time: 'Time',
+      ride_surge: 'Busy-time charge',
+      ride_minimum: 'Minimum fare top-up',
+      ride_booking_fee: 'Booking fee',
+      bus_seats: { one: '{count} seat', other: '{count} seats' },
+      rental_vehicle: { one: 'Car, {count} day', other: 'Car, {count} days' },
+      rental_chauffeur: { one: 'Chauffeur, {count} day', other: 'Chauffeur, {count} days' },
+      rental_delivery: 'Delivery',
+    },
     basePrice: 'Price',
     taxes: 'Taxes and charges',
     extrasLine: 'Extra baggage',

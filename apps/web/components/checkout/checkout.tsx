@@ -241,6 +241,7 @@ export function Checkout({
         quote.rental && quote.rental.charge.deposit.amountMinor > 0
           ? quote.rental.charge.deposit
           : null,
+      breakdown: quote.priceBreakdown,
     };
   }, [quote, draft, promo, services]);
 
