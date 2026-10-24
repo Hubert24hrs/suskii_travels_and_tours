@@ -36,7 +36,8 @@ test('a super admin verifies a trust signal with evidence and the site shows it'
 
 test('operations staff create a promo code but cannot open pricing', async ({ page, stack }) => {
   await signIn(page, stack, 'operations');
-  // Operations run bookings and deals; pricing, content, the audit log and visa work are not theirs.
+  // Operations run bookings, deals and the ground network (Cars, ADR-049); pricing, content, the
+  // audit log, payouts and visa work are not theirs.
   expect(await navLabels(page)).toEqual([
     t('nav.dashboard'),
     t('nav.bookings'),
@@ -47,6 +48,10 @@ test('operations staff create a promo code but cannot open pricing', async ({ pa
     t('nav.deals'),
     t('nav.users'),
     t('nav.referrals'),
+    t('nav.ground'),
+    t('nav.drivers'),
+    t('nav.rides'),
+    t('nav.rentals'),
   ]);
   await page.goto('/pricing');
   await expect(alertWith(page, t('common.forbidden'))).toBeVisible();

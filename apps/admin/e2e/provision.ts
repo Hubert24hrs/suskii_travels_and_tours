@@ -31,6 +31,20 @@ class Api {
     }
     return (text ? JSON.parse(text) : null) as T;
   }
+
+  /** Uploads a raw request body (driver documents are sent as the file bytes, not JSON). */
+  async upload(path: string, body: Buffer, contentType: string, token: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'PUT',
+      headers: { 'content-type': contentType, ...bearer(token) },
+      body: new Uint8Array(body),
+    });
+    if (!response.ok) {
+      throw new Error(
+        `PUT ${path} answered ${response.status}: ${(await response.text()).slice(0, 300)}`,
+      );
+    }
+  }
 }
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -181,6 +195,80 @@ async function waitForApplication(api: Api, root: string, reference: string): Pr
   throw new Error('The paid visa booking opened no application');
 }
 
+const PNG = Buffer.from(
+  '89504e470d0a1a0a0000000d4948445200000001000000010806000000' +
+    '1f15c4890000000d4944415478da63f8ffff3f0005fe02fe0dd8a8820000000049454e44ae426082',
+  'hex',
+);
+const DRIVER_DOCUMENTS = [
+  'licence',
+  'vehicle_registration',
+  'insurance',
+  'roadworthiness',
+  'selfie',
+] as const;
+const digits = (length: number) =>
+  Array.from(randomBytes(length), (byte) => String(byte % 10)).join('');
+
+/**
+ * An application to drive with every document uploaded and one vehicle, as the driver app sends
+ * it. The mock KYC provider verifies identity and licence (numbers not starting 000, 999 or 555);
+ * the documents' background scan has to finish before a reviewer can approve them.
+ */
+async function applyToDrive(
+  api: Api,
+  root: string,
+  applicant: Persona,
+): Promise<{ id: string; name: string }> {
+  const session = await signIn(api, applicant.email, applicant.password);
+  if (!session.accessToken) throw new Error('The applicant should not have MFA');
+  const token = session.accessToken;
+  const applied = await api.call<{ id: string; givenNames: string; surname: string }>(
+    'POST',
+    '/v1/drivers/applications',
+    {
+      headers: bearer(token),
+      body: {
+        givenNames: 'Chinedu',
+        surname: 'Okeke',
+        dateOfBirth: '1990-04-12',
+        cityName: 'Lagos',
+        nin: `1${digits(10)}`,
+        licenceNumber: `LAG${digits(9)}`,
+        licenceExpiresOn: '2031-06-30',
+      },
+    },
+  );
+  for (const kind of DRIVER_DOCUMENTS) {
+    await api.upload(`/v1/drivers/me/documents/${kind}`, PNG, 'image/png', token);
+  }
+  await api.call('POST', '/v1/drivers/me/vehicles', {
+    headers: bearer(token),
+    body: {
+      make: 'Toyota',
+      model: 'Camry',
+      year: 2018,
+      colour: 'Black',
+      plate: `KJA-${digits(3)}-AB`,
+      category: 'standard',
+      seats: 4,
+      insuranceExpiresOn: '2030-12-31',
+    },
+  });
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const driver = await api.call<{ documents: { status: string }[] }>(
+      'GET',
+      `/v1/admin/drivers/${applied.id}`,
+      { headers: bearer(root) },
+    );
+    if (driver.documents.every((document) => document.status === 'clean')) {
+      return { id: applied.id, name: `${applied.givenNames} ${applied.surname}` };
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+  }
+  throw new Error('The driver documents were not scanned');
+}
+
 export async function provision(
   apiUrl: string,
   root: { email: string; password: string },
@@ -249,6 +337,7 @@ export async function provision(
   );
   const visaBooking = await bookAndPay(api, visaQuote, 'ada.visa@example.com');
   const applicationId = await waitForApplication(api, rootToken, visaBooking.reference);
+  const driver = await applyToDrive(api, rootToken, personas.applicant);
 
   return {
     personas,
@@ -256,5 +345,6 @@ export async function provision(
     heldBooking,
     visa: { bookingId: visaBooking.id, applicationId },
     tourSlug: watched.slug,
+    driver,
   };
 }
