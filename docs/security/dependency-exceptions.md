@@ -28,6 +28,7 @@ parent package depends on it:
 | `zod` (4.x)        | 4.6.7    | `eslint-plugin-react-hooks` (lint only)                    | GHSA-mrhx-c7xc-m3w5                      |
 | `zod` (Expo CLI)   | 4.6.7    | `@expo/cli` (pins 3.x; dev-tools plugin schemas)           | GHSA-mrhx-c7xc-m3w5                      |
 | `zod` (Lighthouse) | 4.6.7    | `chromium-bidi` via puppeteer (pins 3.x; BiDi mapper only) | GHSA-mrhx-c7xc-m3w5                      |
+| `semver` (6.x)     | 7.8.5    | Babel 7, `eslint-plugin-import`/`react`, istanbul (pin 6)  | Trust policy (6.3.1 has no provenance)   |
 
 Prisma's CLI (`generate`, `migrate deploy`, `migrate status`) was checked with the
 `deepmerge-ts` 8 override. The Expo CLI was checked with zod 4: its plugin and MCP schemas accept
@@ -37,16 +38,13 @@ mapper for the WebDriver BiDi protocol, and Lighthouse drives Chrome over CDP.
 ## Open advisories (not ignored)
 
 Found by the end-to-end audit on 2026-10-24 (`docs/audits/e2e-audit.md`). They are **not** in
-`auditConfig.ignoreGhsas`, so CI's audit stays red until each is upgraded. The first two are blocked
-by the pnpm trust policy: re-resolving the Babel graph that `next` 16.4 and Storybook 10.6.3 touch
-reaches `semver@6.3.1`, which pnpm refuses as a trust downgrade (it was published after semver
-7.5.x, which carried provenance). The policy was not relaxed without the owner.
+`auditConfig.ignoreGhsas`, so CI's audit stays red until each is upgraded. `next` (16.4.1) and
+Storybook (10.6.3) were upgraded on 2026-10-24 without relaxing the pnpm trust policy: the only
+semver 6 release with the ReDoS fix (6.3.1) has no provenance, so the `semver@<7` override moves
+its users (Babel 7, two ESLint plugins, istanbul) to semver 7.8.5, which keeps every function they
+call (`satisfies`, `intersects`, `lt`, `gt`, `valid`, `parse`).
 
-| Advisory                                                   | Package                                | Fixed in | Blocked by                                  | Exposure until then                                                                                                                                              |
-| ---------------------------------------------------------- | -------------------------------------- | -------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GHSA-2464-fhr4-w9xw (critical)                             | `next` 16.3.8 (web, admin)             | 16.4.1   | Trust policy (`semver@6.3.1`)               | The flaw is in `sharp` below 0.35.5; the lockfile already resolves `sharp` 0.35.5, the advisory's workaround.                                                    |
-| GHSA-673q-mjm6-r5xr (critical)                             | `next` 16.3.8                          | 16.4.1   | Trust policy                                | Needs a `use cache` function returning typed arrays; neither app has a `use cache` function.                                                                     |
-| GHSA-p3m5-59mp-jv5r (high)                                 | `next` 16.3.8                          | 16.4.1   | Trust policy                                | Needs at least one Server Action. The website's only two (currency and locale) became a route handler (`app/preferences/[name]/route.ts`); the console has none. |
-| GHSA-f2ph-cmg5-wxc8 (critical), GHSA-px85-f4q5-jh77 (high) | `storybook` 10.6.0 (ui-web)            | 10.6.2   | Trust policy                                | Storybook's dev server on developer machines; nothing is deployed. Do not run `storybook dev` while browsing untrusted sites until upgraded.                     |
-| GHSA-27r3-jxmh-p828 (high)                                 | `body-parser` 2.3.0 (API, via Express) | 2.4.0    | Release cooldown until 2026-10-25 11:39 UTC | Triggered by compressed request bodies. The API refuses any `Content-Encoding` other than identity with 415 before decompressing (`app.setup.ts`, platform e2e). |
-| GHSA-q7qp-rjg7-q26m (high)                                 | `multer` 2.4.0 (API, via Nest)         | 2.5.0    | Release cooldown until 2026-10-25 11:58 UTC | The API never parses multipart bodies (no `FileInterceptor`; uploads are raw bodies), so multer never runs.                                                      |
+| Advisory                   | Package                                | Fixed in | Blocked by                                  | Exposure until then                                                                                                                                              |
+| -------------------------- | -------------------------------------- | -------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GHSA-27r3-jxmh-p828 (high) | `body-parser` 2.3.0 (API, via Express) | 2.4.0    | Release cooldown until 2026-10-25 11:39 UTC | Triggered by compressed request bodies. The API refuses any `Content-Encoding` other than identity with 415 before decompressing (`app.setup.ts`, platform e2e). |
+| GHSA-q7qp-rjg7-q26m (high) | `multer` 2.4.0 (API, via Nest)         | 2.5.0    | Release cooldown until 2026-10-25 11:58 UTC | The API never parses multipart bodies (no `FileInterceptor`; uploads are raw bodies), so multer never runs.                                                      |
