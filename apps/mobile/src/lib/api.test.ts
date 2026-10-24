@@ -69,6 +69,37 @@ describe('createAppApi', () => {
   });
 });
 
+describe("the platform's own response class", () => {
+  /** Expo's fetch answers with a FetchResponse that is not an instance of the global Response. */
+  const foreignFetch = (body: unknown, status = 200) =>
+    jest.fn(() => {
+      const real = new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return Promise.resolve(
+        Object.setPrototypeOf(
+          {
+            ok: real.ok,
+            status: real.status,
+            headers: real.headers,
+            json: () => real.json(),
+            text: () => real.text(),
+            clone: () => real.clone(),
+          },
+          null,
+        ) as Response,
+      );
+    });
+
+  it('reads answers from a fetch whose responses are not the global Response', async () => {
+    const fetch = foreignFetch(me);
+    const app = createAppApi(tokens('access-1', undefined).source, () => 'en-NG', fetch);
+    expect((await app.GET('/v1/me')).data).toEqual(me);
+    expect((await createBareApi(fetch).GET('/v1/me')).data).toEqual(me);
+  });
+});
+
 describe('createBareApi', () => {
   it('never sends credentials', async () => {
     const { calls } = mockApi({ 'POST /v1/attestation/challenges': () => json({}, 201) });
