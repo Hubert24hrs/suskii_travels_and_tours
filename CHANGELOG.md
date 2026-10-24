@@ -74,7 +74,7 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
   after departure or once a passenger boarded; payment closes 30 minutes before departure.
 - A rental's reservation deposit follows an accepted re-price, and the deposit-release refund is
   no longer recorded as cancelling the booking.
-- The Expo CLI gets a fixed zod (scoped override).
+- The Expo CLI and Lighthouse's chromium-bidi get a fixed zod (scoped overrides).
 - App: a session the API revokes now also clears the account's trips, booking copies, saved
   documents and scanning keys from the phone, and sign-out removes booking copies and documents
   opened from links or notifications; a refresh that answers after sign-out or a new sign-in is
