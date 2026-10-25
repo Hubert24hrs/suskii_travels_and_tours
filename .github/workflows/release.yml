@@ -1,0 +1,86 @@
+name: Release
+
+# A release tag (v1.2.3) on a commit of main that passed CI deploys to staging, then, after the
+# production environment's required reviewers approve, to production with a canary (ADR-060).
+# Production runs the API, migrate and worker images staging tested (same digests, signatures
+# verified). Running this workflow by hand with an earlier tag rolls production back to it.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to deploy (an earlier one rolls back)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check the release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      ref: ${{ steps.commit.outputs.ref }}
+      tag: ${{ steps.commit.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve the tag
+        id: commit
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::$TAG is not a release tag (v1.2.3)"
+            exit 1
+          fi
+          ref="$(git rev-parse --verify "refs/tags/$TAG^{commit}")"
+          git merge-base --is-ancestor "$ref" origin/main || { echo "::error::$TAG is not on main"; exit 1; }
+          { echo "ref=$ref"; echo "tag=$TAG"; } >> "$GITHUB_OUTPUT"
+      - name: Require a green CI run for the commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ steps.commit.outputs.ref }}
+        run: |
+          conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$REF/check-runs" \
+            --jq '[.check_runs[] | select(.name == "Lint, typecheck, test, build")] | first | .conclusion // "missing"')"
+          if [ "$conclusion" != success ]; then
+            echo "::error::CI for $REF is $conclusion; release only commits that passed CI."
+            exit 1
+          fi
+
+  staging:
+    name: Staging
+    needs: check
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: staging
+      ref: ${{ needs.check.outputs.ref }}
+    permissions:
+      contents: read
+      id-token: write
+
+  production:
+    name: Production
+    needs: [check, staging]
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: production
+      ref: ${{ needs.check.outputs.ref }}
+      canary: true
+    permissions:
+      contents: read
+      id-token: write

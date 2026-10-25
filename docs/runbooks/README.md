@@ -17,6 +17,7 @@ the file does not exist.
 | [Driver document backlog](driver-document-backlog.md) | Driver applications wait days for review, or scans stay pending        |
 | [Bus scanner offline](bus-scanner-offline.md)         | Departures leave with nobody scanned, or many passes fail to verify    |
 | [Failed webhook replay](failed-webhook-replay.md)     | Ledger discrepancies, or webhooks that failed and must be applied      |
+| [Deploy and roll back](deploy-and-rollback.md)        | Shipping a release, watching it, rolling back, operator commands       |
 | [Screen reader checklist](screen-reader-checklist.md) | Before each release: manual VoiceOver and TalkBack checks              |
 
 ## Every incident

@@ -32,8 +32,9 @@ resource "google_service_account" "deployer" {
   display_name = "Suskii ${var.environment} deployer (GitHub Actions)"
 }
 
+# Deploy revisions and run jobs; read request metrics for the canary gate (ADR-060).
 resource "google_project_iam_member" "deployer" {
-  for_each = toset(["roles/run.developer"])
+  for_each = toset(["roles/run.developer", "roles/monitoring.viewer"])
   project  = var.project_id
   role     = each.value
   member   = google_service_account.deployer.member

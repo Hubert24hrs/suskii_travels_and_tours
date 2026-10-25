@@ -96,6 +96,15 @@ jobs:
       - name: Check security checklist
         run: pnpm security:checklist --check
 
+      # Expand/contract guard (ADR-060): a migration added by this change must keep the revision
+      # still serving traffic working, or say on its own line why it is safe.
+      - name: Check new migrations are expand/contract
+        run: node scripts/check-migrations.mjs
+
+      # Repository scripts (migration guard, canary gate) have node:test suites.
+      - name: Script tests
+        run: pnpm test:scripts
+
       # Alert rules (ADR-047): syntax and unit tests with a pinned, checksum-verified promtool.
       - name: Check alert rules
         run: |

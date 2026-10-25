@@ -32,3 +32,12 @@ resource "google_artifact_registry_repository" "images" {
 
   depends_on = [google_project_service.apis]
 }
+
+resource "google_artifact_registry_repository_iam_member" "readers" {
+  for_each   = toset(var.registry_readers)
+  project    = var.project_id
+  location   = google_artifact_registry_repository.images.location
+  repository = google_artifact_registry_repository.images.name
+  role       = "roles/artifactregistry.reader"
+  member     = each.value
+}

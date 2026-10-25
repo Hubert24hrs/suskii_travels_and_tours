@@ -16,6 +16,11 @@ hosts = {
 }
 redirect_hosts = ["www.suskii-staging.example"]
 
+# Production's deployer pulls the images staging tested (add once production exists).
+registry_readers = [
+  # "serviceAccount:suskii-production-deployer@REPLACE-suskii-production.iam.gserviceaccount.com",
+]
+
 # false for the first apply; true once the secrets have values and the first images are pushed.
 deploy_services = false
 

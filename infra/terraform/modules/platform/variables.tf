@@ -191,3 +191,12 @@ variable "log_retention_days" {
   type        = number
   default     = 30
 }
+
+variable "registry_readers" {
+  description = <<-EOT
+    IAM members allowed to pull from this environment's image repository. Staging lists the
+    production deployer, so a release promotes the exact images staging tested (by digest).
+  EOT
+  type        = list(string)
+  default     = []
+}
