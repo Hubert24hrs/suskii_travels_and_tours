@@ -457,7 +457,9 @@ Tooling notes for agents:
 
 - Every Cars product and feature sits behind `CarsFlags.enabled()` (`CARS_*_ENABLED`; unset is on
   outside production, off in production). Routes take `@CarsFeatureRoute('...')` and answer 404
-  while off; clients read `GET /v1/cars/features` and hide what is off.
+  while off; clients read `GET /v1/cars/features` and hide what is off. In the app, unknown (API
+  unreachable) is not off: Home and the Cars hub still list buses, rides and rentals beside
+  `ServerUnreachable` (retry; Test server in the test build), never an endless spinner.
 - Buses: seats are held only through `BusHoldsService` (Redis Lua, all or nothing, 10 minutes,
   `BUS_MAX_ACTIVE_HOLDS`) and sold through the booking pipeline. Boarding passes are signed by
   `TicketSigner` (`SUSKII-T1.<kid>.<claims>.<signature>`, ids and the boarding window only) and

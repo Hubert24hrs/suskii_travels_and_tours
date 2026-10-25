@@ -1,25 +1,33 @@
 import type { Schemas } from '@suskii/api-client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { useApp } from '../providers/app-provider';
 
 export type CarsFeatures = Schemas['CarsFeatures'];
 
 /**
- * Which Cars products and features the API has switched on (ADR-049). Until it answers, or when
- * it cannot be reached, everything counts as off: the app never offers what the API would 404.
+ * Which Cars products and features the API has switched on (ADR-049). The query fails when the
+ * API cannot be reached or does not answer, so screens can tell "off" from "unknown".
  */
-export function useCarsFeatures(): CarsFeatures | null {
+export function useCarsFeaturesQuery(): UseQueryResult<CarsFeatures> {
   const { api } = useApp();
-  const query = useQuery({
+  return useQuery({
     queryKey: ['cars-features'],
     staleTime: 60_000,
-    queryFn: async (): Promise<CarsFeatures | null> => {
+    queryFn: async (): Promise<CarsFeatures> => {
       const { data } = await api.GET('/v1/cars/features');
-      return data ?? null;
+      if (!data) throw new Error('Cars features unavailable');
+      return data;
     },
   });
-  return query.data ?? null;
+}
+
+/**
+ * The switched-on Cars features. Until the API answers, or when it cannot be reached, everything
+ * counts as off: the app never offers what the API would 404.
+ */
+export function useCarsFeatures(): CarsFeatures | null {
+  return useCarsFeaturesQuery().data ?? null;
 }
 
 export const anyCarsProduct = (features: CarsFeatures | null): boolean =>

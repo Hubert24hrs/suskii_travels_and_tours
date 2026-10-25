@@ -77,7 +77,23 @@ describe('Cars on mobile', () => {
       expect(router.push).toHaveBeenCalledWith('/cars');
     });
 
-    it('hides the Cars card when every product is off', async () => {
+    it('offers each switched-on Cars product from the home search card', async () => {
+      mockApi({
+        'GET /v1/deals/flights': () => json({ currency: 'NGN', origins: [], deals: [] }),
+        'GET /v1/cars/features': () => json({ ...carsFeatures, rentals: false }),
+      });
+      await renderWithApp(<HomeScreen />);
+
+      await fireEvent.press(await screen.findByTestId('search-tab-cars'));
+      expect(screen.getByTestId('home-cars-products')).toBeOnTheScreen();
+      expect(screen.getByTestId('home-cars-rides')).toBeOnTheScreen();
+      expect(screen.queryByTestId('home-cars-rentals')).toBeNull();
+      await fireEvent.press(screen.getByTestId('home-cars-buses'));
+      expect(router.push).toHaveBeenCalledWith('/buses');
+      expect(screen.queryByTestId('server-unreachable')).toBeNull();
+    });
+
+    it('hides the Cars card and tab when every product is off', async () => {
       mockApi({
         'GET /v1/deals/flights': () => json({ currency: 'NGN', origins: [], deals: [] }),
         'GET /v1/cars/features': () =>
@@ -87,6 +103,56 @@ describe('Cars on mobile', () => {
       await screen.findByText(m.hero.headline);
       await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
       expect(screen.queryByTestId('home-cars')).toBeNull();
+      expect(screen.queryByTestId('search-tab-cars')).toBeNull();
+      expect(screen.queryByTestId('server-unreachable')).toBeNull();
+    });
+
+    it('keeps Cars on home and says so when the API cannot be reached', async () => {
+      let reachable = false;
+      const { calls } = mockApi({
+        'GET /v1/deals/flights': (request) =>
+          reachable ? json({ currency: 'NGN', origins: [], deals: [] }) : offline(request),
+        'GET /v1/cars/features': (request) =>
+          reachable ? json({ ...carsFeatures, rentals: false }) : offline(request),
+      });
+      await renderWithApp(<HomeScreen />);
+
+      expect(await screen.findByTestId('server-unreachable')).toBeOnTheScreen();
+      expect(screen.getByText(m.mobile.home.unreachable)).toBeOnTheScreen();
+      // Only the test build points to Account, Test server.
+      expect(screen.queryByTestId('server-set-test-server')).toBeNull();
+      expect(screen.getByTestId('home-cars')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByTestId('search-tab-cars'));
+      expect(screen.getByTestId('home-cars-buses')).toBeOnTheScreen();
+      expect(screen.getByTestId('home-cars-rides')).toBeOnTheScreen();
+      expect(screen.getByTestId('home-cars-rentals')).toBeOnTheScreen();
+
+      reachable = true;
+      await fireEvent.press(screen.getByTestId('server-retry'));
+      await waitFor(() => expect(screen.queryByTestId('server-unreachable')).toBeNull());
+      expect(calls).toHaveLength(4);
+      expect(screen.queryByTestId('home-cars-rentals')).toBeNull();
+      expect(screen.getByTestId('home-cars-buses')).toBeOnTheScreen();
+    });
+
+    it('explains on the Cars hub when the API cannot be reached, and recovers', async () => {
+      let reachable = false;
+      mockApi({
+        'GET /v1/cars/features': (request) => (reachable ? json(carsFeatures) : offline(request)),
+      });
+      await renderWithApp(<CarsScreen />, await signedInSession());
+
+      expect(await screen.findByTestId('server-unreachable')).toBeOnTheScreen();
+      expect(screen.getByTestId('cars-buses')).toBeOnTheScreen();
+      expect(screen.getByTestId('cars-rides')).toBeOnTheScreen();
+      expect(screen.getByTestId('cars-rentals')).toBeOnTheScreen();
+      // Driver mode needs the API to confirm rides are on.
+      expect(screen.queryByTestId('cars-drive')).toBeNull();
+
+      reachable = true;
+      await fireEvent.press(screen.getByTestId('server-retry'));
+      expect(await screen.findByTestId('cars-drive')).toBeOnTheScreen();
+      expect(screen.queryByTestId('server-unreachable')).toBeNull();
     });
 
     it('offers ticket scanning to operator agents only', async () => {

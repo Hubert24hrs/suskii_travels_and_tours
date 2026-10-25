@@ -57,6 +57,11 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
 
 #### Fixed
 
+- The app no longer hides Cars when it cannot reach the API. Home has a Cars search tab (bus,
+  ride and rental buttons) next to the Cars card; when the server is unreachable, Home and the
+  Cars hub list the products with a retry card instead of hiding them or loading forever, and
+  the test build points to Account, Test server. Driver mode and ticket scanning still wait for
+  the API to confirm they are on.
 - body-parser 2.4.0 (GHSA-27r3-jxmh-p828) and multer 2.5.0 (GHSA-q7qp-rjg7-q26m) through
   overrides, installed once both passed the release cooldown; `pnpm audit` has no open high
   advisory.
