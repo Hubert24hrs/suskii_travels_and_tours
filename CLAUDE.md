@@ -32,26 +32,29 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 
 ## Phase status
 
-| Phase | Name                                             | Status      |
-| ----- | ------------------------------------------------ | ----------- |
-| 0     | Foundation and repo bootstrap                    | Done        |
-| 1     | Design tokens and component libraries            | Done        |
-| 2     | Backend core                                     | Done        |
-| 3     | Search, catalog and supplier adapters            | Done        |
-| 4     | Web homepage                                     | Done        |
-| 5     | Flight and hotel booking flow (web)              | Done        |
-| 6     | Payments, flexible payment and refunds           | Done        |
-| 7     | Mobile app                                       | Done        |
-| 8     | Packages, tours, visa and add-ons                | Done        |
-| 9     | Accounts, Suskii Prime, referrals, notifications | Done        |
-| 10    | Admin console                                    | Done        |
-| 11    | Hardening                                        | Done        |
-| 12    | Deployment and release                           | Not started |
-| 13    | Optional: AI trip search                         | Not started |
+| Phase | Name                                             | Status                                 |
+| ----- | ------------------------------------------------ | -------------------------------------- |
+| 0     | Foundation and repo bootstrap                    | Done                                   |
+| 1     | Design tokens and component libraries            | Done                                   |
+| 2     | Backend core                                     | Done                                   |
+| 3     | Search, catalog and supplier adapters            | Done                                   |
+| 4     | Web homepage                                     | Done                                   |
+| 5     | Flight and hotel booking flow (web)              | Done                                   |
+| 6     | Payments, flexible payment and refunds           | Done                                   |
+| 7     | Mobile app                                       | Done                                   |
+| 8     | Packages, tours, visa and add-ons                | Done                                   |
+| 9     | Accounts, Suskii Prime, referrals, notifications | Done                                   |
+| 10    | Admin console                                    | Done                                   |
+| 11    | Hardening                                        | Done                                   |
+| 12    | Deployment and release                           | Built; acceptance needs owner accounts |
+| 13    | Optional: AI trip search                         | Not started                            |
 
-Cars (buses, rides and car rental; task `suskii-cars-v1`, outside the numbered phases): P0 to P10
-done, P11 (docs and pull request) in progress. Plan, decisions and status: `docs/phases/cars.md`;
-audit: `docs/audits/e2e-audit.md`.
+Cars (buses, rides and car rental; task `suskii-cars-v1`, outside the numbered phases): P0 to P11
+done (merged). Plan, decisions and status: `docs/phases/cars.md`; audit: `docs/audits/e2e-audit.md`.
+
+Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
+content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
+submission wait for the owner's accounts (`docs/phases/phase-12.md`, Outcome).
 
 ## Repository layout
 
@@ -70,55 +73,63 @@ packages/
   ui-native/      NativeWind components (TS source), bottom sheets, Jest + RNTL tests
   api-client/     Generated OpenAPI types + openapi-fetch client + TanStack Query hooks (TS source)
   i18n/           Typed message catalogs (en-NG/GB/US), translator, Intl formatters (TS source)
-infra/        observability/ (Grafana dashboards, Prometheus alert rules); Terraform + Helm in phase 12
+infra/        terraform/ (GCP platform + Cloudflare edge, applied per environment), helm/suskii (optional),
+              observability/ (Grafana dashboards, Prometheus alert rules)
 load/         k6 load test (load/k6/api.js), run in CI against the e2e stack
 scripts/      Repo-level tools: security-checklist.mjs (ASVS/MASVS checklist generator)
-docs/         decisions/ (ADRs), phases/ (plans), security/ (threat model, checklist, inventories), runbooks/
+docs/         decisions/ (ADRs), phases/ (plans), security/ (threat model, checklist, inventories), runbooks/,
+              release/ (store listing, privacy forms), deployment/ (AWS mapping)
 ```
 
 ## Commands
 
 Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 
-| Command                                           | What it does                                                         |
-| ------------------------------------------------- | -------------------------------------------------------------------- |
-| `pnpm install`                                    | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)    |
-| `pnpm infra:up`                                   | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)        |
-| `pnpm infra:down`                                 | Stop local infra (data kept in named volumes)                        |
-| `pnpm dev`                                        | Run every app in watch mode through Turborepo                        |
-| `pnpm build`                                      | Build every workspace (dependencies first)                           |
-| `pnpm lint`                                       | ESLint (type-aware) in every workspace                               |
-| `pnpm typecheck`                                  | `tsc --noEmit` in every workspace                                    |
-| `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native)  |
-| `pnpm build:storybook`                            | Static Storybook for ui-web                                          |
-| `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                    |
-| `pnpm test:e2e`                                   | API, web and admin e2e suites, one after the other (Docker or URLs)  |
-| `pnpm --filter @suskii/web test:e2e`              | Web e2e + Lighthouse against built web, API and worker (see notes)   |
-| `pnpm --filter @suskii/admin test:e2e`            | Admin e2e: staff journeys, audit log, axe (built admin and API)      |
-| `pnpm --filter @suskii/web lighthouse [url]`      | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)      |
-| `pnpm --filter @suskii/web check:classes`         | Fail if a Tailwind class used in web/ui-web generates no CSS         |
-| `pnpm --filter @suskii/worker refresh:once`       | Refresh every deal route and destination once (API must run)         |
-| `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema            |
-| `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                  |
-| `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`              |
-| `pnpm --filter @suskii/api db:seed:demo`          | Sample packages, tours, add-ons and visa data (refused in prod)      |
-| `docker compose --profile av up -d clamav`        | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)      |
-| `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                 |
-| `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)             |
-| `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)               |
-| `pnpm --filter @suskii/mobile android`            | Build and run the development build on an Android emulator           |
-| `pnpm --filter @suskii/mobile scan:bundle dist`   | Secret scan of the mobile export (`--self-test` checks the scanner)  |
-| `pnpm --filter @suskii/web e2e:stack`             | Run the e2e stack (API, worker refresh, web) for Maestro flows       |
-| `pnpm format` / `format:check`                    | Prettier write / check                                               |
-| `pnpm security:checklist` (`--check` in CI)       | Regenerate `docs/security/checklist.md` from the reviewed mapping    |
-| `pnpm --filter @suskii/api test:cov`              | API unit tests with the 80% gates (also `@suskii/shared`)            |
-| `pnpm --filter @suskii/ui-web test:visual`        | Screenshot tests (baselines from the `visual-baselines` workflow)    |
-| `k6 run load/k6/api.js`                           | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`) |
-| `promtool check rules` / `test rules`             | Validate `infra/observability/alerts` (CI pins promtool)             |
-| `pnpm --filter @suskii/api keys:reencrypt`        | Rewrite field encryption under the current key (dry run first)       |
-| `pnpm --filter @suskii/api sessions:revoke`       | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)    |
-| `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)  |
-| `pnpm --filter @suskii/api dev`                   | Run a single workspace                                               |
+| Command                                           | What it does                                                            |
+| ------------------------------------------------- | ----------------------------------------------------------------------- |
+| `pnpm install`                                    | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)       |
+| `pnpm infra:up`                                   | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)           |
+| `pnpm infra:down`                                 | Stop local infra (data kept in named volumes)                           |
+| `pnpm dev`                                        | Run every app in watch mode through Turborepo                           |
+| `pnpm build`                                      | Build every workspace (dependencies first)                              |
+| `pnpm lint`                                       | ESLint (type-aware) in every workspace                                  |
+| `pnpm typecheck`                                  | `tsc --noEmit` in every workspace                                       |
+| `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native)     |
+| `pnpm build:storybook`                            | Static Storybook for ui-web                                             |
+| `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                       |
+| `pnpm test:e2e`                                   | API, web and admin e2e suites, one after the other (Docker or URLs)     |
+| `pnpm --filter @suskii/web test:e2e`              | Web e2e + Lighthouse against built web, API and worker (see notes)      |
+| `pnpm --filter @suskii/admin test:e2e`            | Admin e2e: staff journeys, audit log, axe (built admin and API)         |
+| `pnpm --filter @suskii/web lighthouse [url]`      | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)         |
+| `pnpm --filter @suskii/web check:classes`         | Fail if a Tailwind class used in web/ui-web generates no CSS            |
+| `pnpm --filter @suskii/worker refresh:once`       | Refresh every deal route and destination once (API must run)            |
+| `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema               |
+| `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                     |
+| `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`                 |
+| `pnpm --filter @suskii/api db:seed:demo`          | Sample packages, tours, add-ons and visa data (refused in prod)         |
+| `docker compose --profile av up -d clamav`        | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)         |
+| `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                    |
+| `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)                |
+| `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)                  |
+| `pnpm --filter @suskii/mobile android`            | Build and run the development build on an Android emulator              |
+| `pnpm --filter @suskii/mobile scan:bundle dist`   | Secret scan of the mobile export (`--self-test` checks the scanner)     |
+| `pnpm --filter @suskii/web e2e:stack`             | Run the e2e stack (API, worker refresh, web) for Maestro flows          |
+| `pnpm format` / `format:check`                    | Prettier write / check                                                  |
+| `pnpm security:checklist` (`--check` in CI)       | Regenerate `docs/security/checklist.md` from the reviewed mapping       |
+| `pnpm --filter @suskii/api test:cov`              | API unit tests with the 80% gates (also `@suskii/shared`)               |
+| `pnpm --filter @suskii/ui-web test:visual`        | Screenshot tests (baselines from the `visual-baselines` workflow)       |
+| `k6 run load/k6/api.js`                           | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`)    |
+| `promtool check rules` / `test rules`             | Validate `infra/observability/alerts` (CI pins promtool)                |
+| `pnpm --filter @suskii/api keys:reencrypt`        | Rewrite field encryption under the current key (dry run first)          |
+| `pnpm --filter @suskii/api sessions:revoke`       | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)       |
+| `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)     |
+| `pnpm --filter @suskii/api staff:bootstrap`       | First super admin of a new environment (`--email`, `--yes`; once)       |
+| `pnpm release:rehearse`                           | Compose deploy, ops command, broken release, rollback (`:local` images) |
+| `node scripts/helm-rehearsal.mjs`                 | Same on kind with the Helm chart (needs kind and Helm; runs in CI)      |
+| `pnpm smoke --api URL [--web URL] [--admin URL]`  | Post-deploy smoke tests (public routes only, safe on production)        |
+| `pnpm check:migrations` / `pnpm test:scripts`     | Expand/contract guard on new migrations / node:test script suites       |
+| `docker compose --profile s3 up -d s3`            | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)           |
+| `pnpm --filter @suskii/api dev`                   | Run a single workspace                                                  |
 
 Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, Expo Metro `8081`,
 Postgres `5432`, Redis `6379`, Mailpit SMTP `1025` and UI `8025`. Docker ports bind to `127.0.0.1` only.
@@ -532,6 +543,36 @@ Tooling notes for agents:
   it from `PAYMENT_PROVIDERS` (that orphans its webhooks and refunds).
 - Incidents follow `docs/runbooks/`. Disclosure and remediation time frames are in `SECURITY.md`.
 
+### Deployment and release (phase 12, ADR-057 to ADR-060)
+
+- Images are built from the repository root with `apps/<app>/Dockerfile`; the base image is
+  pinned by digest (Dependabot updates it). Never run migrations at start-up: the API image's
+  `migrate` target runs `scripts/release-database.mjs` (migrations as the schema owner, the
+  seed, then the app role) as a job or Helm hook before new revisions start.
+- Migrations are expand/contract: the revision still serving must work against the new schema.
+  `pnpm check:migrations` (CI) refuses drops, renames, type changes, new NOT NULL without a
+  default and TRUNCATE unless the file says why on an `-- expand-contract:` line.
+- The API connects as `suskii_app`, which may only read and write rows
+  (`src/infra/app-role.ts`). Application code must never need DDL, TRUNCATE or role changes.
+- A new setting: add it to the env schema and `.env.example`, then to Terraform (`api_env` or,
+  for a secret, `extra_secrets` plus a Secret Manager value) and to the Helm values. Plain
+  settings that look like secrets are rejected by both. Settings are not part of images.
+- Deployed environments set `CLIENT_IP_HEADER=cf-connecting-ip` (never with `TRUST_PROXY_HOPS`);
+  only Cloudflare traffic carrying the origin secret reaches the origin.
+- A new route prefix that must never be public (like `/v1/internal`) also gets an edge block in
+  `infra/terraform/modules/edge`. A new public host goes in `hosts` for both modules.
+- Operator scripts that change data run as the `ops` Cloud Run job, never from a laptop against
+  production; each checks first and changes only with `--yes`, and audits what it changes.
+- Production runs the API, migrate and worker digests staging tested (signature verified, then
+  copied); the website and console are built per environment from GitHub environment variables
+  (`NEXT_PUBLIC_*`). Never retag or push images by hand.
+- Workflows pin actions by commit SHA, at least two weeks old, and tools by version plus SHA-256
+  or `go install` at a fixed version. Credential-gated steps fail at their first step with the
+  missing settings named.
+- Terraform changes: `terraform fmt`, then `validate` and TFLint run in `infra.yml`; operators
+  apply them (`infra/terraform/README.md`). Store and privacy changes update `docs/release/` in
+  the same change.
+
 ### Security guardrails
 
 - Never commit `.env` files, secrets, or real supplier credentials. Use `.env.example` placeholders.
@@ -622,6 +663,10 @@ Tooling notes for agents:
 - [ADR-054: Server address in the Android test build](docs/decisions/ADR-054-test-build-server-address.md)
 - [ADR-055: Semver 6 override instead of a trust policy exception](docs/decisions/ADR-055-semver-6-override-instead-of-a-trust-policy-exception.md)
 - [ADR-056: Demo drivers for local ride testing](docs/decisions/ADR-056-demo-drivers-for-local-ride-testing.md)
+- [ADR-057: S3-compatible object storage without an SDK](docs/decisions/ADR-057-s3-compatible-object-storage-without-an-sdk.md)
+- [ADR-058: Container images and supply chain](docs/decisions/ADR-058-container-images-and-supply-chain.md)
+- [ADR-059: GCP topology and the Cloudflare edge](docs/decisions/ADR-059-gcp-topology-and-cloudflare-edge.md)
+- [ADR-060: Release pipeline, canary and rollback](docs/decisions/ADR-060-release-pipeline.md)
 
 ## Open questions for the owner
 
@@ -668,4 +713,15 @@ countries or routes (`PAYMENT_RISK_*`), the cookie policy text, and someone with
 Android devices to run the screen reader checklist before the first store release. Added by
 Cars: the maps and routing provider, the KYC provider for drivers, bus operator APIs or manual
 inventory (manual by default), cash for rides (off by default), VAT on Cars fares
-(`CARS_VAT_BPS`, placeholder 0), and the payout provider.
+(`CARS_VAT_BPS`, placeholder 0), and the payout provider. Added in phase 12: the two GCP projects
+with billing and the region (default `europe-west2`, London), two domains with Cloudflare zones
+(Pro on production for the managed WAF; Advanced Certificate Manager for a visitor cipher
+allowlist), the GitHub `staging` and `production` environments with their variables and
+production reviewers, then `DEPLOY_ENABLED=true`; real adapters for SMS, WhatsApp, exchange rates,
+hotels, driver KYC and payouts, without which production cannot start (they are mock-only
+today); where production ClamAV runs; customer-managed encryption keys (decide before the first
+production apply); name-based egress filtering (Secure Web Proxy or Cloud NGFW); a public route
+for per-PR preview deploys; the App Store Connect app (`ascAppId`) and a D-U-N-S number for the
+Apple organisation account; whether Suskii Prime counts as a travel service or needs in-app
+purchase; Sentry's "Prevent Storing of IP Addresses" setting; and confirmation of the privacy
+form answers in `docs/release/data-safety.md`.

@@ -6,6 +6,74 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 12: deployment and release (2026-10-25)
+
+Plan in `docs/phases/phase-12.md`; decisions in ADR-057 to ADR-060. Everything up to the owner's
+accounts is built and rehearsed; nothing has been deployed (no GCP project, Cloudflare zone,
+Expo or store account exists yet).
+
+#### Added
+
+- **Container images** for the API (with a separate `migrate` target), worker, website and
+  console: pinned Node base by digest, pruned workspaces, production dependencies only, non-root,
+  read-only file systems, health checks, OCI labels and `SENTRY_RELEASE` from the commit
+  (ADR-058).
+- **Release rehearsal** (`pnpm release:rehearse`, compose). It deploys release N as production
+  does (migrations as the schema owner, the API as a row-only role), smoke-tests it (8 checks),
+  runs the first-super-admin ops command, refuses a broken N+1 at the health gate, rolls back and
+  smoke-tests again. Passes locally.
+- **Terraform** for GCP and Cloudflare (`infra/terraform`, ADR-059):
+  - Cloud Run for the four services plus `migrate` and `ops` jobs;
+  - Cloud SQL for PostgreSQL 16 (private, PITR) and Memorystore for Redis 7.2 (AUTH, TLS with
+    server authentication);
+  - a private documents bucket, Artifact Registry with immutable tags, and Secret Manager with
+    per-service readers and audit-logged reads;
+  - Workload Identity Federation for GitHub;
+  - a global load balancer reachable only from this zone's Cloudflare traffic (Cloud Armor:
+    Cloudflare ranges plus an origin secret);
+  - port-level egress firewall and fixed NAT addresses;
+  - the Cloudflare edge: strict TLS, settings that leave HTML untouched, managed WAF,
+    internal-route and console address rules, a sign-in rate limit, https-only API.
+- **Optional Helm chart** (`infra/helm/suskii`): migration hook, readiness-gated rolling
+  updates, `--atomic` rollback, hardened pods, default-deny network policies. Also
+  `scripts/helm-rehearsal.mjs` for kind, and the AWS mapping in `docs/deployment/aws.md`.
+- **Pipelines** (ADR-060):
+  - `deploy.yml`: staging on every green main.
+  - `release.yml`: `v*` tags to staging, then production after approval, with a 10% canary for
+    10 minutes, a 5xx gate in Cloud Monitoring (`scripts/canary-check.mjs`) and smoke tests.
+    Images are built once, scanned by Trivy, signed with cosign, attested with an SBOM, and
+    promoted by digest. Automatic rollback to the previous revisions.
+  - `infra.yml`: Terraform fmt, validate and TFLint; Helm lint and kubeconform; both rehearsals.
+  - `mobile-release.yml`: submits `mobile-v*` builds to TestFlight and the Play internal track,
+    and publishes EAS Updates of the scanned bundle.
+- **S3-compatible object storage** (`OBJECT_STORAGE=s3`, ADR-057): one SigV4 adapter for GCS,
+  S3 and R2, no SDK, e2e-tested against a signature-checking gateway.
+- **`staff:bootstrap`**: the only way to create the first super admin of a new environment.
+  It refuses once one exists, is audited, and an advisory lock lets one of two concurrent runs
+  win.
+- **`CLIENT_IP_HEADER`** (`cf-connecting-ip` behind Cloudflare): client addresses from the edge's
+  header instead of counting proxy hops. A forged `X-Forwarded-For` is ignored.
+- **`REDIS_TLS_CA`** for managed Redis server certificates (API and worker), and
+  **`DATABASE_POOL_MAX`**.
+- **Migration guard** (`scripts/check-migrations.mjs`, in CI): expand/contract only, unless a
+  migration says why on an `-- expand-contract:` line.
+- **Store listing checklist and privacy form answers** (`docs/release/`), and the deploy and
+  rollback runbook (`docs/runbooks/deploy-and-rollback.md`).
+
+#### Changed
+
+- **Separate database roles.** The release step creates the API's role, which may only read and
+  write rows. Its password is set as a SCRAM verifier, and the step checks the role holds nothing
+  more (e2e-tested). Migrations run as the schema owner from the migrate job only.
+- **Pool size.** Prisma's pool is sized by `DATABASE_POOL_MAX`; node-postgres ignored the
+  `connection_limit` URL parameter the docs relied on.
+- **Security mapping.** It closes the 17 requirements left for deployment: 15 met, 2 partial
+  with an owner decision each (visitor cipher allowlist, name-based egress).
+
+#### Fixed
+
+- The API image's OCI labels were applied only to its migrate stage.
+
 ### Cars: buses, rides and car rental (2026-10-24)
 
 Task `suskii-cars-v1` (`docs/phases/cars.md`, ADR-049 to ADR-053). Every product and feature is
