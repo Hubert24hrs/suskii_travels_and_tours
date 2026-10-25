@@ -46,6 +46,12 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
   offline scanner and webhook replay.
 - Whole-platform audit: `docs/audits/e2e-audit.md`.
 
+- Demo drivers for local ride testing (ADR-056): `pnpm --filter @suskii/api rides:demo`, or
+  `E2E_DEMO_DRIVERS=true` on `e2e:stack`. The sample drivers come online near each waiting ride,
+  accept it, drive to the pick-up and along the route, and complete it, through the driver
+  services; you type the PIN from the rider's app. Production refuses it. The e2e stack now
+  shares one set of throwaway keys between the seed, the API and the simulator.
+
 #### Changed
 
 - The website's currency and locale selectors post to `/preferences/{name}` (a route handler)

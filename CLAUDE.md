@@ -117,6 +117,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `promtool check rules` / `test rules`             | Validate `infra/observability/alerts` (CI pins promtool)             |
 | `pnpm --filter @suskii/api keys:reencrypt`        | Rewrite field encryption under the current key (dry run first)       |
 | `pnpm --filter @suskii/api sessions:revoke`       | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)    |
+| `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)  |
 | `pnpm --filter @suskii/api dev`                   | Run a single workspace                                               |
 
 Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, Expo Metro `8081`,
@@ -479,6 +480,9 @@ Tooling notes for agents:
   add up and show no margin); `priceBreakdown` is an additive field. The departure planner and
   trip suggestions (`TripPlanningService`) load bookings through `BookingsService.load()`, use
   the `RIDE_SCHEDULE_*` window and only ever prefill searches.
+- Demo drivers (`rides:demo`, `E2E_DEMO_DRIVERS=true` on `e2e:stack`, ADR-056) act only on
+  `sample` drivers through `RideDriverService` and never read the PIN (the tester types it);
+  keep them out of `src` so they never ship, and keep the production refusal.
 - Maps, KYC and payouts sit behind `MapsProvider` (mock, OSRM), `KycProvider` and
   `PayoutProvider` with mock adapters; production refuses mock routing and KYC while rides are on.
 - The app: Cars screens follow the mobile rules above. Offline boarding (`lib/offline-scan.ts`)
@@ -617,6 +621,7 @@ Tooling notes for agents:
 - [ADR-053: Cars geo storage](docs/decisions/ADR-053-cars-geo-storage.md)
 - [ADR-054: Server address in the Android test build](docs/decisions/ADR-054-test-build-server-address.md)
 - [ADR-055: Semver 6 override instead of a trust policy exception](docs/decisions/ADR-055-semver-6-override-instead-of-a-trust-policy-exception.md)
+- [ADR-056: Demo drivers for local ride testing](docs/decisions/ADR-056-demo-drivers-for-local-ride-testing.md)
 
 ## Open questions for the owner
 

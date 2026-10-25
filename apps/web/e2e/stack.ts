@@ -74,7 +74,15 @@ async function waitFor(url: string, child: ChildProcess, name: string, timeoutMs
   throw new Error(`${name} did not become ready at ${url}; see ${LOG_DIR}/${name}.log`);
 }
 
-function start(name: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): ChildProcess {
+function start(
+  name: string,
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  /** Share this terminal (input included) instead of writing a log file. */
+  interactive = false,
+): ChildProcess {
+  if (interactive) return spawn(process.execPath, args, { cwd, env, stdio: 'inherit' });
   const log = createWriteStream(join(LOG_DIR, `${name}.log`));
   const child = spawn(process.execPath, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout?.pipe(log);
@@ -136,7 +144,7 @@ async function startDataServices(): Promise<{
  * Applies the migrations and the idempotent reference-data seed with the API's Prisma CLI, then
  * the sample in-house inventory (packages, tours, add-ons, visa) the phase 8 journeys book.
  */
-function migrateAndSeed(databaseUrl: string): void {
+function migrateAndSeed(databaseUrl: string, keys: Record<string, string>): void {
   const apiRequire = createRequire(join(API_DIR, 'package.json'));
   const prismaCli = apiRequire.resolve('prisma/build/index.js');
   const env = {
@@ -146,6 +154,7 @@ function migrateAndSeed(databaseUrl: string): void {
     PATH: `${join(API_DIR, 'node_modules/.bin')}${delimiter}${process.env.PATH ?? ''}`,
     SEED_ADMIN_EMAIL: '',
     SEED_ADMIN_PASSWORD: '',
+    ...keys,
   };
   for (const args of [
     ['migrate', 'deploy'],
@@ -167,6 +176,12 @@ export async function startStack(): Promise<Stack> {
   await assertPortFree(WEB_PORT, 'web');
 
   const { databaseUrl, redisUrl, containers } = await startDataServices();
+  // Throwaway keys for this run, shared by the seed, the API and the demo drivers, so each
+  // process reads what the others encrypted or hashed.
+  const keys = {
+    HMAC_SECRET: randomBytes(32).toString('base64url'),
+    FIELD_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
+  };
   const children: ChildProcess[] = [];
   const stop = async () => {
     await Promise.all(children.reverse().map(stopProcess));
@@ -174,7 +189,7 @@ export async function startStack(): Promise<Stack> {
   };
 
   try {
-    migrateAndSeed(databaseUrl);
+    migrateAndSeed(databaseUrl, keys);
     // The seed gives rows new ids each run: API reads cached on disk by an earlier run (a bus
     // trip, a rental car) would point at rows that no longer exist.
     rmSync(join(WEB_DIR, '.next/cache/fetch-cache'), { recursive: true, force: true });
@@ -188,13 +203,14 @@ export async function startStack(): Promise<Stack> {
     const publicWebUrl = process.env.E2E_PUBLIC_WEB_URL ?? webUrl;
     const base = { PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: 'test' } as const;
 
-    const api = start('api', ['dist/main.js'], API_DIR, {
+    const apiEnv = {
       ...base,
       API_PORT: String(API_PORT),
       LOG_LEVEL: 'info',
       DATABASE_URL: databaseUrl,
       REDIS_URL: redisUrl,
       INTERNAL_API_TOKEN: internalToken,
+      ...keys,
       CORS_ORIGINS: [...new Set([webUrl, publicWebUrl])].join(','),
       WEB_APP_URL: publicWebUrl,
       EMAIL_PROVIDER: 'mock',
@@ -208,7 +224,8 @@ export async function startStack(): Promise<Stack> {
       ...(process.env.E2E_RATE_LIMIT_ENABLED
         ? { RATE_LIMIT_ENABLED: process.env.E2E_RATE_LIMIT_ENABLED }
         : {}),
-    });
+    };
+    const api = start('api', ['dist/main.js'], API_DIR, apiEnv);
     children.push(api);
     await waitFor(`${apiUrl}/ready`, api, 'api');
 
@@ -237,6 +254,21 @@ export async function startStack(): Promise<Stack> {
     );
     children.push(web);
     await waitFor(`${webUrl}/robots.txt`, web, 'web');
+
+    // Sample drivers that take rides requested from a phone (ADR-056), with the API's settings.
+    // In a terminal they share it, so the tester can type the PIN the rider's app shows.
+    if (process.env.E2E_DEMO_DRIVERS === 'true') {
+      const apiRequire = createRequire(join(API_DIR, 'package.json'));
+      children.push(
+        start(
+          'demo-drivers',
+          [apiRequire.resolve('tsx/cli'), 'scripts/demo-drivers.ts'],
+          API_DIR,
+          { ...apiEnv, LOG_LEVEL: 'warn' },
+          process.stdin.isTTY,
+        ),
+      );
+    }
   } catch (error) {
     await stop();
     throw error;

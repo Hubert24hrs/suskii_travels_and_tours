@@ -190,6 +190,10 @@ It needs a running stack, which your phone reaches over your Wi-Fi (ADR-054):
 3. Install the APK on the phone (allow installs from your browser), open it, go to **Account,
    Test server**, enter `http://192.168.1.20:4000` and `http://192.168.1.20:3000`, save, then close
    and reopen the app. Payments use the mock provider page; no real money moves.
+4. To take rides, start the stack with `E2E_DEMO_DRIVERS=true` in front of the `e2e:stack` command
+   (ADR-056). A sample driver accepts each ride, drives to the pick-up and asks in that terminal
+   for the PIN shown in the app. Type it to start the trip; the driver then follows the route and
+   completes it.
 
 ## Cars: buses, rides and car rental
 
@@ -211,8 +215,10 @@ Ground transport runs on the same booking, payment and ledger pipeline as the ot
   OSRM. With rides on, production refuses mock routing and KYC unless
   `ALLOW_MOCK_PROVIDERS=true`.
 - **Trying it**: book a bus or a rental on `/buses` or `/rentals`. Rides need a signed-in rider
-  and an approved driver who is online near the pick-up (the API e2e helpers in
-  `apps/api/test/helpers/rides.ts` show the whole sequence). Operator agents (role
+  and an approved driver who is online near the pick-up. Locally,
+  `pnpm --filter @suskii/api rides:demo` (API built, sample data seeded, the API's `HMAC_SECRET`
+  and `FIELD_ENCRYPTION_KEY` in `.env`) lets the sample drivers take rides and asks you for the
+  rider's PIN (ADR-056). Operator agents (role
   `operator_agent`, granted by staff with `ground:manage` when they add the account to an
   operator) scan boarding passes in the app.
 - **Tests**: `buses`, `rides`, `drivers`, `rentals`, `cars-data`, `cars-payments` and `cars-p9`
