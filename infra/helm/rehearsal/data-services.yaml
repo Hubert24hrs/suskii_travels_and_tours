@@ -1,0 +1,82 @@
+# In-cluster data services for the Helm release rehearsal only (scripts/helm-rehearsal.mjs).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: suskii
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: rehearsal-postgres, namespace: suskii }
+spec:
+  selector: { matchLabels: { app: rehearsal-postgres } }
+  template:
+    metadata: { labels: { app: rehearsal-postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_USER, value: suskii }
+            - { name: POSTGRES_PASSWORD, value: release-rehearsal }
+            - { name: POSTGRES_DB, value: suskii }
+          ports: [{ containerPort: 5432 }]
+          readinessProbe:
+            exec: { command: [pg_isready, -U, suskii, -d, suskii] }
+            periodSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata: { name: rehearsal-postgres, namespace: suskii }
+spec:
+  selector: { app: rehearsal-postgres }
+  ports: [{ port: 5432 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: rehearsal-redis, namespace: suskii }
+spec:
+  selector: { matchLabels: { app: rehearsal-redis } }
+  template:
+    metadata: { labels: { app: rehearsal-redis } }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          ports: [{ containerPort: 6379 }]
+          readinessProbe:
+            exec: { command: [redis-cli, ping] }
+            periodSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata: { name: rehearsal-redis, namespace: suskii }
+spec:
+  selector: { app: rehearsal-redis }
+  ports: [{ port: 6379 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: rehearsal-s3, namespace: suskii }
+spec:
+  selector: { matchLabels: { app: rehearsal-s3 } }
+  template:
+    metadata: { labels: { app: rehearsal-s3 } }
+    spec:
+      containers:
+        - name: s3
+          # By tag: the rehearsal loads this image into kind, which drops the registry digest.
+          image: versity/versitygw:v1.8.0
+          command: [sh, -c]
+          args:
+            - mkdir -p /data/suskii-documents && exec versitygw --access release-rehearsal --secret release-rehearsal-secret posix /data
+          ports: [{ containerPort: 7070 }]
+          readinessProbe:
+            tcpSocket: { port: 7070 }
+            periodSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata: { name: rehearsal-s3, namespace: suskii }
+spec:
+  selector: { app: rehearsal-s3 }
+  ports: [{ port: 7070 }]

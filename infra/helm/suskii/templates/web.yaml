@@ -1,0 +1,75 @@
+{{- $name := printf "%s-web" (include "suskii.fullname" .) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  {{- if not .Values.web.autoscaling.enabled }}
+  replicas: {{ .Values.web.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels:
+      {{- include "suskii.selector" (list . "web") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "suskii.labels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "suskii.podSecurityContext" . | nindent 8 }}
+      {{- include "suskii.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: web
+          image: {{ include "suskii.image" (list . "web") }}
+          ports:
+            - { name: http, containerPort: 3000 }
+          env:
+            # Kubernetes sets HOSTNAME to the pod name; Next.js would listen on that alone.
+            - { name: HOSTNAME, value: 0.0.0.0 }
+            - { name: PORT, value: '3000' }
+            - { name: API_INTERNAL_URL, value: {{ printf "http://%s-api" (include "suskii.fullname" .) | quote }} }
+            {{- include "suskii.plainEnv" (list "web.env" .Values.web.env (list "HOSTNAME" "PORT" "API_INTERNAL_URL")) | nindent 12 }}
+          startupProbe:
+            httpGet: { path: /robots.txt, port: http }
+            periodSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            httpGet: { path: /robots.txt, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /robots.txt, port: http }
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+          securityContext:
+            {{- include "suskii.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: next-cache, mountPath: /app/apps/web/.next/cache }
+      volumes:
+        - { name: tmp, emptyDir: { sizeLimit: 128Mi } }
+        - { name: next-cache, emptyDir: { sizeLimit: 512Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  selector:
+    {{- include "suskii.selector" (list . "web") | nindent 4 }}
+  ports:
+    - { name: http, port: 80, targetPort: http }

@@ -1,0 +1,35 @@
+{{- if .Values.ingress.enabled }}
+{{- $fullname := include "suskii.fullname" . -}}
+{{- /* One host per public service; the edge in front (Cloudflare) terminates visitor TLS and the
+       ingress serves the origin certificates listed in ingress.tls. */}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range $component := list "web" "api" "admin" }}
+    - host: {{ include "suskii.host" (index $.Values.global.urls $component) | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}-{{ $component }}
+                port: { name: http }
+    {{- end }}
+{{- end }}

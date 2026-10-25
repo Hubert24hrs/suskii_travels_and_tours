@@ -20,3 +20,6 @@ packages/api-client/src/schema.ts
 
 # Generated from docs/security/standards/mapping.json (`pnpm security:checklist`)
 docs/security/checklist.md
+
+# Helm templates are Go templates, not YAML (checked with helm lint and kubeconform in CI)
+infra/helm/*/templates/

@@ -1,0 +1,97 @@
+# Values for one environment. Images are referenced by digest (ADR-058): set `digest` from the
+# pipeline; `tag` is used only when the digest is empty (local clusters).
+global:
+  environment: staging
+  # Registry path without the image name, e.g. europe-west2-docker.pkg.dev/<project>/suskii.
+  registry: ''
+  imagePullSecrets: []
+  # Public origins (https://...). The API's CORS and console origins derive from these.
+  urls:
+    web: https://staging.example.com
+    api: https://api.staging.example.com
+    admin: https://admin.staging.example.com
+
+images:
+  api: { repository: suskii-api, tag: local, digest: '' }
+  migrate: { repository: suskii-api-migrate, tag: local, digest: '' }
+  worker: { repository: suskii-worker, tag: local, digest: '' }
+  web: { repository: suskii-web, tag: local, digest: '' }
+  admin: { repository: suskii-admin, tag: local, digest: '' }
+
+# Secrets are created outside the chart (External Secrets Operator, Secret Manager CSI driver or
+# `kubectl create secret`), never in values. Keys are the environment variable names.
+secrets:
+  # DATABASE_URL (the app role), REDIS_URL, REDIS_TLS_CA, JWT_*, FIELD_ENCRYPTION_KEY,
+  # HMAC_SECRET, INTERNAL_API_TOKEN, TURNSTILE_SECRET_KEY, CARS_TICKET_SIGNING_KEY,
+  # OBJECT_STORAGE_ACCESS_KEY_ID, OBJECT_STORAGE_SECRET_ACCESS_KEY and provider keys.
+  api: suskii-api
+  # DATABASE_URL (the schema owner) and DATABASE_APP_URL (the app role).
+  migrate: suskii-migrate
+  # REDIS_URL, REDIS_TLS_CA, INTERNAL_API_TOKEN.
+  worker: suskii-worker
+
+api:
+  replicas: 2
+  # Plain settings only (providers, CARS_*_ENABLED, ADMIN_IP_ALLOWLIST, ...); secrets go in the
+  # Secret above. NODE_ENV, the port, origins and client address header are set by the chart.
+  env:
+    LOG_LEVEL: info
+    OBJECT_STORAGE: s3
+  # The edge's client address header (Cloudflare: cf-connecting-ip). Use only when the ingress
+  # accepts nothing but the edge's traffic; otherwise set trustProxyHops instead.
+  clientIpHeader: cf-connecting-ip
+  trustProxyHops: 0
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 1Gi }
+  autoscaling:
+    { enabled: true, minReplicas: 2, maxReplicas: 10, targetCPUUtilizationPercentage: 70 }
+
+worker:
+  replicas: 1
+  env:
+    LOG_LEVEL: info
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits: { memory: 1Gi }
+
+web:
+  replicas: 2
+  env: {}
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { memory: 1Gi }
+  autoscaling:
+    { enabled: true, minReplicas: 2, maxReplicas: 10, targetCPUUtilizationPercentage: 70 }
+
+admin:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+migrate:
+  # Runs before every install and upgrade; a failure stops the release (ADR-060).
+  activeDeadlineSeconds: 900
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 1Gi }
+
+# The worker and website call the API inside the cluster over plain http. Production refuses that
+# unless a service mesh (Istio, Linkerd, ...) encrypts and authenticates pod-to-pod traffic; set
+# true only with such a mesh (ADR-038).
+meshMtls: false
+
+ingress:
+  enabled: true
+  className: ''
+  annotations: {}
+  # TLS secret per host (cert-manager or the cloud's managed certificates).
+  tls: []
+
+networkPolicy:
+  # Deny by default; allow the ingress controller to the public services, the worker and web
+  # servers to the API, and egress to DNS, the data services' CIDRs and HTTPS.
+  enabled: true
+  ingressControllerNamespace: ingress-nginx
+  dataCidrs: []

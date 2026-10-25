@@ -65,7 +65,7 @@ services:
   # the app role from DATABASE_APP_URL.
   migrate:
     image: ${SUSKII_MIGRATE_IMAGE:-suskii-api-migrate:local}
-    env_file: [.env.release]
+    # Exactly what the Cloud Run job and the Helm hook get: the two database URLs, nothing else.
     environment:
       DATABASE_URL: postgresql://suskii:release-rehearsal@postgres:5432/suskii?sslmode=disable
       DATABASE_APP_URL: postgresql://suskii_app:release-rehearsal-app-password@postgres:5432/suskii?sslmode=disable
