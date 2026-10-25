@@ -67,6 +67,14 @@ EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:'+process.env.API_PORT+'/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["node", "--enable-source-maps", "dist/main.js"]
+# Error reports name the commit the image was built from (CI passes REVISION).
+ARG VERSION=dev
+ARG REVISION=unknown
+ENV SENTRY_RELEASE=${REVISION}
+LABEL org.opencontainers.image.title="suskii-api" \
+      org.opencontainers.image.source="https://github.com/Hubert24hrs/suskii_travels_and_tours" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}"
 
 # The database step of a release: `prisma migrate deploy`, then the idempotent reference seed.
 FROM build AS migrate
@@ -74,10 +82,9 @@ ENV NODE_ENV=production
 WORKDIR /repo/apps/api
 USER node
 CMD ["node", "scripts/release-database.mjs"]
-
 ARG VERSION=dev
 ARG REVISION=unknown
-LABEL org.opencontainers.image.title="suskii-api" \
+LABEL org.opencontainers.image.title="suskii-api-migrate" \
       org.opencontainers.image.source="https://github.com/Hubert24hrs/suskii_travels_and_tours" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
