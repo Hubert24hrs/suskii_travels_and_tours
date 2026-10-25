@@ -46,6 +46,14 @@ export function Combobox<T>({
 }: ComboboxProps<T>) {
   const [text, setText] = useState(() => itemToString(selectedItem));
   const [open, setOpen] = useState(false);
+  // A selection made outside the field (a swap, a prefilled form) replaces the text. Typing
+  // clears the selection itself, so it never overwrites what the traveller is typing.
+  const selectedKey = selectedItem === null ? null : itemToKey(selectedItem);
+  const [shownKey, setShownKey] = useState(selectedKey);
+  if (selectedKey !== shownKey) {
+    setShownKey(selectedKey);
+    setText(itemToString(selectedItem));
+  }
   const status =
     open && text.length > 0 ? (loading ? loadingLabel : items.length === 0 ? emptyLabel : '') : '';
 
@@ -63,7 +71,10 @@ export function Combobox<T>({
           setText(next);
           setOpen(true);
           onInputValueChange(next);
-          if (selectedItem !== null) onSelectedItemChange(null);
+          if (selectedItem !== null) {
+            setShownKey(null);
+            onSelectedItemChange(null);
+          }
         }}
         onFocus={() => setOpen(true)}
       />
@@ -81,6 +92,7 @@ export function Combobox<T>({
               accessibilityLabel={itemToString(item)}
               onPress={() => {
                 setText(itemToString(item));
+                setShownKey(itemToKey(item));
                 setOpen(false);
                 onSelectedItemChange(item);
               }}
