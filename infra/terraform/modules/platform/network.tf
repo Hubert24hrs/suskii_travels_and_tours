@@ -69,3 +69,58 @@ resource "google_compute_router_nat" "nat" {
     filter = "ERRORS_ONLY"
   }
 }
+
+# Egress policy for every Cloud Run revision and job (tagged): HTTPS and SMTP over TLS to the
+# internet, anything inside the VPC and private services (Cloud SQL's connector on 3307, Redis on
+# 6378, a private ClamAV or OSRM), nothing else. Providers sit behind CDNs whose addresses change,
+# so the policy is by port; names are pinned in the applications' settings instead.
+locals {
+  run_tag = "${local.name}-run"
+  internal_ranges = [
+    google_compute_subnetwork.run.ip_cidr_range,
+    "${google_compute_global_address.private_services.address}/${google_compute_global_address.private_services.prefix_length}",
+  ]
+}
+
+resource "google_compute_firewall" "egress_internal" {
+  project            = var.project_id
+  name               = "${local.name}-egress-internal"
+  network            = google_compute_network.vpc.id
+  direction          = "EGRESS"
+  priority           = 1000
+  target_tags        = [local.run_tag]
+  destination_ranges = local.internal_ranges
+  allow {
+    protocol = "all"
+  }
+}
+
+resource "google_compute_firewall" "egress_internet" {
+  project            = var.project_id
+  name               = "${local.name}-egress-internet"
+  network            = google_compute_network.vpc.id
+  direction          = "EGRESS"
+  priority           = 1100
+  target_tags        = [local.run_tag]
+  destination_ranges = ["0.0.0.0/0"]
+  allow {
+    protocol = "tcp"
+    ports    = ["443", "465", "587"]
+  }
+}
+
+resource "google_compute_firewall" "egress_deny" {
+  project            = var.project_id
+  name               = "${local.name}-egress-deny"
+  network            = google_compute_network.vpc.id
+  direction          = "EGRESS"
+  priority           = 65000
+  target_tags        = [local.run_tag]
+  destination_ranges = ["0.0.0.0/0"]
+  deny {
+    protocol = "all"
+  }
+  log_config {
+    metadata = "EXCLUDE_ALL_METADATA"
+  }
+}

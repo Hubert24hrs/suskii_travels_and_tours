@@ -28,3 +28,12 @@ resource "google_project_service" "apis" {
   service            = each.value
   disable_on_destroy = false
 }
+
+# Logs leave every container on stdout into Cloud Logging, where they cannot be edited; access is
+# by IAM role. The database audit log is separate and append-only (ADR-007).
+resource "google_logging_project_bucket_config" "default" {
+  project        = var.project_id
+  location       = "global"
+  bucket_id      = "_Default"
+  retention_days = var.log_retention_days
+}

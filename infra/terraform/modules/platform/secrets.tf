@@ -1,10 +1,10 @@
 # Every secret the services read, as Secret Manager secrets replicated in the region only.
-# Terraform writes the values it generates (DATABASE_URL, REDIS_URL, REDIS_TLS_CA) as write-only
-# data; the operator adds the rest with `gcloud secrets versions add` (README). Each service's
+# Terraform writes the values it generates (the two database URLs, REDIS_URL, REDIS_TLS_CA) as
+# write-only data; the operator adds the rest with `gcloud secrets versions add` (README). Each service's
 # identity can read only the secrets it uses.
 
 locals {
-  generated_secrets = ["DATABASE_URL", "REDIS_URL", "REDIS_TLS_CA"]
+  generated_secrets = ["DATABASE_URL", "DATABASE_MIGRATION_URL", "REDIS_URL", "REDIS_TLS_CA"]
   operator_secrets = [
     "JWT_PRIVATE_KEY",
     "JWT_PUBLIC_KEY",
@@ -18,11 +18,12 @@ locals {
   ]
   secret_names = toset(concat(local.generated_secrets, local.operator_secrets, var.extra_secrets))
 
-  # Which service reads which secret (environment variable of the same name).
+  # Which service reads which secret (environment variable of the same name, except the migrate
+  # job's, run.tf). Only the migrate job can act as the schema owner.
   secret_readers = {
-    api     = setsubtract(local.secret_names, [])
+    api     = setsubtract(local.secret_names, ["DATABASE_MIGRATION_URL"])
     worker  = toset(["REDIS_URL", "REDIS_TLS_CA", "INTERNAL_API_TOKEN"])
-    migrate = toset(["DATABASE_URL"])
+    migrate = toset(["DATABASE_URL", "DATABASE_MIGRATION_URL"])
   }
   secret_grants = merge([
     for service, names in local.secret_readers : {

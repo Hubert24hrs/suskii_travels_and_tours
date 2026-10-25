@@ -7,6 +7,7 @@ locals {
   network = {
     network    = google_compute_network.vpc.id
     subnetwork = google_compute_subnetwork.run.id
+    tags       = [local.run_tag]
   }
   origins = { for name, host in var.hosts : name => "https://${host}" }
 
@@ -174,8 +175,9 @@ module "admin" {
   ]
 }
 
-# The database step of every release (migrations, then the reference seed), run by the pipeline
-# before a new API revision takes traffic (ADR-060). It reads only DATABASE_URL.
+# The database step of every release (migrations, the reference seed, then the app role), run by
+# the pipeline before a new API revision takes traffic (ADR-060). It connects as the schema owner
+# and reads the app's URL only to set that role's password.
 resource "google_cloud_run_v2_job" "migrate" {
   count               = var.deploy_services ? 1 : 0
   project             = var.project_id
@@ -198,6 +200,7 @@ resource "google_cloud_run_v2_job" "migrate" {
         network_interfaces {
           network    = local.network.network
           subnetwork = local.network.subnetwork
+          tags       = local.network.tags
         }
       }
 
@@ -218,6 +221,16 @@ resource "google_cloud_run_v2_job" "migrate" {
 
         env {
           name = "DATABASE_URL"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.app["DATABASE_MIGRATION_URL"].secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "DATABASE_APP_URL"
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.app["DATABASE_URL"].secret_id
@@ -280,6 +293,7 @@ resource "google_cloud_run_v2_job" "ops" {
         network_interfaces {
           network    = local.network.network
           subnetwork = local.network.subnetwork
+          tags       = local.network.tags
         }
       }
 

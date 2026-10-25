@@ -61,3 +61,13 @@ variable "auth_rate_limit" {
   type        = number
   default     = 30
 }
+
+variable "tls_ciphers" {
+  description = <<-EOT
+    Cipher suites offered to visitors on TLS 1.2 (TLS 1.3 suites are fixed). Empty keeps
+    Cloudflare's default list. Restricting them needs Advanced Certificate Manager or a plan that
+    includes it; the recommended AEAD-only list is in infra/terraform/README.md.
+  EOT
+  type        = list(string)
+  default     = []
+}

@@ -28,6 +28,9 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 - **Internal routes** (`/v1/internal`) accept only the worker's service token. Behind
   Cloudflare the edge also blocks them, and blocks the console and `/v1/admin` from addresses
   outside `admin_allowed_ips` (ADR-059).
+- **Database roles.** The API connects as `suskii_app`, which may only read and write rows;
+  migrations run as the schema owner from the migrate job only (`apps/api/src/infra/app-role.ts`,
+  ADR-059). A SQL injection could not change the schema, truncate tables or create roles.
 - **The first super admin.** Roles change only in the console (step-up, audited), which needs a
   super admin. A new environment gets its first one from `staff:bootstrap` (the `ops` job in a
   deployed environment): it grants `super_admin` to an existing account with a verified email,

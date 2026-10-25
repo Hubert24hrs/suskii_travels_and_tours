@@ -63,9 +63,18 @@ state bucket and GitHub environment.
   - The services reach it through Cloud Run's built-in Cloud SQL connection: a Unix socket at
     `/cloudsql`. The connector encrypts the hop and checks the identity's `cloudsql.client`
     role, which is the private, encrypted path `DATABASE_ALLOW_PLAINTEXT` exists for.
-  - The application password is an ephemeral value, written only to the SQL user and the
-    `DATABASE_URL` secret (write-only arguments). It never enters the state.
-  - Rotate it by raising `database_password_version`.
+  - Two roles (ASVS V13.2.2):
+    - `suskii_migrator` owns the schema. Only the migrate job connects as it.
+    - `suskii_app` may only read and write rows; the API and the ops job connect as it.
+    - Cloud SQL makes every user it creates a member of `cloudsqlsuperuser`, so Terraform creates
+      only the migrator. The release step creates the app role, sets its password from
+      `DATABASE_URL` as a SCRAM verifier (the password never reaches the server), grants it data
+      access and refuses to finish if it could do more (`apps/api/src/infra/app-role.ts`,
+      e2e-tested).
+  - Both passwords are ephemeral values, written only to Cloud SQL or the release step and to
+    the secrets (write-only arguments). They never enter the state.
+  - Rotate them by raising `database_password_version` and deploying straight after: the
+    migrator's changes at once, the app role's when the migrate job runs.
 - **Memorystore for Redis 7.2.**
   - Private services access, AUTH and in-transit encryption with server authentication.
   - Clients verify the server certificate against `REDIS_TLS_CA`, written from the instance's
@@ -89,7 +98,7 @@ state bucket and GitHub environment.
 - Each identity reads only what it uses:
   - the API: all of them;
   - the worker: Redis and the internal token;
-  - the migrate job: `DATABASE_URL`.
+  - the migrate job: both database URLs.
 - `api_env` (plain settings) rejects names that look like secrets. Those belong in
   `extra_secrets`.
 
@@ -111,7 +120,7 @@ state bucket and GitHub environment.
 ### Identities
 
 - One service account per service and job.
-- Only the API and the migrate job have `cloudsql.client`.
+- Only the API (and the ops job, which runs as it) and the migrate job have `cloudsql.client`.
 - GitHub Actions deploys as a `deployer` identity through Workload Identity Federation, so no
   service account keys exist. The provider accepts tokens only from this repository and the
   matching GitHub environment, and the environment's protection rules (reviewers) gate them.

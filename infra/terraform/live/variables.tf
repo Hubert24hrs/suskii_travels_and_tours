@@ -132,3 +132,13 @@ variable "labels" {
   type    = map(string)
   default = {}
 }
+
+variable "tls_ciphers" {
+  type    = list(string)
+  default = []
+}
+
+variable "log_retention_days" {
+  type    = number
+  default = 30
+}

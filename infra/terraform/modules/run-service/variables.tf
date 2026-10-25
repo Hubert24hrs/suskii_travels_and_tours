@@ -100,10 +100,11 @@ variable "cloud_sql_instance" {
 }
 
 variable "network" {
-  description = "VPC and subnet for Direct VPC egress (all traffic leaves through the VPC)."
+  description = "VPC, subnet and firewall tags for Direct VPC egress (all traffic leaves through the VPC)."
   type = object({
     network    = string
     subnetwork = string
+    tags       = list(string)
   })
 }
 

@@ -349,9 +349,9 @@
       "note": "JSON and problem+json responses carry charset=utf-8; Next.js pages declare UTF-8."
     },
     "V4.1.2": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "Edge configuration (phase 12): redirect HTTP to HTTPS only on the web and console hosts; the API host answers HTTPS only. HSTS preload already covers all three."
+      "status": "met",
+      "evidence": ["infra/terraform/modules/edge/main.tf"],
+      "note": "Cloudflare redirects plain http to https only for the website and console hosts (a redirect rule); the API host refuses http with a block rule, so a misconfigured client fails instead of following a redirect after sending its token. HSTS preload covers all three."
     },
     "V4.1.3": {
       "status": "met",
@@ -363,9 +363,12 @@
       "note": "Deployed environments read the client address from cf-connecting-ip (CLIENT_IP_HEADER) and discard X-Forwarded-For; Cloud Armor admits only Cloudflare ranges carrying the zone's origin secret, so the header is always Cloudflare's. Elsewhere TRUST_PROXY_HOPS decides how much of X-Forwarded-For to trust. The country header is read only when configured for an edge that overwrites it."
     },
     "V4.2.1": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "Node's HTTP parser rejects messages with conflicting Content-Length and Transfer-Encoding; load balancer settings come with phase 12."
+      "status": "met",
+      "evidence": [
+        "infra/terraform/modules/platform/lb.tf",
+        "infra/terraform/modules/edge/main.tf"
+      ],
+      "note": "Cloudflare and Google's front end parse and re-frame every request before Cloud Run sees it, rejecting conflicting Content-Length and Transfer-Encoding; Node's parser rejects them too."
     },
     "V4.3.1": {
       "status": "not-applicable",
@@ -1074,14 +1077,20 @@
       "note": "Ed25519 keys from Node's generator."
     },
     "V12.1.1": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "The edge TLS policy (TLS 1.2 and 1.3, 1.3 preferred) comes with phase 12. Node clients already refuse anything below TLS 1.2."
+      "status": "met",
+      "evidence": [
+        "infra/terraform/modules/edge/main.tf",
+        "infra/terraform/modules/platform/lb.tf"
+      ],
+      "note": "Visitors: TLS 1.2 minimum and TLS 1.3 at Cloudflare. Cloudflare to the origin: the load balancer's RESTRICTED policy with TLS 1.2 minimum. Node clients refuse anything below TLS 1.2."
     },
     "V12.1.2": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "Cipher suites are set with the edge TLS policy in phase 12."
+      "status": "partial",
+      "evidence": [
+        "infra/terraform/modules/edge/main.tf",
+        "infra/terraform/modules/platform/lb.tf"
+      ],
+      "note": "Cloudflare to the origin offers AEAD suites only (RESTRICTED policy). Visitors on TLS 1.2 get Cloudflare's default list, which keeps some CBC suites for old clients; restricting it (tls_ciphers, recommended list in infra/terraform/README.md) needs Advanced Certificate Manager, an owner decision."
     },
     "V12.1.3": {
       "status": "not-applicable",
@@ -1089,19 +1098,29 @@
       "note": "No mTLS client certificates."
     },
     "V12.2.1": {
-      "status": "deployment",
-      "evidence": ["apps/api/src/app.setup.ts", "apps/web/next.config.ts"],
-      "note": "HSTS with preload is already on every response; the edge serves TLS only (phase 12)."
+      "status": "met",
+      "evidence": [
+        "infra/terraform/modules/edge/main.tf",
+        "infra/terraform/modules/platform/lb.tf"
+      ],
+      "note": "HSTS with preload on every response; Cloudflare serves the public hosts over TLS only (ssl = strict to the origin) and the load balancer listens on 443 only."
     },
     "V12.2.2": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "Publicly trusted certificates are issued at the edge in phase 12."
+      "status": "met",
+      "evidence": [
+        "infra/terraform/modules/edge/main.tf",
+        "infra/terraform/modules/platform/lb.tf"
+      ],
+      "note": "Visitors get Cloudflare's publicly trusted edge certificates; the origin presents a Google-managed certificate validated through DNS, which Cloudflare checks (ssl = strict)."
     },
     "V12.3.1": {
-      "status": "deployment",
-      "evidence": ["apps/api/src/config/env.schema.ts", "docs/security/external-communications.md"],
-      "note": "The application refuses plaintext in production for providers, Postgres, Redis, the worker-to-API hop, OTLP and SMTP, except declared private paths. ClamAV has no TLS and must run on the same host or a private network (phase 12)."
+      "status": "met",
+      "evidence": [
+        "apps/api/src/config/env.schema.ts",
+        "docs/security/external-communications.md",
+        "infra/terraform/modules/platform/run.tf"
+      ],
+      "note": "The application refuses plaintext in production for providers, Postgres, Redis, the worker-to-API hop, OTLP and SMTP, except declared private paths. On GCP the only declared one is the Cloud SQL socket, whose connector encrypts the hop; Redis is rediss:// with server authentication. ClamAV has no TLS and is allowed only on a private address inside the VPC (owner decision on hosting)."
     },
     "V12.3.2": {
       "status": "met",
@@ -1109,14 +1128,18 @@
       "note": "No client disables certificate verification; production Postgres URLs require sslmode with verification."
     },
     "V12.3.3": {
-      "status": "deployment",
-      "evidence": ["apps/api/src/config/env.schema.ts", "apps/worker/src/config.ts"],
-      "note": "The worker must call the API over https in production. The web and console servers' API URLs are set to https in phase 12."
+      "status": "met",
+      "evidence": ["infra/terraform/modules/platform/run.tf"],
+      "note": "The worker, website and console servers call the API's https run.app URL inside the VPC; the worker refuses plain http in production."
     },
     "V12.3.4": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "Internal certificates and CA pinning for managed services are set up in phase 12."
+      "status": "met",
+      "evidence": [
+        "apps/api/src/infra/redis-options.ts",
+        "infra/terraform/modules/platform/cache.tf",
+        "infra/terraform/modules/platform/database.tf"
+      ],
+      "note": "Redis clients verify Memorystore's server certificate against REDIS_TLS_CA, written by Terraform from the instance's own CA. Postgres goes through the Cloud SQL connector, which authenticates the instance and the caller (connector enforcement required)."
     },
     "V13.1.1": {
       "status": "met",
@@ -1129,9 +1152,14 @@
       "note": "The worker authenticates to the internal API with a static bearer token over TLS, and the services use password credentials for Postgres and Redis. Phase 12 replaces these with workload identity and short-lived credentials."
     },
     "V13.2.2": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "Separate least-privilege database roles for the application and migrations, and scoped cloud identities, come with phase 12."
+      "status": "met",
+      "evidence": [
+        "apps/api/src/infra/app-role.ts",
+        "apps/api/test/app-role.e2e-spec.ts",
+        "infra/terraform/modules/platform/database.tf",
+        "infra/terraform/modules/platform/iam.tf"
+      ],
+      "note": "Migrations run as suskii_migrator, the schema owner, from the migrate job only; the API and the ops job connect as suskii_app, which the release step creates and checks can only read and write rows (no schema changes, TRUNCATE, roles or attributes; e2e test). Each service has its own cloud identity with only the secrets and roles it uses."
     },
     "V13.2.3": {
       "status": "met",
@@ -1144,24 +1172,24 @@
       "note": "Application-level allowlist of hosts; an egress firewall follows in phase 12."
     },
     "V13.2.5": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "Egress network policy in phase 12."
+      "status": "partial",
+      "evidence": ["infra/terraform/modules/platform/network.tf"],
+      "note": "Every Cloud Run revision and job is tagged and limited by VPC egress firewall rules: HTTPS and SMTP over TLS to the internet, the VPC and private services inside, everything else denied and logged, from two fixed NAT addresses. Destinations are not allowlisted by name: providers sit behind CDNs, and name-based egress needs Secure Web Proxy or Cloud NGFW Enterprise, an owner decision."
     },
     "V13.3.1": {
-      "status": "deployment",
-      "evidence": ["docs/security/crypto-inventory.md"],
-      "note": "Secrets live in the cloud secret manager (phase 12); the application reads them only from the environment."
+      "status": "met",
+      "evidence": ["infra/terraform/modules/platform/secrets.tf", "infra/terraform/README.md"],
+      "note": "Secrets live in Secret Manager, replicated in the region only, and reach the services as environment variables at instance start; values are added with gcloud and never pass through Terraform or files, except the generated database and Redis URLs, written as write-only data."
     },
     "V13.3.2": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "Per-service access to secrets is set up with the secret manager in phase 12."
+      "status": "met",
+      "evidence": ["infra/terraform/modules/platform/secrets.tf"],
+      "note": "Each service identity can read only its own secrets (the worker three, the migrate job the two database URLs); reads are recorded in Data Access audit logs."
     },
     "V13.4.1": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "Container images are built without source control metadata in phase 12."
+      "status": "met",
+      "evidence": [".dockerignore", "apps/api/Dockerfile"],
+      "note": ".dockerignore excludes .git and .github, and the images copy only the pruned workspace; no source control metadata reaches an image."
     },
     "V13.4.2": {
       "status": "met",
@@ -1174,9 +1202,9 @@
       "note": "The API serves no static files; Next.js serves only public assets, without listings."
     },
     "V13.4.4": {
-      "status": "deployment",
-      "evidence": [],
-      "note": "The API answers TRACE with 404 (checked 2026-10-12). The edge blocks TRACE on every host in phase 12."
+      "status": "met",
+      "evidence": ["infra/terraform/modules/edge/main.tf"],
+      "note": "The edge blocks TRACE and TRACK on every host; the API answers TRACE with 404 behind it."
     },
     "V13.4.5": {
       "status": "met",
@@ -1360,14 +1388,17 @@
       "note": "JSON encoding escapes control characters."
     },
     "V16.4.2": {
-      "status": "deployment",
-      "evidence": ["apps/api/src/audit/audit.service.ts", "docs/security/logging-inventory.md"],
-      "note": "The audit log is append-only in the database. Access to the log service is configured in phase 12."
+      "status": "met",
+      "evidence": [
+        "infra/terraform/modules/platform/main.tf",
+        "apps/api/src/audit/audit.service.ts"
+      ],
+      "note": "The audit log is append-only in the database. Process logs go to Cloud Logging, where entries cannot be edited, retention is set per environment and access is by IAM role."
     },
     "V16.4.3": {
-      "status": "deployment",
-      "evidence": ["docs/security/logging-inventory.md"],
-      "note": "Logs leave each container on stdout; shipping to a separate log service is part of phase 12."
+      "status": "met",
+      "evidence": ["infra/terraform/modules/platform/main.tf"],
+      "note": "Every container logs to stdout, which Cloud Run ships to Cloud Logging, a separate service outside the application's reach."
     },
     "V16.5.1": {
       "status": "met",

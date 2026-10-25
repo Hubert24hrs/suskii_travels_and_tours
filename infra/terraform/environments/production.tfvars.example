@@ -44,6 +44,9 @@ scaling = {
 
 allow_mock_providers = false
 managed_waf          = true
+log_retention_days   = 90
+# With Advanced Certificate Manager: AEAD suites only on TLS 1.2 (README).
+tls_ciphers = []
 admin_allowed_ips    = ["REPLACE_OFFICE_OR_VPN_CIDR"]
 
 # Provider names only; their secrets are listed in extra_secrets and set in Secret Manager.
