@@ -153,7 +153,8 @@ try {
 } catch (error) {
   say(`FAILED: ${error instanceof Error ? error.message : String(error)}`);
   say(`completed before the failure: ${steps.join('; ') || 'nothing'}`);
-  compose(['logs', '--tail', '60', 'api', 'migrate'], { allowFailure: true });
+  // Every service: an unhealthy website or console fails the gate as surely as the API.
+  compose(['logs', '--tail', '60'], { allowFailure: true });
   process.exitCode = 1;
 } finally {
   run('docker', ['image', 'rm', '-f', brokenImage], { allowFailure: true });
