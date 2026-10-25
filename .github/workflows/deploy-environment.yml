@@ -1,0 +1,376 @@
+name: Deploy environment
+
+# One deployment of one commit to one environment (ADR-060), called by deploy.yml (staging, on
+# every green main) and release.yml (staging, then production with approval). Runs in the
+# GitHub environment, so its protection rules and variables apply, and authenticates to GCP
+# through Workload Identity Federation (no keys). The order is fixed:
+#
+#   1. Server images (API, migrate, worker): staging builds, scans, pushes, signs and attests
+#      them once per commit; production verifies staging's signatures and copies the same
+#      digests (cosign copy). Web and console images are built per environment, because Next.js
+#      inlines their public settings at build time.
+#   2. Database step: the migrate job on the new image (expand/contract migrations only), then
+#      the ops job moves to the same image.
+#   3. Services: staging rolls each service forward; Cloud Run moves traffic only once a new
+#      revision passes its startup probe (/ready for the API). Production sends a share of
+#      traffic to the API and website candidates, checks their 5xx ratio and the smoke tests,
+#      then promotes them, or puts every service back on its previous revision.
+#   4. Smoke tests against the public hosts.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: staging or production
+        type: string
+        required: true
+      ref:
+        description: Commit to deploy (full SHA)
+        type: string
+        required: true
+      canary:
+        description: Send a share of traffic to the candidates before promoting them
+        type: boolean
+        default: false
+
+permissions: {}
+
+env:
+  TRIVY_VERSION: 0.75.0
+  TRIVY_SHA256: c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f
+  CANARY_PERCENT: 10
+  CANARY_MINUTES: 10
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.PUBLIC_WEB_URL }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # Workload Identity Federation and keyless signing (Sigstore)
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      REF: ${{ inputs.ref }}
+      TAG: sha-${{ inputs.ref }}
+      PREFIX: suskii-${{ inputs.environment }}
+      PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      REGISTRY: ${{ vars.ARTIFACT_REGISTRY }}
+      PROMOTE_FROM: ${{ inputs.environment == 'production' && vars.PROMOTE_FROM_REGISTRY || '' }}
+      # Images signed by this workflow, run from main or a release tag of this repository.
+      SIGNER: ^https://github\.com/${{ github.repository }}/\.github/workflows/deploy-environment\.yml@refs/(heads/main|tags/v.+)$
+      SIGNER_ISSUER: https://token.actions.githubusercontent.com
+    steps:
+      - name: Check the environment is configured
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          DEPLOYER: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+          PUBLIC_WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
+          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+          PUBLIC_ADMIN_URL: ${{ vars.PUBLIC_ADMIN_URL }}
+        run: |
+          missing=""
+          for name in PROJECT REGION REGISTRY WIF_PROVIDER DEPLOYER PUBLIC_WEB_URL PUBLIC_API_URL PUBLIC_ADMIN_URL; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ "$ENVIRONMENT" = production ] && [ -z "$PROMOTE_FROM" ]; then missing="$missing PROMOTE_FROM_REGISTRY"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::The $ENVIRONMENT environment is not set up (missing:$missing). See infra/terraform/README.md, step 7."
+            exit 1
+          fi
+          case "$REF" in
+            *[!0-9a-f]* | "") echo "::error::ref must be a full commit SHA"; exit 1 ;;
+          esac
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${REGISTRY%%/*}" --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@594f3bf4285d9ea8dc53c9a0c9c4092420091003 # v4.4.0
+
+      # The Actions cache token for `docker buildx build --cache-to type=gha` in run steps.
+      - name: Expose the Actions cache to Buildx
+        uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
+
+      - name: Install Trivy
+        run: |
+          curl -sSfL -o trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum --check --strict
+          tar -xzf trivy.tar.gz trivy
+          sudo mv trivy /usr/local/bin/trivy
+          rm trivy.tar.gz
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      # Shared helpers for the image steps below.
+      - name: Image helpers
+        run: |
+          cat > "$RUNNER_TEMP/images.sh" <<'SH'
+          set -euo pipefail
+          # Errors inside $(...) must stop the step too (a failed scan must never yield a digest).
+          shopt -s inherit_errexit
+          # Digest of a pushed tag, or nothing.
+          digest_of() { gcloud artifacts docker images describe "$1" --format='value(image_summary.digest)' 2>/dev/null || true; }
+          signed() { cosign verify "$1" --certificate-identity-regexp "$SIGNER" --certificate-oidc-issuer "$SIGNER_ISSUER" >/dev/null 2>&1; }
+          # Builds, scans (HIGH and CRITICAL with a fix fail), pushes, signs and attests the SBOM.
+          # Prints the digest. A tag already pushed is reused: tags are immutable (ADR-058).
+          release_image() {
+            local name="$1" dockerfile="$2" target="$3"; shift 3
+            local image="$REGISTRY/suskii-$name:$IMAGE_TAG" digest
+            digest="$(digest_of "$image")"
+            if [ -z "$digest" ]; then
+              docker buildx build --load --file "$dockerfile" ${target:+--target "$target"} \
+                --build-arg VERSION="$IMAGE_TAG" --build-arg REVISION="$REF" "$@" \
+                --cache-from "type=gha,scope=$name" --cache-to "type=gha,mode=max,scope=$name" \
+                --tag "$image" . >&2
+              trivy image --quiet --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$image" >&2
+              docker push --quiet "$image" >&2
+              digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$image" | cut -d@ -f2)"
+            fi
+            local pinned="$REGISTRY/suskii-$name@$digest"
+            if ! signed "$pinned"; then
+              trivy image --quiet --format cyclonedx --output "sbom-$name.json" "$pinned" >&2
+              cosign sign --yes "$pinned" >&2
+              cosign attest --yes --type cyclonedx --predicate "sbom-$name.json" "$pinned" >&2
+            fi
+            echo "$digest"
+          }
+          SH
+
+      - name: Server images
+        id: server
+        env:
+          IMAGE_TAG: ${{ env.TAG }}
+        run: |
+          source "$RUNNER_TEMP/images.sh"
+          if [ -z "$PROMOTE_FROM" ]; then
+            # Assignments, not echo arguments: a failing substitution then fails the step.
+            api="$(release_image api apps/api/Dockerfile runtime)"
+            migrate="$(release_image api-migrate apps/api/Dockerfile migrate)"
+            worker="$(release_image worker apps/worker/Dockerfile '')"
+            printf 'api=%s\nmigrate=%s\nworker=%s\n' "$api" "$migrate" "$worker" >> "$GITHUB_OUTPUT"
+          else
+            # Production runs exactly what staging tested: same digests, signatures verified.
+            for name in api api-migrate worker; do
+              digest="$(digest_of "$PROMOTE_FROM/suskii-$name:$TAG")"
+              if [ -z "$digest" ]; then
+                echo "::error::$name has no staging image for $REF: deploy this commit to staging first."
+                exit 1
+              fi
+              cosign verify "$PROMOTE_FROM/suskii-$name@$digest" \
+                --certificate-identity-regexp "$SIGNER" --certificate-oidc-issuer "$SIGNER_ISSUER" >/dev/null
+              if [ -z "$(digest_of "$REGISTRY/suskii-$name:$TAG")" ]; then
+                cosign copy "$PROMOTE_FROM/suskii-$name@$digest" "$REGISTRY/suskii-$name:$TAG"
+              fi
+              if [ "$(digest_of "$REGISTRY/suskii-$name:$TAG")" != "$digest" ]; then
+                echo "::error::$name: the production tag does not point at staging's digest"
+                exit 1
+              fi
+              case "$name" in
+                api-migrate) echo "migrate=$digest" >> "$GITHUB_OUTPUT" ;;
+                *) echo "$name=$digest" >> "$GITHUB_OUTPUT" ;;
+              esac
+            done
+          fi
+
+      - name: Web and console images
+        id: clients
+        env:
+          IMAGE_TAG: ${{ inputs.environment }}-${{ env.TAG }}
+          PUBLIC_WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
+          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+          PUBLIC_ADMIN_URL: ${{ vars.PUBLIC_ADMIN_URL }}
+          TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
+          SENTRY_DSN_WEB: ${{ vars.PUBLIC_SENTRY_DSN_WEB }}
+          SENTRY_DSN_ADMIN: ${{ vars.PUBLIC_SENTRY_DSN_ADMIN }}
+          WEB_VITALS_SAMPLE_RATE: ${{ vars.PUBLIC_WEB_VITALS_SAMPLE_RATE }}
+          IMAGE_REMOTE_HOSTS: ${{ vars.IMAGE_REMOTE_HOSTS }}
+        run: |
+          source "$RUNNER_TEMP/images.sh"
+          web="$(release_image web apps/web/Dockerfile '' \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="$PUBLIC_API_URL" \
+            --build-arg NEXT_PUBLIC_SITE_URL="$PUBLIC_WEB_URL" \
+            --build-arg NEXT_PUBLIC_ADMIN_URL="$PUBLIC_ADMIN_URL" \
+            --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY="$TURNSTILE_SITE_KEY" \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN="$SENTRY_DSN_WEB" \
+            --build-arg NEXT_PUBLIC_SENTRY_ENVIRONMENT="$ENVIRONMENT" \
+            --build-arg NEXT_PUBLIC_SENTRY_RELEASE="$REF" \
+            --build-arg NEXT_PUBLIC_WEB_VITALS_SAMPLE_RATE="$WEB_VITALS_SAMPLE_RATE" \
+            --build-arg IMAGE_REMOTE_HOSTS="$IMAGE_REMOTE_HOSTS")"
+          admin="$(release_image admin apps/admin/Dockerfile '' \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="$PUBLIC_API_URL" \
+            --build-arg NEXT_PUBLIC_ADMIN_URL="$PUBLIC_ADMIN_URL" \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN="$SENTRY_DSN_ADMIN" \
+            --build-arg NEXT_PUBLIC_SENTRY_ENVIRONMENT="$ENVIRONMENT" \
+            --build-arg NEXT_PUBLIC_SENTRY_RELEASE="$REF")"
+          printf 'web=%s\nadmin=%s\n' "$web" "$admin" >> "$GITHUB_OUTPUT"
+
+      - name: Database step (migrate job)
+        env:
+          MIGRATE: ${{ steps.server.outputs.migrate }}
+        run: |
+          image="$REGISTRY/suskii-api-migrate@$MIGRATE"
+          gcloud run jobs update "$PREFIX-migrate" --image "$image" --region "$REGION" --quiet
+          gcloud run jobs execute "$PREFIX-migrate" --region "$REGION" --wait
+          gcloud run jobs update "$PREFIX-ops" --image "$image" --region "$REGION" --quiet
+
+      # Each service's revision serving now, for the rollback.
+      - name: Record the serving revisions
+        id: previous
+        run: |
+          for service in api worker web admin; do
+            revision="$(gcloud run services describe "$PREFIX-$service" --region "$REGION" --format=json |
+              jq -r '[.status.traffic[] | select(.revisionName != null)] | max_by(.percent // 0) | .revisionName')"
+            echo "$service=$revision" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Deploy candidates
+        id: candidates
+        env:
+          API: ${{ steps.server.outputs.api }}
+          WEB: ${{ steps.clients.outputs.web }}
+          CANARY: ${{ inputs.canary }}
+        run: |
+          # gcloud waits until the revision passes its startup probe; one that never does fails
+          # this step and takes no traffic.
+          for pair in "api:suskii-api@$API" "web:suskii-web@$WEB"; do
+            service="${pair%%:*}"; image="$REGISTRY/${pair#*:}"
+            if [ "$CANARY" = true ]; then
+              gcloud run deploy "$PREFIX-$service" --image "$image" --region "$REGION" \
+                --no-traffic --tag candidate --quiet
+              revision="$(gcloud run services describe "$PREFIX-$service" --region "$REGION" \
+                --format='value(status.latestCreatedRevisionName)')"
+              gcloud run services update-traffic "$PREFIX-$service" --region "$REGION" \
+                --to-revisions "$revision=$CANARY_PERCENT" --quiet
+            else
+              gcloud run deploy "$PREFIX-$service" --image "$image" --region "$REGION" --quiet
+              gcloud run services update-traffic "$PREFIX-$service" --region "$REGION" --to-latest --quiet
+              revision="$(gcloud run services describe "$PREFIX-$service" --region "$REGION" \
+                --format='value(status.latestReadyRevisionName)')"
+            fi
+            echo "$service=$revision" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Canary window
+        if: inputs.canary
+        env:
+          API_REVISION: ${{ steps.candidates.outputs.api }}
+          WEB_REVISION: ${{ steps.candidates.outputs.web }}
+          PUBLIC_WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
+          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+        run: |
+          # Smoke tests through the edge while the candidates take a share of traffic, then the
+          # candidates' own 5xx ratio over the window.
+          deadline=$(( $(date +%s) + CANARY_MINUTES * 60 ))
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            node scripts/smoke.mjs --api "$PUBLIC_API_URL" --web "$PUBLIC_WEB_URL"
+            sleep 60
+          done
+          token="$(gcloud auth print-access-token)"
+          echo "::add-mask::$token"
+          export GOOGLE_OAUTH_ACCESS_TOKEN="$token"
+          node scripts/canary-check.mjs --project "$PROJECT" --service "$PREFIX-api" \
+            --revision "$API_REVISION" --minutes "$CANARY_MINUTES"
+          node scripts/canary-check.mjs --project "$PROJECT" --service "$PREFIX-web" \
+            --revision "$WEB_REVISION" --minutes "$CANARY_MINUTES"
+
+      - name: Promote candidates
+        if: inputs.canary
+        run: |
+          for service in api web; do
+            gcloud run services update-traffic "$PREFIX-$service" --region "$REGION" \
+              --to-latest --remove-tags candidate --quiet
+          done
+
+      - name: Deploy the worker and console
+        env:
+          WORKER: ${{ steps.server.outputs.worker }}
+          ADMIN: ${{ steps.clients.outputs.admin }}
+        run: |
+          gcloud run deploy "$PREFIX-worker" --image "$REGISTRY/suskii-worker@$WORKER" --region "$REGION" --quiet
+          gcloud run deploy "$PREFIX-admin" --image "$REGISTRY/suskii-admin@$ADMIN" --region "$REGION" --quiet
+          for service in worker admin; do
+            gcloud run services update-traffic "$PREFIX-$service" --region "$REGION" --to-latest --quiet
+          done
+
+      - name: Smoke tests
+        env:
+          PUBLIC_WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
+          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+          PUBLIC_ADMIN_URL: ${{ vars.PUBLIC_ADMIN_URL }}
+          # The console is reachable from GitHub's runners only when no edge allowlist applies.
+          SMOKE_ADMIN: ${{ vars.SMOKE_ADMIN }}
+        run: |
+          admin=()
+          if [ "$SMOKE_ADMIN" = true ]; then admin=(--admin "$PUBLIC_ADMIN_URL"); fi
+          node scripts/smoke.mjs --api "$PUBLIC_API_URL" --web "$PUBLIC_WEB_URL" "${admin[@]}" --wait 120
+
+      # Anything failed after traffic moved: every service back on the revision it served
+      # before. The database stays: migrations are expand/contract, so it serves both.
+      - name: Roll back
+        if: failure() && steps.previous.outcome == 'success'
+        env:
+          PREVIOUS_API: ${{ steps.previous.outputs.api }}
+          PREVIOUS_WORKER: ${{ steps.previous.outputs.worker }}
+          PREVIOUS_WEB: ${{ steps.previous.outputs.web }}
+          PREVIOUS_ADMIN: ${{ steps.previous.outputs.admin }}
+        run: |
+          status=0
+          for service in api worker web admin; do
+            variable="PREVIOUS_${service^^}"
+            revision="${!variable}"
+            [ -n "$revision" ] || continue
+            echo "::warning::Rolling $PREFIX-$service back to $revision"
+            gcloud run services update-traffic "$PREFIX-$service" --region "$REGION" \
+              --to-revisions "$revision=100" --quiet || status=1
+            gcloud run services update-traffic "$PREFIX-$service" --region "$REGION" \
+              --remove-tags candidate --quiet 2>/dev/null || true
+          done
+          exit $status
+
+      - name: Summary
+        if: always()
+        env:
+          API: ${{ steps.server.outputs.api }}
+          MIGRATE: ${{ steps.server.outputs.migrate }}
+          WORKER: ${{ steps.server.outputs.worker }}
+          WEB: ${{ steps.clients.outputs.web }}
+          ADMIN: ${{ steps.clients.outputs.admin }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### $ENVIRONMENT: $JOB_STATUS"
+            echo "Commit \`$REF\`"
+            echo
+            echo "| Image | Digest |"
+            echo "| --- | --- |"
+            for name in API MIGRATE WORKER WEB ADMIN; do echo "| ${name,,} | \`${!name:-not built}\` |"; done
+          } >> "$GITHUB_STEP_SUMMARY"

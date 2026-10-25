@@ -32,6 +32,7 @@ module "platform" {
   allow_mock_providers      = var.allow_mock_providers
   origin_auth_secret        = var.origin_auth_secret
   log_retention_days        = var.log_retention_days
+  registry_readers          = var.registry_readers
   labels                    = var.labels
 }
 
