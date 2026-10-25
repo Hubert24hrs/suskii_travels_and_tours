@@ -32,22 +32,22 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 
 ## Phase status
 
-| Phase | Name                                             | Status                                 |
-| ----- | ------------------------------------------------ | -------------------------------------- |
-| 0     | Foundation and repo bootstrap                    | Done                                   |
-| 1     | Design tokens and component libraries            | Done                                   |
-| 2     | Backend core                                     | Done                                   |
-| 3     | Search, catalog and supplier adapters            | Done                                   |
-| 4     | Web homepage                                     | Done                                   |
-| 5     | Flight and hotel booking flow (web)              | Done                                   |
-| 6     | Payments, flexible payment and refunds           | Done                                   |
-| 7     | Mobile app                                       | Done                                   |
-| 8     | Packages, tours, visa and add-ons                | Done                                   |
-| 9     | Accounts, Suskii Prime, referrals, notifications | Done                                   |
-| 10    | Admin console                                    | Done                                   |
-| 11    | Hardening                                        | Done                                   |
-| 12    | Deployment and release                           | Built; acceptance needs owner accounts |
-| 13    | Optional: AI trip search                         | Not started                            |
+| Phase | Name                                             | Status                                  |
+| ----- | ------------------------------------------------ | --------------------------------------- |
+| 0     | Foundation and repo bootstrap                    | Done                                    |
+| 1     | Design tokens and component libraries            | Done                                    |
+| 2     | Backend core                                     | Done                                    |
+| 3     | Search, catalog and supplier adapters            | Done                                    |
+| 4     | Web homepage                                     | Done                                    |
+| 5     | Flight and hotel booking flow (web)              | Done                                    |
+| 6     | Payments, flexible payment and refunds           | Done                                    |
+| 7     | Mobile app                                       | Done                                    |
+| 8     | Packages, tours, visa and add-ons                | Done                                    |
+| 9     | Accounts, Suskii Prime, referrals, notifications | Done                                    |
+| 10    | Admin console                                    | Done                                    |
+| 11    | Hardening                                        | Done                                    |
+| 12    | Deployment and release                           | Built; acceptance needs owner accounts  |
+| 13    | Optional: AI trip search                         | Built; model eval needs the owner's key |
 
 Cars (buses, rides and car rental; task `suskii-cars-v1`, outside the numbered phases): P0 to P11
 done (merged). Plan, decisions and status: `docs/phases/cars.md`; audit: `docs/audits/e2e-audit.md`.
@@ -55,6 +55,11 @@ done (merged). Plan, decisions and status: `docs/phases/cars.md`; audit: `docs/a
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
 submission wait for the owner's accounts (`docs/phases/phase-12.md`, Outcome).
+
+Phase 13 status: AI trip search is built behind `AI_SEARCH_ENABLED` (website, app, API, evals);
+the pipeline scores 50/50 with recorded model answers. The 95% criterion against the real model
+needs `LLM_API_KEY` and one run of `ai-eval.yml` (`docs/phases/phase-13.md`, Outcome). Started
+at the owner's request while phase 12's acceptance still waits for accounts.
 
 ## Repository layout
 
@@ -85,51 +90,52 @@ docs/         decisions/ (ADRs), phases/ (plans), security/ (threat model, check
 
 Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 
-| Command                                           | What it does                                                            |
-| ------------------------------------------------- | ----------------------------------------------------------------------- |
-| `pnpm install`                                    | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)       |
-| `pnpm infra:up`                                   | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)           |
-| `pnpm infra:down`                                 | Stop local infra (data kept in named volumes)                           |
-| `pnpm dev`                                        | Run every app in watch mode through Turborepo                           |
-| `pnpm build`                                      | Build every workspace (dependencies first)                              |
-| `pnpm lint`                                       | ESLint (type-aware) in every workspace                                  |
-| `pnpm typecheck`                                  | `tsc --noEmit` in every workspace                                       |
-| `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native)     |
-| `pnpm build:storybook`                            | Static Storybook for ui-web                                             |
-| `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                       |
-| `pnpm test:e2e`                                   | API, web and admin e2e suites, one after the other (Docker or URLs)     |
-| `pnpm --filter @suskii/web test:e2e`              | Web e2e + Lighthouse against built web, API and worker (see notes)      |
-| `pnpm --filter @suskii/admin test:e2e`            | Admin e2e: staff journeys, audit log, axe (built admin and API)         |
-| `pnpm --filter @suskii/web lighthouse [url]`      | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)         |
-| `pnpm --filter @suskii/web check:classes`         | Fail if a Tailwind class used in web/ui-web generates no CSS            |
-| `pnpm --filter @suskii/worker refresh:once`       | Refresh every deal route and destination once (API must run)            |
-| `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema               |
-| `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                     |
-| `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`                 |
-| `pnpm --filter @suskii/api db:seed:demo`          | Sample packages, tours, add-ons and visa data (refused in prod)         |
-| `docker compose --profile av up -d clamav`        | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)         |
-| `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                    |
-| `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)                |
-| `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)                  |
-| `pnpm --filter @suskii/mobile android`            | Build and run the development build on an Android emulator              |
-| `pnpm --filter @suskii/mobile scan:bundle dist`   | Secret scan of the mobile export (`--self-test` checks the scanner)     |
-| `pnpm --filter @suskii/web e2e:stack`             | Run the e2e stack (API, worker refresh, web) for Maestro flows          |
-| `pnpm format` / `format:check`                    | Prettier write / check                                                  |
-| `pnpm security:checklist` (`--check` in CI)       | Regenerate `docs/security/checklist.md` from the reviewed mapping       |
-| `pnpm --filter @suskii/api test:cov`              | API unit tests with the 80% gates (also `@suskii/shared`)               |
-| `pnpm --filter @suskii/ui-web test:visual`        | Screenshot tests (baselines from the `visual-baselines` workflow)       |
-| `k6 run load/k6/api.js`                           | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`)    |
-| `promtool check rules` / `test rules`             | Validate `infra/observability/alerts` (CI pins promtool)                |
-| `pnpm --filter @suskii/api keys:reencrypt`        | Rewrite field encryption under the current key (dry run first)          |
-| `pnpm --filter @suskii/api sessions:revoke`       | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)       |
-| `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)     |
-| `pnpm --filter @suskii/api staff:bootstrap`       | First super admin of a new environment (`--email`, `--yes`; once)       |
-| `pnpm release:rehearse`                           | Compose deploy, ops command, broken release, rollback (`:local` images) |
-| `node scripts/helm-rehearsal.mjs`                 | Same on kind with the Helm chart (needs kind and Helm; runs in CI)      |
-| `pnpm smoke --api URL [--web URL] [--admin URL]`  | Post-deploy smoke tests (public routes only, safe on production)        |
-| `pnpm check:migrations` / `pnpm test:scripts`     | Expand/contract guard on new migrations / node:test script suites       |
-| `docker compose --profile s3 up -d s3`            | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)           |
-| `pnpm --filter @suskii/api dev`                   | Run a single workspace                                                  |
+| Command                                           | What it does                                                               |
+| ------------------------------------------------- | -------------------------------------------------------------------------- |
+| `pnpm install`                                    | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)          |
+| `pnpm infra:up`                                   | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)              |
+| `pnpm infra:down`                                 | Stop local infra (data kept in named volumes)                              |
+| `pnpm dev`                                        | Run every app in watch mode through Turborepo                              |
+| `pnpm build`                                      | Build every workspace (dependencies first)                                 |
+| `pnpm lint`                                       | ESLint (type-aware) in every workspace                                     |
+| `pnpm typecheck`                                  | `tsc --noEmit` in every workspace                                          |
+| `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native)        |
+| `pnpm build:storybook`                            | Static Storybook for ui-web                                                |
+| `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                          |
+| `pnpm test:e2e`                                   | API, web and admin e2e suites, one after the other (Docker or URLs)        |
+| `pnpm --filter @suskii/web test:e2e`              | Web e2e + Lighthouse against built web, API and worker (see notes)         |
+| `pnpm --filter @suskii/admin test:e2e`            | Admin e2e: staff journeys, audit log, axe (built admin and API)            |
+| `pnpm --filter @suskii/web lighthouse [url]`      | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)            |
+| `pnpm --filter @suskii/web check:classes`         | Fail if a Tailwind class used in web/ui-web generates no CSS               |
+| `pnpm --filter @suskii/worker refresh:once`       | Refresh every deal route and destination once (API must run)               |
+| `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema                  |
+| `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                        |
+| `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`                    |
+| `pnpm --filter @suskii/api db:seed:demo`          | Sample packages, tours, add-ons and visa data (refused in prod)            |
+| `docker compose --profile av up -d clamav`        | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)            |
+| `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                       |
+| `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)                   |
+| `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)                     |
+| `pnpm --filter @suskii/mobile android`            | Build and run the development build on an Android emulator                 |
+| `pnpm --filter @suskii/mobile scan:bundle dist`   | Secret scan of the mobile export (`--self-test` checks the scanner)        |
+| `pnpm --filter @suskii/web e2e:stack`             | Run the e2e stack (API, worker refresh, web) for Maestro flows             |
+| `pnpm format` / `format:check`                    | Prettier write / check                                                     |
+| `pnpm security:checklist` (`--check` in CI)       | Regenerate `docs/security/checklist.md` from the reviewed mapping          |
+| `pnpm --filter @suskii/api test:cov`              | API unit tests with the 80% gates (also `@suskii/shared`)                  |
+| `pnpm --filter @suskii/ui-web test:visual`        | Screenshot tests (baselines from the `visual-baselines` workflow)          |
+| `k6 run load/k6/api.js`                           | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`)       |
+| `promtool check rules` / `test rules`             | Validate `infra/observability/alerts` (CI pins promtool)                   |
+| `pnpm --filter @suskii/api keys:reencrypt`        | Rewrite field encryption under the current key (dry run first)             |
+| `pnpm --filter @suskii/api sessions:revoke`       | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)          |
+| `pnpm --filter @suskii/api eval:natural-search`   | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model) |
+| `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)        |
+| `pnpm --filter @suskii/api staff:bootstrap`       | First super admin of a new environment (`--email`, `--yes`; once)          |
+| `pnpm release:rehearse`                           | Compose deploy, ops command, broken release, rollback (`:local` images)    |
+| `node scripts/helm-rehearsal.mjs`                 | Same on kind with the Helm chart (needs kind and Helm; runs in CI)         |
+| `pnpm smoke --api URL [--web URL] [--admin URL]`  | Post-deploy smoke tests (public routes only, safe on production)           |
+| `pnpm check:migrations` / `pnpm test:scripts`     | Expand/contract guard on new migrations / node:test script suites          |
+| `docker compose --profile s3 up -d s3`            | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)              |
+| `pnpm --filter @suskii/api dev`                   | Run a single workspace                                                     |
 
 Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, Expo Metro `8081`,
 Postgres `5432`, Redis `6379`, Mailpit SMTP `1025` and UI `8025`. Docker ports bind to `127.0.0.1` only.
@@ -508,6 +514,26 @@ Tooling notes for agents:
   (route handlers keep the CSRF and origin checks in one place). Semver 6 is overridden to 7
   (`semver@<7`) so Babel's graph never needs `semver@6.3.1`, which the trust policy refuses.
 
+### AI trip search (phase 13, ADR-061)
+
+- The model only fills the flight form; it never searches, books or reads private data. Clients
+  show every value as an editable field before anything is searched. Never let model output reach
+  a supplier, a price or a booking without the traveller submitting the form.
+- Model calls go through `LlmProvider` (`src/ai-search`); vendor SDKs stay in the adapter. The
+  answer must match a JSON schema (structured output) and is validated again with Zod; places
+  resolve only through `PlaceResolver` (the catalog), dates and travellers through the form's
+  rules. A value that fails goes to `missing`, not an error.
+- Text leaves only after `scrubQuery()` and is never stored, logged or put in metrics (outcomes,
+  latency, tokens and cost only). Requests carry no user id.
+- Every call reserves its worst case with `AiSearchBudget` first and settles to the billed
+  usage; a timeout keeps the reservation. Prices and caps come from settings.
+- Accuracy is measured by the 50-case eval, not assumed: a prompt, schema or model change must
+  keep the e2e test at 50/50 (recorded answers) and be re-run against the model
+  (`eval:natural-search`, `ai-eval.yml`) before it ships.
+- Both clients open the box from a button above the flight form; the website loads its code only
+  then (homepage budget). The button shows while `GET /v1/flights/natural-search` says the feature
+  is on, and hides when the API cannot say.
+
 ### Hardening (phase 11, ADR-037 to ADR-048)
 
 - Security documents live in `docs/security/` and must change with the code they describe:
@@ -667,6 +693,7 @@ Tooling notes for agents:
 - [ADR-058: Container images and supply chain](docs/decisions/ADR-058-container-images-and-supply-chain.md)
 - [ADR-059: GCP topology and the Cloudflare edge](docs/decisions/ADR-059-gcp-topology-and-cloudflare-edge.md)
 - [ADR-060: Release pipeline, canary and rollback](docs/decisions/ADR-060-release-pipeline.md)
+- [ADR-061: AI trip search](docs/decisions/ADR-061-ai-trip-search.md)
 
 ## Open questions for the owner
 
@@ -724,4 +751,7 @@ production apply); name-based egress filtering (Secure Web Proxy or Cloud NGFW);
 for per-PR preview deploys; the App Store Connect app (`ascAppId`) and a D-U-N-S number for the
 Apple organisation account; whether Suskii Prime counts as a travel service or needs in-app
 purchase; Sentry's "Prevent Storing of IP Addresses" setting; and confirmation of the privacy
-form answers in `docs/release/data-safety.md`.
+form answers in `docs/release/data-safety.md`. Added in phase 13: an Anthropic API key
+(`LLM_API_KEY` as a repository secret, then one run of the AI search eval), the provider's data
+retention terms (standard or zero data retention), whether to offer AI trip search in production,
+and its daily caps (defaults $0.05 per user or address, $20 in total).
