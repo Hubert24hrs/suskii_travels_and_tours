@@ -194,7 +194,16 @@ try {
   run('docker', ['build', '-q', '-t', BROKEN, '-'], {
     input: `FROM suskii-api:local\nCMD ["node", "-e", "console.error('release N+1 fails at start-up'); process.exit(1)"]\n`,
   });
-  run(KIND, ['load', 'docker-image', '--name', CLUSTER, ...IMAGES, BROKEN]);
+  // `kind load docker-image` imports every platform an image's index names, but Docker's
+  // containerd image store keeps only the host's layers of a pulled multi-platform image, so the
+  // import fails on content it never had. One archive of the host's platform loads everything.
+  const platform = run('docker', ['version', '--format', '{{.Server.Os}}/{{.Server.Arch}}'], {
+    capture: true,
+  }).stdout.trim();
+  const archive = join(work, 'images.tar');
+  run('docker', ['save', '--platform', platform, '-o', archive, ...IMAGES, BROKEN]);
+  run(KIND, ['load', 'image-archive', '--name', CLUSTER, archive]);
+  rmSync(archive);
   done('images loaded');
 
   say('data services and secrets');
