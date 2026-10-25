@@ -29,6 +29,8 @@ parent package depends on it:
 | `zod` (Expo CLI)   | 4.6.7    | `@expo/cli` (pins 3.x; dev-tools plugin schemas)           | GHSA-mrhx-c7xc-m3w5                      |
 | `zod` (Lighthouse) | 4.6.7    | `chromium-bidi` via puppeteer (pins 3.x; BiDi mapper only) | GHSA-mrhx-c7xc-m3w5                      |
 | `semver` (6.x)     | 7.8.5    | Babel 7, `eslint-plugin-import`/`react`, istanbul (pin 6)  | Trust policy (6.3.1 has no provenance)   |
+| `body-parser`      | 2.4.0    | Express 5 in `@nestjs/platform-express`                    | GHSA-27r3-jxmh-p828                      |
+| `multer`           | 2.5.0    | `@nestjs/platform-express` (no multipart route here)       | GHSA-q7qp-rjg7-q26m                      |
 
 Prisma's CLI (`generate`, `migrate deploy`, `migrate status`) was checked with the
 `deepmerge-ts` 8 override. The Expo CLI was checked with zod 4: its plugin and MCP schemas accept
@@ -37,14 +39,14 @@ mapper for the WebDriver BiDi protocol, and Lighthouse drives Chrome over CDP.
 
 ## Open advisories (not ignored)
 
-Found by the end-to-end audit on 2026-10-24 (`docs/audits/e2e-audit.md`). They are **not** in
-`auditConfig.ignoreGhsas`, so CI's audit stays red until each is upgraded. `next` (16.4.1) and
-Storybook (10.6.3) were upgraded on 2026-10-24 without relaxing the pnpm trust policy: the only
-semver 6 release with the ReDoS fix (6.3.1) has no provenance, so the `semver@<7` override moves
-its users (Babel 7, two ESLint plugins, istanbul) to semver 7.8.5, which keeps every function they
-call (`satisfies`, `intersects`, `lt`, `gt`, `valid`, `parse`).
+None. The end-to-end audit on 2026-10-24 (`docs/audits/e2e-audit.md`) found four that were not
+ignored; all are fixed without relaxing the pnpm trust policy or the release cooldown:
 
-| Advisory                   | Package                                | Fixed in | Blocked by                                  | Exposure until then                                                                                                                                              |
-| -------------------------- | -------------------------------------- | -------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GHSA-27r3-jxmh-p828 (high) | `body-parser` 2.3.0 (API, via Express) | 2.4.0    | Release cooldown until 2026-10-25 11:39 UTC | Triggered by compressed request bodies. The API refuses any `Content-Encoding` other than identity with 415 before decompressing (`app.setup.ts`, platform e2e). |
-| GHSA-q7qp-rjg7-q26m (high) | `multer` 2.4.0 (API, via Nest)         | 2.5.0    | Release cooldown until 2026-10-25 11:58 UTC | The API never parses multipart bodies (no `FileInterceptor`; uploads are raw bodies), so multer never runs.                                                      |
+- `next` 16.4.1 and Storybook 10.6.3 (2026-10-24): the only semver 6 release with the ReDoS fix
+  (6.3.1) has no provenance, so the `semver@<7` override moves its users (Babel 7, two ESLint
+  plugins, istanbul) to semver 7.8.5, which keeps every function they call (`satisfies`,
+  `intersects`, `lt`, `gt`, `valid`, `parse`).
+- `body-parser` 2.4.0 (GHSA-27r3-jxmh-p828) and `multer` 2.5.0 (GHSA-q7qp-rjg7-q26m)
+  (2026-10-25): installed through the overrides above once both passed the three-day release
+  cooldown (published 2026-10-22 11:39 and 11:58 UTC). The API keeps refusing compressed request
+  bodies (415, `app.setup.ts`) and registers no multipart route.

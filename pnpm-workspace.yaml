@@ -273,6 +273,12 @@ overrides:
   handlebars@<4.7.10: ^4.7.10
   # testcontainers' HTTP client (GHSA-xjj6-f33q-929c; tests only).
   undici@>=8.0.0 <8.12.2: ^8.12.3
+  # Express 5's body parsers in @nestjs/platform-express (GHSA-27r3-jxmh-p828, trailing bytes
+  # after a compressed body). The API also refuses compressed request bodies (415).
+  body-parser@>=2.0.0 <2.4.0: ^2.4.0
+  # Multipart parsing in @nestjs/platform-express (GHSA-q7qp-rjg7-q26m, a pending async
+  # fileFilter after request teardown). The API registers no multipart route.
+  multer@>=2.0.0 <2.5.0: ^2.5.0
 
 # High advisories with no fixed release, reviewed in docs/security/dependency-exceptions.md.
 # CI's `pnpm audit --prod --audit-level high` ignores only these ids; review them monthly.

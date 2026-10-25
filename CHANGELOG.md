@@ -57,6 +57,9 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
 
 #### Fixed
 
+- body-parser 2.4.0 (GHSA-27r3-jxmh-p828) and multer 2.5.0 (GHSA-q7qp-rjg7-q26m) through
+  overrides, installed once both passed the release cooldown; `pnpm audit` has no open high
+  advisory.
 - Booking pages and the data export no longer fail on a stored price without a fare.
 - A late driver location fix no longer moves the driver back in time or fails the speed check.
 - Model years show without a thousands separator.
@@ -98,11 +101,6 @@ behind a `CARS_*_ENABLED` flag (on by default outside production) and reported b
   with a deep link; a failed start retries instead of leaving a blank screen; turning on
   notifications offline shows a message instead of failing silently; only real transport
   failures count as offline.
-
-#### Known issues
-
-- body-parser 2.4.0 and multer 2.5.0 wait for the release cooldown (2026-10-25). Exposure and
-  mitigations: `docs/security/dependency-exceptions.md`.
 
 ### Phase 11: Hardening (2026-10-12)
 
