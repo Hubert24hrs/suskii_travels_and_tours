@@ -13,8 +13,14 @@ tags:
       id: flight-search-form
     timeout: 60000
 
-# Tours are browsed, not searched: the catalog lists the sample inventory.
-- tapOn: Tours
+# Tours are browsed, not searched: the catalog lists the sample inventory. The tab row scrolls
+# sideways (Cars sits third), so swipe it along to reach Tours on a narrow screen.
+- swipe:
+    from:
+      id: search-tab-hotels
+    direction: LEFT
+- tapOn:
+    id: search-tab-tours
 - tapOn:
     id: browse-tours
 - extendedWaitUntil:
