@@ -1,0 +1,43 @@
+{{- range $component := list "api" "web" }}
+{{- $settings := index $.Values $component }}
+{{- if $settings.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "suskii.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "suskii.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "suskii.fullname" $ }}-{{ $component }}
+  minReplicas: {{ $settings.autoscaling.minReplicas }}
+  maxReplicas: {{ $settings.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $settings.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}
+{{- /* Keep one pod of each public service through node drains and upgrades. */}}
+{{- range $component := list "api" "web" }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "suskii.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "suskii.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "suskii.selector" (list $ $component) | nindent 6 }}
+{{- end }}

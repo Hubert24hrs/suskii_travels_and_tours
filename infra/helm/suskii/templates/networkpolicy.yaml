@@ -1,0 +1,135 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $fullname := include "suskii.fullname" . -}}
+{{- $dns := dict "to" (list (dict "namespaceSelector" (dict) "podSelector" (dict "matchLabels" (dict "k8s-app" "kube-dns")))) "ports" (list (dict "protocol" "UDP" "port" 53) (dict "protocol" "TCP" "port" 53)) -}}
+{{- $data := list -}}
+{{- range .Values.networkPolicy.dataCidrs }}{{ $data = append $data (dict "ipBlock" (dict "cidr" .)) }}{{ end -}}
+{{- $internet := dict "to" (list (dict "ipBlock" (dict "cidr" "0.0.0.0/0"))) "ports" (list (dict "protocol" "TCP" "port" 443) (dict "protocol" "TCP" "port" 465) (dict "protocol" "TCP" "port" 587)) -}}
+{{- $fromIngress := dict "from" (list (dict "namespaceSelector" (dict "matchLabels" (dict "kubernetes.io/metadata.name" .Values.networkPolicy.ingressControllerNamespace)))) -}}
+# Nothing in or out of these pods unless a policy below allows it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-default-deny
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+---
+# API: from the ingress controller, the worker and the website's server; out to DNS, the data
+# services and HTTPS/SMTP providers.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "suskii.selector" (list . "api") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - {{- toYaml $fromIngress | nindent 6 }}
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [worker, web]
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+  egress:
+    - {{- toYaml $dns | nindent 6 }}
+    - {{- toYaml $internet | nindent 6 }}
+    {{- if $data }}
+    - to:
+        {{- toYaml $data | nindent 8 }}
+    {{- end }}
+---
+# Worker: out to DNS, the API and the data services (Redis) only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-worker
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "suskii.selector" (list . "worker") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - {{- toYaml $dns | nindent 6 }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "suskii.selector" (list . "api") | nindent 14 }}
+    {{- if $data }}
+    - to:
+        {{- toYaml $data | nindent 8 }}
+    {{- end }}
+---
+# Website: from the ingress controller; out to DNS, the API and HTTPS (remote images).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-web
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "suskii.selector" (list . "web") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - {{- toYaml $fromIngress | nindent 6 }}
+  egress:
+    - {{- toYaml $dns | nindent 6 }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "suskii.selector" (list . "api") | nindent 14 }}
+    - to:
+        - ipBlock: { cidr: 0.0.0.0/0 }
+      ports:
+        - { protocol: TCP, port: 443 }
+---
+# Console: from the ingress controller only; it calls the API from the browser.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-admin
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "suskii.selector" (list . "admin") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - {{- toYaml $fromIngress | nindent 6 }}
+  egress:
+    - {{- toYaml $dns | nindent 6 }}
+---
+# Migration job: out to DNS and the database only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-migrate
+  labels:
+    {{- include "suskii.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "suskii.selector" (list . "migrate") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - {{- toYaml $dns | nindent 6 }}
+    {{- if $data }}
+    - to:
+        {{- toYaml $data | nindent 8 }}
+    {{- end }}
+{{- end }}
