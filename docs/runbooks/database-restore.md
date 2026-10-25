@@ -29,9 +29,9 @@ works on any PostgreSQL 16.
 2. `idle in transaction` sessions older than a minute are a leak or a stuck request. End them
    with `SELECT pg_terminate_backend(pid) ...`, then find the request id in the logs and open
    an issue.
-3. Too many replicas for the pool? Each API replica opens up to `connection_limit` (on
-   `DATABASE_URL`) connections. The sum over replicas, plus the worker and migrations, must stay
-   under `max_connections`. Lower the pool or the replica count before raising the limit.
+3. Too many replicas for the pool? Each API replica opens up to `DATABASE_POOL_MAX` connections
+   (default 10). The sum over the API's maximum instances, plus the migrate and ops jobs, must
+   stay under `max_connections`. Lower the pool or the instance limit before raising it.
 4. A slow query holding connections: `pg_stat_activity.query` shows it (parameters are not
    logged). Check that its indexes exist (`EXPLAIN`).
 

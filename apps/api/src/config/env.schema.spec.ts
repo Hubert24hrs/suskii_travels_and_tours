@@ -12,6 +12,7 @@ describe('parseEnv', () => {
     expect(env.ACCESS_TOKEN_TTL_SECONDS).toBe(900);
     expect(env.COOKIE_SECURE).toBe(true);
     expect(env.CORS_ORIGINS).toEqual([]);
+    expect(env.DATABASE_POOL_MAX).toBe(10);
   });
 
   it('parses comma-separated lists and booleans', () => {

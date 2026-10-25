@@ -6,12 +6,18 @@ import { PrismaClient } from '../generated/prisma/client';
 
 /**
  * Prisma client over the node-postgres driver adapter. The pool connects lazily on the first
- * query, so booting the app (e.g. to generate the OpenAPI document) needs no database.
+ * query, so booting the app (e.g. to generate the OpenAPI document) needs no database. Its size
+ * is DATABASE_POOL_MAX: node-postgres ignores Prisma's `connection_limit` URL parameter.
  */
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleDestroy {
   constructor(@Inject(APP_CONFIG) config: AppConfig) {
-    super({ adapter: new PrismaPg({ connectionString: config.DATABASE_URL }) });
+    super({
+      adapter: new PrismaPg({
+        connectionString: config.DATABASE_URL,
+        max: config.DATABASE_POOL_MAX,
+      }),
+    });
   }
 
   async onModuleDestroy(): Promise<void> {
