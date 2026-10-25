@@ -4,22 +4,30 @@
  */
 export const publicEnv = {
   /** Browser -> API origin (autocomplete, newsletter). */
-  apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000',
+  apiBaseUrl: setting(process.env.NEXT_PUBLIC_API_BASE_URL, 'http://localhost:4000'),
   /** Canonical site origin for metadata, sitemaps and Open Graph URLs. */
-  siteUrl: (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
+  siteUrl: setting(process.env.NEXT_PUBLIC_SITE_URL, 'http://localhost:3000').replace(/\/$/, ''),
   /** Cloudflare Turnstile site key; empty locally (the API then uses its mock verifier). */
-  turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '',
+  turnstileSiteKey: setting(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY, ''),
   /** Sentry DSN for error reports from the browser and the server (public by design; ADR-046). */
-  sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN ?? '',
-  sentryEnvironment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
+  sentryDsn: setting(process.env.NEXT_PUBLIC_SENTRY_DSN, ''),
+  sentryEnvironment: setting(process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT, process.env.NODE_ENV),
   /** The deployed version (the git SHA), so reports match the uploaded source maps. */
-  sentryRelease: process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? '',
+  sentryRelease: setting(process.env.NEXT_PUBLIC_SENTRY_RELEASE, ''),
   /** Share of page views that report field Core Web Vitals (0 to 1; ADR-044). */
   webVitalsSampleRate: sampleRate(process.env.NEXT_PUBLIC_WEB_VITALS_SAMPLE_RATE),
 } as const;
 
+/**
+ * A value, or the fallback when it is missing or empty. An image built without a build argument
+ * still gets the variable, as an empty string (`ENV NAME=${NAME}` in the Dockerfile).
+ */
+function setting(value: string | undefined, fallback: string): string {
+  return value === undefined || value === '' ? fallback : value;
+}
+
 function sampleRate(value: string | undefined): number {
-  const rate = Number(value ?? '1');
+  const rate = Number(setting(value, '1'));
   return Number.isFinite(rate) ? Math.min(1, Math.max(0, rate)) : 1;
 }
 
