@@ -1,0 +1,152 @@
+name: Infrastructure
+
+# Checks the deployment code without any cloud account (ADR-059, ADR-060): Terraform format,
+# validation and lint; the Helm chart's lint and schema check; and the two release rehearsals on
+# images built from this commit (compose: deploy, ops command, broken release refused, rollback;
+# kind: Helm install, broken upgrade rolled back by --atomic, manual rollback). Tools are pinned:
+# Terraform by version and SHA-256, the Go tools through the Go checksum database.
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - 'apps/*/Dockerfile'
+      - '.dockerignore'
+      - 'docker-compose.release.yml'
+      - 'apps/api/prisma/**'
+      - 'apps/api/scripts/release-database.mjs'
+      - 'apps/api/src/infra/app-role.ts'
+      - 'scripts/*rehearsal*.mjs'
+      - 'scripts/smoke.mjs'
+      - '.github/workflows/infra.yml'
+      - '.github/workflows/deploy*.yml'
+      - '.github/workflows/release.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: 1.16.5
+  TERRAFORM_SHA256: 2bc2fcfff033265c9e02ca0351f01794eb122f62a9b2a49a3294b9e49eaab5e4
+  TFLINT_VERSION: v0.64.0
+  HELM_VERSION: v3.19.0
+  KUBECONFORM_VERSION: v0.7.0
+  KIND_VERSION: v0.29.0
+  KUBERNETES_VERSION: 1.31.0
+
+jobs:
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.26'
+          cache: false
+      - name: Install Terraform and TFLint
+        run: |
+          curl -sSfL -o terraform.zip \
+            "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+          echo "${TERRAFORM_SHA256}  terraform.zip" | sha256sum --check --strict
+          unzip -q terraform.zip terraform && sudo mv terraform /usr/local/bin/ && rm terraform.zip
+          go install "github.com/terraform-linters/tflint@${TFLINT_VERSION}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Format
+        run: terraform fmt -check -recursive -diff infra/terraform
+      - name: Validate (every environment uses this root)
+        working-directory: infra/terraform/live
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+      - name: Lint
+        working-directory: infra/terraform
+        env:
+          # Plugin downloads are verified against the ruleset's signing key; the token avoids
+          # GitHub's anonymous rate limit.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init --config "$PWD/.tflint.hcl"
+          tflint --recursive --config "$PWD/.tflint.hcl" --format compact
+
+  helm:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.26'
+          cache: false
+      - name: Install Helm and kubeconform
+        run: |
+          go install "helm.sh/helm/v3/cmd/helm@${HELM_VERSION}"
+          go install "github.com/yannh/kubeconform/cmd/kubeconform@${KUBECONFORM_VERSION}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Lint and validate
+        run: |
+          for values in infra/helm/suskii/values.yaml infra/helm/suskii/ci/rehearsal-values.yaml; do
+            helm lint infra/helm/suskii --strict --kube-version "$KUBERNETES_VERSION" -f "$values"
+            helm template suskii infra/helm/suskii --namespace suskii \
+              --kube-version "$KUBERNETES_VERSION" -f "$values" |
+              kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION"
+          done
+          kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION" \
+            infra/helm/rehearsal/data-services.yaml
+
+  rehearsal:
+    name: Release rehearsals (compose and kind)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.26'
+          cache: false
+      # keys:generate (throwaway rehearsal keys) runs from the workspace.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build the release images
+        run: |
+          docker build -f apps/api/Dockerfile --target runtime -t suskii-api:local .
+          docker build -f apps/api/Dockerfile --target migrate -t suskii-api-migrate:local .
+          docker build -f apps/worker/Dockerfile -t suskii-worker:local .
+          docker build -f apps/web/Dockerfile -t suskii-web:local .
+          docker build -f apps/admin/Dockerfile -t suskii-admin:local .
+      - name: Compose rehearsal (deploy, ops command, broken release, rollback)
+        run: node scripts/release-rehearsal.mjs
+      - name: Install kind and Helm
+        run: |
+          go install "sigs.k8s.io/kind@${KIND_VERSION}"
+          go install "helm.sh/helm/v3/cmd/helm@${HELM_VERSION}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Helm rehearsal on kind (install, --atomic rollback, manual rollback)
+        run: node scripts/helm-rehearsal.mjs
