@@ -21,6 +21,8 @@ export interface VehicleOptions {
   chauffeurDailyMinor?: number | null;
   depositMinor?: number;
   deliveryPerKmMinor?: number | null;
+  /** Calendar days before pickup in the branch zone, as the admin form takes them. */
+  cancellationPolicy?: { daysBefore: number; refundBps: number }[];
 }
 
 /** A published car at the Ikeja branch, through the admin API. */
@@ -65,7 +67,7 @@ export async function rentalVehicle(
       excessKmMinor: 15_000,
       fuelPolicy: 'full_to_full',
       insuranceSummary: 'Third party and theft.',
-      cancellationPolicy: [
+      cancellationPolicy: options.cancellationPolicy ?? [
         { daysBefore: 3, refundBps: 10_000 },
         { daysBefore: 1, refundBps: 5_000 },
         { daysBefore: 0, refundBps: 0 },
