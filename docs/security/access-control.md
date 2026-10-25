@@ -25,7 +25,14 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   audit list. `admin-matrix.e2e-spec.ts` calls every admin route as every role and expects 403
   unless the role holds the permission. Denials are audited (`rbac.access_denied`) or logged
   (`authorization denied`).
-- **Internal routes** (`/v1/internal`) accept only the worker's service token.
+- **Internal routes** (`/v1/internal`) accept only the worker's service token. Behind
+  Cloudflare the edge also blocks them, and blocks the console and `/v1/admin` from addresses
+  outside `admin_allowed_ips` (ADR-059).
+- **The first super admin.** Roles change only in the console (step-up, audited), which needs a
+  super admin. A new environment gets its first one from `staff:bootstrap` (the `ops` job in a
+  deployed environment): it grants `super_admin` to an existing account with a verified email,
+  records `rbac.roles.changed` as a system action, signs the account out, and refuses once any
+  super admin exists (`test/staff-bootstrap.e2e-spec.ts`). `SEED_ADMIN_*` stays local only.
 
 ## Data level
 
