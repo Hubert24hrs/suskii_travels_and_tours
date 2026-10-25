@@ -183,6 +183,12 @@ export const api = {
       revalidate: FIVE_MINUTES,
       tags: ['cars'],
     }),
+  // AI trip search (ADR-061): whether the flight tab shows the "Describe your trip" box.
+  naturalSearchStatus: () =>
+    apiGet<Schemas['NaturalSearchStatus']>('/v1/flights/natural-search', {
+      revalidate: ONE_MINUTE,
+      tags: ['ai-search'],
+    }),
   // Plans are staff-managed data; the purchase quote re-reads the plan anyway (ADR-030).
   primePlans: (currency: string) =>
     apiGet<Schemas['PrimePlanList']>('/v1/prime/plans', {

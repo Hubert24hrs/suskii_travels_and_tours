@@ -1,7 +1,7 @@
 import type { Vertical } from '@suskii/shared';
 import { I18nProvider } from '@suskii/i18n/react';
 
-import type { HotelDestination } from '../../lib/api';
+import { api, type HotelDestination } from '../../lib/api';
 import { publicEnv } from '../../lib/env';
 import { getI18n } from '../../lib/i18n';
 import { Container } from '../layout/container';
@@ -24,7 +24,10 @@ export async function SearchPanel({
   initial?: SearchInitialState;
   overlap?: boolean;
 }) {
-  const { locale, currency, messages } = await getI18n();
+  const [{ locale, currency, messages }, aiSearch] = await Promise.all([
+    getI18n(),
+    api.naturalSearchStatus(),
+  ]);
   return (
     <Container className={overlap ? 'relative z-10 -mt-16' : undefined}>
       <I18nProvider locale={locale} messages={pickSearchMessages(messages)}>
@@ -39,6 +42,7 @@ export async function SearchPanel({
             countryName: destination.country.name,
           }))}
           initial={initial}
+          describe={aiSearch?.enabled ? { maxLength: aiSearch.maxLength } : undefined}
         />
       </I18nProvider>
     </Container>
