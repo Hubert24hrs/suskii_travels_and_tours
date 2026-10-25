@@ -830,6 +830,15 @@ export const en = {
       carsHeading: 'Buses, rides and car rental',
       carsBody: 'Interstate buses with reserved seats, rides across the city and cars to rent.',
       carsCta: 'Get around by road',
+      carsTab: 'Cars',
+      carsBuses: 'Book a bus seat',
+      carsRides: 'Request a ride',
+      carsRentals: 'Rent a car',
+      unreachable:
+        'We could not reach the Suskii server, so prices, deals and buses, rides and car rental cannot load yet.',
+      unreachableTestBuild:
+        'This test build needs a running Suskii server. Start the stack on your computer, then enter its address under Test server.',
+      setTestServer: 'Set the test server',
     },
     search: {
       titles: { flights: 'Flights', hotels: 'Hotels', packages: 'Packages', tours: 'Tours' },

@@ -7,6 +7,8 @@ export interface TabItem<T extends string> {
   value: T;
   label: string;
   icon?: ReactNode;
+  /** Stable id for UI tests (Maestro, Testing Library). */
+  testID?: string;
 }
 
 export interface TabsProps<T extends string> {
@@ -40,6 +42,7 @@ export function Tabs<T extends string>({
         return (
           <Pressable
             key={item.value}
+            testID={item.testID}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             onPress={() => onValueChange(item.value)}

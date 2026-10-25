@@ -13,7 +13,16 @@ tags:
       id: flight-search-form
     timeout: 60000
 
-# Home links the Cars hub while the API has a Cars product switched on.
+# The API answered (no unreachable-server card), so the search card has a Cars tab listing the
+# products, and home links the Cars hub while a Cars product is switched on.
+- assertNotVisible:
+    id: server-unreachable
+- tapOn:
+    id: search-tab-cars
+- assertVisible:
+    id: home-cars-buses
+- assertVisible:
+    id: home-cars-rides
 - scrollUntilVisible:
     element:
       id: home-cars

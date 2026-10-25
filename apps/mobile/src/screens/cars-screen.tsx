@@ -2,8 +2,9 @@ import { Button, Card } from '@suskii/ui-native';
 import { Stack, useRouter, type Href } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
+import { ServerUnreachable } from '../components/server-unreachable';
 import { Loading, Notice } from '../components/states';
-import { useCarsFeatures } from '../lib/cars';
+import { useCarsFeaturesQuery, type CarsFeatures } from '../lib/cars';
 import { useApp, useT } from '../providers/app-provider';
 
 function Entry({
@@ -33,15 +34,25 @@ function Entry({
   );
 }
 
+/** While the API cannot be reached the products are listed; their screens say what failed. */
+const UNKNOWN: Pick<CarsFeatures, 'buses' | 'rides' | 'rentals'> = {
+  buses: true,
+  rides: true,
+  rentals: true,
+};
+
 /**
  * Buses, rides and car rental (ADR-049): the products the API has switched on, plus driver mode
- * for anyone who wants to drive and ticket scanning for bus operator agents.
+ * for anyone who wants to drive and ticket scanning for bus operator agents. When the API cannot
+ * be reached the screen says so, with a retry, instead of loading forever.
  */
 export function CarsScreen() {
   const { t } = useT();
   const { user } = useApp();
-  const features = useCarsFeatures();
-  if (features === null) return <Loading label={t('mobile.loading')} />;
+  const query = useCarsFeaturesQuery();
+  if (query.isPending) return <Loading label={t('mobile.loading')} />;
+  const unreachable = query.isError;
+  const features = query.data ?? UNKNOWN;
   const none = !features.buses && !features.rides && !features.rentals;
   return (
     <ScrollView
@@ -56,6 +67,7 @@ export function CarsScreen() {
         </Text>
         <Text className="font-body text-body text-foreground">{t('cars.hub.body')}</Text>
       </View>
+      {unreachable ? <ServerUnreachable onRetry={() => void query.refetch()} /> : null}
       {none ? <Notice body={t('cars.buses.noCities')} /> : null}
       {features.buses ? (
         <Entry
@@ -84,7 +96,7 @@ export function CarsScreen() {
           href="/rentals"
         />
       ) : null}
-      {features.rides ? (
+      {!unreachable && features.rides ? (
         <Entry
           testID="cars-drive"
           title={t('mobile.cars.drive.title')}
@@ -93,7 +105,7 @@ export function CarsScreen() {
           href="/driver"
         />
       ) : null}
-      {features.buses && user?.roles.includes('operator_agent') ? (
+      {!unreachable && features.buses && user?.roles.includes('operator_agent') ? (
         <Entry
           testID="cars-scan"
           title={t('mobile.cars.scan.title')}
