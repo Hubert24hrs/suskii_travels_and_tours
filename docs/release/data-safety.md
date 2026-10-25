@@ -24,6 +24,10 @@ forms must match the shipped build.
   (SAQ-A). The app sees the amount, reference and status.
 - **Crash reports carry no user id**: a scrubbed message, a stack trace, the app version and tags
   from a fixed list (ADR-046). Set Sentry's "Prevent Storing of IP Addresses" for the project.
+- **AI trip search (optional, ADR-061):** a described trip ("Lagos to London next Friday") is
+  scrubbed of e-mail addresses, phone numbers and long digit runs, sent to the model provider
+  (Anthropic) once to fill the flight form, and never stored or logged. It carries no user id.
+  Off in production unless the owner turns it on.
 - **Encrypted in transit:** everything goes over HTTPS.
 - **Deletion:** users can delete their account in the app (Account, Privacy) and on the website
   (`/account/privacy`). Financial records are kept without contact details for the legal period
@@ -33,7 +37,8 @@ forms must match the shipped build.
     hotels, tour operators;
   - payment providers;
   - an email relay and Expo's push service;
-  - Sentry for crashes.
+  - Sentry for crashes;
+  - the AI model provider for described trips, when AI trip search is on.
 
   All of them either act on our behalf (service providers) or receive data because the user
   booked with them, which both stores treat as expected transfers, not "sharing" or "tracking".
@@ -66,7 +71,7 @@ needs them. Optional ones are marked.
 | Photos and videos        | Photos                       | Yes       | Yes      | App functionality, Fraud prevention and security                                               | Images the user uploads: visa documents, a driver's documents and selfie, a renter's licence                                                       |
 | Files and docs           | Files and docs               | Yes       | Yes      | App functionality                                                                              | PDFs the user uploads for a visa application or driver approval                                                                                    |
 | App activity             | Other user-generated content | Yes       | Yes      | App functionality                                                                              | Ride and trip ratings with comments                                                                                                                |
-| App activity             | In-app search history        | Yes       | No       | App functionality, Analytics                                                                   | Searches run on the server; search logs keep routes, dates and counts without the user                                                             |
+| App activity             | In-app search history        | Yes       | No       | App functionality, Analytics                                                                   | Searches run on the server; search logs keep routes, dates and counts without the user. Described trips (AI trip search) are processed, not stored |
 | App info and performance | Crash logs                   | Yes       | No       | App functionality, Analytics                                                                   | Error reports without user ids (Sentry)                                                                                                            |
 | App info and performance | Diagnostics                  | Yes       | No       | App functionality                                                                              | App version and platform with requests (`X-Suskii-Client`)                                                                                         |
 | Device or other IDs      | Device or other IDs          | Yes       | Yes      | App functionality, Fraud prevention and security                                               | Push token (if notifications are allowed); device attestation results (App Attest, Play Integrity)                                                 |
@@ -109,11 +114,11 @@ websites, so it does not need App Tracking Transparency.
 
 ### Data Not Linked to You
 
-| Category       | Data type             | Purposes                     | Notes                                |
-| -------------- | --------------------- | ---------------------------- | ------------------------------------ |
-| Diagnostics    | Crash Data            | App Functionality            | Error reports without user ids       |
-| Diagnostics    | Other Diagnostic Data | App Functionality            | App version and platform on requests |
-| Search History | Search History        | App Functionality, Analytics | Search logs keep no user id          |
+| Category       | Data type             | Purposes                     | Notes                                                                                                          |
+| -------------- | --------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Diagnostics    | Crash Data            | App Functionality            | Error reports without user ids                                                                                 |
+| Diagnostics    | Other Diagnostic Data | App Functionality            | App version and platform on requests                                                                           |
+| Search History | Search History        | App Functionality, Analytics | Search logs keep no user id; described trips (AI trip search) go to the model provider once and are not stored |
 
 "Fraud prevention, security, and compliance" falls under App Functionality in Apple's
 definitions. That covers payment risk scoring, referral fraud checks, rate limits and device
@@ -121,11 +126,12 @@ attestation.
 
 ## Keeping this page true
 
-| Change                                        | Update                                                                                                                                  |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Device location for drivers or riders         | Precise (and possibly Approximate) location from the device; the location permission text; background location needs Play's declaration |
-| A new SDK (analytics, attribution, ads, chat) | Both forms, and probably "tracking" on iOS (then App Tracking Transparency)                                                             |
-| Native crash reporting (Sentry native SDK)    | Crash Data stays not linked if no user id is set                                                                                        |
-| Sign in with Google or Apple in the app       | Identifiers and the third-party sign-in data; Apple then also requires Sign in with Apple                                               |
-| A new upload or document type                 | Photos or Files rows, and `data-classification.md`                                                                                      |
-| Marketing push notifications                  | Purposes: Developer's Advertising or Marketing; consent stays required                                                                  |
+| Change                                                  | Update                                                                                                                                  |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Device location for drivers or riders                   | Precise (and possibly Approximate) location from the device; the location permission text; background location needs Play's declaration |
+| A new SDK (analytics, attribution, ads, chat)           | Both forms, and probably "tracking" on iOS (then App Tracking Transparency)                                                             |
+| Native crash reporting (Sentry native SDK)              | Crash Data stays not linked if no user id is set                                                                                        |
+| Sign in with Google or Apple in the app                 | Identifiers and the third-party sign-in data; Apple then also requires Sign in with Apple                                               |
+| Storing described trips, or sending them with a user id | In-app search history becomes linked to the user on both forms; `data-classification.md`                                                |
+| A new upload or document type                           | Photos or Files rows, and `data-classification.md`                                                                                      |
+| Marketing push notifications                            | Purposes: Developer's Advertising or Marketing; consent stays required                                                                  |

@@ -6,6 +6,61 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phase 13: AI trip search (2026-10-25)
+
+Plan and outcome in `docs/phases/phase-13.md`; design in ADR-061. Optional and behind a flag
+(on outside production, off in production unless set). Nothing calls a real model yet: the
+95%-accuracy eval against the model waits for the owner's `LLM_API_KEY`.
+
+#### Added
+
+- **"Describe your trip"** on the flight search of the website and the app: a "Describe your trip
+  instead" button above the form opens the box (on the website its code loads only then). A message such as "Lagos to
+  London next Friday, 2 adults, back a week later" fills the flight form; the traveller checks
+  it and searches as usual. A filled form names what is still missing; every failure keeps the
+  text and points to the form.
+- **API:** `POST /v1/flights/natural-search` and `GET /v1/flights/natural-search` (status).
+  - An `LlmProvider` interface. `AnthropicLlmProvider` uses the official SDK (pinned 1.1.0),
+    Claude Haiku 5.5 by default (`LLM_MODEL`), structured output against a JSON schema, effort
+    `low`, a cached system prompt, an 8 s timeout, one retry and no redirects.
+    `MockLlmProvider` (deterministic, offline) is refused in production unless
+    `ALLOW_MOCK_PROVIDERS`.
+  - Before the call, `scrubQuery()` removes e-mail addresses, phone numbers and long digit runs.
+    The text is never stored or logged.
+  - The model's answer is validated again with Zod. Places resolve through our catalog; dates
+    and travellers go through the form's rules. Problems become `missing` fields, not errors.
+  - `AiSearchBudget` reserves each call's worst case in Redis against daily caps per user or
+    guest address (`AI_SEARCH_USER_DAILY_MICROUSD`, $0.05) and in total
+    (`AI_SEARCH_GLOBAL_DAILY_MICROUSD`, $20), then settles to the billed tokens. Over a cap:
+    429 `ai-search-budget-exceeded`.
+  - Rate limits: 10 a minute and 200 a day per IP, 20 a minute per user.
+  - Other answers: 422 `ai-search-not-understood`, 503 `ai-search-unavailable`, 404 while off.
+  - Metrics: requests by outcome, duration, cost and tokens.
+- **Evals:** 50 messages with their expected forms (`test/fixtures/natural-search-eval.json`).
+  - The e2e test runs them through the whole pipeline with recorded model answers (50/50).
+  - `pnpm --filter @suskii/api eval:natural-search` runs them against the configured model,
+    printing mismatches, accuracy, tokens and cost; it fails below 95%.
+  - The manual **AI search eval** workflow (`ai-eval.yml`) runs it with the `LLM_API_KEY`
+    secret.
+- **Shared:** natural-search schemas, with the constants in `@suskii/shared/lite`. **i18n:**
+  `search.describe` copy and a `month` date style.
+- **Settings:** `AI_SEARCH_ENABLED`, `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT_MS`,
+  the per-token prices and the two caps. They are in `.env.example`, the Terraform examples
+  (staging on the mock model, production commented) and the Helm notes.
+- **Docs:** external communications (the model provider), data classification, business limits,
+  crypto inventory, threat model, access control, logging inventory and the app privacy forms
+  (described trips go to the model provider once and are not stored).
+
+#### Changed
+
+- Homepage JavaScript: 169.1 kB to 169.5 kB (the button that opens the box).
+
+#### Fixed
+
+- App: the airport fields kept showing their old text after the swap button (or any change made
+  outside the field). The native `Combobox` now follows its selection without overwriting what
+  the traveller types.
+
 ### Phase 12: deployment and release (2026-10-25)
 
 Plan in `docs/phases/phase-12.md`; decisions in ADR-057 to ADR-060. Everything up to the owner's

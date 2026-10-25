@@ -23,7 +23,8 @@ images:
 secrets:
   # DATABASE_URL (the app role), REDIS_URL, REDIS_TLS_CA, JWT_*, FIELD_ENCRYPTION_KEY,
   # HMAC_SECRET, INTERNAL_API_TOKEN, TURNSTILE_SECRET_KEY, CARS_TICKET_SIGNING_KEY,
-  # OBJECT_STORAGE_ACCESS_KEY_ID, OBJECT_STORAGE_SECRET_ACCESS_KEY and provider keys.
+  # OBJECT_STORAGE_ACCESS_KEY_ID, OBJECT_STORAGE_SECRET_ACCESS_KEY and provider keys
+  # (LLM_API_KEY when AI trip search uses a real model, ADR-061).
   api: suskii-api
   # DATABASE_URL (the schema owner) and DATABASE_APP_URL (the app role).
   migrate: suskii-migrate
@@ -32,8 +33,8 @@ secrets:
 
 api:
   replicas: 2
-  # Plain settings only (providers, CARS_*_ENABLED, ADMIN_IP_ALLOWLIST, ...); secrets go in the
-  # Secret above. NODE_ENV, the port, origins and client address header are set by the chart.
+  # Plain settings only (providers, CARS_*_ENABLED, AI_SEARCH_ENABLED, LLM_PROVIDER,
+  # ADMIN_IP_ALLOWLIST, ...); secrets go in the Secret above. NODE_ENV, the port, origins and client address header are set by the chart.
   env:
     LOG_LEVEL: info
     OBJECT_STORAGE: s3

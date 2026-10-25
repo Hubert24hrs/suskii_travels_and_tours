@@ -49,6 +49,8 @@ allow_mock_providers = true
 managed_waf          = false # the Free plan has no Managed or OWASP ruleset; set true on Pro
 admin_allowed_ips    = []    # office or VPN egress, also ADMIN_IP_ALLOWLIST below
 
+# AI trip search runs on the mock model here (ADR-061); a real model needs LLM_API_KEY in
+# extra_secrets and LLM_PROVIDER = "anthropic".
 api_env = {
   FLIGHT_SUPPLIERS     = "mock"
   HOTEL_SUPPLIERS      = "mock"
@@ -60,6 +62,8 @@ api_env = {
   CARS_BUSES_ENABLED   = "true"
   CARS_RIDES_ENABLED   = "true"
   CARS_RENTALS_ENABLED = "true"
+  AI_SEARCH_ENABLED    = "true"
+  LLM_PROVIDER         = "mock"
   ADMIN_IP_ALLOWLIST   = ""
   OPS_ALERT_EMAIL      = ""
 }

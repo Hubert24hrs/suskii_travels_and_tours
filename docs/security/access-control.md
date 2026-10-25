@@ -8,7 +8,8 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 
 - **Authenticated by default.** Every route needs a session unless it is marked `@Public()`.
   Public routes are search, catalog and content reads, sign-up and sign-in, guest checkout,
-  webhooks, health probes and web-vitals beacons.
+  webhooks, health probes, web-vitals beacons and AI trip search (`/v1/flights/natural-search`,
+  which fills a form and reads nothing private; ADR-061).
 - **Permissions, not roles, in code.** Routes declare `@RequirePermissions(...)`. Admin routes
   declare `@AdminRoute(permission)`, which also requires a staff role, an MFA session, an
   allowlisted IP and, for cookies, an allowlisted origin. The riskiest admin mutations add
@@ -21,6 +22,8 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   (the driver assigned to a ride, the agent's operator) (ADR-049, ADR-050).
 - **Switched-off products.** A disabled Cars product (`CARS_*_ENABLED`) answers 404 on all its
   routes, before authentication (`CarsFeatureGuard`).
+  AI trip search with `AI_SEARCH_ENABLED` off answers 404 on its parse route; its status route
+  says it is off.
 - **Checked automatically.** The OpenAPI build fails for an admin route without a permission or
   audit list. `admin-matrix.e2e-spec.ts` calls every admin route as every role and expects 403
   unless the role holds the permission. Denials are audited (`rbac.access_denied`) or logged

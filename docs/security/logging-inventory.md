@@ -51,7 +51,8 @@ matched to its logs.
 
 - **Credentials and secrets:** passwords, tokens, cookies, `Authorization`, CSRF tokens, OTP and
   recovery codes, TOTP secrets, keys.
-- **Personal data:** emails, phone numbers, passport numbers, names in free text.
+- **Personal data:** emails, phone numbers, passport numbers, names in free text, and the text
+  of AI trip search messages (only the outcome, latency, tokens and cost are logged, ADR-061).
 - **Payment data:** card numbers (never received in the first place).
 
 Three layers enforce it:

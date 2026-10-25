@@ -75,6 +75,10 @@ api_env = {
   ADMIN_IP_ALLOWLIST = "REPLACE_OFFICE_OR_VPN_CIDR"
   OPS_ALERT_EMAIL    = "REPLACE"
   SENTRY_DSN         = "REPLACE"
+  # AI trip search (ADR-061) is off unless set. To offer it, add "LLM_API_KEY" to extra_secrets,
+  # set its value in Secret Manager, run the eval (ai-eval.yml) and uncomment:
+  # AI_SEARCH_ENABLED = "true"
+  # LLM_PROVIDER      = "anthropic"
 }
 
 worker_env = {
