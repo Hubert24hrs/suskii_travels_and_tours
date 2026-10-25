@@ -1,0 +1,85 @@
+# Production: copy to production.tfvars (git-ignored) and replace every REPLACE value. Non-secret
+# only: the origin secret comes from TF_VAR_origin_auth_secret, application secrets from Secret
+# Manager. The API refuses to start with a mock provider here, so every provider below needs its
+# real account first (open questions in CLAUDE.md); their keys go in extra_secrets.
+#
+# Blocker today: SMS, WhatsApp, exchange rates, hotels, driver KYC and payouts only have mock
+# adapters, so production cannot start until those adapters exist for the providers the owner
+# picks (docs/phases/phase-12.md). Staging runs everything on mocks meanwhile.
+
+project_id         = "REPLACE-suskii-production"
+environment        = "production"
+region             = "europe-west2"
+cloudflare_zone_id = "REPLACE_WITH_PRODUCTION_ZONE_ID"
+
+hosts = {
+  web   = "suskii.example"
+  api   = "api.suskii.example"
+  admin = "admin.suskii.example"
+}
+redirect_hosts = ["www.suskii.example"]
+
+deploy_services = false
+
+database = {
+  tier                = "db-custom-2-7680"
+  availability_type   = "REGIONAL"
+  disk_size_gb        = 50
+  backup_retention    = 30
+  log_retention_days  = 7
+  deletion_protection = true
+}
+
+cache = {
+  tier           = "STANDARD_HA"
+  memory_size_gb = 2
+}
+
+scaling = {
+  api    = { min = 2, max = 20 }
+  worker = { min = 1, max = 2 }
+  web    = { min = 2, max = 20 }
+  admin  = { min = 0, max = 2 }
+}
+
+allow_mock_providers = false
+managed_waf          = true
+admin_allowed_ips    = ["REPLACE_OFFICE_OR_VPN_CIDR"]
+
+# Provider names only; their secrets are listed in extra_secrets and set in Secret Manager.
+extra_secrets = [
+  "PAYSTACK_SECRET_KEY",
+  "DUFFEL_API_TOKEN",
+  "SMTP_PASSWORD",
+  "EXPO_ACCESS_TOKEN",
+]
+
+api_env = {
+  FLIGHT_SUPPLIERS   = "duffel"
+  HOTEL_SUPPLIERS    = "REPLACE (no real hotel adapter yet)"
+  PAYMENT_PROVIDERS  = "paystack"
+  EMAIL_PROVIDER     = "smtp"
+  EMAIL_FROM         = "Suskii Travels <no-reply@suskii.example>"
+  SMTP_HOST          = "REPLACE"
+  SMTP_PORT          = "465"
+  SMTP_SECURE        = "true"
+  SMTP_USER          = "REPLACE"
+  PUSH_PROVIDER      = "expo"
+  ANTIVIRUS_PROVIDER = "clamav"
+  CLAMAV_HOST        = "REPLACE"
+  DEVICE_ATTESTATION = "none"
+  ATTESTATION_MODE   = "report"
+  ADMIN_IP_ALLOWLIST = "REPLACE_OFFICE_OR_VPN_CIDR"
+  OPS_ALERT_EMAIL    = "REPLACE"
+  SENTRY_DSN         = "REPLACE"
+}
+
+worker_env = {
+  SENTRY_DSN = "REPLACE"
+}
+
+web_env = {
+  MOBILE_APP_SCHEME      = "suskii"
+  MOBILE_ANDROID_PACKAGE = "REPLACE"
+  MOBILE_IOS_APP_IDS     = "REPLACE"
+}

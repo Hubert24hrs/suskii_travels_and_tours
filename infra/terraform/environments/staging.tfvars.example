@@ -1,0 +1,64 @@
+# Staging: copy to staging.tfvars (git-ignored) and replace every REPLACE value. Non-secret only:
+# the origin secret comes from TF_VAR_origin_auth_secret, application secrets from Secret Manager.
+# Staging runs the production images with mock suppliers, payments and messages
+# (allow_mock_providers), so it works before any provider account exists.
+
+project_id         = "REPLACE-suskii-staging"
+environment        = "staging"
+region             = "europe-west2"
+cloudflare_zone_id = "REPLACE_WITH_STAGING_ZONE_ID"
+
+# Its own Cloudflare zone, separate from production's (ADR-059).
+hosts = {
+  web   = "suskii-staging.example"
+  api   = "api.suskii-staging.example"
+  admin = "admin.suskii-staging.example"
+}
+redirect_hosts = ["www.suskii-staging.example"]
+
+# false for the first apply; true once the secrets have values and the first images are pushed.
+deploy_services = false
+
+database = {
+  tier                = "db-custom-1-3840"
+  availability_type   = "ZONAL"
+  disk_size_gb        = 20
+  backup_retention    = 7
+  log_retention_days  = 7
+  deletion_protection = true
+}
+
+cache = {
+  tier           = "BASIC"
+  memory_size_gb = 1
+}
+
+scaling = {
+  api    = { min = 0, max = 3 }
+  worker = { min = 1, max = 1 }
+  web    = { min = 0, max = 3 }
+  admin  = { min = 0, max = 1 }
+}
+
+allow_mock_providers = true
+managed_waf          = false # the Free plan has no Managed or OWASP ruleset; set true on Pro
+admin_allowed_ips    = []    # office or VPN egress, also ADMIN_IP_ALLOWLIST below
+
+api_env = {
+  FLIGHT_SUPPLIERS     = "mock"
+  HOTEL_SUPPLIERS      = "mock"
+  PAYMENT_PROVIDERS    = "mock"
+  EMAIL_PROVIDER       = "mock"
+  PUSH_PROVIDER        = "mock"
+  ANTIVIRUS_PROVIDER   = "mock"
+  DEVICE_ATTESTATION   = "mock"
+  CARS_BUSES_ENABLED   = "true"
+  CARS_RIDES_ENABLED   = "true"
+  CARS_RENTALS_ENABLED = "true"
+  ADMIN_IP_ALLOWLIST   = ""
+  OPS_ALERT_EMAIL      = ""
+}
+
+web_env = {
+  MOBILE_APP_SCHEME = "suskii"
+}
