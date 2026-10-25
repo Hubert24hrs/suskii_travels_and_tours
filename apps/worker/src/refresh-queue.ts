@@ -1,11 +1,12 @@
 import { type ErrorReporter } from '@suskii/shared';
 import { Queue, Worker } from 'bullmq';
-import { Redis } from 'ioredis';
+import { type Redis } from 'ioredis';
 
 import { type WorkerConfig } from './config.js';
 import { type InternalApi } from './internal-api.js';
 import { type WorkerComponent } from './lifecycle.js';
 import { type Logger } from './logger.js';
+import { redisConnection } from './redis-connection.js';
 import { JOB, processRefreshJob, REFRESH_QUEUE } from './refresh-jobs.js';
 import { instrumentWorker, observeQueue } from './telemetry.js';
 
@@ -30,7 +31,7 @@ export function createRefreshQueue(
     name: 'refresh-queue',
     async start() {
       // BullMQ workers need blocking commands that are never retried per request.
-      connection = new Redis(config.REDIS_URL, { maxRetriesPerRequest: null });
+      connection = redisConnection(config);
       const activeQueue = new Queue(REFRESH_QUEUE, { connection, prefix: PREFIX });
       queue = activeQueue;
       worker = new Worker(

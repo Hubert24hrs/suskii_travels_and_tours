@@ -53,6 +53,8 @@ export const envSchema = z
      */
     DATABASE_ALLOW_PLAINTEXT: booleanish.default(false),
     REDIS_ALLOW_PLAINTEXT: booleanish.default(false),
+    /** CA of a managed Redis's server certificate (PEM or its base64), e.g. Memorystore's. */
+    REDIS_TLS_CA: z.string().min(1).optional(),
 
     /** Browser origins allowed to call the API with credentials. */
     CORS_ORIGINS: csv(z.url()).default([]),

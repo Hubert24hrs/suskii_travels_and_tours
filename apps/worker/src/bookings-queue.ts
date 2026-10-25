@@ -1,6 +1,6 @@
 import { type ErrorReporter } from '@suskii/shared';
 import { Queue, Worker } from 'bullmq';
-import { Redis } from 'ioredis';
+import { type Redis } from 'ioredis';
 
 import {
   ACCOUNT_JOB,
@@ -14,6 +14,7 @@ import { type WorkerConfig } from './config.js';
 import { type BookingsApi } from './internal-api.js';
 import { type WorkerComponent } from './lifecycle.js';
 import { type Logger } from './logger.js';
+import { redisConnection } from './redis-connection.js';
 import { instrumentWorker, observeQueue } from './telemetry.js';
 
 const PREFIX = 'suskii';
@@ -37,7 +38,7 @@ export function createBookingsQueue(
   return {
     name: 'bookings-queue',
     async start() {
-      connection = new Redis(config.REDIS_URL, { maxRetriesPerRequest: null });
+      connection = redisConnection(config);
       const activeQueue = new Queue(BOOKINGS_QUEUE, { connection, prefix: PREFIX });
       queue = activeQueue;
       worker = new Worker(BOOKINGS_QUEUE, (job) => processBookingJob(job, { api, logger }), {

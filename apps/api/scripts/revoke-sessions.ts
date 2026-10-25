@@ -15,13 +15,18 @@ import { parseIncidentArgs, revokeForIncident } from '../src/auth/incident-revoc
 import { loadConfig, loadDevelopmentEnvFile } from '../src/config/config';
 import { HmacService } from '../src/crypto/hmac.service';
 import { PrismaService } from '../src/infra/prisma.service';
+import { redisTls } from '../src/infra/redis-options';
 
 async function main(): Promise<void> {
   const options = parseIncidentArgs(process.argv.slice(2));
   loadDevelopmentEnvFile();
   const config = loadConfig();
   const prisma = new PrismaService(config);
-  const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: 2, connectTimeout: 5000 });
+  const redis = new Redis(config.REDIS_URL, {
+    maxRetriesPerRequest: 2,
+    connectTimeout: 5000,
+    ...redisTls(config),
+  });
   try {
     const result = await revokeForIncident(
       {

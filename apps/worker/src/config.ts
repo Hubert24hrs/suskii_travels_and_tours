@@ -35,6 +35,8 @@ const envSchema = z
      * and encrypted another way (a local socket or proxy, a mesh with mTLS).
      */
     REDIS_ALLOW_PLAINTEXT: booleanish,
+    /** CA of a managed Redis's server certificate (PEM or its base64), e.g. Memorystore's. */
+    REDIS_TLS_CA: z.string().min(1).optional(),
     API_INTERNAL_ALLOW_PLAINTEXT: booleanish,
     /** Service token for /v1/internal routes; without it the refresh jobs are disabled. */
     INTERNAL_API_TOKEN: z.string().min(32).optional(),

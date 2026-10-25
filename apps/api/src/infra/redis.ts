@@ -4,6 +4,7 @@ import { Redis } from 'ioredis';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 
 import { PrismaService } from './prisma.service';
+import { redisTls } from './redis-options';
 
 /** DI token for the shared ioredis client. */
 export const REDIS = Symbol('REDIS');
@@ -31,6 +32,7 @@ class RedisShutdown implements OnModuleDestroy {
           lazyConnect: true,
           maxRetriesPerRequest: 2,
           connectTimeout: 5000,
+          ...redisTls(config),
         }),
     },
     RedisShutdown,
