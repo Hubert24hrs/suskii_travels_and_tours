@@ -1,4 +1,16 @@
+import { resolve } from 'node:path';
+
 import type { NextConfig } from 'next';
+
+/**
+ * Container builds (ADR-058) set NEXT_OUTPUT=standalone: a self-contained server with only the
+ * files it needs, traced from the repository root (pnpm workspace). `next start` keeps working
+ * for local runs and the e2e stack, which build without it.
+ */
+const standalone =
+  process.env.NEXT_OUTPUT === 'standalone'
+    ? { output: 'standalone' as const, outputFileTracingRoot: resolve(process.cwd(), '../..') }
+    : {};
 
 const imageHosts = (process.env.IMAGE_REMOTE_HOSTS ?? '')
   .split(',')
@@ -19,6 +31,7 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  ...standalone,
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
