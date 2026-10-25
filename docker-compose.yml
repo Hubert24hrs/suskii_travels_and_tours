@@ -69,7 +69,29 @@ services:
       retries: 20
       start_period: 120s
 
+  # Optional S3-compatible object store for OBJECT_STORAGE=s3 (ADR-057):
+  # `docker compose --profile s3 up -d`. Versity's gateway checks SigV4 signatures as S3 does;
+  # create the bucket once with any S3 client. Local credentials only.
+  s3:
+    image: versity/versitygw:v1.8.0@sha256:30292fc2eeacc67a36993b01f7a7a5e3361a19cced0e80c1d71cfa2a4b0a2499
+    profiles: ['s3']
+    restart: unless-stopped
+    command:
+      [
+        '--access',
+        '${S3_LOCAL_ACCESS_KEY:-suskii-local}',
+        '--secret',
+        '${S3_LOCAL_SECRET_KEY:-suskii-local-secret}',
+        'posix',
+        '/data',
+      ]
+    ports:
+      - '127.0.0.1:${S3_PORT:-7070}:7070'
+    volumes:
+      - s3-data:/data
+
 volumes:
   postgres-data:
   redis-data:
   clamav-data:
+  s3-data:
