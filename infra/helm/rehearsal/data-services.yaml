@@ -1,4 +1,6 @@
 # In-cluster data services for the Helm release rehearsal only (scripts/helm-rehearsal.mjs).
+# Each runs as its image's unprivileged user on a read-only root file system; data and sockets
+# live in emptyDir volumes.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -12,6 +14,14 @@ spec:
   template:
     metadata: { labels: { app: rehearsal-postgres } }
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # The postgres user of the Alpine image.
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile: { type: RuntimeDefault }
       containers:
         - name: postgres
           image: postgres:16-alpine
@@ -19,10 +29,24 @@ spec:
             - { name: POSTGRES_USER, value: suskii }
             - { name: POSTGRES_PASSWORD, value: release-rehearsal }
             - { name: POSTGRES_DB, value: suskii }
+            # A subdirectory, so initdb creates it owned by the postgres user.
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
           ports: [{ containerPort: 5432 }]
           readinessProbe:
             exec: { command: [pg_isready, -U, suskii, -d, suskii] }
             periodSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: run, mountPath: /var/run/postgresql }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: data, emptyDir: {} }
+        - { name: run, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
 ---
 apiVersion: v1
 kind: Service
@@ -39,6 +63,14 @@ spec:
   template:
     metadata: { labels: { app: rehearsal-redis } }
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # The redis user of the Alpine image.
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
       containers:
         - name: redis
           image: redis:7.4-alpine
@@ -46,6 +78,14 @@ spec:
           readinessProbe:
             exec: { command: [redis-cli, ping] }
             periodSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - { name: data, emptyDir: {} }
 ---
 apiVersion: v1
 kind: Service
@@ -62,6 +102,13 @@ spec:
   template:
     metadata: { labels: { app: rehearsal-s3 } }
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
       containers:
         - name: s3
           # By tag: the rehearsal loads this image into kind, which drops the registry digest.
@@ -73,6 +120,14 @@ spec:
           readinessProbe:
             tcpSocket: { port: 7070 }
             periodSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - { name: data, emptyDir: {} }
 ---
 apiVersion: v1
 kind: Service
