@@ -1,11 +1,12 @@
 import { type ErrorReporter } from '@suskii/shared';
 import { Queue, Worker } from 'bullmq';
-import { Redis } from 'ioredis';
+import { type Redis } from 'ioredis';
 
 import { type WorkerConfig } from './config.js';
 import { type RidesApi } from './internal-api.js';
 import { type WorkerComponent } from './lifecycle.js';
 import { type Logger } from './logger.js';
+import { redisConnection } from './redis-connection.js';
 import { processRideJob, RIDE_JOB, RIDES_QUEUE } from './rides-jobs.js';
 import { instrumentWorker, observeQueue } from './telemetry.js';
 
@@ -29,7 +30,7 @@ export function createRidesQueue(
   return {
     name: 'rides-queue',
     async start() {
-      connection = new Redis(config.REDIS_URL, { maxRetriesPerRequest: null });
+      connection = redisConnection(config);
       const activeQueue = new Queue(RIDES_QUEUE, { connection, prefix: PREFIX });
       queue = activeQueue;
       worker = new Worker(RIDES_QUEUE, (job) => processRideJob(job, { api, logger }), {

@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { ROLES } from '@suskii/shared';
 
 import { APP_CONFIG, type AppConfig } from '../../config/config';
+import { decodePem } from '../../crypto/pem';
 
 const ALGORITHM = 'EdDSA';
 
@@ -42,12 +43,7 @@ export type AccessClaims = z.infer<typeof accessClaimsSchema>;
 
 export type PublicJwk = JWK & { kty: string; kid: string; alg: typeof ALGORITHM; use: 'sig' };
 
-/** Accepts a PEM, or the base64 of a PEM (single-line env vars and secret managers). */
-export function decodePem(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.startsWith('-----BEGIN')) return trimmed.replace(/\\n/g, '\n').trim();
-  return Buffer.from(trimmed, 'base64').toString('utf8').trim();
-}
+export { decodePem };
 
 /**
  * Signs and verifies access tokens: EdDSA (Ed25519) JWTs with a `kid` equal to the RFC 7638
