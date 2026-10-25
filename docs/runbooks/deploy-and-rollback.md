@@ -119,7 +119,8 @@ change in the application's audit log.
 - **Trivy fails an image.** A fixable HIGH or CRITICAL vulnerability.
   - Update the base image digest (Dependabot proposes it) or the dependency.
   - Never skip the scan. An accepted risk goes in a `.trivyignore` entry with a reason and an
-    expiry, reviewed like code.
+    expiry, reviewed like code. A misconfiguration accepted in one place takes an inline
+    `#trivy:ignore:<id>:exp:<date>` comment above it instead, with the reason beside it.
 - **"has no staging image for ..." in production.** The commit never reached staging. Deploy it
   to staging first (Deploy staging, Run workflow, with the SHA).
 - **Signature verification fails.** Stop. The image was not produced by this repository's

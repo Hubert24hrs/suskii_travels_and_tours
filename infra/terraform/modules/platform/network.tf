@@ -95,6 +95,10 @@ resource "google_compute_firewall" "egress_internal" {
   }
 }
 
+# Trivy flags any internet-wide allow (GCP-0035). Port-based egress is the accepted partial for
+# ASVS V13.2.5 until the owner chooses name-based filtering (Secure Web Proxy or Cloud NGFW
+# Enterprise); the expiry makes the scan fail again so the decision is reviewed.
+#trivy:ignore:GCP-0035:exp:2027-04-30
 resource "google_compute_firewall" "egress_internet" {
   project            = var.project_id
   name               = "${local.name}-egress-internet"
