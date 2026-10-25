@@ -151,6 +151,43 @@ describe('Combobox', () => {
     expect(screen.getByTestId('city-option-accra')).toBeOnTheScreen();
   });
 
+  it('shows a selection made outside the field and keeps what the traveller types', async () => {
+    function Swappable() {
+      const [selected, setSelected] = useState<string | null>('Lagos');
+      return (
+        <>
+          <Combobox
+            label="From"
+            items={[]}
+            itemToString={(city) => city ?? ''}
+            itemToKey={(city) => city}
+            selectedItem={selected}
+            onSelectedItemChange={setSelected}
+            onInputValueChange={jest.fn()}
+            loadingLabel="Searching"
+            emptyLabel="No places found"
+          />
+          <Button onPress={() => setSelected('Accra')}>Swap</Button>
+          <Button onPress={() => setSelected(null)}>Clear</Button>
+        </>
+      );
+    }
+    await render(<Swappable />);
+    const field = () => screen.getByLabelText('From');
+    expect(field().props.value).toBe('Lagos');
+
+    // A swap or a prefilled form changes the selection from outside the field.
+    await fireEvent.press(screen.getByRole('button', { name: 'Swap' }));
+    expect(field().props.value).toBe('Accra');
+    await fireEvent.press(screen.getByRole('button', { name: 'Clear' }));
+    expect(field().props.value).toBe('');
+
+    // Typing clears the selection, and the typed text stays.
+    await fireEvent.press(screen.getByRole('button', { name: 'Swap' }));
+    await fireEvent.changeText(field(), 'Lon');
+    expect(field().props.value).toBe('Lon');
+  });
+
   it('announces an empty result', async () => {
     await render(<CitySearch onSelect={jest.fn()} />);
     await fireEvent.changeText(screen.getByLabelText('From'), 'zz');
