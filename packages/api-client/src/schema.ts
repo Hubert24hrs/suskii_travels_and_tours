@@ -3356,6 +3356,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/flights/natural-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether natural-language flight search is available
+         * @description Clients show the "describe your trip" box only while `enabled` is true.
+         */
+        get: operations["getNaturalSearchStatus"];
+        put?: never;
+        /**
+         * Turn a trip description into a draft of the flight search form
+         * @description An LLM reads the text (scrubbed of e-mail addresses, phone numbers and document numbers) into the flight form: places resolved through the catalog, dates checked against the visitor's today, counts within the traveller rules. The result is a draft to show as editable fields, never a search. Every error means "use the form": 404 while the feature is off, 422 `ai-search-not-understood`, 429 for rate limits and `ai-search-budget-exceeded` (daily cost cap), 503 `ai-search-unavailable`.
+         */
+        post: operations["parseNaturalSearch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/flights/offers/{offerId}": {
         parameters: {
             query?: never;
@@ -7921,6 +7945,47 @@ export interface components {
                 /** Format: date-time */
                 createdAt: string;
             } | null;
+        };
+        NaturalSearchRequestInput: {
+            text: string;
+            /** @default Africa/Lagos */
+            timeZone?: string;
+        };
+        NaturalSearchResult: {
+            draft: {
+                /** @enum {string} */
+                tripType: "round_trip" | "one_way" | "multi_city";
+                origin: "" | string;
+                destination: "" | string;
+                departureDate: "" | string;
+                returnDate: "" | string;
+                legs: {
+                    origin: "" | string;
+                    destination: "" | string;
+                    departureDate: "" | string;
+                }[];
+                travellers: {
+                    adults: number;
+                    children: number;
+                    infants: number;
+                };
+                /** @enum {string} */
+                cabinClass: "economy" | "premium_economy" | "business" | "first";
+                directOnly: boolean;
+                flexibleDates: boolean;
+            };
+            places: {
+                code: string;
+                name: string;
+                city: string;
+                countryCode: string;
+            }[];
+            departureMonth: string | null;
+            missing: ("origin" | "destination" | "departureDate" | "returnDate" | "legs")[];
+        };
+        NaturalSearchStatus: {
+            enabled: boolean;
+            maxLength: number;
         };
         NewsletterConfirmResponse: {
             /** @constant */
@@ -16498,6 +16563,64 @@ export interface operations {
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+        };
+    };
+    getNaturalSearchStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NaturalSearchStatus"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    parseNaturalSearch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NaturalSearchRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NaturalSearchResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     getFlightOffer: {

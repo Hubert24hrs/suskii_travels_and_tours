@@ -303,6 +303,26 @@ export const envSchema = z
     MAPS_PROVIDER: z.enum(['mock', 'osrm']).default('mock'),
     OSRM_URL: z.url().optional(),
     MAPS_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(3000),
+    /**
+     * AI trip search (ADR-061): on outside production, off in production unless set. `mock` only
+     * outside production unless ALLOW_MOCK_PROVIDERS; `anthropic` needs LLM_API_KEY.
+     */
+    AI_SEARCH_ENABLED: booleanish.optional(),
+    LLM_PROVIDER: z.enum(['mock', 'anthropic']).default('mock'),
+    LLM_API_KEY: z.string().min(1).optional(),
+    LLM_MODEL: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{2,63}$/)
+      .default('claude-haiku-5-5'),
+    LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(8000),
+    /** Prices in micro-dollars per million tokens; the defaults are Claude Haiku 5.5's. */
+    LLM_INPUT_MICROUSD_PER_MTOK: z.coerce.number().int().min(0).default(100_000),
+    LLM_OUTPUT_MICROUSD_PER_MTOK: z.coerce.number().int().min(0).default(500_000),
+    LLM_CACHE_READ_MICROUSD_PER_MTOK: z.coerce.number().int().min(0).default(10_000),
+    LLM_CACHE_WRITE_MICROUSD_PER_MTOK: z.coerce.number().int().min(0).default(125_000),
+    /** Daily spend caps in micro-dollars: per user or guest, and for everyone together. */
+    AI_SEARCH_USER_DAILY_MICROUSD: z.coerce.number().int().min(0).default(50_000),
+    AI_SEARCH_GLOBAL_DAILY_MICROUSD: z.coerce.number().int().min(0).default(20_000_000),
     /** Driver identity checks and payouts: mock adapters until the owner picks providers. */
     KYC_PROVIDER: z.enum(['mock']).default('mock'),
     PAYOUT_PROVIDER: z.enum(['mock']).default('mock'),
@@ -446,6 +466,8 @@ export const envSchema = z
     }
     if (env.MAPS_PROVIDER === 'osrm' && !env.OSRM_URL)
       require('OSRM_URL', 'is required when MAPS_PROVIDER is osrm');
+    if (env.LLM_PROVIDER === 'anthropic' && !env.LLM_API_KEY)
+      require('LLM_API_KEY', 'is required when LLM_PROVIDER is anthropic');
     if (env.FLIGHT_SUPPLIERS.length === 0)
       require('FLIGHT_SUPPLIERS', 'enable at least one supplier');
     if (env.HOTEL_SUPPLIERS.length === 0)
@@ -548,6 +570,9 @@ export const envSchema = z
       !env.OBJECT_STORAGE_ENDPOINT?.startsWith('https://')
     )
       require('OBJECT_STORAGE_ENDPOINT', 'must use https in production; OBJECT_STORAGE_ALLOW_PLAINTEXT is only for a private network');
+    // AI trip search is off in production unless set (ADR-061); when on it needs a real model.
+    if (env.AI_SEARCH_ENABLED && !env.ALLOW_MOCK_PROVIDERS && env.LLM_PROVIDER === 'mock')
+      require('LLM_PROVIDER', 'the mock model is not allowed in production');
     // Cars products are off in production unless set; enabled ones need their real providers.
     if (env.CARS_BUSES_ENABLED && !env.CARS_TICKET_SIGNING_KEY)
       require('CARS_TICKET_SIGNING_KEY', 'is required in production when buses are enabled');

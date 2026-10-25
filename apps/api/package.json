@@ -33,6 +33,7 @@
     "keys:reencrypt": "tsx scripts/reencrypt-fields.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "catalog:",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",

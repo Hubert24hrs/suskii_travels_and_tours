@@ -70,6 +70,13 @@ export const SEARCH_LIMITS = {
 } as const satisfies Record<string, RateLimitPolicy>;
 
 /** Newsletter sign-up and email-link endpoints (ADR-012). */
+/** AI trip search (ADR-061): the cost cap bounds spend; these bound bursts. */
+export const AI_SEARCH_LIMITS = {
+  ip: { name: 'ai-search-ip', limit: 10, windowSeconds: 60, by: 'ip' },
+  ipDaily: { name: 'ai-search-ip-daily', limit: 200, windowSeconds: 86_400, by: 'ip' },
+  user: { name: 'ai-search-user', limit: 20, windowSeconds: 60, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
 export const NEWSLETTER_LIMITS = {
   subscribeIp: { name: 'newsletter-ip', limit: 5, windowSeconds: 600, by: 'ip' },
   subscribeEmail: {

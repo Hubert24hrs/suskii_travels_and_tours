@@ -14905,6 +14905,105 @@
         }
       }
     },
+    "/v1/flights/natural-search": {
+      "get": {
+        "operationId": "getNaturalSearchStatus",
+        "summary": "Whether natural-language flight search is available",
+        "description": "Clients show the \"describe your trip\" box only while `enabled` is true.",
+        "tags": [
+          "Flights"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NaturalSearchStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "post": {
+        "operationId": "parseNaturalSearch",
+        "summary": "Turn a trip description into a draft of the flight search form",
+        "description": "An LLM reads the text (scrubbed of e-mail addresses, phone numbers and document numbers) into the flight form: places resolved through the catalog, dates checked against the visitor's today, counts within the traveller rules. The result is a draft to show as editable fields, never a search. Every error means \"use the form\": 404 while the feature is off, 422 `ai-search-not-understood`, 429 for rate limits and `ai-search-budget-exceeded` (daily cost cap), 503 `ai-search-unavailable`.",
+        "tags": [
+          "Flights"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NaturalSearchRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NaturalSearchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
     "/v1/flights/offers/{offerId}": {
       "get": {
         "operationId": "getFlightOffer",
@@ -35396,6 +35495,270 @@
           "counts",
           "rewards",
           "referredBy"
+        ],
+        "additionalProperties": false
+      },
+      "NaturalSearchRequestInput": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 280
+          },
+          "timeZone": {
+            "default": "Africa/Lagos",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "NaturalSearchResult": {
+        "type": "object",
+        "properties": {
+          "draft": {
+            "type": "object",
+            "properties": {
+              "tripType": {
+                "type": "string",
+                "enum": [
+                  "round_trip",
+                  "one_way",
+                  "multi_city"
+                ]
+              },
+              "origin": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": ""
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  }
+                ]
+              },
+              "destination": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": ""
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  }
+                ]
+              },
+              "departureDate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": ""
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "returnDate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": ""
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "legs": {
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "origin": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": ""
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        }
+                      ]
+                    },
+                    "destination": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": ""
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        }
+                      ]
+                    },
+                    "departureDate": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": ""
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "origin",
+                    "destination",
+                    "departureDate"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "travellers": {
+                "type": "object",
+                "properties": {
+                  "adults": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9
+                  },
+                  "children": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8
+                  },
+                  "infants": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8
+                  }
+                },
+                "required": [
+                  "adults",
+                  "children",
+                  "infants"
+                ],
+                "additionalProperties": false
+              },
+              "cabinClass": {
+                "type": "string",
+                "enum": [
+                  "economy",
+                  "premium_economy",
+                  "business",
+                  "first"
+                ]
+              },
+              "directOnly": {
+                "type": "boolean"
+              },
+              "flexibleDates": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tripType",
+              "origin",
+              "destination",
+              "departureDate",
+              "returnDate",
+              "legs",
+              "travellers",
+              "cabinClass",
+              "directOnly",
+              "flexibleDates"
+            ],
+            "additionalProperties": false
+          },
+          "places": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "city": {
+                  "type": "string"
+                },
+                "countryCode": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                }
+              },
+              "required": [
+                "code",
+                "name",
+                "city",
+                "countryCode"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "departureMonth": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "origin",
+                "destination",
+                "departureDate",
+                "returnDate",
+                "legs"
+              ]
+            }
+          }
+        },
+        "required": [
+          "draft",
+          "places",
+          "departureMonth",
+          "missing"
+        ],
+        "additionalProperties": false
+      },
+      "NaturalSearchStatus": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "maxLength": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "enabled",
+          "maxLength"
         ],
         "additionalProperties": false
       },
