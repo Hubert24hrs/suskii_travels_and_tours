@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 import { VersioningType } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
@@ -35,8 +37,23 @@ export const CORS_EXPOSED_HEADERS = [
  * what production serves.
  */
 export function configureApp<T extends NestExpressApplication>(app: T, config: AppConfig): T {
-  // Client IPs (rate limits, audit) come from X-Forwarded-For only through trusted proxy hops.
-  app.set('trust proxy', config.TRUST_PROXY_HOPS);
+  // Client IPs (rate limits, audit, the admin allowlist) come from X-Forwarded-For only through
+  // trusted proxy hops, or from the edge's own header when CLIENT_IP_HEADER names one.
+  const clientIpHeader = config.CLIENT_IP_HEADER;
+  if (clientIpHeader) {
+    // The edge overwrites this header on every request and is the only way in, so its value is
+    // the client whatever proxies sit between. Anything else in X-Forwarded-For is discarded.
+    app.set('trust proxy', 1);
+    app.use((req: Request, _res: Response, next: NextFunction) => {
+      const value = req.headers[clientIpHeader];
+      const address = typeof value === 'string' ? value.trim() : '';
+      if (isIP(address)) req.headers['x-forwarded-for'] = address;
+      else delete req.headers['x-forwarded-for'];
+      next();
+    });
+  } else {
+    app.set('trust proxy', config.TRUST_PROXY_HOPS);
+  }
 
   app.use(
     helmet({

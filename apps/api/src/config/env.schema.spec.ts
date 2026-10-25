@@ -24,6 +24,18 @@ describe('parseEnv', () => {
     expect(env.COOKIE_SECURE).toBe(false);
   });
 
+  it("takes the client address from either the edge's header or proxy hops, never both", () => {
+    expect(parseEnv({ ...base, CLIENT_IP_HEADER: 'cf-connecting-ip' }).CLIENT_IP_HEADER).toBe(
+      'cf-connecting-ip',
+    );
+    expect(() =>
+      parseEnv({ ...base, CLIENT_IP_HEADER: 'cf-connecting-ip', TRUST_PROXY_HOPS: '2' }),
+    ).toThrow(/CLIENT_IP_HEADER: set either/);
+    expect(() => parseEnv({ ...base, CLIENT_IP_HEADER: 'CF Connecting IP' })).toThrow(
+      /CLIENT_IP_HEADER/,
+    );
+  });
+
   it('treats empty values from .env files as unset', () => {
     const env = parseEnv({
       ...base,

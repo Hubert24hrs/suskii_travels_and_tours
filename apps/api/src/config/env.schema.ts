@@ -60,6 +60,16 @@ export const envSchema = z
     CORS_ORIGINS: csv(z.url()).default([]),
     /** Number of trusted reverse proxies (Cloudflare, load balancer) in front of the API. */
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+    /**
+     * Request header carrying the client's address as set by the edge (`cf-connecting-ip` behind
+     * Cloudflare), used instead of counting X-Forwarded-For hops. Only set it when the edge
+     * overwrites the header on every request and the origin accepts nothing but the edge's
+     * traffic (ADR-059).
+     */
+    CLIENT_IP_HEADER: z
+      .string()
+      .regex(/^[a-z0-9-]{1,64}$/)
+      .optional(),
     COOKIE_DOMAIN: z.string().min(1).optional(),
     COOKIE_SECURE: booleanish.default(true),
     WEB_APP_URL: z.url().default('http://localhost:3000'),
@@ -424,6 +434,8 @@ export const envSchema = z
     ) {
       require('FIELD_ENCRYPTION_PREVIOUS_KEYS', 'key ids must be unique and differ from FIELD_ENCRYPTION_KEY_ID');
     }
+    if (env.CLIENT_IP_HEADER && env.TRUST_PROXY_HOPS > 0)
+      require('CLIENT_IP_HEADER', 'set either CLIENT_IP_HEADER or TRUST_PROXY_HOPS, not both');
     if (env.FLIGHT_SUPPLIERS.includes('duffel') && !env.DUFFEL_API_TOKEN) {
       require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS includes duffel');
     }

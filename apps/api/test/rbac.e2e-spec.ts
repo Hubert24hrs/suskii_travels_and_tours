@@ -206,4 +206,32 @@ describe('RBAC, admin MFA and audit (e2e)', () => {
       await restricted.close();
     }
   });
+
+  it("takes the client address from the edge's header when CLIENT_IP_HEADER is set", async () => {
+    const restricted = await createTestApp({
+      ADMIN_IP_ALLOWLIST: ['203.0.113.10'],
+      CLIENT_IP_HEADER: 'cf-connecting-ip',
+    });
+    try {
+      const original = ctx;
+      ctx = restricted;
+      const admin = await staffWithMfa('edge-ip@example.com', ['super_admin']);
+      const call = () =>
+        restricted.http().get('/v1/admin/audit-logs').set(bearer(admin.accessToken));
+      // A forged X-Forwarded-For counts for nothing; only the edge's header does.
+      await call()
+        .set('X-Forwarded-For', '203.0.113.10')
+        .set('cf-connecting-ip', '198.51.100.7')
+        .expect(403);
+      await call().set('X-Forwarded-For', '203.0.113.10').expect(403);
+      await call().set('cf-connecting-ip', 'not-an-address').expect(403);
+      await call()
+        .set('X-Forwarded-For', '198.51.100.7')
+        .set('cf-connecting-ip', '203.0.113.10')
+        .expect(200);
+      ctx = original;
+    } finally {
+      await restricted.close();
+    }
+  });
 });
