@@ -430,7 +430,14 @@ describe('rentals (e2e)', () => {
   });
 
   it('refunds the whole deposit when a rental is cancelled under its tiers', async () => {
-    const car = await rentalVehicle(ctx, staff);
+    // Tiers count calendar days in Lagos, so a pickup six hours out is today or tomorrow
+    // depending on when the suite runs: both fall in the no-refund tier here.
+    const car = await rentalVehicle(ctx, staff, {
+      cancellationPolicy: [
+        { daysBefore: 2, refundBps: 10_000 },
+        { daysBefore: 0, refundBps: 0 },
+      ],
+    });
     const { bookingId, booking } = await paidRental(ctx, renter.headers, {
       vehicleId: car.id,
       pickupAtLocal: localIn(6),
@@ -441,7 +448,7 @@ describe('rentals (e2e)', () => {
       refundBps: number;
       refund: { amountMinor: number };
     };
-    // Same-day pickup: the rental itself is not refunded, the deposit always is.
+    // The rental itself is not refunded, the deposit always is.
     expect(cancellation).toEqual({
       refundBps: 0,
       refund: { amountMinor: 10_000_000, currency: 'NGN' },
