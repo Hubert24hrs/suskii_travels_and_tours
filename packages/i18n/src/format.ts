@@ -7,13 +7,15 @@ import {
   type MoneyWire,
 } from '@suskii/shared/lite';
 
-export type DateStyle = 'short' | 'medium' | 'long' | 'weekday';
+export type DateStyle = 'short' | 'medium' | 'long' | 'weekday' | 'month';
 
 const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   short: { day: 'numeric', month: 'short' },
   medium: { day: 'numeric', month: 'short', year: 'numeric' },
   long: { day: 'numeric', month: 'long', year: 'numeric' },
   weekday: { weekday: 'short', day: 'numeric', month: 'short' },
+  /** A month on its own ("December 2026"); pass any day of it. */
+  month: { month: 'long', year: 'numeric' },
 };
 
 const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
