@@ -369,9 +369,31 @@ export const envSchema = z
     SUPPLIER_BOOKING_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(45_000),
     /** Automatic ticketing attempts before a paid booking goes to REFUND_PENDING. */
     TICKETING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(6),
-    /** E-tickets and vouchers. `filesystem` is for development and tests (S3/GCS in phase 12). */
-    OBJECT_STORAGE: z.enum(['filesystem']).default('filesystem'),
+    /**
+     * Tickets, vouchers and uploaded documents. `filesystem` is for development and tests; `s3`
+     * is any S3-compatible store: AWS S3, Google Cloud Storage (HMAC keys), Cloudflare R2 or
+     * MinIO (ADR-057).
+     */
+    OBJECT_STORAGE: z.enum(['filesystem', 's3']).default('filesystem'),
     OBJECT_STORAGE_DIR: z.string().min(1).default('.data/objects'),
+    /** e.g. https://storage.googleapis.com, https://s3.eu-west-1.amazonaws.com. */
+    OBJECT_STORAGE_ENDPOINT: z.url().optional(),
+    /** The bucket's region for AWS; `auto` for Google Cloud Storage and R2. */
+    OBJECT_STORAGE_REGION: z
+      .string()
+      .regex(/^[a-z0-9-]{2,32}$/)
+      .default('auto'),
+    OBJECT_STORAGE_BUCKET: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+      .optional(),
+    OBJECT_STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
+    OBJECT_STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    /** Path-style URLs (endpoint/bucket/key), which MinIO needs; virtual-hosted otherwise. */
+    OBJECT_STORAGE_PATH_STYLE: booleanish.default(false),
+    OBJECT_STORAGE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(10_000),
+    /** Production only: a plain http endpoint on a private, otherwise encrypted network. */
+    OBJECT_STORAGE_ALLOW_PLAINTEXT: booleanish.default(false),
     /**
      * Mock flight supplier only: basis points added when re-pricing chosen outbound routes, e.g.
      * `LOS-DXB:500`, so tests can walk through the price-change consent path. Each rule applies
@@ -434,6 +456,16 @@ export const envSchema = z
       if (!env.STRIPE_WEBHOOK_SECRET)
         require('STRIPE_WEBHOOK_SECRET', 'is required when PAYMENT_PROVIDERS includes stripe');
     }
+    if (env.OBJECT_STORAGE === 's3') {
+      for (const key of [
+        'OBJECT_STORAGE_ENDPOINT',
+        'OBJECT_STORAGE_BUCKET',
+        'OBJECT_STORAGE_ACCESS_KEY_ID',
+        'OBJECT_STORAGE_SECRET_ACCESS_KEY',
+      ] as const) {
+        if (!env[key]) require(key, 'is required when OBJECT_STORAGE is s3');
+      }
+    }
     if (env.NODE_ENV !== 'production') return;
     if (!env.INTERNAL_API_TOKEN) require('INTERNAL_API_TOKEN', 'is required in production');
     else if (env.INTERNAL_API_TOKEN.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
@@ -491,6 +523,12 @@ export const envSchema = z
       require('OTEL_EXPORTER_OTLP_ENDPOINT', 'must use https in production unless the collector is on localhost');
     if (!env.ALLOW_MOCK_PROVIDERS && env.OBJECT_STORAGE === 'filesystem')
       require('OBJECT_STORAGE', 'filesystem storage is not allowed in production');
+    if (
+      env.OBJECT_STORAGE === 's3' &&
+      !env.OBJECT_STORAGE_ALLOW_PLAINTEXT &&
+      !env.OBJECT_STORAGE_ENDPOINT?.startsWith('https://')
+    )
+      require('OBJECT_STORAGE_ENDPOINT', 'must use https in production; OBJECT_STORAGE_ALLOW_PLAINTEXT is only for a private network');
     // Cars products are off in production unless set; enabled ones need their real providers.
     if (env.CARS_BUSES_ENABLED && !env.CARS_TICKET_SIGNING_KEY)
       require('CARS_TICKET_SIGNING_KEY', 'is required in production when buses are enabled');

@@ -17,7 +17,8 @@ export abstract class ObjectStorage {
 
 const KEY_PATTERN = /^[a-z0-9][a-z0-9/_.-]{0,200}$/;
 
-const assertKey = (key: string): void => {
+/** Keys are ids and fixed names only, so they can never escape a directory or a bucket. */
+export const assertKey = (key: string): void => {
   if (!KEY_PATTERN.test(key) || key.includes('..')) throw new Error('Invalid object key');
 };
 
