@@ -1,15 +1,24 @@
 name: Mobile release
 
-# EAS cloud builds for testers and the stores (ADR-024): preview or production on demand, and
-# production for `mobile-v*` tags. Runs only once the owner's Expo account
-# is set up: the EXPO_TOKEN secret, the EAS_PROJECT_ID variable (from `eas init`), the profile's
-# public settings as EAS environment variables (https API and web URLs, Play Integrity project)
-# and store credentials managed by EAS. The bundle is exported and scanned before EAS builds it.
+# EAS cloud builds for testers and the stores (ADR-024, ADR-060): preview or production on demand,
+# and production for `mobile-v*` tags, which EAS Submit sends to TestFlight and the Play internal
+# track. Over-the-air JavaScript updates go to the profile's channel with `action: update`; the
+# fingerprint runtime policy keeps them off binaries they do not fit. Runs only once the owner's
+# Expo account is set up: the EXPO_TOKEN secret, the EAS_PROJECT_ID variable (from `eas init`), the
+# profile's public settings as EAS environment variables (https API and web URLs, Play Integrity
+# project) and store credentials managed by EAS (App Store Connect API key, Play service account;
+# `ascAppId` in eas.json). The bundle is exported and scanned first; an update publishes exactly
+# that scanned bundle.
 on:
   workflow_dispatch:
     inputs:
+      action:
+        description: Build a binary, or publish an over-the-air update to the profile's channel
+        type: choice
+        options: [build, update]
+        default: build
       profile:
-        description: EAS build profile
+        description: EAS build profile (and update channel)
         type: choice
         options: [preview, production]
         default: preview
@@ -18,6 +27,10 @@ on:
         type: choice
         options: [all, android, ios]
         default: all
+      submit:
+        description: Submit a production build to TestFlight and the Play internal track
+        type: boolean
+        default: false
   push:
     tags: ['mobile-v*']
 
@@ -25,20 +38,23 @@ permissions:
   contents: read
 
 concurrency:
-  group: mobile-release-${{ inputs.profile || 'production' }}
+  group: mobile-release-${{ inputs.action || 'build' }}-${{ inputs.profile || 'production' }}
   cancel-in-progress: false
 
 jobs:
-  eas-build:
-    name: EAS ${{ inputs.profile || 'production' }} build (${{ inputs.platform || 'all' }})
+  eas:
+    name: EAS ${{ inputs.action || 'build' }} ${{ inputs.profile || 'production' }} (${{ inputs.platform || 'all' }})
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
       EXPO_NO_TELEMETRY: 1
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      ACTION: ${{ inputs.action || 'build' }}
       APP_VARIANT: ${{ inputs.profile || 'production' }}
       PLATFORM: ${{ inputs.platform || 'all' }}
+      # Tags always submit; manual production builds when asked.
+      SUBMIT: ${{ (github.event_name == 'push' || inputs.submit) && 'true' || 'false' }}
     steps:
       - name: Check the Expo account is configured
         run: |
@@ -86,5 +102,26 @@ jobs:
           node scripts/scan-bundle.mjs dist-release
 
       - name: Build on EAS
+        if: env.ACTION == 'build'
         working-directory: apps/mobile
-        run: eas build --profile "$APP_VARIANT" --platform "$PLATFORM" --non-interactive
+        run: |
+          submit_args=()
+          if [ "$SUBMIT" = true ]; then
+            if [ "$APP_VARIANT" != production ]; then
+              echo "::error::Only production builds go to the stores."
+              exit 1
+            fi
+            # EAS Submit profile `production`: TestFlight, and the Play internal track as a draft.
+            submit_args=(--auto-submit-with-profile production)
+          fi
+          eas build --profile "$APP_VARIANT" --platform "$PLATFORM" --non-interactive "${submit_args[@]}"
+
+      # The scanned export, as is: --skip-bundler publishes dist-release instead of rebuilding.
+      - name: Publish an over-the-air update
+        if: env.ACTION == 'update'
+        working-directory: apps/mobile
+        env:
+          MESSAGE: ${{ github.sha }}
+        run: |
+          eas update --channel "$APP_VARIANT" --environment "$APP_VARIANT" --platform "$PLATFORM" \
+            --skip-bundler --input-dir dist-release --message "$MESSAGE" --non-interactive
