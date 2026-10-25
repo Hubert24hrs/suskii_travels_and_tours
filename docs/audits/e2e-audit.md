@@ -4,10 +4,12 @@ Whole-platform audit at the end of the Cars task (`docs/phases/cars.md`, P10): e
 journey, the console, concurrency, access control, dependencies and secrets, on branch
 `feature/cars` with mock providers only (no real payment, KYC, maps or SMS provider was called).
 
-**Verdict: not releasable yet.** Every journey passes and every code finding is fixed with a
-regression test, but six high and three critical dependency advisories remain open (all mitigated,
-unreachable or developer-only; see F1 to F6). The push condition of the audit brief ("no
-critical/high findings remain") is therefore not met.
+**Verdict: no critical or high finding remains (updated 2026-10-25).** Every journey passes,
+every code finding is fixed with a regression test, and the critical and high
+dependency advisories (F1 to F6, F52) are fixed without relaxing the pnpm trust policy or the
+release cooldown; `pnpm audit --prod --audit-level high` passes on `90245c5`. What is left is two
+accepted moderate advisories in build-time and Expo tooling (F21, F22) and three informational
+notes (F23, F24, F34).
 
 ## Environment
 
@@ -148,6 +150,8 @@ refunded, as on the website.
 
 ## What blocks a release
 
+Nothing at critical or high severity. How each blocker was cleared:
+
 1. **F1 and F2** are fixed: `next` 16.4.1 and Storybook 10.6.3, with the `semver@<7` override
    instead of an exception to the trust policy.
 2. **F3 and F4** are fixed: `body-parser` 2.4.0 and `multer` 2.5.0 through overrides, installed
@@ -155,3 +159,5 @@ refunded, as on the website.
    refusal stays.
 3. **F5** is fixed with a scoped override (`@expo/cli>zod`); drop it once the Expo CLI moves to
    zod 4.
+4. **F21 and F22** (moderate) stay accepted: F21 waits for Expo Router to move off
+   `decode-uri-component` 0.2 (incoming links are allowlisted first); F22 is build-machine tooling.
