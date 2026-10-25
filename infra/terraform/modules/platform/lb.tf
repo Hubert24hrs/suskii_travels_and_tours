@@ -3,7 +3,8 @@
 #   Armor) -> serverless NEGs -> Cloud Run (ingress: load balancer and VPC only).
 # Cloud Armor admits a request only from Cloudflare's ranges AND with the zone's origin secret in
 # x-suskii-origin-auth (added by a Cloudflare transform rule), so another Cloudflare account
-# pointed at this address gets 403 too. Only 443 listens; Cloudflare redirects http to https.
+# pointed at this address gets 403 too. Only 443 listens; Cloudflare redirects http to https
+# for the website and console and refuses it for the API.
 # The address, certificate and policy exist from the first apply so DNS and the certificate can be
 # ready before the services are.
 
@@ -106,7 +107,7 @@ resource "google_compute_security_policy" "edge" {
 resource "google_compute_ssl_policy" "origin" {
   project         = var.project_id
   name            = "${local.name}-origin"
-  profile         = "MODERN"
+  profile         = "RESTRICTED" # AEAD suites only (ECDHE with AES-GCM or ChaCha20-Poly1305)
   min_tls_version = "TLS_1_2"
   depends_on      = [google_project_service.apis]
 }

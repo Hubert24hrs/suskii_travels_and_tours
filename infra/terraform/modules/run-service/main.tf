@@ -29,6 +29,7 @@ resource "google_cloud_run_v2_service" "this" {
       network_interfaces {
         network    = var.network.network
         subnetwork = var.network.subnetwork
+        tags       = var.network.tags
       }
     }
 

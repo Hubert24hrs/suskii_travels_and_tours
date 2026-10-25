@@ -31,6 +31,7 @@ module "platform" {
   extra_secrets             = var.extra_secrets
   allow_mock_providers      = var.allow_mock_providers
   origin_auth_secret        = var.origin_auth_secret
+  log_retention_days        = var.log_retention_days
   labels                    = var.labels
 }
 
@@ -45,4 +46,5 @@ module "edge" {
   origin_auth_secret = var.origin_auth_secret
   admin_allowed_ips  = var.admin_allowed_ips
   managed_waf        = var.managed_waf
+  tls_ciphers        = var.tls_ciphers
 }

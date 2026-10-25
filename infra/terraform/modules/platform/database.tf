@@ -1,7 +1,12 @@
 # Cloud SQL for PostgreSQL 16: private IP only, connections only through Cloud SQL connectors
 # (Cloud Run's built-in socket encrypts and authorises them), automated backups with point-in-time
-# recovery, deletion protection. The application password is generated as an ephemeral value and
-# written only to the SQL user and the DATABASE_URL secret: it never enters the Terraform state.
+# recovery, deletion protection.
+#
+# Two roles (ASVS V13.2.2): `suskii_migrator` owns the schema and runs migrations (the migrate job
+# only); `suskii_app` may only read and write rows. Cloud SQL makes every user it creates a member
+# of cloudsqlsuperuser, so only the migrator is created here; the release step creates the app
+# role and sets its password from DATABASE_URL (apps/api/src/infra/app-role.ts). Both passwords
+# are ephemeral values written only to Cloud SQL and the secrets: they never enter the state.
 
 resource "google_sql_database_instance" "main" {
   project             = var.project_id
@@ -65,28 +70,51 @@ resource "google_sql_database" "suskii" {
   instance = google_sql_database_instance.main.name
 }
 
-ephemeral "random_password" "database" {
+locals {
+  app_database_user = "suskii_app"
+}
+
+ephemeral "random_password" "migrator" {
   length  = 40
   special = false
 }
 
-resource "google_sql_user" "app" {
+ephemeral "random_password" "app" {
+  length  = 40
+  special = false
+}
+
+resource "google_sql_user" "migrator" {
   project             = var.project_id
-  name                = "suskii_app"
+  name                = "suskii_migrator"
   instance            = google_sql_database_instance.main.name
-  password_wo         = ephemeral.random_password.database.result
+  password_wo         = ephemeral.random_password.migrator.result
   password_wo_version = var.database_password_version
 }
 
-# The socket of Cloud Run's built-in Cloud SQL connection (DATABASE_ALLOW_PLAINTEXT applies: the
-# connector encrypts the hop and checks the caller's IAM role).
+# Both URLs use the socket of Cloud Run's built-in Cloud SQL connection (DATABASE_ALLOW_PLAINTEXT
+# applies: the connector encrypts the hop and checks the caller's IAM role).
+resource "google_secret_manager_secret_version" "database_migration_url" {
+  secret                 = google_secret_manager_secret.app["DATABASE_MIGRATION_URL"].id
+  secret_data_wo_version = var.database_password_version
+  secret_data_wo = format(
+    "postgresql://%s:%s@localhost/%s?host=/cloudsql/%s",
+    google_sql_user.migrator.name,
+    ephemeral.random_password.migrator.result,
+    google_sql_database.suskii.name,
+    google_sql_database_instance.main.connection_name,
+  )
+}
+
+# The app role's password takes effect when the next release step runs (the migrate job sets it
+# before new revisions start), so raise database_password_version only together with a deploy.
 resource "google_secret_manager_secret_version" "database_url" {
   secret                 = google_secret_manager_secret.app["DATABASE_URL"].id
   secret_data_wo_version = var.database_password_version
   secret_data_wo = format(
     "postgresql://%s:%s@localhost/%s?host=/cloudsql/%s",
-    google_sql_user.app.name,
-    ephemeral.random_password.database.result,
+    local.app_database_user,
+    ephemeral.random_password.app.result,
     google_sql_database.suskii.name,
     google_sql_database_instance.main.connection_name,
   )

@@ -80,7 +80,11 @@ variable "database" {
 }
 
 variable "database_password_version" {
-  description = "Increase to generate and set a new database password (written only, never stored in state)."
+  description = <<-EOT
+    Increase to generate new passwords for both database roles (written only, never stored in
+    state). The migrator's changes at once; the app role's when the next migrate job runs, so
+    deploy straight after the apply (infra/terraform/README.md).
+  EOT
   type        = number
   default     = 1
 }
@@ -180,4 +184,10 @@ variable "web_env" {
   description = "Runtime settings of the website server (MOBILE_ANDROID_PACKAGE, MOBILE_IOS_APP_IDS, ...)."
   type        = map(string)
   default     = {}
+}
+
+variable "log_retention_days" {
+  description = "Days Cloud Logging keeps application and request logs (_Default bucket; over 30 is billed)."
+  type        = number
+  default     = 30
 }

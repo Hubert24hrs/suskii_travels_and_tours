@@ -2,15 +2,17 @@
 # origin verified against its Google-managed certificate (ssl = strict), the origin secret header
 # Cloud Armor requires, the managed WAF, and edge rules that mirror the API's own boundaries
 # (internal routes never public, the console only from allowed addresses, a coarse sign-in rate
-# limit in front of the API's finer limits). Zone settings keep HTML untouched: the website's
-# nonce CSP and React hydration break if the edge injects scripts or rewrites markup.
+# limit in front of the API's finer limits). Plain http is redirected only for the pages people
+# open in a browser; the API refuses it, so a misconfigured client fails instead of sending a
+# token in the clear. Zone settings keep HTML untouched: the website's nonce CSP and React
+# hydration break if the edge injects scripts or rewrites markup.
 
 locals {
   public_hosts = { for key, host in var.hosts : key => host }
   admin_ips    = length(var.admin_allowed_ips) > 0 ? "{${join(" ", var.admin_allowed_ips)}}" : null
   zone_settings = {
     ssl                      = "strict"
-    always_use_https         = "on"
+    always_use_https         = "off" # per host instead: redirects for pages, refusal for the API
     min_tls_version          = "1.2"
     tls_1_3                  = "on"
     automatic_https_rewrites = "on"
@@ -33,6 +35,14 @@ resource "cloudflare_zone_setting" "this" {
   zone_id    = var.zone_id
   setting_id = each.key
   value      = each.value
+}
+
+# Cipher suite allowlist for visitors (plan-dependent; see tls_ciphers).
+resource "cloudflare_zone_setting" "ciphers" {
+  count      = length(var.tls_ciphers) > 0 ? 1 : 0
+  zone_id    = var.zone_id
+  setting_id = "ciphers"
+  value      = var.tls_ciphers
 }
 
 resource "cloudflare_dns_record" "hosts" {
@@ -104,6 +114,18 @@ resource "cloudflare_ruleset" "firewall_custom" {
   rules = concat(
     [
       {
+        ref         = "suskii_api_https_only"
+        description = "The API answers https only (no redirect that would follow a token sent in the clear)"
+        expression  = "(http.host eq \"${var.hosts.api}\" and not ssl)"
+        action      = "block"
+      },
+      {
+        ref         = "suskii_trace"
+        description = "TRACE and TRACK are never served"
+        expression  = "(http.request.method in {\"TRACE\" \"TRACK\"})"
+        action      = "block"
+      },
+      {
         ref         = "suskii_internal_routes"
         description = "Internal routes are for the worker inside the VPC only"
         expression  = "(http.host eq \"${var.hosts.api}\" and starts_with(http.request.uri.path, \"/v1/internal\"))"
@@ -169,27 +191,45 @@ resource "cloudflare_ruleset" "managed_waf" {
 }
 
 resource "cloudflare_ruleset" "redirects" {
-  count       = length(var.redirect_hosts) > 0 ? 1 : 0
   zone_id     = var.zone_id
-  name        = "Suskii host redirects"
-  description = "Extra host names to the website."
+  name        = "Suskii redirects"
+  description = "Extra host names to the website, and http to https for the pages people open."
   kind        = "zone"
   phase       = "http_request_dynamic_redirect"
-  rules = [
-    {
-      ref         = "suskii_redirect_hosts"
-      description = "Permanent redirect to ${var.hosts.web}"
-      expression  = format("http.host in {%s}", join(" ", [for host in var.redirect_hosts : "\"${host}\""]))
-      action      = "redirect"
-      action_parameters = {
-        from_value = {
-          status_code           = 301
-          preserve_query_string = true
-          target_url = {
-            expression = "concat(\"https://${var.hosts.web}\", http.request.uri.path)"
+  rules = concat(
+    length(var.redirect_hosts) == 0 ? [] : [
+      {
+        ref         = "suskii_redirect_hosts"
+        description = "Permanent redirect to ${var.hosts.web}"
+        expression  = format("http.host in {%s}", join(" ", [for host in var.redirect_hosts : "\"${host}\""]))
+        action      = "redirect"
+        action_parameters = {
+          from_value = {
+            status_code           = 301
+            preserve_query_string = true
+            target_url = {
+              expression = "concat(\"https://${var.hosts.web}\", http.request.uri.path)"
+            }
           }
         }
-      }
-    },
-  ]
+      },
+    ],
+    [
+      {
+        ref         = "suskii_pages_https"
+        description = "Website and console over https"
+        expression  = "(not ssl and http.host in {\"${var.hosts.web}\" \"${var.hosts.admin}\"})"
+        action      = "redirect"
+        action_parameters = {
+          from_value = {
+            status_code           = 301
+            preserve_query_string = true
+            target_url = {
+              expression = "concat(\"https://\", http.host, http.request.uri.path)"
+            }
+          }
+        }
+      },
+    ],
+  )
 }

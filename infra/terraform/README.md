@@ -67,7 +67,9 @@ with `gcloud certificate-manager certificates describe suskii-staging-origin`.
 ### 5. Secret values
 
 Every secret the services read needs a version before the services exist, or the first revision
-fails. Terraform has already written `DATABASE_URL`, `REDIS_URL` and `REDIS_TLS_CA`. Add the rest
+fails. Terraform has already written `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `REDIS_URL` and
+`REDIS_TLS_CA`. The app's database role does not exist until the first migrate job creates it, so
+the API answers its readiness check only after the first Deploy. Add the rest
 without them ever touching a file:
 
 ```bash
@@ -141,14 +143,21 @@ In the repository settings, create the environments `staging` and `production`:
 
 ## Day two
 
-- **Database password.** Raise `database_password_version` and apply. Terraform writes a new
-  password to the SQL user and `DATABASE_URL` together. Redeploy straight after (the Deploy
-  workflow): until then, running instances keep their open connections but cannot open new ones.
-  Do it in a quiet hour.
+- **Database passwords.** Raise `database_password_version` and apply, then run the Deploy
+  workflow straight away.
+  - Terraform writes new passwords for both roles to their secrets. The migrator's changes in
+    Cloud SQL at once; the app role's when the migrate job runs.
+  - New instances read the new app password, so any that start between the apply and the migrate
+    job cannot connect. Do it in a quiet hour.
 - **A secret value.** Add a version with `gcloud secrets versions add`, then roll a new revision
   (redeploy) so instances read it. Disable the old version after.
 - **Origin secret.** Add a version to `terraform-origin-auth`, export it and apply. Cloud Armor and
   the Cloudflare rule change within seconds of each other; do it in a quiet hour.
+- **Visitor cipher suites.** With Advanced Certificate Manager on the zone, set `tls_ciphers` to
+  the AEAD suites only: `ECDHE-ECDSA-AES128-GCM-SHA256`, `ECDHE-ECDSA-CHACHA20-POLY1305`,
+  `ECDHE-RSA-AES128-GCM-SHA256`, `ECDHE-RSA-CHACHA20-POLY1305`, `ECDHE-ECDSA-AES256-GCM-SHA384`,
+  `ECDHE-RSA-AES256-GCM-SHA384`. Cloudflare to the origin is already AEAD-only (the load
+  balancer's `RESTRICTED` policy).
 - **Provider lock file.** After the first `init`, commit `.terraform.lock.hcl`, generated for
   every platform the team uses:
   `terraform providers lock -platform=linux_amd64 -platform=darwin_arm64 -platform=darwin_amd64`.
