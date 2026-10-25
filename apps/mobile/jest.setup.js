@@ -63,6 +63,7 @@ jest.mock('expo-crypto', () => {
 
 jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageTag: 'en-NG', languageCode: 'en', regionCode: 'NG' }],
+  getCalendars: () => [{ calendar: 'gregory', timeZone: 'Africa/Lagos', firstWeekday: 2 }],
 }));
 
 // MMKV 4 loads Nitro's native module on import; its own in-memory mock is used instead.
