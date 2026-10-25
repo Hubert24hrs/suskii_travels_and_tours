@@ -172,3 +172,85 @@ test.describe('search module', () => {
     await expect(page.getByLabel(t('search.addons.lastName'))).toHaveValue('Okafor');
   });
 });
+
+// AI trip search (ADR-061) against the API's mock model: the box fills the form and never
+// searches by itself; every failure keeps the text and points to the form.
+test.describe('describe your trip', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    // The box loads when opened, keeping it out of the homepage's initial JavaScript.
+    await page.getByRole('button', { name: t('search.describe.open') }).click();
+    await expect(page.getByRole('textbox', { name: t('search.describe.label') })).toBeFocused();
+  });
+
+  test('fills the flight form from a description, then searches as usual', async ({ page }) => {
+    const depart = isoDaysFromToday(20);
+    const box = page.getByRole('textbox', { name: t('search.describe.label') });
+    await box.fill(`Lagos to Abuja on ${depart}, 2 adults, business`);
+    await page.getByRole('button', { name: t('search.describe.submit') }).click();
+
+    await expect(
+      page.getByRole('status').filter({ hasText: t('search.describe.filled') }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('radio', { name: t('search.flights.tripTypes.one_way') }),
+    ).toBeChecked();
+    await expect(page.locator('#flight-origin-input')).toHaveValue('Lagos (LOS)');
+    await expect(page.locator('#flight-destination-input')).toHaveValue(/\(ABV\)/);
+    await expect(page.locator('#flight-cabinClass')).toHaveValue('business');
+    await expect(box).toHaveValue(`Lagos to Abuja on ${depart}, 2 adults, business`);
+    await expect(page).toHaveURL(/\/$/);
+
+    await page.getByRole('button', { name: t('search.flights.submit') }).click();
+    await page.waitForURL(/\/flights\/search\?/);
+    expect(parseFlightSearchParams(searchParams(page.url())).form).toMatchObject({
+      tripType: 'one_way',
+      origin: 'LOS',
+      destination: 'ABV',
+      departureDate: depart,
+      travellers: { adults: 2, children: 0, infants: 0 },
+      cabinClass: 'business',
+    });
+  });
+
+  test('says what is still missing and leaves it for the traveller', async ({ page }) => {
+    await page.getByRole('textbox', { name: t('search.describe.label') }).fill('Lagos to Nairobi');
+    await page.getByRole('button', { name: t('search.describe.submit') }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: t('search.describe.filled') }),
+    ).toContainText(t('search.describe.fields.departureDate'));
+    await expect(page.locator('#flight-destination-input')).toHaveValue(/\(NBO\)/);
+  });
+
+  test.describe('when it cannot help', () => {
+    // The API's 422 and 503 answers are the point of this test; the browser logs them.
+    test.use({ allowedConsoleErrors: [/status of (422|503)/] });
+
+    test('falls back to the form, keeping the text, when it cannot help', async ({ page }) => {
+      const box = page.getByRole('textbox', { name: t('search.describe.label') });
+      const submit = page.getByRole('button', { name: t('search.describe.submit') });
+
+      await box.fill('ab');
+      await submit.click();
+      await expect(
+        page.getByRole('alert').filter({ hasText: t('search.describe.tooShort') }),
+      ).toBeVisible();
+
+      await box.fill('tell me a joke');
+      await submit.click();
+      await expect(
+        page.getByRole('alert').filter({ hasText: t('search.describe.notUnderstood') }),
+      ).toBeVisible();
+      await expect(box).toHaveValue('tell me a joke');
+      await expect(page.locator('#flight-origin-input')).toHaveValue('');
+
+      // The mock model fails like an unreachable provider on this marker.
+      await box.fill('Lagos to Abuja mock-llm-unavailable');
+      await submit.click();
+      await expect(
+        page.getByRole('alert').filter({ hasText: t('search.describe.unavailable') }),
+      ).toBeVisible();
+      await expect(page.locator('#flight-origin-input')).toHaveValue('');
+    });
+  });
+});

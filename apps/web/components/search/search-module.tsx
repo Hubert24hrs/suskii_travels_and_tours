@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 import { useState } from 'react';
 
 import type { CityOption } from './city-field';
-import { FlightsForm } from './flights-form';
+import { FlightsForm, type DescribeSettings } from './flights-form';
 import type { FlightFormState, HotelFormState } from './form-state';
 import { useSearchT } from './use-search-t';
 
@@ -46,6 +46,8 @@ export interface SearchModuleProps {
   currency: CurrencyCode;
   citySuggestions: CityOption[];
   initial?: SearchInitialState | undefined;
+  /** Shows the AI trip search box on the flight tab while the API has it on (ADR-061). */
+  describe?: DescribeSettings | undefined;
 }
 
 const TABS: { value: Vertical; icon: React.ReactNode }[] = [
@@ -65,6 +67,7 @@ export function SearchModule({
   currency,
   citySuggestions,
   initial,
+  describe,
 }: SearchModuleProps) {
   const { t } = useSearchT();
   const [tab, setTab] = useState<Vertical>(defaultTab);
@@ -79,7 +82,12 @@ export function SearchModule({
           ))}
         </TabsList>
         <TabsContent value="flights">
-          <FlightsForm apiBaseUrl={apiBaseUrl} locale={locale} initial={initial?.flights} />
+          <FlightsForm
+            apiBaseUrl={apiBaseUrl}
+            locale={locale}
+            initial={initial?.flights}
+            describe={describe}
+          />
         </TabsContent>
         <TabsContent value="hotels">
           <HotelsForm
