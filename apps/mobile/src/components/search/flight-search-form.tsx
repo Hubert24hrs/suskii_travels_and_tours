@@ -19,14 +19,16 @@ import {
   iconSize,
 } from '@suskii/ui-native';
 import { useRouter, type Href } from 'expo-router';
-import { ArrowUpDown, Plus, X } from 'lucide-react-native';
+import { ArrowUpDown, Plus, Sparkles, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { daysFromToday, fromIso, toIso } from '../../lib/dates';
 import { toFieldErrors, type FieldErrors } from '../../lib/form-issues';
+import { useNaturalSearchStatus, type NaturalSearchResult } from '../../lib/natural-search';
 import { useT } from '../../providers/app-provider';
 
+import { DescribeTrip } from './describe-trip';
 import { PlaceField, type PlaceOption } from './place-field';
 import { passengerLabels, travellerSummary } from './traveller-labels';
 
@@ -46,6 +48,8 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
   const [draft, setDraft] = useState<FlightFormDraft>(() => initial ?? defaultFlightDraft());
   const [places, setPlaces] = useState<Record<string, PlaceOption | null>>({});
   const [errors, setErrors] = useState<FieldErrors>({});
+  const describe = useNaturalSearchStatus();
+  const [describing, setDescribing] = useState(false);
   const dateLabels = { done: t('search.datePicker.done'), close: t('search.datePicker.close') };
 
   const update = (patch: Partial<FlightFormDraft>) =>
@@ -58,6 +62,24 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
   };
   const setLeg = (index: number, patch: Partial<Leg>) =>
     update({ legs: draft.legs.map((leg, i) => (i === index ? { ...leg, ...patch } : leg)) });
+
+  // A described trip replaces the form's values (ADR-061); the traveller checks them and searches.
+  const fill = (result: NaturalSearchResult) => {
+    const byCode = new Map(result.places.map((option) => [option.code, option]));
+    const legs = [...result.draft.legs];
+    while (legs.length < 2) legs.push(emptyLeg());
+    const chosen: Record<string, PlaceOption | null> = {
+      origin: byCode.get(result.draft.origin) ?? null,
+      destination: byCode.get(result.draft.destination) ?? null,
+    };
+    legs.forEach((leg, index) => {
+      chosen[`legs.${index}.origin`] = byCode.get(leg.origin) ?? null;
+      chosen[`legs.${index}.destination`] = byCode.get(leg.destination) ?? null;
+    });
+    setErrors({});
+    setPlaces(chosen);
+    setDraft({ ...result.draft, legs });
+  };
 
   const submit = () => {
     const input = flightDraftToInput(draft);
@@ -78,6 +100,18 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
 
   return (
     <View className="gap-4" testID="flight-search-form">
+      {describe && describing ? (
+        <DescribeTrip maxLength={describe.maxLength} onFill={fill} />
+      ) : describe ? (
+        <Button
+          testID="describe-trip-open"
+          variant="ghost"
+          icon={<Sparkles color={color.primary} size={iconSize.md} />}
+          onPress={() => setDescribing(true)}
+        >
+          {t('search.describe.open')}
+        </Button>
+      ) : null}
       <SegmentedControl
         label={t('search.flights.tripType')}
         options={tripTypes}

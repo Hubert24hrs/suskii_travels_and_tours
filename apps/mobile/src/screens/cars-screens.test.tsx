@@ -59,6 +59,10 @@ async function bodyBytes(request: Request | undefined): Promise<Uint8Array> {
   return new Uint8Array((await request?.arrayBuffer()) ?? new ArrayBuffer(0));
 }
 
+/** Home's deals and Cars requests; the flight form's AI search status call is not counted. */
+const dealsAndCars = (calls: Request[]): Request[] =>
+  calls.filter((call) => /^\/v1\/(deals|cars)\//.test(new URL(call.url).pathname));
+
 describe('Cars on mobile', () => {
   beforeEach(async () => {
     await openSecureCache();
@@ -94,14 +98,14 @@ describe('Cars on mobile', () => {
     });
 
     it('hides the Cars card and tab when every product is off', async () => {
-      mockApi({
+      const { calls } = mockApi({
         'GET /v1/deals/flights': () => json({ currency: 'NGN', origins: [], deals: [] }),
         'GET /v1/cars/features': () =>
           json({ ...carsFeatures, buses: false, rides: false, rentals: false }),
       });
       await renderWithApp(<HomeScreen />);
       await screen.findByText(m.hero.headline);
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(dealsAndCars(calls)).toHaveLength(2));
       expect(screen.queryByTestId('home-cars')).toBeNull();
       expect(screen.queryByTestId('search-tab-cars')).toBeNull();
       expect(screen.queryByTestId('server-unreachable')).toBeNull();
@@ -130,7 +134,7 @@ describe('Cars on mobile', () => {
       reachable = true;
       await fireEvent.press(screen.getByTestId('server-retry'));
       await waitFor(() => expect(screen.queryByTestId('server-unreachable')).toBeNull());
-      expect(calls).toHaveLength(4);
+      expect(dealsAndCars(calls)).toHaveLength(4);
       expect(screen.queryByTestId('home-cars-rentals')).toBeNull();
       expect(screen.getByTestId('home-cars-buses')).toBeOnTheScreen();
     });
