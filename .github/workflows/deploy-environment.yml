@@ -264,6 +264,9 @@ jobs:
           for pair in "api:suskii-api@$API" "web:suskii-web@$WEB"; do
             service="${pair%%:*}"; image="$REGISTRY/${pair#*:}"
             if [ "$CANARY" = true ]; then
+              # A tag left by an interrupted run would block this one.
+              gcloud run services update-traffic "$PREFIX-$service" --region "$REGION" \
+                --remove-tags candidate --quiet 2>/dev/null || true
               gcloud run deploy "$PREFIX-$service" --image "$image" --region "$REGION" \
                 --no-traffic --tag candidate --quiet
               revision="$(gcloud run services describe "$PREFIX-$service" --region "$REGION" \
