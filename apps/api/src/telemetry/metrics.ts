@@ -86,6 +86,26 @@ export const rideSos = meter.createCounter('suskii.ride.sos', {
   description: 'Ride SOS alerts by who raised them',
 });
 
+/** AI trip search (ADR-061): parses by outcome (parsed, not_understood, budget, unavailable). */
+export const aiSearchRequests = meter.createCounter('suskii.ai_search.requests', {
+  description: 'Natural-language flight searches by outcome and failure reason',
+});
+
+export const aiSearchDuration = meter.createHistogram('suskii.ai_search.duration', {
+  unit: 'ms',
+  description: 'Natural-language search latency by outcome',
+});
+
+/** Spend in micro-dollars, from the provider's reported usage at the configured prices. */
+export const aiSearchCost = meter.createCounter('suskii.ai_search.cost', {
+  unit: 'usd_micros',
+  description: 'AI search spend in micro-dollars by provider',
+});
+
+export const aiSearchTokens = meter.createCounter('suskii.ai_search.tokens', {
+  description: 'AI search tokens by kind (input, output, cache_read, cache_write)',
+});
+
 /**
  * Field Core Web Vitals from the website (ADR-044), by page template and device class. Buckets
  * are finer around the "good" thresholds so dashboards can read the 75th percentile accurately.

@@ -87,6 +87,8 @@ catalog:
   '@types/express': ^5.0.6
 
   # API platform (apps/api)
+  # LLM adapter for AI trip search (ADR-061), confined to apps/api/src/ai-search/anthropic.
+  '@anthropic-ai/sdk': 1.1.0
   prisma: 7.10.0
   '@prisma/client': 7.10.0
   '@prisma/adapter-pg': 7.10.0

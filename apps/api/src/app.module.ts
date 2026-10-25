@@ -25,6 +25,7 @@ import { AppVersionGuard } from './common/app-version.guard';
 import { BeaconBodyMiddleware } from './common/beacon-body.middleware';
 import { ClientCountryMiddleware } from './common/client-country.middleware';
 import { BotProtectionModule } from './bot-protection/bot-protection.module';
+import { AiSearchModule } from './ai-search/ai-search.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ContentModule } from './content/content.module';
 import { DealsModule } from './deals/deals.module';
@@ -87,6 +88,7 @@ export class AppModule implements NestModule {
         CatalogModule,
         PricingModule,
         SearchModule,
+        AiSearchModule,
         ContentModule,
         DealsModule,
         NewsletterModule,
