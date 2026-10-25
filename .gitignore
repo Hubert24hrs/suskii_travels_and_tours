@@ -64,3 +64,12 @@ Thumbs.db
 apps/api/src/generated/
 .zap/reports/
 .zap/openapi.json
+
+# Terraform: providers, state and per-environment values (examples are committed)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+infra/terraform/environments/*.tfvars
+infra/terraform/environments/*.tfbackend
