@@ -1,6 +1,6 @@
 # Phase 12: Deployment and release
 
-Status: in progress
+Status: built and rehearsed; the acceptance criteria need the owner's accounts (see Outcome).
 
 ## Goal
 
@@ -138,7 +138,42 @@ labels and Data safety form content.
 - **No cloud or store accounts here.** The acceptance criteria cannot be met from this
   repository alone. Everything up to the credentials is built and rehearsed (images, compose and
   kind deploys, rollback); the phase report lists exactly what the owner must create.
-- **Tool downloads.** Terraform's registry, Helm and kind are blocked in the development sandbox;
-  their checks run in GitHub Actions (`infra.yml`), where the network is open.
+- **Tool downloads.** Terraform's registry and GitHub release downloads are blocked in the
+  development sandbox. The Google provider came from HashiCorp's release site, and Helm,
+  kubeconform, kind, TFLint and actionlint were built from the Go module proxy. The Cloudflare
+  provider and a kind cluster (nested containers fail here) run only in GitHub Actions
+  (`infra.yml`).
 - **Next.js standalone in a pnpm monorepo** needs the tracing root at the repository; covered by
   building the images in CI and running the smoke tests against them.
+
+## Outcome
+
+### Acceptance criteria
+
+| Criterion                                                         | Status                                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tag release deploys to staging, then production with approval     | **Built, not run.** `release.yml` deploys a `v*` tag to staging, then to production after the `production` environment's reviewers approve, with a canary and automatic rollback. It needs the GCP projects, the Cloudflare zones and the GitHub environments. |
+| Rollback tested                                                   | **Met locally.** The compose rehearsal passed end to end (broken release refused, rollback, smoke tests) with the API on the row-only database role. The Helm rehearsal (kind) and production's automatic rollback run first in CI and on the first release.   |
+| Mobile builds submitted to TestFlight and the Play internal track | **Built, not run.** `mobile-v*` tags build on EAS and submit through the `production` submit profile. It needs the Expo, Apple and Google accounts, store credentials in EAS and `ascAppId`.                                                                   |
+
+### Built beyond the plan
+
+The survey and the work surfaced gaps a real deployment would have hit:
+
+- **The client address behind Cloudflare.** `CLIENT_IP_HEADER` reads `cf-connecting-ip`, so the
+  rate limits, audit hashes and admin allowlist see the visitor, not a proxy. The origin secret in
+  Cloud Armor makes the header trustworthy.
+- **The first super admin in production.** `SEED_ADMIN_*` is refused there, so `staff:bootstrap`
+  is the audited, one-time path.
+- **Separate database roles.** The API cannot change the schema (ASVS V13.2.2).
+- **The pool size.** `DATABASE_POOL_MAX`: Prisma 7's driver adapter ignored `connection_limit`.
+- **The 17 requirements the phase 11 mapping left for deployment**, closed in Terraform and the
+  edge: 15 met, 2 partial with owner decisions.
+
+### Not built
+
+- **Preview deploys per pull request** (`ci_cd` in the spec). Cloud Run tagged revisions are
+  reachable only inside the VPC, so previews need a separate public route; this is an open
+  question in ADR-060.
+- **A cloud KMS adapter for field encryption.** It would add little on Cloud Run, as ADR-059
+  explains; CMEK is offered as an owner option.

@@ -225,6 +225,25 @@ Ground transport runs on the same booking, payment and ledger pipeline as the ot
   in the API e2e suite; `e2e/cars.spec.ts` on the website; `cars.spec.ts` in the console; the
   app's `cars-*`, `driver-screens`, `trip-planning` and `offline-scan` tests.
 
+## Deploying and releasing
+
+GCP Cloud Run behind Cloudflare is the default platform (ADR-059); the pipeline is ADR-060.
+
+- **Images.** `apps/<app>/Dockerfile`, built from the repository root, for example
+  `docker build -f apps/api/Dockerfile --target runtime -t suskii-api:local .` (`--target migrate`
+  for the database step).
+- **Rehearse a release locally.** Build the five images with the `:local` tags, then run
+  `pnpm release:rehearse`. It deploys them as production does, refuses a broken release and
+  rolls back.
+- **A new environment.** `infra/terraform/README.md` covers the GCP project, Cloudflare zone,
+  secrets, GitHub environment and the first super admin (`staff:bootstrap`).
+- **Releases.** Merging to main deploys staging. A `v*` tag on main deploys staging, then
+  production after approval, with a canary and automatic rollback. Watching and rolling back:
+  `docs/runbooks/deploy-and-rollback.md`.
+- **Mobile.** `mobile-v*` tags build on EAS and submit to TestFlight and the Play internal track.
+  Store listing and privacy form content is in `docs/release/`.
+- **Kubernetes** instead of Cloud Run: `infra/helm/suskii`. AWS: `docs/deployment/aws.md`.
+
 ## Contributing
 
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`,

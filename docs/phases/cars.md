@@ -1,7 +1,7 @@
 # Cars: buses, rides and car rental
 
-Status: P0 to P10 done; P11 (docs and pull request) in progress. The dependency advisories in
-`docs/audits/e2e-audit.md` (F1 to F6) are fixed; the pull request waits on review.
+Status: P0 to P11 done; the pull request was merged before phase 12. The dependency advisories in
+`docs/audits/e2e-audit.md` (F1 to F6) are fixed.
 
 Task: `suskii-cars-v1`. It adds three ground-transport products, together called **Cars**:
 
