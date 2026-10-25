@@ -43,6 +43,14 @@ export {
   type RoundingMode,
 } from './money';
 export {
+  DEFAULT_SEARCH_TIME_ZONE,
+  NATURAL_SEARCH_FIELDS,
+  NATURAL_SEARCH_MAX_LENGTH,
+  NATURAL_SEARCH_MIN_LENGTH,
+  NATURAL_SEARCH_PROBLEMS,
+  type NaturalSearchField,
+} from './natural-search-limits';
+export {
   CABIN_CLASSES,
   MAX_FLIGHT_SLICES,
   MIN_MULTI_CITY_LEGS,

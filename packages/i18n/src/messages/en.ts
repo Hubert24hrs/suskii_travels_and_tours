@@ -189,6 +189,31 @@ export const en = {
       flexibleDates: 'Flexible dates (± 3 days)',
       submit: 'Search flights',
     },
+    // AI trip search (ADR-061): fills the flight form, never searches by itself.
+    describe: {
+      open: 'Describe your trip instead',
+      label: 'Describe your trip',
+      placeholder: 'For example: Lagos to London next Friday, 2 adults, back a week later',
+      submit: 'Fill in the form',
+      working: 'Reading your trip',
+      privacy:
+        'Leave out names, numbers and other personal details. We send the text to our AI provider to fill in the form and do not keep it.',
+      tooShort: 'Describe your trip in a few words',
+      filled: 'We filled in the form from your description. Check it, then search.',
+      missing: 'Add what we could not tell: {fields}.',
+      month: 'You mentioned {month}: choose a date in that month.',
+      fields: {
+        origin: 'where you fly from',
+        destination: 'where you fly to',
+        departureDate: 'the departure date',
+        returnDate: 'the return date',
+        legs: 'the flights',
+      },
+      notUnderstood:
+        'We could not turn that into a flight search. Say where you fly from and to, or use the form below.',
+      overLimit: 'You have described a lot of trips today. Use the form below instead.',
+      unavailable: 'Trip descriptions are not available right now. Use the form below instead.',
+    },
     hotels: {
       destination: 'Destination',
       destinationPlaceholder: 'Where are you going?',

@@ -90,6 +90,7 @@ describe('formatters', () => {
   it('formats calendar dates without shifting across time zones', () => {
     expect(format.date('2026-12-10')).toBe('10 Dec 2026');
     expect(format.date('2026-12-10', 'weekday')).toBe('Thu, 10 Dec');
+    expect(format.date('2026-12-01', 'month')).toBe('December 2026');
     expect(createFormatters('en-US').date('2026-12-10')).toBe('Dec 10, 2026');
     expect(format.dateRange('2026-12-10', '2026-12-17')).toBe('10–17 Dec');
   });

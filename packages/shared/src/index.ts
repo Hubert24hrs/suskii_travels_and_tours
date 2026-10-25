@@ -178,6 +178,26 @@ export {
   type QueryInput,
 } from './search-url';
 export {
+  DEFAULT_SEARCH_TIME_ZONE,
+  NATURAL_SEARCH_FIELDS,
+  NATURAL_SEARCH_MAX_LENGTH,
+  NATURAL_SEARCH_MIN_LENGTH,
+  NATURAL_SEARCH_PROBLEMS,
+  type NaturalSearchField,
+} from './natural-search-limits';
+export {
+  naturalSearchDraftSchema,
+  naturalSearchPlaceSchema,
+  naturalSearchRequestSchema,
+  naturalSearchResultSchema,
+  naturalSearchStatusSchema,
+  type NaturalSearchDraft,
+  type NaturalSearchPlace,
+  type NaturalSearchRequest,
+  type NaturalSearchResult,
+  type NaturalSearchStatus,
+} from './natural-search';
+export {
   ADDON_TYPES,
   VERTICAL_FORM_ISSUES,
   VISA_PURPOSES,
