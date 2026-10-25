@@ -12,6 +12,20 @@ updates:
     commit-message:
       prefix: ci
 
+  # Container base images (ADR-058), pinned by digest in the Dockerfiles and the release compose
+  # file. Node stays on the 24 LTS line; a major upgrade follows ADR-002.
+  - package-ecosystem: docker
+    directories: [/apps/api, /apps/worker, /apps/web, /apps/admin]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+    ignore:
+      - dependency-name: 'node'
+        update-types: ['version-update:semver-major']
+
   # npm (pnpm workspace and catalog). Minor and patch updates are grouped into one pull request
   # per dependency type each week; majors arrive one per pull request and follow ADR-002's
   # version policy. Security updates are not grouped and open as soon as an advisory lands.

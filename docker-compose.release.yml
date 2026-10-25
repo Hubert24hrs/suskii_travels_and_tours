@@ -1,0 +1,137 @@
+# Production-like stack from the release images (ADR-058, ADR-060), for rehearsing a deploy and a
+# rollback locally and in CI (scripts/release-rehearsal.mjs). Everything runs with
+# NODE_ENV=production; the only relaxations are declared, as the env schema demands:
+#   - ALLOW_MOCK_PROVIDERS=true (suppliers, payments, messages: the staging escape hatch);
+#   - *_ALLOW_PLAINTEXT=true on the private compose network (no TLS between containers).
+# Keys come from `.env.release` (throwaway, written by the rehearsal with keys:generate; git-ignored).
+# Host ports bind to 127.0.0.1 only.
+name: suskii-release
+
+x-api-env: &api-env
+  NODE_ENV: production
+  ALLOW_MOCK_PROVIDERS: 'true'
+  LOG_LEVEL: info
+  API_PORT: '4000'
+  DATABASE_URL: postgresql://suskii:release-rehearsal@postgres:5432/suskii?sslmode=disable
+  DATABASE_ALLOW_PLAINTEXT: 'true'
+  REDIS_URL: redis://redis:6379
+  REDIS_ALLOW_PLAINTEXT: 'true'
+  COOKIE_SECURE: 'true'
+  WEB_APP_URL: http://127.0.0.1:13000
+  CORS_ORIGINS: http://127.0.0.1:13000,https://admin.rehearsal.invalid
+  ADMIN_ORIGINS: https://admin.rehearsal.invalid
+  # Cloudflare's documented always-passes test secret; never a real key.
+  TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+  OBJECT_STORAGE: s3
+  OBJECT_STORAGE_ENDPOINT: http://s3:7070
+  OBJECT_STORAGE_ALLOW_PLAINTEXT: 'true'
+  OBJECT_STORAGE_PATH_STYLE: 'true'
+  OBJECT_STORAGE_REGION: us-east-1
+  OBJECT_STORAGE_BUCKET: suskii-documents
+  OBJECT_STORAGE_ACCESS_KEY_ID: release-rehearsal
+  OBJECT_STORAGE_SECRET_ACCESS_KEY: release-rehearsal-secret
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: suskii
+      POSTGRES_PASSWORD: release-rehearsal
+      POSTGRES_DB: suskii
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U suskii -d suskii']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  # S3-compatible store (ADR-057); a bucket is a top-level directory for this gateway.
+  s3:
+    image: versity/versitygw:v1.8.0@sha256:30292fc2eeacc67a36993b01f7a7a5e3361a19cced0e80c1d71cfa2a4b0a2499
+    entrypoint: ['sh', '-c']
+    command:
+      - mkdir -p /data/suskii-documents && exec versitygw --access release-rehearsal --secret release-rehearsal-secret posix /data
+
+  # The database step of a release, once, before the services start.
+  migrate:
+    image: ${SUSKII_MIGRATE_IMAGE:-suskii-api-migrate:local}
+    env_file: [.env.release]
+    environment:
+      DATABASE_URL: postgresql://suskii:release-rehearsal@postgres:5432/suskii?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    image: ${SUSKII_API_IMAGE:-suskii-api:local}
+    env_file: [.env.release]
+    environment:
+      <<: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      s3:
+        condition: service_started
+    ports: ['127.0.0.1:14000:4000']
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+
+  worker:
+    image: ${SUSKII_WORKER_IMAGE:-suskii-worker:local}
+    env_file: [.env.release]
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      REDIS_URL: redis://redis:6379
+      REDIS_ALLOW_PLAINTEXT: 'true'
+      API_INTERNAL_URL: http://api:4000
+      API_INTERNAL_ALLOW_PLAINTEXT: 'true'
+    depends_on:
+      api:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+
+  web:
+    image: ${SUSKII_WEB_IMAGE:-suskii-web:local}
+    environment:
+      API_INTERNAL_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports: ['127.0.0.1:13000:3000']
+    read_only: true
+    tmpfs:
+      - /tmp
+      - '/app/apps/web/.next/cache:uid=1000,gid=1000'
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+
+  admin:
+    image: ${SUSKII_ADMIN_IMAGE:-suskii-admin:local}
+    environment:
+      API_INTERNAL_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports: ['127.0.0.1:13001:3001']
+    read_only: true
+    tmpfs:
+      - /tmp
+      - '/app/apps/admin/.next/cache:uid=1000,gid=1000'
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
