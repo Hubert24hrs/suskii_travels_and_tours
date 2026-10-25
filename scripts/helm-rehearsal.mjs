@@ -300,12 +300,14 @@ try {
   say(`FAILED: ${error instanceof Error ? error.message : String(error)}`);
   say(`completed before the failure: ${steps.join('; ') || 'nothing'}`);
   kubectl(['-n', NAMESPACE, 'get', 'pods,jobs', '-o', 'wide'], { allowFailure: true });
-  kubectl(['-n', NAMESPACE, 'logs', '-l', 'app.kubernetes.io/component=migrate', '--tail', '40'], {
-    allowFailure: true,
-  });
-  kubectl(['-n', NAMESPACE, 'logs', '-l', 'app.kubernetes.io/component=api', '--tail', '40'], {
-    allowFailure: true,
-  });
+  kubectl(['-n', NAMESPACE, 'get', 'events', '--sort-by=.lastTimestamp'], { allowFailure: true });
+  // Every component (an unready website or console fails the release too) and data service.
+  for (const selector of ['app.kubernetes.io/component', 'app']) {
+    kubectl(
+      ['-n', NAMESPACE, 'logs', '-l', selector, '--all-containers', '--prefix', '--tail', '40'],
+      { allowFailure: true },
+    );
+  }
   process.exitCode = 1;
 } finally {
   run('docker', ['image', 'rm', '-f', BROKEN], { allowFailure: true });
