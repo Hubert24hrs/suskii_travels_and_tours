@@ -1,6 +1,8 @@
 # Production-like stack from the release images (ADR-058, ADR-060), for rehearsing a deploy and a
 # rollback locally and in CI (scripts/release-rehearsal.mjs). Everything runs with
-# NODE_ENV=production; the only relaxations are declared, as the env schema demands:
+# NODE_ENV=production. As in a deployed environment, migrations run as the schema owner and the
+# API as `suskii_app`, which the release step creates and which may only read and write rows. The
+# only relaxations are declared, as the env schema demands:
 #   - ALLOW_MOCK_PROVIDERS=true (suppliers, payments, messages: the staging escape hatch);
 #   - *_ALLOW_PLAINTEXT=true on the private compose network (no TLS between containers).
 # Keys come from `.env.release` (throwaway, written by the rehearsal with keys:generate; git-ignored).
@@ -12,7 +14,7 @@ x-api-env: &api-env
   ALLOW_MOCK_PROVIDERS: 'true'
   LOG_LEVEL: info
   API_PORT: '4000'
-  DATABASE_URL: postgresql://suskii:release-rehearsal@postgres:5432/suskii?sslmode=disable
+  DATABASE_URL: postgresql://suskii_app:release-rehearsal-app-password@postgres:5432/suskii?sslmode=disable
   DATABASE_ALLOW_PLAINTEXT: 'true'
   REDIS_URL: redis://redis:6379
   REDIS_ALLOW_PLAINTEXT: 'true'
@@ -59,14 +61,31 @@ services:
     command:
       - mkdir -p /data/suskii-documents && exec versitygw --access release-rehearsal --secret release-rehearsal-secret posix /data
 
-  # The database step of a release, once, before the services start.
+  # The database step of a release, once, before the services start: as the schema owner, then
+  # the app role from DATABASE_APP_URL.
   migrate:
     image: ${SUSKII_MIGRATE_IMAGE:-suskii-api-migrate:local}
     env_file: [.env.release]
     environment:
       DATABASE_URL: postgresql://suskii:release-rehearsal@postgres:5432/suskii?sslmode=disable
+      DATABASE_APP_URL: postgresql://suskii_app:release-rehearsal-app-password@postgres:5432/suskii?sslmode=disable
     depends_on:
       postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  # Operator commands on the migrate image with the API's settings (the `ops` Cloud Run job).
+  ops:
+    image: ${SUSKII_MIGRATE_IMAGE:-suskii-api-migrate:local}
+    profiles: [ops]
+    entrypoint: ['node_modules/.bin/tsx']
+    env_file: [.env.release]
+    environment:
+      <<: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: 'no'
 

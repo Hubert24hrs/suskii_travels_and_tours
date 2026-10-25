@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
  * Release rehearsal on the compose stack (ADR-060): deploys the release images as a release does
- * (database step first, then the services behind their health checks, then the smoke tests), then
- * deploys a broken API release, checks the health gate refuses it, rolls back to the previous
- * image and smoke-tests again. Runs locally and in CI once the images are built.
+ * (database step first, then the services behind their health checks, then the smoke tests), runs
+ * an operator command the way the ops job does (the first super admin, written as the API's
+ * restricted database role), then deploys a broken API release, checks the health gate refuses
+ * it, rolls back to the previous image and smoke-tests again. Runs locally and in CI once the
+ * images are built.
  *
  *   node scripts/release-rehearsal.mjs [--keep]
  *
@@ -97,6 +99,40 @@ try {
   done('api, worker, web and admin healthy');
   if (!smoke()) throw new Error('smoke tests failed on release N');
   done('smoke tests passed on release N');
+
+  say('ops: first super admin through the ops command, as the app role');
+  compose([
+    'exec',
+    '-T',
+    'postgres',
+    'psql',
+    '-q',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-U',
+    'suskii',
+    '-d',
+    'suskii',
+    '-c',
+    "INSERT INTO users (id, email, email_verified_at, updated_at) VALUES (gen_random_uuid(), 'owner@example.com', now(), now())",
+  ]);
+  compose([
+    'run',
+    '--rm',
+    'ops',
+    'scripts/staff-bootstrap.ts',
+    '--email',
+    'owner@example.com',
+    '--yes',
+  ]);
+  if (
+    compose(['run', '--rm', 'ops', 'scripts/staff-bootstrap.ts', '--email', 'owner@example.com'], {
+      allowFailure: true,
+    })
+  ) {
+    throw new Error('the bootstrap command accepted a second super admin');
+  }
+  done('ops command granted the first super admin and refused a second');
 
   say('release N+1: a broken API image (it crashes at start-up)');
   // The release image with a faulty start baked in, as a bad release would ship it; nothing in
