@@ -45,6 +45,11 @@ export const envSchema = z
       .default('info'),
 
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    /**
+     * Connections per process (node-postgres pool). Instances times this must stay under the
+     * database's max_connections with room for migrations and operators (ADR-059).
+     */
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
     REDIS_URL: z.url({ protocol: /^rediss?$/ }),
     /**
      * Production requires TLS to Postgres (`sslmode=verify-full`, or `require`) and Redis
