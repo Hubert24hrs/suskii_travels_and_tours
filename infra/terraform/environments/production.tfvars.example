@@ -59,7 +59,7 @@ extra_secrets = [
 
 api_env = {
   FLIGHT_SUPPLIERS   = "duffel"
-  HOTEL_SUPPLIERS    = "REPLACE (no real hotel adapter yet)"
+  HOTEL_SUPPLIERS    = "duffel" # needs Duffel Stays on the account (ADR-062)
   PAYMENT_PROVIDERS  = "paystack"
   EMAIL_PROVIDER     = "smtp"
   EMAIL_FROM         = "Suskii Travels <no-reply@suskii.example>"

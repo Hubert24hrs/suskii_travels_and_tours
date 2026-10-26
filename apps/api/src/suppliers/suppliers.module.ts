@@ -6,6 +6,7 @@ import { APP_CONFIG, type AppConfig } from '../config/config';
 
 import { CircuitBreakerRegistry } from './circuit-breaker';
 import { DuffelFlightSupplier } from './duffel/duffel-flight-supplier';
+import { DuffelHotelSupplier } from './duffel/duffel-hotel-supplier';
 import { DuffelClient } from './duffel/duffel.client';
 import { MockFlightSupplier } from './mock/mock-flight-supplier';
 import { MockHotelSupplier } from './mock/mock-hotel-supplier';
@@ -46,7 +47,16 @@ export const HOTEL_SUPPLIERS = Symbol('HOTEL_SUPPLIERS');
       provide: HOTEL_SUPPLIERS,
       inject: [APP_CONFIG, MockHotelSupplier],
       useFactory: (config: AppConfig, mock: MockHotelSupplier): HotelSupplier[] =>
-        config.HOTEL_SUPPLIERS.map(() => mock),
+        config.HOTEL_SUPPLIERS.map((name) => {
+          if (name === 'mock') return mock;
+          // The env schema guarantees a token when duffel is enabled.
+          return new DuffelHotelSupplier(
+            new DuffelClient({
+              baseUrl: config.DUFFEL_API_URL,
+              token: config.DUFFEL_API_TOKEN ?? '',
+            }),
+          );
+        }),
     },
   ],
   exports: [

@@ -187,9 +187,9 @@ export const envSchema = z
     /** The deployed version (the git SHA), so reports match the uploaded source maps. */
     SENTRY_RELEASE: z.string().min(1).max(128).optional(),
 
-    /** Enabled flight suppliers (feature flags). `duffel` needs DUFFEL_API_TOKEN. */
+    /** Enabled flight and hotel suppliers (feature flags). `duffel` needs DUFFEL_API_TOKEN. */
     FLIGHT_SUPPLIERS: csv(z.enum(['mock', 'duffel'])).default(['mock']),
-    HOTEL_SUPPLIERS: csv(z.enum(['mock'])).default(['mock']),
+    HOTEL_SUPPLIERS: csv(z.enum(['mock', 'duffel'])).default(['mock']),
     DUFFEL_API_TOKEN: z.string().min(1).optional(),
     DUFFEL_API_URL: z.url().default('https://api.duffel.com'),
     /** Whole-search budget (spec: 12 s) and per-supplier timeout inside it. */
@@ -461,8 +461,11 @@ export const envSchema = z
     }
     if (env.CLIENT_IP_HEADER && env.TRUST_PROXY_HOPS > 0)
       require('CLIENT_IP_HEADER', 'set either CLIENT_IP_HEADER or TRUST_PROXY_HOPS, not both');
-    if (env.FLIGHT_SUPPLIERS.includes('duffel') && !env.DUFFEL_API_TOKEN) {
-      require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS includes duffel');
+    if (
+      (env.FLIGHT_SUPPLIERS.includes('duffel') || env.HOTEL_SUPPLIERS.includes('duffel')) &&
+      !env.DUFFEL_API_TOKEN
+    ) {
+      require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS or HOTEL_SUPPLIERS includes duffel');
     }
     if (env.MAPS_PROVIDER === 'osrm' && !env.OSRM_URL)
       require('OSRM_URL', 'is required when MAPS_PROVIDER is osrm');
