@@ -59,6 +59,7 @@ export type AuditAction =
   | 'traveller.updated'
   | 'traveller.deleted'
   | 'booking.cancelled_under_policy'
+  | 'booking.flight_cancelled'
   | 'booking.voucher_redeemed'
   | 'booking.addon_link_issued'
   | 'catalog.created'

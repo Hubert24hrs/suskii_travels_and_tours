@@ -283,6 +283,7 @@ describe('DuffelFlightSupplier', () => {
     );
     const result = await supplierWith(fn).book(request, signal);
     expect(result).toEqual({
+      orderId: 'ord_1',
       supplierReference: 'RZPNX8',
       tickets: [
         { passengerIndex: 0, number: '0712345678901' },
@@ -601,6 +602,102 @@ describe('DuffelFlightSupplier checked bags (ADR-063)', () => {
   });
 });
 
+describe('DuffelFlightSupplier cancellation (ADR-064)', () => {
+  const signal = new AbortController().signal;
+  const cancellation = (overrides: Record<string, unknown> = {}) => ({
+    id: 'ore_1',
+    order_id: 'ord_1',
+    refund_amount: '180.00',
+    refund_currency: 'USD',
+    refund_to: 'balance',
+    expires_at: '2026-11-01T11:00:00Z',
+    confirmed_at: null,
+    ...overrides,
+  });
+  async function request() {
+    const [offer] = await supplierWith(
+      fakeFetch(json(201, { data: { offers: [duffelOffer('off_1')] } })).fn,
+    ).search(query, signal);
+    if (!offer) throw new Error('the fixture maps to an offer');
+    return { orderId: 'ord_1', offer, supplierTotal: money(81_245n, 'USD') };
+  }
+
+  it('quotes a pending cancellation: the refund, where it goes and until when', async () => {
+    const { fn, calls } = fakeFetch(json(201, { data: cancellation() }));
+    const quote = await supplierWith(fn).cancellationQuote(await request(), signal);
+    expect(quote).toEqual({
+      quoteId: 'ore_1',
+      refund: money(18_000n, 'USD'),
+      refundToBalance: true,
+      expiresAt: '2026-11-01T11:00:00.000Z',
+    });
+    expect(calls[0]?.url).toBe('https://api.duffel.test/air/order_cancellations');
+    expect(JSON.parse(calls[0]?.init?.body as string)).toEqual({ data: { order_id: 'ord_1' } });
+
+    // Credits are not money back to our balance; a missing amount refunds nothing.
+    const credits = await supplierWith(
+      fakeFetch(json(201, { data: cancellation({ refund_to: 'airline_credits' }) })).fn,
+    ).cancellationQuote(await request(), signal);
+    expect(credits.refundToBalance).toBe(false);
+    const nothing = await supplierWith(
+      fakeFetch(json(201, { data: cancellation({ refund_amount: null }) })).fn,
+    ).cancellationQuote(await request(), signal);
+    expect(nothing.refund).toEqual(money(0n, 'USD'));
+  });
+
+  it('confirms a cancellation, and treats one already confirmed as done', async () => {
+    const confirmed = fakeFetch(json(200, { data: cancellation({ confirmed_at: 'now' }) }));
+    await supplierWith(confirmed.fn).confirmCancellation('ore_1', signal);
+    expect(confirmed.calls[0]?.url).toBe(
+      'https://api.duffel.test/air/order_cancellations/ore_1/actions/confirm',
+    );
+
+    // A failed confirmation that Duffel says went through anyway counts as done.
+    const done = fakeFetch(
+      json(503, { errors: [] }),
+      json(200, { data: cancellation({ confirmed_at: '2026-11-01T10:31:00Z' }) }),
+    );
+    await supplierWith(done.fn).confirmCancellation('ore_1', signal);
+    expect(done.calls[1]?.url).toBe('https://api.duffel.test/air/order_cancellations/ore_1');
+
+    // One that did not go through fails as it did.
+    const failed = fakeFetch(json(503, { errors: [] }), json(200, { data: cancellation() }));
+    await expect(
+      supplierWith(failed.fn).confirmCancellation('ore_1', signal),
+    ).rejects.toBeInstanceOf(SupplierUnavailableError);
+  });
+
+  it('returns the order id with a booking, for cancelling it later', async () => {
+    const original = await request();
+    const { fn } = fakeFetch(
+      json(200, { data: duffelOffer('off_1') }),
+      json(201, { data: { id: 'ord_9', booking_reference: 'RZPNX8', documents: [] } }),
+    );
+    const result = await supplierWith(fn).book(
+      {
+        offer: original.offer,
+        passengers: [
+          {
+            type: 'adult',
+            title: 'ms',
+            gender: 'f',
+            givenNames: 'ADA',
+            surname: 'EZE',
+            dateOfBirth: '1990-01-01',
+            nationality: 'NG',
+            document: null,
+          },
+        ],
+        contact: { email: 'ada@example.com', phone: '+2348012345678' },
+        services: [],
+        idempotencyKey: 'item-1',
+      },
+      signal,
+    );
+    expect(result.orderId).toBe('ord_9');
+  });
+});
+
 describe('DuffelFlightSupplier holds (ADR-018)', () => {
   const signal = new AbortController().signal;
   const holdable = () =>
@@ -703,6 +800,7 @@ describe('DuffelFlightSupplier holds (ADR-018)', () => {
       signal,
     );
     expect(result).toEqual({
+      orderId: 'ord_h',
       supplierReference: 'HLDPNR',
       tickets: [{ passengerIndex: 0, number: '0719876543210' }],
     });

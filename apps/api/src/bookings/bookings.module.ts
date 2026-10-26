@@ -9,6 +9,7 @@ import { SuppliersModule } from '../suppliers/suppliers.module';
 import { AdminRefundsController } from './admin-refunds.controller';
 import { BookingAccessLinks } from './booking-access-links';
 import { BookingCancellationService } from './booking-cancellation.service';
+import { FlightCancellationService } from './flight-cancellation.service';
 import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
 import { BookingNotesService } from './booking-notes.service';
@@ -69,6 +70,7 @@ import { TravellersService } from './travellers.service';
     InhouseCatalog,
     InhouseFulfilment,
     BookingCancellationService,
+    FlightCancellationService,
     BookingNotesService,
     PaymentRiskService,
     PaymentReviewsService,

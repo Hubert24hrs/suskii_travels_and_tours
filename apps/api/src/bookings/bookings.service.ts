@@ -74,6 +74,7 @@ import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
 import { busTicketViews } from './bus-tickets';
 import { InhouseFulfilment } from './inhouse-fulfilment';
+import { cancellableFlight } from './flight-cancellation';
 import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
 import { RENTAL_RESERVATION_INCLUDE, rentalReservationView } from './rental-views';
 import { claimBusSeats, claimRental, reserveSeats, syncRentalDeposit } from './seat-inventory';
@@ -83,6 +84,8 @@ import {
   passportContext,
   rentalLicenceNumberContext,
 } from '../crypto/encryption-contexts';
+import { FLIGHT_SUPPLIERS } from '../suppliers/suppliers.module';
+import type { FlightSupplier } from '../suppliers/supplier.types';
 import { bookingsCreated } from '../telemetry/metrics';
 
 /** Prices are held for at most this long after pricing (ADR-014). */
@@ -146,6 +149,7 @@ export class BookingsService {
     private readonly fulfilment: InhouseFulfilment,
     private readonly ticketSigner: TicketSigner,
     private readonly flags: CarsFlags,
+    @Inject(FLIGHT_SUPPLIERS) private readonly flightSuppliers: FlightSupplier[],
   ) {}
 
   // -------------------------------------------------------------------------
@@ -268,6 +272,7 @@ export class BookingsService {
         !busTickets.some((ticket) => ticket.status === 'boarded')
           ? cancellationTerms(payload, booking.status, paid, now)
           : null,
+      flightCancellable: cancellableFlight(booking, this.flightSuppliers, now) !== null,
       linkedBooking: linked,
       addons: addons.flatMap((addon) => {
         const first = addon.items[0];

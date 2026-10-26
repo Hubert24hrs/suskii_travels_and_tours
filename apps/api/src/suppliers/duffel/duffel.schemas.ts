@@ -130,6 +130,20 @@ export const duffelOrderSchema = z.looseObject({
 
 export type DuffelOrder = z.infer<typeof duffelOrderSchema>;
 
+/** A pending or confirmed order cancellation (`/air/order_cancellations`). */
+export const duffelOrderCancellationSchema = z.looseObject({
+  id: z.string(),
+  order_id: z.string().nullish(),
+  refund_amount: decimal.nullish(),
+  refund_currency: currency.nullish(),
+  /** `balance` returns money to the account that paid; others are credits or card refunds. */
+  refund_to: z.string().nullish(),
+  expires_at: z.string().nullish(),
+  confirmed_at: z.string().nullish(),
+});
+
+export type DuffelOrderCancellation = z.infer<typeof duffelOrderCancellationSchema>;
+
 export const duffelErrorSchema = z.looseObject({
   errors: z.array(
     z.looseObject({

@@ -115,6 +115,8 @@ export interface BookingMoney {
 export interface BookingView {
   voucher: { code: string; qrPayload: string; redeemedAt: Date | null } | null;
   cancellation: { refundBps: number; refund: Money } | null;
+  /** A ticketed flight the traveller can cancel online (ADR-064). */
+  flightCancellable: boolean;
   linkedBooking: { id: string; reference: string } | null;
   addons: BookingDto['addons'];
   applications: VisaApplicationSummaryDto[];
@@ -133,6 +135,7 @@ export interface BookingView {
 export const EMPTY_VIEW: BookingView = {
   voucher: null,
   cancellation: null,
+  flightCancellable: false,
   linkedBooking: null,
   addons: [],
   applications: [],
@@ -246,6 +249,7 @@ export function toBookingDto(
     cancellation: view.cancellation
       ? { refundBps: view.cancellation.refundBps, refund: toWire(view.cancellation.refund) }
       : null,
+    flightCancellable: view.flightCancellable,
     priceBreakdown: view.showPriceBreakdown ? priceLines(payload, price) : null,
     busTickets: view.busTickets.map((ticket) => ({
       id: ticket.id,

@@ -20,6 +20,8 @@ import {
   type AirportPoint,
   type FlightBookingRequest,
   type FlightBookingResult,
+  type FlightCancellationQuote,
+  type FlightCancellationRequest,
   type FlightHold,
   type FlightHoldRequest,
   type FlightSearchQuery,
@@ -47,6 +49,10 @@ export interface AirportDirectory {
 const EARTH_RADIUS_KM = 6371;
 const MINUTE_MS = 60_000;
 const OFFER_TTL_MS = 30 * MINUTE_MS;
+
+/** The order id the mock gives a booking item, held or booked at once (stable, so idempotent). */
+const mockOrderId = (seed: string): string =>
+  `mockord_${stableCode(seed, 16, 'abcdefghijklmnopqrstuvwxyz0123456789')}`;
 const MAX_OFFERS = 120;
 const MAX_CONNECTING_ROUTES = 6;
 
@@ -235,6 +241,11 @@ export class MockFlightSupplier extends FlightSupplier {
   repriceDriftBps = 0;
   /** Test hook: this many upcoming `book()` calls fail as if the airline were unavailable. */
   failNextBookings = 0;
+  /** Test hook: this many upcoming cancellation confirmations fail as if the airline were down. */
+  failNextCancellations = 0;
+  override readonly cancelsOnline = true;
+  /** Cancelled order ids (in memory, like the holds). */
+  readonly cancelledOrders = new Set<string>();
   /** Held orders by id (in memory: a restart forgets them, like an airline losing a PNR). */
   readonly holds = new Map<
     string,
@@ -352,6 +363,7 @@ export class MockFlightSupplier extends FlightSupplier {
     const seed = `mock-booking|${request.idempotencyKey}`;
     return Promise.resolve({
       supplierReference: stableCode(seed, 6, 'ABCDEFGHJKLMNPQRSTUVWXYZ'),
+      orderId: mockOrderId(seed),
       tickets: request.passengers.map((_, passengerIndex) => ({
         passengerIndex,
         // Airline ticket numbers: a 3-digit accounting code and 10 digits.
@@ -375,7 +387,7 @@ export class MockFlightSupplier extends FlightSupplier {
       return Promise.reject(new OfferUnavailableError(this.name, 'The hold window has closed'));
     }
     const seed = `mock-booking|${request.idempotencyKey}`;
-    const orderId = `mockord_${stableCode(seed, 16, 'abcdefghijklmnopqrstuvwxyz0123456789')}`;
+    const orderId = mockOrderId(seed);
     if (!this.holds.has(orderId)) {
       this.holds.set(orderId, { offer, price: offer.price, cancelled: false, paid: false });
     }
@@ -429,6 +441,7 @@ export class MockFlightSupplier extends FlightSupplier {
     const seed = `mock-booking|${request.idempotencyKey}`;
     return Promise.resolve({
       supplierReference: stableCode(seed, 6, 'ABCDEFGHJKLMNPQRSTUVWXYZ'),
+      orderId: request.orderId,
       tickets: Array.from({ length: totalPassengers(held.offer) }, (_, passengerIndex) => ({
         passengerIndex,
         number: `${stableCode(`${seed}|airline`, 3, '0123456789')}${stableCode(
@@ -444,6 +457,48 @@ export class MockFlightSupplier extends FlightSupplier {
     signal.throwIfAborted();
     const held = this.holds.get(orderId);
     if (held && !held.paid) held.cancelled = true;
+    return Promise.resolve();
+  }
+
+  /**
+   * Refundable fares refund what we paid less the fare's refund penalty; other fares refund
+   * nothing, as many airlines do. Departed or cancelled orders cannot be cancelled.
+   */
+  override cancellationQuote(
+    request: FlightCancellationRequest,
+    signal: AbortSignal,
+  ): Promise<FlightCancellationQuote> {
+    signal.throwIfAborted();
+    const firstDeparture = request.offer.slices[0]?.departureUtc;
+    if (firstDeparture && Date.parse(firstDeparture) <= this.now().getTime()) {
+      return Promise.reject(new OfferUnavailableError(this.name, 'The flight has departed'));
+    }
+    if (this.cancelledOrders.has(request.orderId)) {
+      return Promise.reject(new OfferUnavailableError(this.name, 'The order is already cancelled'));
+    }
+    const { conditions } = request.offer;
+    const penalty = conditions.refundPenalty?.minor ?? 0n;
+    const refund = conditions.refundable
+      ? money(
+          request.supplierTotal.minor > penalty ? request.supplierTotal.minor - penalty : 0n,
+          request.supplierTotal.currency,
+        )
+      : money(0n, request.supplierTotal.currency);
+    return Promise.resolve({
+      quoteId: `mockcxl_${request.orderId}`,
+      refund,
+      refundToBalance: true,
+      expiresAt: new Date(this.now().getTime() + OFFER_TTL_MS).toISOString(),
+    });
+  }
+
+  override confirmCancellation(quoteId: string, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    if (this.failNextCancellations > 0) {
+      this.failNextCancellations -= 1;
+      return Promise.reject(new SupplierUnavailableError(this.name, 'Mock cancellations are down'));
+    }
+    this.cancelledOrders.add(quoteId.replace(/^mockcxl_/, ''));
     return Promise.resolve();
   }
 

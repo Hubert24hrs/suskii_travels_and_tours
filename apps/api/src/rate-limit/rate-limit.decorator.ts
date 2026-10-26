@@ -96,6 +96,13 @@ export const BOOKING_LIMITS = {
   mockPaymentIp: { name: 'mock-payment-ip', limit: 30, windowSeconds: 600, by: 'ip' },
   /** Holds tie up airline inventory: a tighter budget against seat spinning (ADR-018). */
   holdIp: { name: 'booking-hold-ip', limit: 6, windowSeconds: 3600, by: 'ip' },
+  /** Each flight cancellation quote opens a pending cancellation with the airline (ADR-064). */
+  cancellationQuoteIp: {
+    name: 'flight-cancellation-quote-ip',
+    limit: 10,
+    windowSeconds: 600,
+    by: 'ip',
+  },
   travellersUser: { name: 'travellers-user', limit: 60, windowSeconds: 600, by: 'user' },
 } as const satisfies Record<string, RateLimitPolicy>;
 

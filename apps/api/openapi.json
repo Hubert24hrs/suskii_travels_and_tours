@@ -11415,7 +11415,90 @@
       "post": {
         "operationId": "cancelBooking",
         "summary": "Cancel a booking",
-        "description": "Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept; 409 `not-cancellable` for anything else confirmed (contact support).",
+        "description": "Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept. A flight with `flightCancellable` is cancelled under its refund quote: the airline cancels first, then the quoted refund goes back; without a live quote (or with a different `refund`), 409 `cancellation-quote-expired`. 409 `not-cancellable` for anything else confirmed (contact support).",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelBookingRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/bookings/{bookingId}/cancellation-quote": {
+      "post": {
+        "operationId": "quoteFlightCancellation",
+        "summary": "Ask what cancelling a flight would refund",
+        "description": "For a booking with `flightCancellable`: the airline states what it refunds, and the traveller's share is held until `expiresAt`. Nothing is cancelled yet; cancel with `POST /v1/bookings/{bookingId}/cancel`, sending the quoted `refund`. 409 `not-cancellable` when the airline will not cancel it online (credits, other currency, departed): contact support (ADR-064).",
         "tags": [
           "Bookings"
         ],
@@ -11455,7 +11538,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Booking"
+                  "$ref": "#/components/schemas/FlightCancellationQuote"
                 }
               }
             }
@@ -11477,6 +11560,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
           }
         }
       }
@@ -26882,6 +26968,9 @@
               }
             ]
           },
+          "flightCancellable": {
+            "type": "boolean"
+          },
           "addons": {
             "type": "array",
             "items": {
@@ -27103,6 +27192,7 @@
           "busTickets",
           "voucher",
           "cancellation",
+          "flightCancellable",
           "addons",
           "passengers",
           "warnings",
@@ -28505,6 +28595,14 @@
           "cancellationPolicy"
         ],
         "additionalProperties": false
+      },
+      "CancelBookingRequestInput": {
+        "type": "object",
+        "properties": {
+          "refund": {
+            "$ref": "#/components/schemas/MoneyInput"
+          }
+        }
       },
       "CancellationTier": {
         "type": "object",
@@ -31937,6 +32035,27 @@
             ]
           }
         }
+      },
+      "FlightCancellationQuote": {
+        "type": "object",
+        "properties": {
+          "refund": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "kept": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "refund",
+          "kept",
+          "expiresAt"
+        ],
+        "additionalProperties": false
       },
       "FlightDeal": {
         "type": "object",

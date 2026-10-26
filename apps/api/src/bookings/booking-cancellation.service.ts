@@ -1,9 +1,8 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
-import { subtract } from '@suskii/shared';
+import { subtract, type Money } from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
-import { ProblemDetailsException } from '../common/problem-details';
 import { PrismaService } from '../infra/prisma.service';
 import { LedgerService, transfer } from '../ledger/ledger.service';
 
@@ -11,27 +10,21 @@ import { BookingFundsService } from './booking-funds.service';
 import { itemPayload } from './booking-presenter';
 import { isInhouse } from './booking-pricing';
 import { BookingTransitions } from './booking-transitions';
-import { bookingConflict } from './booking.errors';
+import { bookingConflict, notCancellable } from './booking.errors';
 import type { BookingDto } from './bookings.schemas';
 import { BookingsService, customerActor, type BookingCaller } from './bookings.service';
+import { FlightCancellationService } from './flight-cancellation.service';
 import { cancellationTerms } from './inhouse-items';
 import { PaymentPlansService } from './payment-plans.service';
 import { RefundsService } from './refunds.service';
 
-export const notCancellable = (): ProblemDetailsException =>
-  new ProblemDetailsException(
-    HttpStatus.CONFLICT,
-    'not-cancellable',
-    'This booking cannot be cancelled online',
-    'Contact support to change or cancel it.',
-  );
-
 /**
- * Customer cancellation (ADR-018, ADR-028). Unpaid and plan bookings follow their plan policy;
- * confirmed packages, tours and add-ons are cancelled under their policy tiers: the tier's share
- * of what was paid is refunded automatically (non-discretionary, so no maker-checker), the rest is
- * kept as a cancellation fee, and the seats go back on sale. Visa assistance, flights and hotels
- * are cancelled through support once confirmed.
+ * Customer cancellation (ADR-018, ADR-028, ADR-064). Unpaid and plan bookings follow their plan
+ * policy; confirmed packages, tours and add-ons are cancelled under their policy tiers: the tier's
+ * share of what was paid is refunded automatically (non-discretionary, so no maker-checker), the
+ * rest is kept as a cancellation fee, and the seats go back on sale. Ticketed flights whose
+ * supplier cancels online follow the supplier's refund quote (`FlightCancellationService`). Visa
+ * assistance, hotels and other flights are cancelled through support once confirmed.
  */
 @Injectable()
 export class BookingCancellationService {
@@ -44,11 +37,20 @@ export class BookingCancellationService {
     private readonly refunds: RefundsService,
     private readonly transitions: BookingTransitions,
     private readonly audit: AuditService,
+    private readonly flights: FlightCancellationService,
   ) {}
 
-  async cancel(bookingId: string, caller: BookingCaller): Promise<BookingDto> {
+  /** `expectedRefund`: for flights, the quoted refund the traveller accepted (ADR-064). */
+  async cancel(
+    bookingId: string,
+    caller: BookingCaller,
+    expectedRefund: Money | null = null,
+  ): Promise<BookingDto> {
     const booking = await this.bookings.load(bookingId, caller);
     if (booking.status !== 'CONFIRMED') return this.plans.cancel(bookingId, caller);
+    if (this.flights.cancellable(booking)) {
+      return this.flights.cancel(booking, caller, expectedRefund);
+    }
 
     const actor = customerActor(caller);
     const refundIds = await this.prisma.$transaction(async (tx) => {

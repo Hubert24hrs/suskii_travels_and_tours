@@ -109,6 +109,9 @@ const CASES: Record<string, Case> = {
   },
   getCarsSuggestions: { path: (f) => `/v1/bookings/${f.flightBookingId}/cars-suggestions` },
   cancelBooking: { path: (f) => `/v1/bookings/${f.flightBookingId}/cancel` },
+  quoteFlightCancellation: {
+    path: (f) => `/v1/bookings/${f.flightBookingId}/cancellation-quote`,
+  },
   downloadBookingDocument: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/documents/${f.bookingDocumentId}`,
   },

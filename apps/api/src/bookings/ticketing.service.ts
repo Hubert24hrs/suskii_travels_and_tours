@@ -183,6 +183,8 @@ export class TicketingService {
             supplierReference: result.reference,
             ticketNumbers: result.tickets ?? Prisma.DbNull,
             bookedAt: new Date(),
+            // The supplier's order, for cancellation later (ADR-064); held orders already have it.
+            ...(result.orderId && !item.supplierOrderId ? { supplierOrderId: result.orderId } : {}),
           },
         });
       } catch (error) {
@@ -214,7 +216,11 @@ export class TicketingService {
     item: BookingItemRecord,
     payload: SupplierItemPayload,
     contact: ContactDetails,
-  ): Promise<{ reference: string; tickets: { passengerIndex: number; number: string }[] | null }> {
+  ): Promise<{
+    reference: string;
+    tickets: { passengerIndex: number; number: string }[] | null;
+    orderId?: string | undefined;
+  }> {
     const timeout = this.config.SUPPLIER_BOOKING_TIMEOUT_MS;
     if (payload.kind === 'flight' && item.supplierOrderId) {
       // A held order (ADR-018): pay it instead of creating a new one.
@@ -257,7 +263,11 @@ export class TicketingService {
           ),
         timeout,
       );
-      return { reference: result.supplierReference, tickets: result.tickets };
+      return {
+        reference: result.supplierReference,
+        tickets: result.tickets,
+        orderId: result.orderId,
+      };
     }
     const supplier = this.hotelSupplier(payload);
     const result = await this.runner.call(

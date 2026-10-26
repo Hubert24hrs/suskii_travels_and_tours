@@ -750,6 +750,10 @@ export const bookingSchema = named(
       })
       .nullable()
       .meta({ description: 'Confirmed packages, tours and add-ons the traveller can cancel.' }),
+    flightCancellable: z.boolean().meta({
+      description:
+        'A ticketed flight the traveller can cancel online: ask for a refund quote (`POST /v1/bookings/{bookingId}/cancellation-quote`), then cancel (ADR-064).',
+    }),
     addons: z
       .array(
         z.object({
@@ -805,6 +809,29 @@ export const bookingSchema = named(
   }),
 );
 export type BookingDto = z.infer<typeof bookingSchema>;
+
+export const flightCancellationQuoteSchema = named(
+  'FlightCancellationQuote',
+  z.object({
+    refund: moneySchema.meta({
+      description: 'Refunded to how the traveller paid if they cancel before `expiresAt`.',
+    }),
+    kept: moneySchema.meta({ description: 'What the traveller paid that is not refunded.' }),
+    expiresAt: timestamp,
+  }),
+);
+export type FlightCancellationQuoteDto = z.infer<typeof flightCancellationQuoteSchema>;
+
+export const cancelBookingRequestSchema = named(
+  'CancelBookingRequest',
+  z.object({
+    refund: moneySchema.optional().meta({
+      description:
+        'Flights: the refund the traveller accepted from the quote. Another current quote answers 409 `cancellation-quote-expired`.',
+    }),
+  }),
+);
+export type CancelBookingRequest = z.infer<typeof cancelBookingRequestSchema>;
 
 export const createdBookingSchema = named(
   'CreatedBooking',
