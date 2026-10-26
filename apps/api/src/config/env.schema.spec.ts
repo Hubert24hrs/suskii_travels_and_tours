@@ -70,6 +70,12 @@ describe('parseEnv', () => {
       parseEnv({ ...base, FLIGHT_SUPPLIERS: 'duffel', DUFFEL_API_TOKEN: 'duffel_test_x' })
         .FLIGHT_SUPPLIERS,
     ).toEqual(['duffel']);
+    expect(() => parseEnv({ ...base, HOTEL_SUPPLIERS: 'duffel' })).toThrow(/DUFFEL_API_TOKEN/);
+    expect(
+      parseEnv({ ...base, HOTEL_SUPPLIERS: 'duffel', DUFFEL_API_TOKEN: 'duffel_test_x' })
+        .HOTEL_SUPPLIERS,
+    ).toEqual(['duffel']);
+    expect(() => parseEnv({ ...base, HOTEL_SUPPLIERS: 'booking' })).toThrow(/HOTEL_SUPPLIERS/);
     expect(() => parseEnv({ ...base, FLIGHT_SUPPLIERS: 'amadeus' })).toThrow(/FLIGHT_SUPPLIERS/);
     expect(() =>
       parseEnv({ ...base, SEARCH_TIMEOUT_MS: '5000', SUPPLIER_TIMEOUT_MS: '8000' }),
