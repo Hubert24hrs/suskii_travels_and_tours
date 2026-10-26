@@ -11,7 +11,7 @@
 import { appendFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 
-import { add, addDays, compare, formatMoney, localDate } from '@suskii/shared';
+import { add, addDays, compare, formatMoney, localDate, zero } from '@suskii/shared';
 
 import { DuffelFlightSupplier } from '../src/suppliers/duffel/duffel-flight-supplier';
 import { DuffelHotelSupplier } from '../src/suppliers/duffel/duffel-hotel-supplier';
@@ -600,6 +600,41 @@ async function flightChecks(env: Env): Promise<void> {
         : booked.outcome),
   );
   if (!booked.value) failures.push(`Flights: adapter order failed: ${booked.outcome}`);
+  // Online cancellation (ADR-064): Duffel's refund quote for the order, then its confirmation.
+  const bookedOrderId = booked.value?.orderId;
+  if (bookedOrderId) {
+    const bookedOffer = repriced.value ?? target;
+    const supplierTotal = add(
+      offerTotal(bookedOffer),
+      firstBag ? firstBag.price : zero(bookedOffer.price.base.currency),
+    );
+    const quote = await attempt(() =>
+      supplier.cancellationQuote(
+        { orderId: bookedOrderId, offer: bookedOffer, supplierTotal },
+        signal(),
+      ),
+    );
+    say(
+      '- cancellation quote: ' +
+        (quote.value
+          ? `${formatMoney(quote.value.refund, 'en-GB')} of ${formatMoney(supplierTotal, 'en-GB')} ` +
+            `back ${quote.value.refundToBalance ? 'to the balance' : 'as credits or elsewhere'}, ` +
+            `valid for ${minutesUntil(quote.value.expiresAt)}`
+          : quote.outcome),
+    );
+    if (quote.value) {
+      const quoteId = quote.value.quoteId;
+      const confirmed = await attempt(() => supplier.confirmCancellation(quoteId, signal()));
+      say(
+        `- confirm the cancellation: ${confirmed.outcome === 'ok' ? 'cancelled' : confirmed.outcome}`,
+      );
+      if (confirmed.outcome !== 'ok') {
+        failures.push(`Flights: cancellation confirm failed: ${confirmed.outcome}`);
+      }
+    } else {
+      failures.push(`Flights: cancellation quote failed: ${quote.outcome}`);
+    }
+  }
   // Duffel takes one order per search (`offer_request_already_booked`), so the hold needs its own.
   const again = await attempt(() => supplier.search(query, signal()));
   const holdable = (again.value ?? []).find((offer) => offer.hold.available);
