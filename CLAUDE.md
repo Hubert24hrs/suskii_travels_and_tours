@@ -256,6 +256,10 @@ Tooling notes for agents:
 - Flight quotes go through `FlightSupplier.quoteOffer()` (default: `reprice`). Duffel takes one
   order per offer request, so its adapter searches again and quotes the same flights from a fresh
   offer request; cached searches stay shared. Never book a Duffel offer straight from a search.
+- Flight extras are whole-trip bags per passenger (`FlightService`). Duffel lists services only
+  on a single offer, per passenger and segment: its adapter fetches them on quote and re-check,
+  bundles one weight across every segment, sells it only at one price for every seated
+  passenger (id `<offer>.bag<kg>`), and `book()` refuses a bag that is gone or repriced (ADR-063).
 - A hotel supplier whose search returns only the cheapest price (Duffel Stays) sets
   `ratesComplete: false` and implements `rates()`; the hotel page loads the full list once per
   search (`SearchStore.completeItem`, rate ids `.f<n>`; search rates are `.r<n>`) and falls back to
@@ -385,6 +389,8 @@ Tooling notes for agents:
 - Maestro flows live in `e2e/maestro` and run in order from `e2e/run-android.sh` (critical path,
   bus, offline trip, then an in-house tour with the route restored); add new journeys there.
 - Wrap checkout, payment and document screens in `useSensitiveScreen()`.
+- Flight checkout offers the quote's first extra (a checked bag) per traveller with a seat, as the
+  website does; bags send `extras` and switch reserving and installments off (ADR-063).
 - Hermes implements only part of `Intl`. `src/polyfills.ts`, loaded first from `index.ts`, adds
   `PluralRules`, `RelativeTimeFormat`, `ListFormat`, `DisplayNames` and `Locale`; `@suskii/i18n` joins date
   ranges itself where `formatRange` is missing. Shared code that starts using another `Intl` API
@@ -708,6 +714,7 @@ Tooling notes for agents:
 - [ADR-060: Release pipeline, canary and rollback](docs/decisions/ADR-060-release-pipeline.md)
 - [ADR-061: AI trip search](docs/decisions/ADR-061-ai-trip-search.md)
 - [ADR-062: Duffel Stays hotel adapter](docs/decisions/ADR-062-duffel-stays-hotel-adapter.md)
+- [ADR-063: Checked bags on Duffel flights](docs/decisions/ADR-063-checked-bags-on-duffel-flights.md)
 
 ## Open questions for the owner
 
