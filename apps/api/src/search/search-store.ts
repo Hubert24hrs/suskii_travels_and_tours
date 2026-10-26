@@ -63,6 +63,7 @@ export function queryHash(value: unknown): string {
  *   search:<v>:q:<hash>        -> current search id for an identical query (cache TTL)
  *   search:<v>:meta:<id>       -> SearchMeta (24 h)
  *   search:<v>:items:<id>      -> hash of result id -> item JSON (30 min)
+ *   search:<v>:full:<id>       -> hash of result id -> rates loaded after the search (30 min)
  * Every supplier fetch gets a new random search id, so a result id is never reused for a
  * different offer.
  */
@@ -134,6 +135,37 @@ export class SearchStore {
 
   async item<T>(vertical: SearchVertical, searchId: string, itemId: string): Promise<T | null> {
     const raw = await this.redis.hget(`search:${vertical}:items:${searchId}`, itemId);
+    return raw ? parseWithBigInt<T>(raw) : null;
+  }
+
+  /**
+   * Keeps the full rate list a supplier returned for one item after the search (hotels whose
+   * search sent only the cheapest rate). The first writer wins, so rate ids already handed to a
+   * client keep pointing at the same rates; returns what is stored.
+   */
+  async completeItem<T>(
+    vertical: SearchVertical,
+    searchId: string,
+    itemId: string,
+    value: T,
+  ): Promise<T> {
+    const key = `search:${vertical}:full:${searchId}`;
+    const [, , stored] = (await this.redis
+      .multi()
+      .hsetnx(key, itemId, stringifyWithBigInt(value))
+      .expire(key, RESULTS_TTL_SECONDS, 'NX')
+      .hget(key, itemId)
+      .exec()) as [unknown, unknown, [Error | null, string | null]];
+    return stored[1] ? parseWithBigInt<T>(stored[1]) : value;
+  }
+
+  /** The full rate list stored by `completeItem`, or null when none was loaded yet. */
+  async completedItem<T>(
+    vertical: SearchVertical,
+    searchId: string,
+    itemId: string,
+  ): Promise<T | null> {
+    const raw = await this.redis.hget(`search:${vertical}:full:${searchId}`, itemId);
     return raw ? parseWithBigInt<T>(raw) : null;
   }
 }

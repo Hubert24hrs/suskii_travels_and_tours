@@ -357,7 +357,8 @@ export const hotelResultParamsSchema = z.object({
   hotelId: z.string().regex(/^hs_[A-Za-z0-9_-]{16}\.h[a-z0-9]+$/),
 });
 export const rateIdParamsSchema = z.object({
-  rateId: z.string().regex(/^hs_[A-Za-z0-9_-]{16}\.h[a-z0-9]+\.r[a-z0-9]+$/),
+  // `.r`: a rate search returned; `.f`: one of the full list loaded for the hotel page.
+  rateId: z.string().regex(/^hs_[A-Za-z0-9_-]{16}\.h[a-z0-9]+\.[rf][a-z0-9]+$/),
 });
 
 export const hotelQuoteSchema = named(
