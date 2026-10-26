@@ -1755,6 +1755,18 @@ export const en = {
       cancelConfirm: 'Yes, cancel',
       cancelKeep: 'Keep reservation',
     },
+    flightCancel: {
+      action: 'Cancel flight',
+      title: 'Cancel this flight?',
+      refund: 'The airline cancels your flight and {amount} is refunded to how you paid.',
+      kept: '{amount} of what you paid is not refundable.',
+      noRefund: 'This fare refunds nothing: cancelling gives up the {amount} you paid.',
+      expires: 'This refund is held until {time}.',
+      confirm: 'Yes, cancel flight',
+      keep: 'Keep flight',
+      notOnline: 'This flight cannot be cancelled online. Contact support to change or cancel it.',
+      expired: 'The refund offer has expired. Ask again to see the current refund.',
+    },
     refunds: {
       heading: 'Refunds',
       line: '{amount} to {destination}',

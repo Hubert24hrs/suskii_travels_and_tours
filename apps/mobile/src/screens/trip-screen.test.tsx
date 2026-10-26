@@ -74,6 +74,61 @@ describe('TripScreen', () => {
     expect(screen.queryByRole('button', { name: m.mobile.trip.notify })).toBeNull();
   });
 
+  it('cancels a ticketed flight after showing the airline refund it confirms', async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    let cancelled = false;
+    const refund = { amountMinor: 7_000_000, currency: 'NGN' };
+    const { calls } = mockApi({
+      [GET]: () =>
+        json(
+          cancelled
+            ? booking({ status: 'REFUND_PENDING', flightCancellable: false })
+            : booking({ flightCancellable: true }),
+        ),
+      [`POST /v1/bookings/${BOOKING_ID}/cancellation-quote`]: () =>
+        json({
+          refund,
+          kept: { amountMinor: 1_500_000, currency: 'NGN' },
+          expiresAt: '2026-10-01T09:30:00.000Z',
+        }),
+      [`POST /v1/bookings/${BOOKING_ID}/cancel`]: () => {
+        cancelled = true;
+        return json(booking({ status: 'REFUND_PENDING', flightCancellable: false }));
+      },
+    });
+    await renderWithApp(<TripScreen />);
+
+    await fireEvent.press(await screen.findByTestId('cancel-flight'));
+    expect(await screen.findByText(/70,000 is refunded to how you paid/)).toBeOnTheScreen();
+    expect(screen.getByText(/15,000 of what you paid is not refundable/)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('cancel-flight-confirm'));
+
+    expect(await screen.findByText(m.booking.status.REFUND_PENDING)).toBeOnTheScreen();
+    expect(screen.queryByTestId('cancel-flight')).toBeNull();
+    const cancel = calls.find((request) => request.url.endsWith('/cancel'));
+    expect(cancel?.headers.get('X-Booking-Token')).toBe(TOKEN);
+    expect(await cancel?.json()).toEqual({ refund });
+  });
+
+  it('sends a flight the airline will not cancel online to support', async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    mockApi({
+      [GET]: () => json(booking({ flightCancellable: true })),
+      [`POST /v1/bookings/${BOOKING_ID}/cancellation-quote`]: () =>
+        json(
+          {
+            type: 'urn:suskii:problem:not-cancellable',
+            title: 'This booking cannot be cancelled online',
+            status: 409,
+          },
+          409,
+        ),
+    });
+    await renderWithApp(<TripScreen />);
+    await fireEvent.press(await screen.findByTestId('cancel-flight'));
+    expect(await screen.findByText(m.booking.flightCancel.notOnline)).toBeOnTheScreen();
+  });
+
   it('explains a booking this phone cannot open', async () => {
     mockApi({
       [GET]: () =>

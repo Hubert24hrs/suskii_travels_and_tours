@@ -13,6 +13,7 @@ import { AppLink } from '../app-link';
 import { ResultsLoading } from '../results/result-states';
 
 import { useBookingT } from './checkout-messages';
+import { CancelFlight } from './cancel-flight';
 import { CancelUnderPolicy, TripExtras, VisaApplications, VoucherCard } from './inhouse-booking';
 import { CarsBooking } from './cars-booking';
 import { hasCarsItem } from './cars-details';
@@ -215,6 +216,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
     const { data } = await browserApi().POST('/v1/bookings/{bookingId}/cancel', {
       params: { path: { bookingId: booking.id } },
       headers: bookingHeaders(booking.id),
+      body: {},
     });
     setBusy(false);
     if (!data) setActionError(t('checkout.errors.generic'));
@@ -338,6 +340,9 @@ export function BookingView({ bookingId }: { bookingId: string }) {
               busy={busy}
               onCancel={() => cancel(booking)}
             />
+          ) : null}
+          {booking.flightCancellable ? (
+            <CancelFlight bookingId={booking.id} onDone={reload} />
           ) : null}
         </div>
         {booking.pendingPriceChange ? (
