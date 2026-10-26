@@ -319,7 +319,11 @@ describe('DuffelFlightSupplier', () => {
     });
     expect(body.data.passengers[1]).not.toHaveProperty('identity_documents');
 
-    // A fare that moved after payment is refused, not charged; extras are not supported yet.
+    // Without bags the payment is the fare as Duffel states it, and no services are sent.
+    expect(body.data).not.toHaveProperty('services');
+    expect(calls[0]?.url).toContain('return_available_services=false');
+
+    // A fare that moved after payment is refused, not charged; so is a bag the offer lacks.
     const moved = supplierWith(
       fakeFetch(
         json(200, {
@@ -328,12 +332,16 @@ describe('DuffelFlightSupplier', () => {
       ).fn,
     );
     await expect(moved.book(request, signal)).rejects.toBeInstanceOf(SupplierRequestError);
+    const noBags = fakeFetch(
+      json(200, { data: duffelOffer('off_1', { passengers: offerPassengers }) }),
+    );
     await expect(
-      supplierWith(fakeFetch().fn).book(
+      supplierWith(noBags.fn).book(
         { ...request, services: [{ serviceId: 'x', passengerIndex: 0, quantity: 1 }] },
         signal,
       ),
     ).rejects.toBeInstanceOf(SupplierRequestError);
+    expect(noBags.calls).toHaveLength(1);
   });
 
   it('maps transport and HTTP failures to supplier errors without leaking the token', async () => {
@@ -388,15 +396,20 @@ describe('DuffelFlightSupplier quotes (one order per offer request, ADR-062)', (
     return offer;
   }
 
-  it('searches again and quotes the same flights and fare from a new offer request', async () => {
+  it('searches again, quotes the same flights and fare, then loads that offer', async () => {
     const original = await searched();
     const { fn, calls } = fakeFetch(
       searchWith(otherAirline('off_ba'), otherFare('off_flex'), duffelOffer('off_2')),
+      json(200, { data: duffelOffer('off_2') }),
     );
     const quoted = await supplierWith(fn).quoteOffer(original, query, signal);
     expect(quoted.supplierOfferId).toBe('off_2');
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(2);
     expect(calls[0]?.url).toContain('/air/offer_requests');
+    // Search results carry no extras: the chosen offer is fetched with them.
+    expect(calls[1]?.url).toBe(
+      'https://api.duffel.test/air/offers/off_2?return_available_services=true',
+    );
   });
 
   it('prefers the same total, then the cheapest of the same flights and fare', async () => {
@@ -408,6 +421,7 @@ describe('DuffelFlightSupplier quotes (one order per offer request, ADR-062)', (
           duffelOffer('off_same'),
           duffelOffer('off_cheap', { total_amount: '700.00' }),
         ),
+        json(200, { data: duffelOffer('off_same') }),
       ).fn,
     ).quoteOffer(original, query, signal);
     expect(both.supplierOfferId).toBe('off_same');
@@ -418,6 +432,7 @@ describe('DuffelFlightSupplier quotes (one order per offer request, ADR-062)', (
           duffelOffer('off_dear', { total_amount: '900.00' }),
           duffelOffer('off_cheap', { total_amount: '700.00' }),
         ),
+        json(200, { data: duffelOffer('off_cheap', { total_amount: '700.00' }) }),
       ).fn,
     ).quoteOffer(original, query, signal);
     // A different total is quoted as is; the quote shows the change to the traveller.
@@ -431,6 +446,158 @@ describe('DuffelFlightSupplier quotes (one order per offer request, ADR-062)', (
         fakeFetch(searchWith(otherAirline('off_ba'), otherFare('off_flex'))).fn,
       ).quoteOffer(original, query, signal),
     ).rejects.toBeInstanceOf(OfferUnavailableError);
+  });
+});
+
+describe('DuffelFlightSupplier checked bags (ADR-063)', () => {
+  const signal = new AbortController().signal;
+  const offerPassengers = [
+    { id: 'pas_1', type: 'adult' },
+    { id: 'pas_2', type: 'child' },
+    { id: 'pas_3', type: 'infant_without_seat' },
+  ];
+  const bag = (
+    id: string,
+    passenger: string,
+    segments: string[],
+    total: string,
+    overrides: Record<string, unknown> = {},
+  ) => ({
+    id,
+    type: 'baggage',
+    total_amount: total,
+    total_currency: 'USD',
+    maximum_quantity: 2,
+    passenger_ids: [passenger],
+    segment_ids: segments,
+    metadata: { type: 'checked', maximum_weight_kg: 23 },
+    ...overrides,
+  });
+  /** The fixture's two segments get ids, and the offer the services given. */
+  function withServices(id: string, services: unknown[], overrides: Record<string, unknown> = {}) {
+    const offer = structuredClone(duffelOffer(id, { passengers: offerPassengers, ...overrides }));
+    const [slice] = offer.slices;
+    if (!slice) throw new Error('the fixture has a slice');
+    slice.segments.forEach((segment, index) => Object.assign(segment, { id: `seg_${index + 1}` }));
+    return { ...offer, available_services: services };
+  }
+  // The adult's bag covers the trip at once; the child's comes per segment (15 + 25 = 40).
+  const sold = [
+    bag('ase_a1', 'pas_1', ['seg_1', 'seg_2'], '40.00'),
+    bag('ase_c1', 'pas_2', ['seg_1'], '15.00', { maximum_quantity: 1 }),
+    bag('ase_c2', 'pas_2', ['seg_2'], '25.00'),
+  ];
+  const ignored = [
+    // A heavier bag only the adult can add, a lap infant's bag, a carry-on, another currency,
+    // a bag shared by two passengers, an unknown segment, an unknown weight and a malformed one.
+    bag('ase_a32', 'pas_1', ['seg_1', 'seg_2'], '60.00', {
+      metadata: { type: 'checked', maximum_weight_kg: 32 },
+    }),
+    bag('ase_i1', 'pas_3', ['seg_1', 'seg_2'], '40.00'),
+    bag('ase_cabin', 'pas_1', ['seg_1', 'seg_2'], '10.00', {
+      metadata: { type: 'carry_on', maximum_weight_kg: 8 },
+    }),
+    bag('ase_eur', 'pas_1', ['seg_1', 'seg_2'], '30.00', { total_currency: 'EUR' }),
+    bag('ase_two', 'pas_1', ['seg_1', 'seg_2'], '30.00', { passenger_ids: ['pas_1', 'pas_2'] }),
+    bag('ase_far', 'pas_1', ['seg_9'], '5.00'),
+    bag('ase_nokg', 'pas_1', ['seg_1', 'seg_2'], '5.00', {
+      metadata: { type: 'checked', maximum_weight_kg: null },
+    }),
+    { type: 'baggage', total_amount: '1.00' },
+  ];
+
+  async function repriced(services: unknown[]) {
+    const [searchedOffer] = await supplierWith(
+      fakeFetch(json(201, { data: { offers: [duffelOffer('off_1')] } })).fn,
+    ).search(query, signal);
+    if (!searchedOffer) throw new Error('the fixture maps to an offer');
+    expect(searchedOffer.services).toEqual([]);
+    return supplierWith(fakeFetch(json(200, { data: withServices('off_1', services) })).fn).reprice(
+      searchedOffer,
+      signal,
+    );
+  }
+
+  it('sells a bag for the whole trip that every passenger with a seat can add', async () => {
+    const offer = await repriced([...sold, ...ignored]);
+    expect(offer.services).toEqual([
+      {
+        id: 'off_1.bag23',
+        type: 'checked_bag',
+        weightKg: 23,
+        maxQuantity: 1,
+        price: money(4_000n, 'USD'),
+      },
+    ]);
+  });
+
+  it('sells no bag that misses a segment or costs one passenger more', async () => {
+    const [adult, childFirst, childSecond] = sold;
+    expect((await repriced([adult, childFirst])).services).toEqual([]);
+    expect(
+      (await repriced([adult, childFirst, { ...childSecond, total_amount: '30.00' }])).services,
+    ).toEqual([]);
+    // Overlapping services never double-cover a segment: the widest is taken first.
+    expect(
+      (await repriced([...sold, bag('ase_a1b', 'pas_1', ['seg_1'], '10.00')])).services,
+    ).toHaveLength(1);
+  });
+
+  it('books the paid bags with the fare and pays for both from the balance', async () => {
+    const offer = await repriced(sold);
+    const person = (type: 'adult' | 'child' | 'infant', dateOfBirth: string) => ({
+      type,
+      title: 'ms' as const,
+      gender: 'f' as const,
+      givenNames: 'ADA',
+      surname: 'EZE',
+      dateOfBirth,
+      nationality: 'NG',
+      document: null,
+    });
+    const request = {
+      offer,
+      passengers: [
+        person('adult', '1990-01-01'),
+        person('child', '2018-01-01'),
+        person('infant', '2026-01-01'),
+      ],
+      contact: { email: 'ada@example.com', phone: '+2348012345678' },
+      services: [
+        { serviceId: 'off_1.bag23', passengerIndex: 0, quantity: 2 },
+        { serviceId: 'off_1.bag23', passengerIndex: 1, quantity: 1 },
+      ],
+      idempotencyKey: 'item-1',
+    };
+    const { fn, calls } = fakeFetch(
+      json(200, { data: withServices('off_1', sold) }),
+      json(201, { data: { id: 'ord_1', booking_reference: 'RZPNX8', documents: [] } }),
+    );
+    await supplierWith(fn).book(request, signal);
+    expect(calls[0]?.url).toContain('return_available_services=true');
+    const body = JSON.parse(calls[1]?.init?.body as string) as {
+      data: { services: unknown[]; payments: unknown[] };
+    };
+    expect(body.data.services).toEqual([
+      { id: 'ase_a1', quantity: 2 },
+      { id: 'ase_c1', quantity: 1 },
+      { id: 'ase_c2', quantity: 1 },
+    ]);
+    // 812.45 for the fare, 2 x 40 for the adult's bags and 40 for the child's.
+    expect(body.data.payments).toEqual([{ type: 'balance', currency: 'USD', amount: '932.45' }]);
+
+    // A bag that changed price, or more bags than the airline sells, is refused, never ordered.
+    for (const [services, selection] of [
+      [[sold[0], sold[1], { ...sold[2], total_amount: '26.00' }], request.services],
+      [sold, [{ serviceId: 'off_1.bag23', passengerIndex: 1, quantity: 2 }]],
+      [sold, [{ serviceId: 'off_1.bag23', passengerIndex: 2, quantity: 1 }]],
+    ] as const) {
+      const refused = fakeFetch(json(200, { data: withServices('off_1', [...services]) }));
+      await expect(
+        supplierWith(refused.fn).book({ ...request, services: [...selection] }, signal),
+      ).rejects.toBeInstanceOf(SupplierRequestError);
+      expect(refused.calls).toHaveLength(1);
+    }
   });
 });
 
