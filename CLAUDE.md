@@ -253,6 +253,9 @@ Tooling notes for agents:
   `AbortSignal`; the runner adds timeouts and circuit breakers.
 - Search state lives in Redis (`SearchStore`); result ids embed a fresh search id and expire after
   30 minutes (`410` with the original request). Quotes persist an `Offer` row, which bookings use.
+- Flight quotes go through `FlightSupplier.quoteOffer()` (default: `reprice`). Duffel takes one
+  order per offer request, so its adapter searches again and quotes the same flights from a fresh
+  offer request; cached searches stay shared. Never book a Duffel offer straight from a search.
 - A hotel supplier whose search returns only the cheapest price (Duffel Stays) sets
   `ratesComplete: false` and implements `rates()`; the hotel page loads the full list once per
   search (`SearchStore.completeItem`, rate ids `.f<n>`; search rates are `.r<n>`) and falls back to
@@ -768,6 +771,5 @@ retention terms (standard or zero data retention), whether to offer AI trip sear
 and its daily caps (defaults $0.05 per user or address, $20 in total). Added with the Duffel Stays
 adapter: Stays access on the Duffel account, a sandbox token and one sandbox run of the checks in
 ADR-062 (error codes, radius unit, quote lifetime, duplicate bookings). The Duffel sandbox
-workflow runs them with the `DUFFEL_API_TOKEN` repository secret. Flights pass. Stays still needs
-access. Also needed: a decision on Duffel's one-order-per-search rule. Shared cached searches can
-fail a second traveller's order after payment (ADR-062, Sandbox results).
+workflow runs them with the `DUFFEL_API_TOKEN` repository secret. Flights pass, including two
+travellers booking from one shared search. Stays still needs access.

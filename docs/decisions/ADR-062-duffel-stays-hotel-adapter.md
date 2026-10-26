@@ -172,11 +172,24 @@ shares one search between travellers who ask the same question within
 `SEARCH_CACHE_TTL_SECONDS` (10 minutes by default).
 
 - **The failure.** If two travellers book from the same cached search, the second order is
-  refused after payment.
-- **What happens today.** The booking fails as a definite supplier error and the payment is
-  refunded. No money is lost, but the traveller has a bad experience.
-- **Before real traffic.** A follow-up should give each quote its own offer request for Duffel,
-  or stop sharing cached Duffel searches. That needs the owner's call.
+  refused after payment. The booking fails as a definite supplier error and the payment is
+  refunded, so no money is lost, but the traveller has a bad experience.
+- **The fix: each quote gets its own offer request.** `FlightSupplier.quoteOffer()` picks the
+  offer a quote books from. By default it re-checks the searched offer, so the mock is unchanged.
+  The Duffel adapter instead searches again with the original query and quotes the offer for the
+  same flights and fare:
+  - it matches on validating carrier, cabin, fare brand and every segment's flight number and
+    local departure;
+  - it prefers the same total, then the cheapest match;
+  - when nothing matches, it answers `offer-unavailable` (410).
+
+  A different price is shown as a price change before payment, as for any re-check. Search
+  results stay shared and cached; only quoting costs one extra Duffel search.
+
+- **Verified.** The journey test "books two flights from one shared search" runs in
+  `duffel-sandbox.yml` (flights, `journey`). Two travellers got the same cached search, quoted
+  the same flight and paid. Both bookings ended `CONFIRMED`, with two different airline
+  references.
 
 **Hotels: not checked yet.** Stays answers 403, because Stays is not enabled on the account.
 The client now maps a non-JSON error page by its status (403 becomes `SupplierRequestError`),
