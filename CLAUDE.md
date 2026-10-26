@@ -182,6 +182,9 @@ Tooling notes for agents:
   paid tour and visa bookings; the API refuses a TOTP code twice, so never sign the same persona
   in from two tests. The audit project runs after the journeys. The stack sets
   `RATE_LIMIT_ENABLED=false` because every persona signs in from one IP within a minute.
+- `MOCK_SCHEDULE_CHANGE_RULES=LOS-ABV:90` makes the mock move the first flight of ticketed
+  orders on that route on their first schedule-change check (set `next_change_check_at` in the
+  past, or wait `SCHEDULE_CHANGE_CHECK_HOURS`). The change lives in memory: a restart forgets it.
 - `e2e:stack` uses the mock suppliers. `E2E_FLIGHT_SUPPLIERS` / `E2E_HOTEL_SUPPLIERS=duffel`
   switch it to Duffel's test mode for phone or browser testing. That needs a `duffel_test_` token
   in `DUFFEL_API_TOKEN`, from the shell or the root `.env`. The e2e suites never set them.
@@ -288,6 +291,11 @@ Tooling notes for agents:
   `refundBookingBalance` in one transaction. The traveller's refund is `travellerRefund()`
   (their share, rounded down, never above what they paid); never refund before the airline has
   cancelled.
+- Airline schedule changes (ADR-065) come only through `ScheduleChangesService`: the sweep
+  reads due orders (`booking_items.next_change_check_at`, booked by ticketing), stores each
+  change in `flight_schedule_changes` and tells the traveller. Acceptance goes to the supplier
+  first. The booking's slices follow the airline's only once no change is open; never edit an
+  item's itinerary elsewhere.
 - Binary responses (PDFs) use `fileResponse()` in the contract and return a `StreamableFile`.
   Stored idempotent responses are encrypted (they can contain guest tokens).
 
@@ -721,6 +729,7 @@ Tooling notes for agents:
 - [ADR-062: Duffel Stays hotel adapter](docs/decisions/ADR-062-duffel-stays-hotel-adapter.md)
 - [ADR-063: Checked bags on Duffel flights](docs/decisions/ADR-063-checked-bags-on-duffel-flights.md)
 - [ADR-064: Online cancellation of ticketed flights](docs/decisions/ADR-064-online-flight-cancellation.md)
+- [ADR-065: Airline schedule changes on ticketed flights](docs/decisions/ADR-065-airline-schedule-changes.md)
 
 ## Open questions for the owner
 
@@ -788,4 +797,6 @@ workflow runs them with the `DUFFEL_API_TOKEN` repository secret. Flights pass, 
 travellers booking from one shared search. Stays still needs access. Added with online flight
 cancellation (ADR-064): an optional cancellation service fee on top of the airline's terms,
 what to do when the airline refunds as credits (support today), and whether staff need a console
-action for supplier cancellations.
+action for supplier cancellations. Added with airline schedule changes (ADR-065): whether to
+check more often close to departure, a console view and actions for changes, and Duffel webhooks
+for faster detection.

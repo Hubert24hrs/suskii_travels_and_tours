@@ -71,3 +71,26 @@ booking. If that second step fails, the API logs and reports
    refund divided by what we paid the airline, rounded down. Record the reason.
 3. If the booking had changed for another reason (a staff refund already running), reconcile the
    two refunds before approving anything, so the traveller is never refunded twice.
+
+## Airline schedule changes
+
+The schedule change sweep (ADR-065) asks each ticketed flight's supplier for airline changes
+every `SCHEDULE_CHANGE_CHECK_HOURS`. Travellers are told by email and push and can accept online.
+Operations get an alert (ids only) in three cases.
+
+- **`airline.schedule_change`: a change that cannot be accepted online.** Open the booking in
+  the console and the order in the supplier's dashboard (the booking item's supplier order id).
+  Contact the traveller about the new times, and resolve the change in the supplier's dashboard:
+  accept it, change the flight or cancel. The next check mirrors the result. The booking's
+  itinerary and e-ticket follow once the change is accepted.
+- **`airline.schedule_change_resolved` with `cancelled`: the order was cancelled with the
+  airline.** The booking is still `CONFIRMED` but there is no flight. Refund the traveller from
+  the console (refunds, maker-checker) with the refund the airline gave, and record the reason.
+- **`airline.schedule_change_resolved` with `changed`: the order was changed elsewhere.** Check
+  that the new flights are what the traveller agreed to. The booking's itinerary follows the
+  airline's on the next check once no change is open.
+
+If checks fail (`suskii_schedule_change_checks_total{outcome="failed"}`, or `airline schedule
+change checks failed` in the worker log), the supplier is down or refusing order reads. Checks
+retry on the next interval and need no action unless failures continue after the supplier
+recovers.

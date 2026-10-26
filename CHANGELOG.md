@@ -6,6 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Airline schedule changes (2026-10-26)
+
+#### Added
+
+- **Schedule change checks (ADR-065).** Ticketed flights whose supplier reports airline changes
+  (Duffel, the mock) are checked every `SCHEDULE_CHANGE_CHECK_HOURS` (6) until the trip has left.
+  - The worker's one-minute booking sweep calls `POST /v1/internal/bookings/schedule-changes-due`,
+    at most `SCHEDULE_CHANGE_BATCH_SIZE` (10) orders a run.
+  - Each new change is stored in `flight_schedule_changes` and audited.
+  - The traveller is emailed and pushed the old and new times. Operations are alerted when the
+    change cannot be accepted online, or when the airline cancelled or changed the order
+    elsewhere.
+- **Accept online.** `POST /v1/bookings/{id}/schedule-changes/{changeId}/accept` accepts with the
+  supplier first and is safe to repeat. Once nothing waits for the traveller, the booking's
+  flights follow the airline's and the e-ticket is rendered again.
+- **Website and app.** An open change shows as a banner with the booked and new times side by
+  side and "Accept new times", or a note that support will be in touch. Bookings carry
+  `scheduleChange` (additive; older app builds ignore it).
+- **Suppliers.** `FlightSupplier` gains `tracksChanges`, `orderChanges()` and
+  `acceptAirlineChange()`. Duffel reads the order once per check
+  (`GET /air/orders/{id}`). The mock moves the first flight of orders on routes in
+  `MOCK_SCHEDULE_CHANGE_RULES`.
+- **Sandbox.** The sandbox check reads its paid order back through `orderChanges()` and fails if
+  the flights differ from the booked offer.
+- **Metric.** `suskii.schedule_change.checks` counts checks by outcome.
+
+#### Changed
+
+- The migration adds `booking_items.next_change_check_at` and makes flights ticketed before this
+  release due for a check at once. The first sweeps stop checking those that have flown.
+
 ### Online cancellation of ticketed flights (2026-10-26)
 
 #### Added
