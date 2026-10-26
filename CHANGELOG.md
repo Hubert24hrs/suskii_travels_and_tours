@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Checked bags on Duffel flights (2026-10-26)
+
+#### Added
+
+- **Duffel bags.** Duffel flights sell checked bags (ADR-063).
+  - The quote and the payment re-check fetch the offer with Duffel's services.
+  - One passenger's bag is the set of services of one weight that covers every segment once.
+  - A weight is sold when every passenger with a seat can add it at the same price.
+  - Booking re-reads the services and refuses a bag that is gone or changed price. It pays the
+    fare plus the bags from the balance.
+- **Bag picker in the app.** Each traveller with a seat can add bags, as on the website. The
+  summary shows the extra baggage and the new total, and reserving or installments are switched
+  off while bags are chosen.
+- **Sandbox.** The sandbox check lists the bags Duffel offers and books its order with one bag.
+  The journey books a flight with a bag through our API. Against Duffel's test mode, both
+  succeeded and the booking ended `CONFIRMED` with one extra bag.
+
+#### Changed
+
+- A flight quote gets twice `SUPPLIER_TIMEOUT_MS`. A Duffel quote searches again, then loads the
+  offer's extras.
+
 ### Duffel sandbox check (2026-10-26)
 
 #### Fixed
