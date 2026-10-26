@@ -514,6 +514,44 @@ async function flightChecks(env: Env): Promise<void> {
   );
   if (!repriced.value) failures.push(`Flights: re-check failed: ${repriced.outcome}`);
 
+  // Extras come only with a single offer: what Duffel lists, and the bags the adapter sells.
+  const detail = await probe(
+    token,
+    'GET',
+    `/air/offers/${encodeURIComponent(target.supplierOfferId)}?return_available_services=true`,
+  );
+  const extras = list(record(detail.data).available_services).map(record);
+  const bags = extras.filter((service) => service.type === 'baggage');
+  const kinds = tally(
+    bags.map((service) => ({
+      kind:
+        `${String(record(service.metadata).type)} ` +
+        `${String(record(service.metadata).maximum_weight_kg)} kg, ` +
+        `${list(service.segment_ids).length.toString()} segment(s)`,
+    })),
+    'kind',
+  );
+  say(
+    `- extras: ${shown(detail)}, ${extras.length.toString()} listed, ` +
+      `${bags.length.toString()} bags${bags.length > 0 ? ` (${kinds})` : ''}`,
+  );
+  const sold = repriced.value?.services ?? [];
+  say(
+    '- bags the adapter sells: ' +
+      (sold.length > 0
+        ? sold
+            .map(
+              (bag) =>
+                `${bag.weightKg.toString()} kg at ${formatMoney(bag.price, 'en-GB')}, ` +
+                `up to ${bag.maxQuantity.toString()}`,
+            )
+            .join('; ')
+        : 'none'),
+  );
+  if (bags.some((service) => record(service.metadata).type === 'checked') && sold.length === 0) {
+    failures.push('Flights: Duffel lists checked bags but the adapter sells none');
+  }
+
   // 3. Error codes for unknown ids.
   say();
   say('### 3. Error codes');
@@ -541,20 +579,22 @@ async function flightChecks(env: Env): Promise<void> {
     say('- skipped (run with --book)');
     return;
   }
+  // With a checked bag when the offer sells one: the payment then covers the fare and the bag.
+  const [firstBag] = sold;
   const booked = await attempt(() =>
     supplier.book(
       {
         offer: repriced.value ?? target,
         passengers: [PASSENGER],
         contact,
-        services: [],
+        services: firstBag ? [{ serviceId: firstBag.id, passengerIndex: 0, quantity: 1 }] : [],
         idempotencyKey: TAG,
       },
       signal(),
     ),
   );
   say(
-    '- adapter order (paid from the balance): ' +
+    `- adapter order (paid from the balance${firstBag ? `, one ${firstBag.weightKg.toString()} kg bag` : ''}): ` +
       (booked.value
         ? `booked, airline reference received, ${booked.value.tickets.length.toString()} ticket number(s)`
         : booked.outcome),

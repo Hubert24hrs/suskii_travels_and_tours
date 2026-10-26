@@ -133,6 +133,72 @@ describe('Duffel test mode through our API (sandbox)', () => {
     expect(booking.body.flight.airlineReference).toEqual(expect.any(String));
   });
 
+  // Bags come with the quote (search results carry no extras); the order pays for fare and bag.
+  it('books a flight with a checked bag: the quote lists it, Duffel orders it', async () => {
+    const search = await ctx
+      .http()
+      .post('/v1/flights/searches')
+      .send({
+        slices: [{ origin: 'LHR', destination: 'JFK', departureDate: inDays(32) }],
+        passengers: { adults: 1, children: 0, infants: 0 },
+        cabinClass: 'economy',
+      })
+      .expect(200);
+    const offers = search.body.offers as { id: string; owner: { code: string } }[];
+    const offer = offers.find((candidate) => candidate.owner.code === 'ZZ') ?? offers[0];
+    if (!offer) throw new Error('Duffel returned no flight offers');
+
+    const quote = await ctx.http().post(`/v1/flights/offers/${offer.id}/quote`);
+    const services = (quote.body.offer?.services ?? []) as {
+      id: string;
+      weightKg: number;
+      maxQuantity: number;
+      price: unknown;
+    }[];
+    note('bag quote', {
+      status: quote.status,
+      owner: offer.owner.code,
+      bags: services.map(({ weightKg, maxQuantity, price }) => ({ weightKg, maxQuantity, price })),
+    });
+    expect(quote.status).toBe(201);
+    const bag = services[0];
+    if (!bag) throw new Error('Duffel sells no checked bag we can offer on this flight');
+
+    const created = await createBooking({
+      quoteId: quote.body.quoteId as string,
+      passengers: [
+        {
+          type: 'adult',
+          title: 'mr',
+          gender: 'm',
+          givenNames: 'Sandbox',
+          surname: 'Bags',
+          dateOfBirth: '1990-01-15',
+          nationality: 'NG',
+          document: { number: 'B7654321', issuingCountry: 'NG', expiryDate: inDays(3650) },
+        },
+      ],
+      extras: [{ serviceId: bag.id, passengerIndex: 0, quantity: 1 }],
+    });
+    note('bag booking', {
+      status: created.status,
+      problem: created.body.type as unknown,
+      extras: created.body.booking?.price?.extras as unknown,
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.booking.id as string;
+    const access = { 'X-Booking-Token': created.body.accessToken as string };
+
+    await pay(id, access);
+    const booking = await ctx.http().get(`/v1/bookings/${id}`).set(access).expect(200);
+    note('bag result', {
+      status: booking.body.status as unknown,
+      extraBags: (booking.body.passengers as { extraBags: number }[])[0]?.extraBags,
+    });
+    expect(booking.body.status).toBe('CONFIRMED');
+    expect(booking.body.passengers[0].extraBags).toBe(1);
+  });
+
   // Duffel takes one order per offer request, and identical searches share one search here
   // (the cache). Each quote searches again, so two travellers on one search both book.
   it('books two flights from one shared search: each quote has its own offer request', async () => {
