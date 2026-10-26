@@ -194,6 +194,25 @@ It needs a running stack, which your phone reaches over your Wi-Fi (ADR-054):
    (ADR-056). A sample driver accepts each ride, drives to the pick-up and asks in that terminal
    for the PIN shown in the app. Type it to start the trip; the driver then follows the route and
    completes it.
+5. To see Duffel's test-mode flights and hotels instead of the mock suppliers, start the stack
+   with `E2E_FLIGHT_SUPPLIERS=duffel` and/or `E2E_HOTEL_SUPPLIERS=duffel` in front of the
+   `e2e:stack` command. Put your Duffel test token in `DUFFEL_API_TOKEN`, either in the shell or
+   in the root `.env`, which is never committed. The stack refuses a live token.
+   - Hotels need Stays enabled on your Duffel account.
+   - Duffel Airways (ZZ) is Duffel's test airline.
+   - Bookings become test orders, so no money moves.
+
+   In PowerShell:
+
+   ```powershell
+   $env:E2E_FLIGHT_SUPPLIERS = "duffel"; $env:E2E_HOTEL_SUPPLIERS = "duffel"
+   $env:E2E_PUBLIC_WEB_URL = "http://192.168.1.20:3000"
+   pnpm --filter @suskii/web e2e:stack
+   ```
+
+   To check the token and both adapters without a phone, run the **Duffel sandbox check**
+   workflow (Actions tab). It uses the `DUFFEL_API_TOKEN` repository secret, with `journey` for
+   the full API booking journey.
 
 ## Cars: buses, rides and car rental
 
