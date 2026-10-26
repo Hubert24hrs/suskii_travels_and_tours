@@ -1,9 +1,10 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { createWriteStream, mkdirSync, rmSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
 import { delimiter, join, resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 
 import type { StartedTestContainer } from 'testcontainers';
 
@@ -38,6 +39,35 @@ export const TEST_APP = {
 export const API_PORT = Number(
   new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000').port || 80,
 );
+
+/**
+ * Supplier settings for the API: the mocks, unless E2E_FLIGHT_SUPPLIERS / E2E_HOTEL_SUPPLIERS ask
+ * for others. Duffel runs in test mode only (ADR-062): its token comes from DUFFEL_API_TOKEN in the
+ * shell or the repository's root .env, and anything but a `duffel_test_` token is refused.
+ */
+function supplierEnv(): Record<string, string> {
+  const flights = process.env.E2E_FLIGHT_SUPPLIERS;
+  const hotels = process.env.E2E_HOTEL_SUPPLIERS;
+  const settings: Record<string, string> = {
+    ...(flights ? { FLIGHT_SUPPLIERS: flights } : {}),
+    ...(hotels ? { HOTEL_SUPPLIERS: hotels } : {}),
+  };
+  const duffel = [flights, hotels].some((list) => list?.split(',').includes('duffel'));
+  if (!duffel) return settings;
+  const rootEnvFile = join(ROOT, '.env');
+  const token =
+    process.env.DUFFEL_API_TOKEN ??
+    (existsSync(rootEnvFile)
+      ? parseEnv(readFileSync(rootEnvFile, 'utf8')).DUFFEL_API_TOKEN
+      : undefined);
+  if (!token?.startsWith('duffel_test_')) {
+    throw new Error(
+      'E2E_FLIGHT_SUPPLIERS / E2E_HOTEL_SUPPLIERS=duffel need DUFFEL_API_TOKEN set to a Duffel ' +
+        'test token (duffel_test_...), in the shell or the root .env.',
+    );
+  }
+  return { ...settings, DUFFEL_API_TOKEN: token };
+}
 
 export interface Stack {
   stop: () => Promise<void>;
@@ -217,6 +247,8 @@ export async function startStack(): Promise<Stack> {
       HIBP_ENABLED: 'false',
       // Lagos-Dubai fares rise 5% at the re-check before payment (price-change consent test).
       MOCK_REPRICE_RULES: PRICE_CHANGE_ROUTE_RULE,
+      // Mock suppliers unless a tester opts in to Duffel's test mode (phone and browser testing).
+      ...supplierEnv(),
       OBJECT_STORAGE_DIR: join(LOG_DIR, 'objects'),
       // The mobile e2e job enforces (mock) device attestation for app requests (ADR-023).
       ATTESTATION_MODE: process.env.E2E_ATTESTATION_MODE ?? 'off',
