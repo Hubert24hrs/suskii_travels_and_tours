@@ -66,10 +66,13 @@ export class DuffelClient {
     try {
       payload = text ? JSON.parse(text) : null;
     } catch {
-      throw new SupplierUnavailableError(
-        SUPPLIER,
-        `Duffel returned invalid JSON (HTTP ${response.status})`,
-      );
+      // An error page (a gateway, or a product the account cannot use) is mapped by status below.
+      if (response.ok) {
+        throw new SupplierUnavailableError(
+          SUPPLIER,
+          `Duffel returned invalid JSON (HTTP ${response.status})`,
+        );
+      }
     }
     if (response.ok) return payload;
 
