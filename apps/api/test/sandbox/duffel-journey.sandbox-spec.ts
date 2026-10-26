@@ -133,6 +133,74 @@ describe('Duffel test mode through our API (sandbox)', () => {
     expect(booking.body.flight.airlineReference).toEqual(expect.any(String));
   });
 
+  // Online cancellation (ADR-064): Duffel's refund quote, the traveller's share, then the refund.
+  it('cancels a booked flight: refund quote, Duffel cancellation, refund', async () => {
+    const search = await ctx
+      .http()
+      .post('/v1/flights/searches')
+      .send({
+        slices: [{ origin: 'LHR', destination: 'JFK', departureDate: inDays(33) }],
+        passengers: { adults: 1, children: 0, infants: 0 },
+        cabinClass: 'economy',
+      })
+      .expect(200);
+    const offers = search.body.offers as { id: string; owner: { code: string } }[];
+    const offer = offers.find((candidate) => candidate.owner.code === 'ZZ') ?? offers[0];
+    if (!offer) throw new Error('Duffel returned no flight offers');
+    const quote = await ctx.http().post(`/v1/flights/offers/${offer.id}/quote`).expect(201);
+    const created = await createBooking({
+      quoteId: quote.body.quoteId as string,
+      passengers: [
+        {
+          type: 'adult',
+          title: 'mr',
+          gender: 'm',
+          givenNames: 'Sandbox',
+          surname: 'Cancel',
+          dateOfBirth: '1990-01-15',
+          nationality: 'NG',
+          document: { number: 'B7654322', issuingCountry: 'NG', expiryDate: inDays(3650) },
+        },
+      ],
+    }).expect(201);
+    const id = created.body.booking.id as string;
+    const access = { 'X-Booking-Token': created.body.accessToken as string };
+    await pay(id, access);
+    const booked = await ctx.http().get(`/v1/bookings/${id}`).set(access).expect(200);
+    note('cancel: booked', {
+      status: booked.body.status as unknown,
+      flightCancellable: booked.body.flightCancellable as unknown,
+      paid: booked.body.paid as unknown,
+    });
+    expect(booked.body).toMatchObject({ status: 'CONFIRMED', flightCancellable: true });
+
+    const refundQuote = await ctx.http().post(`/v1/bookings/${id}/cancellation-quote`).set(access);
+    note('cancel: refund quote', {
+      status: refundQuote.status,
+      problem: refundQuote.body.type as unknown,
+      refund: refundQuote.body.refund as unknown,
+      kept: refundQuote.body.kept as unknown,
+      expiresAt: refundQuote.body.expiresAt as unknown,
+    });
+    expect(refundQuote.status).toBe(200);
+
+    const cancelled = await ctx
+      .http()
+      .post(`/v1/bookings/${id}/cancel`)
+      .set(access)
+      .send({ refund: refundQuote.body.refund as unknown });
+    note('cancel: result', {
+      status: cancelled.status,
+      problem: cancelled.body.type as unknown,
+      booking: cancelled.body.status as unknown,
+      refunds: (cancelled.body.refunds as { amount: unknown }[] | undefined)?.map(
+        (refund) => refund.amount,
+      ),
+    });
+    expect(cancelled.status).toBe(200);
+    expect(['REFUND_PENDING', 'CANCELLED']).toContain(cancelled.body.status);
+  });
+
   // Bags come with the quote (search results carry no extras); the order pays for fare and bag.
   it('books a flight with a checked bag: the quote lists it, Duffel orders it', async () => {
     const search = await ctx
