@@ -1,32 +1,39 @@
 /**
- * Duffel Stays sandbox check (ADR-062): asks Duffel's test mode the questions the fixtures could
- * not answer and prints what came back. It refuses anything but a test token (`duffel_test_`),
- * prints no token and sends only made-up guest details. CI never runs it; the manual
- * `duffel-sandbox.yml` workflow does, with the DUFFEL_API_TOKEN repository secret.
+ * Duffel sandbox check (ADR-062): asks Duffel's test mode, for hotels (Stays) and flights, the
+ * questions the fixtures could not answer and prints what came back. It refuses anything but a
+ * test token (`duffel_test_`), prints no token and sends only made-up traveller details. CI never
+ * runs it; the manual `duffel-sandbox.yml` workflow does, with the DUFFEL_API_TOKEN secret.
  *
  *   DUFFEL_API_TOKEN=duffel_test_... pnpm --filter @suskii/api sandbox:duffel
- *   pnpm --filter @suskii/api sandbox:duffel --book   # also books, repeats a booking, cancels
+ *   pnpm --filter @suskii/api sandbox:duffel --book            # also books, then cancels
+ *   pnpm --filter @suskii/api sandbox:duffel --only flights    # or --only hotels
  */
 import { appendFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 
 import { add, addDays, compare, formatMoney, localDate } from '@suskii/shared';
 
+import { DuffelFlightSupplier } from '../src/suppliers/duffel/duffel-flight-supplier';
 import { DuffelHotelSupplier } from '../src/suppliers/duffel/duffel-hotel-supplier';
 import { DuffelClient } from '../src/suppliers/duffel/duffel.client';
 import type {
+  FlightSearchQuery,
   HotelSearchQuery,
+  SupplierFlightOffer,
   SupplierHotel,
   SupplierHotelRate,
+  SupplierPassenger,
 } from '../src/suppliers/supplier.types';
 
 const BASE_URL = process.env.DUFFEL_API_URL ?? 'https://api.duffel.com';
 const TIMEOUT_MS = 30_000;
 /** Marks the bookings this check makes, so it can find and cancel them. */
 const TAG = 'sandbox-check';
-/** Made-up guest details: test mode only, never a real person. */
+/** Made-up traveller details: test mode only, never a real person. */
 const GUEST = { given_name: 'Sandbox', family_name: 'Tester' };
 const CONTACT = { email: 'sandbox@example.com', phone_number: '+442080160509' };
+/** Duffel's own budget for one flight search, inside ours. */
+const FLIGHT_SEARCH_TIMEOUT_MS = 20_000;
 
 const CITIES: HotelSearchQuery['city'][] = [
   {
@@ -163,19 +170,30 @@ function tally(rates: Json[], key: string): string {
   return [...counts].map(([value, count]) => `${value} ${count.toString()}`).join(', ') || 'none';
 }
 
-async function main(): Promise<number> {
-  const { values } = parseArgs({ options: { book: { type: 'boolean', default: false } } });
-  const token = process.env.DUFFEL_API_TOKEN ?? '';
-  if (!token.startsWith('duffel_test_')) {
-    process.stderr.write(
-      'DUFFEL_API_TOKEN must be a Duffel test token (duffel_test_...); this check never runs in live mode.\n',
-    );
-    return 1;
-  }
+interface Env {
+  token: string;
+  client: DuffelClient;
+  book: boolean;
+  failures: string[];
+}
 
-  const client = new DuffelClient({ baseUrl: BASE_URL, token });
+const signal = (): AbortSignal => AbortSignal.timeout(TIMEOUT_MS);
+
+/** Unknown ids: Duffel's answer and how our client classifies it. */
+async function errorCodes(
+  env: Env,
+  cases: { label: string; method: 'GET' | 'POST'; path: string; body?: Json }[],
+): Promise<void> {
+  for (const { label, method, path, body } of cases) {
+    const raw = await probe(env.token, method, path, body);
+    const ours = await attempt(() => env.client.request(method, path, signal(), body));
+    say(`- unknown ${label}: ${shown(raw)} -> ${ours.outcome.split(':')[0] ?? ours.outcome}`);
+  }
+}
+
+async function hotelChecks(env: Env): Promise<void> {
+  const { token, client, failures } = env;
   const supplier = new DuffelHotelSupplier(client);
-  const signal = (): AbortSignal => AbortSignal.timeout(TIMEOUT_MS);
   const checkIn = addDays(localDate(new Date(), 'UTC'), 30);
   const queryFor = (city: HotelSearchQuery['city']): HotelSearchQuery => ({
     city,
@@ -184,11 +202,11 @@ async function main(): Promise<number> {
     rooms: [{ adults: 2, childAges: [] }],
     freeCancellationOnly: false,
   });
-  const failures: string[] = [];
 
-  say('## Duffel Stays sandbox check (ADR-062)');
   say();
-  say(`Stay: ${checkIn}, 2 nights, 1 room, 2 adults. Test mode only.`);
+  say('## Hotels (Stays)');
+  say();
+  say(`Stay: ${checkIn}, 2 nights, 1 room, 2 adults.`);
 
   // 1. Search: the raw answer (do results carry rooms?) and what the adapter makes of it.
   say();
@@ -209,14 +227,14 @@ async function main(): Promise<number> {
         (mapped.value ? `${hotels.length.toString()} hotels mapped` : mapped.outcome),
     );
     if (raw.status === 200 && results.length > 0 && hotels.length === 0) {
-      failures.push(`${city.name}: Duffel returned results but the adapter mapped none`);
+      failures.push(`Hotels, ${city.name}: Duffel returned results but the adapter mapped none`);
     }
     const first = hotels[0];
     if (!chosen && first) chosen = { query, hotel: first };
   }
   if (!chosen) {
-    failures.push('No city returned a hotel; the remaining checks need one');
-    return finish(failures);
+    failures.push('Hotels: no city returned a hotel; the remaining hotel checks need one');
+    return;
   }
   const { query, hotel } = chosen;
 
@@ -281,8 +299,8 @@ async function main(): Promise<number> {
   );
   const target = cheapest(sellable);
   if (!target) {
-    failures.push('The first hotel has no rate we can sell; quotes and bookings were skipped');
-    return finish(failures);
+    failures.push('Hotels: the first hotel has no rate we can sell; quotes and bookings skipped');
+    return;
   }
 
   // 4. Quote: through the adapter, then raw for the fields a quote carries.
@@ -293,7 +311,7 @@ async function main(): Promise<number> {
     say(`- adapter: ${money(target)} listed, ${money(repriced.value)} quoted`);
   } else {
     say(`- adapter: ${repriced.outcome}`);
-    failures.push(`Quote failed: ${repriced.outcome}`);
+    failures.push(`Hotels: quote failed: ${repriced.outcome}`);
   }
   const rawQuote = await probe(token, 'POST', '/stays/quotes', {
     data: { rate_id: target.supplierRateId },
@@ -311,34 +329,32 @@ async function main(): Promise<number> {
   // 5. Error codes for unknown ids, and how our client classifies them.
   say();
   say('### 5. Error codes');
-  const unknownIds: { label: string; path: string; body?: Json }[] = [
+  await errorCodes(env, [
     {
       label: 'rate',
+      method: 'POST',
       path: '/stays/quotes',
       body: { data: { rate_id: 'rat_0000AAAAAAAAAAAAAAAAAAAA' } },
     },
     {
       label: 'search result',
+      method: 'POST',
       path: '/stays/search_results/srr_0000AAAAAAAAAAAAAAAAAAAA/actions/fetch_all_rates',
     },
     {
       label: 'quote',
+      method: 'POST',
       path: '/stays/bookings',
       body: { data: { quote_id: 'quo_0000AAAAAAAAAAAAAAAAAAAA', guests: [GUEST], ...CONTACT } },
     },
-  ];
-  for (const { label, path, body } of unknownIds) {
-    const raw = await probe(token, 'POST', path, body);
-    const ours = await attempt(() => client.request('POST', path, signal(), body));
-    say(`- unknown ${label}: ${shown(raw)} -> ${ours.outcome.split(':')[0] ?? ours.outcome}`);
-  }
+  ]);
 
   // 6. Booking (opt-in): through the adapter, a repeat on one quote, then cancellations.
   say();
   say('### 6. Booking');
-  if (!values.book) {
+  if (!env.book) {
     say('- skipped (run with --book)');
-    return finish(failures);
+    return;
   }
   if (repriced.value) {
     const fresh = repriced.value;
@@ -356,7 +372,7 @@ async function main(): Promise<number> {
       ),
     );
     say(`- adapter booking: ${booked.value ? 'confirmed, reference received' : booked.outcome}`);
-    if (!booked.value) failures.push(`Adapter booking failed: ${booked.outcome}`);
+    if (!booked.value) failures.push(`Hotels: adapter booking failed: ${booked.outcome}`);
   }
   const bookQuote = await probe(token, 'POST', '/stays/quotes', {
     data: { rate_id: target.supplierRateId },
@@ -393,12 +409,234 @@ async function main(): Promise<number> {
     );
     say(`- cancel: ${shown(cancelled)}, status ${String(record(cancelled.data).status)}`);
   }
-  return finish(failures);
+}
+
+/** A made-up adult with a passport, as our checkout sends international travellers. */
+const PASSENGER: SupplierPassenger = {
+  type: 'adult',
+  title: 'mr',
+  gender: 'm',
+  givenNames: 'SANDBOX',
+  surname: 'TESTER',
+  dateOfBirth: '1990-01-15',
+  nationality: 'GB',
+  document: {
+    number: 'X1234567',
+    issuingCountry: 'GB',
+    expiryDate: addDays(localDate(new Date(), 'UTC'), 3650),
+  },
+};
+
+const offerTotal = (offer: SupplierFlightOffer) => add(offer.price.base, offer.price.taxes);
+
+function cheapestOffer(offers: SupplierFlightOffer[]): SupplierFlightOffer | undefined {
+  return offers.reduce<SupplierFlightOffer | undefined>(
+    (best, offer) => (best && compare(offerTotal(best), offerTotal(offer)) <= 0 ? best : offer),
+    undefined,
+  );
+}
+
+const minutesUntil = (instant: string): string =>
+  `${Math.round((Date.parse(instant) - Date.now()) / 60_000).toString()} minutes`;
+
+async function flightChecks(env: Env): Promise<void> {
+  const { token, client, failures } = env;
+  const supplier = new DuffelFlightSupplier(client, FLIGHT_SEARCH_TIMEOUT_MS);
+  const departure = addDays(localDate(new Date(), 'UTC'), 30);
+  const query: FlightSearchQuery = {
+    slices: [{ origin: 'LHR', destination: 'JFK', departureDate: departure }],
+    passengers: { adults: 1, children: 0, infants: 0 },
+    cabinClass: 'economy',
+    maxConnections: null,
+  };
+  const contact = { email: CONTACT.email, phone: CONTACT.phone_number };
+
+  say();
+  say('## Flights');
+  say();
+  say(`Trip: LHR to JFK on ${departure}, 1 adult, economy.`);
+
+  // 1. Search: the raw answer and what the adapter makes of it.
+  say();
+  say('### 1. Search');
+  const raw = await probe(
+    token,
+    'POST',
+    `/air/offer_requests?return_offers=true&supplier_timeout=${FLIGHT_SEARCH_TIMEOUT_MS.toString()}`,
+    {
+      data: {
+        slices: [{ origin: 'LHR', destination: 'JFK', departure_date: departure }],
+        passengers: [{ type: 'adult' }],
+        cabin_class: 'economy',
+      },
+    },
+  );
+  const rawOffers = list(record(raw.data).offers).map(record);
+  const owners = tally(
+    rawOffers.map((offer) => ({ owner: record(offer.owner).iata_code })),
+    'owner',
+  );
+  const searched = await attempt(() => supplier.search(query, signal()));
+  const offers = searched.value ?? [];
+  say(`- raw: ${shown(raw)}, ${rawOffers.length.toString()} offers; airlines: ${owners}`);
+  say(
+    '- adapter: ' +
+      (searched.value
+        ? `${offers.length.toString()} offers mapped, ` +
+          `${offers.filter((offer) => offer.hold.available).length.toString()} can be held`
+        : searched.outcome),
+  );
+  if (raw.status === 200 && rawOffers.length > 0 && offers.length === 0) {
+    failures.push('Flights: Duffel returned offers but the adapter mapped none');
+  }
+  // Duffel Airways (ZZ) is Duffel's test airline: the most predictable one to book in test mode.
+  const target =
+    cheapestOffer(offers.filter((offer) => offer.owner.code === 'ZZ')) ?? cheapestOffer(offers);
+  if (!target) {
+    failures.push('Flights: no offer to check; the remaining flight checks need one');
+    return;
+  }
+
+  // 2. The offer again, as the payment re-check reads it.
+  say();
+  say('### 2. Offer');
+  const repriced = await attempt(() => supplier.reprice(target, signal()));
+  say(
+    `- ${target.owner.name} (${target.owner.code}): ${formatMoney(offerTotal(target), 'en-GB')} ` +
+      `listed, ` +
+      (repriced.value
+        ? `${formatMoney(offerTotal(repriced.value), 'en-GB')} on re-check`
+        : repriced.outcome),
+  );
+  say(`- offer lifetime: ${minutesUntil(target.expiresAt)}`);
+  say(
+    `- hold: ${target.hold.available ? `available until ${target.hold.paymentRequiredBy ?? 'unknown'}` : 'pay now only'}`,
+  );
+  if (!repriced.value) failures.push(`Flights: re-check failed: ${repriced.outcome}`);
+
+  // 3. Error codes for unknown ids.
+  say();
+  say('### 3. Error codes');
+  await errorCodes(env, [
+    { label: 'offer', method: 'GET', path: '/air/offers/off_0000AAAAAAAAAAAAAAAAAAAA' },
+    {
+      label: 'offer in an order',
+      method: 'POST',
+      path: '/air/orders',
+      body: {
+        data: {
+          type: 'instant',
+          selected_offers: ['off_0000AAAAAAAAAAAAAAAAAAAA'],
+          passengers: [],
+          payments: [],
+        },
+      },
+    },
+  ]);
+
+  // 4. Orders (opt-in): a paid order and a hold through the adapter, then cancellations.
+  say();
+  say('### 4. Orders');
+  if (!env.book) {
+    say('- skipped (run with --book)');
+    return;
+  }
+  const booked = await attempt(() =>
+    supplier.book(
+      {
+        offer: repriced.value ?? target,
+        passengers: [PASSENGER],
+        contact,
+        services: [],
+        idempotencyKey: TAG,
+      },
+      signal(),
+    ),
+  );
+  say(
+    '- adapter order (paid from the balance): ' +
+      (booked.value
+        ? `booked, airline reference received, ${booked.value.tickets.length.toString()} ticket number(s)`
+        : booked.outcome),
+  );
+  if (!booked.value) failures.push(`Flights: adapter order failed: ${booked.outcome}`);
+  const holdable = offers.find((offer) => offer.hold.available);
+  if (holdable) {
+    const held = await attempt(() =>
+      supplier.hold(
+        { offer: holdable, passengers: [PASSENGER], contact, idempotencyKey: TAG },
+        signal(),
+      ),
+    );
+    say(
+      `- adapter hold: ${held.value ? `held, payment due in ${minutesUntil(held.value.paymentRequiredBy)}` : held.outcome}`,
+    );
+    if (held.value) {
+      const orderId = held.value.orderId;
+      const released = await attempt(() => supplier.cancelHold(orderId, signal()));
+      say(`- release the hold: ${released.outcome === 'ok' ? 'cancelled' : released.outcome}`);
+    } else {
+      failures.push(`Flights: adapter hold failed: ${held.outcome}`);
+    }
+  } else {
+    say('- hold: no offer in this search can be held');
+  }
+  // Cancels the paid orders this check made (the adapter returns the airline reference only).
+  const orders = await probe(token, 'GET', '/air/orders?limit=50');
+  for (const order of list(orders.data).map(record)) {
+    const ours = record(order.metadata).suskii_booking_item === TAG;
+    if (!ours || order.cancelled_at || typeof order.id !== 'string') continue;
+    const created = await probe(token, 'POST', '/air/order_cancellations', {
+      data: { order_id: order.id },
+    });
+    const cancellationId = record(created.data).id;
+    const confirmed =
+      typeof cancellationId === 'string'
+        ? await probe(
+            token,
+            'POST',
+            `/air/order_cancellations/${encodeURIComponent(cancellationId)}/actions/confirm`,
+          )
+        : created;
+    say(`- cancel order: ${shown(created)}, confirm ${shown(confirmed)}`);
+  }
+}
+
+async function main(): Promise<number> {
+  const { values } = parseArgs({
+    options: { book: { type: 'boolean', default: false }, only: { type: 'string' } },
+  });
+  const token = process.env.DUFFEL_API_TOKEN ?? '';
+  if (!token.startsWith('duffel_test_')) {
+    process.stderr.write(
+      'DUFFEL_API_TOKEN must be a Duffel test token (duffel_test_...); this check never runs in live mode.\n',
+    );
+    return 1;
+  }
+  const only = values.only;
+  if (only !== undefined && only !== 'flights' && only !== 'hotels') {
+    process.stderr.write('--only takes flights or hotels\n');
+    return 1;
+  }
+  const env: Env = {
+    token,
+    client: new DuffelClient({ baseUrl: BASE_URL, token }),
+    book: values.book,
+    failures: [],
+  };
+  say('# Duffel sandbox check (ADR-062)');
+  say();
+  say(
+    `Test mode only. ${env.book ? 'Bookings are made, then cancelled.' : 'No bookings (run with --book).'}`,
+  );
+  if (only !== 'hotels') await flightChecks(env);
+  if (only !== 'flights') await hotelChecks(env);
+  return finish(env.failures);
 }
 
 function finish(failures: string[]): number {
   say();
-  say('### Result');
+  say('## Result');
   if (failures.length === 0) say('- Every check ran; read the answers above against ADR-062.');
   for (const failure of failures) say(`- FAILED: ${failure}`);
   const summary = process.env.GITHUB_STEP_SUMMARY;

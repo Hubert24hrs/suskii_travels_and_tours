@@ -15,6 +15,7 @@
     "test:cov": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.config.mjs",
     "test:e2e:cov": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.config.mjs --coverage",
+    "test:sandbox": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-sandbox.config.mjs",
     "clean": "rimraf dist .turbo coverage",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",

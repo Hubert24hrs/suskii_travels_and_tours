@@ -1,15 +1,24 @@
 name: Duffel sandbox check
 
-# Asks Duffel's test mode the open questions of the Stays adapter (ADR-062): rooms in search
-# results, the radius unit, rates we can sell, quote fields and lifetime, error codes and, when
-# asked, a repeated booking. Manual only, with the DUFFEL_API_TOKEN repository secret, which must
-# be a test token (the script refuses live ones). CI never calls Duffel: the adapter's tests use
-# fixtures and a local stand-in (test/duffel-stays.e2e-spec.ts).
+# Asks Duffel's test mode the open questions of the flight and Stays adapters (ADR-062) and, when
+# asked, runs our API's booking journey against it. Manual only, with the DUFFEL_API_TOKEN
+# repository secret, which must be a test token (the scripts refuse live ones). CI never calls
+# Duffel: the adapters' tests use fixtures and local stand-ins.
 on:
   workflow_dispatch:
     inputs:
+      only:
+        description: Products to check
+        type: choice
+        options: [all, flights, hotels]
+        default: all
       book:
-        description: Also book the cheapest rate, repeat a booking on one quote, then cancel them
+        description: Also book through the adapters, repeat a booking on one quote, then cancel
+        type: boolean
+        required: false
+        default: false
+      journey:
+        description: Also run our API's journey (search to confirmed booking) against Duffel
         type: boolean
         required: false
         default: false
@@ -26,9 +35,9 @@ env:
 
 jobs:
   sandbox:
-    name: Duffel Stays sandbox
+    name: Duffel sandbox
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check the Duffel test token is set
         env:
@@ -68,10 +77,24 @@ jobs:
       - name: Run the sandbox check
         env:
           DUFFEL_API_TOKEN: ${{ secrets.DUFFEL_API_TOKEN }}
+          ONLY: ${{ inputs.only }}
           BOOK: ${{ inputs.book }}
         run: |
-          if [ "$BOOK" = "true" ]; then
-            pnpm --filter @suskii/api sandbox:duffel --book
-          else
-            pnpm --filter @suskii/api sandbox:duffel
-          fi
+          args=()
+          if [ "$ONLY" = "flights" ] || [ "$ONLY" = "hotels" ]; then args+=(--only "$ONLY"); fi
+          if [ "$BOOK" = "true" ]; then args+=(--book); fi
+          pnpm --filter @suskii/api sandbox:duffel "${args[@]}"
+
+      # Our API in-process (Testcontainers Postgres and Redis, as the e2e suite) with the Duffel
+      # suppliers: search, quote, guest booking, mock payment, then Duffel's confirmation.
+      - name: Run the API journey against Duffel
+        if: ${{ !cancelled() && inputs.journey }}
+        env:
+          DUFFEL_API_TOKEN: ${{ secrets.DUFFEL_API_TOKEN }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          case "$ONLY" in
+            flights) pnpm --filter @suskii/api test:sandbox -t 'books a flight' ;;
+            hotels) pnpm --filter @suskii/api test:sandbox -t 'books a hotel' ;;
+            *) pnpm --filter @suskii/api test:sandbox ;;
+          esac
