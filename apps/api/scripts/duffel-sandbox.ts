@@ -604,6 +604,78 @@ async function flightChecks(env: Env): Promise<void> {
   }
 }
 
+/**
+ * Duffel car rental (`/cars`): search and a quote only. We have no car adapter yet, so this asks
+ * whether the account can use it and what its rates look like (how they are paid above all).
+ */
+async function carChecks(env: Env): Promise<void> {
+  const { token, failures } = env;
+  const pickupDate = addDays(localDate(new Date(), 'UTC'), 30);
+  const dropoffDate = addDays(pickupDate, 3);
+  const places = [
+    { name: 'London Heathrow', latitude: 51.47, longitude: -0.4543, country: 'GB' },
+    { name: 'Lagos airport', latitude: 6.5774, longitude: 3.3212, country: 'NG' },
+  ];
+
+  say();
+  say('## Car rental');
+  say();
+  say(`Rental: ${pickupDate} to ${dropoffDate}, 10:00, driver aged 30.`);
+  say();
+  say('### 1. Search');
+  let firstRate: Json | undefined;
+  for (const place of places) {
+    const location = {
+      radius: 10,
+      geographic_coordinates: { latitude: place.latitude, longitude: place.longitude },
+    };
+    const raw = await probe(token, 'POST', '/cars/search', {
+      data: {
+        pickup_date: pickupDate,
+        pickup_time: '10:00',
+        dropoff_date: dropoffDate,
+        dropoff_time: '10:00',
+        pickup_location: location,
+        dropoff_location: location,
+        driver: { age: 30, residence_country_code: place.country },
+      },
+    });
+    const rates = list(record(raw.data).rates).map(record);
+    say(`- ${place.name}: ${shown(raw)}, ${rates.length.toString()} rates`);
+    if (rates.length > 0) {
+      say(`  - payment_type: ${tally(rates, 'payment_type')}`);
+      say(
+        `  - suppliers: ${tally(
+          rates.map((rate) => ({ supplier: record(rate.supplier).name })),
+          'supplier',
+        )}`,
+      );
+      say(
+        `  - categories: ${tally(
+          rates.map((rate) => ({ category: record(rate.car).category })),
+          'category',
+        )}`,
+      );
+      firstRate ??= rates[0];
+    }
+  }
+  if (!firstRate || typeof firstRate.id !== 'string') {
+    failures.push('Cars: no car rates; the account may not have Duffel car rental');
+    return;
+  }
+
+  say();
+  say('### 2. Quote');
+  const quote = await probe(token, 'POST', '/cars/quotes', { data: { rate_id: firstRate.id } });
+  const quoted = record(quote.data);
+  say(
+    `- ${shown(quote)}, payment_type ${String(quoted.payment_type)}, ` +
+      `${list(quoted.conditions).length.toString()} conditions, ` +
+      `${list(quoted.charges).length.toString()} charges`,
+  );
+  say(`- fields: ${Object.keys(quoted).sort().join(', ') || 'none'}`);
+}
+
 async function main(): Promise<number> {
   const { values } = parseArgs({
     options: { book: { type: 'boolean', default: false }, only: { type: 'string' } },
@@ -616,8 +688,8 @@ async function main(): Promise<number> {
     return 1;
   }
   const only = values.only;
-  if (only !== undefined && only !== 'flights' && only !== 'hotels') {
-    process.stderr.write('--only takes flights or hotels\n');
+  if (only !== undefined && only !== 'flights' && only !== 'hotels' && only !== 'cars') {
+    process.stderr.write('--only takes flights, hotels or cars\n');
     return 1;
   }
   const env: Env = {
@@ -631,8 +703,9 @@ async function main(): Promise<number> {
   say(
     `Test mode only. ${env.book ? 'Bookings are made, then cancelled.' : 'No bookings (run with --book).'}`,
   );
-  if (only !== 'hotels') await flightChecks(env);
-  if (only !== 'flights') await hotelChecks(env);
+  if (only === undefined || only === 'flights') await flightChecks(env);
+  if (only === undefined || only === 'hotels') await hotelChecks(env);
+  if (only === undefined || only === 'cars') await carChecks(env);
   return finish(env.failures);
 }
 

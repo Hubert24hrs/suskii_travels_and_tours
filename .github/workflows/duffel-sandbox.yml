@@ -10,7 +10,7 @@ on:
       only:
         description: Products to check
         type: choice
-        options: [all, flights, hotels]
+        options: [all, flights, hotels, cars]
         default: all
       book:
         description: Also book through the adapters, repeat a booking on one quote, then cancel
@@ -82,7 +82,7 @@ jobs:
           BOOK: ${{ inputs.book }}
         run: |
           args=()
-          if [ "$ONLY" = "flights" ] || [ "$ONLY" = "hotels" ]; then args+=(--only "$ONLY"); fi
+          case "$ONLY" in flights | hotels | cars) args+=(--only "$ONLY") ;; esac
           if [ "$BOOK" = "true" ]; then args+=(--book); fi
           pnpm --filter @suskii/api sandbox:duffel "${args[@]}"
 
