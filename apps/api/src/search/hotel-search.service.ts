@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
 import {
@@ -101,17 +101,24 @@ export function hotelPricingContext(
 const nightsOf = (request: HotelSearchRequest): number =>
   daysBetween(request.checkIn, request.checkOut);
 
+/**
+ * Rate ids name their list: `.r` for the rates search returned, `.f` for the full list a
+ * two-step supplier loaded for the hotel page (`SearchStore.completeItem`).
+ */
+type RateList = 'r' | 'f';
+
 function priceHotel(
   item: StoredHotel,
   request: HotelSearchRequest,
   pricer: Pricer,
   client: ClientContext,
   now: Date,
+  list: { tag: RateList; rates: SupplierHotelRate[] } = { tag: 'r', rates: item.hotel.rates },
 ): PricedHotel | null {
   const context = hotelPricingContext(item.hotel, request, client, now);
-  const rates: PricedRate[] = item.hotel.rates
+  const rates: PricedRate[] = list.rates
     .map((rate, index) => ({
-      id: `${item.id}.r${index.toString(36)}`,
+      id: `${item.id}.${list.tag}${index.toString(36)}`,
       rate,
       price: pricer(rate.price, context).breakdown,
     }))
@@ -157,6 +164,7 @@ const hotelBase = (hotel: SupplierHotel, id: string) => ({
 /** Hotel search orchestration, mirroring flights: cache, parallel suppliers, pricing, filters, quotes. */
 @Injectable()
 export class HotelSearchService {
+  private readonly logger = new Logger(HotelSearchService.name);
   private readonly inflight = new Map<string, Promise<string>>();
 
   constructor(
@@ -249,11 +257,19 @@ export class HotelSearchService {
 
   async hotel(hotelId: string, currency: string, client: ClientContext): Promise<HotelDetailDto> {
     const { meta, item } = await this.load(hotelId);
-    const [pricer, fx] = await Promise.all([
+    const [pricer, fx, full] = await Promise.all([
       this.pricing.pricer('hotels', currency),
       this.fx.converter(),
+      this.fullRates(meta, item),
     ]);
-    const priced = priceHotel(item, meta.request, pricer, client, new Date());
+    const priced = priceHotel(
+      item,
+      meta.request,
+      pricer,
+      client,
+      new Date(),
+      full ? { tag: 'f', rates: full } : undefined,
+    );
     if (!priced) throw offerUnavailable(meta.request);
     const nights = nightsOf(meta.request);
     return {
@@ -266,10 +282,16 @@ export class HotelSearchService {
   }
 
   async quote(rateId: string, currency: string, client: ClientContext): Promise<HotelQuoteDto> {
-    const hotelId = rateId.slice(0, rateId.lastIndexOf('.r'));
-    const index = Number.parseInt(rateId.slice(rateId.lastIndexOf('.r') + 2), 36);
+    const dot = rateId.lastIndexOf('.');
+    const hotelId = rateId.slice(0, dot);
+    const list = rateId.charAt(dot + 1) as RateList;
+    const index = Number.parseInt(rateId.slice(dot + 2), 36);
     const { meta, item } = await this.load(hotelId);
-    const rate = item.hotel.rates[index];
+    const rates =
+      list === 'f'
+        ? await this.store.completedItem<SupplierHotelRate[]>('hotels', meta.searchId, hotelId)
+        : item.hotel.rates;
+    const rate = rates?.[index];
     if (!rate || Date.parse(rate.expiresAt) <= Date.now()) throw offerUnavailable(meta.request);
     const supplier = this.suppliers.find((candidate) => candidate.name === item.hotel.supplier);
     if (!supplier) throw offerUnavailable(meta.request);
@@ -333,6 +355,42 @@ export class HotelSearchService {
           },
       expiresAt: fresh.expiresAt,
     };
+  }
+
+  /**
+   * The full room and rate list of a hotel whose supplier sent only some rates with the search,
+   * loaded once per search and kept beside it. Null for complete hotels, and when the supplier
+   * cannot answer now: the page then shows the rates search returned, which quote normally.
+   */
+  private async fullRates(
+    meta: SearchMeta<HotelSearchRequest>,
+    item: StoredHotel,
+  ): Promise<SupplierHotelRate[] | null> {
+    if (item.hotel.ratesComplete !== false) return null;
+    const stored = await this.store.completedItem<SupplierHotelRate[]>(
+      'hotels',
+      meta.searchId,
+      item.id,
+    );
+    if (stored) return stored;
+    const supplier = this.suppliers.find((candidate) => candidate.name === item.hotel.supplier);
+    if (!supplier) return null;
+    const query = await this.supplierQuery(meta.request, false);
+    let rates: SupplierHotelRate[];
+    try {
+      rates = await this.runner.call('hotels', supplier.name, 'rates', (signal) =>
+        supplier.rates(item.hotel, query, signal),
+      );
+    } catch (error) {
+      if (error instanceof OfferUnavailableError) throw offerUnavailable(meta.request);
+      this.logger.warn(
+        { supplier: supplier.name, reason: (error as Error).name },
+        'Loading hotel rates failed; showing the rates from search',
+      );
+      return null;
+    }
+    if (rates.length === 0) throw offerUnavailable(meta.request);
+    return this.store.completeItem('hotels', meta.searchId, item.id, rates);
   }
 
   private async load(

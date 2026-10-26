@@ -171,6 +171,13 @@ export interface SupplierHotel {
   countryCode: string;
   amenities: string[];
   rates: SupplierHotelRate[];
+  /**
+   * False when search returned only some rates (Duffel Stays sends the cheapest); the hotel page
+   * loads the rest through `HotelSupplier.rates()`. Absent means search returned them all.
+   */
+  ratesComplete?: boolean;
+  /** The supplier's id for this hotel within its search, when loading rates needs it. */
+  supplierResultId?: string;
 }
 
 export interface SupplierPassenger {
@@ -306,4 +313,16 @@ export abstract class HotelSupplier {
   ): Promise<SupplierHotelRate>;
   /** Confirms a paid stay. Must be idempotent by `request.idempotencyKey`. */
   abstract book(request: HotelBookingRequest, signal: AbortSignal): Promise<HotelBookingResult>;
+
+  /**
+   * Every bookable room and rate of one hotel from a search. Suppliers whose search returns only
+   * some rates (`ratesComplete: false`) load the rest here; the others already returned them.
+   */
+  rates(
+    hotel: SupplierHotel,
+    _query: HotelSearchQuery,
+    _signal: AbortSignal,
+  ): Promise<SupplierHotelRate[]> {
+    return Promise.resolve(hotel.rates);
+  }
 }

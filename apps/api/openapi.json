@@ -15423,7 +15423,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^hs_[A-Za-z0-9_-]{16}\\.h[a-z0-9]+\\.r[a-z0-9]+$"
+              "pattern": "^hs_[A-Za-z0-9_-]{16}\\.h[a-z0-9]+\\.[rf][a-z0-9]+$"
             }
           },
           {
