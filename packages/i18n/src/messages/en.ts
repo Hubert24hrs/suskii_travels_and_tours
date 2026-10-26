@@ -1767,6 +1767,22 @@ export const en = {
       notOnline: 'This flight cannot be cancelled online. Contact support to change or cancel it.',
       expired: 'The refund offer has expired. Ask again to see the current refund.',
     },
+    scheduleChange: {
+      title: 'The airline has changed your flight',
+      intro: 'Your booking still shows the flights you booked. Times are local to each airport.',
+      was: 'Was',
+      now: 'Now',
+      times: '{flights}: departs {departure}, arrives {arrival}',
+      removed: 'This flight is no longer in your booking.',
+      accept: 'Accept new times',
+      acceptHint:
+        'If the new times do not work for you, you can cancel the flight instead or contact support.',
+      support:
+        'This change cannot be accepted online. Our team will contact you about your options.',
+      accepted: 'You accepted the new times. Your booking and e-ticket now show them.',
+      failed: 'We could not accept the change just now. Please try again.',
+      notAcceptable: 'This change can no longer be accepted online. Contact support.',
+    },
     refunds: {
       heading: 'Refunds',
       line: '{amount} to {destination}',
