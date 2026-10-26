@@ -56,3 +56,18 @@ Do not raise `SUPPLIER_TIMEOUT_MS` or `SEARCH_TIMEOUT_MS` to wait out a slow sup
 - Deal and destination snapshots refresh on their next scheduled run. Run
   `pnpm --filter @suskii/worker refresh:once` to refresh them at once.
 - Record how long the outage lasted and how many bookings it touched.
+
+## Flight cancelled with the supplier but not on the booking
+
+Online flight cancellation (ADR-064) confirms with the airline first and then updates the
+booking. If that second step fails, the API logs and reports
+`Flight cancelled with the supplier but not on the booking` with the booking id.
+
+1. Look the booking up in the console and the order in the supplier's dashboard (the booking
+   item's supplier order id). Confirm the order shows as cancelled there and note the refund
+   the airline gave.
+2. If the booking is still `CONFIRMED`, refund the traveller's share from the console (refunds,
+   maker-checker), using the `booking.flight_cancelled` rule: what they paid times the airline's
+   refund divided by what we paid the airline, rounded down. Record the reason.
+3. If the booking had changed for another reason (a staff refund already running), reconcile the
+   two refunds before approving anything, so the traveller is never refunded twice.
