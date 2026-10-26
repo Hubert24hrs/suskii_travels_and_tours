@@ -13,6 +13,7 @@ import { parseArgs } from 'node:util';
 
 import { add, addDays, compare, formatMoney, localDate, zero } from '@suskii/shared';
 
+import { itinerarySignature } from '../src/bookings/schedule-changes';
 import { DuffelFlightSupplier } from '../src/suppliers/duffel/duffel-flight-supplier';
 import { DuffelHotelSupplier } from '../src/suppliers/duffel/duffel-hotel-supplier';
 import { DuffelClient } from '../src/suppliers/duffel/duffel.client';
@@ -604,6 +605,22 @@ async function flightChecks(env: Env): Promise<void> {
   const bookedOrderId = booked.value?.orderId;
   if (bookedOrderId) {
     const bookedOffer = repriced.value ?? target;
+    // Airline changes (ADR-065): the order reads back with the booked flights and its changes.
+    const read = await attempt(() =>
+      supplier.orderChanges({ orderId: bookedOrderId, offer: bookedOffer }, signal()),
+    );
+    const sameFlights =
+      read.value !== null &&
+      itinerarySignature(read.value.slices) === itinerarySignature(bookedOffer.slices);
+    say(
+      '- airline changes on the order: ' +
+        (read.value
+          ? `${read.value.changes.length.toString()} change(s); the order's flights ` +
+            (sameFlights ? 'match the booked offer' : 'differ from the booked offer')
+          : read.outcome),
+    );
+    if (!read.value) failures.push(`Flights: reading the order's changes failed: ${read.outcome}`);
+    else if (!sameFlights) failures.push("Flights: the order's flights differ from the offer");
     const supplierTotal = add(
       offerTotal(bookedOffer),
       firstBag ? firstBag.price : zero(bookedOffer.price.base.currency),
