@@ -6,6 +6,42 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Duffel Stays hotel adapter (2026-10-26)
+
+Design and open checks in ADR-062. Built from the types in Duffel's official SDK; every test runs
+against fixtures or a local fake server, and nothing has called Duffel yet.
+
+#### Added
+
+- **`DuffelHotelSupplier`** behind `HOTEL_SUPPLIERS=duffel` (needs `DUFFEL_API_TOKEN` and Stays on
+  the Duffel account). It covers search around the city's coordinates, every rate of a hotel
+  (`fetch_all_rates`), quotes and bookings paid from the Duffel balance.
+  - Only rates paid in full now from the balance are sold. Pay-at-hotel, deposit and loyalty-only
+    rates are left out.
+  - Boards, free-cancellation deadlines, taxes and fees are mapped to our types, and amounts are
+    parsed without floats.
+  - A booking quotes the rate again and refuses a price that moved after payment. An ambiguous
+    failure goes to review, because Stays takes no idempotency key.
+- **Two-step hotel rates.** A supplier whose search returns only each hotel's cheapest price sets
+  `ratesComplete: false` and implements `HotelSupplier.rates()`.
+  - The hotel page loads the full list once per search. It is kept beside the results in Redis,
+    and the first writer wins.
+  - When the supplier cannot answer, the page shows the search rates instead.
+  - Full-list rate ids end in `.f<n>`. The quote route accepts them beside `.r<n>`; both
+    generated API files were regenerated.
+- Tests:
+  - unit tests on SDK-shaped fixtures;
+  - an API e2e suite against a local fake Duffel server: search, full rates loaded once, quotes,
+    sold out, and the fallback;
+  - env schema cases for `HOTEL_SUPPLIERS=duffel`.
+
+#### Changed
+
+- The production Terraform example sets `HOTEL_SUPPLIERS = "duffel"`. Hotels no longer appear in
+  the list of mock-only providers that block production.
+- `external-communications.md` and the release privacy answers name Duffel as a hotel supplier and
+  list what it receives.
+
 ### Phase 13: AI trip search (2026-10-25)
 
 Plan and outcome in `docs/phases/phase-13.md`; design in ADR-061. Optional and behind a flag

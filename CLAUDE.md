@@ -248,6 +248,11 @@ Tooling notes for agents:
   `AbortSignal`; the runner adds timeouts and circuit breakers.
 - Search state lives in Redis (`SearchStore`); result ids embed a fresh search id and expire after
   30 minutes (`410` with the original request). Quotes persist an `Offer` row, which bookings use.
+- A hotel supplier whose search returns only the cheapest price (Duffel Stays) sets
+  `ratesComplete: false` and implements `rates()`; the hotel page loads the full list once per
+  search (`SearchStore.completeItem`, rate ids `.f<n>`; search rates are `.r<n>`) and falls back to
+  the search rates when the supplier cannot answer. Only rates paid in full from the supplier
+  balance are sold (ADR-062).
 - Times: store local wall time + IANA zone + UTC instant (`localToUtc`, `utcToLocal` in shared).
 - `X-Suskii-Client: web/<version>` or `mobile-<platform>/<version>` selects the sales channel.
 
@@ -694,6 +699,7 @@ Tooling notes for agents:
 - [ADR-059: GCP topology and the Cloudflare edge](docs/decisions/ADR-059-gcp-topology-and-cloudflare-edge.md)
 - [ADR-060: Release pipeline, canary and rollback](docs/decisions/ADR-060-release-pipeline.md)
 - [ADR-061: AI trip search](docs/decisions/ADR-061-ai-trip-search.md)
+- [ADR-062: Duffel Stays hotel adapter](docs/decisions/ADR-062-duffel-stays-hotel-adapter.md)
 
 ## Open questions for the owner
 
@@ -745,7 +751,7 @@ with billing and the region (default `europe-west2`, London), two domains with C
 (Pro on production for the managed WAF; Advanced Certificate Manager for a visitor cipher
 allowlist), the GitHub `staging` and `production` environments with their variables and
 production reviewers, then `DEPLOY_ENABLED=true`; real adapters for SMS, WhatsApp, exchange rates,
-hotels, driver KYC and payouts, without which production cannot start (they are mock-only
+driver KYC and payouts, without which production cannot start (they are mock-only
 today); where production ClamAV runs; customer-managed encryption keys (decide before the first
 production apply); name-based egress filtering (Secure Web Proxy or Cloud NGFW); a public route
 for per-PR preview deploys; the App Store Connect app (`ascAppId`) and a D-U-N-S number for the
@@ -754,4 +760,7 @@ purchase; Sentry's "Prevent Storing of IP Addresses" setting; and confirmation o
 form answers in `docs/release/data-safety.md`. Added in phase 13: an Anthropic API key
 (`LLM_API_KEY` as a repository secret, then one run of the AI search eval), the provider's data
 retention terms (standard or zero data retention), whether to offer AI trip search in production,
-and its daily caps (defaults $0.05 per user or address, $20 in total).
+and its daily caps (defaults $0.05 per user or address, $20 in total). Added with the Duffel Stays
+adapter: Stays access on the Duffel account, a sandbox token and one sandbox run of the checks in
+ADR-062 (error codes, radius unit, quote lifetime, duplicate bookings), which needs `api.duffel.com`
+allowed in the build environment's network policy.
