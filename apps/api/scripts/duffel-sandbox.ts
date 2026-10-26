@@ -560,7 +560,9 @@ async function flightChecks(env: Env): Promise<void> {
         : booked.outcome),
   );
   if (!booked.value) failures.push(`Flights: adapter order failed: ${booked.outcome}`);
-  const holdable = offers.find((offer) => offer.hold.available);
+  // Duffel takes one order per search (`offer_request_already_booked`), so the hold needs its own.
+  const again = await attempt(() => supplier.search(query, signal()));
+  const holdable = (again.value ?? []).find((offer) => offer.hold.available);
   if (holdable) {
     const held = await attempt(() =>
       supplier.hold(
@@ -579,7 +581,7 @@ async function flightChecks(env: Env): Promise<void> {
       failures.push(`Flights: adapter hold failed: ${held.outcome}`);
     }
   } else {
-    say('- hold: no offer in this search can be held');
+    say(`- hold: ${again.value ? 'no offer in a new search can be held' : again.outcome}`);
   }
   // Cancels the paid orders this check made (the adapter returns the airline reference only).
   const orders = await probe(token, 'GET', '/air/orders?limit=50');
