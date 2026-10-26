@@ -10,6 +10,15 @@ All notable changes to this project are documented here. The format follows
 
 #### Added
 
+- **Flights and the app journey.**
+  - The sandbox check also covers Duffel flights: search, re-check and error codes, and with
+    `book` a paid order and a hold, both then cancelled. The workflow's `only` input picks
+    flights or hotels.
+  - The workflow's `journey` input runs `test/sandbox/duffel-journey.sandbox-spec.ts`
+    (`test:sandbox`). That is our API, as the website and the app call it, against Duffel's test
+    mode: search, quote, guest booking, mock payment, then Duffel's confirmed order or stay.
+  - The local stack (`e2e:stack`) switches to Duffel's test mode for phone and browser testing
+    with `E2E_FLIGHT_SUPPLIERS` / `E2E_HOTEL_SUPPLIERS=duffel`, taking a test token only (README).
 - **`duffel-sandbox.yml`**, a manual workflow, and `pnpm --filter @suskii/api sandbox:duffel`.
   They put the open questions of ADR-062 to Duffel's test mode and print what Duffel answers:
   - whether search results carry rooms;
