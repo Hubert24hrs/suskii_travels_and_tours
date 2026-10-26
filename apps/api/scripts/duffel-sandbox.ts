@@ -612,9 +612,16 @@ async function carChecks(env: Env): Promise<void> {
   const { token, failures } = env;
   const pickupDate = addDays(localDate(new Date(), 'UTC'), 30);
   const dropoffDate = addDays(pickupDate, 3);
+  // Test-mode inventory may sit at a few locations only, so several major airports are tried.
   const places = [
     { name: 'London Heathrow', latitude: 51.47, longitude: -0.4543, country: 'GB' },
     { name: 'Lagos airport', latitude: 6.5774, longitude: 3.3212, country: 'NG' },
+    { name: 'New York JFK', latitude: 40.6413, longitude: -73.7781, country: 'US' },
+    { name: 'Miami airport', latitude: 25.7959, longitude: -80.287, country: 'US' },
+    { name: 'Los Angeles airport', latitude: 33.9416, longitude: -118.4085, country: 'US' },
+    { name: 'Barcelona airport', latitude: 41.2974, longitude: 2.0833, country: 'ES' },
+    { name: 'Paris CDG', latitude: 49.0097, longitude: 2.5479, country: 'FR' },
+    { name: 'Dubai airport', latitude: 25.2532, longitude: 55.3657, country: 'AE' },
   ];
 
   say();
@@ -626,7 +633,7 @@ async function carChecks(env: Env): Promise<void> {
   let firstRate: Json | undefined;
   for (const place of places) {
     const location = {
-      radius: 10,
+      radius: 25,
       geographic_coordinates: { latitude: place.latitude, longitude: place.longitude },
     };
     const raw = await probe(token, 'POST', '/cars/search', {
