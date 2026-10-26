@@ -95,7 +95,7 @@ jobs:
           ONLY: ${{ inputs.only }}
         run: |
           case "$ONLY" in
-            flights) pnpm --filter @suskii/api test:sandbox -t 'books a flight' ;;
+            flights) pnpm --filter @suskii/api test:sandbox -t 'flight' ;;
             hotels) pnpm --filter @suskii/api test:sandbox -t 'books a hotel' ;;
             *) pnpm --filter @suskii/api test:sandbox ;;
           esac
