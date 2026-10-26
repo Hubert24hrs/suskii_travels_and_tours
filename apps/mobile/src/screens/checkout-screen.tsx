@@ -171,6 +171,20 @@ function Checkout({ quote }: { quote: Quote }) {
   }, [draft, facts, quote, detailFields, details]);
   const price = quote.flight?.offer.price ?? quote.hotel?.rate.price ?? quote.price;
   const inhouse = quote.price !== null;
+  // A checked bag per traveller with a seat, at the airline's price (no markup, ADR-014).
+  const bag = quote.flight?.offer.services[0];
+  const bagCount = bag
+    ? draft.passengers.reduce(
+        (count, passenger) => count + (passenger.type === 'infant' ? 0 : passenger.bags),
+        0,
+      )
+    : 0;
+  const extras =
+    bag && bagCount > 0
+      ? { amountMinor: bag.price.amountMinor * bagCount, currency: bag.price.currency }
+      : null;
+  // Reserving and installments are never offered with paid extras.
+  const chosenPlan: PlanChoiceValue = extras ? 'full' : plan;
   const issue = (key: string): string | undefined => {
     const code: CheckoutIssue | undefined = errors[key];
     return code ? t(`checkout.issues.${code}`) : undefined;
@@ -185,13 +199,13 @@ function Checkout({ quote }: { quote: Quote }) {
     }));
 
   const pay = async (booking: { id: string; headers: Record<string, string> }) => {
-    if (plan !== 'full') {
+    if (chosenPlan !== 'full') {
       const params = {
         path: { bookingId: booking.id },
         header: { ...booking.headers, 'Idempotency-Key': randomUUID() },
       };
       const result =
-        plan === 'hold'
+        chosenPlan === 'hold'
           ? await api.POST('/v1/bookings/{bookingId}/hold', { params })
           : await api.POST('/v1/bookings/{bookingId}/installment-plan', { params });
       if (!result.data) {
@@ -286,6 +300,15 @@ function Checkout({ quote }: { quote: Quote }) {
                   surname: guest.surname.trim(),
                 })),
               }),
+          ...(bag && extras
+            ? {
+                extras: draft.passengers.flatMap((passenger, index) =>
+                  passenger.type !== 'infant' && passenger.bags > 0
+                    ? [{ serviceId: bag.id, passengerIndex: index, quantity: passenger.bags }]
+                    : [],
+                ),
+              }
+            : {}),
           ...(quote.addon
             ? {
                 addonDetails: {
@@ -344,6 +367,8 @@ function Checkout({ quote }: { quote: Quote }) {
           setFormError(t('checkout.issues.summary'));
         } else if (slug === 'sold-out') {
           setFormError(t('checkout.errors.soldOut'));
+        } else if (slug === 'extras-invalid') {
+          setFormError(t('checkout.errors.extras'));
         } else if (slug === 'terms-outdated') {
           setFormError(t('checkout.errors.terms'));
         } else if (slug === 'bot-check-failed') {
@@ -386,9 +411,9 @@ function Checkout({ quote }: { quote: Quote }) {
   };
 
   const submitLabel =
-    plan === 'hold'
+    chosenPlan === 'hold'
       ? t('checkout.plan.reserve')
-      : plan === 'installments'
+      : chosenPlan === 'installments'
         ? t('checkout.plan.setUp')
         : t('checkout.pay');
 
@@ -443,6 +468,7 @@ function Checkout({ quote }: { quote: Quote }) {
               errors={errors}
               warnings={checked.warnings}
               passport={passportMode(quote, facts)}
+              bag={passenger.type === 'infant' ? undefined : bag}
             />
           );
         })}
@@ -561,9 +587,9 @@ function Checkout({ quote }: { quote: Quote }) {
         <PlanChoice
           vertical={quote.vertical}
           options={quote.payment}
-          value={plan}
+          value={chosenPlan}
           onChange={setPlan}
-          extrasSelected={false}
+          extrasSelected={extras !== null}
         />
         <MethodChoice providers={quote.payment.providers} value={provider} onChange={setProvider} />
 
@@ -611,10 +637,27 @@ function Checkout({ quote }: { quote: Quote }) {
                 </Text>
               </View>
             ))}
+            {extras ? (
+              <View testID="checkout-extras" className="flex-row justify-between">
+                <Text className="font-body text-body-sm text-foreground">
+                  {t('checkout.extrasLine')}
+                </Text>
+                <Text className="font-body text-body-sm text-foreground">
+                  {format.money(extras)}
+                </Text>
+              </View>
+            ) : null}
             <View className="flex-row justify-between border-t border-border pt-2">
               <Text className="font-body-bold text-body text-heading">{t('checkout.total')}</Text>
               <Text testID="checkout-total" className="font-heading text-h4 text-heading">
-                {format.money(price.total)}
+                {format.money(
+                  extras
+                    ? {
+                        amountMinor: price.total.amountMinor + extras.amountMinor,
+                        currency: price.total.currency,
+                      }
+                    : price.total,
+                )}
               </Text>
             </View>
             {quote.rental && quote.rental.charge.deposit.amountMinor > 0 ? (

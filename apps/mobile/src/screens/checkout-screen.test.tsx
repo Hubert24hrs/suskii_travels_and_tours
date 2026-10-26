@@ -162,6 +162,75 @@ describe('CheckoutScreen', () => {
     expect(calls.filter((request) => request.url.endsWith('/v1/bookings'))).toHaveLength(1);
   });
 
+  it('adds checked bags per traveller with a seat, to the total and as extras', async () => {
+    const base = flightQuote();
+    const flight = base.flight;
+    if (!flight) throw new Error('the fixture is a flight');
+    const offer = flight.offer;
+    const bagged = (passengers: typeof offer.passengers) =>
+      flightQuote({
+        flight: {
+          ...flight,
+          offer: {
+            ...offer,
+            passengers,
+            services: [
+              {
+                id: 'offer-1.bag23',
+                type: 'checked_bag',
+                weightKg: 23,
+                maxQuantity: 2,
+                price: { amountMinor: 1_500_000, currency: 'NGN' },
+              },
+            ],
+          },
+        },
+        // Reserving is never offered with paid extras.
+        payment: {
+          ...base.payment,
+          hold: {
+            deadline: '2026-10-04T09:00:00.000Z',
+            total: { amountMinor: 8_500_000, currency: 'NGN' },
+          },
+        },
+      });
+
+    // A lap infant cannot add a bag.
+    mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(bagged({ adults: 1, children: 0, infants: 1 })),
+      'GET /v1/catalog/countries': () => json(countries),
+    });
+    const first = await renderWithApp(<CheckoutScreen />);
+    expect(await screen.findByTestId('passengers.0.bags-0')).toBeOnTheScreen();
+    expect(screen.queryByTestId('passengers.1.bags-0')).toBeNull();
+    first.unmount();
+
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(bagged({ adults: 1, children: 0, infants: 0 })),
+      'GET /v1/catalog/countries': () => json(countries),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }), accessToken: TOKEN }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/payments`]: () => json(paymentSession, 201),
+    });
+    await renderWithApp(<CheckoutScreen />);
+    expect(await screen.findByTestId('plan-hold')).toBeOnTheScreen();
+    await fillTraveller();
+    await fireEvent.press(screen.getByTestId('passengers.0.bags-2'));
+
+    expect(screen.getByTestId('checkout-extras')).toHaveTextContent(/30,000/);
+    expect(screen.getByTestId('checkout-total')).toHaveTextContent(/115,000/);
+    expect(screen.queryByTestId('plan-hold')).toBeNull();
+    expect(screen.getByText(m.checkout.plan.notWithExtras)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/trips/${BOOKING_ID}`));
+    const create = calls.find((request) => request.url.endsWith('/v1/bookings'));
+    const body = (await create?.json()) as { extras?: unknown };
+    expect(body.extras).toEqual([{ serviceId: 'offer-1.bag23', passengerIndex: 0, quantity: 2 }]);
+  });
+
   it('asks for passports for a package abroad and shows the product, not a fare', async () => {
     mockApi({
       [`GET /v1/quotes/${QUOTE_ID}`]: () => json(inhouseQuote('package')),
