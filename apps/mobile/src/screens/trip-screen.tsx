@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { PlanPanel, RefundList } from '../components/booking/plan-panel';
+import { ScheduleChange } from '../components/booking/schedule-change';
 import { BoardingPasses } from '../components/cars/boarding-passes';
 import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
 import { RentalLicence } from '../components/cars/rental-licence';
@@ -322,6 +323,33 @@ export function TripScreen() {
     void query.refetch();
   };
 
+  // The traveller accepts the airline's new times (ADR-065); the booking then shows them.
+  const acceptScheduleChange = async (changeId: string) => {
+    setBusy(true);
+    setActionError(null);
+    const { data, error } = await api.POST(
+      '/v1/bookings/{bookingId}/schedule-changes/{changeId}/accept',
+      {
+        params: {
+          path: { bookingId: booking.id, changeId },
+          header: await tripStore.bookingHeaders(booking.id),
+        },
+      },
+    );
+    setBusy(false);
+    if (data) {
+      tripStore.saveBooking(data);
+      toast({ title: t('booking.scheduleChange.accepted'), variant: 'success' });
+    } else {
+      setActionError(
+        problemSlug(error) === 'schedule-change-not-acceptable'
+          ? t('booking.scheduleChange.notAcceptable')
+          : t('booking.scheduleChange.failed'),
+      );
+    }
+    void query.refetch();
+  };
+
   const cancelUnderPolicy = async () => {
     await cancel();
     setCancelling(false);
@@ -502,6 +530,17 @@ export function TripScreen() {
               );
             })}
           </Card>
+        ) : null}
+
+        {booking.scheduleChange ? (
+          <ScheduleChange
+            change={booking.scheduleChange}
+            offline={offline}
+            busy={busy}
+            onAccept={() => {
+              if (booking.scheduleChange) void acceptScheduleChange(booking.scheduleChange.id);
+            }}
+          />
         ) : null}
 
         {booking.flight ? (

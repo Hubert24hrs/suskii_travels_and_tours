@@ -129,6 +129,75 @@ describe('TripScreen', () => {
     expect(await screen.findByText(m.booking.flightCancel.notOnline)).toBeOnTheScreen();
   });
 
+  it("shows the airline's new times and accepts them for the traveller", async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    const booked = booking().flight?.slices[0];
+    if (!booked) throw new Error('the fixture has a flight');
+    const moved = {
+      ...booked,
+      departureLocal: `${booked.departureLocal.slice(0, 11)}23:55`,
+      segments: booked.segments.map((segment) => ({ ...segment, flightNumber: '999' })),
+    };
+    const change = {
+      id: '01900000-0000-7000-8000-00000000aaaa',
+      status: 'open' as const,
+      acceptable: true,
+      detectedAt: '2026-10-02T09:00:00.000Z',
+      previous: [booked],
+      updated: [moved],
+    };
+    let accepted = false;
+    const { calls } = mockApi({
+      [GET]: () =>
+        json(
+          booking({
+            scheduleChange: accepted
+              ? { ...change, status: 'accepted', acceptable: false }
+              : change,
+          }),
+        ),
+      [`POST /v1/bookings/${BOOKING_ID}/schedule-changes/${change.id}/accept`]: () => {
+        accepted = true;
+        return json(booking({ scheduleChange: { ...change, status: 'accepted' } }));
+      },
+    });
+    await renderWithApp(<TripScreen />);
+
+    expect(await screen.findByTestId('schedule-change')).toBeOnTheScreen();
+    expect(screen.getByTestId('schedule-change-now')).toHaveTextContent(/ 999: departs .* 23:55/);
+    await fireEvent.press(screen.getByTestId('schedule-change-accept'));
+
+    expect(await screen.findByText(m.booking.scheduleChange.accepted)).toBeOnTheScreen();
+    expect(screen.queryByTestId('schedule-change')).toBeNull();
+    const accept = calls.find((request) => request.url.endsWith('/accept'));
+    expect(accept?.headers.get('X-Booking-Token')).toBe(TOKEN);
+  });
+
+  it('sends a change the airline will not take online to support', async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    const booked = booking().flight?.slices[0];
+    if (!booked) throw new Error('the fixture has a flight');
+    mockApi({
+      [GET]: () =>
+        json(
+          booking({
+            scheduleChange: {
+              id: '01900000-0000-7000-8000-00000000bbbb',
+              status: 'open',
+              acceptable: false,
+              detectedAt: '2026-10-02T09:00:00.000Z',
+              previous: [booked],
+              updated: [],
+            },
+          }),
+        ),
+    });
+    await renderWithApp(<TripScreen />);
+    expect(await screen.findByText(m.booking.scheduleChange.support)).toBeOnTheScreen();
+    expect(screen.getByText(m.booking.scheduleChange.removed, { exact: false })).toBeOnTheScreen();
+    expect(screen.queryByTestId('schedule-change-accept')).toBeNull();
+  });
+
   it('explains a booking this phone cannot open', async () => {
     mockApi({
       [GET]: () =>

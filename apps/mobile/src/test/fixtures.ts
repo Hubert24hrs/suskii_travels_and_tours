@@ -111,6 +111,7 @@ export function booking(patch: Partial<Booking> = {}): Booking {
     voucher: null,
     cancellation: null,
     flightCancellable: false,
+    scheduleChange: null,
     addons: [],
     passengers: [
       {

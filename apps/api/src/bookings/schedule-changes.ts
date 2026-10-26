@@ -35,7 +35,7 @@ const place = (point: { code: string; cityName: string | null }): string =>
 
 const flights = (slice: FlightSlice): string =>
   slice.segments
-    .map((segment) => `${segment.marketingCarrier.code}${segment.flightNumber}`)
+    .map((segment) => `${segment.marketingCarrier.code} ${segment.flightNumber}`)
     .join(' and ');
 
 const times = (slice: FlightSlice): string =>
@@ -43,7 +43,7 @@ const times = (slice: FlightSlice): string =>
 
 /**
  * One line per changed flight for the email, old and new side by side: "Lagos (LOS) to Abuja
- * (ABV): was W3101, departing Thu, 26 Nov 2026 08:30 and arriving ... Now W3105, ...".
+ * (ABV): was W3 101, departing Thu, 26 Nov 2026 08:30 and arriving ... Now W3 105, ...".
  */
 export function changeLines(
   removed: readonly FlightSlice[],

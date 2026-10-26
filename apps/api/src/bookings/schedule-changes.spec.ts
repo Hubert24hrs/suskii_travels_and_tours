@@ -60,10 +60,10 @@ describe('airline schedule change rules (ADR-065)', () => {
     const before = slice('2026-11-26T08:30', '2026-11-26T09:45');
     const after = slice('2026-11-26T10:00', '2026-11-26T11:15', '105');
     expect(changeLines([before], [after])).toEqual([
-      'Lagos (LOS) to Abuja (ABV): was W3101, departing Thu, 26 Nov 2026 08:30 and arriving Thu, 26 Nov 2026 09:45. Now W3105, departing Thu, 26 Nov 2026 10:00 and arriving Thu, 26 Nov 2026 11:15.',
+      'Lagos (LOS) to Abuja (ABV): was W3 101, departing Thu, 26 Nov 2026 08:30 and arriving Thu, 26 Nov 2026 09:45. Now W3 105, departing Thu, 26 Nov 2026 10:00 and arriving Thu, 26 Nov 2026 11:15.',
     ]);
     expect(changeLines([before], [])).toEqual([
-      'Lagos (LOS) to Abuja (ABV): was W3101, departing Thu, 26 Nov 2026 08:30 and arriving Thu, 26 Nov 2026 09:45. This flight is no longer in your booking.',
+      'Lagos (LOS) to Abuja (ABV): was W3 101, departing Thu, 26 Nov 2026 08:30 and arriving Thu, 26 Nov 2026 09:45. This flight is no longer in your booking.',
     ]);
     expect(changeLines([], [])).toEqual([]);
   });
