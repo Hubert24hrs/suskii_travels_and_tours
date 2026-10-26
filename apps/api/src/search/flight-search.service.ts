@@ -268,8 +268,13 @@ export class FlightSearchService {
     if (!supplier) throw offerUnavailable(meta.request);
     let fresh: SupplierFlightOffer;
     try {
-      fresh = await this.runner.call('flights', supplier.name, 'quote', (signal) =>
-        supplier.quoteOffer(item.offer, supplierQuery(meta.request), signal),
+      // Twice the usual allowance: a supplier may search again, then load the offer's extras.
+      fresh = await this.runner.call(
+        'flights',
+        supplier.name,
+        'quote',
+        (signal) => supplier.quoteOffer(item.offer, supplierQuery(meta.request), signal),
+        this.config.SUPPLIER_TIMEOUT_MS * 2,
       );
     } catch (error) {
       if (error instanceof OfferUnavailableError) throw offerUnavailable(meta.request);

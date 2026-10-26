@@ -25,6 +25,8 @@ const penalty = z
   .nullish();
 
 const segment = z.looseObject({
+  /** Extras name the segments they cover by these ids. */
+  id: z.string().nullish(),
   origin: place,
   destination: place,
   departing_at: z.string(),
@@ -75,9 +77,30 @@ export const duffelOfferSchema = z.looseObject({
     .nullish(),
   /** In the order they were requested; orders must reference these ids. */
   passengers: z.array(z.looseObject({ id: z.string(), type: z.string().nullish() })).default([]),
+  /**
+   * Extras, only on a single offer fetched with `return_available_services=true`. Each is
+   * checked with `duffelServiceSchema` on its own, so one odd service never drops the offer.
+   */
+  available_services: z.array(z.unknown()).nullish(),
 });
 
 export type DuffelOffer = z.infer<typeof duffelOfferSchema>;
+
+/** An extra for one passenger on some segments, e.g. a checked bag (`metadata.type`). */
+export const duffelServiceSchema = z.looseObject({
+  id: z.string(),
+  type: z.string(),
+  total_amount: decimal,
+  total_currency: currency,
+  maximum_quantity: z.number().int(),
+  passenger_ids: z.array(z.string()).default([]),
+  segment_ids: z.array(z.string()).default([]),
+  metadata: z
+    .looseObject({ type: z.string().nullish(), maximum_weight_kg: z.number().nullish() })
+    .nullish(),
+});
+
+export type DuffelService = z.infer<typeof duffelServiceSchema>;
 
 export const duffelOrderSchema = z.looseObject({
   id: z.string(),

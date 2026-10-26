@@ -4,11 +4,15 @@ import {
   compare,
   equals,
   localToUtc,
+  multiply,
   parseMoney,
   subtract,
   add,
+  toDecimalString,
+  zero,
   type CabinClass,
   type Money,
+  type TravellerCounts,
 } from '@suskii/shared';
 
 import { buildSlice } from '../itinerary';
@@ -27,6 +31,7 @@ import {
   type FlightHoldRequest,
   type FlightSearchQuery,
   type FlightSegment,
+  type FlightService,
   type HeldOrder,
   type PayHeldRequest,
   type SupplierContact,
@@ -38,8 +43,10 @@ import type { DuffelClient } from './duffel.client';
 import {
   duffelOfferSchema,
   duffelOrderSchema,
+  duffelServiceSchema,
   type DuffelOffer,
   type DuffelOrder,
+  type DuffelService,
 } from './duffel.schemas';
 
 type DuffelPlace = DuffelOffer['slices'][number]['segments'][number]['origin'];
@@ -75,6 +82,110 @@ function itineraryKey(offer: SupplierFlightOffer): string {
 }
 
 const offerTotal = (offer: SupplierFlightOffer): Money => add(offer.price.base, offer.price.taxes);
+
+/** One passenger's checked bag for the whole trip: the Duffel services that together cover it. */
+interface BagBundle {
+  serviceIds: string[];
+  /** Per bag, in the offer's currency. */
+  unit: Money;
+  maxQuantity: number;
+}
+
+const serviceTotal = (service: DuffelService): Money =>
+  amount(service.total_amount, service.total_currency);
+
+/**
+ * Checked bags for the whole trip, by passenger id and then weight (ADR-063). Duffel sells a bag
+ * per passenger and per segment or slice, so a bundle takes services of one weight that cover
+ * every segment exactly once: the widest first, then the cheapest. A bag that names several
+ * passengers, an unknown segment or weight, or another currency than the fare is not sold.
+ */
+function checkedBags(offer: DuffelOffer): Map<string, Map<number, BagBundle>> {
+  const bags = new Map<string, Map<number, BagBundle>>();
+  const segmentIds = offer.slices.flatMap((slice) => slice.segments.map((segment) => segment.id));
+  const segments = new Set(segmentIds.filter((id): id is string => typeof id === 'string'));
+  if (segments.size === 0 || segments.size !== segmentIds.length) return bags;
+
+  const candidates = new Map<string, Map<number, DuffelService[]>>();
+  for (const raw of offer.available_services ?? []) {
+    const parsed = duffelServiceSchema.safeParse(raw);
+    if (!parsed.success) continue;
+    const service = parsed.data;
+    const weight = service.metadata?.maximum_weight_kg;
+    const [passengerId] = service.passenger_ids;
+    if (
+      service.type !== 'baggage' ||
+      service.metadata?.type !== 'checked' ||
+      typeof weight !== 'number' ||
+      !Number.isInteger(weight) ||
+      weight <= 0 ||
+      service.passenger_ids.length !== 1 ||
+      passengerId === undefined ||
+      service.total_currency !== offer.total_currency ||
+      service.maximum_quantity < 1 ||
+      service.segment_ids.length === 0 ||
+      !service.segment_ids.every((id) => segments.has(id))
+    ) {
+      continue;
+    }
+    const byWeight = candidates.get(passengerId) ?? new Map<number, DuffelService[]>();
+    byWeight.set(weight, [...(byWeight.get(weight) ?? []), service]);
+    candidates.set(passengerId, byWeight);
+  }
+
+  for (const [passengerId, byWeight] of candidates) {
+    const bundles = new Map<number, BagBundle>();
+    for (const [weight, services] of byWeight) {
+      const ordered = [...services].sort(
+        (a, b) =>
+          b.segment_ids.length - a.segment_ids.length || compare(serviceTotal(a), serviceTotal(b)),
+      );
+      const covered = new Set<string>();
+      const chosen: DuffelService[] = [];
+      for (const service of ordered) {
+        if (service.segment_ids.some((id) => covered.has(id))) continue;
+        for (const id of service.segment_ids) covered.add(id);
+        chosen.push(service);
+      }
+      if (covered.size !== segments.size) continue;
+      bundles.set(weight, {
+        serviceIds: chosen.map((service) => service.id),
+        unit: chosen.reduce(
+          (total, service) => add(total, serviceTotal(service)),
+          zero(offer.total_currency),
+        ),
+        maxQuantity: Math.min(...chosen.map((service) => service.maximum_quantity)),
+      });
+    }
+    if (bundles.size > 0) bags.set(passengerId, bundles);
+  }
+  return bags;
+}
+
+/**
+ * The bags the offer sells, as our extras: one per weight that every passenger with a seat can
+ * add at the same price (lap infants cannot add bags). The id names the offer and the weight, so
+ * a re-check of the same offer keeps it.
+ */
+function bagServices(offer: DuffelOffer, travellers: TravellerCounts): FlightService[] {
+  const seated = offer.passengers.slice(0, travellers.adults + travellers.children);
+  const [first] = seated;
+  if (!first || seated.length !== travellers.adults + travellers.children) return [];
+  const bags = checkedBags(offer);
+  const services: FlightService[] = [];
+  for (const [weight, bundle] of bags.get(first.id) ?? []) {
+    const bundles = seated.map((passenger) => bags.get(passenger.id)?.get(weight));
+    if (bundles.some((other) => !other || !equals(other.unit, bundle.unit))) continue;
+    services.push({
+      id: `${offer.id}.bag${weight}`,
+      type: 'checked_bag',
+      weightKg: weight,
+      maxQuantity: Math.min(...bundles.map((other) => other?.maxQuantity ?? 0)),
+      price: bundle.unit,
+    });
+  }
+  return services.sort((a, b) => a.weightKg - b.weightKg || compare(a.price, b.price));
+}
 
 /**
  * Duffel flights (https://duffel.com/docs/api/v2). Enabled only when FLIGHT_SUPPLIERS includes
@@ -139,10 +250,11 @@ export class DuffelFlightSupplier extends FlightSupplier {
     return mapped;
   }
 
+  /** Fetches the offer with its extras: search results never carry them. */
   async reprice(offer: SupplierFlightOffer, signal: AbortSignal): Promise<SupplierFlightOffer> {
     const response = await this.client.request(
       'GET',
-      `/air/offers/${encodeURIComponent(offer.supplierOfferId)}?return_available_services=false`,
+      `/air/offers/${encodeURIComponent(offer.supplierOfferId)}?return_available_services=true`,
       signal,
     );
     const parsed = duffelOfferSchema.safeParse((response as { data?: unknown } | null)?.data);
@@ -161,8 +273,9 @@ export class DuffelFlightSupplier extends FlightSupplier {
   /**
    * Duffel takes one order per offer request (`offer_request_already_booked`, ADR-062), and our
    * search cache shares a search between travellers. A quote therefore searches again and takes
-   * the same flights and fare from its own offer request, preferring the same total; the price
-   * is that search's, so any change shows as the quote's price change.
+   * the same flights and fare from its own offer request, preferring the same total, then
+   * fetches that offer for its current price and its extras (bags). Any change in price shows as
+   * the quote's price change.
    */
   override async quoteOffer(
     offer: SupplierFlightOffer,
@@ -182,25 +295,32 @@ export class DuffelFlightSupplier extends FlightSupplier {
         undefined,
       );
     if (!choice) throw new OfferUnavailableError(this.name, 'The flights are no longer offered');
-    return choice;
+    return this.reprice(choice, signal);
   }
 
   /**
    * Creates an instant order paid from the Duffel balance. The offer is fetched again for its
-   * passenger ids; a total that no longer matches what the traveller paid is refused rather than
-   * charged. Extras are not requested from Duffel yet, so none can be booked.
+   * passenger ids and extras; a fare or bag price that no longer matches what the traveller paid
+   * is refused rather than charged. The payment covers the fare and the bags.
    */
   async book(request: FlightBookingRequest, signal: AbortSignal): Promise<FlightBookingResult> {
-    if (request.services.length > 0) {
-      throw new SupplierRequestError(this.name, 'Duffel extras are not supported yet');
-    }
-    const offer = await this.freshOffer(request.offer, request.passengers.length, signal);
+    const withBags = request.services.length > 0;
+    const offer = await this.freshOffer(request.offer, request.passengers.length, signal, withBags);
+    const bags = this.orderBags(offer, request);
+    const total = add(amount(offer.total_amount, offer.total_currency), bags.total);
     const created = await this.client.request('POST', '/air/orders', signal, {
       data: {
         type: 'instant',
         selected_offers: [offer.id],
         passengers: this.orderPassengers(offer, request.passengers, request.contact),
-        payments: [{ type: 'balance', currency: offer.total_currency, amount: offer.total_amount }],
+        ...(withBags ? { services: bags.services } : {}),
+        payments: [
+          {
+            type: 'balance',
+            currency: offer.total_currency,
+            amount: withBags ? toDecimalString(total) : offer.total_amount,
+          },
+        ],
         metadata: { suskii_booking_item: request.idempotencyKey },
       },
     });
@@ -305,10 +425,11 @@ export class DuffelFlightSupplier extends FlightSupplier {
     known: SupplierFlightOffer,
     passengerCount: number,
     signal: AbortSignal,
+    withServices = false,
   ): Promise<DuffelOffer> {
     const response = await this.client.request(
       'GET',
-      `/air/offers/${encodeURIComponent(known.supplierOfferId)}?return_available_services=false`,
+      `/air/offers/${encodeURIComponent(known.supplierOfferId)}?return_available_services=${withServices}`,
       signal,
     );
     const parsed = duffelOfferSchema.safeParse((response as { data?: unknown } | null)?.data);
@@ -323,6 +444,35 @@ export class DuffelFlightSupplier extends FlightSupplier {
       throw new SupplierRequestError(this.name, 'Passengers do not match the offer');
     }
     return offer;
+  }
+
+  /**
+   * The Duffel services for the bags the traveller paid for, by passenger. A bag that is gone,
+   * over its limit or at another price than the one paid is refused rather than charged.
+   */
+  private orderBags(
+    offer: DuffelOffer,
+    request: FlightBookingRequest,
+  ): { services: { id: string; quantity: number }[]; total: Money } {
+    const services: { id: string; quantity: number }[] = [];
+    let total = zero(offer.total_currency);
+    if (request.services.length === 0) return { services, total };
+    const bags = checkedBags(offer);
+    for (const selection of request.services) {
+      const paid = request.offer.services.find((service) => service.id === selection.serviceId);
+      const passengerId = offer.passengers[selection.passengerIndex]?.id;
+      const bundle =
+        paid && passengerId !== undefined ? bags.get(passengerId)?.get(paid.weightKg) : undefined;
+      if (!paid || !bundle || selection.quantity < 1 || selection.quantity > bundle.maxQuantity) {
+        throw new SupplierRequestError(this.name, 'A bag is no longer offered');
+      }
+      if (!equals(bundle.unit, paid.price)) {
+        throw new SupplierRequestError(this.name, 'A bag changed price after payment');
+      }
+      for (const id of bundle.serviceIds) services.push({ id, quantity: selection.quantity });
+      total = add(total, multiply(bundle.unit, selection.quantity));
+    }
+    return { services, total };
   }
 
   private orderPassengers(
@@ -504,7 +654,7 @@ export class DuffelFlightSupplier extends FlightSupplier {
             ? new Date(payment.price_guarantee_expires_at).toISOString()
             : null,
         },
-        services: [],
+        services: bagServices(offer, query.passengers),
       };
     } catch (error) {
       this.logger.warn({ err: error, offerId: offer.id }, 'Could not map Duffel offer');
