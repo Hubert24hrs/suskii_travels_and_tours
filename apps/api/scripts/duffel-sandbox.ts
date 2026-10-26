@@ -612,7 +612,8 @@ async function carChecks(env: Env): Promise<void> {
   const { token, failures } = env;
   const pickupDate = addDays(localDate(new Date(), 'UTC'), 30);
   const dropoffDate = addDays(pickupDate, 3);
-  // Test-mode inventory may sit at a few locations only, so several major airports are tried.
+  // Test-mode inventory may sit at a few locations only, so several major airports are tried
+  // (10 km around each: Duffel refuses a radius of 25 with 422 `number`).
   const places = [
     { name: 'London Heathrow', latitude: 51.47, longitude: -0.4543, country: 'GB' },
     { name: 'Lagos airport', latitude: 6.5774, longitude: 3.3212, country: 'NG' },
@@ -633,7 +634,7 @@ async function carChecks(env: Env): Promise<void> {
   let firstRate: Json | undefined;
   for (const place of places) {
     const location = {
-      radius: 25,
+      radius: 10,
       geographic_coordinates: { latitude: place.latitude, longitude: place.longitude },
     };
     const raw = await probe(token, 'POST', '/cars/search', {
