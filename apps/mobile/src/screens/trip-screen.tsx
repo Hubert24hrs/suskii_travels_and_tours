@@ -1,3 +1,4 @@
+import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
 import { BOOKING_IN_PROGRESS_STATUSES, type BookingStatus } from '@suskii/shared';
 import { Badge, Button, Card, Modal, useToast, type BadgeProps } from '@suskii/ui-native';
@@ -15,7 +16,7 @@ import { InhouseSummary, inhouseKind } from '../components/inhouse/inhouse-summa
 import { VoucherCard } from '../components/inhouse/voucher-card';
 import { Loading, Notice, OfflineBanner } from '../components/states';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
-import { isNetworkError } from '../lib/api';
+import { isNetworkError, problemSlug } from '../lib/api';
 import { documentStore, type SavedDocument } from '../lib/documents';
 import { openHostedCheckout, startPayment } from '../lib/payment';
 import { followBooking } from '../lib/push';
@@ -177,6 +178,8 @@ export function TripScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // A ticketed flight's refund quote, shown before the traveller confirms (ADR-064).
+  const [flightQuote, setFlightQuote] = useState<Schemas['FlightCancellationQuote'] | null>(null);
   useSensitiveScreen();
 
   const headers = async (): Promise<Record<string, string>> => {
@@ -272,8 +275,49 @@ export function TripScreen() {
         path: { bookingId: booking.id },
         header: await tripStore.bookingHeaders(booking.id),
       },
+      body: {},
     });
     if (!data) setActionError(t('checkout.errors.generic'));
+    setBusy(false);
+    void query.refetch();
+  };
+
+  const quoteFlightCancellation = async () => {
+    setBusy(true);
+    setActionError(null);
+    const { data, error } = await api.POST('/v1/bookings/{bookingId}/cancellation-quote', {
+      params: {
+        path: { bookingId: booking.id },
+        header: await tripStore.bookingHeaders(booking.id),
+      },
+    });
+    setBusy(false);
+    if (data) setFlightQuote(data);
+    else
+      setActionError(
+        problemSlug(error) === 'not-cancellable'
+          ? t('booking.flightCancel.notOnline')
+          : t('checkout.errors.generic'),
+      );
+  };
+
+  const cancelFlight = async (refund: Schemas['Money']) => {
+    setBusy(true);
+    const { data, error } = await api.POST('/v1/bookings/{bookingId}/cancel', {
+      params: {
+        path: { bookingId: booking.id },
+        header: await tripStore.bookingHeaders(booking.id),
+      },
+      body: { refund },
+    });
+    setFlightQuote(null);
+    if (!data) {
+      setActionError(
+        problemSlug(error) === 'cancellation-quote-expired'
+          ? t('booking.flightCancel.expired')
+          : t('checkout.errors.generic'),
+      );
+    }
     setBusy(false);
     void query.refetch();
   };
@@ -591,6 +635,16 @@ export function TripScreen() {
             {t('booking.inhouse.cancel')}
           </Button>
         ) : null}
+        {booking.flightCancellable && !offline ? (
+          <Button
+            testID="cancel-flight"
+            variant="ghost"
+            loading={busy && !flightQuote}
+            onPress={() => void quoteFlightCancellation()}
+          >
+            {t('booking.flightCancel.action')}
+          </Button>
+        ) : null}
         {!offline ? (
           <Button variant="ghost" onPress={() => void follow()}>
             {t('mobile.trip.notify')}
@@ -631,6 +685,51 @@ export function TripScreen() {
           </View>
         }
       />
+      <Modal
+        open={flightQuote !== null}
+        onOpenChange={(open) => {
+          if (!open) setFlightQuote(null);
+        }}
+        title={t('booking.flightCancel.title')}
+        description={
+          flightQuote && flightQuote.refund.amountMinor > 0
+            ? t('booking.flightCancel.refund', { amount: format.money(flightQuote.refund) })
+            : t('booking.flightCancel.noRefund', {
+                amount: flightQuote ? format.money(flightQuote.kept) : '',
+              })
+        }
+        closeLabel={t('common.close')}
+        footer={
+          <View className="gap-2">
+            <Button
+              testID="cancel-flight-confirm"
+              fullWidth
+              loading={busy}
+              onPress={() => {
+                if (flightQuote) void cancelFlight(flightQuote.refund);
+              }}
+            >
+              {t('booking.flightCancel.confirm')}
+            </Button>
+            <Button variant="ghost" onPress={() => setFlightQuote(null)}>
+              {t('booking.flightCancel.keep')}
+            </Button>
+          </View>
+        }
+      >
+        {flightQuote ? (
+          <View className="gap-2">
+            {flightQuote.refund.amountMinor > 0 && flightQuote.kept.amountMinor > 0 ? (
+              <Text className="font-body text-body-sm text-foreground">
+                {t('booking.flightCancel.kept', { amount: format.money(flightQuote.kept) })}
+              </Text>
+            ) : null}
+            <Text testID="cancel-flight-expires" className="font-body text-body-sm text-muted">
+              {t('booking.flightCancel.expires', { time: format.dateTime(flightQuote.expiresAt) })}
+            </Text>
+          </View>
+        ) : null}
+      </Modal>
       <Modal
         open={removing}
         onOpenChange={setRemoving}
