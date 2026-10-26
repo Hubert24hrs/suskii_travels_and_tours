@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Duffel sandbox check (2026-10-26)
+
+#### Added
+
+- **`duffel-sandbox.yml`**, a manual workflow, and `pnpm --filter @suskii/api sandbox:duffel`.
+  They put the open questions of ADR-062 to Duffel's test mode and print what Duffel answers:
+  - whether search results carry rooms;
+  - the radius unit;
+  - which rates we can sell;
+  - the fields and lifetime of a quote;
+  - the error codes for unknown ids, and how our client classifies them;
+  - with `book`, a booking through the adapter, a repeated booking on one quote, then
+    cancellations.
+- The check uses the `DUFFEL_API_TOKEN` repository secret and refuses anything but a
+  `duffel_test_` token. It sends only made-up guest details. CI still never calls Duffel.
+
 ### Duffel Stays hotel adapter (2026-10-26)
 
 Design and open checks in ADR-062. Built from the types in Duffel's official SDK; every test runs

@@ -128,6 +128,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api keys:reencrypt`        | Rewrite field encryption under the current key (dry run first)             |
 | `pnpm --filter @suskii/api sessions:revoke`       | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)          |
 | `pnpm --filter @suskii/api eval:natural-search`   | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model) |
+| `pnpm --filter @suskii/api sandbox:duffel`        | Duffel Stays test-mode check (ADR-062; test token only, `--book` books)    |
 | `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)        |
 | `pnpm --filter @suskii/api staff:bootstrap`       | First super admin of a new environment (`--email`, `--yes`; once)          |
 | `pnpm release:rehearse`                           | Compose deploy, ops command, broken release, rollback (`:local` images)    |

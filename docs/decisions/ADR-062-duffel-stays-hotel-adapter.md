@@ -116,6 +116,10 @@ Both are recorded in `docs/security/external-communications.md` and the release 
 
 ## Not yet verified (needs a Duffel sandbox run)
 
+The manual `duffel-sandbox.yml` workflow (`pnpm --filter @suskii/api sandbox:duffel`) asks these
+questions of Duffel's test mode with the `DUFFEL_API_TOKEN` repository secret. It refuses a live
+token, sends only made-up guest details, and books only when started with `book` (then cancels).
+
 1. **Error codes.** Which Stays error codes mean the rate is gone. The client maps
    `offer_no_longer_available`, `offer_expired` and `not_found` to `OfferUnavailableError`.
    Others become request or availability errors.
