@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Online cancellation of ticketed flights (2026-10-26)
+
+#### Added
+
+- **Cancel a ticketed flight online (ADR-064).** Bookings show `flightCancellable` for a ticketed
+  flight whose supplier cancels online (Duffel, the mock) before departure.
+  - `POST /v1/bookings/{id}/cancellation-quote` opens the airline's pending cancellation and
+    holds the traveller's refund for the quote's life (at most 30 minutes).
+  - The refund is the traveller's share of what they paid, in the proportion the airline refunds
+    what we paid it, rounded down.
+  - `POST /v1/bookings/{id}/cancel`, with the quoted `refund`, cancels with the airline first,
+    then refunds through the ledger and refund pipeline, keeping the rest as a cancellation fee.
+  - Credits, other currencies, departed flights and lapsing quotes go to support (409
+    `not-cancellable`).
+- **Supplier order ids.** Ticketing keeps the supplier's order id, and suppliers gain
+  `cancellationQuote()` and `confirmCancellation()`. The Duffel confirmation re-checks its
+  state after a failure, so a retry is safe.
+- **Website and app.** "Cancel flight" shows the refund, what is kept and until when the offer
+  stands, then cancels with that exact refund.
+- **Sandbox.** The sandbox check cancels its paid order through the quote and confirm, and the
+  journey books, pays and cancels through our API. Against Duffel's test mode the order was
+  cancelled with a full refund, and the booking moved to `REFUND_PENDING`.
+
 ### Checked bags on Duffel flights (2026-10-26)
 
 #### Added

@@ -283,6 +283,11 @@ Tooling notes for agents:
   `requiresRefund`, audited and refunded automatically, never silently applied.
 - Supplier `book()` calls use the booking item id as idempotency key; `idempotentBooking` decides
   whether an ambiguous failure (timeout) may be retried or goes to REFUND_PENDING for review.
+- Ticketed flights cancel online only through `FlightCancellationService` (ADR-064): a refund
+  quote held in Redis, the supplier's confirmation first, then the ledger fee and
+  `refundBookingBalance` in one transaction. The traveller's refund is `travellerRefund()`
+  (their share, rounded down, never above what they paid); never refund before the airline has
+  cancelled.
 - Binary responses (PDFs) use `fileResponse()` in the contract and return a `StreamableFile`.
   Stored idempotent responses are encrypted (they can contain guest tokens).
 
@@ -715,6 +720,7 @@ Tooling notes for agents:
 - [ADR-061: AI trip search](docs/decisions/ADR-061-ai-trip-search.md)
 - [ADR-062: Duffel Stays hotel adapter](docs/decisions/ADR-062-duffel-stays-hotel-adapter.md)
 - [ADR-063: Checked bags on Duffel flights](docs/decisions/ADR-063-checked-bags-on-duffel-flights.md)
+- [ADR-064: Online cancellation of ticketed flights](docs/decisions/ADR-064-online-flight-cancellation.md)
 
 ## Open questions for the owner
 
@@ -779,4 +785,7 @@ and its daily caps (defaults $0.05 per user or address, $20 in total). Added wit
 adapter: Stays access on the Duffel account, a sandbox token and one sandbox run of the checks in
 ADR-062 (error codes, radius unit, quote lifetime, duplicate bookings). The Duffel sandbox
 workflow runs them with the `DUFFEL_API_TOKEN` repository secret. Flights pass, including two
-travellers booking from one shared search. Stays still needs access.
+travellers booking from one shared search. Stays still needs access. Added with online flight
+cancellation (ADR-064): an optional cancellation service fee on top of the airline's terms,
+what to do when the airline refunds as credits (support today), and whether staff need a console
+action for supplier cancellations.
