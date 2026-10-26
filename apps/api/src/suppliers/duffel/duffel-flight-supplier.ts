@@ -27,6 +27,8 @@ import {
   type AirportPoint,
   type FlightBookingRequest,
   type FlightBookingResult,
+  type FlightCancellationQuote,
+  type FlightCancellationRequest,
   type FlightHold,
   type FlightHoldRequest,
   type FlightSearchQuery,
@@ -42,10 +44,12 @@ import {
 import type { DuffelClient } from './duffel.client';
 import {
   duffelOfferSchema,
+  duffelOrderCancellationSchema,
   duffelOrderSchema,
   duffelServiceSchema,
   type DuffelOffer,
   type DuffelOrder,
+  type DuffelOrderCancellation,
   type DuffelService,
 } from './duffel.schemas';
 
@@ -196,6 +200,7 @@ export class DuffelFlightSupplier extends FlightSupplier {
   readonly name = 'duffel';
   /** Duffel cannot deduplicate order creation, so an ambiguous failure is never retried blindly. */
   readonly idempotentBooking = false;
+  override readonly cancelsOnline = true;
   private readonly logger = new Logger(DuffelFlightSupplier.name);
 
   constructor(
@@ -325,7 +330,11 @@ export class DuffelFlightSupplier extends FlightSupplier {
       },
     });
     const order = this.parseOrder(created);
-    return { supplierReference: order.booking_reference, tickets: this.tickets(order, offer) };
+    return {
+      supplierReference: order.booking_reference,
+      tickets: this.tickets(order, offer),
+      orderId: order.id,
+    };
   }
 
   /** Creates a `pay_later` order: the airline holds the space until `payment_required_by`. */
@@ -388,7 +397,11 @@ export class DuffelFlightSupplier extends FlightSupplier {
     const before = this.parseOrder(await this.client.request('GET', path, signal));
     if (before.payment_status && !before.payment_status.awaiting_payment) {
       // Paid already (a retry after an ambiguous failure): just read the tickets.
-      return { supplierReference: before.booking_reference, tickets: this.tickets(before, null) };
+      return {
+        supplierReference: before.booking_reference,
+        tickets: this.tickets(before, null),
+        orderId: request.orderId,
+      };
     }
     const current = this.orderPrice(before);
     const agreed = add(request.price.base, request.price.taxes);
@@ -402,23 +415,77 @@ export class DuffelFlightSupplier extends FlightSupplier {
       },
     });
     const after = this.parseOrder(await this.client.request('GET', path, signal));
-    return { supplierReference: after.booking_reference, tickets: this.tickets(after, null) };
+    return {
+      supplierReference: after.booking_reference,
+      tickets: this.tickets(after, null),
+      orderId: request.orderId,
+    };
   }
 
   /** Unpaid holds cancel free of charge: create the cancellation, then confirm it. */
   override async cancelHold(orderId: string, signal: AbortSignal): Promise<void> {
-    const created = (await this.client.request('POST', '/air/order_cancellations', signal, {
-      data: { order_id: orderId },
-    })) as { data?: { id?: unknown } } | null;
-    const id = created?.data?.id;
-    if (typeof id !== 'string') {
+    const cancellation = await this.createCancellation(orderId, signal);
+    await this.confirmCancellation(cancellation.id, signal);
+  }
+
+  /**
+   * Creates a pending cancellation of a ticketed order: Duffel states what it would refund and
+   * until when the offer stands. Nothing is cancelled until it is confirmed (ADR-064).
+   */
+  override async cancellationQuote(
+    request: FlightCancellationRequest,
+    signal: AbortSignal,
+  ): Promise<FlightCancellationQuote> {
+    const cancellation = await this.createCancellation(request.orderId, signal);
+    const currency = cancellation.refund_currency ?? request.supplierTotal.currency;
+    return {
+      quoteId: cancellation.id,
+      refund: amount(cancellation.refund_amount ?? '0', currency),
+      refundToBalance: cancellation.refund_to === 'balance',
+      // Without a stated expiry the quote is treated as short-lived.
+      expiresAt: new Date(
+        cancellation.expires_at ? Date.parse(cancellation.expires_at) : Date.now() + 5 * 60_000,
+      ).toISOString(),
+    };
+  }
+
+  /**
+   * Confirms a pending cancellation. When the confirmation fails or times out, Duffel is asked
+   * whether it went through, so a retry never mistakes a done cancellation for a failure.
+   */
+  override async confirmCancellation(quoteId: string, signal: AbortSignal): Promise<void> {
+    const path = `/air/order_cancellations/${encodeURIComponent(quoteId)}`;
+    try {
+      await this.client.request('POST', `${path}/actions/confirm`, signal);
+    } catch (error) {
+      const current = await this.client
+        .request('GET', path, AbortSignal.timeout(this.supplierTimeoutMs))
+        .then((response) => this.parseCancellation(response))
+        .catch(() => null);
+      if (current?.confirmed_at) return;
+      throw error;
+    }
+  }
+
+  private async createCancellation(
+    orderId: string,
+    signal: AbortSignal,
+  ): Promise<DuffelOrderCancellation> {
+    return this.parseCancellation(
+      await this.client.request('POST', '/air/order_cancellations', signal, {
+        data: { order_id: orderId },
+      }),
+    );
+  }
+
+  private parseCancellation(response: unknown): DuffelOrderCancellation {
+    const parsed = duffelOrderCancellationSchema.safeParse(
+      (response as { data?: unknown } | null)?.data,
+    );
+    if (!parsed.success) {
       throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid cancellation');
     }
-    await this.client.request(
-      'POST',
-      `/air/order_cancellations/${encodeURIComponent(id)}/actions/confirm`,
-      signal,
-    );
+    return parsed.data;
   }
 
   private async freshOffer(

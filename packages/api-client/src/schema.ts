@@ -2396,9 +2396,29 @@ export interface paths {
         put?: never;
         /**
          * Cancel a booking
-         * @description Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept; 409 `not-cancellable` for anything else confirmed (contact support).
+         * @description Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept. A flight with `flightCancellable` is cancelled under its refund quote: the airline cancels first, then the quoted refund goes back; without a live quote (or with a different `refund`), 409 `cancellation-quote-expired`. 409 `not-cancellable` for anything else confirmed (contact support).
          */
         post: operations["cancelBooking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/cancellation-quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask what cancelling a flight would refund
+         * @description For a booking with `flightCancellable`: the airline states what it refunds, and the traveller's share is held until `expiresAt`. Nothing is cancelled yet; cancel with `POST /v1/bookings/{bookingId}/cancel`, sending the quoted `refund`. 409 `not-cancellable` when the airline will not cancel it online (credits, other currency, departed): contact support (ADR-064).
+         */
+        post: operations["quoteFlightCancellation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6174,6 +6194,7 @@ export interface components {
                 refundBps: number;
                 refund: components["schemas"]["Money"];
             } | null;
+            flightCancellable: boolean;
             addons: {
                 /** Format: uuid */
                 id: string;
@@ -6512,6 +6533,9 @@ export interface components {
                 daysBefore: number;
                 refundBps: number;
             }[];
+        };
+        CancelBookingRequestInput: {
+            refund?: components["schemas"]["MoneyInput"];
         };
         CancellationTier: {
             daysBefore: number;
@@ -7212,6 +7236,12 @@ export interface components {
             maxAmountMinor?: number | null;
             validFrom?: string | null;
             validTo?: string | null;
+        };
+        FlightCancellationQuote: {
+            refund: components["schemas"]["Money"];
+            kept: components["schemas"]["Money"];
+            /** Format: date-time */
+            expiresAt: string;
         };
         FlightDeal: {
             id: string;
@@ -14922,7 +14952,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelBookingRequestInput"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -14939,6 +14973,41 @@ export interface operations {
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    quoteFlightCancellation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightCancellationQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     getCarsSuggestions: {

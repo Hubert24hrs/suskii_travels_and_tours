@@ -180,3 +180,11 @@ export const paymentProviderDown = (): ProblemDetailsException =>
     'The payment provider is not responding',
     'Please try again in a few minutes.',
   );
+
+export const notCancellable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'not-cancellable',
+    'This booking cannot be cancelled online',
+    'Contact support to change or cancel it.',
+  );

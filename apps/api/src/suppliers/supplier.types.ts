@@ -211,6 +211,25 @@ export interface FlightBookingResult {
   /** Airline booking reference (PNR). */
   supplierReference: string;
   tickets: { passengerIndex: number; number: string }[];
+  /** The supplier's order id, kept for after-sales such as cancellation (ADR-064). */
+  orderId?: string;
+}
+
+export interface FlightCancellationRequest {
+  orderId: string;
+  /** The booked offer and what we paid the supplier for it (fare and extras). */
+  offer: SupplierFlightOffer;
+  supplierTotal: Money;
+}
+
+/** What cancelling a ticketed order would refund us; confirming `quoteId` cancels it (ADR-064). */
+export interface FlightCancellationQuote {
+  quoteId: string;
+  /** Refunded to us by the supplier; zero for a fare that refunds nothing. */
+  refund: Money;
+  /** False when the refund is not money back to our balance (airline credits, vouchers). */
+  refundToBalance: boolean;
+  expiresAt: string;
 }
 
 export interface FlightHoldRequest {
@@ -310,6 +329,25 @@ export abstract class FlightSupplier {
   /** Releases a held order (unpaid holds cancel free of charge). */
   cancelHold(_orderId: string, _signal: AbortSignal): Promise<void> {
     return Promise.reject(new SupplierRequestError(this.name, 'Holds are not supported'));
+  }
+
+  /** Whether travellers can cancel this supplier's ticketed orders online (ADR-064). */
+  readonly cancelsOnline: boolean = false;
+
+  /** Asks what cancelling a ticketed order would refund. Nothing is cancelled until confirmed. */
+  cancellationQuote(
+    _request: FlightCancellationRequest,
+    _signal: AbortSignal,
+  ): Promise<FlightCancellationQuote> {
+    return Promise.reject(new SupplierRequestError(this.name, 'Cancellation is not supported'));
+  }
+
+  /**
+   * Cancels the order a quote is for. Must be safe to repeat: a quote that is already confirmed
+   * resolves, so a retry after an ambiguous failure never errors on a done cancellation.
+   */
+  confirmCancellation(_quoteId: string, _signal: AbortSignal): Promise<void> {
+    return Promise.reject(new SupplierRequestError(this.name, 'Cancellation is not supported'));
   }
 }
 

@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import type { z } from 'zod';
 
+import { fromWire } from '@suskii/shared';
+
 import { DeviceAttested } from '../attestation/attestation.guard';
 import { ATTESTATION_HEADER } from '../attestation/attestation.schemas';
 import type { AuthenticatedRequest } from '../auth/auth-context';
@@ -33,20 +35,24 @@ import {
   BOOKING_TOKEN_HEADER,
   bookingIdParamsSchema,
   bookingSchema,
+  cancelBookingRequestSchema,
   createBookingRequestSchema,
   createdBookingSchema,
   documentParamsSchema,
+  flightCancellationQuoteSchema,
   paymentSessionSchema,
   priceConsentRequestSchema,
   quoteIdParamsSchema,
   quoteSchema,
   startPaymentRequestSchema,
+  type CancelBookingRequest,
   type CreateBookingRequest,
   type StartPaymentRequest,
 } from './bookings.schemas';
 import { bookingCaller } from './booking-caller';
 import { BookingsService } from './bookings.service';
 import { CheckoutService } from './checkout.service';
+import { FlightCancellationService } from './flight-cancellation.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { QuotesService } from './quotes.service';
 
@@ -69,6 +75,7 @@ export class BookingsController {
     private readonly plans: PaymentPlansService,
     private readonly pushTokens: PushTokensService,
     private readonly cancellation: BookingCancellationService,
+    private readonly flightCancellation: FlightCancellationService,
   ) {}
 
   @Get('quotes/:quoteId')
@@ -242,24 +249,51 @@ export class BookingsController {
     await this.pushTokens.registerForBooking(bookingId, body);
   }
 
+  @Post('bookings/:bookingId/cancellation-quote')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit(BOOKING_LIMITS.cancellationQuoteIp)
+  @Contract({
+    operationId: 'quoteFlightCancellation',
+    summary: 'Ask what cancelling a flight would refund',
+    description:
+      "For a booking with `flightCancellable`: the airline states what it refunds, and the traveller's share is held until `expiresAt`. Nothing is cancelled yet; cancel with `POST /v1/bookings/{bookingId}/cancel`, sending the quoted `refund`. 409 `not-cancellable` when the airline will not cancel it online (credits, other currency, departed): contact support (ADR-064).",
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: flightCancellationQuoteSchema },
+    errors: [404, 409, 503],
+  })
+  quoteFlightCancellation(
+    @Param('bookingId') bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof flightCancellationQuoteSchema>> {
+    return this.flightCancellation.quote(bookingId, caller(request));
+  }
+
   @Post('bookings/:bookingId/cancel')
   @HttpCode(HttpStatus.OK)
   @Contract({
     operationId: 'cancelBooking',
     summary: 'Cancel a booking',
     description:
-      'Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept; 409 `not-cancellable` for anything else confirmed (contact support).',
+      'Unpaid bookings are released (an airline reservation too). A partly paid plan is refunded per its policy (`paymentPlan.defaultFeeBps`). Confirmed packages, tours and add-ons are cancelled under their cancellation policy: `cancellation.refund` goes back automatically and the rest is kept. A flight with `flightCancellable` is cancelled under its refund quote: the airline cancels first, then the quoted refund goes back; without a live quote (or with a different `refund`), 409 `cancellation-quote-expired`. 409 `not-cancellable` for anything else confirmed (contact support).',
     tags: TAGS,
     params: bookingIdParamsSchema,
     headers: [BOOKING_TOKEN_HEADER],
+    body: cancelBookingRequestSchema,
     responses: { 200: bookingSchema },
-    errors: [404, 409],
+    errors: [404, 409, 503],
   })
   cancel(
     @Param('bookingId') bookingId: string,
+    @Body() body: CancelBookingRequest,
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof bookingSchema>> {
-    return this.cancellation.cancel(bookingId, caller(request));
+    return this.cancellation.cancel(
+      bookingId,
+      caller(request),
+      body.refund ? fromWire(body.refund) : null,
+    );
   }
 
   @Get('bookings/:bookingId/documents/:documentId')
