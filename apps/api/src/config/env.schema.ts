@@ -355,6 +355,12 @@ export const envSchema = z
     PRICE_ALERT_MIN_DROP_BPS: z.coerce.number().int().min(100).max(9000).default(500),
     /** Alerts checked per worker run (each distinct route and date costs one supplier search). */
     PRICE_ALERT_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(50),
+    /**
+     * Ticketed flights are asked for airline schedule changes this often until they depart, at
+     * most SCHEDULE_CHANGE_BATCH_SIZE per sweep (one supplier call each, ADR-065).
+     */
+    SCHEDULE_CHANGE_CHECK_HOURS: z.coerce.number().int().min(1).max(48).default(6),
+    SCHEDULE_CHANGE_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
     /** Prime members are reminded this many days before their paid-up end (ADR-030). */
     PRIME_REMINDER_DAYS: z.coerce.number().int().min(1).max(60).default(7),
     /**
@@ -443,6 +449,22 @@ export const envSchema = z
         .transform((rule) => {
           const [route = '', bps = '0'] = rule.split(':');
           return [route, Number(bps)] as const;
+        }),
+    )
+      .transform((rules) => new Map(rules))
+      .default(new Map()),
+    /**
+     * Mock flight supplier only: minutes the airline moves the first flight of ticketed orders
+     * on chosen outbound routes, e.g. `LOS-ABV:90`, so the schedule-change journey can be walked
+     * through locally (ADR-065).
+     */
+    MOCK_SCHEDULE_CHANGE_RULES: csv(
+      z
+        .string()
+        .regex(/^[A-Z]{3}-[A-Z]{3}:-?\d{1,4}$/, 'use ORIGIN-DESTINATION:minutes')
+        .transform((rule) => {
+          const [route = '', minutes = '0'] = rule.split(':');
+          return [route, Number(minutes)] as const;
         }),
     )
       .transform((rules) => new Map(rules))

@@ -477,6 +477,65 @@ describe('MockFlightSupplier holds (ADR-018)', () => {
   });
 });
 
+describe('MockFlightSupplier airline changes (ADR-065)', () => {
+  it('moves the first flight of orders on a ruled route once, and accepts the change', async () => {
+    const supplier = new MockFlightSupplier(directory, () => NOW, new Map(), new Map());
+    const [offer] = await supplier.search(query(), signal);
+    if (!offer) throw new Error('no offer');
+    const request = { orderId: 'mockord_1', offer };
+    // No rule for the route: the order is as booked.
+    await expect(supplier.orderChanges(request, signal)).resolves.toEqual({
+      slices: offer.slices,
+      changes: [],
+    });
+
+    supplier.scheduleRules.set('LOS-LHR', 90);
+    const first = await supplier.orderChanges({ ...request, orderId: 'mockord_2' }, signal);
+    const [change] = first.changes;
+    const before = offer.slices[0];
+    const after = change?.added[0];
+    if (!before || !after) throw new Error('no change');
+    expect(change).toMatchObject({
+      id: 'mockaic_mockord_2',
+      acceptable: true,
+      actionTaken: null,
+      removed: [before],
+    });
+    expect(Date.parse(after.departureUtc) - Date.parse(before.departureUtc)).toBe(90 * 60_000);
+    expect(after.departureLocal).toBe(
+      utcToLocal(new Date(after.departureUtc), after.origin.timeZone),
+    );
+    expect(first.slices[0]).toEqual(after);
+
+    // The same change on every later check, even of the moved itinerary; then accepted once.
+    const again = await supplier.orderChanges(
+      { orderId: 'mockord_2', offer: { ...offer, slices: first.slices } },
+      signal,
+    );
+    expect(again).toEqual(first);
+    supplier.failNextChangeAcceptances = 1;
+    const accept = { orderId: 'mockord_2', offer, changeId: 'mockaic_mockord_2' };
+    await expect(supplier.acceptAirlineChange(accept, signal)).rejects.toBeInstanceOf(
+      SupplierUnavailableError,
+    );
+    const accepted = await supplier.acceptAirlineChange(accept, signal);
+    expect(accepted.changes[0]?.actionTaken).toBe('accepted');
+    await expect(supplier.acceptAirlineChange(accept, signal)).resolves.toEqual(accepted);
+    await expect(
+      supplier.acceptAirlineChange({ ...accept, changeId: 'mockaic_other' }, signal),
+    ).rejects.toBeInstanceOf(SupplierRequestError);
+
+    // Departed flights are not changed any more.
+    const late = new MockFlightSupplier(
+      directory,
+      () => new Date('2026-12-01T00:00:00Z'),
+      new Map(),
+      new Map([['LOS-LHR', 90]]),
+    );
+    await expect(late.orderChanges(request, signal)).resolves.toMatchObject({ changes: [] });
+  });
+});
+
 describe('MockHotelSupplier', () => {
   const supplier = new MockHotelSupplier(() => NOW);
   const hotelQuery = (overrides: Partial<HotelSearchQuery> = {}): HotelSearchQuery => ({

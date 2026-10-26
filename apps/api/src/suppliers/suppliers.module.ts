@@ -26,7 +26,12 @@ export const HOTEL_SUPPLIERS = Symbol('HOTEL_SUPPLIERS');
       provide: MockFlightSupplier,
       inject: [CatalogService, APP_CONFIG],
       useFactory: (catalog: CatalogService, config: AppConfig) =>
-        new MockFlightSupplier(catalog, undefined, config.MOCK_REPRICE_RULES),
+        new MockFlightSupplier(
+          catalog,
+          undefined,
+          config.MOCK_REPRICE_RULES,
+          config.MOCK_SCHEDULE_CHANGE_RULES,
+        ),
     },
     { provide: MockHotelSupplier, useFactory: () => new MockHotelSupplier() },
     {

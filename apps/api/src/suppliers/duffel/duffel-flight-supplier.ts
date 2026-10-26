@@ -24,6 +24,8 @@ import {
 import type { SupplierPrice } from '../../pricing/pricing-engine';
 import {
   FlightSupplier,
+  type AirlineChange,
+  type AirlineChangesRequest,
   type AirportPoint,
   type FlightBookingRequest,
   type FlightBookingResult,
@@ -34,7 +36,9 @@ import {
   type FlightSearchQuery,
   type FlightSegment,
   type FlightService,
+  type FlightSlice,
   type HeldOrder,
+  type OrderChanges,
   type PayHeldRequest,
   type SupplierContact,
   type SupplierFlightOffer,
@@ -43,17 +47,22 @@ import {
 
 import type { DuffelClient } from './duffel.client';
 import {
+  duffelAirlineChangeSchema,
   duffelOfferSchema,
   duffelOrderCancellationSchema,
+  duffelOrderChangesSchema,
   duffelOrderSchema,
   duffelServiceSchema,
+  duffelSliceSchema,
   type DuffelOffer,
   type DuffelOrder,
   type DuffelOrderCancellation,
   type DuffelService,
+  type DuffelSlice,
 } from './duffel.schemas';
 
-type DuffelPlace = DuffelOffer['slices'][number]['segments'][number]['origin'];
+type DuffelSegment = DuffelSlice['segments'][number];
+type DuffelPlace = DuffelSegment['origin'];
 
 const place = (value: DuffelPlace): AirportPoint => ({
   code: value.iata_code,
@@ -67,6 +76,53 @@ const place = (value: DuffelPlace): AirportPoint => ({
 const localTime = (value: string): string => value.slice(0, 16);
 
 const amount = (value: string, currency: string): Money => parseMoney(value, currency, 'half-up');
+
+/** One flight in our shape. Throws when its times cannot be placed in the airports' zones. */
+function toSegment(segment: DuffelSegment, cabinClass: CabinClass): FlightSegment {
+  const departureUtc = localToUtc(localTime(segment.departing_at), segment.origin.time_zone);
+  const arrivalUtc = localToUtc(localTime(segment.arriving_at), segment.destination.time_zone);
+  return {
+    marketingCarrier: {
+      code: segment.marketing_carrier.iata_code ?? '',
+      name: segment.marketing_carrier.name,
+    },
+    operatingCarrier: {
+      code: segment.operating_carrier.iata_code ?? '',
+      name: segment.operating_carrier.name,
+    },
+    flightNumber: segment.marketing_carrier_flight_number,
+    origin: place(segment.origin),
+    destination: place(segment.destination),
+    departureLocal: localTime(segment.departing_at),
+    departureUtc: departureUtc.toISOString(),
+    arrivalLocal: localTime(segment.arriving_at),
+    arrivalUtc: arrivalUtc.toISOString(),
+    durationMinutes: Math.round((arrivalUtc.getTime() - departureUtc.getTime()) / 60_000),
+    aircraft: segment.aircraft?.name ?? null,
+    cabinClass: segment.passengers[0]?.cabin_class ?? cabinClass,
+  };
+}
+
+const toSlice = (slice: DuffelSlice, cabinClass: CabinClass): FlightSlice =>
+  buildSlice(
+    slice.segments.map((segment) => toSegment(segment, cabinClass)),
+    slice.fare_brand_name ?? null,
+  );
+
+/** Order slices in our shape, or null when any of them cannot be represented faithfully. */
+function orderSlices(raw: readonly unknown[], cabinClass: CabinClass): FlightSlice[] | null {
+  const slices: FlightSlice[] = [];
+  for (const value of raw) {
+    const parsed = duffelSliceSchema.safeParse(value);
+    if (!parsed.success) return null;
+    try {
+      slices.push(toSlice(parsed.data, cabinClass));
+    } catch {
+      return null;
+    }
+  }
+  return slices;
+}
 
 /** The flights and fare an offer sells: offers with the same key are the same product. */
 function itineraryKey(offer: SupplierFlightOffer): string {
@@ -201,6 +257,7 @@ export class DuffelFlightSupplier extends FlightSupplier {
   /** Duffel cannot deduplicate order creation, so an ambiguous failure is never retried blindly. */
   readonly idempotentBooking = false;
   override readonly cancelsOnline = true;
+  override readonly tracksChanges = true;
   private readonly logger = new Logger(DuffelFlightSupplier.name);
 
   constructor(
@@ -467,6 +524,87 @@ export class DuffelFlightSupplier extends FlightSupplier {
     }
   }
 
+  /**
+   * One call returns the order's current flights and its airline-initiated changes (ADR-065).
+   * A change whose slices cannot be read is still reported, as one to resolve through support.
+   */
+  override async orderChanges(
+    request: AirlineChangesRequest,
+    signal: AbortSignal,
+  ): Promise<OrderChanges> {
+    const response = await this.client.request(
+      'GET',
+      `/air/orders/${encodeURIComponent(request.orderId)}`,
+      signal,
+    );
+    const parsed = duffelOrderChangesSchema.safeParse(
+      (response as { data?: unknown } | null)?.data,
+    );
+    if (!parsed.success) {
+      throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid order');
+    }
+    const cabinClass = request.offer.cabinClass;
+    const slices = orderSlices(parsed.data.slices, cabinClass);
+    if (!slices || slices.length === 0) {
+      throw new SupplierUnavailableError(this.name, 'Duffel returned an order without flights');
+    }
+    const changes: AirlineChange[] = [];
+    let invalid = 0;
+    for (const raw of parsed.data.airline_initiated_changes ?? []) {
+      const change = duffelAirlineChangeSchema.safeParse(raw);
+      if (!change.success) {
+        invalid += 1;
+        continue;
+      }
+      const removed = orderSlices(change.data.removed, cabinClass);
+      const added = orderSlices(change.data.added, cabinClass);
+      const readable = removed !== null && added !== null;
+      changes.push({
+        id: change.data.id,
+        createdAt: new Date(change.data.created_at).toISOString(),
+        // Half a change shows nothing useful: either both sides or neither.
+        removed: readable ? removed : [],
+        added: readable ? added : [],
+        // Nobody should accept what they cannot see.
+        acceptable: readable && change.data.available_actions.includes('accept'),
+        actionTaken: change.data.action_taken ?? null,
+      });
+    }
+    if (invalid > 0) {
+      this.logger.warn({ invalid, orderId: request.orderId }, 'Skipped unreadable airline changes');
+    }
+    return { slices, changes };
+  }
+
+  /**
+   * Accepts an airline-initiated change, then reads the order back. When the call fails or times
+   * out, the order is read to see whether the change was accepted anyway, so a retry never
+   * mistakes a done acceptance for a failure.
+   */
+  override async acceptAirlineChange(
+    request: AirlineChangesRequest & { changeId: string },
+    signal: AbortSignal,
+  ): Promise<OrderChanges> {
+    try {
+      await this.client.request(
+        'POST',
+        `/air/airline_initiated_changes/${encodeURIComponent(request.changeId)}/actions/accept`,
+        signal,
+      );
+    } catch (error) {
+      const current = await this.orderChanges(
+        request,
+        AbortSignal.timeout(this.supplierTimeoutMs),
+      ).catch(() => null);
+      const accepted = current?.changes.some(
+        (change) => change.id === request.changeId && change.actionTaken === 'accepted',
+      );
+      if (current && accepted) return current;
+      throw error;
+    }
+    return this.orderChanges(request, AbortSignal.timeout(this.supplierTimeoutMs));
+  }
+
   private async createCancellation(
     orderId: string,
     signal: AbortSignal,
@@ -635,50 +773,20 @@ export class DuffelFlightSupplier extends FlightSupplier {
       let cabinClass: CabinClass = query.cabinClass;
       let carryOn = Number.POSITIVE_INFINITY;
       let checked = Number.POSITIVE_INFINITY;
-      const slices = offer.slices.map((slice) => {
-        const segments: FlightSegment[] = slice.segments.map((segment) => {
-          const departureUtc = localToUtc(
-            localTime(segment.departing_at),
-            segment.origin.time_zone,
-          );
-          const arrivalUtc = localToUtc(
-            localTime(segment.arriving_at),
-            segment.destination.time_zone,
-          );
-          const firstPassenger = segment.passengers[0];
-          if (firstPassenger?.cabin_class) cabinClass = firstPassenger.cabin_class;
-          const bags = firstPassenger?.baggages ?? [];
-          carryOn = Math.min(
-            carryOn,
-            bags.filter((b) => b.type === 'carry_on').reduce((a, b) => a + b.quantity, 0),
-          );
-          checked = Math.min(
-            checked,
-            bags.filter((b) => b.type === 'checked').reduce((a, b) => a + b.quantity, 0),
-          );
-          return {
-            marketingCarrier: {
-              code: segment.marketing_carrier.iata_code ?? '',
-              name: segment.marketing_carrier.name,
-            },
-            operatingCarrier: {
-              code: segment.operating_carrier.iata_code ?? '',
-              name: segment.operating_carrier.name,
-            },
-            flightNumber: segment.marketing_carrier_flight_number,
-            origin: place(segment.origin),
-            destination: place(segment.destination),
-            departureLocal: localTime(segment.departing_at),
-            departureUtc: departureUtc.toISOString(),
-            arrivalLocal: localTime(segment.arriving_at),
-            arrivalUtc: arrivalUtc.toISOString(),
-            durationMinutes: Math.round((arrivalUtc.getTime() - departureUtc.getTime()) / 60_000),
-            aircraft: segment.aircraft?.name ?? null,
-            cabinClass: firstPassenger?.cabin_class ?? query.cabinClass,
-          };
-        });
-        return buildSlice(segments, slice.fare_brand_name ?? null);
-      });
+      for (const segment of offer.slices.flatMap((slice) => slice.segments)) {
+        const firstPassenger = segment.passengers[0];
+        if (firstPassenger?.cabin_class) cabinClass = firstPassenger.cabin_class;
+        const bags = firstPassenger?.baggages ?? [];
+        carryOn = Math.min(
+          carryOn,
+          bags.filter((b) => b.type === 'carry_on').reduce((a, b) => a + b.quantity, 0),
+        );
+        checked = Math.min(
+          checked,
+          bags.filter((b) => b.type === 'checked').reduce((a, b) => a + b.quantity, 0),
+        );
+      }
+      const slices = offer.slices.map((slice) => toSlice(slice, query.cabinClass));
 
       const penaltyOf = (
         condition:
