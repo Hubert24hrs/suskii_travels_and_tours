@@ -117,6 +117,8 @@ export interface BookingView {
   cancellation: { refundBps: number; refund: Money } | null;
   /** A ticketed flight the traveller can cancel online (ADR-064). */
   flightCancellable: boolean;
+  /** The latest airline change to a ticketed flight (ADR-065). */
+  scheduleChange: BookingDto['scheduleChange'];
   linkedBooking: { id: string; reference: string } | null;
   addons: BookingDto['addons'];
   applications: VisaApplicationSummaryDto[];
@@ -136,6 +138,7 @@ export const EMPTY_VIEW: BookingView = {
   voucher: null,
   cancellation: null,
   flightCancellable: false,
+  scheduleChange: null,
   linkedBooking: null,
   addons: [],
   applications: [],
@@ -250,6 +253,7 @@ export function toBookingDto(
       ? { refundBps: view.cancellation.refundBps, refund: toWire(view.cancellation.refund) }
       : null,
     flightCancellable: view.flightCancellable,
+    scheduleChange: view.scheduleChange,
     priceBreakdown: view.showPriceBreakdown ? priceLines(payload, price) : null,
     busTickets: view.busTickets.map((ticket) => ({
       id: ticket.id,

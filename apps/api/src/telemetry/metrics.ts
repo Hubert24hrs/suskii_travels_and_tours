@@ -49,6 +49,10 @@ export const ticketingAttempts = meter.createCounter('suskii.ticketing.attempts'
   description: 'Ticketing attempts by outcome (confirmed, retrying, exhausted)',
 });
 
+export const scheduleChangeChecks = meter.createCounter('suskii.schedule_change.checks', {
+  description: 'Airline change checks of ticketed flights by outcome (checked, stopped, failed)',
+});
+
 export const refundAttempts = meter.createCounter('suskii.refunds', {
   description: 'Refund executions by outcome (succeeded, processing, failed, needs_review)',
 });

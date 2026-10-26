@@ -9,17 +9,22 @@ import {
   paymentRunSchema,
   planRunSchema,
   refundRunSchema,
+  scheduleChangeRunSchema,
   ticketingRunSchema,
 } from './bookings.schemas';
 import { CheckoutService } from './checkout.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { PaymentReconciliationService } from './payment-reconciliation.service';
 import { RefundsService } from './refunds.service';
+import { ScheduleChangesService } from './schedule-changes.service';
 import { TicketingService } from './ticketing.service';
 
 const TAGS = ['Internal'];
 
-/** Worker-only booking and money housekeeping, called every minute (ADR-014, ADR-016 to 019). */
+/**
+ * Worker-only booking and money housekeeping, called every minute (ADR-014, ADR-016 to 019), and
+ * the airline schedule change checks (ADR-065).
+ */
 @InternalRoute()
 @Controller('internal/bookings')
 export class InternalBookingsController {
@@ -29,6 +34,7 @@ export class InternalBookingsController {
     private readonly reconciliation: PaymentReconciliationService,
     private readonly plans: PaymentPlansService,
     private readonly refunds: RefundsService,
+    private readonly scheduleChanges: ScheduleChangesService,
   ) {}
 
   @Post('expire-due')
@@ -95,5 +101,18 @@ export class InternalBookingsController {
   })
   refundsDue(): Promise<z.infer<typeof refundRunSchema>> {
     return this.refunds.processDue();
+  }
+
+  @Post('schedule-changes-due')
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'checkScheduleChanges',
+    summary: 'Ask suppliers for airline changes to ticketed flights that are due a check',
+    tags: TAGS,
+    responses: { 200: scheduleChangeRunSchema },
+    errors: [401, 404],
+  })
+  scheduleChangesDue(): Promise<z.infer<typeof scheduleChangeRunSchema>> {
+    return this.scheduleChanges.checkDue();
   }
 }

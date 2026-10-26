@@ -44,6 +44,7 @@ import {
   priceConsentRequestSchema,
   quoteIdParamsSchema,
   quoteSchema,
+  scheduleChangeParamsSchema,
   startPaymentRequestSchema,
   type CancelBookingRequest,
   type CreateBookingRequest,
@@ -55,6 +56,7 @@ import { CheckoutService } from './checkout.service';
 import { FlightCancellationService } from './flight-cancellation.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { QuotesService } from './quotes.service';
+import { ScheduleChangesService } from './schedule-changes.service';
 
 const TAGS = ['Bookings'];
 
@@ -76,6 +78,7 @@ export class BookingsController {
     private readonly pushTokens: PushTokensService,
     private readonly cancellation: BookingCancellationService,
     private readonly flightCancellation: FlightCancellationService,
+    private readonly scheduleChanges: ScheduleChangesService,
   ) {}
 
   @Get('quotes/:quoteId')
@@ -294,6 +297,27 @@ export class BookingsController {
       caller(request),
       body.refund ? fromWire(body.refund) : null,
     );
+  }
+
+  @Post('bookings/:bookingId/schedule-changes/:changeId/accept')
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'acceptScheduleChange',
+    summary: "Accept the airline's new flight times",
+    description:
+      'For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To cancel instead, use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).',
+    tags: TAGS,
+    params: scheduleChangeParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: bookingSchema },
+    errors: [404, 409, 503],
+  })
+  acceptScheduleChange(
+    @Param('bookingId') bookingId: string,
+    @Param('changeId') changeId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.scheduleChanges.accept(bookingId, changeId, caller(request));
   }
 
   @Get('bookings/:bookingId/documents/:documentId')

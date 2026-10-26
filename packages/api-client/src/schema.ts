@@ -2582,6 +2582,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{bookingId}/schedule-changes/{changeId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept the airline's new flight times
+         * @description For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To cancel instead, use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).
+         */
+        post: operations["acceptScheduleChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{bookingId}/visa-applications/{applicationId}": {
         parameters: {
             query?: never;
@@ -3627,6 +3647,23 @@ export interface paths {
         put?: never;
         /** Execute approved refunds and follow up pending ones */
         post: operations["processDueRefunds"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/bookings/schedule-changes-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask suppliers for airline changes to ticketed flights that are due a check */
+        post: operations["checkScheduleChanges"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6195,6 +6232,7 @@ export interface components {
                 refund: components["schemas"]["Money"];
             } | null;
             flightCancellable: boolean;
+            scheduleChange: components["schemas"]["FlightScheduleChange"] | null;
             addons: {
                 /** Format: uuid */
                 id: string;
@@ -7345,6 +7383,17 @@ export interface components {
             priceChange: components["schemas"]["PriceChange"];
             /** Format: date-time */
             expiresAt: string;
+        };
+        FlightScheduleChange: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "open" | "accepted" | "cancelled" | "changed";
+            acceptable: boolean;
+            /** Format: date-time */
+            detectedAt: string;
+            previous: components["schemas"]["FlightSlice"][];
+            updated: components["schemas"]["FlightSlice"][];
         };
         FlightSearchRequest: {
             slices: {
@@ -9110,6 +9159,12 @@ export interface components {
                 [key: string]: unknown;
             };
             published: boolean;
+        };
+        ScheduleChangeRun: {
+            checked: number;
+            detected: number;
+            resolved: number;
+            failed: number;
         };
         ScheduledPayment: {
             sequence: number;
@@ -15294,6 +15349,41 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    acceptScheduleChange: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+                changeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
     getVisaApplication: {
         parameters: {
             query?: never;
@@ -17098,6 +17188,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    checkScheduleChanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleChangeRun"];
                 };
             };
             400: components["responses"]["Problem400"];

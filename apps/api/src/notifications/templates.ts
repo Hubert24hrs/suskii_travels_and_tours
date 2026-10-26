@@ -317,7 +317,39 @@ export function otpSmsBody(code: string): string {
   return `${code} is your ${BRAND.name} verification code. It expires in 5 minutes. Never share it.`;
 }
 
-export type PushKind = 'confirmed' | 'payment-due' | 'refund-started' | 'refund-completed';
+export interface ScheduleChangeDetails {
+  reference: string;
+  /** One line per changed flight, old and new times. */
+  lines: string[];
+  /** Accept online, wait for support, or nothing to do (already accepted). */
+  next: 'accept' | 'support' | 'done';
+  bookingUrl: string;
+}
+
+const SCHEDULE_CHANGE_NEXT: Record<ScheduleChangeDetails['next'], string> = {
+  accept:
+    'Open your booking to accept the new times. If they do not work for you, you can cancel there or contact us.',
+  support: 'Our team will contact you about your options.',
+  done: 'Your booking already shows the new times.',
+};
+
+/** The airline changed a ticketed flight (ADR-065): what changed and what to do next. */
+export function scheduleChangedTemplate(details: ScheduleChangeDetails): Template {
+  const intro = `The airline has changed your flight for booking ${details.reference}. Times are local to each airport.`;
+  const next = SCHEDULE_CHANGE_NEXT[details.next];
+  return {
+    template: 'schedule-changed',
+    subject: `Your flight has changed: ${details.reference}`,
+    text: [intro, ...details.lines, next, details.bookingUrl].join('\n\n'),
+    html: layout('Your flight has changed', [intro, ...details.lines, next], {
+      label: 'View booking',
+      url: details.bookingUrl,
+    }),
+  };
+}
+
+export type PushKind =
+  'confirmed' | 'payment-due' | 'refund-started' | 'refund-completed' | 'schedule-changed';
 
 /**
  * Lock-screen text for pushes (ADR-022): the booking reference and the event only, never names,
@@ -344,6 +376,11 @@ export function pushText(kind: PushKind, reference: string): { title: string; bo
       return {
         title: `Refund completed for booking ${reference}`,
         body: 'Open the app for the details.',
+      };
+    case 'schedule-changed':
+      return {
+        title: `The airline changed booking ${reference}`,
+        body: 'Open the app to see the new flight times.',
       };
   }
 }

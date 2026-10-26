@@ -32,6 +32,7 @@ import { PaymentReconciliationService } from './payment-reconciliation.service';
 import { PaymentsController } from './payments.controller';
 import { QuotesService } from './quotes.service';
 import { RefundsService } from './refunds.service';
+import { ScheduleChangesService } from './schedule-changes.service';
 import { TicketingService } from './ticketing.service';
 import { TravellersController } from './travellers.controller';
 import { TravellersService } from './travellers.service';
@@ -71,6 +72,7 @@ import { TravellersService } from './travellers.service';
     InhouseFulfilment,
     BookingCancellationService,
     FlightCancellationService,
+    ScheduleChangesService,
     BookingNotesService,
     PaymentRiskService,
     PaymentReviewsService,

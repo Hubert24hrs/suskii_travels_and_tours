@@ -907,6 +907,7 @@ model Booking {
   pushTokens       PushToken[]
   notes            BookingNote[]
   riskReviews      PaymentRiskReview[]
+  scheduleChanges  FlightScheduleChange[]
 
   @@index([userId, createdAt])
   /// Admin booking search and the dashboard filter by creation date (ADR-036).
@@ -948,22 +949,62 @@ model BookingItem {
   tourDepartureId      String?         @map("tour_departure_id") @db.Uuid
   seats                Int?
   seatState            SeatState?      @map("seat_state")
+  /// A ticketed flight is next asked for airline changes at this instant; null once it has
+  /// departed or its supplier does not report changes (ADR-065).
+  nextChangeCheckAt    DateTime?       @map("next_change_check_at") @db.Timestamptz(3)
   createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  booking          Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  offer            Offer               @relation(fields: [offerId], references: [id], onDelete: Restrict)
-  packageDeparture PackageDeparture?   @relation(fields: [packageDepartureId], references: [id], onDelete: Restrict)
-  tourDeparture    TourDeparture?      @relation(fields: [tourDepartureId], references: [id], onDelete: Restrict)
+  booking          Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  offer            Offer                  @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  packageDeparture PackageDeparture?      @relation(fields: [packageDepartureId], references: [id], onDelete: Restrict)
+  tourDeparture    TourDeparture?         @relation(fields: [tourDepartureId], references: [id], onDelete: Restrict)
   vouchers         BookingVoucher[]
   busSeats         BusSeatAssignment[]
   busTickets       BusTicket[]
   ride             Ride?
   rental           RentalReservation?
+  scheduleChanges  FlightScheduleChange[]
 
   @@index([bookingId])
   @@index([packageDepartureId])
   @@index([tourDepartureId])
+  @@index([nextChangeCheckAt])
   @@map("booking_items")
+}
+
+/// open: waiting for the traveller (or support); the others say how it was resolved.
+enum ScheduleChangeStatus {
+  open
+  accepted
+  cancelled
+  changed
+}
+
+/// A change the airline made to a ticketed flight: new times, flights or routing (ADR-065).
+model FlightScheduleChange {
+  id               String               @id @default(uuid(7)) @db.Uuid
+  bookingId        String               @map("booking_id") @db.Uuid
+  bookingItemId    String               @map("booking_item_id") @db.Uuid
+  supplier         String
+  supplierChangeId String               @map("supplier_change_id")
+  /// The changed slices as booked and the slices replacing them, in our domain shape.
+  removed          Json
+  added            Json
+  /// Whether the traveller can accept it online; otherwise support resolves it.
+  acceptable       Boolean
+  status           ScheduleChangeStatus @default(open)
+  /// When the supplier recorded the change.
+  changedAt        DateTime             @map("changed_at") @db.Timestamptz(3)
+  detectedAt       DateTime             @default(now()) @map("detected_at") @db.Timestamptz(3)
+  resolvedAt       DateTime?            @map("resolved_at") @db.Timestamptz(3)
+
+  booking     Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingItem BookingItem @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+
+  @@unique([supplier, supplierChangeId])
+  @@index([bookingId, detectedAt])
+  @@index([bookingItemId])
+  @@map("flight_schedule_changes")
 }
 
 /// A flight passenger or a hotel room's lead guest (then only names and `roomIndex`).

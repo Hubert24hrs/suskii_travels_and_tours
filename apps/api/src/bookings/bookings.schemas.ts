@@ -675,6 +675,27 @@ export const bookingRefundSchema = named(
   }),
 );
 
+export const flightScheduleChangeSchema = named(
+  'FlightScheduleChange',
+  z.object({
+    id: z.uuid(),
+    status: z.enum(['open', 'accepted', 'cancelled', 'changed']).meta({
+      description:
+        '`open` waits for the traveller (or support); otherwise accepted, or resolved with the airline by cancelling or changing the booking.',
+    }),
+    acceptable: z.boolean().meta({
+      description:
+        'An open change the traveller can accept online (`POST /v1/bookings/{bookingId}/schedule-changes/{changeId}/accept`); otherwise support resolves it.',
+    }),
+    detectedAt: timestamp,
+    previous: z.array(flightSliceSchema).meta({ description: 'The changed flights as booked.' }),
+    updated: z
+      .array(flightSliceSchema)
+      .meta({ description: 'The flights the airline replaced them with.' }),
+  }),
+);
+export type FlightScheduleChangeDto = z.infer<typeof flightScheduleChangeSchema>;
+
 export const bookingSchema = named(
   'Booking',
   z.object({
@@ -753,6 +774,10 @@ export const bookingSchema = named(
     flightCancellable: z.boolean().meta({
       description:
         'A ticketed flight the traveller can cancel online: ask for a refund quote (`POST /v1/bookings/{bookingId}/cancellation-quote`), then cancel (ADR-064).',
+    }),
+    scheduleChange: flightScheduleChangeSchema.nullable().meta({
+      description:
+        'The latest change the airline made to a ticketed flight (ADR-065). `flight` shows the booked flights while it is open, the new ones once accepted.',
     }),
     addons: z
       .array(
@@ -1000,6 +1025,18 @@ export const refundRunSchema = named(
   'RefundRun',
   z.object({ executed: z.number().int(), settled: z.number().int(), review: z.number().int() }),
 );
+
+export const scheduleChangeRunSchema = named(
+  'ScheduleChangeRun',
+  z.object({
+    checked: z.number().int(),
+    detected: z.number().int(),
+    resolved: z.number().int(),
+    failed: z.number().int(),
+  }),
+);
+
+export const scheduleChangeParamsSchema = z.object({ bookingId: z.uuid(), changeId: z.uuid() });
 
 // ---------------------------------------------------------------------------
 // Admin refunds (ADR-019)

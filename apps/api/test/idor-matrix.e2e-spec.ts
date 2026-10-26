@@ -76,6 +76,7 @@ const ACCOUNT_ONLY = /^\/v1\/(me|rides|rentals\/reservations)\//;
 
 interface Fixture {
   flightBookingId: string;
+  scheduleChangeId: string;
   bookingDocumentId: string;
   visaBookingId: string;
   applicationId: string;
@@ -111,6 +112,9 @@ const CASES: Record<string, Case> = {
   cancelBooking: { path: (f) => `/v1/bookings/${f.flightBookingId}/cancel` },
   quoteFlightCancellation: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/cancellation-quote`,
+  },
+  acceptScheduleChange: {
+    path: (f) => `/v1/bookings/${f.flightBookingId}/schedule-changes/${f.scheduleChangeId}/accept`,
   },
   downloadBookingDocument: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/documents/${f.bookingDocumentId}`,
@@ -480,9 +484,27 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       returnAtLocal: localIn(29),
     });
 
+    // An airline schedule change waiting for the owner (ADR-065), stored as the sweep would.
+    const flightItem = await ctx.prisma.bookingItem.findFirstOrThrow({
+      where: { bookingId: flight.bookingId },
+    });
+    const scheduleChange = await ctx.prisma.flightScheduleChange.create({
+      data: {
+        bookingId: flight.bookingId,
+        bookingItemId: flightItem.id,
+        supplier: 'mock',
+        supplierChangeId: 'idor-change',
+        removed: [],
+        added: [],
+        acceptable: true,
+        changedAt: new Date(),
+      },
+    });
+
     return {
       rideId,
       ridePlaceId: ridePlace?.id ?? '',
+      scheduleChangeId: scheduleChange.id,
       reservationId,
       busHoldId: hold.body.holdId as string,
       flightBookingId: flight.bookingId,

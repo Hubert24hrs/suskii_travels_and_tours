@@ -19,6 +19,9 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   reconcilePayments: vi.fn(() => Promise.resolve({ checked: 2, settled: 1 })),
   processDuePaymentPlans: vi.fn(() => Promise.resolve({ reminders: 1, defaulted: 1, expired: 0 })),
   processDueRefunds: vi.fn(() => Promise.resolve({ executed: 2, settled: 1, review: 1 })),
+  checkScheduleChanges: vi.fn(() =>
+    Promise.resolve({ checked: 4, detected: 1, resolved: 0, failed: 1 }),
+  ),
   scanDueVisaDocuments: vi.fn(() =>
     Promise.resolve({ scanned: 3, clean: 1, infected: 1, failed: 1 }),
   ),
@@ -225,6 +228,20 @@ describe('booking jobs', () => {
       'payment plans closed on a missed payment',
     );
     expect(log.warn).toHaveBeenCalledWith({ review: 1 }, 'refunds need an operations review');
+  });
+
+  it('checks ticketed flights for airline schedule changes and warns about failed checks', async () => {
+    const api = fakeApi();
+    const log = logger();
+    await expect(
+      processBookingJob({ name: BOOKING_JOB.scheduleChanges }, { api, logger: log }),
+    ).resolves.toEqual({ checked: 4, detected: 1, resolved: 0, failed: 1 });
+    expect(api.checkScheduleChanges).toHaveBeenCalledTimes(1);
+    expect(log.info).toHaveBeenCalledWith(
+      { checked: 4, detected: 1, resolved: 0, failed: 1 },
+      'airline schedule changes found',
+    );
+    expect(log.warn).toHaveBeenCalledWith({ failed: 1 }, 'airline schedule change checks failed');
   });
 
   it('rescans lost visa document scans and prunes documents past retention', async () => {

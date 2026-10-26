@@ -16,6 +16,7 @@ import {
   pushText,
   refundCompletedTemplate,
   refundStartedTemplate,
+  scheduleChangedTemplate,
   type PlanClosedDetails,
   type PushKind,
 } from '../notifications/templates';
@@ -27,6 +28,7 @@ import { isInhouse, type ItemPayload } from './booking-pricing';
 import { inhouseSummary } from './inhouse-presenter';
 import { BookingsService } from './bookings.service';
 import { bookingUrl } from './booking-urls';
+import { changeLines, changeSlices } from './schedule-changes';
 
 const DAY_MS = 86_400_000;
 
@@ -188,6 +190,41 @@ export class BookingNotifications {
         to: contact.email,
         ...planClosedTemplate({ reference: booking.reference, ...details }),
       });
+    });
+  }
+
+  /**
+   * The airline changed a ticketed flight (ADR-065): what changed and what to do next, by email
+   * and push. Guests get a booking link valid until the changed flights have left.
+   */
+  async scheduleChanged(changeId: string): Promise<void> {
+    await this.safely('schedule-changed', async () => {
+      const change = await this.prisma.flightScheduleChange.findUniqueOrThrow({
+        where: { id: changeId },
+      });
+      const booking = await this.bookings.reload(change.bookingId);
+      const contact = this.bookings.contact(booking);
+      const removed = changeSlices(change.removed);
+      const added = changeSlices(change.added);
+      const departures = [...removed, ...added].map((slice) => Date.parse(slice.departureUtc));
+      const until = new Date(
+        departures.length > 0 ? Math.max(...departures) : Date.now() + 30 * DAY_MS,
+      );
+      await this.email.send({
+        to: contact.email,
+        ...scheduleChangedTemplate({
+          reference: booking.reference,
+          lines: changeLines(removed, added),
+          next:
+            change.status === 'accepted'
+              ? 'done'
+              : change.status === 'open' && change.acceptable
+                ? 'accept'
+                : 'support',
+          bookingUrl: await this.link(booking, 'schedule-change', until),
+        }),
+      });
+      await this.push(booking, 'schedule-changed');
     });
   }
 

@@ -218,6 +218,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'parent', parent: 'Booking' },
     note: 'Names stay on the financial record; birth date, nationality and passport details are wiped.',
   },
+  FlightScheduleChange: {
+    section: 'bookings',
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'Booking' },
+    note: 'Airline changes to a booked flight: flight times and numbers, no personal data (ADR-065).',
+  },
   BookingStatusHistory: {
     section: 'bookings',
     deletion: 'retain',
