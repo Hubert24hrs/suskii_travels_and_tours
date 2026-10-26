@@ -128,7 +128,8 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api keys:reencrypt`        | Rewrite field encryption under the current key (dry run first)             |
 | `pnpm --filter @suskii/api sessions:revoke`       | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)          |
 | `pnpm --filter @suskii/api eval:natural-search`   | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model) |
-| `pnpm --filter @suskii/api sandbox:duffel`        | Duffel Stays test-mode check (ADR-062; test token only, `--book` books)    |
+| `pnpm --filter @suskii/api sandbox:duffel`        | Duffel flights and Stays test-mode check (ADR-062; test token, `--book`)   |
+| `pnpm --filter @suskii/api test:sandbox`          | Our API's booking journey against Duffel test mode (manual workflow only)  |
 | `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)        |
 | `pnpm --filter @suskii/api staff:bootstrap`       | First super admin of a new environment (`--email`, `--yes`; once)          |
 | `pnpm release:rehearse`                           | Compose deploy, ops command, broken release, rollback (`:local` images)    |
@@ -181,6 +182,9 @@ Tooling notes for agents:
   paid tour and visa bookings; the API refuses a TOTP code twice, so never sign the same persona
   in from two tests. The audit project runs after the journeys. The stack sets
   `RATE_LIMIT_ENABLED=false` because every persona signs in from one IP within a minute.
+- `e2e:stack` uses the mock suppliers. `E2E_FLIGHT_SUPPLIERS` / `E2E_HOTEL_SUPPLIERS=duffel`
+  switch it to Duffel's test mode for phone or browser testing. That needs a `duffel_test_` token
+  in `DUFFEL_API_TOKEN`, from the shell or the root `.env`. The e2e suites never set them.
 - `next dev` would write its own `AGENTS.md`/`CLAUDE.md` into the app folder; `agentRules: false`
   in both Next configs keeps this file the only agent guide.
 

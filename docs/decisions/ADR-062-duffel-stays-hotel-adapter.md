@@ -116,9 +116,23 @@ Both are recorded in `docs/security/external-communications.md` and the release 
 
 ## Not yet verified (needs a Duffel sandbox run)
 
-The manual `duffel-sandbox.yml` workflow (`pnpm --filter @suskii/api sandbox:duffel`) asks these
-questions of Duffel's test mode with the `DUFFEL_API_TOKEN` repository secret. It refuses a live
-token, sends only made-up guest details, and books only when started with `book` (then cancels).
+The manual `duffel-sandbox.yml` workflow puts these questions to Duffel's test mode, using the
+`DUFFEL_API_TOKEN` repository secret. It refuses a live token and sends only made-up travellers.
+It runs two things:
+
+- **`pnpm --filter @suskii/api sandbox:duffel`** checks the adapters directly, for flights and
+  for hotels. Flights get a search, a re-check and error codes, and with `book` a paid order and
+  a hold. Hotels get the checks above. With `book` it books, then cancels what it booked.
+- **`pnpm --filter @suskii/api test:sandbox`**, the `journey` input, runs our API in-process as
+  the website and the app call it:
+  - search, quote and a guest booking;
+  - payment on the mock provider;
+  - the order or stay booking Duffel confirms.
+
+  It lives in `test/sandbox`, outside the e2e suite, because no test may call a real provider.
+
+For trying Duffel on a phone or in a browser, the local stack (`e2e:stack`) switches to Duffel
+with `E2E_FLIGHT_SUPPLIERS` / `E2E_HOTEL_SUPPLIERS=duffel`. It takes only a test token.
 
 1. **Error codes.** Which Stays error codes mean the rate is gone. The client maps
    `offer_no_longer_available`, `offer_expired` and `not_found` to `OfferUnavailableError`.
