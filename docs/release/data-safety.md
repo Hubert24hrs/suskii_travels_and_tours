@@ -33,8 +33,8 @@ forms must match the shipped build.
   (`/account/privacy`). Financial records are kept without contact details for the legal period
   (`FINANCIAL_RECORDS_RETENTION_YEARS`, default 7).
 - **Who receives data:**
-  - suppliers, to fulfil what the user books: Duffel and airlines for flights, bus operators,
-    hotels, tour operators;
+  - suppliers, to fulfil what the user books: Duffel and airlines for flights, Duffel and
+    hotels for stays, bus operators, tour operators;
   - payment providers;
   - an email relay and Expo's push service;
   - Sentry for crashes;
