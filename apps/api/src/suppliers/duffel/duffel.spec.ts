@@ -363,6 +363,77 @@ describe('DuffelFlightSupplier', () => {
   });
 });
 
+describe('DuffelFlightSupplier quotes (one order per offer request, ADR-062)', () => {
+  const signal = new AbortController().signal;
+  const searchWith = (...offers: unknown[]) => json(201, { data: { id: 'orq_new', offers } });
+  const otherAirline = (id: string) =>
+    duffelOffer(id, {
+      owner: {
+        iata_code: 'BA',
+        name: 'British Airways',
+        logo_symbol_url: 'https://example.test/ba.svg',
+      },
+    });
+  const otherFare = (id: string) => {
+    const offer = structuredClone(duffelOffer(id));
+    for (const slice of offer.slices) slice.fare_brand_name = 'Economy Flex';
+    return offer;
+  };
+  async function searched() {
+    const [offer] = await supplierWith(fakeFetch(searchWith(duffelOffer('off_1'))).fn).search(
+      query,
+      signal,
+    );
+    if (!offer) throw new Error('the fixture maps to an offer');
+    return offer;
+  }
+
+  it('searches again and quotes the same flights and fare from a new offer request', async () => {
+    const original = await searched();
+    const { fn, calls } = fakeFetch(
+      searchWith(otherAirline('off_ba'), otherFare('off_flex'), duffelOffer('off_2')),
+    );
+    const quoted = await supplierWith(fn).quoteOffer(original, query, signal);
+    expect(quoted.supplierOfferId).toBe('off_2');
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toContain('/air/offer_requests');
+  });
+
+  it('prefers the same total, then the cheapest of the same flights and fare', async () => {
+    const original = await searched();
+    const both = await supplierWith(
+      fakeFetch(
+        searchWith(
+          duffelOffer('off_dear', { total_amount: '900.00' }),
+          duffelOffer('off_same'),
+          duffelOffer('off_cheap', { total_amount: '700.00' }),
+        ),
+      ).fn,
+    ).quoteOffer(original, query, signal);
+    expect(both.supplierOfferId).toBe('off_same');
+
+    const moved = await supplierWith(
+      fakeFetch(
+        searchWith(
+          duffelOffer('off_dear', { total_amount: '900.00' }),
+          duffelOffer('off_cheap', { total_amount: '700.00' }),
+        ),
+      ).fn,
+    ).quoteOffer(original, query, signal);
+    // A different total is quoted as is; the quote shows the change to the traveller.
+    expect(moved.supplierOfferId).toBe('off_cheap');
+  });
+
+  it('answers offer unavailable when the flights or fare are no longer offered', async () => {
+    const original = await searched();
+    await expect(
+      supplierWith(
+        fakeFetch(searchWith(otherAirline('off_ba'), otherFare('off_flex'))).fn,
+      ).quoteOffer(original, query, signal),
+    ).rejects.toBeInstanceOf(OfferUnavailableError);
+  });
+});
+
 describe('DuffelFlightSupplier holds (ADR-018)', () => {
   const signal = new AbortController().signal;
   const holdable = () =>

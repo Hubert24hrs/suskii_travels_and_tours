@@ -75,6 +75,16 @@ export interface FlightListOptions extends FlightFilters {
 
 const FIRST_PAGE = 20;
 
+/** What suppliers are asked for a search request (and again for a quote, by some suppliers). */
+function supplierQuery(request: FlightSearchRequest): FlightSearchQuery {
+  return {
+    slices: request.slices,
+    passengers: request.passengers,
+    cabinClass: request.cabinClass,
+    maxConnections: request.directOnly ? 0 : null,
+  };
+}
+
 /** Supplier total (base + taxes) converted for comparisons across suppliers and currencies. */
 function supplierTotalIn(fx: Converter, offer: SupplierFlightOffer, currency: string): Money {
   return fx.convert(
@@ -258,8 +268,8 @@ export class FlightSearchService {
     if (!supplier) throw offerUnavailable(meta.request);
     let fresh: SupplierFlightOffer;
     try {
-      fresh = await this.runner.call('flights', supplier.name, 'reprice', (signal) =>
-        supplier.reprice(item.offer, signal),
+      fresh = await this.runner.call('flights', supplier.name, 'quote', (signal) =>
+        supplier.quoteOffer(item.offer, supplierQuery(meta.request), signal),
       );
     } catch (error) {
       if (error instanceof OfferUnavailableError) throw offerUnavailable(meta.request);
@@ -359,12 +369,7 @@ export class FlightSearchService {
     items: Map<string, StoredOffer>;
     cacheHit: boolean;
   }> {
-    const query: FlightSearchQuery = {
-      slices: request.slices,
-      passengers: request.passengers,
-      cabinClass: request.cabinClass,
-      maxConnections: request.directOnly ? 0 : null,
-    };
+    const query = supplierQuery(request);
     const hash = queryHash({ version: 1, query });
 
     const cachedId = await this.store.cachedSearchId('flights', hash);

@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 
 import {
+  compare,
   equals,
   localToUtc,
   parseMoney,
@@ -11,7 +12,11 @@ import {
 } from '@suskii/shared';
 
 import { buildSlice } from '../itinerary';
-import { SupplierRequestError, SupplierUnavailableError } from '../supplier.errors';
+import {
+  OfferUnavailableError,
+  SupplierRequestError,
+  SupplierUnavailableError,
+} from '../supplier.errors';
 import type { SupplierPrice } from '../../pricing/pricing-engine';
 import {
   FlightSupplier,
@@ -51,6 +56,25 @@ const place = (value: DuffelPlace): AirportPoint => ({
 const localTime = (value: string): string => value.slice(0, 16);
 
 const amount = (value: string, currency: string): Money => parseMoney(value, currency, 'half-up');
+
+/** The flights and fare an offer sells: offers with the same key are the same product. */
+function itineraryKey(offer: SupplierFlightOffer): string {
+  return [
+    offer.owner.code,
+    offer.cabinClass,
+    ...offer.slices.map((slice) =>
+      [
+        slice.fareBrand ?? '',
+        ...slice.segments.map(
+          (segment) =>
+            `${segment.marketingCarrier.code}${segment.flightNumber}@${segment.departureLocal}`,
+        ),
+      ].join('|'),
+    ),
+  ].join('/');
+}
+
+const offerTotal = (offer: SupplierFlightOffer): Money => add(offer.price.base, offer.price.taxes);
 
 /**
  * Duffel flights (https://duffel.com/docs/api/v2). Enabled only when FLIGHT_SUPPLIERS includes
@@ -132,6 +156,33 @@ export class DuffelFlightSupplier extends FlightSupplier {
       : null;
     if (!fresh) throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid offer');
     return fresh;
+  }
+
+  /**
+   * Duffel takes one order per offer request (`offer_request_already_booked`, ADR-062), and our
+   * search cache shares a search between travellers. A quote therefore searches again and takes
+   * the same flights and fare from its own offer request, preferring the same total; the price
+   * is that search's, so any change shows as the quote's price change.
+   */
+  override async quoteOffer(
+    offer: SupplierFlightOffer,
+    query: FlightSearchQuery,
+    signal: AbortSignal,
+  ): Promise<SupplierFlightOffer> {
+    const key = itineraryKey(offer);
+    const matches = (await this.search(query, signal)).filter(
+      (candidate) => itineraryKey(candidate) === key,
+    );
+    const same = matches.find((candidate) => equals(offerTotal(candidate), offerTotal(offer)));
+    const choice =
+      same ??
+      matches.reduce<SupplierFlightOffer | undefined>(
+        (best, candidate) =>
+          best && compare(offerTotal(best), offerTotal(candidate)) <= 0 ? best : candidate,
+        undefined,
+      );
+    if (!choice) throw new OfferUnavailableError(this.name, 'The flights are no longer offered');
+    return choice;
   }
 
   /**
