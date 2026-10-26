@@ -767,5 +767,7 @@ form answers in `docs/release/data-safety.md`. Added in phase 13: an Anthropic A
 retention terms (standard or zero data retention), whether to offer AI trip search in production,
 and its daily caps (defaults $0.05 per user or address, $20 in total). Added with the Duffel Stays
 adapter: Stays access on the Duffel account, a sandbox token and one sandbox run of the checks in
-ADR-062 (error codes, radius unit, quote lifetime, duplicate bookings), which needs `api.duffel.com`
-allowed in the build environment's network policy.
+ADR-062 (error codes, radius unit, quote lifetime, duplicate bookings). The Duffel sandbox
+workflow runs them with the `DUFFEL_API_TOKEN` repository secret. Flights pass. Stays still needs
+access. Also needed: a decision on Duffel's one-order-per-search rule. Shared cached searches can
+fail a second traveller's order after payment (ADR-062, Sandbox results).

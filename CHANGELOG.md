@@ -19,6 +19,14 @@ All notable changes to this project are documented here. The format follows
     mode: search, quote, guest booking, mock payment, then Duffel's confirmed order or stay.
   - The local stack (`e2e:stack`) switches to Duffel's test mode for phone and browser testing
     with `E2E_FLIGHT_SUPPLIERS` / `E2E_HOTEL_SUPPLIERS=duffel`, taking a test token only (README).
+- **Results against Duffel's test mode** (ADR-062):
+  - Flights work end to end. Search, re-check, a paid order, a hold and cancellation all
+    succeeded, and the API journey ended `CONFIRMED` with an airline reference and an e-ticket.
+  - Duffel takes one order per offer request. Our shared search cache can therefore make a
+    second traveller's order fail after payment (it is then refunded); a follow-up is needed.
+  - Stays answers 403 until it is enabled on the account.
+- **Error pages.** `DuffelClient` maps a non-JSON error page by its HTTP status (a 403 is a
+  request error), rather than reporting invalid JSON.
 - **`duffel-sandbox.yml`**, a manual workflow, and `pnpm --filter @suskii/api sandbox:duffel`.
   They put the open questions of ADR-062 to Duffel's test mode and print what Duffel answers:
   - whether search results carry rooms;
