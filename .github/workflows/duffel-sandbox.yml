@@ -1,0 +1,77 @@
+name: Duffel sandbox check
+
+# Asks Duffel's test mode the open questions of the Stays adapter (ADR-062): rooms in search
+# results, the radius unit, rates we can sell, quote fields and lifetime, error codes and, when
+# asked, a repeated booking. Manual only, with the DUFFEL_API_TOKEN repository secret, which must
+# be a test token (the script refuses live ones). CI never calls Duffel: the adapter's tests use
+# fixtures and a local stand-in (test/duffel-stays.e2e-spec.ts).
+on:
+  workflow_dispatch:
+    inputs:
+      book:
+        description: Also book the cheapest rate, repeat a booking on one quote, then cancel them
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: duffel-sandbox
+  cancel-in-progress: false
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  sandbox:
+    name: Duffel Stays sandbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check the Duffel test token is set
+        env:
+          DUFFEL_API_TOKEN: ${{ secrets.DUFFEL_API_TOKEN }}
+        run: |
+          if [ -z "$DUFFEL_API_TOKEN" ]; then
+            echo "::error::Missing repository secret DUFFEL_API_TOKEN (a Duffel test token). Add it under Settings, Secrets and variables, Actions, then run this workflow again."
+            exit 1
+          fi
+          case "$DUFFEL_API_TOKEN" in
+            duffel_test_*) ;;
+            *)
+              echo "::error::DUFFEL_API_TOKEN must be a Duffel test token (duffel_test_...). This workflow never runs against live mode."
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the shared package
+        run: pnpm exec turbo run build --filter=@suskii/shared
+
+      - name: Run the sandbox check
+        env:
+          DUFFEL_API_TOKEN: ${{ secrets.DUFFEL_API_TOKEN }}
+          BOOK: ${{ inputs.book }}
+        run: |
+          if [ "$BOOK" = "true" ]; then
+            pnpm --filter @suskii/api sandbox:duffel --book
+          else
+            pnpm --filter @suskii/api sandbox:duffel
+          fi
