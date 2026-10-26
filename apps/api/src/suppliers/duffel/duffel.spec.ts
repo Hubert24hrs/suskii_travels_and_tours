@@ -342,6 +342,8 @@ describe('DuffelFlightSupplier', () => {
       [json(503, { errors: [] }), SupplierUnavailableError],
       [json(400, { errors: [{ code: 'validation_error' }] }), SupplierRequestError],
       [new Response('<html>oops</html>', { status: 502 }), SupplierUnavailableError],
+      // Stays not enabled on the account: Duffel answers 403 with a page, not JSON.
+      [new Response('<html>Forbidden</html>', { status: 403 }), SupplierRequestError],
       [new TypeError('fetch failed'), SupplierUnavailableError],
       [Object.assign(new Error('aborted'), { name: 'AbortError' }), SupplierTimeoutError],
     ];
@@ -355,6 +357,9 @@ describe('DuffelFlightSupplier', () => {
     await expect(
       supplierWith(fakeFetch(json(201, { data: {} })).fn).search(query, signal),
     ).rejects.toBeInstanceOf(SupplierUnavailableError);
+    await expect(
+      supplierWith(fakeFetch(new Response('not json', { status: 201 })).fn).search(query, signal),
+    ).rejects.toThrow(/invalid JSON/);
   });
 });
 
