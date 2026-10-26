@@ -232,6 +232,33 @@ export interface FlightCancellationQuote {
   expiresAt: string;
 }
 
+export interface AirlineChangesRequest {
+  orderId: string;
+  /** The booked offer, as we hold it. */
+  offer: SupplierFlightOffer;
+}
+
+/** A change the airline made to a ticketed order: new times, flights or routing (ADR-065). */
+export interface AirlineChange {
+  /** The supplier's id for the change. */
+  id: string;
+  /** When the supplier recorded it. */
+  createdAt: string;
+  /** The changed slices as booked, and the slices that replace them. */
+  removed: FlightSlice[];
+  added: FlightSlice[];
+  /** Whether it can be accepted online; otherwise support resolves it with the airline. */
+  acceptable: boolean;
+  /** How it was resolved, here or elsewhere: accepted, the order cancelled, or changed. */
+  actionTaken: 'accepted' | 'cancelled' | 'changed' | null;
+}
+
+export interface OrderChanges {
+  /** The order's flights as the airline has them now. */
+  slices: FlightSlice[];
+  changes: AirlineChange[];
+}
+
 export interface FlightHoldRequest {
   offer: SupplierFlightOffer;
   passengers: SupplierPassenger[];
@@ -348,6 +375,25 @@ export abstract class FlightSupplier {
    */
   confirmCancellation(_quoteId: string, _signal: AbortSignal): Promise<void> {
     return Promise.reject(new SupplierRequestError(this.name, 'Cancellation is not supported'));
+  }
+
+  /** Whether this supplier reports airline changes to ticketed orders (ADR-065). */
+  readonly tracksChanges: boolean = false;
+
+  /** A ticketed order's current flights and every change the airline has made to it. */
+  orderChanges(_request: AirlineChangesRequest, _signal: AbortSignal): Promise<OrderChanges> {
+    return Promise.reject(new SupplierRequestError(this.name, 'Airline changes are not supported'));
+  }
+
+  /**
+   * Accepts an airline change on the traveller's behalf and returns the order as it is then.
+   * Must be safe to repeat: a change that is already accepted resolves.
+   */
+  acceptAirlineChange(
+    _request: AirlineChangesRequest & { changeId: string },
+    _signal: AbortSignal,
+  ): Promise<OrderChanges> {
+    return Promise.reject(new SupplierRequestError(this.name, 'Airline changes are not supported'));
   }
 }
 

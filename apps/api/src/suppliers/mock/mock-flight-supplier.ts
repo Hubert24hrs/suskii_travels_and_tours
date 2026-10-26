@@ -17,6 +17,8 @@ import {
 } from '../supplier.errors';
 import {
   FlightSupplier,
+  type AirlineChange,
+  type AirlineChangesRequest,
   type AirportPoint,
   type FlightBookingRequest,
   type FlightBookingResult,
@@ -26,6 +28,7 @@ import {
   type FlightHoldRequest,
   type FlightSearchQuery,
   type HeldOrder,
+  type OrderChanges,
   type PayHeldRequest,
   type FlightSegment,
   type FlightSlice,
@@ -246,6 +249,11 @@ export class MockFlightSupplier extends FlightSupplier {
   override readonly cancelsOnline = true;
   /** Cancelled order ids (in memory, like the holds). */
   readonly cancelledOrders = new Set<string>();
+  override readonly tracksChanges = true;
+  /** Airline changes by order id, made on an order's first check (in memory, like the holds). */
+  readonly airlineChanges = new Map<string, { change: AirlineChange; slices: FlightSlice[] }>();
+  /** Test hook: this many upcoming change acceptances fail as if the airline were down. */
+  failNextChangeAcceptances = 0;
   /** Held orders by id (in memory: a restart forgets them, like an airline losing a PNR). */
   readonly holds = new Map<
     string,
@@ -257,11 +265,14 @@ export class MockFlightSupplier extends FlightSupplier {
    *   MOCK_REPRICE_RULES, so end-to-end tests can walk through a price change. A rule applies once,
    *   on an offer's second re-price: the quote is the first, the check right before payment the
    *   second, so the change surfaces at payment and a consented price then stays put.
+   * @param scheduleRules minutes the airline moves the first flight of ticketed orders on these
+   *   outbound routes ("LOS-ABV"), from MOCK_SCHEDULE_CHANGE_RULES (ADR-065). Tests may edit it.
    */
   constructor(
     private readonly airports: AirportDirectory,
     private readonly now: () => Date = () => new Date(),
     private readonly repriceRules: ReadonlyMap<string, number> = new Map(),
+    readonly scheduleRules = new Map<string, number>(),
   ) {
     super();
   }
@@ -502,6 +513,67 @@ export class MockFlightSupplier extends FlightSupplier {
     return Promise.resolve();
   }
 
+  /**
+   * An order on a route with a schedule rule gets one change on its first check, while its first
+   * flight has not left: that flight moves by the rule's minutes. The airline's order shows the
+   * new times from then on, accepted or not, as airlines do.
+   */
+  override orderChanges(
+    request: AirlineChangesRequest,
+    signal: AbortSignal,
+  ): Promise<OrderChanges> {
+    signal.throwIfAborted();
+    const known = this.airlineChanges.get(request.orderId) ?? this.scheduleChange(request);
+    return Promise.resolve(
+      known
+        ? { slices: known.slices, changes: [{ ...known.change }] }
+        : { slices: request.offer.slices, changes: [] },
+    );
+  }
+
+  override acceptAirlineChange(
+    request: AirlineChangesRequest & { changeId: string },
+    signal: AbortSignal,
+  ): Promise<OrderChanges> {
+    signal.throwIfAborted();
+    if (this.failNextChangeAcceptances > 0) {
+      this.failNextChangeAcceptances -= 1;
+      return Promise.reject(new SupplierUnavailableError(this.name, 'Mock changes are down'));
+    }
+    const known = this.airlineChanges.get(request.orderId);
+    if (known?.change.id !== request.changeId || known.change.actionTaken === 'cancelled') {
+      return Promise.reject(new SupplierRequestError(this.name, 'No such airline change'));
+    }
+    known.change.actionTaken = 'accepted';
+    return this.orderChanges(request, signal);
+  }
+
+  private scheduleChange(
+    request: AirlineChangesRequest,
+  ): { change: AirlineChange; slices: FlightSlice[] } | null {
+    const [first, ...rest] = request.offer.slices;
+    if (!first || this.cancelledOrders.has(request.orderId)) return null;
+    const minutes = this.scheduleRules.get(`${first.origin.code}-${first.destination.code}`);
+    if (!minutes || Date.parse(first.departureUtc) <= this.now().getTime()) return null;
+    const moved = buildSlice(
+      first.segments.map((segment) => shiftSegment(segment, minutes)),
+      first.fareBrand,
+    );
+    const known = {
+      change: {
+        id: `mockaic_${request.orderId}`,
+        createdAt: this.now().toISOString(),
+        removed: [first],
+        added: [moved],
+        acceptable: true,
+        actionTaken: null,
+      },
+      slices: [moved, ...rest],
+    };
+    this.airlineChanges.set(request.orderId, known);
+    return known;
+  }
+
   private routes(
     from: AirportInfo,
     to: AirportInfo,
@@ -697,6 +769,19 @@ export class MockFlightSupplier extends FlightSupplier {
       ],
     };
   }
+}
+
+/** The same flight, departing and arriving `minutes` later (earlier when negative). */
+function shiftSegment(segment: FlightSegment, minutes: number): FlightSegment {
+  const departure = new Date(Date.parse(segment.departureUtc) + minutes * MINUTE_MS);
+  const arrival = new Date(Date.parse(segment.arrivalUtc) + minutes * MINUTE_MS);
+  return {
+    ...segment,
+    departureUtc: departure.toISOString(),
+    departureLocal: utcToLocal(departure, segment.origin.timeZone),
+    arrivalUtc: arrival.toISOString(),
+    arrivalLocal: utcToLocal(arrival, segment.destination.timeZone),
+  };
 }
 
 const pad = (value: number): string => String(value).padStart(2, '0');

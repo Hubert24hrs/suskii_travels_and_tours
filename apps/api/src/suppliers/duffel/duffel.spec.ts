@@ -698,6 +698,132 @@ describe('DuffelFlightSupplier cancellation (ADR-064)', () => {
   });
 });
 
+describe('DuffelFlightSupplier airline changes (ADR-065)', () => {
+  const signal = new AbortController().signal;
+  const [bookedSlice] = duffelOffer('off_1').slices;
+  if (!bookedSlice) throw new Error('the fixture has a slice');
+  // The airline moves the London leg: it now leaves Addis Ababa at 23:55 and lands at 06:20.
+  const movedSlice = {
+    ...bookedSlice,
+    segments: [
+      bookedSlice.segments[0],
+      {
+        ...bookedSlice.segments[1],
+        departing_at: '2026-11-20T23:55:00',
+        arriving_at: '2026-11-21T06:20:00',
+      },
+    ],
+  };
+  const airlineChange = (overrides: Record<string, unknown> = {}) => ({
+    id: 'aic_1',
+    order_id: 'ord_1',
+    created_at: '2026-11-02T09:00:00.000000Z',
+    updated_at: '2026-11-02T09:00:00.000000Z',
+    action_taken: null,
+    action_taken_at: null,
+    available_actions: ['accept', 'cancel', 'change', 'update'],
+    added: [movedSlice],
+    removed: [bookedSlice],
+    travel_agent_ticket: null,
+    ...overrides,
+  });
+  const order = (changes: unknown[], slices: unknown[] = [movedSlice]) => ({
+    data: { id: 'ord_1', booking_reference: 'RZPNX8', slices, airline_initiated_changes: changes },
+  });
+  async function request() {
+    const [offer] = await supplierWith(
+      fakeFetch(json(201, { data: { offers: [duffelOffer('off_1')] } })).fn,
+    ).search(query, signal);
+    if (!offer) throw new Error('the fixture maps to an offer');
+    return { orderId: 'ord_1', offer };
+  }
+
+  it('reads the order for its current flights and each change the airline made', async () => {
+    const { fn, calls } = fakeFetch(json(200, order([airlineChange()])));
+    const supplier = supplierWith(fn);
+    expect(supplier.tracksChanges).toBe(true);
+    const result = await supplier.orderChanges(await request(), signal);
+    expect(calls[0]?.url).toBe('https://api.duffel.test/air/orders/ord_1');
+    expect(result.slices[0]?.segments[1]).toMatchObject({
+      flightNumber: '700',
+      departureLocal: '2026-11-20T23:55',
+      departureUtc: '2026-11-20T20:55:00.000Z',
+      arrivalUtc: '2026-11-21T06:20:00.000Z',
+    });
+    expect(result.changes).toEqual([
+      {
+        id: 'aic_1',
+        createdAt: '2026-11-02T09:00:00.000Z',
+        removed: [expect.objectContaining({ arrivalLocal: '2026-11-21T05:40' })],
+        added: [expect.objectContaining({ arrivalLocal: '2026-11-21T06:20' })],
+        acceptable: true,
+        actionTaken: null,
+      },
+    ]);
+  });
+
+  it('reports a change it cannot read, or cannot accept online, as one for support', async () => {
+    const { fn } = fakeFetch(
+      json(
+        200,
+        order([
+          airlineChange({ id: 'aic_1', added: [{ segments: [] }] }),
+          airlineChange({ id: 'aic_2', available_actions: ['update'] }),
+          airlineChange({ id: 'aic_3', action_taken: 'accepted', available_actions: [] }),
+          { id: 'aic_4' },
+        ]),
+      ),
+    );
+    const { changes } = await supplierWith(fn).orderChanges(await request(), signal);
+    expect(
+      changes.map(({ id, acceptable, actionTaken }) => ({ id, acceptable, actionTaken })),
+    ).toEqual([
+      { id: 'aic_1', acceptable: false, actionTaken: null },
+      { id: 'aic_2', acceptable: false, actionTaken: null },
+      { id: 'aic_3', acceptable: false, actionTaken: 'accepted' },
+    ]);
+    expect(changes[0]).toMatchObject({ removed: [], added: [] });
+
+    // An order whose own flights cannot be read is a failed check, not an empty one.
+    const unreadable = fakeFetch(json(200, order([], [{ segments: [] }])));
+    await expect(
+      supplierWith(unreadable.fn).orderChanges(await request(), signal),
+    ).rejects.toBeInstanceOf(SupplierUnavailableError);
+  });
+
+  it('accepts a change, and treats one already accepted as done', async () => {
+    const accepted = airlineChange({ action_taken: 'accepted', available_actions: [] });
+    const ok = fakeFetch(json(200, { data: accepted }), json(200, order([accepted])));
+    const result = await supplierWith(ok.fn).acceptAirlineChange(
+      { ...(await request()), changeId: 'aic_1' },
+      signal,
+    );
+    expect(ok.calls.map((call) => [call.init?.method, call.url])).toEqual([
+      ['POST', 'https://api.duffel.test/air/airline_initiated_changes/aic_1/actions/accept'],
+      ['GET', 'https://api.duffel.test/air/orders/ord_1'],
+    ]);
+    expect(result.changes[0]?.actionTaken).toBe('accepted');
+
+    // A failed call that Duffel says went through anyway counts as done.
+    const done = fakeFetch(json(503, { errors: [] }), json(200, order([accepted])));
+    await expect(
+      supplierWith(done.fn).acceptAirlineChange(
+        { ...(await request()), changeId: 'aic_1' },
+        signal,
+      ),
+    ).resolves.toMatchObject({ changes: [{ actionTaken: 'accepted' }] });
+
+    // One that did not go through fails as it did.
+    const failed = fakeFetch(json(422, { errors: [] }), json(200, order([airlineChange()])));
+    await expect(
+      supplierWith(failed.fn).acceptAirlineChange(
+        { ...(await request()), changeId: 'aic_1' },
+        signal,
+      ),
+    ).rejects.toBeInstanceOf(SupplierRequestError);
+  });
+});
+
 describe('DuffelFlightSupplier holds (ADR-018)', () => {
   const signal = new AbortController().signal;
   const holdable = () =>

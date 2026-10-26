@@ -49,6 +49,14 @@ const segment = z.looseObject({
     .default([]),
 });
 
+/** One slice of an offer or an order; order slices have the same segment shape. */
+export const duffelSliceSchema = z.looseObject({
+  fare_brand_name: z.string().nullish(),
+  segments: z.array(segment).min(1),
+});
+
+export type DuffelSlice = z.infer<typeof duffelSliceSchema>;
+
 export const duffelOfferSchema = z.looseObject({
   id: z.string(),
   expires_at: z.string(),
@@ -59,12 +67,7 @@ export const duffelOfferSchema = z.looseObject({
   tax_amount: decimal.nullish(),
   tax_currency: currency.nullish(),
   owner: carrier,
-  slices: z.array(
-    z.looseObject({
-      fare_brand_name: z.string().nullish(),
-      segments: z.array(segment).min(1),
-    }),
-  ),
+  slices: z.array(duffelSliceSchema),
   conditions: z
     .looseObject({ refund_before_departure: penalty, change_before_departure: penalty })
     .nullish(),
@@ -143,6 +146,27 @@ export const duffelOrderCancellationSchema = z.looseObject({
 });
 
 export type DuffelOrderCancellation = z.infer<typeof duffelOrderCancellationSchema>;
+
+/**
+ * An order's flights and airline-initiated changes (`GET /air/orders/{id}`, ADR-065). Slices and
+ * changes are checked one by one, so one odd change never hides the others.
+ */
+export const duffelOrderChangesSchema = z.looseObject({
+  id: z.string(),
+  slices: z.array(z.unknown()),
+  airline_initiated_changes: z.array(z.unknown()).nullish(),
+});
+
+/** A schedule or routing change the airline made: `removed` slices replaced by `added` ones. */
+export const duffelAirlineChangeSchema = z.looseObject({
+  id: z.string(),
+  created_at: z.string(),
+  action_taken: z.enum(['accepted', 'cancelled', 'changed']).nullish(),
+  /** `accept` when it can be accepted through the API. */
+  available_actions: z.array(z.string()).default([]),
+  added: z.array(z.unknown()).default([]),
+  removed: z.array(z.unknown()).default([]),
+});
 
 export const duffelErrorSchema = z.looseObject({
   errors: z.array(
