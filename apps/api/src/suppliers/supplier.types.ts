@@ -276,6 +276,19 @@ export abstract class FlightSupplier {
   abstract search(query: FlightSearchQuery, signal: AbortSignal): Promise<SupplierFlightOffer[]>;
   /** Confirms the current price and availability of an offer this supplier returned. */
   abstract reprice(offer: SupplierFlightOffer, signal: AbortSignal): Promise<SupplierFlightOffer>;
+
+  /**
+   * The offer one traveller's quote books from. Most suppliers confirm the searched offer itself;
+   * one that takes a single order per search (Duffel) searches again so no two quotes share one.
+   */
+  quoteOffer(
+    offer: SupplierFlightOffer,
+    _query: FlightSearchQuery,
+    signal: AbortSignal,
+  ): Promise<SupplierFlightOffer> {
+    return this.reprice(offer, signal);
+  }
+
   /** Books and tickets a paid offer. Must be idempotent by `request.idempotencyKey`. */
   abstract book(request: FlightBookingRequest, signal: AbortSignal): Promise<FlightBookingResult>;
 
