@@ -1,3 +1,5 @@
+import type { Schemas } from '@suskii/api-client';
+import { useFormatters } from '@suskii/i18n/react';
 import {
   GENDERS,
   PASSENGER_TITLES,
@@ -19,7 +21,10 @@ type Translate = ReturnType<typeof useT>['t'];
 const issueText = (t: Translate, issue: CheckoutIssue | undefined): string | undefined =>
   issue ? t(`checkout.issues.${issue}`) : undefined;
 
-/** One traveller as on the passport; passport fields are required abroad (ADR-015). */
+/**
+ * One traveller as on the passport; passport fields are required abroad (ADR-015). Flights that
+ * sell a checked bag offer it per traveller with a seat (`{testID}.bags-{count}`).
+ */
 export function PassengerForm({
   index,
   label,
@@ -28,6 +33,7 @@ export function PassengerForm({
   errors,
   warnings,
   passport,
+  bag,
 }: {
   index: number;
   label: string;
@@ -37,8 +43,11 @@ export function PassengerForm({
   warnings: FieldIssues;
   /** Abroad: required; domestic flights: optional; tours, add-ons, local packages: not asked. */
   passport: 'required' | 'optional' | 'none';
+  /** The flight's checked bag, price per bag in the display currency; none for lap infants. */
+  bag?: Schemas['FlightService'] | undefined;
 }) {
   const { t } = useT();
+  const format = useFormatters();
   const prefix = `passengers.${index}`;
   const error = (field: string) => issueText(t, errors[`${prefix}.${field}`]);
   const given = transliterateName(passenger.givenNames);
@@ -152,6 +161,24 @@ export function PassengerForm({
             />
           </>
         )}
+        {bag ? (
+          <ChoiceChips
+            label={t('checkout.bagFor', { weight: bag.weightKg, name: given ?? label })}
+            options={Array.from({ length: bag.maxQuantity + 1 }, (_, count) => ({
+              value: String(count),
+              label: t('checkout.bagOption', {
+                count,
+                price: format.money({
+                  amountMinor: bag.price.amountMinor * count,
+                  currency: bag.price.currency,
+                }),
+              }),
+            }))}
+            value={String(passenger.bags)}
+            onChange={(count) => onChange({ bags: Number(count) })}
+            testID={`${prefix}.bags`}
+          />
+        ) : null}
       </Card>
     </View>
   );
