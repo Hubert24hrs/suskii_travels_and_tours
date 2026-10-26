@@ -8,6 +8,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Duffel sandbox check (2026-10-26)
 
+#### Fixed
+
+- **Two travellers can book the same Duffel flight from one cached search.** Duffel takes one
+  order per offer request, so the second order used to fail after payment (and was refunded).
+  `FlightSupplier.quoteOffer()` now picks the offer each quote books from. The Duffel adapter
+  searches again and quotes the same flights and fare from a fresh offer request: the same total
+  first, then the cheapest match, else `offer-unavailable`. Other suppliers still re-check the
+  searched offer. The sandbox journey books two travellers from one shared search; both ended
+  `CONFIRMED` against Duffel's test mode (ADR-062).
+
 #### Added
 
 - **Flights and the app journey.**
@@ -22,8 +32,8 @@ All notable changes to this project are documented here. The format follows
 - **Results against Duffel's test mode** (ADR-062):
   - Flights work end to end. Search, re-check, a paid order, a hold and cancellation all
     succeeded, and the API journey ended `CONFIRMED` with an airline reference and an e-ticket.
-  - Duffel takes one order per offer request. Our shared search cache can therefore make a
-    second traveller's order fail after payment (it is then refunded); a follow-up is needed.
+  - Duffel takes one order per offer request. Our shared search cache could therefore make a
+    second traveller's order fail after payment (fixed above).
   - Stays answers 403 until it is enabled on the account.
 - **Error pages.** `DuffelClient` maps a non-JSON error page by its HTTP status (a 403 is a
   request error), rather than reporting invalid JSON.
