@@ -71,8 +71,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build the shared package
-        run: pnpm exec turbo run build --filter=@suskii/shared
+      # The API's workspace dependencies (shared, design tokens, ...), as CI builds them.
+      - name: Build the API's workspace packages
+        run: pnpm exec turbo run build --filter=@suskii/api^...
 
       - name: Run the sandbox check
         env:
