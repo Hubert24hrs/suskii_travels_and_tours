@@ -148,6 +148,40 @@ with `E2E_FLIGHT_SUPPLIERS` / `E2E_HOTEL_SUPPLIERS=duffel`. It takes only a test
    make the listed cheapest price a pay-now rate. It is not sent today, because a preview
    parameter the account lacks could fail every search.
 
+## Sandbox results (2026-10-26)
+
+These come from `duffel-sandbox.yml` runs against Duffel's test mode, with the repository secret.
+
+**Flights: confirmed working.**
+
+- **Search.** LHR to JFK returned 52 offers (Lufthansa, BA, AA, Iberia and Duffel Airways). The
+  adapter mapped all 52, and every one could be held.
+- **Re-check.** The price on re-check matched the listed price. Offers live for 30 minutes.
+- **Order and hold.** An order paid from the balance came back with an airline reference and an
+  e-ticket number. Duffel cancelled it on request. A hold was granted with payment due in 3
+  days, then released.
+- **API journey.** Our API went search, quote, guest booking and mock payment, then `CONFIRMED`
+  with the airline reference and an e-ticket.
+- **Error codes.** An unknown offer answers 404 `not_found`, which our client maps to
+  `OfferUnavailableError`. A malformed order answers 422 `validation_required`, mapped to
+  `SupplierRequestError`.
+
+**Duffel takes one order per offer request.** A second order or hold on any offer from the same
+search is refused with 422 `offer_request_already_booked`. This matters because our search cache
+shares one search between travellers who ask the same question within
+`SEARCH_CACHE_TTL_SECONDS` (10 minutes by default).
+
+- **The failure.** If two travellers book from the same cached search, the second order is
+  refused after payment.
+- **What happens today.** The booking fails as a definite supplier error and the payment is
+  refunded. No money is lost, but the traveller has a bad experience.
+- **Before real traffic.** A follow-up should give each quote its own offer request for Duffel,
+  or stop sharing cached Duffel searches. That needs the owner's call.
+
+**Hotels: not checked yet.** Stays answers 403, because Stays is not enabled on the account.
+The client now maps a non-JSON error page by its status (403 becomes `SupplierRequestError`),
+rather than reporting invalid JSON. The hotel checks above wait for Stays access.
+
 ## Consequences
 
 - Setting `HOTEL_SUPPLIERS=duffel` with `DUFFEL_API_TOKEN` enables real hotels. The env schema
