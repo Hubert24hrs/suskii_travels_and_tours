@@ -133,6 +133,57 @@ describe('Duffel test mode through our API (sandbox)', () => {
     expect(booking.body.flight.airlineReference).toEqual(expect.any(String));
   });
 
+  // Duffel takes one order per offer request, and identical searches share one search here
+  // (the cache). Each quote searches again, so two travellers on one search both book.
+  it('books two flights from one shared search: each quote has its own offer request', async () => {
+    const request = {
+      slices: [{ origin: 'LHR', destination: 'JFK', departureDate: inDays(31) }],
+      passengers: { adults: 1, children: 0, infants: 0 },
+      cabinClass: 'economy',
+    };
+    const first = await ctx.http().post('/v1/flights/searches').send(request).expect(200);
+    const second = await ctx.http().post('/v1/flights/searches').send(request).expect(200);
+    expect(second.body.searchId).toBe(first.body.searchId);
+    const offers = first.body.offers as { id: string; owner: { code: string } }[];
+    const offer = offers.find((candidate) => candidate.owner.code === 'ZZ') ?? offers[0];
+    if (!offer) throw new Error('Duffel returned no flight offers');
+
+    const references: string[] = [];
+    for (const [index, givenNames] of ['Sandbox', 'Second'].entries()) {
+      const quote = await ctx.http().post(`/v1/flights/offers/${offer.id}/quote`);
+      note(`shared search quote ${index.toString()}`, { status: quote.status });
+      expect(quote.status).toBe(201);
+      const created = await createBooking({
+        quoteId: quote.body.quoteId as string,
+        passengers: [
+          {
+            type: 'adult',
+            title: 'mr',
+            gender: 'm',
+            givenNames,
+            surname: 'Tester',
+            dateOfBirth: '1990-01-15',
+            nationality: 'NG',
+            document: {
+              number: `B123456${index.toString()}`,
+              issuingCountry: 'NG',
+              expiryDate: inDays(3650),
+            },
+          },
+        ],
+      });
+      expect(created.status).toBe(201);
+      const id = created.body.booking.id as string;
+      const access = { 'X-Booking-Token': created.body.accessToken as string };
+      await pay(id, access);
+      const booking = await ctx.http().get(`/v1/bookings/${id}`).set(access).expect(200);
+      note(`shared search result ${index.toString()}`, { status: booking.body.status as unknown });
+      expect(booking.body.status).toBe('CONFIRMED');
+      references.push(booking.body.flight.airlineReference as string);
+    }
+    expect(new Set(references).size).toBe(2);
+  });
+
   it('books a hotel: search, every rate, quote, guest booking, payment, Duffel stay', async () => {
     const cityId =
       (await ctx.prisma.airport.findUniqueOrThrow({ where: { iataCode: 'LHR' } })).cityId ?? '';
