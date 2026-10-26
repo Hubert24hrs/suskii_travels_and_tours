@@ -12198,6 +12198,88 @@
         }
       }
     },
+    "/v1/bookings/{bookingId}/schedule-changes/{changeId}/accept": {
+      "post": {
+        "operationId": "acceptScheduleChange",
+        "summary": "Accept the airline's new flight times",
+        "description": "For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To cancel instead, use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "changeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
     "/v1/bookings/{bookingId}/visa-applications/{applicationId}": {
       "get": {
         "operationId": "getVisaApplication",
@@ -16123,6 +16205,51 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RefundRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/internal/bookings/schedule-changes-due": {
+      "post": {
+        "operationId": "checkScheduleChanges",
+        "summary": "Ask suppliers for airline changes to ticketed flights that are due a check",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleChangeRun"
                 }
               }
             }
@@ -26971,6 +27098,16 @@
           "flightCancellable": {
             "type": "boolean"
           },
+          "scheduleChange": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlightScheduleChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "addons": {
             "type": "array",
             "items": {
@@ -27193,6 +27330,7 @@
           "voucher",
           "cancellation",
           "flightCancellable",
+          "scheduleChange",
           "addons",
           "passengers",
           "warnings",
@@ -32569,6 +32707,52 @@
           "offer",
           "priceChange",
           "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "FlightScheduleChange": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "accepted",
+              "cancelled",
+              "changed"
+            ]
+          },
+          "acceptable": {
+            "type": "boolean"
+          },
+          "detectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "previous": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlightSlice"
+            }
+          },
+          "updated": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlightSlice"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "acceptable",
+          "detectedAt",
+          "previous",
+          "updated"
         ],
         "additionalProperties": false
       },
@@ -41455,6 +41639,38 @@
           "content",
           "published"
         ]
+      },
+      "ScheduleChangeRun": {
+        "type": "object",
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "detected": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "resolved": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "checked",
+          "detected",
+          "resolved",
+          "failed"
+        ],
+        "additionalProperties": false
       },
       "ScheduledPayment": {
         "type": "object",

@@ -45,6 +45,7 @@ import { BookingTransitions, SYSTEM_ACTOR } from './booking-transitions';
 import { BookingsService, passportContext } from './bookings.service';
 import { bookingUrl } from './booking-urls';
 import { RefundsService } from './refunds.service';
+import { ScheduleChangesService } from './schedule-changes.service';
 import { ticketingAttempts } from '../telemetry/metrics';
 
 export type TicketingOutcome = 'confirmed' | 'retrying' | 'exhausted' | 'skipped';
@@ -95,6 +96,7 @@ export class TicketingService {
     private readonly refunds: RefundsService,
     private readonly notifications: BookingNotifications,
     private readonly fulfilment: InhouseFulfilment,
+    private readonly scheduleChanges: ScheduleChangesService,
   ) {}
 
   /** One ticketing attempt for a booking, if it is due. Safe to call concurrently. */
@@ -185,6 +187,10 @@ export class TicketingService {
             bookedAt: new Date(),
             // The supplier's order, for cancellation later (ADR-064); held orders already have it.
             ...(result.orderId && !item.supplierOrderId ? { supplierOrderId: result.orderId } : {}),
+            // Ticketed orders are then watched for airline schedule changes (ADR-065).
+            ...(payload.kind === 'flight' && (result.orderId ?? item.supplierOrderId)
+              ? { nextChangeCheckAt: this.scheduleChanges.firstCheckAt(item.supplier) }
+              : {}),
           },
         });
       } catch (error) {

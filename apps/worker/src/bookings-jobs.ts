@@ -12,6 +12,7 @@ import {
   type RefundRun,
   type ReminderRun,
   type RetentionRun,
+  type ScheduleChangeRun,
   type TicketingRun,
   type VisaPruneRun,
   type VisaScanRun,
@@ -24,7 +25,7 @@ import { type Logger } from './logger.js';
  * are ticketed (first attempts the API could not start, plus retries whose backoff has elapsed);
  * pending payments whose webhook never came are verified with the provider; payment plans get
  * their reminders and are closed on a missed payment; approved refunds are sent and pending ones
- * followed up. Visa documents whose background scan was lost are scanned again every few
+ * followed up; and ticketed flights due a check are asked for airline schedule changes (ADR-065). Visa documents whose background scan was lost are scanned again every few
  * minutes, and documents past their retention period are deleted daily (ADR-026). Check-in and
  * Prime reminders and referral qualification run every few minutes (ADR-030, ADR-031), and the
  * retention sweep daily (ADR-039). Captured payments, refunds and driver payouts are compared
@@ -39,6 +40,8 @@ export const BOOKING_JOB = {
   reconcile: 'bookings-reconcile-payments',
   plans: 'bookings-payment-plans',
   refunds: 'bookings-refunds',
+  /** The API checks each ticketed flight only every SCHEDULE_CHANGE_CHECK_HOURS (ADR-065). */
+  scheduleChanges: 'bookings-schedule-changes',
 } as const;
 
 /** Visa document housekeeping, on the same queue with their own schedules. */
@@ -87,6 +90,7 @@ export async function processBookingJob(
   | PaymentRun
   | PlanRun
   | RefundRun
+  | ScheduleChangeRun
   | VisaScanRun
   | VisaPruneRun
   | ReminderRun
@@ -134,6 +138,16 @@ export async function processBookingJob(
       if (result.executed > 0 || result.settled > 0) deps.logger.info(result, 'refunds processed');
       if (result.review > 0) {
         deps.logger.warn({ review: result.review }, 'refunds need an operations review');
+      }
+      return result;
+    }
+    case BOOKING_JOB.scheduleChanges: {
+      const result = await sweep(() => deps.api.checkScheduleChanges());
+      if (result.detected > 0 || result.resolved > 0) {
+        deps.logger.info(result, 'airline schedule changes found');
+      }
+      if (result.failed > 0) {
+        deps.logger.warn({ failed: result.failed }, 'airline schedule change checks failed');
       }
       return result;
     }

@@ -75,6 +75,7 @@ import { BookingFundsService } from './booking-funds.service';
 import { busTicketViews } from './bus-tickets';
 import { InhouseFulfilment } from './inhouse-fulfilment';
 import { cancellableFlight } from './flight-cancellation';
+import { changeSlices } from './schedule-changes';
 import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
 import { RENTAL_RESERVATION_INCLUDE, rentalReservationView } from './rental-views';
 import { claimBusSeats, claimRental, reserveSeats, syncRentalDeposit } from './seat-inventory';
@@ -208,62 +209,77 @@ export class BookingsService {
     const item = booking.items[0];
     if (!item) return EMPTY_VIEW;
     const payload = itemPayload(item);
-    const [voucher, linked, addons, applications, membership, busTickets, ride, rental] =
-      await Promise.all([
-        booking.status === 'CONFIRMED' && isInhouse(payload) && payload.kind !== 'visa'
-          ? this.prisma.bookingVoucher.findUnique({ where: { bookingItemId: item.id } })
-          : null,
-        booking.linkedBookingId
-          ? this.prisma.booking.findUnique({
-              where: { id: booking.linkedBookingId },
-              select: { id: true, reference: true },
-            })
-          : null,
-        booking.vertical === 'travel_addons'
-          ? []
-          : this.prisma.booking.findMany({
-              // Only the same traveller's add-ons: someone else may have linked one by reference.
-              where: {
-                linkedBookingId: booking.id,
-                status: { not: 'DRAFT' },
-                ...(booking.userId
-                  ? { userId: booking.userId }
-                  : { userId: null, contactEmailHash: booking.contactEmailHash }),
-              },
-              orderBy: { createdAt: 'asc' },
-              select: {
-                id: true,
-                reference: true,
-                status: true,
-                items: { select: { payload: true }, take: 1, orderBy: { createdAt: 'asc' } },
-              },
-            }),
-        payload.kind === 'visa'
-          ? this.prisma.visaApplication.findMany({
-              where: { bookingId: booking.id },
-              orderBy: { applicantPosition: 'asc' },
-            })
-          : [],
-        payload.kind === 'membership'
-          ? this.prisma.primeMembership.findUnique({
-              where: { bookingId: booking.id },
-              select: { startsAt: true, endsAt: true },
-            })
-          : null,
-        // Boarding passes stay listed after boarding or a refund, with their status.
-        payload.kind === 'bus'
-          ? this.prisma.busTicket.findMany({ where: { bookingItemId: item.id } })
-          : [],
-        payload.kind === 'ride'
-          ? this.prisma.ride.findUnique({ where: { bookingItemId: item.id }, select: { id: true } })
-          : null,
-        payload.kind === 'rental'
-          ? this.prisma.rentalReservation.findUnique({
-              where: { bookingItemId: item.id },
-              include: RENTAL_RESERVATION_INCLUDE,
-            })
-          : null,
-      ]);
+    const [
+      voucher,
+      linked,
+      addons,
+      applications,
+      membership,
+      busTickets,
+      ride,
+      rental,
+      scheduleChange,
+    ] = await Promise.all([
+      booking.status === 'CONFIRMED' && isInhouse(payload) && payload.kind !== 'visa'
+        ? this.prisma.bookingVoucher.findUnique({ where: { bookingItemId: item.id } })
+        : null,
+      booking.linkedBookingId
+        ? this.prisma.booking.findUnique({
+            where: { id: booking.linkedBookingId },
+            select: { id: true, reference: true },
+          })
+        : null,
+      booking.vertical === 'travel_addons'
+        ? []
+        : this.prisma.booking.findMany({
+            // Only the same traveller's add-ons: someone else may have linked one by reference.
+            where: {
+              linkedBookingId: booking.id,
+              status: { not: 'DRAFT' },
+              ...(booking.userId
+                ? { userId: booking.userId }
+                : { userId: null, contactEmailHash: booking.contactEmailHash }),
+            },
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              reference: true,
+              status: true,
+              items: { select: { payload: true }, take: 1, orderBy: { createdAt: 'asc' } },
+            },
+          }),
+      payload.kind === 'visa'
+        ? this.prisma.visaApplication.findMany({
+            where: { bookingId: booking.id },
+            orderBy: { applicantPosition: 'asc' },
+          })
+        : [],
+      payload.kind === 'membership'
+        ? this.prisma.primeMembership.findUnique({
+            where: { bookingId: booking.id },
+            select: { startsAt: true, endsAt: true },
+          })
+        : null,
+      // Boarding passes stay listed after boarding or a refund, with their status.
+      payload.kind === 'bus'
+        ? this.prisma.busTicket.findMany({ where: { bookingItemId: item.id } })
+        : [],
+      payload.kind === 'ride'
+        ? this.prisma.ride.findUnique({ where: { bookingItemId: item.id }, select: { id: true } })
+        : null,
+      payload.kind === 'rental'
+        ? this.prisma.rentalReservation.findUnique({
+            where: { bookingItemId: item.id },
+            include: RENTAL_RESERVATION_INCLUDE,
+          })
+        : null,
+      payload.kind === 'flight'
+        ? this.prisma.flightScheduleChange.findFirst({
+            where: { bookingId: booking.id },
+            orderBy: { detectedAt: 'desc' },
+          })
+        : null,
+    ]);
     return {
       voucher: voucher ? this.fulfilment.view(voucher) : null,
       cancellation:
@@ -273,6 +289,16 @@ export class BookingsService {
           ? cancellationTerms(payload, booking.status, paid, now)
           : null,
       flightCancellable: cancellableFlight(booking, this.flightSuppliers, now) !== null,
+      scheduleChange: scheduleChange
+        ? {
+            id: scheduleChange.id,
+            status: scheduleChange.status,
+            acceptable: scheduleChange.status === 'open' && scheduleChange.acceptable,
+            detectedAt: scheduleChange.detectedAt.toISOString(),
+            previous: changeSlices(scheduleChange.removed),
+            updated: changeSlices(scheduleChange.added),
+          }
+        : null,
       linkedBooking: linked,
       addons: addons.flatMap((addon) => {
         const first = addon.items[0];
