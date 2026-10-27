@@ -1,0 +1,94 @@
+name: Partner sandbox check
+
+# Calls Hotelbeds' evaluation host, Viator's Partner API and the Travelpayouts Partner Links API
+# through our adapters and prints real prices and tracked links (ADR-069 to ADR-071). Read-only:
+# it books nothing. Manual only, with the owner's repository secrets; a partner whose secrets are
+# missing is named and skipped, and the run fails when none is set. CI never calls a partner.
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Partners to check
+        type: choice
+        options: [all, hotelbeds, viator, travelpayouts]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: partner-sandbox
+  cancel-in-progress: false
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  sandbox:
+    name: Partner sandbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check the partner secrets are set
+        env:
+          ONLY: ${{ inputs.only }}
+          HOTELBEDS_API_KEY: ${{ secrets.HOTELBEDS_API_KEY }}
+          HOTELBEDS_API_SECRET: ${{ secrets.HOTELBEDS_API_SECRET }}
+          VIATOR_API_KEY: ${{ secrets.VIATOR_API_KEY }}
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          TRAVELPAYOUTS_MARKER: ${{ secrets.TRAVELPAYOUTS_MARKER || vars.TRAVELPAYOUTS_MARKER }}
+        run: |
+          declare -A needs=(
+            [hotelbeds]="HOTELBEDS_API_KEY HOTELBEDS_API_SECRET"
+            [viator]="VIATOR_API_KEY"
+            [travelpayouts]="TRAVELPAYOUTS_TOKEN TRAVELPAYOUTS_MARKER"
+          )
+          if [ "$ONLY" = "all" ]; then partners="hotelbeds viator travelpayouts"; else partners="$ONLY"; fi
+          ready=0
+          for partner in $partners; do
+            missing=""
+            for name in ${needs[$partner]}; do
+              [ -n "${!name}" ] || missing="$missing $name"
+            done
+            if [ -z "$missing" ]; then
+              ready=$((ready + 1))
+            else
+              echo "::warning::$partner is skipped: missing repository secret(s)$missing."
+            fi
+          done
+          if [ "$ready" -eq 0 ]; then
+            echo "::error::No partner has its secrets set. Add them under Settings, Secrets and variables, Actions (HOTELBEDS_API_KEY and HOTELBEDS_API_SECRET; VIATOR_API_KEY; TRAVELPAYOUTS_TOKEN and TRAVELPAYOUTS_MARKER), then run this workflow again."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The API's workspace dependencies (shared, design tokens, ...), as CI builds them.
+      - name: Build the API's workspace packages
+        run: pnpm exec turbo run build --filter=@suskii/api^...
+
+      - name: Run the partner check
+        env:
+          ONLY: ${{ inputs.only }}
+          HOTELBEDS_API_KEY: ${{ secrets.HOTELBEDS_API_KEY }}
+          HOTELBEDS_API_SECRET: ${{ secrets.HOTELBEDS_API_SECRET }}
+          VIATOR_API_KEY: ${{ secrets.VIATOR_API_KEY }}
+          VIATOR_CAMPAIGN: ${{ vars.VIATOR_CAMPAIGN }}
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          TRAVELPAYOUTS_MARKER: ${{ secrets.TRAVELPAYOUTS_MARKER || vars.TRAVELPAYOUTS_MARKER }}
+          TRAVELPAYOUTS_TRS: ${{ vars.TRAVELPAYOUTS_TRS }}
+        run: pnpm --filter @suskii/api sandbox:partners --only "$ONLY"
