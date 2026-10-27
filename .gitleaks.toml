@@ -13,4 +13,7 @@ regexes = [
   '''0123456789(abcdef)?''',
   # http://api.internal:4000/v1/internal/... (a hostname, read as a key by generic-api-key)
   '''api\.internal:4000''',
+  # `VIATOR_API_KEY=` with no value in .env.example: generic-api-key reads the next line
+  # (`VIATOR_CAMPAIGN=suskii`) as its value. Only an empty assignment matches.
+  '''\A[A-Z][A-Z0-9_]*=\r?\n''',
 ]
