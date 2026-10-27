@@ -32,6 +32,14 @@ jobs:
       - ruleId: 10202
         newRisk: False Positive
         context: admin
+      # PII disclosure reads any 12-digit run as a possible Maestro number. Random UUIDs end in
+      # 12 hex characters, which are sometimes all decimal digits (about 1 in 280), so a fresh
+      # seed occasionally trips it. Only exactly 12 digits are filtered: a card number of 13 to
+      # 19 digits, or one written in groups, still fails the job.
+      - ruleId: 10062
+        newRisk: False Positive
+        evidence: '[0-9]{12}\s*'
+        evidenceRegex: true
 
   - type: passiveScan-config
     parameters:

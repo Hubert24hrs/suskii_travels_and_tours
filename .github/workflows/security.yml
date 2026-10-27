@@ -216,6 +216,11 @@ jobs:
             zap.sh -cmd -autorun /zap/wrk/automation.yaml || status=$?
           jq -r '.site[].alerts[] | "\(.riskdesc)\t\(.pluginid)\t\(.alert)\t\(.count)"' \
             .zap/reports/zap-report.json || true
+          # Where each high-risk alert was raised; digits in the evidence are masked so a real
+          # leak never reaches the log.
+          jq -r '.site[].alerts[] | select(.riskcode == "3") | .instances[] |
+            "  \(.method) \(.uri) evidence: \(.evidence | gsub("[0-9]"; "9"))"' \
+            .zap/reports/zap-report.json || true
           [ "$status" -eq 0 ] || [ "$status" -eq 2 ]
 
       - name: Upload ZAP reports
