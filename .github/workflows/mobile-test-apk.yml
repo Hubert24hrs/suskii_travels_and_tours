@@ -6,10 +6,11 @@ name: Mobile test APK
 # for secrets, and published as the `mobile-test-apk` pre-release so it has a stable download URL:
 # https://github.com/<owner>/<repo>/releases/download/mobile-test-apk/suskii-travels-test.apk
 #
-# The e2e variant allows plain http, so the app can talk to a stack on the tester's own network.
-# Testers set that address in the app (Account, Test server; ADR-054), so the defaults below suit
-# everyone; `api_url` only changes where a fresh install points first. Mock attestation; not for
-# production.
+# At launch the app looks for the online test server (test-server.yml, ADR-066) through the
+# address file that workflow publishes, so a tester only has to start it on GitHub. The e2e variant
+# also allows plain http, so the app can talk to a stack on the tester's own network instead
+# (Account, Test server; ADR-054). `api_url` is only the fallback when neither is set. Mock
+# attestation; not for production.
 on:
   workflow_dispatch:
     inputs:
@@ -34,6 +35,8 @@ env:
   EXPO_PUBLIC_ATTESTATION: mock
   EXPO_PUBLIC_API_BASE_URL: ${{ inputs.api_url }}
   EXPO_PUBLIC_WEB_BASE_URL: ${{ inputs.web_url }}
+  EXPO_PUBLIC_TEST_SERVER_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/test-server/test-server.json
+  EXPO_PUBLIC_TEST_SERVER_START_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/test-server.yml
   GITLEAKS_VERSION: 8.30.1
   GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
   RELEASE_TAG: mobile-test-apk

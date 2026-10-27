@@ -167,6 +167,8 @@ export const en = {
     places: {
       searching: 'Searching places',
       noResults: 'No matching airports or cities',
+      unavailable: 'Places could not load. Check your connection, then type again.',
+      choose: 'Choose an airport or city from the list',
       recent: 'Recent',
       allAirports: 'All airports',
     },
@@ -863,6 +865,9 @@ export const en = {
         'We could not reach the Suskii server, so prices, deals and buses, rides and car rental cannot load yet.',
       unreachableTestBuild:
         'This test build needs a running Suskii server. Start the stack on your computer, then enter its address under Test server.',
+      unreachableHosted:
+        'The online test server is not running. Start it on GitHub (Run workflow), wait about ten minutes, then tap Try again.',
+      startTestServer: 'Start the test server',
       setTestServer: 'Set the test server',
     },
     search: {
@@ -961,11 +966,13 @@ export const en = {
         intro:
           'This test build talks to the API and website below. To try a stack on your computer, enter its addresses on your Wi-Fi network, then close the app and open it again.',
         inUse: 'In use: {api}',
+        hosted: 'Using the online test server until {time}.',
         api: 'API address, for example http://192.168.1.20:4000',
         web: 'Website address, for example http://192.168.1.20:3000',
         invalid: 'Enter an address such as http://192.168.1.20:4000, without a path.',
         save: 'Save server',
         reset: 'Use the built-in server',
+        resetHosted: 'Use the online test server',
         saved: 'Saved. Close the app and open it again to use it.',
       },
     },

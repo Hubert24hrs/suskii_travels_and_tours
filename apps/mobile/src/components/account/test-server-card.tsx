@@ -1,3 +1,4 @@
+import { useFormatters } from '@suskii/i18n/react';
 import { Button, Card, Input, useToast } from '@suskii/ui-native';
 import { useState } from 'react';
 import { Text } from 'react-native';
@@ -13,6 +14,7 @@ import { useT } from '../../providers/app-provider';
 export function TestServerCard() {
   const { t } = useT();
   const { toast } = useToast();
+  const format = useFormatters();
   const [api, setApi] = useState(appConfig.apiBaseUrl);
   const [web, setWeb] = useState(appConfig.webBaseUrl);
   const [invalid, setInvalid] = useState<readonly ('api' | 'web')[]>([]);
@@ -46,6 +48,13 @@ export function TestServerCard() {
       <Text testID="test-server-in-use" className="font-body text-caption text-muted">
         {t('mobile.account.testServer.inUse', { api: appConfig.apiBaseUrl })}
       </Text>
+      {appConfig.hostedServerExpiresAt ? (
+        <Text testID="test-server-hosted" className="font-body text-caption text-muted">
+          {t('mobile.account.testServer.hosted', {
+            time: format.dateTime(appConfig.hostedServerExpiresAt),
+          })}
+        </Text>
+      ) : null}
       <Input
         testID="test-server-api"
         label={t('mobile.account.testServer.api')}
@@ -71,7 +80,11 @@ export function TestServerCard() {
       </Button>
       {appConfig.customServer ? (
         <Button testID="test-server-reset" variant="ghost" onPress={reset}>
-          {t('mobile.account.testServer.reset')}
+          {t(
+            appConfig.testServerDiscoveryUrl
+              ? 'mobile.account.testServer.resetHosted'
+              : 'mobile.account.testServer.reset',
+          )}
         </Button>
       ) : null}
     </Card>

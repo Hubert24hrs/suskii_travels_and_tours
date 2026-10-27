@@ -1,4 +1,4 @@
-import { WEB_HOST } from '../src/config';
+import { webHost } from '../src/config';
 import { openSecureCache } from '../src/lib/cache';
 import { resolveIncomingUrl } from '../src/lib/deep-links';
 import { tripStore } from '../src/lib/trips';
@@ -14,7 +14,7 @@ export async function redirectSystemPath({
   path: string;
   initial: boolean;
 }): Promise<string> {
-  const link = resolveIncomingUrl(path, WEB_HOST);
+  const link = resolveIncomingUrl(path, webHost());
   if (link.access) {
     try {
       await openSecureCache();
