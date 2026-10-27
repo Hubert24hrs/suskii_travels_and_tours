@@ -54,7 +54,7 @@ done (merged). Plan, decisions and status: `docs/phases/cars.md`; audit: `docs/a
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
-needs the owner's account (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
+needs the owner's account, then one run of `partner-sandbox.yml` (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
 in production (ADR-069).
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
@@ -137,6 +137,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api eval:natural-search`   | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model) |
 | `pnpm --filter @suskii/api sandbox:duffel`        | Duffel flights and Stays test-mode check (ADR-062; test token, `--book`)   |
 | `pnpm --filter @suskii/api test:sandbox`          | Our API's booking journey against Duffel test mode (manual workflow only)  |
+| `pnpm --filter @suskii/api sandbox:partners`      | Hotelbeds, Viator and Travelpayouts live check (owner keys, read-only)     |
 | `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)        |
 | `pnpm --filter @suskii/api staff:bootstrap`       | First super admin of a new environment (`--email`, `--yes`; once)          |
 | `pnpm release:rehearse`                           | Compose deploy, ops command, broken release, rollback (`:local` images)    |
