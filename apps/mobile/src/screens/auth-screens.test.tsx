@@ -275,13 +275,49 @@ describe('Google and Apple on the test server (mock provider)', () => {
     });
   });
 
+  it('keeps both buttons while the API cannot be reached, and asks again on a press', async () => {
+    let asked = 0;
+    mockApi({
+      'GET /v1/auth/social/providers': () => {
+        asked += 1;
+        return asked === 1
+          ? json({ type: 'about:blank', title: 'Unavailable', status: 503 }, 503)
+          : json({ google: true, apple: true, mock: true });
+      },
+    });
+    await renderWithApp(<SignInScreen />);
+
+    // Unknown is not off: Google and Apple show at once, with the email form below them.
+    expect(screen.getByTestId('social-google')).toBeOnTheScreen();
+    expect(screen.getByTestId('social-apple')).toBeOnTheScreen();
+    expect(screen.getByText(m.mobile.auth.orSignIn)).toBeOnTheScreen();
+    await waitFor(() => expect(asked).toBe(1));
+
+    await fireEvent.press(screen.getByTestId('social-apple'));
+    expect(await screen.findByText(m.auth.social.mockIntro)).toBeOnTheScreen();
+    expect(asked).toBe(2);
+  });
+
+  it('says the server cannot be reached when a press still gets no answer', async () => {
+    mockApi({});
+    await renderWithApp(<RegisterScreen />);
+
+    expect(screen.getByText(m.mobile.auth.orRegister)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('social-google'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(m.mobile.networkError);
+    expect(screen.queryByText(m.auth.social.mockIntro)).toBeNull();
+  });
+
   it('shows no provider buttons when the API offers none', async () => {
     mockApi({
       'GET /v1/auth/social/providers': () => json({ google: false, apple: false, mock: false }),
     });
     await renderWithApp(<SignInScreen />);
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
-    expect(screen.queryByTestId('social-google')).toBeNull();
+    // Only the API's answer hides them (a build without Google or Apple client ids).
+    await waitFor(() => expect(screen.queryByTestId('social-google')).toBeNull());
+    expect(screen.queryByTestId('social-apple')).toBeNull();
+    expect(screen.queryByText(m.mobile.auth.orSignIn)).toBeNull();
   });
 });
 
@@ -358,6 +394,35 @@ describe('fingerprint sign-in', () => {
     await fireEvent.press(screen.getByTestId('sign-in-fingerprint'));
     expect(await screen.findByRole('alert')).toHaveTextContent(m.mobile.auth.fingerprint.expired);
     expect(biometrics.enabled()).toBe(false);
+  });
+
+  it('shows the button before it is set up and says how to turn it on', async () => {
+    const { calls } = mockApi({
+      'GET /v1/auth/social/providers': () => json({ google: true, apple: true, mock: true }),
+    });
+    await renderWithApp(<SignInScreen />, guestSession());
+
+    await fireEvent.press(screen.getByTestId('sign-in-fingerprint'));
+    expect(await screen.findByTestId('fingerprint-hint')).toHaveTextContent(
+      m.mobile.auth.fingerprint.notSetUp,
+    );
+    // Nothing is read or sent until a credential exists.
+    expect(SecureStore.getItemAsync).not.toHaveBeenCalledWith(
+      'auth.device-credential',
+      expect.anything(),
+    );
+    expect(calls.filter((request) => request.url.endsWith('/v1/auth/device'))).toHaveLength(0);
+  });
+
+  it('points to the phone settings when the phone has no fingerprint yet', async () => {
+    jest.mocked(LocalAuthentication.isEnrolledAsync).mockResolvedValue(false);
+    mockApi({});
+    await renderWithApp(<SignInScreen />, guestSession());
+
+    await fireEvent.press(screen.getByTestId('sign-in-fingerprint'));
+    expect(await screen.findByTestId('fingerprint-hint')).toHaveTextContent(
+      m.mobile.auth.fingerprint.phoneSetup,
+    );
   });
 
   it('is not offered on a phone without a fingerprint', async () => {

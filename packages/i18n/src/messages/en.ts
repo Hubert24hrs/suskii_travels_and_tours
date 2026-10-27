@@ -994,6 +994,8 @@ export const en = {
       registered: 'Check your email to confirm your address, then sign in.',
       registeredExisting:
         'If this email already has an account, sign in with its password instead.',
+      orSignIn: 'or sign in with your email or phone',
+      orRegister: 'or sign up with your email',
       fingerprint: {
         signIn: 'Sign in with fingerprint',
         prompt: 'Sign in to SUSKII T&T',
@@ -1014,6 +1016,12 @@ export const en = {
         turnOn: 'Turn on',
         turnOff: 'Turn off',
         unavailable: 'Set up a fingerprint or face unlock in your phone settings to use this.',
+        notSetUp:
+          'Fingerprint sign-in is not on for this phone yet. Sign in once below (email, phone, Google or Apple), then choose Use fingerprint.',
+        phoneSetup:
+          'First add a fingerprint or face unlock in your phone settings. Then sign in once below and turn on fingerprint sign-in.',
+        afterRegister:
+          'Once your account is ready, you can turn on fingerprint sign-in for this phone.',
       },
       registerInvalid: 'Check the email and the password (at least 10 characters) and try again.',
       mfaTitle: 'Two-step verification',
