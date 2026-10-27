@@ -54,6 +54,13 @@ All notable changes to this project are documented here. The format follows
 
 #### Fixed
 
+- **Manage booking.** The link in the website header and footer led to a missing page. It now
+  opens a form that emails the booking link to the booking's contact address when the reference
+  and email match (`POST /v1/bookings/link`, always 202; guests get a fresh access link valid for
+  a day).
+- **MFA after Google or Apple.** A traveller with MFA who signed in with Google or Apple on the
+  website, or registered in the app with an account that has MFA, lost the second-factor step.
+  It now continues on the page.
 - **Pickers open.** The date, traveller, room and filter pickers in the app now open: the sheet
   uses React Native's own modal instead of `@gorhom/bottom-sheet`, which never presented on some
   phones.

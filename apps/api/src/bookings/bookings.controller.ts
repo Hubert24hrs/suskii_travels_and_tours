@@ -34,6 +34,8 @@ import { BookingDocumentsService } from './booking-documents.service';
 import {
   BOOKING_TOKEN_HEADER,
   bookingIdParamsSchema,
+  bookingLinkAcceptedSchema,
+  bookingLinkRequestSchema,
   bookingSchema,
   cancelBookingRequestSchema,
   createBookingRequestSchema,
@@ -46,6 +48,7 @@ import {
   quoteSchema,
   scheduleChangeParamsSchema,
   startPaymentRequestSchema,
+  type BookingLinkRequest,
   type CancelBookingRequest,
   type CreateBookingRequest,
   type StartPaymentRequest,
@@ -54,6 +57,7 @@ import { bookingCaller } from './booking-caller';
 import { BookingsService } from './bookings.service';
 import { CheckoutService } from './checkout.service';
 import { FlightCancellationService } from './flight-cancellation.service';
+import { ManageBookingService } from './manage-booking.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { QuotesService } from './quotes.service';
 import { ScheduleChangesService } from './schedule-changes.service';
@@ -78,6 +82,7 @@ export class BookingsController {
     private readonly pushTokens: PushTokensService,
     private readonly cancellation: BookingCancellationService,
     private readonly flightCancellation: FlightCancellationService,
+    private readonly manage: ManageBookingService,
     private readonly scheduleChanges: ScheduleChangesService,
   ) {}
 
@@ -119,6 +124,27 @@ export class BookingsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof createdBookingSchema>> {
     return this.bookings.create(body, caller(request));
+  }
+
+  @Post('bookings/link')
+  @RateLimit(BOOKING_LIMITS.linkIp, BOOKING_LIMITS.linkReference)
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Contract({
+    operationId: 'requestBookingLink',
+    summary: 'Email the link to a booking',
+    description:
+      '"Manage booking": always answers 202 with the same body. When the reference and the contact email belong to the same booking, its contact address receives the link (a fresh access link for guests, valid for a day).',
+    tags: TAGS,
+    body: bookingLinkRequestSchema,
+    responses: { 202: bookingLinkAcceptedSchema },
+    errors: [400, 429],
+  })
+  async requestLink(
+    @Body() body: BookingLinkRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingLinkAcceptedSchema>> {
+    await this.manage.requestLink(body, caller(request).context);
+    return { status: 'accepted' };
   }
 
   @Get('bookings/:bookingId')

@@ -15,6 +15,7 @@ import { BookingFundsService } from './booking-funds.service';
 import { BookingNotesService } from './booking-notes.service';
 import { AdminPaymentReviewsController } from './admin-payment-reviews.controller';
 import { BookingNotifications } from './booking-notifications';
+import { ManageBookingService } from './manage-booking.service';
 import { BookingPaymentsService } from './booking-payments.service';
 import { BookingTransitions } from './booking-transitions';
 import { BookingsController } from './bookings.controller';
@@ -59,6 +60,7 @@ import { TravellersService } from './travellers.service';
     BookingsService,
     BookingDocumentsService,
     BookingNotifications,
+    ManageBookingService,
     RefundsService,
     BookingPaymentsService,
     TicketingService,

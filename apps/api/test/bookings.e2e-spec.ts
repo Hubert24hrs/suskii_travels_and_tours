@@ -321,6 +321,43 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
       await ctx.http().post('/v1/bookings').send(body).expect(400);
     });
 
+    it('emails a guest the booking link when the reference and email match, and says nothing else', async () => {
+      const { id, token } = await guestBooking();
+      const booking = await ctx.http().get(`/v1/bookings/${id}`).set(token).expect(200);
+      const reference = booking.body.reference as string;
+      const ask = (body: Record<string, string>) =>
+        ctx
+          .http()
+          .post('/v1/bookings/link')
+          .send({ reference, email: 'chioma@example.com', turnstileToken: 'e2e', ...body });
+
+      // Wrong email, unknown reference: the same answer, and no email.
+      for (const body of [{ email: 'someone@example.com' }, { reference: 'ZZZZZZ' }]) {
+        expect((await ask(body).expect(202)).body).toEqual({ status: 'accepted' });
+      }
+      expect(ctx.emails.outbox).toHaveLength(0);
+      await ask({ turnstileToken: 'fail' }).expect(400);
+
+      // Any case and spacing of the reference and email.
+      await ask({
+        reference: ` ${reference.toLowerCase()} `,
+        email: ' Chioma@Example.com ',
+      }).expect(202);
+      const message = ctx.emails.outbox.find((sent) => sent.template === 'booking-link');
+      expect(message?.to).toBe('chioma@example.com');
+      expect(message?.subject).toContain(reference);
+      const link = /\/bookings\/([0-9a-f-]+)#access=([A-Za-z0-9_-]+)/.exec(message?.text ?? '');
+      expect(link?.[1]).toBe(id);
+      // The emailed link opens the booking like the checkout token does.
+      await ctx
+        .http()
+        .get(`/v1/bookings/${id}`)
+        .set('X-Booking-Token', link?.[2] ?? '')
+        .expect(200);
+      const audit = await ctx.prisma.auditLog.findMany({ where: { action: 'booking.link_sent' } });
+      expect(audit.map((row) => row.targetId)).toEqual([id]);
+    });
+
     it('cancels an unpaid booking once', async () => {
       const { id, token } = await guestBooking();
       const cancelled = await ctx.http().post(`/v1/bookings/${id}/cancel`).set(token).expect(200);

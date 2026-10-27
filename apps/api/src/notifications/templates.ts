@@ -160,6 +160,31 @@ export function bookingConfirmedTemplate(details: BookingConfirmedDetails): Temp
   };
 }
 
+export interface BookingLinkDetails {
+  reference: string;
+  /** The booking page; a guest's carries a fresh access link. */
+  url: string;
+  /** Booked while signed in: the page asks for that account. */
+  signIn: boolean;
+}
+
+/** "Manage booking": the link a traveller asked for again (ADR-015). */
+export function bookingLinkTemplate(details: BookingLinkDetails): Template {
+  const intro = `Here is the link to your booking ${details.reference}.`;
+  const next = details.signIn
+    ? 'Sign in with the account you booked with to see it.'
+    : 'It opens the booking for 24 hours. Ask for a new one on the website any time.';
+  return {
+    template: 'booking-link',
+    ...simpleEmail(
+      `Your booking ${details.reference}`,
+      'Open your booking',
+      [intro, next, 'If you did not ask for this, you can ignore this email.'],
+      { label: 'Open booking', url: details.url },
+    ),
+  };
+}
+
 export interface PlanScheduleLine {
   due: string;
   amount: string;

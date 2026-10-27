@@ -2736,6 +2736,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the link to a booking
+         * @description "Manage booking": always answers 202 with the same body. When the reference and the contact email belong to the same booking, its contact address receives the link (a fresh access link for guests, valid for a day).
+         */
+        post: operations["requestBookingLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/buses/cities": {
         parameters: {
             query?: never;
@@ -6380,6 +6400,15 @@ export interface components {
             quantity: number;
             unitPrice: components["schemas"]["Money"];
             amount: components["schemas"]["Money"];
+        };
+        BookingLinkAccepted: {
+            /** @constant */
+            status: "accepted";
+        };
+        BookingLinkRequestInput: {
+            reference: string;
+            email: string;
+            turnstileToken: string;
         };
         BookingNote: {
             /** Format: uuid */
@@ -15769,6 +15798,37 @@ export interface operations {
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    requestBookingLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingLinkRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingLinkAccepted"];
+                };
+            };
+            400: components["responses"]["Problem400"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

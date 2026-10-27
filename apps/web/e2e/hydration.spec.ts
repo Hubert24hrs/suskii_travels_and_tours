@@ -83,6 +83,7 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
   ],
   ['sign in', () => '/sign-in'],
   ['register', () => '/register?ref=ABCDEFGH'],
+  ['manage booking', () => '/manage-booking'],
 ];
 
 test.describe('hydration with different Intl data in the browser', () => {
