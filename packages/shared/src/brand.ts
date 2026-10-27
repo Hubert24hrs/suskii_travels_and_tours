@@ -1,7 +1,7 @@
-/** Brand identity. The wordmark is text-only until brand assets exist. */
+/** Brand identity: the logo's name, SUSKII T&T, is the short name (ADR-068). */
 export const BRAND = {
   name: 'Suskii Travels and Tour',
-  shortName: 'Suskii Travels',
+  shortName: 'SUSKII T&T',
   slug: 'suskii-travels',
   membershipProgram: 'Suskii Prime',
 } as const;

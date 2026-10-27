@@ -1,6 +1,7 @@
 import { BRAND, SUPPORTED_CURRENCIES } from '@suskii/shared';
 import { cn } from '@suskii/ui-web';
 import { MessageCircle, Phone } from 'lucide-react';
+import Image from 'next/image';
 
 import { api, type SiteContent } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
@@ -89,7 +90,7 @@ export async function UtilityBar({ site }: { site: SiteContent | null }) {
   );
 }
 
-/** Sticky header: wordmark (text until brand assets exist), primary nav, sign in, mobile drawer. */
+/** Sticky header: the logo and wordmark, primary nav, sign in, mobile drawer. */
 export async function SiteHeader({ site }: { site: SiteContent | null }) {
   const { t } = await getI18n();
   const cars = await api.carsFeatures();
@@ -124,9 +125,19 @@ export async function SiteHeader({ site }: { site: SiteContent | null }) {
           href="/"
           prefetch
           aria-label={t('header.homeLink', { brand: BRAND.shortName })}
-          className="font-heading text-h4 font-extrabold whitespace-nowrap text-primary focus-visible:focus-ring"
+          className="flex shrink-0 items-center gap-2 font-heading text-h4 font-extrabold whitespace-nowrap text-heading focus-visible:focus-ring"
         >
-          {BRAND.shortName}
+          {/* The logo (ADR-068); the link's label names the brand, so the image is decorative. */}
+          <Image
+            src="/brand/logo-mark.png"
+            alt=""
+            width={40}
+            height={40}
+            unoptimized
+            priority
+            className="size-10"
+          />
+          <span>{BRAND.shortName}</span>
         </AppLink>
         <nav aria-label={t('header.primaryNav')} className="hidden lg:block">
           <ul className="flex items-center gap-6">

@@ -10,35 +10,36 @@
  */
 
 export const color = {
-  // spec
-  primary: '#004BBE',
-  'primary-hover': '#003C98',
-  'primary-pressed': '#00327F',
-  accent: '#F7941D',
-  'accent-hover': '#E0820F',
-  background: '#F2F6F9',
+  // spec: the SUSKII T&T logo (ADR-068): its red for actions, its blue for headings, the cart
+  // tile's orange for promotions.
+  primary: '#D11F0E',
+  'primary-hover': '#B01A0C',
+  'primary-pressed': '#93160A',
+  accent: '#F7A21B',
+  'accent-hover': '#E68D0A',
+  background: '#FFF8F6',
   surface: '#FFFFFF',
-  heading: '#004BBE',
+  heading: '#0B3FBF',
   foreground: '#0D1520',
   muted: '#5B6B7B',
-  border: '#BFD0DC',
+  border: '#EAD9D4',
   success: '#12805C',
   warning: '#B25E00',
-  danger: '#C62828',
-  'focus-ring': 'rgba(0, 75, 190, 0.45)',
+  danger: '#B3261E',
+  'focus-ring': 'rgba(11, 63, 191, 0.45)',
 
-  // derived (ADR-004)
+  // derived (ADR-004, ADR-068)
   'on-primary': '#FFFFFF',
   'on-accent': '#0D1520',
   'on-status': '#FFFFFF',
-  'border-strong': '#7A8C9D',
-  focus: '#004BBE',
+  'border-strong': '#857773',
+  focus: '#0B3FBF',
   'warning-text': '#A35600',
-  'primary-subtle': '#E6EEFA',
+  'primary-subtle': '#FDEBE8',
   scrim: 'rgba(13, 21, 32, 0.72)',
   'on-scrim': '#FFFFFF',
   overlay: 'rgba(13, 21, 32, 0.5)',
-  skeleton: '#E3EAF0',
+  skeleton: '#F3E7E3',
 } as const;
 
 export type ColorToken = keyof typeof color;
@@ -146,7 +147,7 @@ export const radius = {
 } as const;
 
 export const shadow = {
-  'primary-button': '0 4px 14px 0 rgba(0, 75, 190, 0.32)',
+  'primary-button': '0 4px 14px 0 rgba(209, 31, 14, 0.3)',
   'card-hover': '0 6px 20px 0 rgba(13, 21, 32, 0.08)',
   none: 'none',
 } as const;

@@ -188,22 +188,22 @@
     "feel": "Clean, fast, commercial, trust-first, deal-focused. Utility-first booking UI. Medium-to-high density but scannable. No heavy gradients, glassmorphism or decorative effects.",
     "tokens": {
       "color": {
-        "primary": "#004BBE",
-        "primary_hover": "#003C98",
-        "primary_pressed": "#00327F",
-        "accent": "#F7941D",
-        "accent_hover": "#E0820F",
-        "background": "#F2F6F9",
+        "primary": "#D11F0E",
+        "primary_hover": "#B01A0C",
+        "primary_pressed": "#93160A",
+        "accent": "#F7A21B",
+        "accent_hover": "#E68D0A",
+        "background": "#FFF8F6",
         "surface": "#FFFFFF",
-        "text_heading": "#004BBE",
+        "text_heading": "#0B3FBF",
         "text_body": "#0D1520",
         "text_muted": "#5B6B7B",
-        "border": "#BFD0DC",
+        "border": "#EAD9D4",
         "success": "#12805C",
         "warning": "#B25E00",
-        "danger": "#C62828",
-        "focus_ring": "rgba(0, 75, 190, 0.45)",
-        "notes": "Derived hover/pressed/muted/status shades must pass WCAG 2.2 AA contrast; verify with an automated contrast test. White text on #F7941D is below 4.5:1 for small text, so orange buttons use bold text at >=16px or dark text (#0D1520) where needed."
+        "danger": "#B3261E",
+        "focus_ring": "rgba(11, 63, 191, 0.45)",
+        "notes": "Colours come from the SUSKII T&T logo (ADR-068): its red for actions, its blue for headings and its orange cart tile for promotions. Derived hover/pressed/muted/status shades must pass WCAG 2.2 AA contrast; verify with an automated contrast test. White text on the orange accent is below 4.5:1, so orange buttons use dark text (#0D1520)."
       },
       "typography": {
         "heading_font": "Plus Jakarta Sans (700/800)",
@@ -215,7 +215,7 @@
       "spacing": { "base_unit_px": 4, "scale": [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80] },
       "radius_px": { "sm": 8, "md": 10, "lg": 12, "xl": 16, "pill": 9999 },
       "shadow": {
-        "primary_button": "0 4px 14px 0 rgba(0, 75, 190, 0.32)",
+        "primary_button": "0 4px 14px 0 rgba(209, 31, 14, 0.3)",
         "card_hover": "0 6px 20px 0 rgba(13, 21, 32, 0.08)",
         "none": "none"
       },
@@ -223,9 +223,9 @@
       "motion": { "duration_ms": { "fast": 120, "base": 200 }, "easing": "cubic-bezier(0.2, 0, 0, 1)", "respect_prefers_reduced_motion": true }
     },
     "components": {
-      "button_primary": "Blue fill, white text, radius lg, primary_button shadow, min height 48px, full width on mobile inside forms",
+      "button_primary": "Red fill, white text, radius lg, primary_button shadow, min height 48px, full width on mobile inside forms",
       "button_secondary": "Orange fill, used for promos and secondary CTAs only (e.g. 'Join Suskii Prime', 'View deal')",
-      "button_ghost": "Transparent, blue text, for tertiary actions",
+      "button_ghost": "Transparent, red text, for tertiary actions",
       "input": "White fill, 1px border token, radius md, no shadow, visible 2px focus ring, 48px height, icon slot left",
       "tabs": "Vertical-category tabs with icon + label; active tab has blue text and 3px blue underline; horizontally scrollable on mobile",
       "segmented_control": "Pill-style for trip type (Round trip / One way / Multi-city)",

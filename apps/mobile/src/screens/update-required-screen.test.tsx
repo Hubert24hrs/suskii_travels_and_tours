@@ -53,7 +53,7 @@ describe('retired app versions (MASVS-CODE-2)', () => {
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     await renderWithApp(<UpdateRequiredScreen />);
 
-    expect(screen.getByRole('header', { name: 'Update Suskii Travels' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Update SUSKII T&T' })).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Update the app' }));
 
     expect(open).toHaveBeenCalledWith(storeUrl());
