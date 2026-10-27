@@ -594,7 +594,9 @@ export const bookingPriceSchema = named(
     deposit: moneySchema
       .nullable()
       .meta({ description: 'Rentals: refundable deposit, never marked up or discounted.' }),
-    total: moneySchema.meta({ description: 'fare + taxes + fees - discount + extras + deposit.' }),
+    total: moneySchema.meta({
+      description: 'fare + taxes + fees + service taxes - discount + extras + deposit.',
+    }),
   }),
 );
 export type BookingPriceDto = z.infer<typeof bookingPriceSchema>;

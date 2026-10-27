@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { daysBetween, money, utcToLocal } from '@suskii/shared';
+import { daysBetween, fromWire, money, utcToLocal } from '@suskii/shared';
 
 import {
   documentDateTime,
@@ -9,6 +9,7 @@ import {
   renderTicketPdf,
   renderVisaConfirmationPdf,
   renderVoucherPdf,
+  type DocumentTax,
   type TicketDocument,
   type VoucherDocument,
 } from '../documents/booking-pdf';
@@ -25,10 +26,12 @@ import { InhouseFulfilment } from './inhouse-fulfilment';
 import type { BusItemPayload, InhouseItemPayload } from './inhouse-items';
 import {
   BOOKING_INCLUDE,
+  bookingPrice,
   itemPayload,
   itemServices,
   type BookingRecord,
 } from './booking-presenter';
+import type { BookingPriceDto } from './bookings.schemas';
 
 export interface GeneratedDocument {
   type: BookingDocumentType;
@@ -197,12 +200,17 @@ export class BookingDocumentsService {
     payload: ItemPayload,
   ): Promise<Uint8Array> {
     const total = money(booking.totalMinor, booking.currency);
+    const serviceTaxes = documentTaxes(booking);
     const issuedAt = booking.confirmedAt ?? new Date();
     if (payload.kind === 'membership' || payload.kind === 'ride' || payload.kind === 'rental') {
       throw new Error(`${payload.kind} bookings have no document`);
     }
-    if (payload.kind === 'bus') return this.renderBus(booking, item, payload, total, issuedAt);
-    if (isInhouse(payload)) return this.renderInhouse(booking, item, payload, total, issuedAt);
+    if (payload.kind === 'bus') {
+      return this.renderBus(booking, item, payload, total, issuedAt, serviceTaxes);
+    }
+    if (isInhouse(payload)) {
+      return this.renderInhouse(booking, item, payload, total, issuedAt, serviceTaxes);
+    }
     if (payload.kind === 'flight') {
       const services = itemServices(item);
       const tickets =
@@ -246,6 +254,7 @@ export class BookingDocumentsService {
           changeable: payload.offer.conditions.changeable,
         },
         total,
+        serviceTaxes,
       };
       return renderTicketPdf(ticket);
     }
@@ -275,6 +284,7 @@ export class BookingDocumentsService {
         : null,
       payAtProperty: rate.payAtProperty ? fx.convert(rate.payAtProperty, booking.currency) : null,
       total,
+      serviceTaxes,
     };
     return renderVoucherPdf(voucher);
   }
@@ -286,6 +296,7 @@ export class BookingDocumentsService {
     payload: BusItemPayload,
     total: ReturnType<typeof money>,
     issuedAt: Date,
+    serviceTaxes: DocumentTax[],
   ): Promise<Uint8Array> {
     const tickets = await this.prisma.busTicket.findMany({ where: { bookingItemId: item.id } });
     const views = busTicketViews(tickets, booking.passengers, payload, this.signer);
@@ -311,6 +322,7 @@ export class BookingDocumentsService {
       ),
       cancellation: cancellationLines(payload.cancellationPolicy),
       total,
+      serviceTaxes,
     });
   }
 
@@ -320,6 +332,7 @@ export class BookingDocumentsService {
     payload: Exclude<InhouseItemPayload, { kind: 'membership' | 'bus' | 'ride' | 'rental' }>,
     total: ReturnType<typeof money>,
     issuedAt: Date,
+    serviceTaxes: DocumentTax[],
   ): Promise<Uint8Array> {
     const names = booking.passengers.map(
       (passenger) => `${passenger.givenNames} ${passenger.surname}`,
@@ -338,6 +351,7 @@ export class BookingDocumentsService {
         governmentFeeNote: payload.governmentFeeNote,
         disclaimer: VISA_DISCLAIMER,
         total,
+        serviceTaxes,
       });
     }
     const voucher = await this.prisma.bookingVoucher.findUnique({
@@ -379,6 +393,21 @@ export class BookingDocumentsService {
       inclusions: payload.kind === 'addon' ? [] : payload.inclusions,
       cancellation: cancellationLines(payload.cancellationPolicy),
       total,
+      serviceTaxes,
     });
   }
+}
+
+/**
+ * The taxes on our service the booking was priced with (ADR-072), from its stored price; a price
+ * stored before tax lines existed has none.
+ */
+function documentTaxes(booking: { price: unknown }): DocumentTax[] {
+  const lines = (bookingPrice(booking) as Partial<BookingPriceDto>).serviceTaxes ?? [];
+  return lines.map((line) => ({
+    label: line.label,
+    rateBps: line.rateBps,
+    amount: fromWire(line.amount),
+    registrationNumber: line.registrationNumber,
+  }));
 }

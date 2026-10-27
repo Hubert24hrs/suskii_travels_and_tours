@@ -6,6 +6,14 @@ import { encode } from 'uqr';
 // Documents are generated in English for now (localised documents arrive with the notification
 // templates). Names use the passport form, which keeps every glyph inside the standard fonts.
 
+/** Tax on Suskii's service, included in the total (ADR-072). */
+export interface DocumentTax {
+  label: string;
+  rateBps: number;
+  amount: Money;
+  registrationNumber: string | null;
+}
+
 export interface TicketDocument {
   reference: string;
   airlineReference: string;
@@ -39,6 +47,8 @@ export interface TicketDocument {
   baggage: { carryOn: number; checked: number };
   conditions: { refundable: boolean; changeable: boolean };
   total: Money;
+  /** Included in the total; printed under it. */
+  serviceTaxes?: DocumentTax[];
 }
 
 export interface VoucherDocument {
@@ -63,6 +73,8 @@ export interface VoucherDocument {
   freeCancellationUntil: Date | null;
   payAtProperty: Money | null;
   total: Money;
+  /** Included in the total; printed under it. */
+  serviceTaxes?: DocumentTax[];
 }
 
 /** Package, tour and add-on vouchers (ADR-028). */
@@ -83,6 +95,8 @@ export interface InhouseVoucherDocument {
   inclusions: string[];
   cancellation: string[];
   total: Money;
+  /** Included in the total; printed under it. */
+  serviceTaxes?: DocumentTax[];
 }
 
 export interface VisaConfirmationDocument {
@@ -98,6 +112,8 @@ export interface VisaConfirmationDocument {
   governmentFeeNote: string | null;
   disclaimer: string;
   total: Money;
+  /** Included in the total; printed under it. */
+  serviceTaxes?: DocumentTax[];
 }
 
 const PAGE: [number, number] = [595.28, 841.89]; // A4 in points
@@ -119,6 +135,11 @@ export function pdfText(value: string): string {
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .replace(/[^\x20-\x7E]/g, '?');
+}
+
+/** A rate in basis points as a percentage: 750 -> "7.5%". */
+export function documentRate(rateBps: number): string {
+  return `${Number((rateBps / 100).toFixed(2))}%`;
 }
 
 export function documentMoney(amount: Money): string {
@@ -215,6 +236,16 @@ class Writer {
   }
 }
 
+/** Each tax inside the total paid, then the seller's registration numbers. */
+function writeServiceTaxes(writer: Writer, taxes: readonly DocumentTax[] | undefined): void {
+  const lines = taxes ?? [];
+  for (const tax of lines) {
+    writer.pair(`Includes ${tax.label} ${documentRate(tax.rateBps)}`, documentMoney(tax.amount));
+  }
+  const numbers = new Set(lines.flatMap((tax) => tax.registrationNumber ?? []));
+  for (const number of numbers) writer.pair('Tax registration', number);
+}
+
 async function newDocument(title: string, reference: string, qrValue: string = reference) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${title} ${reference}`);
@@ -277,6 +308,7 @@ export async function renderTicketPdf(ticket: TicketDocument): Promise<Uint8Arra
     ticket.conditions.refundable ? 'Allowed (fees may apply)' : 'Non-refundable',
   );
   writer.pair('Total paid', documentMoney(ticket.total));
+  writeServiceTaxes(writer, ticket.serviceTaxes);
 
   writer.heading('Before you fly');
   writer.line('Check in with the airline using the airline reference above.');
@@ -310,6 +342,7 @@ export async function renderVoucherPdf(voucher: VoucherDocument): Promise<Uint8A
 
   writer.heading('Payment and cancellation');
   writer.pair('Total paid', documentMoney(voucher.total));
+  writeServiceTaxes(writer, voucher.serviceTaxes);
   if (voucher.payAtProperty)
     writer.pair('Pay at the property', documentMoney(voucher.payAtProperty));
   writer.pair(
@@ -366,6 +399,7 @@ export async function renderInhouseVoucherPdf(
   }
   writer.heading('Payment and cancellation');
   writer.pair('Total paid', documentMoney(voucher.total));
+  writeServiceTaxes(writer, voucher.serviceTaxes);
   for (const line of voucher.cancellation) writer.line(line);
   writer.heading('On the day');
   writer.line(
@@ -390,6 +424,8 @@ export interface BusTicketsDocument {
   tickets: { seatNumber: string; passenger: string; qrPayload: string }[];
   cancellation: string[];
   total: Money;
+  /** Included in the total; printed under it. */
+  serviceTaxes?: DocumentTax[];
 }
 
 export async function renderBusTicketsPdf(document: BusTicketsDocument): Promise<Uint8Array> {
@@ -419,6 +455,7 @@ export async function renderBusTicketsPdf(document: BusTicketsDocument): Promise
     writer.pair('Arrives about', `${documentDateTime(document.arrivesAtLocal)} (local time)`);
     writer.heading('Payment and cancellation');
     writer.pair('Total paid (all seats)', documentMoney(document.total));
+    writeServiceTaxes(writer, document.serviceTaxes);
     for (const line of document.cancellation) writer.line(line);
     writer.heading('At the terminal');
     writer.line('Show the QR code and an ID at boarding. Each code boards one passenger once.');
@@ -447,6 +484,7 @@ export async function renderVisaConfirmationPdf(
 
   writer.heading('Payment');
   writer.pair('Service fee paid', documentMoney(confirmation.total));
+  writeServiceTaxes(writer, confirmation.serviceTaxes);
   if (confirmation.governmentFeeNote) writer.line(confirmation.governmentFeeNote);
 
   writer.heading('Next steps');
