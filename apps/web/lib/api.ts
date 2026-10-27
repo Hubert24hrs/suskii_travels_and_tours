@@ -146,6 +146,16 @@ export const api = {
     apiGet<Schemas['Airport']>(`/v1/catalog/airports/${encodeURIComponent(code)}`, {
       revalidate: ONE_DAY,
     }),
+  // Partner offers (ADR-069) answer 404 while switched off. Only whether they are on is read here:
+  // the links themselves are fetched in the browser, so they carry the signed-in traveller.
+  partnerOffersOn: async () =>
+    ((
+      await apiGet<Schemas['PartnerOffers']>('/v1/partners/offers', {
+        revalidate: FIVE_MINUTES,
+        tags: ['partners'],
+        query: { countryCode: 'NG', categories: 'transfer' },
+      })
+    )?.offers.length ?? 0) > 0,
   // Cars (ADR-049): switched-off products answer 404, which reads as "nothing to show".
   carsFeatures: () =>
     apiGet<Schemas['CarsFeatures']>('/v1/cars/features', {

@@ -1,3 +1,4 @@
+import { I18nProvider } from '@suskii/i18n/react';
 import { Card } from '@suskii/ui-web';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -5,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { AppLink } from '../../components/app-link';
 import { CarsHeader } from '../../components/cars/cars-header';
 import { Container } from '../../components/layout/container';
+import { PartnerOffers } from '../../components/partners/partner-offers';
 import { api } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
 import { pageMetadata } from '../../lib/seo';
@@ -24,12 +26,15 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-/** Buses, rides and car rental in one place; only the products that are switched on. */
+/**
+ * Buses, rides and car rental in one place: the Cars products that are switched on, and car rental
+ * and airport transfers from affiliate partners (ADR-069) when partner offers are on.
+ */
 export default async function CarsPage() {
-  const { t } = await getI18n();
-  const features = await api.carsFeatures();
+  const { t, locale, currency, messages } = await getI18n();
+  const [features, partnersOn] = await Promise.all([api.carsFeatures(), api.partnerOffersOn()]);
   const products = PRODUCTS.filter((product) => features?.[product.key]);
-  if (products.length === 0) notFound();
+  if (products.length === 0 && !partnersOn) notFound();
   return (
     <Container className="flex flex-col gap-8 pt-8 pb-16">
       <CarsHeader
@@ -59,6 +64,20 @@ export default async function CarsPage() {
           </li>
         ))}
       </ul>
+      {partnersOn ? (
+        <I18nProvider locale={locale} messages={{ partners: messages.partners }}>
+          <PartnerOffers
+            source={{
+              kind: 'place',
+              countryCode: 'NG',
+              categories: ['car_rental', 'transfer'],
+              currency,
+            }}
+            heading={t('partners.hubHeading')}
+            testId="partner-offers-hub"
+          />
+        </I18nProvider>
+      ) : null}
     </Container>
   );
 }

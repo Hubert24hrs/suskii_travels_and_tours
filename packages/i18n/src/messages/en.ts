@@ -2427,6 +2427,34 @@ export const en = {
     unavailable: 'This plan is not available in your currency right now.',
     error: 'We could not start your membership. Try again.',
   },
+  // Affiliate partner offers (ADR-069, ADR-070): the traveller books on the partner's site.
+  partners: {
+    tripHeading: 'More for your trip',
+    hubHeading: 'Car rental and airport transfers from our partners',
+    disclosure:
+      'Offered by our partners. You book and pay on their site, under their terms; Suskii may earn a commission.',
+    category: {
+      car_rental: 'Car rental',
+      transfer: 'Airport transfer',
+      activity: 'Tours and activities',
+      esim: 'eSIM data',
+      insurance: 'Travel insurance',
+    },
+    categoryBody: {
+      car_rental: 'Compare cars from local and international rental companies.',
+      transfer: 'Book a driver to meet you at the airport, at a fixed price.',
+      activity: 'Things to do at your destination.',
+      esim: 'Mobile data for your trip, ready before you land.',
+      insurance: 'Cover for medical costs, delays and lost bags.',
+    },
+    from: 'From {price}',
+    rating: '{rating} of 5 ({count})',
+    hours: '{hours} h',
+    open: 'Go to {partner}',
+    sample: 'Sample',
+    unavailable: 'Partner offers are not available right now.',
+  },
+
   alerts: {
     watch: 'Watch this route',
     watching: 'Price alert set. We will tell you when the fare drops.',

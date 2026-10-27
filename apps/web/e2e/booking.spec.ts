@@ -148,6 +148,19 @@ test.describe('flight booking', () => {
     await expect(planner.getByText(t('booking.cars.plan.noRide'))).toBeVisible();
     await expectNoAxeViolations(page);
 
+    // Partner offers for the trip (ADR-069): transfers, a car, an eSIM, insurance and tours in
+    // Abuja, each through the API's tracked link to the partner's own site.
+    const partners = page.getByTestId('partner-offers');
+    await expect(partners).toContainText(t('partners.disclosure'));
+    await expect(partners.getByTestId('partner-offer-viator').first()).toContainText('in Abuja');
+    const transfer = partners.getByTestId('partner-offer-gettransfer').getByRole('link');
+    const followed = await page.request.get((await transfer.getAttribute('href')) ?? '', {
+      maxRedirects: 0,
+    });
+    expect(followed.status()).toBe(302);
+    expect(followed.headers().location).toMatch(/^https:\/\/gettransfer\.com\/en\?sub_id=/);
+    await expectNoAxeViolations(page);
+
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.getByRole('button', { name: t('booking.download.e_ticket') }).click(),

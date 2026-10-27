@@ -177,3 +177,12 @@ tags:
     visible:
       id: document-saved
     timeout: 30000
+
+# Partner offers for the trip (ADR-069): transfers, a car, an eSIM, insurance and tours, each
+# opened in the browser through the API's tracked link. The card sits above the documents.
+- scrollUntilVisible:
+    element:
+      id: partner-offers
+    direction: UP
+    timeout: 60000
+- assertVisible: 'Offered by our partners.*'
