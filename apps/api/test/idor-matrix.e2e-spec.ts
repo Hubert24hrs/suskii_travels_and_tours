@@ -84,6 +84,7 @@ interface Fixture {
   travellerId: string;
   priceAlertId: string;
   sessionId: string;
+  deviceCredentialId: string;
   busHoldId: string;
   rideId: string;
   /** A Lagos ride place, where the flight leaves from (departure planner). */
@@ -163,6 +164,7 @@ const CASES: Record<string, Case> = {
   deleteTraveller: { path: (f) => `/v1/me/travellers/${f.travellerId}` },
   deletePriceAlert: { path: (f) => `/v1/me/price-alerts/${f.priceAlertId}` },
   revokeSession: { path: (f) => `/v1/me/sessions/${f.sessionId}` },
+  revokeDeviceCredential: { path: (f) => `/v1/me/device-credentials/${f.deviceCredentialId}` },
   releaseBusHold: { path: (f) => `/v1/buses/holds/${f.busHoldId}` },
   getRide: { path: (f) => `/v1/rides/${f.rideId}` },
   cancelRide: { path: (f) => `/v1/rides/${f.rideId}/cancel` },
@@ -402,6 +404,12 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
         nationality: 'NG',
       })
       .expect(201);
+    const credential = await ctx
+      .http()
+      .post('/v1/me/device-credentials')
+      .set(auth)
+      .send({ label: 'Pixel 9' })
+      .expect(201);
     const alert = await ctx
       .http()
       .post('/v1/me/price-alerts')
@@ -515,6 +523,7 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       travellerId: traveller.body.id as string,
       priceAlertId: alert.body.id as string,
       sessionId: owner.sessionId,
+      deviceCredentialId: credential.body.credentialId as string,
     };
   }
 
@@ -601,6 +610,10 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
     ]);
     const alerts = await ctx.http().get('/v1/me/price-alerts').set(auth).expect(200);
     expect(alerts.body.alerts).toEqual([expect.objectContaining({ id: fixture.priceAlertId })]);
+    const credentials = await ctx.http().get('/v1/me/device-credentials').set(auth).expect(200);
+    expect(credentials.body.credentials).toEqual([
+      expect.objectContaining({ id: fixture.deviceCredentialId }),
+    ]);
     const busHold = await ctx.prisma.busSeatHold.findUniqueOrThrow({
       where: { id: fixture.busHoldId },
     });
