@@ -119,6 +119,8 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/mobile android`            | Build and run the development build on an Android emulator                 |
 | `pnpm --filter @suskii/mobile scan:bundle dist`   | Secret scan of the mobile export (`--self-test` checks the scanner)        |
 | `pnpm --filter @suskii/web e2e:stack`             | Run the e2e stack (API, worker refresh, web) for Maestro flows             |
+| Actions, Test server, Run workflow                | Hosted test server for phones (`test-server.yml`, up to 5.5 hours)         |
+| `node scripts/brand-assets.mjs`                   | Rebuild app and web icons, splash and header mark from `brand/` (ADR-068)  |
 | `pnpm format` / `format:check`                    | Prettier write / check                                                     |
 | `pnpm security:checklist` (`--check` in CI)       | Regenerate `docs/security/checklist.md` from the reviewed mapping          |
 | `pnpm --filter @suskii/api test:cov`              | API unit tests with the 80% gates (also `@suskii/shared`)                  |
@@ -410,6 +412,17 @@ Tooling notes for agents:
   needs a polyfill there and a case in `polyfills.test.ts` (Jest runs on Node's full `Intl`).
 - Push permission is requested only after a booking or from Account (`followBooking`,
   `followAccount`), never on launch.
+- Test builds find the hosted test server at launch (`discoverHostedServer`, ADR-066); read the
+  API and website origins through `appConfig` getters (they can change at runtime) and
+  `webHost()`, never cache them at module load. A server chosen under Test server wins.
+- Sheets are React Native modals (`Sheet` in ui-native); give pickers a `testID` (the field,
+  `{testID}-sheet`, `{testID}-done`, days `{testID}-day-YYYY-MM-DD`, steppers
+  `{testID}-{type}-add`).
+- Sign-in (ADR-067): registration signs straight in through `useAuth().register()`;
+  `SocialButtons` offers Google and Apple (the mock on test stacks, the system Apple sheet on
+  iPhone, otherwise the website relay with a bound nonce); fingerprint sign-in keeps its device
+  credential only in `biometrics` (secure store behind the biometric prompt). Signing out keeps
+  it; `forgetAccount()` (deletion) clears it.
 - Give interactive elements used by Maestro a stable `testID` (fields: the form path, such as
   `passengers.0.surname`; choices: `{testID}-{value}`; suggestions: `{testID}-option-{key}`).
 - Account screens wrap their content in `RequireAccount` and live under `app/account/*`.
@@ -467,6 +480,10 @@ Tooling notes for agents:
   per-channel renderings (`src/messaging/messages.ts`); it applies the preference matrix and
   logs each attempt. Booking and payment email are mandatory; marketing needs recorded consent.
   Push data carries only an in-app path the app allowlists (`resolveNotificationPath`).
+- Fingerprint sign-in (ADR-067) issues device credentials only through `DeviceCredentialsService`
+  (fresh session, HMAC stored, five per account); `SessionService.revokeAllForUser` and incident
+  revocation end them with the sessions. Mock Google and Apple tokens (`SOCIAL_MOCK_ENABLED`) are
+  for test stacks only and production refuses them; a bound nonce needs its `bindingSecret`.
 - Referral rewards come from `REFERRAL_*` settings (zero by default) and are paid only through
   `LedgerService` (`referral_reward`); a fraud flag sends the referral to review, never to a
   silent rejection or payout.
@@ -644,6 +661,9 @@ Tooling notes for agents:
 
 - `packages/design-tokens/src/tokens.ts` is the only place visual values live. Spec values must stay
   identical to `PROJECT_SPEC.json` (tested); derived tokens are documented in ADR-003/ADR-004.
+- Brand (ADR-068): the palette comes from the SUSKII T&T logo (red actions, blue headings,
+  orange promotions) and `BRAND.shortName` is `SUSKII T&T`. Rebuild images with
+  `scripts/brand-assets.mjs`, never by hand.
 - Style with token utilities only: `bg-primary`, `text-foreground`, `text-muted`, `text-h2`,
   `p-4` (4px scale), `rounded-lg`, `shadow-card-hover`, `focus-visible:focus-ring`. Tailwind's default
   palette and scales are removed, so `bg-red-500` or `p-7` simply do not exist.
@@ -730,6 +750,9 @@ Tooling notes for agents:
 - [ADR-063: Checked bags on Duffel flights](docs/decisions/ADR-063-checked-bags-on-duffel-flights.md)
 - [ADR-064: Online cancellation of ticketed flights](docs/decisions/ADR-064-online-flight-cancellation.md)
 - [ADR-065: Airline schedule changes on ticketed flights](docs/decisions/ADR-065-airline-schedule-changes.md)
+- [ADR-066: Hosted test server for phone testing](docs/decisions/ADR-066-hosted-test-server.md)
+- [ADR-067: Google, Apple and fingerprint sign-in](docs/decisions/ADR-067-social-and-fingerprint-sign-in.md)
+- [ADR-068: Brand refresh from the SUSKII T&T logo](docs/decisions/ADR-068-brand-refresh-from-the-logo.md)
 
 ## Open questions for the owner
 
@@ -799,4 +822,7 @@ cancellation (ADR-064): an optional cancellation service fee on top of the airli
 what to do when the airline refunds as credits (support today), and whether staff need a console
 action for supplier cancellations. Added with airline schedule changes (ADR-065): whether to
 check more often close to departure, a console view and actions for changes, and Duffel webhooks
-for faster detection.
+for faster detection. Added with the redesign and sign-in work (ADR-066 to ADR-068): Google OAuth
+client ids (web client for the website and the app's relay) and the Apple Services ID and App ID
+for real Google and Apple sign-in; confirmation of the derived brand shades and a vector logo for
+sharper small icons; and a staging environment to replace the hosted test server.
