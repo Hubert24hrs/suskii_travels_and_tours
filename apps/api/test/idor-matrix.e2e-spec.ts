@@ -122,6 +122,10 @@ const CASES: Record<string, Case> = {
   acceptScheduleChange: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/schedule-changes/${f.scheduleChangeId}/accept`,
   },
+  refundScheduleChange: {
+    path: (f) => `/v1/bookings/${f.flightBookingId}/schedule-changes/${f.scheduleChangeId}/refund`,
+    body: () => ({}),
+  },
   downloadBookingDocument: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/documents/${f.bookingDocumentId}`,
   },
