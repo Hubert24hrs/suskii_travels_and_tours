@@ -54,6 +54,19 @@ provider):
 - Travelpayouts: connect the seven brands, set the token, marker and project id, confirm the
   Partner Links answer (`partner_url`) and set the postback URL with its macros (ADR-070).
 
+Each of these is one run once the keys exist: add them as repository secrets
+(`HOTELBEDS_API_KEY` and `HOTELBEDS_API_SECRET`; `VIATOR_API_KEY`; `TRAVELPAYOUTS_TOKEN` and
+`TRAVELPAYOUTS_MARKER`, with `VIATOR_CAMPAIGN` and `TRAVELPAYOUTS_TRS` as variables), then run
+Actions, Partner sandbox check (`partner-sandbox.yml`, script `sandbox:partners`). It calls each
+partner through our adapters and prints real hotels with their cheapest stays and a rate check,
+tours with prices, and which programmes got a tracked link. It books nothing, and a partner
+without keys is named and skipped.
+
+**Flights with real prices today (2026-10-27, `aac132e`):** the Duffel sandbox workflow found 56
+offers from London to New York, and our API booked one from search to a confirmed Duffel order
+with an airline reference and e-ticket, cancelled one with a refund, sold a checked bag and booked
+two seats from one shared search. Duffel Stays answered 403: Stays is not enabled on the account.
+
 **Partner offers in the clients (2026-10-27):** the website's booking page and `/cars` hub, and the
 app's trip screen and Cars screen, show partner offers with the commission disclosure and open
 them through the tracked link.

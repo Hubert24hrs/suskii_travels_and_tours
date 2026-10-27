@@ -141,9 +141,10 @@ describe('sealed partner links (ADR-070)', () => {
   it('refuses altered, foreign and oversized tokens', () => {
     const token = links.seal(claims);
     const parts = token.split('.');
-    const tampered = [...parts.slice(0, 3), `${parts[3]?.slice(0, -2) ?? ''}AA`, parts[4]].join(
-      '.',
-    );
+    // Always a different first character (its six bits are all data, unlike the last one's).
+    const sealed = parts[3] ?? '';
+    const swapped = `${sealed.startsWith('A') ? 'B' : 'A'}${sealed.slice(1)}`;
+    const tampered = [...parts.slice(0, 3), swapped, parts[4]].join('.');
     expect(links.open(tampered)).toBeNull();
     const other = new LocalKeyFieldEncryption(config);
     expect(links.open(other.encrypt(JSON.stringify({ p: 'x' }), 'partner-link'))).toBeNull();
