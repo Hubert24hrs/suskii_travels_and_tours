@@ -124,7 +124,10 @@ describe('partner offers and tracking (e2e)', () => {
     const href = (listed.body.offers as Offer[])[0]?.href ?? '';
     const token = tokenOf(href);
     const parts = token.split('.');
-    const altered = [...parts.slice(0, 3), `A${parts[3]?.slice(1) ?? ''}`, parts[4]].join('.');
+    // Always a different first character: an 'A' replaced by 'A' would leave the token intact.
+    const sealed = parts[3] ?? '';
+    const swapped = `${sealed.startsWith('A') ? 'B' : 'A'}${sealed.slice(1)}`;
+    const altered = [...parts.slice(0, 3), swapped, parts[4]].join('.');
     await ctx.http().get(`/v1/go/${altered}`).expect(404);
     await ctx.http().get('/v1/go/v2.k1.AAAAAAAAAAAAAAAA.AAAA.AAAAAAAAAAAAAAAAAAAAAA').expect(404);
     await ctx.http().get('/v1/go/short').expect(400);
