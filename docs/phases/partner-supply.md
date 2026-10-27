@@ -54,6 +54,10 @@ provider):
 - Travelpayouts: connect the seven brands, set the token, marker and project id, confirm the
   Partner Links answer (`partner_url`) and set the postback URL with its macros (ADR-070).
 
-**Follow-ups:** show partner offers in the website and the app (the booking page and where rides
-and rentals showed), import Viator's campaign report as conversions, and add RateHawk or
-Hotelbeds transfers and activities as merchant supply when the accounts exist.
+**Partner offers in the clients (2026-10-27):** the website's booking page and `/cars` hub, and the
+app's trip screen and Cars screen, show partner offers with the commission disclosure and open
+them through the tracked link.
+
+**Follow-ups:** import Viator's campaign report as conversions, a console page for the partner
+summary, and RateHawk or Hotelbeds transfers and activities as merchant supply when the accounts
+exist.

@@ -39,7 +39,17 @@ mapper for the WebDriver BiDi protocol, and Lighthouse drives Chrome over CDP.
 
 ## Open advisories (not ignored)
 
-None. The end-to-end audit on 2026-10-24 (`docs/audits/e2e-audit.md`) found four that were not
+Moderate and low advisories CI does not gate on (it fails on high and critical), reviewed
+2026-10-27. None has a fixed release the parent package accepts:
+
+| Advisory            | Severity | Package and path                                                | Why it stays for now                                                                                                                                                                                                                      |
+| ------------------- | -------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GHSA-vcc3-ghjq-m6fr | Moderate | `decode-uri-component` 0.2.2 via `expo-router` > `query-string` | In the app bundle, but it only decodes the app's own links, which `resolveIncomingUrl()` allowlists first; a malformed link can at most slow the user's own phone. The fixed 0.5 line is ESM-only and `query-string` 7 requires CommonJS. |
+| GHSA-w5hq-g745-h8pq | Moderate | `uuid` 7.0.3 via `expo` > `@expo/config-plugins` > `xcode`      | Runs only in `expo prebuild` on developer machines and CI; the vulnerable `buf` argument is not used.                                                                                                                                     |
+| GHSA-rj75-hqrm-r3gf | Moderate | `postcss-selector-parser` 6.1.4 via `tailwindcss` (NativeWind)  | Build time only, on the project's own class names.                                                                                                                                                                                        |
+| GHSA-g7r4-m6w7-qqqr | Low      | `esbuild` 0.27.7 via `tsup` (design tokens build)               | Affects esbuild's development server on Windows; the tokens build never starts it.                                                                                                                                                        |
+
+Earlier, the end-to-end audit on 2026-10-24 (`docs/audits/e2e-audit.md`) found four that were not
 ignored; all are fixed without relaxing the pnpm trust policy or the release cooldown:
 
 - `next` 16.4.1 and Storybook 10.6.3 (2026-10-24): the only semver 6 release with the ReDoS fix
