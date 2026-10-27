@@ -339,7 +339,8 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
       for (const body of mismatches) {
         expect((await ask(body).expect(202)).body).toEqual({ status: 'accepted' });
       }
-      expect(ctx.emails.outbox).toHaveLength(0);
+      const linkEmails = () => ctx.emails.outbox.filter((sent) => sent.template === 'booking-link');
+      expect(linkEmails()).toHaveLength(0);
       await ask({ turnstileToken: 'fail' }).expect(400);
 
       // Any case and spacing of the reference and email.
@@ -347,7 +348,8 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
         reference: ` ${reference.toLowerCase()} `,
         email: ' Chioma@Example.com ',
       }).expect(202);
-      const message = ctx.emails.outbox.find((sent) => sent.template === 'booking-link');
+      expect(linkEmails()).toHaveLength(1);
+      const message = linkEmails()[0];
       expect(message?.to).toBe('chioma@example.com');
       expect(message?.subject).toContain(reference);
       const link = /\/bookings\/([0-9a-f-]+)#access=([A-Za-z0-9_-]+)/.exec(message?.text ?? '');
@@ -358,8 +360,10 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
         .get(`/v1/bookings/${id}`)
         .set('X-Booking-Token', link?.[2] ?? '')
         .expect(200);
-      const audit = await ctx.prisma.auditLog.findMany({ where: { action: 'booking.link_sent' } });
-      expect(audit.map((row) => row.targetId)).toEqual([id]);
+      // The audit log is append-only and outlives each test: count this booking's entries.
+      expect(
+        await ctx.prisma.auditLog.count({ where: { action: 'booking.link_sent', targetId: id } }),
+      ).toBe(1);
     });
 
     it('cancels an unpaid booking once', async () => {
