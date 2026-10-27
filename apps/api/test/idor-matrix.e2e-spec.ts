@@ -69,6 +69,10 @@ const NOT_OWNED: Record<string, string> = {
     "drivers only (403 otherwise); another driver's ride answers 404 (rides.e2e-spec.ts)",
   getRentalVehicle: 'published fleet, by slug',
   getRentalAvailability: 'blocked periods of a published car, with no booking data',
+  followPartnerLink:
+    'a sealed (AES-GCM) offer link the API issued; leads only to the partner (partners.e2e-spec.ts)',
+  partnerPostbackGet: "affiliate network callback, authenticated by the network's secret",
+  partnerPostback: "affiliate network callback, authenticated by the network's secret",
 };
 
 /** Owned resources that only accounts can have: anonymous callers get 401, as on `/v1/me`. */
@@ -110,6 +114,7 @@ const CASES: Record<string, Case> = {
     query: (f) => ({ from: f.ridePlaceId }),
   },
   getCarsSuggestions: { path: (f) => `/v1/bookings/${f.flightBookingId}/cars-suggestions` },
+  getBookingPartnerOffers: { path: (f) => `/v1/bookings/${f.flightBookingId}/partner-offers` },
   cancelBooking: { path: (f) => `/v1/bookings/${f.flightBookingId}/cancel` },
   quoteFlightCancellation: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/cancellation-quote`,
