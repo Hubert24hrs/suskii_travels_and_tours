@@ -1,7 +1,8 @@
 import { addDays, localDate } from '@suskii/shared';
 
 import { staffSession } from './helpers/admin';
-import { bearer, type TokenSession } from './helpers/flows';
+import { book, passenger, payInFull } from './helpers/cars';
+import { bearer, signUp, type TokenSession } from './helpers/flows';
 import { createTestApp, resetState, type TestContext } from './helpers/test-app';
 
 /** ADR-072: tax on Suskii's own service, from the admin console to the first search result. */
@@ -147,6 +148,59 @@ describe('tax rules (e2e)', () => {
       .send({ active: false })
       .expect(200);
     expect((await search()).every((price) => price.serviceTaxes.length === 0)).toBe(true);
+  });
+
+  it('keeps the tax on the booking, its total and its e-ticket', async () => {
+    await ctx
+      .http()
+      .post('/v1/admin/pricing/taxes')
+      .set(bearer(staff.accessToken))
+      .send(rule())
+      .expect(201);
+    const owner = await signUp(ctx, 'tax-owner@example.com');
+    const headers = bearer(owner.accessToken);
+    const search = await ctx
+      .http()
+      .post('/v1/flights/searches?currency=NGN')
+      .send({
+        slices: [{ origin: 'LOS', destination: 'ABV', departureDate: inDays(30) }],
+        passengers: { adults: 1, children: 0, infants: 0 },
+        cabinClass: 'economy',
+      })
+      .expect(200);
+    const quote = await ctx
+      .http()
+      .post(`/v1/flights/offers/${search.body.offers[0].id as string}/quote`)
+      .set(headers)
+      .expect(201);
+    const created = await book(
+      ctx,
+      { quoteId: quote.body.quoteId, passengers: [passenger('Ada', 'Obi')] },
+      headers,
+    ).expect(201);
+    const price = created.body.booking.price as WirePrice;
+    expect(price.serviceTaxes.map((line) => [line.code, line.amount.amountMinor])).toEqual([
+      ['vat', 15_000],
+    ]);
+    const fees = price.fees.reduce((total, fee) => total + fee.amount.amountMinor, 0);
+    expect(price.total.amountMinor).toBe(
+      price.fare.amountMinor + price.taxes.amountMinor + fees + 15_000,
+    );
+
+    const confirmed = (await payInFull(ctx, created.body.booking.id as string, headers)) as {
+      id: string;
+      status: string;
+      documents: { id: string }[];
+    };
+    expect(confirmed.status).toBe('CONFIRMED');
+    const document = confirmed.documents[0];
+    if (!document) throw new Error('No e-ticket after confirmation');
+    await ctx
+      .http()
+      .get(`/v1/bookings/${confirmed.id}/documents/${document.id}`)
+      .set(headers)
+      .expect(200)
+      .expect('content-type', /application\/pdf/);
   });
 
   it('validates rules like the console form', async () => {

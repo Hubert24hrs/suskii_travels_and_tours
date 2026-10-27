@@ -4,6 +4,7 @@ import { PDFDocument } from 'pdf-lib';
 import {
   documentDateTime,
   documentMoney,
+  documentRate,
   pdfText,
   renderTicketPdf,
   renderVoucherPdf,
@@ -80,9 +81,25 @@ describe('booking PDFs', () => {
       freeCancellationUntil: new Date('2026-12-08T12:00:00Z'),
       payAtProperty: money(4_500n, 'USD'),
       total: money(54_000n, 'USD'),
+      // ADR-072: printed under the total, with the seller's registration number once.
+      serviceTaxes: [
+        {
+          label: 'VAT',
+          rateBps: 750,
+          amount: money(338n, 'USD'),
+          registrationNumber: 'TIN 01234567-0001',
+        },
+        {
+          label: 'Tourism levy',
+          rateBps: 100,
+          amount: money(45n, 'USD'),
+          registrationNumber: 'TIN 01234567-0001',
+        },
+      ],
     });
     const pdf = await PDFDocument.load(bytes);
     expect(pdf.getTitle()).toBe('Hotel voucher K7QWPM');
+    expect(pdf.getPageCount()).toBe(1);
   });
 
   it('keeps text inside the standard fonts and formats money and dates', () => {
@@ -91,5 +108,11 @@ describe('booking PDFs', () => {
     expect(documentMoney(money(12_345n, 'USD'))).toBe('USD 123.45');
     expect(documentDateTime('2026-12-10T08:30')).toBe('Thu, 10 Dec 2026 08:30');
     expect(documentDateTime('2026-12-10')).toBe('Thu, 10 Dec 2026');
+    expect([documentRate(750), documentRate(1600), documentRate(1), documentRate(0)]).toEqual([
+      '7.5%',
+      '16%',
+      '0.01%',
+      '0%',
+    ]);
   });
 });
