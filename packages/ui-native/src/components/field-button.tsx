@@ -10,6 +10,7 @@ export interface FieldButtonProps {
   icon?: ReactNode;
   onPress: () => void;
   className?: string;
+  testID?: string;
 }
 
 /** Pressable styled as a form field that opens a picker. Announces label and value together. */
@@ -20,6 +21,7 @@ export function FieldButton({
   icon,
   onPress,
   className,
+  testID,
 }: FieldButtonProps) {
   return (
     <View className={cn('gap-1', className)}>
@@ -31,6 +33,7 @@ export function FieldButton({
         {label}
       </Text>
       <Pressable
+        testID={testID}
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${value ?? placeholder ?? ''}`}
         onPress={onPress}

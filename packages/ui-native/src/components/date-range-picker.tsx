@@ -44,7 +44,13 @@ export interface DateRangePickerProps {
   weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   labels: DateRangePickerLabels;
   className?: string;
+  /** UI tests: the field, `{testID}-sheet`, `{testID}-done` and days as `{testID}-day-YYYY-MM-DD`. */
+  testID?: string;
 }
+
+/** A local calendar day as YYYY-MM-DD (test ids). */
+const dayKey = (day: Date): string =>
+  `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
 
 const cellClasses: Record<DayPosition, string> = {
   none: '',
@@ -76,6 +82,7 @@ export function DateRangePicker({
   weekStartsOn = 1,
   labels,
   className,
+  testID,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const firstDay = useMemo(() => startOfDay(minDate ?? new Date()), [minDate]);
@@ -95,6 +102,7 @@ export function DateRangePicker({
   return (
     <View className={className}>
       <FieldButton
+        testID={testID}
         label={label}
         value={formatValue(value)}
         placeholder={placeholder}
@@ -107,8 +115,13 @@ export function DateRangePicker({
         title={label}
         closeLabel={labels.close}
         snapPoints={['90%']}
+        testID={testID ? `${testID}-sheet` : undefined}
         footer={
-          <Button fullWidth onPress={() => setOpen(false)}>
+          <Button
+            testID={testID ? `${testID}-done` : undefined}
+            fullWidth
+            onPress={() => setOpen(false)}
+          >
             {labels.done}
           </Button>
         }
@@ -146,6 +159,7 @@ export function DateRangePicker({
                     return (
                       <Pressable
                         key={cell}
+                        testID={testID ? `${testID}-day-${dayKey(day)}` : undefined}
                         accessibilityRole="button"
                         accessibilityLabel={formatters.day.format(day)}
                         accessibilityState={{ disabled, selected }}

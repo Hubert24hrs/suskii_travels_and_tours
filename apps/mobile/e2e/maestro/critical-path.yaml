@@ -29,6 +29,33 @@ tags:
 - hideKeyboard
 - tapOn:
     id: search-to-option-ABV
+# The pickers open as sheets and close with Done, keeping the default date and one adult.
+- scrollUntilVisible:
+    element:
+      id: search-dates
+- tapOn:
+    id: search-dates
+- extendedWaitUntil:
+    visible:
+      id: search-dates-sheet
+    timeout: 10000
+- tapOn:
+    id: search-dates-done
+- assertNotVisible:
+    id: search-dates-sheet
+- scrollUntilVisible:
+    element:
+      id: search-travellers
+- tapOn:
+    id: search-travellers
+- extendedWaitUntil:
+    visible:
+      id: search-travellers-sheet
+    timeout: 10000
+- tapOn:
+    id: search-travellers-done
+- assertNotVisible:
+    id: search-travellers-sheet
 - scrollUntilVisible:
     element:
       id: search-submit

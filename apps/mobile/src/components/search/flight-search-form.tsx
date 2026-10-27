@@ -147,6 +147,7 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
                 ) : null}
               </View>
               <PlaceField
+                testID={`search-legs-${index}-from`}
                 label={t('search.flights.from')}
                 value={place(`legs.${index}.origin`, leg.origin)}
                 onChange={(value) =>
@@ -155,6 +156,7 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
                 error={errors[`legs.${index}.origin`]}
               />
               <PlaceField
+                testID={`search-legs-${index}-to`}
                 label={t('search.flights.to')}
                 value={place(`legs.${index}.destination`, leg.destination)}
                 onChange={(value) =>
@@ -165,6 +167,7 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
                 error={errors[`legs.${index}.destination`]}
               />
               <DateRangePicker
+                testID={`search-legs-${index}-date`}
                 mode="single"
                 label={t('search.flights.depart')}
                 value={{ from: fromIso(leg.departureDate) }}
@@ -187,6 +190,7 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
           ))}
           {draft.legs.length < MAX_FLIGHT_SLICES ? (
             <Button
+              testID="search-add-leg"
               variant="ghost"
               icon={<Plus color={color.primary} size={iconSize.md} />}
               onPress={() => update({ legs: [...draft.legs, emptyLeg()] })}
@@ -205,6 +209,7 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
             error={errors.origin}
           />
           <Pressable
+            testID="search-swap"
             accessibilityRole="button"
             accessibilityLabel={t('search.flights.swap')}
             onPress={() => {
@@ -229,6 +234,7 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
             error={errors.destination}
           />
           <DateRangePicker
+            testID="search-dates"
             mode={draft.tripType === 'round_trip' ? 'range' : 'single'}
             label={
               draft.tripType === 'round_trip'
@@ -266,6 +272,7 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
       )}
 
       <PassengerPicker
+        testID="search-travellers"
         label={t('search.travellers.label')}
         summary={travellerSummary(t, draft.travellers)}
         value={draft.travellers}

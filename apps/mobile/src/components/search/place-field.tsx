@@ -45,6 +45,17 @@ export function toAirportOptions(items: readonly Schemas['PlaceSuggestion'][]): 
 export const placeLabel = (place: PlaceOption | null): string =>
   place ? `${place.city} (${place.code})` : '';
 
+/** Typed text without a pick is the usual cause of "required" here: say what to do instead. */
+function useFieldError(): (
+  error: string | undefined,
+  value: unknown,
+  query: string,
+) => string | undefined {
+  const { t } = useT();
+  return (error, value, query) =>
+    error && value === null && query.trim() !== '' ? t('search.places.choose') : error;
+}
+
 export function PlaceField({
   label,
   value,
@@ -60,6 +71,7 @@ export function PlaceField({
 }) {
   const { api } = useApp();
   const { t } = useT();
+  const fieldError = useFieldError();
   const [query, setQuery] = useState('');
   const term = useDebounced(query.trim());
   const places = useQuery({
@@ -71,7 +83,9 @@ export function PlaceField({
         params: { query: { q: term, limit: 8 } },
         signal,
       });
-      return toAirportOptions(data?.items ?? []);
+      // A failed lookup is not "no matches": the field says the places could not load.
+      if (!data) throw new Error('places unavailable');
+      return toAirportOptions(data.items);
     },
   });
   return (
@@ -94,8 +108,8 @@ export function PlaceField({
       icon={<MapPin color={color.muted} size={iconSize.md} />}
       loading={places.isFetching}
       loadingLabel={t('search.places.searching')}
-      emptyLabel={t('search.places.noResults')}
-      error={error}
+      emptyLabel={t(places.isError ? 'search.places.unavailable' : 'search.places.noResults')}
+      error={fieldError(error, value, query)}
     />
   );
 }
@@ -121,6 +135,7 @@ export function CityField({
 }) {
   const { api } = useApp();
   const { t } = useT();
+  const fieldError = useFieldError();
   const [query, setQuery] = useState('');
   const term = useDebounced(query.trim());
   const cities = useQuery({
@@ -132,7 +147,8 @@ export function CityField({
         params: { query: { q: term, types: 'city', limit: 8 } },
         signal,
       });
-      return (data?.items ?? []).flatMap((item): CityOption[] =>
+      if (!data) throw new Error('places unavailable');
+      return data.items.flatMap((item): CityOption[] =>
         item.type === 'city'
           ? [{ id: item.id, name: item.name, countryName: item.countryName }]
           : [],
@@ -153,8 +169,8 @@ export function CityField({
       icon={<MapPin color={color.muted} size={iconSize.md} />}
       loading={cities.isFetching}
       loadingLabel={t('search.places.searching')}
-      emptyLabel={t('search.places.noResults')}
-      error={error}
+      emptyLabel={t(cities.isError ? 'search.places.unavailable' : 'search.places.noResults')}
+      error={fieldError(error, value, query)}
     />
   );
 }

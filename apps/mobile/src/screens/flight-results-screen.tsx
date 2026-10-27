@@ -277,9 +277,10 @@ export function FlightResultsScreen() {
         title={t('mobile.search.filters')}
         closeLabel={t('common.close')}
         snapPoints={['85%']}
+        testID="filters-sheet"
         footer={
           <View className="gap-2">
-            <Button fullWidth onPress={() => setSheet(false)}>
+            <Button testID="filters-apply" fullWidth onPress={() => setSheet(false)}>
               {t('mobile.search.showResults')}
             </Button>
             <Button variant="ghost" onPress={() => setFilters(NO_FILTERS)}>
