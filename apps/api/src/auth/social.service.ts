@@ -55,25 +55,37 @@ const claimsSchema = z.object({
 export const SOCIAL_NONCE_TTL_SECONDS = 600;
 const nonceKey = (nonce: string): string => `auth:social-nonce:${sha256(nonce)}`;
 
+const UNBOUND = '1';
+
 /**
  * Server-issued, single-use nonces for Google and Apple sign-in (ASVS V10.5.1): the client asks
  * for one, passes it to the provider and sends it back with the ID token. A token whose nonce the
  * API did not issue, or already accepted, is refused, so a stolen ID token cannot be replayed.
  * Only a hash of the nonce is stored.
+ *
+ * The app's sign-in through the website (ADR-067) also binds the nonce to a secret only the app
+ * holds (`binding` is its SHA-256 hex): an ID token caught on its way back to the app is useless
+ * without that secret.
  */
 @Injectable()
 export class SocialNonces {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
-  async issue(): Promise<{ nonce: string; expiresAt: Date }> {
+  async issue(binding?: string): Promise<{ nonce: string; expiresAt: Date }> {
     const nonce = randomToken(32);
-    await this.redis.set(nonceKey(nonce), '1', 'EX', SOCIAL_NONCE_TTL_SECONDS);
+    await this.redis.set(nonceKey(nonce), binding ?? UNBOUND, 'EX', SOCIAL_NONCE_TTL_SECONDS);
     return { nonce, expiresAt: new Date(Date.now() + SOCIAL_NONCE_TTL_SECONDS * 1000) };
   }
 
-  /** True exactly once per issued, unexpired nonce, even under concurrent sign-ins. */
-  async consume(nonce: string): Promise<boolean> {
-    return (await this.redis.del(nonceKey(nonce))) === 1;
+  /**
+   * True exactly once per issued, unexpired nonce, even under concurrent sign-ins; a bound nonce
+   * also needs the secret behind its binding.
+   */
+  async consume(nonce: string, bindingSecret?: string): Promise<boolean> {
+    const stored = await this.redis.getdel(nonceKey(nonce));
+    if (stored === null) return false;
+    if (stored === UNBOUND) return true;
+    return bindingSecret !== undefined && safeEqual(sha256(bindingSecret), stored);
   }
 }
 
@@ -123,6 +135,7 @@ export class SocialIdentityVerifier {
     provider: SocialProviderName,
     idToken: string,
     nonce: string,
+    bindingSecret?: string,
   ): Promise<VerifiedSocialIdentity> {
     const mock = this.mock.enabled && isMockSocialToken(idToken);
     const audience = mock ? [MOCK_SOCIAL_AUDIENCE] : this.audiences(provider);
@@ -155,7 +168,7 @@ export class SocialIdentityVerifier {
     const actual = claims.data.nonce ?? '';
     if (!safeEqual(actual, nonce) && !safeEqual(actual, hashed)) throw invalidToken();
     // Consumed last: a token that fails any check above leaves the nonce for a retry.
-    if (!(await this.nonces.consume(nonce))) throw invalidToken();
+    if (!(await this.nonces.consume(nonce, bindingSecret))) throw invalidToken();
     const emailVerified =
       claims.data.email_verified === true || claims.data.email_verified === 'true';
     return {

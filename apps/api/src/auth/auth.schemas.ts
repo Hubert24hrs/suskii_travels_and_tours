@@ -223,6 +223,22 @@ export const socialNonceSchema = named(
   }),
 );
 
+export const socialNonceBodySchema = named(
+  'SocialNonceRequest',
+  z
+    .object({
+      binding: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/)
+        .optional()
+        .meta({
+          description:
+            'SHA-256 hex of a secret only this client holds; sign-in then needs `bindingSecret`. The app sets it when the website completes the provider step for it (ADR-067).',
+        }),
+    })
+    .default({}),
+);
+
 export const socialProvidersSchema = named(
   'SocialProviders',
   z.object({
@@ -263,6 +279,12 @@ export const socialSignInBodySchema = named(
     displayName: displayNameSchema
       .optional()
       .meta({ description: 'Apple shares the name only on first sign-in, outside the token.' }),
+    bindingSecret: z
+      .string()
+      .min(32)
+      .max(256)
+      .optional()
+      .meta({ description: "The secret behind the nonce's `binding`, when it has one." }),
     transport,
     referralCode: referralCodeInputSchema
       .optional()

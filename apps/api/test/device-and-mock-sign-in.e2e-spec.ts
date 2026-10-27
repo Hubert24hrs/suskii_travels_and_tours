@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { bearer, enrolTotp, login, PASSWORD, signUp } from './helpers/flows';
 import { createTestApp, resetState, type TestContext } from './helpers/test-app';
 
@@ -67,6 +69,46 @@ describe('mock social sign-in and fingerprint sign-in (e2e)', () => {
         .post('/v1/auth/apple')
         .send({ idToken: minted.idToken as string, nonce: issued.nonce as string })
         .expect(401);
+    });
+
+    it('needs the secret behind a bound nonce (sign-in through the website)', async () => {
+      const secret = 'app-only-secret-'.padEnd(43, 'x');
+      const binding = createHash('sha256').update(secret).digest('hex');
+      const bound = async () => {
+        const { body: issued } = await ctx
+          .http()
+          .post('/v1/auth/social/nonce')
+          .send({ binding })
+          .expect(200);
+        const { body: minted } = await ctx
+          .http()
+          .post('/v1/auth/social/mock-token')
+          .send({ provider: 'google', email: 'kemi@example.com', nonce: issued.nonce as string })
+          .expect(200);
+        return { idToken: minted.idToken as string, nonce: issued.nonce as string };
+      };
+      // Caught on its way back to the app: without the secret it is refused (and spent).
+      const caught = await bound();
+      await ctx.http().post('/v1/auth/google').send(caught).expect(401);
+      await ctx
+        .http()
+        .post('/v1/auth/google')
+        .send({ ...caught, bindingSecret: secret })
+        .expect(401);
+      const wrong = await bound();
+      await ctx
+        .http()
+        .post('/v1/auth/google')
+        .send({ ...wrong, bindingSecret: secret.replace(/x$/, 'y') })
+        .expect(401);
+      const mine = await bound();
+      const signedIn = await ctx
+        .http()
+        .post('/v1/auth/google')
+        .send({ ...mine, bindingSecret: secret })
+        .expect(200);
+      expect(signedIn.body.user.email).toBe('kemi@example.com');
+      await ctx.http().post('/v1/auth/social/nonce').send({ binding: 'not-hex' }).expect(400);
     });
 
     it('links Apple to the account with the same verified email', async () => {

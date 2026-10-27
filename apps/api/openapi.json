@@ -11372,6 +11372,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocialNonceRequestInput"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -42545,6 +42555,16 @@
         ],
         "additionalProperties": false
       },
+      "SocialNonceRequestInput": {
+        "default": {},
+        "type": "object",
+        "properties": {
+          "binding": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
       "SocialProviders": {
         "type": "object",
         "properties": {
@@ -42582,6 +42602,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100
+          },
+          "bindingSecret": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 256
           },
           "transport": {
             "default": "token",
