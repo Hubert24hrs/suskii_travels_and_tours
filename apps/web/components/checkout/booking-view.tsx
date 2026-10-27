@@ -24,7 +24,7 @@ import { CancelUnderPolicy, TripExtras, VisaApplications, VoucherCard } from './
 import { CarsBooking } from './cars-booking';
 import { hasCarsItem } from './cars-details';
 import { InhouseDetails, inhouseKind } from './inhouse-details';
-import { MethodChoice, type ProviderName } from './payment-choice';
+import { chosenMethod, MethodChoice, type PaymentMethodName } from './payment-choice';
 import { PlanPanel, RefundList } from './plan-panel';
 import { ScheduleChange } from './schedule-change';
 import { TripPlanning } from './trip-planning';
@@ -130,7 +130,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState(false);
-  const [provider, setProvider] = useState<ProviderName | null>(null);
+  const [method, setMethod] = useState<PaymentMethodName | null>(null);
   const started = useRef<number | null>(null);
 
   /** Reloads after an action; polling restarts its clock because the action may start work. */
@@ -199,7 +199,9 @@ export function BookingView({ bookingId }: { bookingId: string }) {
         header: { ...headers, 'Idempotency-Key': idempotencyKey() },
       },
       body: {
-        provider,
+        method: options.useWallet
+          ? null
+          : chosenMethod(booking.paymentOptions?.methods ?? [], method),
         payInFull: options.payInFull ?? false,
         useWallet: options.useWallet ?? false,
       },
@@ -213,8 +215,11 @@ export function BookingView({ bookingId }: { bookingId: string }) {
       const slug = problemSlug(error);
       // A price change shows up as a pending change on reload, with its consent button.
       if (slug === 'payment-provider-unavailable') {
-        setProvider(null);
+        setMethod(null);
         setActionError(t('checkout.errors.providerUnavailable'));
+      } else if (slug === 'payment-method-unavailable') {
+        setMethod(null);
+        setActionError(t('checkout.errors.methodUnavailable'));
       } else if (response.status === 429) {
         setActionError(t('checkout.errors.tooMany'));
       } else if (slug !== 'price-changed') {
@@ -381,9 +386,9 @@ export function BookingView({ bookingId }: { bookingId: string }) {
           ) : null}
           {due && booking.paymentOptions ? (
             <MethodChoice
-              providers={booking.paymentOptions.providers}
-              value={provider}
-              onChange={setProvider}
+              methods={booking.paymentOptions.methods}
+              value={method}
+              onChange={setMethod}
             />
           ) : null}
           {plan ? (

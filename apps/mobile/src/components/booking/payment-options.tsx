@@ -8,7 +8,7 @@ import { useT } from '../../providers/app-provider';
 
 export type PlanChoiceValue = 'full' | 'hold' | 'installments';
 type Options = Schemas['PaymentOptions'];
-export type ProviderName = Options['providers'][number]['name'];
+export type PaymentMethodName = Options['methods'][number]['method'];
 
 function Radio({
   label,
@@ -167,30 +167,47 @@ export function PlanChoice({
   );
 }
 
-/** The payment providers for this currency, when there is a choice (ADR-016). */
+/**
+ * The method to send: the traveller's pick, else the first one listed; null when there is no
+ * choice to make, so the provider's page shows everything it offers (ADR-074).
+ */
+export function chosenMethod(
+  methods: Options['methods'],
+  value: PaymentMethodName | null,
+): PaymentMethodName | null {
+  if (methods.length < 2) return null;
+  if (value && methods.some((option) => option.method === value)) return value;
+  return methods[0]?.method ?? null;
+}
+
+/** How to pay in this currency (card, transfer, USSD, mobile money, wallets, agent; ADR-074). */
 export function MethodChoice({
-  providers,
+  methods,
   value,
   onChange,
 }: {
-  providers: Options['providers'];
-  value: ProviderName | null;
-  onChange: (provider: ProviderName) => void;
+  methods: Options['methods'];
+  value: PaymentMethodName | null;
+  onChange: (method: PaymentMethodName) => void;
 }) {
   const { t } = useT();
-  if (providers.length < 2) return null;
-  const selected = value ?? providers[0]?.name;
+  const selected = chosenMethod(methods, value);
+  if (!selected) return null;
   return (
     <Card className="gap-3 p-4">
       <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
         {t('checkout.method.heading')}
       </Text>
-      {providers.map((provider) => (
+      {methods.map((option) => (
         <Radio
-          key={provider.name}
-          label={t(`checkout.method.names.${provider.name}`)}
-          checked={selected === provider.name}
-          onPress={() => onChange(provider.name)}
+          key={option.method}
+          testID={`method-${option.method}`}
+          label={t(`checkout.method.names.${option.method}`)}
+          hint={
+            selected === option.method ? t(`checkout.method.hints.${option.method}`) : undefined
+          }
+          checked={selected === option.method}
+          onPress={() => onChange(option.method)}
         />
       ))}
     </Card>
