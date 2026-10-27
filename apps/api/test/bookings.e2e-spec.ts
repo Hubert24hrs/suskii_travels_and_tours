@@ -332,7 +332,11 @@ describe('bookings (e2e): checkout, payments, ticketing and documents', () => {
           .send({ reference, email: 'chioma@example.com', turnstileToken: 'e2e', ...body });
 
       // Wrong email, unknown reference: the same answer, and no email.
-      for (const body of [{ email: 'someone@example.com' }, { reference: 'ZZZZZZ' }]) {
+      const mismatches: Record<string, string>[] = [
+        { email: 'someone@example.com' },
+        { reference: 'ZZZZZZ' },
+      ];
+      for (const body of mismatches) {
         expect((await ask(body).expect(202)).body).toEqual({ status: 'accepted' });
       }
       expect(ctx.emails.outbox).toHaveLength(0);
