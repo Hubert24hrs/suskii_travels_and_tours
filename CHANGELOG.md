@@ -6,6 +6,43 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Partner supply: Hotelbeds, affiliate offers and commission tracking (2026-10-27)
+
+Research and decisions in `docs/research/partner-supply.md`, ADR-069 (supply model), ADR-070
+(tracking) and ADR-071 (Hotelbeds). Suskii sells like an online travel agency: merchant supply
+where partners sell net rates, affiliate links where they pay commission. No driver KYC and no
+vetting of third parties; the own ride-hailing and fleet stay switched off in production.
+
+#### Added
+
+- **Hotelbeds as a second hotel supplier** (`HOTEL_SUPPLIERS=hotelbeds`, ADR-071): availability
+  by geolocation, rate checks before payment and bookings through APItude, with signed requests
+  and error mapping to the supplier errors. Production refuses the evaluation host.
+- **One listing per hotel across suppliers.** When two hotel suppliers return the same hotel
+  (normalised name within 250 m), the search keeps the cheaper one.
+- **Partner offers** (ADR-069): `GET /v1/partners/offers` for a place and
+  `GET /v1/bookings/{id}/partner-offers` for a booked trip list car rental (DiscoverCars,
+  Localrent, Economybookings), transfers (GetTransfer, Kiwitaxi), eSIMs (Airalo), insurance (EKTA)
+  and priced tours (Viator Partner API). The traveller books on the partner's site.
+- **Tracked links and clicks** (ADR-070): every offer links to `/v1/go/{token}`, an AES-GCM sealed
+  token that only leads to the partner's own hosts. The redirect records a `partner_clicks` row
+  (ids only) and adds the network's tracking (Travelpayouts Partner Links API, cached per page,
+  with an untracked fallback so no click is lost).
+- **Conversions** from network postbacks (`/v1/partners/postbacks/travelpayouts`, secret in the
+  URL, compared in constant time): pending, confirmed or cancelled, moving forward only, amounts
+  in minor units.
+- **Commission report** for staff with `reports:read`: `GET /v1/admin/partners/summary`.
+- Settings `PARTNER_OFFERS_ENABLED` (off in production unless set), `AFFILIATE_NETWORK`,
+  `TRAVELPAYOUTS_*`, `ACTIVITY_PARTNER`, `VIATOR_*`, `PARTNER_TIMEOUT_MS` and
+  `PARTNER_LINK_TTL_HOURS`; production refuses mock partners while offers are on.
+
+#### Privacy
+
+- Clicks appear in the account's data export (activity), lose their user id at account deletion
+  and are purged after 13 months (`partner-clicks`). Conversions hold no personal data and are
+  kept for the financial period (`partner-conversions`). Store privacy forms updated
+  (`docs/release/data-safety.md`).
+
 ### Sign-in buttons in the app (2026-10-27)
 
 #### Fixed
