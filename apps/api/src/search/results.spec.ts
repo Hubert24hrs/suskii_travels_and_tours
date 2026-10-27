@@ -14,6 +14,9 @@ import {
   filterHotels,
   flightFacets,
   hotelFacets,
+  hotelNameKey,
+  mergeDuplicateHotels,
+  metresBetween,
   paginate,
   sortFlights,
   stopsBucket,
@@ -231,5 +234,98 @@ describe('hotel results', () => {
       { area: 'Victoria Island', count: 2 },
       { area: 'Ikeja', count: 1 },
     ]);
+  });
+});
+
+describe('merging one hotel across suppliers (ADR-071)', () => {
+  const listing = (
+    supplier: string,
+    name: string,
+    cost: number,
+    position: { latitude: number; longitude: number } = { latitude: 6.4281, longitude: 3.4219 },
+  ): SupplierHotel => ({
+    supplier,
+    supplierHotelId: `${supplier}-${name}-${cost}`,
+    name,
+    stars: 4,
+    reviewScore: null,
+    reviewCount: 0,
+    ...position,
+    area: null,
+    cityName: 'Lagos',
+    countryCode: 'NG',
+    amenities: [],
+    rates: [
+      {
+        supplierRateId: `r-${cost}`,
+        roomName: 'Double',
+        board: 'room_only',
+        refundable: false,
+        freeCancellationUntil: null,
+        price: { base: money(cost, 'USD'), taxes: money(0, 'USD') },
+        payAtProperty: null,
+        expiresAt: '2099-01-01T00:00:00Z',
+      },
+    ],
+  });
+  const cost = (hotel: SupplierHotel) => hotel.rates[0]?.price.base.minor ?? null;
+
+  it('reduces names to what identifies the property', () => {
+    expect(hotelNameKey('The Eko Hotel & Suites')).toBe('eko suites');
+    expect(hotelNameKey('EKO HOTEL AND SUITES')).toBe('eko suites');
+    expect(hotelNameKey('Hôtel Ikoyi, Lagos')).toBe('ikoyi lagos');
+    expect(hotelNameKey('Hotel')).toBe('');
+  });
+
+  it('measures distance in metres', () => {
+    const a = { latitude: 6.4281, longitude: 3.4219 };
+    expect(metresBetween(a, a)).toBe(0);
+    // A thousandth of a degree of latitude is about 111 m.
+    expect(Math.round(metresBetween(a, { latitude: 6.4291, longitude: 3.4219 }))).toBe(111);
+  });
+
+  it('keeps the cheaper listing of one hotel from two suppliers, in place', () => {
+    const merged = mergeDuplicateHotels(
+      [
+        listing('duffel', 'Eko Hotel & Suites', 30_000),
+        listing('duffel', 'Lagos Continental', 25_000),
+        listing('hotelbeds', 'EKO HOTEL AND SUITES', 28_000, {
+          latitude: 6.4285,
+          longitude: 3.4221,
+        }),
+      ],
+      cost,
+    );
+
+    expect(merged.map((hotel) => `${hotel.supplier}:${hotel.name}`)).toEqual([
+      'hotelbeds:EKO HOTEL AND SUITES',
+      'duffel:Lagos Continental',
+    ]);
+  });
+
+  it('keeps the first listing when the second is not cheaper', () => {
+    const merged = mergeDuplicateHotels(
+      [listing('duffel', 'Eko Hotel', 28_000), listing('hotelbeds', 'Eko Hotel', 28_000)],
+      cost,
+    );
+    expect(merged.map((hotel) => hotel.supplier)).toEqual(['duffel']);
+  });
+
+  it('never merges listings from one supplier, far apart, or with different names', () => {
+    const hotels = [
+      listing('duffel', 'Eko Hotel', 30_000),
+      listing('duffel', 'Eko Hotel', 20_000),
+      listing('hotelbeds', 'Eko Hotel', 10_000, { latitude: 6.45, longitude: 3.42 }),
+      listing('hotelbeds', 'Eko Lodge', 10_000),
+    ];
+    expect(mergeDuplicateHotels(hotels, cost)).toHaveLength(4);
+  });
+
+  it('keeps a priced listing over one it cannot price', () => {
+    const merged = mergeDuplicateHotels(
+      [listing('duffel', 'Eko Hotel', 30_000), listing('hotelbeds', 'Eko Hotel', 20_000)],
+      (hotel) => (hotel.supplier === 'duffel' ? null : cost(hotel)),
+    );
+    expect(merged.map((hotel) => hotel.supplier)).toEqual(['hotelbeds']);
   });
 });
