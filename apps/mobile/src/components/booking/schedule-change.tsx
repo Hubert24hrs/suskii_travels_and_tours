@@ -10,19 +10,22 @@ type Slice = Change['previous'][number];
 
 /**
  * An airline change to a ticketed flight (ADR-065): the booked and the new times side by side,
- * and Accept when the airline allows it online (never offline). Cancelling instead stays with
- * "Cancel flight" on the same screen.
+ * and Accept when the airline allows it online (never offline). A significant change also offers
+ * everything back (ADR-073); otherwise cancelling stays with "Cancel flight" on the same screen.
  */
 export function ScheduleChange({
   change,
   offline,
   busy,
   onAccept,
+  onRefund,
 }: {
   change: Change;
   offline: boolean;
   busy: boolean;
   onAccept: () => void;
+  /** Opens the confirmation for the full refund. */
+  onRefund: () => void;
 }) {
   const { t } = useT();
   const format = useFormatters();
@@ -69,22 +72,41 @@ export function ScheduleChange({
           </View>
         );
       })}
+      {change.refundOffer ? (
+        <Text className="font-body text-body-sm text-foreground">
+          {t('booking.scheduleChange.significant')}
+        </Text>
+      ) : null}
       {change.acceptable ? (
         offline ? null : (
           <View className="gap-2">
             <Button testID="schedule-change-accept" loading={busy} onPress={onAccept}>
               {t('booking.scheduleChange.accept')}
             </Button>
-            <Text className="font-body text-caption text-muted">
-              {t('booking.scheduleChange.acceptHint')}
-            </Text>
+            {change.refundOffer ? null : (
+              <Text className="font-body text-caption text-muted">
+                {t('booking.scheduleChange.acceptHint')}
+              </Text>
+            )}
           </View>
         )
-      ) : (
+      ) : change.refundOffer ? null : (
         <Text className="font-body text-body-sm text-foreground">
           {t('booking.scheduleChange.support')}
         </Text>
       )}
+      {change.refundOffer && !offline ? (
+        <View className="gap-2">
+          <Button testID="schedule-change-refund" variant="secondary" onPress={onRefund}>
+            {t('booking.scheduleChange.refund', {
+              amount: format.money(change.refundOffer.amount),
+            })}
+          </Button>
+          <Text className="font-body text-caption text-muted">
+            {t('booking.scheduleChange.refundHint')}
+          </Text>
+        </View>
+      ) : null}
     </Card>
   );
 }

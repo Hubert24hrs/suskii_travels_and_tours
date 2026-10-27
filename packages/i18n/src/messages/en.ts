@@ -1841,6 +1841,19 @@ export const en = {
       accepted: 'You accepted the new times. Your booking and e-ticket now show them.',
       failed: 'We could not accept the change just now. Please try again.',
       notAcceptable: 'This change can no longer be accepted online. Contact support.',
+      significant:
+        'This is a significant change. You can accept the new times or cancel and get everything you paid back.',
+      refund: 'Cancel and get {amount} back',
+      refundHint: 'The full amount goes back to your original payment. No fees are kept.',
+      refundTitle: 'Cancel and get a full refund?',
+      refundBody:
+        'The airline cancels your flights first, then {amount} goes back to your original payment. This cannot be undone.',
+      refundConfirm: 'Cancel and refund',
+      refundKeep: 'Keep my booking',
+      refunded: 'Your flights are cancelled. Your refund of {amount} is on its way.',
+      refundUnavailable:
+        'A refund cannot be taken online for this change. Our team will contact you about your options.',
+      refundChanged: 'The refund amount has changed. Reload the page to see it.',
     },
     refunds: {
       heading: 'Refunds',

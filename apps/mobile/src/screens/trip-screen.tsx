@@ -8,6 +8,7 @@ import {
 } from '@suskii/shared';
 import { Badge, Button, Card, Modal, useToast, type BadgeProps } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
+import { randomUUID } from 'expo-crypto';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
@@ -196,6 +197,7 @@ export function TripScreen() {
   const [cancelling, setCancelling] = useState(false);
   // A ticketed flight's refund quote, shown before the traveller confirms (ADR-064).
   const [flightQuote, setFlightQuote] = useState<Schemas['FlightCancellationQuote'] | null>(null);
+  const [refundingChange, setRefundingChange] = useState(false);
   useSensitiveScreen();
 
   const headers = async (): Promise<Record<string, string>> => {
@@ -360,6 +362,44 @@ export function TripScreen() {
         problemSlug(error) === 'schedule-change-not-acceptable'
           ? t('booking.scheduleChange.notAcceptable')
           : t('booking.scheduleChange.failed'),
+      );
+    }
+    void query.refetch();
+  };
+
+  // The traveller declines a significant change and takes everything back (ADR-073).
+  const refundScheduleChange = async (changeId: string, amount: Schemas['Money']) => {
+    setBusy(true);
+    setActionError(null);
+    const { data, error } = await api.POST(
+      '/v1/bookings/{bookingId}/schedule-changes/{changeId}/refund',
+      {
+        params: {
+          path: { bookingId: booking.id, changeId },
+          header: {
+            ...(await tripStore.bookingHeaders(booking.id)),
+            'Idempotency-Key': randomUUID(),
+          },
+        },
+        body: { refund: amount },
+      },
+    );
+    setBusy(false);
+    setRefundingChange(false);
+    if (data) {
+      tripStore.saveBooking(data);
+      toast({
+        title: t('booking.scheduleChange.refunded', { amount: format.money(amount) }),
+        variant: 'success',
+      });
+    } else {
+      const slug = problemSlug(error);
+      setActionError(
+        slug === 'refund-offer-unavailable'
+          ? t('booking.scheduleChange.refundUnavailable')
+          : slug === 'refund-offer-changed'
+            ? t('booking.scheduleChange.refundChanged')
+            : t('checkout.errors.generic'),
       );
     }
     void query.refetch();
@@ -555,6 +595,7 @@ export function TripScreen() {
             onAccept={() => {
               if (booking.scheduleChange) void acceptScheduleChange(booking.scheduleChange.id);
             }}
+            onRefund={() => setRefundingChange(true)}
           />
         ) : null}
 
@@ -797,6 +838,37 @@ export function TripScreen() {
           </View>
         ) : null}
       </Modal>
+      <Modal
+        open={refundingChange && Boolean(booking.scheduleChange?.refundOffer)}
+        onOpenChange={setRefundingChange}
+        title={t('booking.scheduleChange.refundTitle')}
+        description={t('booking.scheduleChange.refundBody', {
+          amount: booking.scheduleChange?.refundOffer
+            ? format.money(booking.scheduleChange.refundOffer.amount)
+            : '',
+        })}
+        closeLabel={t('common.close')}
+        footer={
+          <View className="gap-2">
+            <Button
+              testID="schedule-change-refund-confirm"
+              fullWidth
+              loading={busy}
+              onPress={() => {
+                const change = booking.scheduleChange;
+                if (change?.refundOffer) {
+                  void refundScheduleChange(change.id, change.refundOffer.amount);
+                }
+              }}
+            >
+              {t('booking.scheduleChange.refundConfirm')}
+            </Button>
+            <Button variant="ghost" onPress={() => setRefundingChange(false)}>
+              {t('booking.scheduleChange.refundKeep')}
+            </Button>
+          </View>
+        }
+      />
       <Modal
         open={removing}
         onOpenChange={setRemoving}
