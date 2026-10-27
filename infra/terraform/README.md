@@ -115,8 +115,9 @@ In the repository settings, create the environments `staging` and `production`:
   - `GCP_DEPLOYER_SERVICE_ACCOUNT` (output `deployer_service_account`);
   - `ARTIFACT_REGISTRY` (output `artifact_registry`);
   - `PUBLIC_WEB_URL`, `PUBLIC_API_URL`, `PUBLIC_ADMIN_URL` (`https://` plus the hosts);
-  - `PUBLIC_TURNSTILE_SITE_KEY`, and optionally `PUBLIC_SENTRY_DSN_WEB` and
-    `PUBLIC_SENTRY_DSN_ADMIN`.
+  - `PUBLIC_TURNSTILE_SITE_KEY`, and optionally `PUBLIC_SENTRY_DSN_WEB`,
+    `PUBLIC_SENTRY_DSN_ADMIN`, `PUBLIC_GOOGLE_CLIENT_ID` and `PUBLIC_APPLE_SERVICES_ID` (Google
+    and Apple sign-in, ADR-067; the API's `GOOGLE_CLIENT_IDS` / `APPLE_CLIENT_IDS` must match).
 
 ### 8. First super admin
 
