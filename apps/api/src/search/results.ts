@@ -193,6 +193,74 @@ export interface PricedHotel {
 
 export type HotelSort = 'recommended' | 'price' | 'rating' | 'stars';
 
+/** Words that say what a property is, not which one (ADR-071). */
+const HOTEL_NAME_FILLER = new Set(['hotel', 'hotels', 'the', 'and', 'by', 'at', 'of', 'a']);
+/** Two listings of one hotel from different suppliers sit within this many metres. */
+const SAME_HOTEL_METRES = 250;
+
+/** A hotel name reduced to what identifies it: case, accents, punctuation and filler words gone. */
+export function hotelNameKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 0 && !HOTEL_NAME_FILLER.has(word))
+    .join(' ');
+}
+
+/** Great-circle distance in metres. */
+export function metresBetween(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+): number {
+  const rad = (degrees: number) => (degrees * Math.PI) / 180;
+  const dLat = rad(b.latitude - a.latitude);
+  const dLon = rad(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/**
+ * One listing per hotel across suppliers (ADR-071): hotels from different suppliers with the same
+ * name key within 250 m are one property, and the listing whose cheapest rate costs less (by
+ * `cost`, comparable across currencies) is kept. Listings from one supplier never merge, and the
+ * kept ones stay in their original order.
+ */
+export function mergeDuplicateHotels(
+  hotels: readonly SupplierHotel[],
+  cost: (hotel: SupplierHotel) => bigint | null,
+): SupplierHotel[] {
+  const kept: (SupplierHotel | null)[] = [];
+  const byName = new Map<string, number[]>();
+  for (const hotel of hotels) {
+    const key = hotelNameKey(hotel.name);
+    const twins = key ? (byName.get(key) ?? []) : [];
+    const twin = twins.find((index) => {
+      const other = kept[index];
+      return (
+        other !== null &&
+        other !== undefined &&
+        other.supplier !== hotel.supplier &&
+        metresBetween(other, hotel) <= SAME_HOTEL_METRES
+      );
+    });
+    if (twin === undefined) {
+      if (key) byName.set(key, [...twins, kept.length]);
+      kept.push(hotel);
+      continue;
+    }
+    const current = kept[twin];
+    const mine = cost(hotel);
+    const theirs = current ? cost(current) : null;
+    if (mine !== null && (theirs === null || mine < theirs)) kept[twin] = hotel;
+  }
+  return kept.filter((hotel): hotel is SupplierHotel => hotel !== null);
+}
+
 export interface HotelFilters {
   stars?: string[] | undefined;
   minRating?: number | undefined;

@@ -35,6 +35,7 @@ import type { ClientContext } from './client-context';
 import {
   filterHotels,
   hotelFacets,
+  mergeDuplicateHotels,
   paginate,
   sortHotels,
   type HotelFilters,
@@ -483,13 +484,18 @@ export class HotelSearchService {
     const now = Date.now();
     const searchId = this.store.newSearchId('hotels');
     const items = new Map<string, StoredHotel>();
-    results
+    const live = results
       .flatMap((result) => result.items)
-      .filter((hotel) => hotel.rates.some((rate) => Date.parse(rate.expiresAt) > now))
-      .forEach((hotel, index) => {
-        const id = `${searchId}.h${index.toString(36)}`;
-        items.set(id, { id, hotel });
-      });
+      .filter((hotel) => hotel.rates.some((rate) => Date.parse(rate.expiresAt) > now));
+    // With several hotel suppliers one property can come back twice: keep the cheaper listing.
+    const fx = results.length > 1 ? await this.fx.converter() : null;
+    const merged = fx
+      ? mergeDuplicateHotels(live, (hotel) => this.cheapestUsd(hotel, fx, now))
+      : live;
+    merged.forEach((hotel, index) => {
+      const id = `${searchId}.h${index.toString(36)}`;
+      items.set(id, { id, hotel });
+    });
     const meta: SearchMeta<HotelSearchRequest> = {
       searchId,
       vertical: 'hotels',
@@ -502,6 +508,23 @@ export class HotelSearchService {
     };
     await this.store.save('hotels', hash, meta, items, this.config.SEARCH_CACHE_TTL_SECONDS);
     return searchId;
+  }
+
+  /** The hotel's cheapest live supplier total (base and taxes) in USD minor units. */
+  private cheapestUsd(hotel: SupplierHotel, fx: Converter, now: number): bigint | null {
+    let best: bigint | null = null;
+    for (const rate of hotel.rates) {
+      if (Date.parse(rate.expiresAt) <= now) continue;
+      const usd = fx.convert(
+        {
+          minor: rate.price.base.minor + rate.price.taxes.minor,
+          currency: rate.price.base.currency,
+        },
+        'USD',
+      ).minor;
+      if (best === null || usd < best) best = usd;
+    }
+    return best;
   }
 
   private async view(
