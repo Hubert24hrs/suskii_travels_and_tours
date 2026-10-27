@@ -8,6 +8,7 @@ import { ChevronRight } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { FingerprintCard } from '../components/account/fingerprint-card';
 import { TestServerCard } from '../components/account/test-server-card';
 import { appConfig } from '../config';
 import { followAccount } from '../lib/push';
@@ -135,6 +136,8 @@ export function AccountScreen() {
           ))}
         </Card>
       ) : null}
+
+      {user ? <FingerprintCard /> : null}
 
       {user ? (
         <Card className="gap-3 p-4">

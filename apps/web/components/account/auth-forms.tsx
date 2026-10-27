@@ -9,6 +9,7 @@ import { rememberSession } from '../../lib/session';
 import { AppLink } from '../app-link';
 
 import { useAccountT } from './account-messages';
+import { SocialSignIn } from './social-sign-in';
 import { safeNext } from './use-account';
 import { useTurnstile } from './use-turnstile';
 
@@ -253,6 +254,13 @@ export function SignInForm({ next }: { next: string | null }) {
           ) : null}
         </form>
       )}
+      <SocialSignIn
+        next={next}
+        onMfa={(token) => {
+          setMfaToken(token);
+          setCode('');
+        }}
+      />
       <AppLink
         href={next ? `/register?next=${encodeURIComponent(next)}` : '/register'}
         className="font-body text-body-sm text-primary underline focus-visible:focus-ring"
@@ -266,11 +274,14 @@ export function SignInForm({ next }: { next: string | null }) {
 export function RegisterForm({
   referralCode,
   turnstileSiteKey,
+  next = null,
 }: {
   referralCode: string | null;
   turnstileSiteKey: string;
+  next?: string | null;
 }) {
   const { t } = useAccountT();
+  const router = useRouter();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -307,6 +318,17 @@ export function RegisterForm({
         },
       });
       if (response.ok) {
+        // Signing in needs no confirmed email, so a new account goes straight in. An address
+        // that already had an account keeps its own password: say so instead.
+        const signedIn = await browserApi().POST('/v1/auth/login', {
+          body: { email, password, transport: 'cookie' },
+        });
+        if (signedIn.data?.status === 'authenticated') {
+          rememberSession(signedIn.data.accessTokenExpiresAt);
+          router.replace(safeNext(next ?? '/account'));
+          router.refresh();
+          return;
+        }
         setDone(true);
         return;
       }
@@ -331,7 +353,7 @@ export function RegisterForm({
   if (done) {
     return (
       <Card className="flex flex-col gap-4 p-6">
-        <Notice testId="register-done">{t('auth.register.done')}</Notice>
+        <Notice testId="register-done">{t('auth.register.existing')}</Notice>
         <AppLink href="/sign-in" className="font-body text-body text-primary underline">
           {t('auth.signIn.submit')}
         </AppLink>
@@ -387,6 +409,7 @@ export function RegisterForm({
           {t('auth.register.submit')}
         </Button>
       </form>
+      <SocialSignIn next={next ?? '/account'} referralCode={code.trim() || null} />
       <AppLink href="/sign-in" className="font-body text-body-sm text-primary underline">
         {t('auth.register.toSignIn')}
       </AppLink>

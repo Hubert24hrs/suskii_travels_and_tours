@@ -50,6 +50,14 @@ describe('resolveIncomingUrl', () => {
     });
   });
 
+  it('leaves a sign-in handed back by the website to the screen that started it', () => {
+    expect(
+      resolveIncomingUrl('suskii://auth/social#provider=google&idToken=abc&state=xyz', WEB),
+    ).toEqual({ path: '' });
+    expect(resolveIncomingUrl('suskii://auth/social/extra', WEB)).toEqual({ path: '/' });
+    expect(resolveIncomingUrl(`https://${WEB}/auth/social`, WEB)).toEqual({ path: '/' });
+  });
+
   it('maps app-scheme paths to their tabs', () => {
     expect(resolveIncomingUrl('suskii://trips', WEB)).toEqual({ path: '/trips' });
     expect(resolveIncomingUrl('suskii://deals', WEB)).toEqual({ path: '/deals' });

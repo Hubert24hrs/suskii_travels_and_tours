@@ -19,15 +19,16 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string | string[] }>;
+  searchParams: Promise<{ ref?: string | string[]; next?: string | string[] }>;
 }) {
   const { t } = await getI18n();
-  const { ref } = await searchParams;
+  const { ref, next } = await searchParams;
   return (
     <AuthPage heading={t('auth.register.heading')} intro={t('auth.register.intro')}>
       <RegisterForm
         referralCode={typeof ref === 'string' ? ref.slice(0, 20) : null}
         turnstileSiteKey={publicEnv.turnstileSiteKey}
+        next={typeof next === 'string' ? next : null}
       />
     </AuthPage>
   );
