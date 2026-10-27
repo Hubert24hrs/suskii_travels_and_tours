@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
 import { AuditService } from '../audit/audit.service';
-import type { FeeRule, MarkupRule, Vertical } from '../generated/prisma/client';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import { ProblemDetailsException } from '../common/problem-details';
+import type { FeeRule, MarkupRule, TaxRule, Vertical } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { PricingService } from '../pricing/pricing.service';
 
@@ -19,14 +21,36 @@ import {
 import {
   feeRuleCheck,
   markupRuleCheck,
+  taxRuleCheck,
   type adminFeeRuleSchema,
   type adminMarkupRuleSchema,
+  type adminTaxRuleSchema,
   type FeeFields,
   type MarkupFields,
+  type TaxFields,
 } from './admin-pricing.schemas';
 
 type AdminMarkupRule = z.infer<typeof adminMarkupRuleSchema>;
 type AdminFeeRule = z.infer<typeof adminFeeRuleSchema>;
+type AdminTaxRule = z.infer<typeof adminTaxRuleSchema>;
+
+/** Cars fares already carry `CARS_VAT_BPS` (ADR-051); a whole-price rule there taxes them twice. */
+const CARS_VERTICALS: readonly Vertical[] = ['buses', 'rides', 'rentals'];
+
+function taxFields(row: TaxRule): TaxFields {
+  return {
+    country: row.country,
+    code: row.code,
+    label: row.label,
+    rateBps: row.rateBps,
+    basis: row.basis,
+    vertical: row.vertical,
+    active: row.active,
+    registrationNumber: row.registrationNumber,
+    validFrom: fromDate(row.validFrom),
+    validTo: fromDate(row.validTo),
+  };
+}
 
 function markupFields(row: MarkupRule): MarkupFields {
   return {
@@ -98,6 +122,7 @@ const timestamps = (row: { id: string; createdAt: Date; updatedAt: Date }) => ({
 @Injectable()
 export class AdminPricingService {
   constructor(
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly prisma: PrismaService,
     private readonly pricing: PricingService,
     private readonly audit: AuditService,
@@ -222,4 +247,82 @@ export class AdminPricingService {
     this.pricing.invalidate();
     return { ...feeFields(row), ...timestamps(row) };
   }
+
+  async listTaxes(
+    country: string | undefined,
+  ): Promise<{ sellerCountry: string; rules: AdminTaxRule[] }> {
+    const rows = await this.prisma.taxRule.findMany({
+      where: country ? { country } : {},
+      orderBy: [{ country: 'asc' }, { code: 'asc' }, { createdAt: 'asc' }],
+    });
+    return {
+      sellerCountry: this.config.TAX_SELLER_COUNTRY,
+      rules: rows.map((row) => ({ ...taxFields(row), ...timestamps(row) })),
+    };
+  }
+
+  async createTax(input: TaxFields, staff: StaffActor): Promise<AdminTaxRule> {
+    this.refuseCarsDoubleTax(input);
+    const row = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.taxRule.create({ data: storedTax(input) });
+      await this.audit.record(
+        {
+          action: 'pricing.tax_created',
+          actorUserId: staff.userId,
+          targetType: 'tax_rule',
+          targetId: created.id,
+          context: staff.context,
+          metadata: { changes: fieldChanges({}, input) },
+        },
+        tx,
+      );
+      return created;
+    });
+    this.pricing.invalidate();
+    return { ...taxFields(row), ...timestamps(row) };
+  }
+
+  async updateTax(id: string, patch: Partial<TaxFields>, staff: StaffActor): Promise<AdminTaxRule> {
+    const row = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.taxRule.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundException();
+      const before = taxFields(existing);
+      const after = checkMerged(taxRuleCheck, { ...before, ...patch });
+      this.refuseCarsDoubleTax(after);
+      const changes = fieldChanges(before, after);
+      if (!hasChanges(changes)) return existing;
+      const updated = await tx.taxRule.update({ where: { id }, data: storedTax(after) });
+      await this.audit.record(
+        {
+          action: 'pricing.tax_updated',
+          actorUserId: staff.userId,
+          targetType: 'tax_rule',
+          targetId: id,
+          context: staff.context,
+          metadata: { changes },
+        },
+        tx,
+      );
+      return updated;
+    });
+    this.pricing.invalidate();
+    return { ...taxFields(row), ...timestamps(row) };
+  }
+
+  /** A whole-price rule reaching a Cars vertical while Cars fares carry VAT (ADR-072). */
+  private refuseCarsDoubleTax(rule: TaxFields): void {
+    const reachesCars = rule.vertical === null || CARS_VERTICALS.includes(rule.vertical);
+    if (rule.active && rule.basis === 'full' && reachesCars && this.config.CARS_VAT_BPS > 0) {
+      throw new ProblemDetailsException(
+        HttpStatus.CONFLICT,
+        'tax-overlaps-cars-vat',
+        'Cars fares already include VAT',
+        'Choose a vertical other than buses, rides or rentals, the margin basis, or set CARS_VAT_BPS to 0.',
+      );
+    }
+  }
+}
+
+function storedTax(fields: TaxFields) {
+  return { ...fields, validFrom: toDate(fields.validFrom), validTo: toDate(fields.validTo) };
 }

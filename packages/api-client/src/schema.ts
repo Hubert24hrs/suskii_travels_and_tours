@@ -1123,6 +1123,47 @@ export interface paths {
         patch: operations["adminUpdateMarkupRule"];
         trace?: never;
     };
+    "/v1/admin/pricing/taxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tax rules by country, with the selling country whose rules apply */
+        get: operations["adminListTaxRules"];
+        put?: never;
+        /**
+         * Add a tax on Suskii's service
+         * @description Every active rule of the selling country that matches the vertical applies, added to the total (ADR-072). Applies to the next search or quote; quotes already given keep their price.
+         */
+        post: operations["adminCreateTaxRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/pricing/taxes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change or deactivate a tax rule
+         * @description The merged rule is validated like a new one. Applies to the next search or quote; quotes already given keep their price.
+         */
+        patch: operations["adminUpdateTaxRule"];
+        trace?: never;
+    };
     "/v1/admin/prime/plans": {
         parameters: {
             query?: never;
@@ -6294,6 +6335,29 @@ export interface components {
                 upcomingRentals: number;
             }[];
         };
+        AdminTaxRule: {
+            country: string;
+            code: string;
+            label: string;
+            rateBps: number;
+            /** @enum {string} */
+            basis: "margin" | "full";
+            vertical: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals") | null;
+            active: boolean;
+            registrationNumber: string | null;
+            validFrom: string | null;
+            validTo: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminTaxRuleList: {
+            sellerCountry: string;
+            rules: components["schemas"]["AdminTaxRule"][];
+        };
         AdminTrustSignal: {
             key: string;
             label: string;
@@ -6584,6 +6648,8 @@ export interface components {
                 code: string;
                 amount: components["schemas"]["Money"];
             } | null;
+            /** @default [] */
+            serviceTaxes: components["schemas"]["ServiceTax"][];
             total: components["schemas"]["Money"];
             /** @default null */
             memberSaving: components["schemas"]["Money"] | null;
@@ -8743,6 +8809,8 @@ export interface components {
                 code: string;
                 amount: components["schemas"]["Money"];
             } | null;
+            /** @default [] */
+            serviceTaxes: components["schemas"]["ServiceTax"][];
             total: components["schemas"]["Money"];
             /** @default null */
             memberSaving: components["schemas"]["Money"] | null;
@@ -9506,6 +9574,13 @@ export interface components {
             dueAt: string;
             amount: components["schemas"]["Money"];
         };
+        ServiceTax: {
+            code: string;
+            label: string;
+            rateBps: number;
+            amount: components["schemas"]["Money"];
+            registrationNumber: string | null;
+        };
         SessionList: {
             sessions: components["schemas"]["SessionSummary"][];
         };
@@ -9629,6 +9704,32 @@ export interface components {
             status: "ok" | "timeout" | "error" | "circuit_open";
             resultCount: number;
             durationMs: number;
+        };
+        TaxRuleInputInput: {
+            country: string;
+            code: string;
+            label: string;
+            rateBps: number;
+            /** @enum {string} */
+            basis: "margin" | "full";
+            vertical: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals") | null;
+            active: boolean;
+            registrationNumber: string | null;
+            validFrom: string | null;
+            validTo: string | null;
+        };
+        TaxRulePatchInput: {
+            country?: string;
+            code?: string;
+            label?: string;
+            rateBps?: number;
+            /** @enum {string} */
+            basis?: "margin" | "full";
+            vertical?: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals") | null;
+            active?: boolean;
+            registrationNumber?: string | null;
+            validFrom?: string | null;
+            validTo?: string | null;
         };
         TicketingRun: {
             attempted: number;
@@ -12770,6 +12871,105 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListTaxRules: {
+        parameters: {
+            query?: {
+                country?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTaxRuleList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateTaxRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaxRuleInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTaxRule"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateTaxRule: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaxRulePatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTaxRule"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

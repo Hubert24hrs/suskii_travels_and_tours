@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
+import { APP_CONFIG, type AppConfig } from '../config/config';
 import type { Vertical } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 
@@ -13,6 +14,7 @@ import {
   type PromoData,
   type PromoUsage,
   type SupplierPrice,
+  type TaxRuleData,
 } from './pricing-engine';
 
 const RULE_CACHE_MS = 60_000;
@@ -25,26 +27,28 @@ export type Pricer = (
 
 /**
  * Loads pricing rules (cached for a minute: admin edits apply within 60 s) and binds them with one
- * FX snapshot, so a whole result page is priced consistently.
+ * FX snapshot, so a whole result page is priced consistently. Tax rules are the selling country's
+ * (`TAX_SELLER_COUNTRY`, ADR-072).
  */
 @Injectable()
 export class PricingService {
   private readonly cache = new Map<
     Vertical,
-    { markups: MarkupRuleData[]; fees: FeeRuleData[]; expires: number }
+    { markups: MarkupRuleData[]; fees: FeeRuleData[]; taxes: TaxRuleData[]; expires: number }
   >();
 
   constructor(
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly prisma: PrismaService,
     private readonly fx: FxService,
   ) {}
 
   private async rules(
     vertical: Vertical,
-  ): Promise<{ markups: MarkupRuleData[]; fees: FeeRuleData[] }> {
+  ): Promise<{ markups: MarkupRuleData[]; fees: FeeRuleData[]; taxes: TaxRuleData[] }> {
     const cached = this.cache.get(vertical);
     if (cached && cached.expires > Date.now()) return cached;
-    const [markups, fees] = await Promise.all([
+    const [markups, fees, taxes] = await Promise.all([
       this.prisma.markupRule.findMany({
         where: { vertical, active: true },
         orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
@@ -53,8 +57,16 @@ export class PricingService {
         where: { vertical, active: true },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       }),
+      this.prisma.taxRule.findMany({
+        where: {
+          country: this.config.TAX_SELLER_COUNTRY,
+          active: true,
+          OR: [{ vertical }, { vertical: null }],
+        },
+        orderBy: [{ code: 'asc' }, { createdAt: 'asc' }],
+      }),
     ]);
-    const entry = { markups, fees, expires: Date.now() + RULE_CACHE_MS };
+    const entry = { markups, fees, taxes, expires: Date.now() + RULE_CACHE_MS };
     this.cache.set(vertical, entry);
     return entry;
   }
@@ -65,7 +77,10 @@ export class PricingService {
   }
 
   async pricer(vertical: Vertical, displayCurrency: string): Promise<Pricer> {
-    const [{ markups, fees }, fx] = await Promise.all([this.rules(vertical), this.fx.converter()]);
+    const [{ markups, fees, taxes }, fx] = await Promise.all([
+      this.rules(vertical),
+      this.fx.converter(),
+    ]);
     return (price, context, promo) =>
       priceOffer({
         price,
@@ -73,6 +88,7 @@ export class PricingService {
         displayCurrency,
         markupRules: markups,
         feeRules: fees,
+        taxRules: taxes,
         promo: promo ?? null,
         fx,
       });

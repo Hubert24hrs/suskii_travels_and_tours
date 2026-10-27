@@ -111,6 +111,8 @@ export type AuditAction =
   | 'pricing.markup_updated'
   | 'pricing.fee_created'
   | 'pricing.fee_updated'
+  | 'pricing.tax_created'
+  | 'pricing.tax_updated'
   | 'promo.created'
   | 'promo.updated'
   | 'deals.route_created'

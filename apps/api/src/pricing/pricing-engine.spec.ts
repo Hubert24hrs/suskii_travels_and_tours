@@ -10,6 +10,7 @@ import {
   type MarkupRuleData,
   type PricingContext,
   type PromoData,
+  type TaxRuleData,
 } from './pricing-engine';
 
 const fx = createConverter({
@@ -95,6 +96,20 @@ const promo = (overrides: Partial<PromoData> = {}): PromoData => ({
   maxRedemptionsPerUser: null,
   requiresAccount: false,
   active: true,
+  ...overrides,
+});
+
+const tax = (overrides: Partial<TaxRuleData> = {}): TaxRuleData => ({
+  id: 'tax-1',
+  code: 'vat',
+  label: 'VAT',
+  rateBps: 750,
+  basis: 'margin',
+  vertical: null,
+  active: true,
+  registrationNumber: 'TIN 01234567-0001',
+  validFrom: null,
+  validTo: null,
   ...overrides,
 });
 
@@ -303,6 +318,8 @@ describe('priceOffer properties', () => {
     promoType: fc.constantFrom<'percentage' | 'fixed'>('percentage', 'fixed'),
     promoValue: fc.bigInt({ min: 0n, max: 10n ** 9n }),
     promoCap: fc.option(fc.bigInt({ min: 0n, max: 10n ** 8n }), { nil: null }),
+    taxBps: fc.integer({ min: 0, max: 3000 }),
+    taxBasis: fc.constantFrom<'margin' | 'full'>('margin', 'full'),
   });
 
   it('always adds up, never discounts taxes, and never goes negative', () => {
@@ -335,6 +352,7 @@ describe('priceOffer properties', () => {
             }),
             usage: { total: 0, byUser: 0 },
           },
+          taxRules: [tax({ rateBps: s.taxBps, basis: s.taxBasis })],
           fx,
         });
         const all = [
@@ -349,8 +367,13 @@ describe('priceOffer properties', () => {
           breakdown.fees.map((f) => f.amount),
         );
         const discount = breakdown.discount?.amount ?? money(0n, s.displayCurrency);
+        const serviceTax = sum(
+          s.displayCurrency,
+          breakdown.serviceTaxes.map((line) => line.amount),
+        );
+        expect(breakdown.serviceTaxes.every((line) => line.amount.minor > 0n)).toBe(true);
         expect(breakdown.total).toEqual(
-          subtract(add(add(breakdown.fare, breakdown.taxes), feeTotal), discount),
+          subtract(add(add(add(breakdown.fare, breakdown.taxes), feeTotal), serviceTax), discount),
         );
         expect(discount.minor >= 0n).toBe(true);
         expect(breakdown.fare.minor >= 0n).toBe(true);
@@ -364,6 +387,77 @@ describe('priceOffer properties', () => {
       }),
       { numRuns: 400 },
     );
+  });
+});
+
+describe('service taxes (ADR-072)', () => {
+  // Markup 5% of USD 400 = USD 20 (NGN 31,000); fare NGN 651,000; supplier taxes NGN 155,000;
+  // service fee NGN 2,500.
+  const priced = (taxRules: TaxRuleData[], extra: Partial<Parameters<typeof priceOffer>[0]> = {}) =>
+    run({ markupRules: [markup()], feeRules: [fee()], taxRules, ...extra }).breakdown;
+
+  it('leaves every price as it was without tax rules', () => {
+    const breakdown = priced([]);
+    expect(breakdown.serviceTaxes).toEqual([]);
+    expect(breakdown.total).toEqual(ngn(808_500));
+  });
+
+  it('taxes only the margin and fees of an agent booking, inside the total', () => {
+    const breakdown = priced([tax()]);
+    // 7.5% of NGN 33,500 (markup 31,000 + fee 2,500).
+    expect(breakdown.serviceTaxes).toEqual([
+      {
+        code: 'vat',
+        label: 'VAT',
+        rateBps: 750,
+        amount: ngn(2_512.5),
+        registrationNumber: 'TIN 01234567-0001',
+      },
+    ]);
+    expect(breakdown.total).toEqual(ngn(811_012.5));
+    expect(breakdown.taxes).toEqual(ngn(155_000));
+  });
+
+  it('taxes fare and fees of what Suskii sells as principal, never the supplier taxes', () => {
+    const breakdown = priced([tax({ basis: 'full' })]);
+    // 7.5% of NGN 653,500 (fare 651,000 + fee 2,500).
+    expect(breakdown.serviceTaxes[0]?.amount).toEqual(ngn(49_012.5));
+    expect(breakdown.total).toEqual(ngn(857_512.5));
+  });
+
+  it('taxes what is left after a promo, and drops a line with nothing to tax', () => {
+    const withPromo = { promo: { data: promo(), usage: { total: 0, byUser: 0 } } };
+    // 10% off NGN 653,500 = NGN 65,350: more than the margin, so no margin tax.
+    expect(priced([tax()], withPromo).serviceTaxes).toEqual([]);
+    const full = priced([tax({ basis: 'full' })], withPromo);
+    expect(full.discount?.amount).toEqual(ngn(65_350));
+    expect(full.serviceTaxes[0]?.amount).toEqual(ngn(44_111.25));
+    expect(full.total).toEqual(ngn(808_500 - 65_350 + 44_111.25));
+  });
+
+  it('applies every rule in force for the vertical, and only those', () => {
+    const breakdown = priced([
+      tax(),
+      tax({ id: 'levy', code: 'levy', label: 'Tourism levy', rateBps: 100, basis: 'full' }),
+      tax({ id: 'hotels', code: 'hotel_vat', vertical: 'hotels' }),
+      tax({ id: 'flights', code: 'flight_vat', vertical: 'flights', rateBps: 0 }),
+      tax({ id: 'old', code: 'old', validTo: new Date('2026-09-30T00:00:00Z') }),
+      tax({ id: 'later', code: 'later', validFrom: new Date('2026-12-01T00:00:00Z') }),
+    ]);
+    expect(breakdown.serviceTaxes.map((line) => [line.code, line.amount])).toEqual([
+      ['vat', ngn(2_512.5)],
+      ['levy', ngn(6_535)],
+    ]);
+    expect(breakdown.total).toEqual(ngn(808_500 + 2_512.5 + 6_535));
+  });
+
+  it('rounds each line half up to the minor unit', () => {
+    // A fee of NGN 0.07 alone: 7.5% of 7 kobo is 0.525 kobo, so 1 kobo.
+    const breakdown = run({
+      feeRules: [fee({ value: 7n })],
+      taxRules: [tax()],
+    }).breakdown;
+    expect(breakdown.serviceTaxes[0]?.amount).toEqual(money(1n, 'NGN'));
   });
 });
 

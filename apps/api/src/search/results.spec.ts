@@ -30,6 +30,7 @@ const price = (total: number): PriceBreakdown => ({
   taxes: money(0, 'NGN'),
   fees: [],
   discount: null,
+  serviceTaxes: [],
   total: money(total, 'NGN'),
   memberSaving: null,
   markup: null,

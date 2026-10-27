@@ -214,6 +214,14 @@ export const envSchema = z
     SEARCH_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(600),
     FX_PROVIDER: z.enum(['mock']).default('mock'),
     FX_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3600),
+    /**
+     * Country of the selling entity whose tax rules price every offer (ADR-072). Rules for other
+     * countries can be prepared in the admin console; only this country's apply.
+     */
+    TAX_SELLER_COUNTRY: z
+      .string()
+      .regex(/^[A-Z]{2}$/)
+      .default('NG'),
 
     /** Service token for /v1/internal routes (the worker). Unset: internal routes answer 404. */
     INTERNAL_API_TOKEN: z.string().min(32).optional(),

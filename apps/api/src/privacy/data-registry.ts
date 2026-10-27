@@ -156,6 +156,7 @@ export const DATA_REGISTRY = {
   Airline: reference('Reference data.'),
   MarkupRule: reference('Pricing configuration.'),
   FeeRule: reference('Pricing configuration.'),
+  TaxRule: reference('Tax configuration (ADR-072): rates and the seller registration number.'),
   PromoCode: reference('Promotion configuration.'),
   PromoRedemption: {
     section: null,
