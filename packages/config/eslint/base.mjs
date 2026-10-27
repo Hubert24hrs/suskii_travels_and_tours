@@ -15,6 +15,9 @@ export const GLOBAL_IGNORES = [
   '**/.expo/**',
   '**/next-env.d.ts',
   '**/expo-env.d.ts',
+  // tsup writes and deletes `tsup.config.bundled_*.mjs` while it builds; linting a package while
+  // turbo builds it would otherwise crash ESLint with ENOENT.
+  '**/*.bundled_*.{js,mjs,cjs}',
 ];
 
 /**
