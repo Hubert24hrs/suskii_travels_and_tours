@@ -487,7 +487,9 @@ export class DuffelFlightSupplier extends FlightSupplier {
 
   /**
    * Creates a pending cancellation of a ticketed order: Duffel states what it would refund and
-   * until when the offer stands. Nothing is cancelled until it is confirmed (ADR-064).
+   * until when the offer stands. Nothing is cancelled until it is confirmed (ADR-064). Declining
+   * an airline change (`airlineChangeId`, ADR-073) uses the same cancellation: the quote states
+   * what the airline refunds, and a short one sends the traveller to support.
    */
   override async cancellationQuote(
     request: FlightCancellationRequest,

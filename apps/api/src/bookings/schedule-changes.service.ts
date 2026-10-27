@@ -1,6 +1,8 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 
+import { compare, equals, type Money } from '@suskii/shared';
+
 import { AuditService } from '../audit/audit.service';
 import { BackgroundTasks } from '../common/background-tasks';
 import { toJsonValue } from '../common/json';
@@ -14,16 +16,27 @@ import { SupplierRunner } from '../search/supplier-runner';
 import { OfferUnavailableError, SupplierRequestError } from '../suppliers/supplier.errors';
 import { FLIGHT_SUPPLIERS } from '../suppliers/suppliers.module';
 import type { FlightSlice, FlightSupplier, OrderChanges } from '../suppliers/supplier.types';
+import { ErrorReporter } from '../telemetry/error-reporter';
 import { scheduleChangeChecks } from '../telemetry/metrics';
 
 import { BookingDocumentsService } from './booking-documents.service';
+import { BookingFundsService } from './booking-funds.service';
 import { BookingNotifications } from './booking-notifications';
-import { itemPayload } from './booking-presenter';
+import { itemPayload, type BookingRecord } from './booking-presenter';
 import type { FlightItemPayload } from './booking-pricing';
+import { BookingTransitions } from './booking-transitions';
 import { bookingConflict } from './booking.errors';
 import type { BookingDto } from './bookings.schemas';
 import { BookingsService, customerActor, type BookingCaller } from './bookings.service';
-import { departed, itinerarySignature } from './schedule-changes';
+import { cancellableFlight, supplierPaid } from './flight-cancellation';
+import { CANCELLATION_LOCK_PREFIX } from './flight-cancellation.service';
+import { RefundsService } from './refunds.service';
+import {
+  departed,
+  itinerarySignature,
+  refundOfferOpen,
+  significantChange,
+} from './schedule-changes';
 
 const HOUR_MS = 3_600_000;
 /** A sweep starts no new check after this long; the rest wait for the next sweep a minute later. */
@@ -54,6 +67,22 @@ export const scheduleChangeNotAcceptable = (): ProblemDetailsException =>
     'schedule-change-not-acceptable',
     'This change cannot be accepted online',
     'Contact support about the new flight times.',
+  );
+
+export const refundOfferUnavailable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'refund-offer-unavailable',
+    'A full refund cannot be taken online for this change',
+    'Our team will contact you about your options.',
+  );
+
+export const refundOfferChanged = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'refund-offer-changed',
+    'The refund amount has changed',
+    'Reload the booking to see the current amount.',
   );
 
 /** Who resolved a change through us: the traveller accepting it online. */
@@ -95,6 +124,10 @@ export class ScheduleChangesService {
     private readonly documents: BookingDocumentsService,
     private readonly audit: AuditService,
     private readonly background: BackgroundTasks,
+    private readonly funds: BookingFundsService,
+    private readonly refunds: RefundsService,
+    private readonly transitions: BookingTransitions,
+    private readonly errors: ErrorReporter,
   ) {}
 
   /** When ticketing should first check a new order: only for suppliers that report changes. */
@@ -188,6 +221,163 @@ export class ScheduleChangesService {
       await this.redis.del(lock);
     }
     return this.bookings.present(await this.bookings.reload(booking.id));
+  }
+
+  /**
+   * The traveller declines a significant change and takes everything they paid back (ADR-073).
+   * The airline cancels first, and only when its refund covers what we paid it; otherwise the
+   * offer goes to support. `expected` is the amount the traveller saw, when the client sends it.
+   */
+  async refund(
+    bookingId: string,
+    changeId: string,
+    caller: BookingCaller,
+    expected: Money | null,
+  ): Promise<BookingDto> {
+    const booking = await this.bookings.load(bookingId, caller);
+    const change = await this.prisma.flightScheduleChange.findFirst({
+      where: { id: changeId, bookingId: booking.id },
+    });
+    if (!change) throw scheduleChangeNotFound();
+    const flight = cancellableFlight(booking, this.suppliers, new Date());
+    if (!flight || !refundOfferOpen(change, flight.item.id === change.bookingItemId)) {
+      throw refundOfferUnavailable();
+    }
+    const paid = await this.funds.paid(this.prisma, booking);
+    if (paid.minor <= 0n) throw refundOfferUnavailable();
+    if (expected && !equals(expected, paid)) throw refundOfferChanged();
+
+    // Exclusive with an acceptance (this lock) and an online cancellation (theirs).
+    const locks = [LOCK_PREFIX + booking.id, CANCELLATION_LOCK_PREFIX + booking.id];
+    const held: string[] = [];
+    try {
+      for (const lock of locks) {
+        if ((await this.redis.set(lock, '1', 'PX', LOCK_MS, 'NX')) !== 'OK') {
+          throw bookingConflict();
+        }
+        held.push(lock);
+      }
+      const { supplier, payload, item, orderId } = flight;
+      const supplierTotal = supplierPaid(payload, item);
+      let quote;
+      try {
+        quote = await this.runner.call('flights', supplier.name, 'cancellation-quote', (signal) =>
+          supplier.cancellationQuote(
+            {
+              orderId,
+              offer: payload.offer,
+              supplierTotal,
+              airlineChangeId: change.supplierChangeId,
+            },
+            signal,
+          ),
+        );
+      } catch (error) {
+        if (error instanceof OfferUnavailableError || error instanceof SupplierRequestError) {
+          await this.withdrawOffer(change.id, booking.reference, 'not_cancellable');
+          throw refundOfferUnavailable();
+        }
+        throw supplierUnavailable();
+      }
+      // Suskii never funds an airline's refund: anything short of what we paid goes to support.
+      if (
+        !quote.refundToBalance ||
+        quote.refund.currency !== supplierTotal.currency ||
+        compare(quote.refund, supplierTotal) < 0
+      ) {
+        await this.withdrawOffer(change.id, booking.reference, 'refund_short');
+        throw refundOfferUnavailable();
+      }
+      try {
+        await this.runner.call('flights', supplier.name, 'cancel', (signal) =>
+          supplier.confirmCancellation(quote.quoteId, signal),
+        );
+      } catch (error) {
+        if (error instanceof OfferUnavailableError || error instanceof SupplierRequestError) {
+          await this.withdrawOffer(change.id, booking.reference, 'not_cancellable');
+          throw refundOfferUnavailable();
+        }
+        throw supplierUnavailable();
+      }
+      const refundIds = await this.settleRefund(booking, change.id, item.id, caller, {
+        supplier: supplier.name,
+        supplierRefund: quote.refund,
+      }).catch((error: unknown) => {
+        // The airline has cancelled; the booking must follow. Staff reconcile it from here.
+        this.logger.error(
+          { bookingId: booking.id, reason: (error as Error).name },
+          'Flight cancelled with the supplier for a refund offer but not on the booking',
+        );
+        void this.errors.capture(error);
+        throw error;
+      });
+      this.refunds.executeLater(refundIds);
+    } finally {
+      for (const lock of held) await this.redis.del(lock);
+    }
+    return this.bookings.present(await this.bookings.reload(booking.id));
+  }
+
+  /** Everything paid goes back to the original payments; the change closes as cancelled. */
+  private settleRefund(
+    booking: BookingRecord,
+    changeId: string,
+    itemId: string,
+    caller: BookingCaller,
+    supplier: { supplier: string; supplierRefund: Money },
+  ): Promise<string[]> {
+    const actor = customerActor(caller);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${booking.id}::uuid FOR UPDATE`;
+      const current = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      if (current.status !== 'CONFIRMED') throw bookingConflict();
+      await this.transitions.apply(tx, current, 'request_refund', actor, {
+        reason: 'airline_change',
+      });
+      const ids = await this.refunds.refundBookingBalance(tx, booking, 'supplier_cancellation');
+      const refunded = await tx.refund.aggregate({
+        where: { id: { in: ids } },
+        _sum: { amountMinor: true },
+      });
+      await tx.flightScheduleChange.update({
+        where: { id: changeId },
+        data: { status: 'cancelled', resolvedAt: new Date() },
+      });
+      await tx.bookingItem.update({ where: { id: itemId }, data: { nextChangeCheckAt: null } });
+      await this.audit.record(
+        {
+          action: 'booking.schedule_change_refunded',
+          actorUserId: actor.userId ?? null,
+          targetType: 'booking',
+          targetId: booking.id,
+          context: caller.context,
+          metadata: {
+            scheduleChangeId: changeId,
+            supplier: supplier.supplier,
+            supplierRefundMinor: supplier.supplierRefund.minor.toString(),
+            supplierCurrency: supplier.supplierRefund.currency,
+            refundMinor: (refunded._sum.amountMinor ?? 0n).toString(),
+            currency: booking.currency,
+          },
+        },
+        tx,
+      );
+      return ids;
+    });
+  }
+
+  /** The airline will not refund what we paid it: support takes the offer over. */
+  private async withdrawOffer(changeId: string, reference: string, reason: string): Promise<void> {
+    await this.prisma.flightScheduleChange.update({
+      where: { id: changeId },
+      data: { refundOfferWithdrawnAt: new Date() },
+    });
+    this.background.run('schedule-change-ops', () =>
+      this.notifications.ops('airline.refund_offer_blocked', reference, {
+        scheduleChangeId: changeId,
+        reason,
+      }),
+    );
   }
 
   private nextCheck(now: Date): Date {
@@ -285,6 +475,10 @@ export class ScheduleChangesService {
               removed: toJsonValue(change.removed) as Prisma.InputJsonValue,
               added: toJsonValue(change.added) as Prisma.InputJsonValue,
               acceptable: change.acceptable,
+              significant: significantChange(change.removed, change.added, {
+                domesticHours: this.config.SIGNIFICANT_CHANGE_DOMESTIC_HOURS,
+                internationalHours: this.config.SIGNIFICANT_CHANGE_INTERNATIONAL_HOURS,
+              }),
               status,
               changedAt: new Date(change.createdAt),
               resolvedAt: status === 'open' ? null : now,
@@ -401,13 +595,18 @@ export class ScheduleChangesService {
 
   private async notifyDetected(id: string, reference: string): Promise<void> {
     const change = await this.prisma.flightScheduleChange.findUniqueOrThrow({ where: { id } });
-    if (change.status === 'open' && !change.acceptable) {
+    const booking = await this.bookings.reload(change.bookingId);
+    const offer = refundOfferOpen(
+      change,
+      cancellableFlight(booking, this.suppliers, new Date())?.item.id === change.bookingItemId,
+    );
+    if (change.status === 'open' && !change.acceptable && !offer) {
       await this.notifications.ops('airline.schedule_change', reference, {
         scheduleChangeId: id,
         supplier: change.supplier,
       });
     }
-    await this.notifications.scheduleChanged(id);
+    await this.notifications.scheduleChanged(id, offer);
   }
 }
 

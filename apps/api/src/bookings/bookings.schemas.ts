@@ -691,6 +691,14 @@ export const flightScheduleChangeSchema = named(
       description:
         'An open change the traveller can accept online (`POST /v1/bookings/{bookingId}/schedule-changes/{changeId}/accept`); otherwise support resolves it.',
     }),
+    significant: z.boolean().meta({
+      description:
+        'A cancelled flight, another airport, more connections or a large time move (ADR-073).',
+    }),
+    refundOffer: z.object({ amount: moneySchema }).nullable().meta({
+      description:
+        'Instead of the change, the traveller may take everything they paid back (`POST /v1/bookings/{bookingId}/schedule-changes/{changeId}/refund`). Null when not offered or handed to support.',
+    }),
     detectedAt: timestamp,
     previous: z.array(flightSliceSchema).meta({ description: 'The changed flights as booked.' }),
     updated: z
@@ -861,6 +869,17 @@ export const cancelBookingRequestSchema = named(
   }),
 );
 export type CancelBookingRequest = z.infer<typeof cancelBookingRequestSchema>;
+
+export const scheduleChangeRefundRequestSchema = named(
+  'ScheduleChangeRefundRequest',
+  z.object({
+    refund: moneySchema.optional().meta({
+      description:
+        'The `refundOffer.amount` the traveller saw. Another amount answers 409 `refund-offer-changed`.',
+    }),
+  }),
+);
+export type ScheduleChangeRefundRequest = z.infer<typeof scheduleChangeRefundRequestSchema>;
 
 export const createdBookingSchema = named(
   'CreatedBooking',

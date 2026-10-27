@@ -63,6 +63,17 @@ function summaryOf(payload: ItemPayload): string {
   return `${place(first.origin)} to ${place(first.destination)}, ${documentDateTime(first.departureLocal)}`;
 }
 
+/** What the change email asks the traveller to do (ADR-065, ADR-073). */
+function scheduleChangeNext(
+  change: { status: string; acceptable: boolean },
+  refundOffer: boolean,
+): 'accept' | 'choose' | 'refund' | 'support' | 'done' {
+  if (change.status === 'accepted') return 'done';
+  if (change.status !== 'open') return 'support';
+  if (refundOffer) return change.acceptable ? 'choose' : 'refund';
+  return change.acceptable ? 'accept' : 'support';
+}
+
 const REFUND_REASON_TEXT: Record<string, string> = {
   ticketing_failed: 'We could not confirm your booking with the airline or hotel.',
   duplicate_payment: 'We received more than one payment for it.',
@@ -197,7 +208,8 @@ export class BookingNotifications {
    * The airline changed a ticketed flight (ADR-065): what changed and what to do next, by email
    * and push. Guests get a booking link valid until the changed flights have left.
    */
-  async scheduleChanged(changeId: string): Promise<void> {
+  /** `refundOffer`: the traveller may take a full refund instead (ADR-073). */
+  async scheduleChanged(changeId: string, refundOffer = false): Promise<void> {
     await this.safely('schedule-changed', async () => {
       const change = await this.prisma.flightScheduleChange.findUniqueOrThrow({
         where: { id: changeId },
@@ -215,12 +227,7 @@ export class BookingNotifications {
         ...scheduleChangedTemplate({
           reference: booking.reference,
           lines: changeLines(removed, added),
-          next:
-            change.status === 'accepted'
-              ? 'done'
-              : change.status === 'open' && change.acceptable
-                ? 'accept'
-                : 'support',
+          next: scheduleChangeNext(change, refundOffer),
           bookingUrl: await this.link(booking, 'schedule-change', until),
         }),
       });

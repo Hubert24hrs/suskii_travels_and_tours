@@ -12725,7 +12725,7 @@
       "post": {
         "operationId": "acceptScheduleChange",
         "summary": "Accept the airline's new flight times",
-        "description": "For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To cancel instead, use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).",
+        "description": "For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To decline a significant change, take its `refundOffer`; otherwise use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).",
         "tags": [
           "Bookings"
         ],
@@ -12768,6 +12768,109 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/bookings/{bookingId}/schedule-changes/{changeId}/refund": {
+      "post": {
+        "operationId": "refundScheduleChange",
+        "summary": "Decline the airline change and take a full refund",
+        "description": "For a `scheduleChange` with a `refundOffer`: the airline cancels the booking first, then everything the traveller paid goes back to the original payments, with no fee, and the booking moves to `REFUND_PENDING` (ADR-073). 409 `refund-offer-unavailable` when the refund cannot be taken online (support then contacts the traveller), `refund-offer-changed` when `refund` differs from the current amount. 503 when the airline cannot be reached; the offer stays.",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "changeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleChangeRefundRequestInput"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -34292,6 +34395,28 @@
           "acceptable": {
             "type": "boolean"
           },
+          "significant": {
+            "type": "boolean"
+          },
+          "refundOffer": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "$ref": "#/components/schemas/Money"
+                  }
+                },
+                "required": [
+                  "amount"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "detectedAt": {
             "type": "string",
             "format": "date-time"
@@ -34313,6 +34438,8 @@
           "id",
           "status",
           "acceptable",
+          "significant",
+          "refundOffer",
           "detectedAt",
           "previous",
           "updated"
@@ -43455,6 +43582,14 @@
           "content",
           "published"
         ]
+      },
+      "ScheduleChangeRefundRequestInput": {
+        "type": "object",
+        "properties": {
+          "refund": {
+            "$ref": "#/components/schemas/MoneyInput"
+          }
+        }
       },
       "ScheduleChangeRun": {
         "type": "object",
