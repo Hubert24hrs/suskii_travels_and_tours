@@ -59,7 +59,8 @@ in production (ADR-069).
 
 Standards plan (agreed with the owner on 2026-10-27, US and European standards for African
 markets): item 1, all-in prices with a tax table per country, is built (`docs/phases/all-in-pricing.md`);
-the rates wait for the owner's accountant.
+the rates wait for the owner's accountant. Item 2, a one-tap full refund when the airline cancels or
+significantly changes a flight, is built (`docs/phases/refund-offer.md`).
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -317,6 +318,11 @@ Tooling notes for agents:
   change in `flight_schedule_changes` and tells the traveller. Acceptance goes to the supplier
   first. The booking's slices follow the airline's only once no change is open; never edit an
   item's itinerary elsewhere.
+- A significant change (ADR-073: a cancelled flight, another airport, more connections, or a move
+  of `SIGNIFICANT_CHANGE_DOMESTIC_HOURS` / `_INTERNATIONAL_HOURS`) is marked when it is found and
+  carries `refundOffer`: everything the traveller paid, taken only through
+  `ScheduleChangesService.refund()`. The supplier cancels first, and only when its refund covers
+  what we paid it; a short one withdraws the offer to support. Never fund an airline's refund.
 - Binary responses (PDFs) use `fileResponse()` in the contract and return a `StreamableFile`.
   Stored idempotent responses are encrypted (they can contain guest tokens).
 
@@ -805,6 +811,7 @@ Tooling notes for agents:
 - [ADR-070: Affiliate click and conversion tracking](docs/decisions/ADR-070-affiliate-click-and-conversion-tracking.md)
 - [ADR-071: Hotelbeds hotel adapter](docs/decisions/ADR-071-hotelbeds-hotel-adapter.md)
 - [ADR-072: All-in prices and tax rules per country](docs/decisions/ADR-072-all-in-prices-and-tax-rules.md)
+- [ADR-073: Refund offer for airline changes](docs/decisions/ADR-073-refund-offer-for-airline-changes.md)
 
 ## Open questions for the owner
 
@@ -886,4 +893,5 @@ in production; and IATA accreditation or a consolidator for Nigerian domestic ai
 rides and the own fleet stay off (ADR-069), the KYC, maps and payout provider questions are no
 longer blocking. Added with all-in prices (ADR-072): the tax rates, bases and registration number per
 country from the accountant (nothing is seeded), and which entity sells in each market
-(`TAX_SELLER_COUNTRY`).
+(`TAX_SELLER_COUNTRY`). Added with the refund offer (ADR-073): one Duffel sandbox run with an
+airline change, to confirm Duffel quotes the full involuntary refund.

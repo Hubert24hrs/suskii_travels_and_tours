@@ -107,6 +107,9 @@ drops unknown fields before the handler runs, which prevents mass assignment.
 - Payment plans take no paid extras.
 - Refunds never exceed what the source still holds.
 - A booking held for a risk review is not fulfilled until finance approves it.
+- The full refund for an airline change (ADR-073) is open only on a confirmed flight with an
+  open, significant change, before departure. The airline cancels first, and the refund is
+  taken online only when the airline's refund covers what we paid it; otherwise support takes it.
 
 ## Changing the rules
 
