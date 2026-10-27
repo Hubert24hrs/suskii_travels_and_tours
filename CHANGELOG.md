@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Partner offers on the website and in the app (2026-10-27)
+
+#### Added
+
+- **Booking page and trip screen.** Trips that are going ahead show "More for your trip": an
+  airport transfer, a car, an eSIM, insurance and priced tours for the destination and dates, from
+  `GET /v1/bookings/{id}/partner-offers`. Each opens the partner's site through the API's tracked
+  link (a new tab on the website, the system browser in the app), and the card says the traveller
+  books and pays with the partner and that Suskii may earn a commission.
+- **Cars hub.** The website's `/cars` and the app's Cars screen list car rental and airport
+  transfers from partners. The website hub no longer answers 404 while only partner offers are on.
+- Copy in `@suskii/i18n` (`partners`); Jest tests in the app, Playwright checks on the booking
+  page and the hub (tracked link redirects to the partner), and a Maestro check on the trip.
+
+#### Security
+
+- `docs/security/dependency-exceptions.md` lists the four moderate and low advisories still open in
+  mobile and build tooling (none in production code paths reachable by users; CI's high and
+  critical gate passes).
+
 ### Partner supply: Hotelbeds, affiliate offers and commission tracking (2026-10-27)
 
 Research and decisions in `docs/research/partner-supply.md`, ADR-069 (supply model), ADR-070

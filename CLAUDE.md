@@ -595,6 +595,11 @@ Tooling notes for agents:
   ADR-070).
 - `PARTNER_OFFERS_ENABLED` is off in production unless set; production then refuses the mock
   network and mock activities.
+- Clients show offers through `PartnerOffers` (web `components/partners`, app
+  `src/components/partners`): links open the API's `/v1/go/{token}` (web: new tab with
+  `rel="noopener sponsored"`; app: `openBrowserAsync` with `appConfig.apiBaseUrl`), the card always
+  shows `partners.disclosure`, and nothing renders while offers are off or empty. Fetch them in the
+  browser or the app, never on the server, so the link seals the signed-in traveller.
 
 ### AI trip search (phase 13, ADR-061)
 
