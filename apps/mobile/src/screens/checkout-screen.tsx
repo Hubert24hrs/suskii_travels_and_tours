@@ -25,10 +25,11 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { Checkbox } from '../components/booking/form-controls';
 import { GuestForm, PassengerForm } from '../components/booking/passenger-form';
 import {
+  chosenMethod,
   MethodChoice,
   PlanChoice,
+  type PaymentMethodName,
   type PlanChoiceValue,
-  type ProviderName,
 } from '../components/booking/payment-options';
 import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
 import { InhouseSummary } from '../components/inhouse/inhouse-summary';
@@ -130,7 +131,7 @@ function Checkout({ quote }: { quote: Quote }) {
   const [draft, setDraft] = useState<CheckoutDraft>(() => draftFor(quote));
   const [errors, setErrors] = useState<FieldIssues>({});
   const [plan, setPlan] = useState<PlanChoiceValue>('full');
-  const [provider, setProvider] = useState<ProviderName | null>(null);
+  const [method, setMethod] = useState<PaymentMethodName | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: string; headers: Record<string, string> } | null>(
@@ -223,7 +224,9 @@ function Checkout({ quote }: { quote: Quote }) {
       router.replace(`/trips/${booking.id}` as Href);
       return;
     }
-    const started = await startPayment(api, booking.id, booking.headers, { provider });
+    const started = await startPayment(api, booking.id, booking.headers, {
+      method: chosenMethod(quote.payment.methods, method),
+    });
     switch (started.kind) {
       case 'redirect':
         await openHostedCheckout(started.checkoutUrl);
@@ -239,8 +242,12 @@ function Checkout({ quote }: { quote: Quote }) {
         setFormError(t('checkout.expired.body'));
         return;
       case 'provider-unavailable':
-        setProvider(null);
+        setMethod(null);
         setFormError(t('checkout.errors.providerUnavailable'));
+        return;
+      case 'method-unavailable':
+        setMethod(null);
+        setFormError(t('checkout.errors.methodUnavailable'));
         return;
       case 'device':
         setFormError(t('mobile.checkout.deviceCheckFailed'));
@@ -591,7 +598,7 @@ function Checkout({ quote }: { quote: Quote }) {
           onChange={setPlan}
           extrasSelected={extras !== null}
         />
-        <MethodChoice providers={quote.payment.providers} value={provider} onChange={setProvider} />
+        <MethodChoice methods={quote.payment.methods} value={method} onChange={setMethod} />
 
         {price ? (
           <Card className="gap-2 p-4">

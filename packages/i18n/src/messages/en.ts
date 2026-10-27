@@ -800,12 +800,23 @@ export const en = {
       setUp: 'Set up installments',
     },
     method: {
-      heading: 'Payment method',
+      heading: 'How would you like to pay?',
       names: {
-        mock: 'Test payment (no real money)',
-        paystack: 'Card, bank transfer or USSD (Paystack)',
-        flutterwave: 'Card, bank transfer, USSD or mobile money (Flutterwave)',
-        stripe: 'International card (Stripe)',
+        card: 'Debit or credit card',
+        bank_transfer: 'Bank transfer',
+        ussd: 'USSD',
+        mobile_money: 'Mobile money',
+        apple_google_pay: 'Apple Pay or Google Pay',
+        agent: 'Cash at a bank or POS agent',
+      },
+      hints: {
+        card: 'Your bank may ask you to confirm the payment in its app or with a code.',
+        bank_transfer: 'Transfer the exact amount from your bank app to the account shown next.',
+        ussd: 'Dial the code shown next on the phone linked to your bank. No internet needed.',
+        mobile_money: 'Approve the payment on the phone linked to your mobile money wallet.',
+        apple_google_pay: 'Pay with the card saved on your phone.',
+        agent:
+          'You get an account number next. Pay the exact amount at any bank or POS agent before it expires; we confirm your booking as soon as it arrives.',
       },
     },
     priceChange: {
@@ -832,6 +843,8 @@ export const en = {
       holdUnavailable: 'The airline will not hold this fare right now. You can still pay in full.',
       holdLimit: 'You already have unpaid reservations. Pay for or cancel one first.',
       providerUnavailable: 'This payment method is not available. Choose another one.',
+      methodUnavailable:
+        'This payment method is not available for this booking. Choose another one.',
       soldOut:
         'There is no longer enough room on this date for your group. Go back and choose another date.',
     },

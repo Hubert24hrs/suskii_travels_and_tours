@@ -393,6 +393,48 @@ test.describe('hotel booking', () => {
   });
 });
 
+test.describe('payment methods (ADR-074)', () => {
+  test('lists the ways to pay and opens the payment page on the one chosen', async ({ page }) => {
+    await page.goto(flightSearch('LOS', 'ABV'));
+    await page
+      .getByTestId('flight-offer')
+      .first()
+      .getByRole('button', { name: /^Select/ })
+      .click({ timeout: 30_000 });
+    await page.waitForURL(/\/checkout\//);
+
+    // The stack's mock provider takes every method in naira; card comes first and is chosen.
+    const methods = page.getByRole('group', { name: t('checkout.method.heading') });
+    for (const method of [
+      'card',
+      'bank_transfer',
+      'ussd',
+      'mobile_money',
+      'apple_google_pay',
+      'agent',
+    ] as const) {
+      await expect(methods.getByLabel(t(`checkout.method.names.${method}`))).toBeVisible();
+    }
+    await expect(methods.getByLabel(t('checkout.method.names.card'))).toBeChecked();
+    await methods.getByLabel(t('checkout.method.names.agent')).check();
+    await expect(methods.getByText(t('checkout.method.hints.agent'))).toBeVisible();
+    await expectNoAxeViolations(page);
+
+    await fillTraveller(page, false);
+    await fillContactAndAccept(page, 'chioma@example.com');
+    const [payment] = await Promise.all([
+      page.waitForRequest(
+        (request) =>
+          request.method() === 'POST' && /\/v1\/bookings\/[^/]+\/payments$/.test(request.url()),
+      ),
+      page.getByRole('button', { name: t('checkout.pay') }).click(),
+    ]);
+    expect(payment.postDataJSON()).toMatchObject({ method: 'agent' });
+    await payWithMock(page);
+    await expectConfirmed(page);
+  });
+});
+
 test.describe('tax on our service (ADR-072)', () => {
   interface WireMoney {
     amountMinor: number;
