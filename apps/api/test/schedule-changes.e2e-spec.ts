@@ -44,6 +44,8 @@ describe('airline schedule changes (e2e)', () => {
     mock.scheduleRules.clear();
     mock.airlineChanges.clear();
     mock.failNextChangeAcceptances = 0;
+    mock.failNextCancellations = 0;
+    mock.involuntaryRefundBps = 10_000;
     mock.cancelledOrders.clear();
   });
   // Notices and document renders run in the background; let them finish before the next reset.
@@ -263,5 +265,164 @@ describe('airline schedule changes (e2e)', () => {
     const item = await ctx.prisma.bookingItem.findFirstOrThrow({ where: { bookingId: id } });
     expect(item.nextChangeCheckAt).toBeNull();
     expect(mock.airlineChanges.size).toBe(0);
+  });
+
+  describe('refund offer for significant changes (ADR-073)', () => {
+    interface WireMoney {
+      amountMinor: number;
+      currency: string;
+    }
+    interface Change {
+      id: string;
+      status: string;
+      acceptable: boolean;
+      significant: boolean;
+      refundOffer: { amount: WireMoney } | null;
+    }
+
+    const takeRefund = (
+      id: string,
+      changeId: string,
+      token: Record<string, string>,
+      body: object = {},
+      key = idempotencyKey(),
+    ) =>
+      ctx
+        .http()
+        .post(`/v1/bookings/${id}/schedule-changes/${changeId}/refund`)
+        .set(token)
+        .set('Idempotency-Key', key)
+        .send(body);
+
+    /** A ticketed flight the airline moves by `minutes` on its next check. */
+    async function changedFlight(minutes: number, refundable = false) {
+      const flight = await ticketedFlight(refundable);
+      mock.scheduleRules.set('LOS-ABV', minutes);
+      await sweep(flight.id);
+      const booking = await ctx
+        .http()
+        .get(`/v1/bookings/${flight.id}`)
+        .set(flight.token)
+        .expect(200);
+      return {
+        ...flight,
+        change: booking.body.scheduleChange as Change,
+        paid: booking.body.paid as WireMoney,
+      };
+    }
+
+    it('offers everything back for a significant change, even on a fare that refunds nothing', async () => {
+      ctx.emails.outbox.length = 0;
+      // Four hours later on a domestic flight: over the three-hour threshold.
+      const { id, token, change, paid } = await changedFlight(240);
+      expect(paid.amountMinor).toBeGreaterThan(0);
+      expect(change).toMatchObject({
+        status: 'open',
+        acceptable: true,
+        significant: true,
+        refundOffer: { amount: paid },
+      });
+      const notice = ctx.emails.outbox.find((message) => message.template === 'schedule-changed');
+      expect(notice?.text).toMatch(/significant change, so you can choose/);
+      // Online cancellation under the fare's rules would refund nothing.
+      const quote = await ctx
+        .http()
+        .post(`/v1/bookings/${id}/cancellation-quote`)
+        .set(token)
+        .expect(200);
+      expect(quote.body.refund.amountMinor).toBe(0);
+
+      const key = idempotencyKey();
+      const taken = await takeRefund(id, change.id, token, { refund: paid }, key).expect(200);
+      expect(taken.body).toMatchObject({
+        status: 'REFUND_PENDING',
+        flightCancellable: false,
+        scheduleChange: { id: change.id, status: 'cancelled', refundOffer: null },
+        refunds: [expect.objectContaining({ amount: paid })],
+      });
+      // The airline cancelled first.
+      expect(mock.cancelledOrders.size).toBe(1);
+      const audit = await ctx.prisma.auditLog.findFirstOrThrow({
+        where: { action: 'booking.schedule_change_refunded', targetId: id },
+      });
+      expect(audit.metadata).toMatchObject({
+        scheduleChangeId: change.id,
+        supplier: 'mock',
+        refundMinor: String(paid.amountMinor),
+      });
+      const refunds = await ctx.prisma.refund.findMany({ where: { bookingId: id } });
+      expect(refunds.map((refund) => refund.reason)).toEqual(['supplier_cancellation']);
+      const item = await ctx.prisma.bookingItem.findFirstOrThrow({ where: { bookingId: id } });
+      expect(item.nextChangeCheckAt).toBeNull();
+
+      // Repeating the request answers the same; nothing is refunded twice.
+      const repeat = await takeRefund(id, change.id, token, { refund: paid }, key).expect(200);
+      expect(repeat.body.status).toBe('REFUND_PENDING');
+      expect(await ctx.prisma.refund.count({ where: { bookingId: id } })).toBe(1);
+
+      await ctx.background.drain();
+      await ctx.http().post('/v1/internal/bookings/refunds-due').set(INTERNAL).expect(200);
+      await ctx.background.drain();
+      const refunded = await ctx.http().get(`/v1/bookings/${id}`).set(token).expect(200);
+      expect(refunded.body.status).toBe('REFUNDED');
+      expect((await takeRefund(id, change.id, token)).status).toBe(409);
+    });
+
+    it('leaves small changes to accepting', async () => {
+      const { id, token, change } = await changedFlight(90);
+      expect(change).toMatchObject({ significant: false, refundOffer: null, acceptable: true });
+      const refused = await takeRefund(id, change.id, token);
+      expect(refused.status).toBe(409);
+      expect(refused.body.type).toMatch(/refund-offer-unavailable$/);
+      expect(mock.cancelledOrders.size).toBe(0);
+    });
+
+    it('hands the refund to support when the airline would refund less than we paid', async () => {
+      const { id, token, change } = await changedFlight(240);
+      mock.involuntaryRefundBps = 5_000;
+      ctx.emails.outbox.length = 0;
+      const refused = await takeRefund(id, change.id, token);
+      expect(refused.status).toBe(409);
+      expect(refused.body.type).toMatch(/refund-offer-unavailable$/);
+      // Nothing was cancelled or refunded, and the offer is withdrawn for support.
+      expect(mock.cancelledOrders.size).toBe(0);
+      await ctx.background.drain();
+      const booking = await ctx.http().get(`/v1/bookings/${id}`).set(token).expect(200);
+      expect(booking.body).toMatchObject({
+        status: 'CONFIRMED',
+        scheduleChange: { status: 'open', significant: true, refundOffer: null },
+      });
+      expect(await ctx.prisma.refund.count({ where: { bookingId: id } })).toBe(0);
+      const alert = ctx.emails.outbox.find((message) => message.to === OPS_EMAIL);
+      expect(alert?.subject).toMatch(/airline\.refund_offer_blocked/);
+      // Accepting the new times still works.
+      expect((await accept(id, change.id, token)).status).toBe(200);
+    });
+
+    it('keeps the offer when the airline is down, checks the amount, and stays with the booking', async () => {
+      const { id, token, change, paid } = await changedFlight(-240);
+      expect(change.refundOffer).toEqual({ amount: paid });
+
+      mock.failNextCancellations = 1;
+      expect((await takeRefund(id, change.id, token)).status).toBe(503);
+      const unchanged = await ctx.http().get(`/v1/bookings/${id}`).set(token).expect(200);
+      expect(unchanged.body).toMatchObject({
+        status: 'CONFIRMED',
+        scheduleChange: { status: 'open', refundOffer: { amount: paid } },
+      });
+
+      const wrong = await takeRefund(id, change.id, token, {
+        refund: { ...paid, amountMinor: paid.amountMinor - 1 },
+      });
+      expect(wrong.status).toBe(409);
+      expect(wrong.body.type).toMatch(/refund-offer-changed$/);
+
+      // Another booking's change is not found from this one.
+      const other = await ticketedFlight();
+      expect((await takeRefund(other.id, change.id, other.token)).status).toBe(404);
+
+      const taken = await takeRefund(id, change.id, token, { refund: paid }).expect(200);
+      expect(taken.body.status).toBe('REFUND_PENDING');
+    });
   });
 });

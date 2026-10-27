@@ -65,6 +65,7 @@ export type AuditAction =
   | 'booking.schedule_change_detected'
   | 'booking.schedule_change_accepted'
   | 'booking.schedule_change_resolved'
+  | 'booking.schedule_change_refunded'
   | 'booking.itinerary_updated'
   | 'booking.voucher_redeemed'
   | 'booking.addon_link_issued'

@@ -1040,21 +1040,26 @@ enum ScheduleChangeStatus {
 
 /// A change the airline made to a ticketed flight: new times, flights or routing (ADR-065).
 model FlightScheduleChange {
-  id               String               @id @default(uuid(7)) @db.Uuid
-  bookingId        String               @map("booking_id") @db.Uuid
-  bookingItemId    String               @map("booking_item_id") @db.Uuid
-  supplier         String
-  supplierChangeId String               @map("supplier_change_id")
+  id                     String               @id @default(uuid(7)) @db.Uuid
+  bookingId              String               @map("booking_id") @db.Uuid
+  bookingItemId          String               @map("booking_item_id") @db.Uuid
+  supplier               String
+  supplierChangeId       String               @map("supplier_change_id")
   /// The changed slices as booked and the slices replacing them, in our domain shape.
-  removed          Json
-  added            Json
+  removed                Json
+  added                  Json
   /// Whether the traveller can accept it online; otherwise support resolves it.
-  acceptable       Boolean
-  status           ScheduleChangeStatus @default(open)
+  acceptable             Boolean
+  /// Cancelled flight, other airport, more connections or a large time move: the traveller may
+  /// take a full refund instead (ADR-073). Decided when the change is found.
+  significant            Boolean              @default(false)
+  /// The airline would not refund what we paid it, so support took the refund offer over.
+  refundOfferWithdrawnAt DateTime?            @map("refund_offer_withdrawn_at") @db.Timestamptz(3)
+  status                 ScheduleChangeStatus @default(open)
   /// When the supplier recorded the change.
-  changedAt        DateTime             @map("changed_at") @db.Timestamptz(3)
-  detectedAt       DateTime             @default(now()) @map("detected_at") @db.Timestamptz(3)
-  resolvedAt       DateTime?            @map("resolved_at") @db.Timestamptz(3)
+  changedAt              DateTime             @map("changed_at") @db.Timestamptz(3)
+  detectedAt             DateTime             @default(now()) @map("detected_at") @db.Timestamptz(3)
+  resolvedAt             DateTime?            @map("resolved_at") @db.Timestamptz(3)
 
   booking     Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   bookingItem BookingItem @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)

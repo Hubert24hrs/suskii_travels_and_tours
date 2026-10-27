@@ -417,6 +417,12 @@ export const envSchema = z
      */
     SCHEDULE_CHANGE_CHECK_HOURS: z.coerce.number().int().min(1).max(48).default(6),
     SCHEDULE_CHANGE_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+    /**
+     * A change moving a flight by this many hours (within one country, or otherwise) entitles the
+     * traveller to a full refund (ADR-073; the US DOT thresholds).
+     */
+    SIGNIFICANT_CHANGE_DOMESTIC_HOURS: z.coerce.number().min(1).max(24).default(3),
+    SIGNIFICANT_CHANGE_INTERNATIONAL_HOURS: z.coerce.number().min(1).max(24).default(6),
     /** Prime members are reminded this many days before their paid-up end (ADR-030). */
     PRIME_REMINDER_DAYS: z.coerce.number().int().min(1).max(60).default(7),
     /**
