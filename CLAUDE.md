@@ -60,7 +60,9 @@ in production (ADR-069).
 Standards plan (agreed with the owner on 2026-10-27, US and European standards for African
 markets): item 1, all-in prices with a tax table per country, is built (`docs/phases/all-in-pricing.md`);
 the rates wait for the owner's accountant. Item 2, a one-tap full refund when the airline cancels or
-significantly changes a flight, is built (`docs/phases/refund-offer.md`).
+significantly changes a flight, is built (`docs/phases/refund-offer.md`). Item 3, payment methods
+(mobile money, transfers, USSD, Apple Pay and Google Pay, cash at an agent, Stripe 3D Secure), is
+built (`docs/phases/payment-methods.md`); the channel names wait for one sandbox payment per method.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -333,6 +335,11 @@ Tooling notes for agents:
   Flutterwave), refunds with an idempotency key where the provider supports one. `PaymentProviders`
   routes by currency in `PAYMENT_PROVIDERS` order. Vendor payloads never leave the adapter; parse
   provider amounts with `parseMoney`, never floats.
+- Checkout offers methods, not providers (ADR-074): each adapter declares `methodsFor(currency)`
+  and maps a method to its own channel name, kept inside the adapter, and
+  `PaymentProviders.choose(currency, provider, method)` routes. `apple_google_pay` is Apple Pay or
+  Google Pay; `wallet` is the Suskii wallet balance (`useWallet`). Clients send the chosen method
+  only when they list more than one.
 - Every money movement is a `LedgerService.post()` in the caller's transaction with a business
   idempotency key (`payment:{id}:captured`, ...). Never write ledger tables or balances directly;
   the database rejects unbalanced, negative-customer or updated entries. What a booking has paid is
@@ -812,6 +819,7 @@ Tooling notes for agents:
 - [ADR-071: Hotelbeds hotel adapter](docs/decisions/ADR-071-hotelbeds-hotel-adapter.md)
 - [ADR-072: All-in prices and tax rules per country](docs/decisions/ADR-072-all-in-prices-and-tax-rules.md)
 - [ADR-073: Refund offer for airline changes](docs/decisions/ADR-073-refund-offer-for-airline-changes.md)
+- [ADR-074: Payment methods at checkout](docs/decisions/ADR-074-payment-methods-at-checkout.md)
 
 ## Open questions for the owner
 
@@ -894,4 +902,8 @@ rides and the own fleet stay off (ADR-069), the KYC, maps and payout provider qu
 longer blocking. Added with all-in prices (ADR-072): the tax rates, bases and registration number per
 country from the accountant (nothing is seeded), and which entity sells in each market
 (`TAX_SELLER_COUNTRY`). Added with the refund offer (ADR-073): one Duffel sandbox run with an
-airline change, to confirm Duffel quotes the full involuntary refund.
+airline change, to confirm Duffel quotes the full involuntary refund. Added with payment methods
+(ADR-074): one sandbox payment per method with Paystack and Flutterwave test keys (to confirm the
+channel names), whether Apple Pay is enabled on the Paystack account, Flutterwave's "Enable
+Dashboard Payment Options" turned off, and whether to apply for long-lived transfer accounts for
+agent payments.
