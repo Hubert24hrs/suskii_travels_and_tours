@@ -2,6 +2,7 @@ import { Button, Card } from '@suskii/ui-native';
 import { Stack, useRouter, type Href } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
+import { PartnerOffers } from '../components/partners/partner-offers';
 import { ServerUnreachable } from '../components/server-unreachable';
 import { Loading, Notice } from '../components/states';
 import { useCarsFeaturesQuery, type CarsFeatures } from '../lib/cars';
@@ -43,12 +44,13 @@ const UNKNOWN: Pick<CarsFeatures, 'buses' | 'rides' | 'rentals'> = {
 
 /**
  * Buses, rides and car rental (ADR-049): the products the API has switched on, plus driver mode
- * for anyone who wants to drive and ticket scanning for bus operator agents. When the API cannot
+ * for anyone who wants to drive, ticket scanning for bus operator agents, and car rental and
+ * airport transfers from affiliate partners (ADR-069). When the API cannot
  * be reached the screen says so, with a retry, instead of loading forever.
  */
 export function CarsScreen() {
   const { t } = useT();
-  const { user } = useApp();
+  const { user, currency } = useApp();
   const query = useCarsFeaturesQuery();
   if (query.isPending) return <Loading label={t('mobile.loading')} />;
   const unreachable = query.isError;
@@ -112,6 +114,18 @@ export function CarsScreen() {
           body={t('mobile.cars.scan.body')}
           cta={t('mobile.cars.scan.cta')}
           href="/operator/scan"
+        />
+      ) : null}
+      {!unreachable ? (
+        <PartnerOffers
+          source={{
+            kind: 'place',
+            countryCode: 'NG',
+            categories: ['car_rental', 'transfer'],
+            currency,
+          }}
+          heading={t('partners.hubHeading')}
+          testID="partner-offers-hub"
         />
       ) : null}
     </ScrollView>

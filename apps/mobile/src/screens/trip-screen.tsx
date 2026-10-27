@@ -1,6 +1,11 @@
 import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
-import { BOOKING_IN_PROGRESS_STATUSES, type BookingStatus } from '@suskii/shared';
+import {
+  BOOKING_IN_PROGRESS_STATUSES,
+  DEFAULT_CURRENCY,
+  isSupportedCurrency,
+  type BookingStatus,
+} from '@suskii/shared';
 import { Badge, Button, Card, Modal, useToast, type BadgeProps } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -14,6 +19,7 @@ import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
 import { RentalLicence } from '../components/cars/rental-licence';
 import { TripPlanning } from '../components/cars/trip-planning';
 import { InhouseSummary, inhouseKind } from '../components/inhouse/inhouse-summary';
+import { PartnerOffers } from '../components/partners/partner-offers';
 import { VoucherCard } from '../components/inhouse/voucher-card';
 import { Loading, Notice, OfflineBanner } from '../components/states';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
@@ -23,6 +29,15 @@ import { openHostedCheckout, startPayment } from '../lib/payment';
 import { followBooking } from '../lib/push';
 import { tripStore, type Booking } from '../lib/trips';
 import { useApp, useT } from '../providers/app-provider';
+
+/** Trips that are going ahead get partner offers (transfers, a car, an eSIM, insurance, tours). */
+const PARTNER_STATUSES: readonly BookingStatus[] = [
+  'PAID',
+  'TICKETING',
+  'CONFIRMED',
+  'HELD',
+  'PARTIALLY_PAID',
+];
 
 const STATUS_VARIANT: Partial<Record<BookingStatus, NonNullable<BadgeProps['variant']>>> = {
   CONFIRMED: 'success',
@@ -594,6 +609,19 @@ export function TripScreen() {
         ) : null}
 
         {!offline ? <TripPlanning booking={booking} /> : null}
+        {!offline && PARTNER_STATUSES.includes(booking.status) ? (
+          <PartnerOffers
+            source={{
+              kind: 'booking',
+              bookingId: booking.id,
+              currency: isSupportedCurrency(booking.price.total.currency)
+                ? booking.price.total.currency
+                : DEFAULT_CURRENCY,
+            }}
+            heading={t('partners.tripHeading')}
+            testID="partner-offers"
+          />
+        ) : null}
 
         {plan ? (
           <PlanPanel

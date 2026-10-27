@@ -1,7 +1,12 @@
 'use client';
 
 import { useFormatters } from '@suskii/i18n/react';
-import { BOOKING_IN_PROGRESS_STATUSES, type BookingStatus } from '@suskii/shared/lite';
+import {
+  BOOKING_IN_PROGRESS_STATUSES,
+  DEFAULT_CURRENCY,
+  isSupportedCurrency,
+  type BookingStatus,
+} from '@suskii/shared/lite';
 import { Badge, Button, Card, type BadgeProps } from '@suskii/ui-web';
 import { Download } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -10,6 +15,7 @@ import { adoptAccessLink, bookingHeaders } from '../../lib/booking-token';
 import { browserApi, idempotencyKey, problemSlug, type Schemas } from '../../lib/browser-api';
 import { searchAgainHref } from '../../lib/search-links';
 import { AppLink } from '../app-link';
+import { PartnerOffers } from '../partners/partner-offers';
 import { ResultsLoading } from '../results/result-states';
 
 import { useBookingT } from './checkout-messages';
@@ -60,6 +66,14 @@ const helpKey = (status: BookingStatus): HelpKey =>
 const inProgress = (status: BookingStatus): boolean =>
   BOOKING_IN_PROGRESS_STATUSES.includes(status);
 const ON_PLAN: readonly BookingStatus[] = ['HELD', 'PARTIALLY_PAID'];
+/** Trips that are going ahead get partner offers (transfers, a car, an eSIM, insurance, tours). */
+const PARTNER_STATUSES: readonly BookingStatus[] = [
+  'PAID',
+  'TICKETING',
+  'CONFIRMED',
+  'HELD',
+  'PARTIALLY_PAID',
+];
 
 /**
  * Documents are rendered just after the booking is confirmed, and the API backfills missing ones
@@ -581,6 +595,19 @@ export function BookingView({ bookingId }: { bookingId: string }) {
           </Card>
           <TripExtras booking={booking} />
           <TripPlanning booking={booking} />
+          {PARTNER_STATUSES.includes(booking.status) ? (
+            <PartnerOffers
+              source={{
+                kind: 'booking',
+                bookingId: booking.id,
+                currency: isSupportedCurrency(booking.price.total.currency)
+                  ? booking.price.total.currency
+                  : DEFAULT_CURRENCY,
+              }}
+              heading={t('partners.tripHeading')}
+              testId="partner-offers"
+            />
+          ) : null}
           {booking.documents.length > 0 ? (
             <Card asChild className="flex flex-col gap-3 p-4">
               <section aria-labelledby="booking-documents">

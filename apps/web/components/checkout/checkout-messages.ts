@@ -6,7 +6,7 @@ import { useTranslator } from '@suskii/i18n/react';
 /** Catalog namespaces the checkout, payment and booking pages need on the client. */
 export type BookingFlowMessages = Pick<
   Messages,
-  'checkout' | 'booking' | 'payment' | 'results' | 'cabins' | 'common'
+  'checkout' | 'booking' | 'payment' | 'results' | 'cabins' | 'common' | 'partners'
 >;
 
 export const useBookingT = () => useTranslator<BookingFlowMessages>();

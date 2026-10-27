@@ -60,6 +60,19 @@ test.describe('cars hub', () => {
         page.getByRole('main').getByRole('link', { name: t(`cars.hub.${key}.title`) }),
       ).toBeVisible();
     }
+    // Car rental and transfers from partners (ADR-069), through the API's tracked links.
+    const partners = page.getByTestId('partner-offers-hub');
+    await expect(partners).toContainText(t('partners.disclosure'));
+    const car = partners.getByTestId('partner-offer-discovercars').getByRole('link');
+    await expect(car).toHaveText(t('partners.open', { partner: 'DiscoverCars' }));
+    await expect(car).toHaveAttribute('target', '_blank');
+    await expect(car).toHaveAttribute('rel', /sponsored/);
+    const followed = await page.request.get((await car.getAttribute('href')) ?? '', {
+      maxRedirects: 0,
+    });
+    expect(followed.status()).toBe(302);
+    expect(followed.headers().location).toMatch(/^https:\/\/www\.discovercars\.com\/\?sub_id=/);
+    await expect(partners.getByTestId('partner-offer-viator')).toHaveCount(0);
     await expectNoAxeViolations(page);
   });
 });
