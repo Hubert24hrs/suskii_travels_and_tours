@@ -180,6 +180,9 @@ catalog:
   expo-updates: ~57.0.23
   expo-dev-client: ~57.0.19
   expo-build-properties: ~57.0.22
+  # Fingerprint sign-in, and Google and Apple sign-in in the app (ADR-067)
+  expo-local-authentication: ~57.0.3
+  expo-apple-authentication: ~57.0.2
   expo-splash-screen: ~57.0.9
   expo-system-ui: ~57.0.4
   '@expo/app-integrity': 57.0.2

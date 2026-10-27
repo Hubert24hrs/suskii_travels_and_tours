@@ -43,6 +43,7 @@ import {
   registerBodySchema,
   resetPasswordBodySchema,
   signInResultSchema,
+  socialNonceBodySchema,
   socialNonceSchema,
   socialProvidersSchema,
   socialSignInBodySchema,
@@ -299,10 +300,13 @@ export class AuthController {
     description:
       'Pass it to the provider (Apple: its SHA-256 hex digest) and send it back with the ID token within 10 minutes. Sign-in refuses tokens without an unused nonce from here.',
     tags: TAGS,
+    body: socialNonceBodySchema,
     responses: { 200: socialNonceSchema },
   })
-  async socialNonce(): Promise<z.infer<typeof socialNonceSchema>> {
-    const { nonce, expiresAt } = await this.nonces.issue();
+  async socialNonce(
+    @Body() body: z.infer<typeof socialNonceBodySchema>,
+  ): Promise<z.infer<typeof socialNonceSchema>> {
+    const { nonce, expiresAt } = await this.nonces.issue(body.binding);
     return { nonce, expiresAt: expiresAt.toISOString() };
   }
 

@@ -9385,6 +9385,10 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        /** @default {} */
+        SocialNonceRequestInput: {
+            binding?: string;
+        };
         SocialProviders: {
             google: boolean;
             apple: boolean;
@@ -9394,6 +9398,7 @@ export interface components {
             idToken: string;
             nonce: string;
             displayName?: string;
+            bindingSecret?: string;
             /**
              * @default token
              * @enum {string}
@@ -15117,7 +15122,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialNonceRequestInput"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

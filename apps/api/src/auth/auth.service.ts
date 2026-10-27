@@ -289,10 +289,16 @@ export class AuthService {
       nonce: string;
       displayName?: string | undefined;
       referralCode?: string | undefined;
+      bindingSecret?: string | undefined;
     },
     context: RequestContext,
   ): Promise<SignInOutcome> {
-    const identity = await this.social.verify(provider, input.idToken, input.nonce);
+    const identity = await this.social.verify(
+      provider,
+      input.idToken,
+      input.nonce,
+      input.bindingSecret,
+    );
     const linked = await this.prisma.socialIdentity.findUnique({
       where: { provider_subject: { provider, subject: identity.subject } },
       include: { user: { include: userWithRoles } },
