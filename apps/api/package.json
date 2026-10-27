@@ -33,7 +33,8 @@
     "rides:demo": "tsx scripts/demo-drivers.ts",
     "keys:reencrypt": "tsx scripts/reencrypt-fields.ts",
     "eval:natural-search": "tsx scripts/eval-natural-search.ts",
-    "sandbox:duffel": "tsx scripts/duffel-sandbox.ts"
+    "sandbox:duffel": "tsx scripts/duffel-sandbox.ts",
+    "sandbox:partners": "tsx scripts/partner-sandbox.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "catalog:",
