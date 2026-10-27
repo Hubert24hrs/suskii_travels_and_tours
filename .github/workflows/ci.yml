@@ -158,6 +158,9 @@ jobs:
           WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_web_e2e
           WEB_E2E_REDIS_URL: redis://localhost:6379/2
           LIGHTHOUSE_RUNS: 3
+          # Every journey signs in from this runner's one address within a minute or two; the
+          # per-IP limits are covered by the API e2e suite (as for the admin console).
+          E2E_RATE_LIMIT_ENABLED: 'false'
 
       - name: Upload web test reports
         if: ${{ !cancelled() }}
