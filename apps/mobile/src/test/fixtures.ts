@@ -71,6 +71,7 @@ export function booking(patch: Partial<Booking> = {}): Booking {
       fare: ngn(7_000_000),
       taxes: ngn(1_500_000),
       fees: [],
+      serviceTaxes: [],
       discount: null,
       total: ngn(8_500_000),
       memberSaving: null,
@@ -191,6 +192,7 @@ export function flightQuote(patch: Partial<Schemas['Quote']> = {}): Schemas['Quo
           fare: price.fare,
           taxes: price.taxes,
           fees: price.fees,
+          serviceTaxes: price.serviceTaxes,
           discount: price.discount,
           total: price.total,
           memberSaving: null,
@@ -326,6 +328,7 @@ const inhousePrice = (amount: number): Schemas['Price'] => ({
   fare: ngn(amount),
   taxes: ngn(0),
   fees: [],
+  serviceTaxes: [],
   discount: null,
   total: ngn(amount),
   memberSaving: null,
@@ -341,6 +344,42 @@ export function inhouseQuote(kind: 'package' | 'tour'): Schemas['Quote'] {
     package: kind === 'package' ? packageItem : null,
     tour: kind === 'tour' ? tourItem : null,
     price: inhousePrice(kind === 'package' ? 125_000_000 : 9_500_000),
+  };
+}
+
+/** Two nights in Lagos, with the city tax paid at the hotel. */
+export function hotelQuote(): Schemas['Quote'] {
+  return {
+    ...flightQuote(),
+    vertical: 'hotels',
+    flight: null,
+    hotel: {
+      name: 'Marina Suites',
+      stars: 4,
+      area: 'Victoria Island',
+      cityName: 'Lagos',
+      countryCode: 'NG',
+      amenities: [],
+      rate: {
+        id: 'rate-1',
+        roomName: 'Deluxe double',
+        board: 'breakfast_included',
+        refundable: true,
+        freeCancellationUntil: null,
+        price: inhousePrice(12_000_000),
+        pricePerNight: ngn(6_000_000),
+        payAtProperty: ngn(500_000),
+        expiresAt: '2026-10-01T09:30:00.000Z',
+      },
+      nights: 2,
+      request: {
+        destination: { type: 'city', cityId: '0192d3a0-7c1e-7b2a-9f00-0000000000c1' },
+        checkIn: '2026-11-02',
+        checkOut: '2026-11-04',
+        rooms: [{ adults: 1, childAges: [] }],
+        freeCancellationOnly: false,
+      },
+    },
   };
 }
 

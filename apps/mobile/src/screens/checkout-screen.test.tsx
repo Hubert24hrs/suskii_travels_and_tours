@@ -12,6 +12,7 @@ import {
   booking,
   countries,
   flightQuote,
+  hotelQuote,
   inhouseQuote,
 } from '../test/fixtures';
 
@@ -229,6 +230,48 @@ describe('CheckoutScreen', () => {
     const create = calls.find((request) => request.url.endsWith('/v1/bookings'));
     const body = (await create?.json()) as { extras?: unknown };
     expect(body.extras).toEqual([{ serviceId: 'offer-1.bag23', passengerIndex: 0, quantity: 2 }]);
+  });
+
+  it('shows tax on our service as its own line inside the total (ADR-072)', async () => {
+    const tour = inhouseQuote('tour');
+    if (!tour.price) throw new Error('the fixture is priced');
+    mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () =>
+        json({
+          ...tour,
+          price: {
+            ...tour.price,
+            serviceTaxes: [
+              {
+                code: 'vat',
+                label: 'VAT',
+                rateBps: 750,
+                amount: { amountMinor: 712_500, currency: 'NGN' },
+                registrationNumber: 'TIN 01234567-0001',
+              },
+            ],
+            total: { amountMinor: 10_212_500, currency: 'NGN' },
+          },
+        }),
+      'GET /v1/catalog/countries': () => json(countries),
+    });
+    await renderWithApp(<CheckoutScreen />);
+
+    const line = await screen.findByTestId('service-tax');
+    expect(line).toHaveTextContent(/VAT \(7\.5%\)/);
+    expect(line).toHaveTextContent(/7,125/);
+    expect(screen.getByTestId('checkout-total')).toHaveTextContent(/102,125/);
+  });
+
+  it('notes hotel taxes collected at the property beside the total', async () => {
+    mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(hotelQuote()),
+      'GET /v1/catalog/countries': () => json(countries),
+    });
+    await renderWithApp(<CheckoutScreen />);
+
+    expect(await screen.findByTestId('checkout-pay-at-property')).toHaveTextContent(/5,000/);
+    expect(screen.queryByTestId('service-tax')).toBeNull();
   });
 
   it('asks for passports for a package abroad and shows the product, not a fare', async () => {

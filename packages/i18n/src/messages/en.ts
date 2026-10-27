@@ -735,6 +735,7 @@ export const en = {
     taxes: 'Taxes and charges',
     extrasLine: 'Extra baggage',
     discount: 'Discount ({code})',
+    serviceTax: '{label} ({rate}%)',
     total: 'Total',
     totalNote: 'Includes all taxes and fees. The price is checked again before payment.',
     payAtProperty: 'Plus {amount} paid at the hotel (city tax)',

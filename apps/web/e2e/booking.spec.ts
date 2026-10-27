@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { createFormatters } from '@suskii/i18n';
 
 import {
   expect,
@@ -389,6 +390,57 @@ test.describe('hotel booking', () => {
     expect(query.get('pickupAt')).toBe(`${isoDaysFromToday(30)}T10:00`);
     expect(query.get('returnAt')).toBe(`${isoDaysFromToday(33)}T10:00`);
     await expect(page.getByTestId('rental-cars')).toBeVisible();
+  });
+});
+
+test.describe('tax on our service (ADR-072)', () => {
+  interface WireMoney {
+    amountMinor: number;
+    currency: string;
+  }
+  const format = createFormatters('en-NG');
+
+  test('shows each tax line at checkout, inside the total', async ({ page }) => {
+    // The e2e stack has no tax rule; the quote gets the line the API adds when one applies.
+    const totals: WireMoney[] = [];
+    await page.route(/\/v1\/quotes\/[^/]+$/, async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const response = await route.fetch();
+      const quote = (await response.json()) as {
+        flight: { offer: { price: { serviceTaxes: unknown[]; total: WireMoney } } } | null;
+      };
+      const price = quote.flight?.offer.price;
+      if (price) {
+        price.serviceTaxes = [
+          {
+            code: 'vat',
+            label: 'VAT',
+            rateBps: 750,
+            amount: { amountMinor: 15_000, currency: price.total.currency },
+            registrationNumber: null,
+          },
+        ];
+        price.total = { ...price.total, amountMinor: price.total.amountMinor + 15_000 };
+        totals.push(price.total);
+      }
+      await route.fulfill({ response, json: quote });
+    });
+
+    await page.goto(flightSearch('LOS', 'ABV'));
+    await page
+      .getByTestId('flight-offer')
+      .first()
+      .getByRole('button', { name: /^Select/ })
+      .click({ timeout: 30_000 });
+    await page.waitForURL(/\/checkout\//);
+
+    const line = page.getByTestId('service-tax');
+    await expect(line).toContainText(t('checkout.serviceTax', { label: 'VAT', rate: '7.5' }));
+    await expect(line).toContainText(format.money({ amountMinor: 15_000, currency: 'NGN' }));
+    const total = totals.at(-1);
+    if (!total) throw new Error('The checkout never loaded a flight quote');
+    await expect(page.getByTestId('checkout-total')).toHaveText(format.money(total));
+    await expect(page.getByText(t('checkout.totalNote'))).toBeVisible();
   });
 });
 

@@ -56,6 +56,11 @@ function HotelCard({
             <Text className="font-body text-caption text-muted">
               {t('results.hotels.total', { count: nights })}
             </Text>
+            {rate.payAtProperty ? (
+              <Text testID="hotel-pay-at-property" className="font-body text-caption text-muted">
+                {t('results.hotels.payAtProperty', { amount: format.money(rate.payAtProperty) })}
+              </Text>
+            ) : null}
           </View>
           <Text className="font-body-bold text-body-sm text-primary">
             {t('results.hotels.seeRooms')}
