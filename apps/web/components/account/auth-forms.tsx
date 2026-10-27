@@ -295,7 +295,9 @@ export function RegisterForm({
   const [code, setCode] = useState(referralCode ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  // After registering: the email already had an account, or the automatic sign-in did not go
+  // through (too many attempts, a second factor) and the new account signs in by hand.
+  const [done, setDone] = useState<'existing' | 'signIn' | null>(null);
   const {
     containerRef: turnstileRef,
     ensure: ensureTurnstile,
@@ -336,7 +338,7 @@ export function RegisterForm({
           router.refresh();
           return;
         }
-        setDone(true);
+        setDone(signedIn.response.status === 401 ? 'existing' : 'signIn');
         return;
       }
       resetTurnstile();
@@ -360,7 +362,9 @@ export function RegisterForm({
   if (done) {
     return (
       <Card className="flex flex-col gap-4 p-6">
-        <Notice testId="register-done">{t('auth.register.existing')}</Notice>
+        <Notice testId="register-done">
+          {done === 'existing' ? t('auth.register.existing') : t('auth.register.done')}
+        </Notice>
         <AppLink href="/sign-in" className="font-body text-body text-primary underline">
           {t('auth.signIn.submit')}
         </AppLink>

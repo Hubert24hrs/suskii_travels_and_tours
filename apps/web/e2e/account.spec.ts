@@ -215,6 +215,31 @@ test.describe('account', () => {
     });
   });
 
+  test.describe('a sign-in refused for another reason after registering', () => {
+    test.use({ allowedConsoleErrors: [/status of 429/] });
+
+    test('asks the new account to sign in instead of claiming the email was taken', async ({
+      page,
+    }) => {
+      await page.route('**/v1/auth/login', (route) =>
+        route.fulfill({
+          status: 429,
+          contentType: 'application/problem+json',
+          body: JSON.stringify({
+            type: 'urn:suskii:problem:rate-limited',
+            title: 'x',
+            status: 429,
+          }),
+        }),
+      );
+      await page.goto('/register');
+      await page.getByTestId('register-email').fill(newEmail('web-limited'));
+      await page.getByTestId('register-password').fill(PASSWORD);
+      await page.getByTestId('register-submit').click();
+      await expect(page.getByTestId('register-done')).toHaveText(t('auth.register.done'));
+    });
+  });
+
   test('signs up with Google on the test stack, and signs in again as the same account', async ({
     page,
   }) => {
