@@ -31,10 +31,11 @@ import { ResultsLoading } from '../results/result-states';
 import { useBookingT } from './checkout-messages';
 import { GuestFields, PassengerFields, type CountryOption } from './passenger-fields';
 import {
+  chosenMethod,
   MethodChoice,
   PlanChoice,
   type PaymentPlanChoice,
-  type ProviderName,
+  type PaymentMethodName,
 } from './payment-choice';
 import { PriceSummary, TripSummary, type PriceLines } from './summaries';
 
@@ -172,7 +173,7 @@ export function Checkout({
   const [promoBusy, setPromoBusy] = useState(false);
   const [priceChange, setPriceChange] = useState<PriceChange | null>(null);
   const [plan, setPlan] = useState<PaymentPlanChoice>('full');
-  const [provider, setProvider] = useState<ProviderName | null>(null);
+  const [method, setMethod] = useState<PaymentMethodName | null>(null);
   const [details, setDetails] = useState<AddonDetailsDraft>(NO_DETAILS);
   const booking = useRef<{ id: string } | null>(null);
   const createKey = useRef<{ body: string; key: string } | null>(null);
@@ -331,8 +332,11 @@ export function Checkout({
     } else if (slug === 'hold-limit') {
       setFormError(t('checkout.errors.holdLimit'));
     } else if (slug === 'payment-provider-unavailable' && status === 422) {
-      setProvider(null);
+      setMethod(null);
       setFormError(t('checkout.errors.providerUnavailable'));
+    } else if (slug === 'payment-method-unavailable' && status === 422) {
+      setMethod(null);
+      setFormError(t('checkout.errors.methodUnavailable'));
     } else if (status === 409) {
       router.push(`/bookings/${bookingId}`);
     } else if (status === 429) {
@@ -350,7 +354,7 @@ export function Checkout({
         path: { bookingId },
         header: { 'Idempotency-Key': idempotencyKey(), ...bookingHeaders(bookingId) },
       },
-      body: { provider },
+      body: { method: chosenMethod(quote.payment.methods, method) },
     });
     if (data) {
       if (data.checkoutUrl) window.location.assign(data.checkoutUrl);
@@ -765,7 +769,7 @@ export function Checkout({
           onChange={setPlan}
           extrasSelected={extrasSelected}
         />
-        <MethodChoice providers={quote.payment.providers} value={provider} onChange={setProvider} />
+        <MethodChoice methods={quote.payment.methods} value={method} onChange={setMethod} />
 
         <div className="flex flex-col gap-3">
           <label className="flex items-start gap-3 font-body text-body-sm text-foreground">

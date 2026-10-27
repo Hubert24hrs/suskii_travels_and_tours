@@ -122,6 +122,69 @@ describe('CheckoutScreen', () => {
     expect(await tripStore.bookingHeaders(BOOKING_ID)).toEqual({ 'X-Booking-Token': TOKEN });
   });
 
+  it('lists the ways to pay and opens the provider page on the one chosen (ADR-074)', async () => {
+    const base = flightQuote();
+    let paymentCalls = 0;
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () =>
+        json(
+          flightQuote({
+            payment: {
+              ...base.payment,
+              methods: [
+                { method: 'card', providers: ['paystack'] },
+                { method: 'bank_transfer', providers: ['paystack'] },
+                { method: 'agent', providers: ['paystack'] },
+              ],
+            },
+          }),
+        ),
+      'GET /v1/catalog/countries': () => json(countries),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }), accessToken: TOKEN }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/payments`]: () =>
+        (paymentCalls += 1) === 1
+          ? json(
+              {
+                type: 'urn:suskii:problem:payment-method-unavailable',
+                title: 'This payment method is not available',
+                status: 422,
+              },
+              422,
+            )
+          : json(paymentSession, 201),
+    });
+    await renderWithApp(<CheckoutScreen />);
+
+    // Card comes first and is chosen until the traveller picks another way.
+    expect(await screen.findByTestId('method-card')).toBeChecked();
+    expect(screen.getByText(m.checkout.method.hints.card)).toBeOnTheScreen();
+    expect(screen.queryByText(m.checkout.method.hints.agent)).toBeNull();
+    await fillTraveller();
+    await fireEvent.press(screen.getByTestId('method-agent'));
+    expect(screen.getByTestId('method-agent')).toBeChecked();
+    // Only the chosen method explains itself, so the list stays short on a phone.
+    expect(screen.getByText(m.checkout.method.hints.agent)).toBeOnTheScreen();
+    expect(screen.queryByText(m.checkout.method.hints.card)).toBeNull();
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+
+    // The method went away since the quote: say so and fall back to the first one.
+    expect(await screen.findByText(m.checkout.errors.methodUnavailable)).toBeOnTheScreen();
+    expect(screen.getByTestId('method-card')).toBeChecked();
+    expect(openHostedCheckout).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+    await waitFor(() => expect(openHostedCheckout).toHaveBeenCalledWith(CHECKOUT_URL));
+    const bodies = await Promise.all(
+      calls
+        .filter((request) => request.url.endsWith('/payments'))
+        .map((request) => request.json() as Promise<{ method?: string }>),
+    );
+    expect(bodies.map((body) => body.method)).toEqual(['agent', 'card']);
+  });
+
   it('checks the form before calling the API', async () => {
     const { calls } = api(() => json(paymentSession, 201));
     await renderWithApp(<CheckoutScreen />);

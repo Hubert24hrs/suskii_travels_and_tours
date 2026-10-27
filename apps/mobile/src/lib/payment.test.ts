@@ -72,6 +72,7 @@ describe('startPayment', () => {
   it.each([
     ['offer-expired', 410, 'expired'],
     ['payment-provider-unavailable', 503, 'provider-unavailable'],
+    ['payment-method-unavailable', 422, 'method-unavailable'],
     ['attestation-required', 403, 'device'],
     ['internal', 500, 'error'],
   ] as const)('maps %s (%i) to %s', async (slug, status, kind) => {

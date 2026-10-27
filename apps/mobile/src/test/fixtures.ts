@@ -217,6 +217,7 @@ export function flightQuote(patch: Partial<Schemas['Quote']> = {}): Schemas['Quo
     priceBreakdown: null,
     payment: {
       providers: [{ name: 'mock', methods: ['card'] }],
+      methods: [{ method: 'card', providers: ['mock'] }],
       hold: null,
       installments: null,
       wallet: null,

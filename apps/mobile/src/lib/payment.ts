@@ -11,6 +11,7 @@ export type PaymentStart =
   | { kind: 'price-changed'; change: Schemas['BookingPriceChange'] }
   | { kind: 'expired' }
   | { kind: 'provider-unavailable' }
+  | { kind: 'method-unavailable' }
   | { kind: 'device' }
   | { kind: 'error' };
 
@@ -48,6 +49,7 @@ export async function startPayment(
     }
     if (response.status === 410) return { kind: 'expired' };
     if (slug === 'payment-provider-unavailable') return { kind: 'provider-unavailable' };
+    if (slug === 'payment-method-unavailable') return { kind: 'method-unavailable' };
     if (slug === 'attestation-required') return { kind: 'device' };
     return { kind: 'error' };
   } catch {
