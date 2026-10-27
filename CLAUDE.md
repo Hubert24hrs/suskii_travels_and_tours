@@ -402,7 +402,8 @@ Tooling notes for agents:
   `attestationHeader()`. The API client feeds `X-Suskii-Attestation-Result` back to
   `noteAttestationResult()`; the iOS key counts as attested only after `valid` (ADR-023).
 - Maestro flows live in `e2e/maestro` and run in order from `e2e/run-android.sh` (critical path,
-  bus, offline trip, then an in-house tour with the route restored); add new journeys there.
+  bus, offline trip, an in-house tour with the route restored, then Google sign-up and sign-in
+  again); add new journeys there.
 - Wrap checkout, payment and document screens in `useSensitiveScreen()`.
 - Flight checkout offers the quote's first extra (a checked bag) per traveller with a seat, as the
   website does; bags send `extras` and switch reserving and installments off (ADR-063).
@@ -419,8 +420,10 @@ Tooling notes for agents:
   `{testID}-sheet`, `{testID}-done`, days `{testID}-day-YYYY-MM-DD`, steppers
   `{testID}-{type}-add`).
 - Sign-in (ADR-067): registration signs straight in through `useAuth().register()`;
-  `SocialButtons` offers Google and Apple (the mock on test stacks, the system Apple sheet on
-  iPhone, otherwise the website relay with a bound nonce); fingerprint sign-in keeps its device
+  `SocialButtons` offers Google and Apple at the top of Sign in and Register (the mock on test
+  stacks, the system Apple sheet on iPhone, otherwise the website relay with a bound nonce). Only
+  the API's answer hides them; unknown shows both and a press asks again. Sign in always shows
+  the fingerprint button (a hint until it is set up); fingerprint sign-in keeps its device
   credential only in `biometrics` (secure store behind the biometric prompt). Signing out keeps
   it; `forgetAccount()` (deletion) clears it.
 - Give interactive elements used by Maestro a stable `testID` (fields: the form path, such as

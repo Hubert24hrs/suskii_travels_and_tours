@@ -37,8 +37,13 @@ No new information leaks: anyone could try the sign-in anyway.
 
 ### Google and Apple
 
-`GET /v1/auth/social/providers` says which buttons to show. Both clients show
-"Continue with Google" and "Continue with Apple" under the email form.
+`GET /v1/auth/social/providers` says which buttons to show. The website shows "Continue with
+Google" and "Continue with Apple" under the email form. The app shows them at the top of Sign in
+and Register, above the email form.
+
+- **Unknown is not off (app).** Only the API's own answer hides a provider. While the answer is
+  unknown (still loading, or the API unreachable), the app shows both buttons. A press asks the
+  API again, then says when the server cannot be reached.
 
 - **Website.** The browser goes to the provider for an ID token (Google `response_type=id_token`;
   Apple `code id_token` with `response_mode=fragment`), with a nonce from the API and a random
@@ -88,8 +93,12 @@ with `ALLOW_MOCK_PROVIDERS`, because it signs anyone in as any email.
   signing in. It returns a credential id and a 256-bit secret, once.
 - **Storage.** The app stores both in the secure store with `requireAuthentication`, on this
   device only (`WHEN_PASSCODE_SET_THIS_DEVICE_ONLY`). Reading them needs a fresh fingerprint or
-  face. A plain flag in `preferences` holds only the credential id, so the sign-in screen can
-  offer the button without prompting.
+  face. A plain flag in `preferences` holds only the credential id, so the sign-in screen knows
+  whether the button can sign in without prompting.
+- **The button.** Sign in always shows "Sign in with fingerprint". Until this phone has a
+  credential, a press reads nothing and sends nothing. It says how to turn the feature on: sign
+  in once, then choose Use fingerprint. A phone without a fingerprint or face is told to add one
+  in its settings first.
 - **Signing in.** `POST /v1/auth/device` trades the credential for a session: auth method
   `device`, AMR `swk`. MFA still applies when it is on. The API keeps only an HMAC of the id and
   secret (`device-credential` key). At most five phones keep one; turning it on for a sixth

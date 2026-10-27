@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Sign-in buttons in the app (2026-10-27)
+
+#### Fixed
+
+- **Google and Apple were hard to find in the app.** They sat below the email form, under the
+  main button, and disappeared whenever the app could not ask the API which providers it offers
+  (a stopped test server, a slow first request). They now sit at the top of Sign in and Register.
+  Only the API's own answer hides them. While that answer is unknown, both show, and a press asks
+  again and says when the server cannot be reached.
+- **No fingerprint button on a fresh install.** Sign in showed "Sign in with fingerprint" only
+  once a credential existed on the phone. It now always shows. Until fingerprint sign-in is on,
+  a press says how to turn it on: sign in once, then choose Use fingerprint. A phone without a
+  fingerprint is told to add one in its settings. Register says fingerprint sign-in can be turned
+  on once the account is ready.
+- **Phone test.** `e2e/maestro/sign-in.yaml` signs up with Google (mock provider), signs out,
+  checks the fingerprint button and its hint, and signs in again with Google into the same
+  account. It runs last in `run-android.sh`.
+
 ### SUSKII T&T redesign, phone testing and sign-in (2026-10-27)
 
 #### Added
