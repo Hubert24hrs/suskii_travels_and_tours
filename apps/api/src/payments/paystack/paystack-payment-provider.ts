@@ -10,9 +10,11 @@ import {
   WebhookVerificationError,
   headerValue,
   paymentCard,
+  PAYMENT_METHOD_LIST,
   type CheckoutRequest,
   type CheckoutSession,
   type PaymentEvent,
+  type PaymentMethod,
   type PaymentRef,
   type PaymentVerification,
   type ProviderRefund,
@@ -20,6 +22,29 @@ import {
   type WebhookHeaders,
 } from '../payment-provider';
 import { ProviderHttp } from '../provider-http';
+
+/** Paystack's checkout channel for each of our methods (`channels`, ADR-074). */
+const PAYSTACK_CHANNELS: Record<PaymentMethod, string> = {
+  card: 'card',
+  bank_transfer: 'bank_transfer',
+  ussd: 'ussd',
+  mobile_money: 'mobile_money',
+  apple_google_pay: 'apple_pay',
+  // Paid in cash through a bank teller or POS agent: still a transfer to Paystack's account.
+  agent: 'bank_transfer',
+};
+
+/**
+ * Methods Paystack offers per currency: cards everywhere; transfers, USSD and Apple Pay in naira;
+ * mobile money in GHS and KES.
+ */
+function paystackMethods(currency: string): PaymentMethod[] {
+  return PAYMENT_METHOD_LIST.filter((method) => {
+    if (method === 'card') return true;
+    if (method === 'mobile_money') return currency === 'GHS' || currency === 'KES';
+    return currency === 'NGN';
+  });
+}
 
 export interface PaystackOptions {
   secretKey: string;
@@ -109,7 +134,11 @@ function toRefund(data: z.infer<typeof refund>): ProviderRefund {
 export class PaystackPaymentProvider extends PaymentProvider {
   readonly name = 'paystack' as const;
   readonly currencies = ['NGN', 'GHS', 'ZAR', 'KES', 'USD'] as const;
-  readonly methods = ['card', 'bank_transfer', 'ussd'] as const;
+  methodsFor(currency: string): PaymentMethod[] {
+    return (this.currencies as readonly string[]).includes(currency)
+      ? paystackMethods(currency)
+      : [];
+  }
   readonly idempotentRefunds = false;
   private readonly http: ProviderHttp;
 
@@ -130,6 +159,8 @@ export class PaystackPaymentProvider extends PaymentProvider {
           // Our payment id doubles as the transaction reference (letters, digits and dashes).
           reference: request.paymentId,
           callback_url: request.returnUrl,
+          // The page opens on the chosen method only; without one it shows every channel.
+          ...(request.method ? { channels: [PAYSTACK_CHANNELS[request.method]] } : {}),
           metadata: {
             payment_id: request.paymentId,
             booking_reference: request.reference,

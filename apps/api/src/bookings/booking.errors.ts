@@ -142,6 +142,14 @@ export const providerUnavailable = (): ProblemDetailsException =>
     'Choose another payment method for this currency.',
   );
 
+export const paymentMethodUnavailable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'payment-method-unavailable',
+    'This payment method is not available',
+    'Choose one of the payment methods offered for this booking.',
+  );
+
 export const installmentInvalid = (): ProblemDetailsException =>
   new ProblemDetailsException(
     HttpStatus.CONFLICT,

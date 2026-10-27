@@ -36,6 +36,7 @@ import {
 } from '@suskii/shared';
 
 import { named } from '../contract/contract';
+import { PAYMENT_METHOD_LIST } from '../payments/payment-provider';
 import { moneySchema, priceSchema } from '../pricing/pricing.schemas';
 import { flightOfferSchema, flightSliceSchema, hotelRateSchema } from '../search/search.schemas';
 
@@ -77,13 +78,26 @@ export const BOOKING_TOKEN_HEADER = {
 // Payment options (ADR-016, ADR-018)
 // ---------------------------------------------------------------------------
 
-export const PAYMENT_METHODS = ['card', 'bank_transfer', 'ussd', 'mobile_money'] as const;
+export const PAYMENT_METHODS = PAYMENT_METHOD_LIST;
 
 export const paymentProviderOptionSchema = named(
   'PaymentProviderOption',
   z.object({
     name: z.enum(PAYMENT_PROVIDER_NAMES),
     methods: z.array(z.enum(PAYMENT_METHODS)),
+  }),
+);
+
+export const paymentMethodOptionSchema = named(
+  'PaymentMethodOption',
+  z.object({
+    method: z.enum(PAYMENT_METHODS).meta({
+      description:
+        '`apple_google_pay` is Apple Pay or Google Pay; `agent` is a bank transfer made through a bank teller or a POS agent.',
+    }),
+    providers: z
+      .array(z.enum(PAYMENT_PROVIDER_NAMES))
+      .meta({ description: 'Providers that take it, in preference order.' }),
   }),
 );
 
@@ -102,6 +116,10 @@ export const paymentOptionsSchema = named(
     providers: z
       .array(paymentProviderOptionSchema)
       .meta({ description: 'Enabled providers for this currency; the first is the default.' }),
+    methods: z.array(paymentMethodOptionSchema).meta({
+      description:
+        'Methods the traveller can choose in this currency (ADR-074); send one as `method` when starting a payment.',
+    }),
     hold: z
       .object({
         deadline: timestamp.meta({
@@ -918,6 +936,10 @@ export const startPaymentRequestSchema = named(
       .nullable()
       .default(null)
       .meta({ description: 'One of `paymentOptions.providers`; the default when null.' }),
+    method: z.enum(PAYMENT_METHODS).nullable().default(null).meta({
+      description:
+        'One of `paymentOptions.methods`: the payment goes to a provider that takes it and its page opens on it (ADR-074). 422 `payment-method-unavailable` otherwise.',
+    }),
     installmentId: z
       .uuid()
       .nullable()
