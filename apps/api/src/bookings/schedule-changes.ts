@@ -65,3 +65,65 @@ export function changeLines(
   }
   return lines;
 }
+
+const HOUR_MS = 3_600_000;
+
+/** Hours a flight may move before the change is significant (ADR-073, the US DOT thresholds). */
+export interface SignificanceThresholds {
+  domesticHours: number;
+  internationalHours: number;
+}
+
+/** Within one country: every airport of the booked flight is known to be in the same country. */
+function domestic(slice: FlightSlice): boolean {
+  const countries = slice.segments.flatMap((segment) => [
+    segment.origin.countryCode,
+    segment.destination.countryCode,
+  ]);
+  return countries.length > 0 && countries.every((code) => code !== null && code === countries[0]);
+}
+
+const movedHours = (before: string, after: string): number =>
+  Math.abs(Date.parse(after) - Date.parse(before)) / HOUR_MS;
+
+/**
+ * Whether a change entitles the traveller to a full refund (ADR-073): a flight removed with no
+ * replacement, another airport, more connections, or a departure or arrival moved by the
+ * threshold. A change whose flights could not be read (no slices) is left to support.
+ */
+export function significantChange(
+  removed: readonly FlightSlice[],
+  added: readonly FlightSlice[],
+  thresholds: SignificanceThresholds,
+): boolean {
+  if (removed.length === 0) return false;
+  if (added.length < removed.length) return true;
+  return removed.some((before, index) => {
+    const after = added[index];
+    if (!after) return true;
+    if (after.origin.code !== before.origin.code) return true;
+    if (after.destination.code !== before.destination.code) return true;
+    if (after.segments.length > before.segments.length) return true;
+    const limit = domestic(before) ? thresholds.domesticHours : thresholds.internationalHours;
+    return (
+      movedHours(before.departureUtc, after.departureUtc) >= limit ||
+      movedHours(before.arrivalUtc, after.arrivalUtc) >= limit
+    );
+  });
+}
+
+/**
+ * Whether the traveller may take a full refund instead of this change (ADR-073): an open,
+ * significant change the airline would cancel online for (`cancellable`), not handed to support.
+ */
+export function refundOfferOpen(
+  change: { status: string; significant: boolean; refundOfferWithdrawnAt: Date | null },
+  cancellable: boolean,
+): boolean {
+  return (
+    cancellable &&
+    change.status === 'open' &&
+    change.significant &&
+    change.refundOfferWithdrawnAt === null
+  );
+}

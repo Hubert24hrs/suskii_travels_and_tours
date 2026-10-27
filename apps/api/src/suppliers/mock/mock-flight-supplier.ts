@@ -254,6 +254,8 @@ export class MockFlightSupplier extends FlightSupplier {
   readonly airlineChanges = new Map<string, { change: AirlineChange; slices: FlightSlice[] }>();
   /** Test hook: this many upcoming change acceptances fail as if the airline were down. */
   failNextChangeAcceptances = 0;
+  /** Test hook: share of what we paid refunded when the traveller declines an airline change. */
+  involuntaryRefundBps = 10_000;
   /** Held orders by id (in memory: a restart forgets them, like an airline losing a PNR). */
   readonly holds = new Map<
     string,
@@ -473,7 +475,8 @@ export class MockFlightSupplier extends FlightSupplier {
 
   /**
    * Refundable fares refund what we paid less the fare's refund penalty; other fares refund
-   * nothing, as many airlines do. Departed or cancelled orders cannot be cancelled.
+   * nothing, as many airlines do. Declining the airline's own change refunds everything
+   * (`involuntaryRefundBps` of it, for tests). Departed or cancelled orders cannot be cancelled.
    */
   override cancellationQuote(
     request: FlightCancellationRequest,
@@ -489,12 +492,17 @@ export class MockFlightSupplier extends FlightSupplier {
     }
     const { conditions } = request.offer;
     const penalty = conditions.refundPenalty?.minor ?? 0n;
-    const refund = conditions.refundable
-      ? money(
-          request.supplierTotal.minor > penalty ? request.supplierTotal.minor - penalty : 0n,
-          request.supplierTotal.currency,
-        )
-      : money(0n, request.supplierTotal.currency);
+    const involuntary =
+      request.airlineChangeId !== undefined &&
+      this.airlineChanges.get(request.orderId)?.change.id === request.airlineChangeId;
+    const refund = involuntary
+      ? multiplyRatio(request.supplierTotal, BigInt(this.involuntaryRefundBps), 10_000n, 'floor')
+      : conditions.refundable
+        ? money(
+            request.supplierTotal.minor > penalty ? request.supplierTotal.minor - penalty : 0n,
+            request.supplierTotal.currency,
+          )
+        : money(0n, request.supplierTotal.currency);
     return Promise.resolve({
       quoteId: `mockcxl_${request.orderId}`,
       refund,

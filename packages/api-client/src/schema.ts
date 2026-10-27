@@ -2734,9 +2734,29 @@ export interface paths {
         put?: never;
         /**
          * Accept the airline's new flight times
-         * @description For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To cancel instead, use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).
+         * @description For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To decline a significant change, take its `refundOffer`; otherwise use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).
          */
         post: operations["acceptScheduleChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/schedule-changes/{changeId}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline the airline change and take a full refund
+         * @description For a `scheduleChange` with a `refundOffer`: the airline cancels the booking first, then everything the traveller paid goes back to the original payments, with no fee, and the booking moves to `REFUND_PENDING` (ADR-073). 409 `refund-offer-unavailable` when the refund cannot be taken online (support then contacts the traveller), `refund-offer-changed` when `refund` differs from the current amount. 503 when the airline cannot be reached; the offer stays.
+         */
+        post: operations["refundScheduleChange"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7746,6 +7766,10 @@ export interface components {
             /** @enum {string} */
             status: "open" | "accepted" | "cancelled" | "changed";
             acceptable: boolean;
+            significant: boolean;
+            refundOffer: {
+                amount: components["schemas"]["Money"];
+            } | null;
             /** Format: date-time */
             detectedAt: string;
             previous: components["schemas"]["FlightSlice"][];
@@ -9561,6 +9585,9 @@ export interface components {
                 [key: string]: unknown;
             };
             published: boolean;
+        };
+        ScheduleChangeRefundRequestInput: {
+            refund?: components["schemas"]["MoneyInput"];
         };
         ScheduleChangeRun: {
             checked: number;
@@ -16066,6 +16093,47 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    refundScheduleChange: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+                changeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleChangeRefundRequestInput"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

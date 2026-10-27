@@ -9,6 +9,7 @@ import {
   MAX_SAVED_TRAVELLERS,
   PASSENGER_ISSUES,
   PASSENGER_TYPES,
+  toWire,
   type ContactDetails,
   type Money,
   type PassengerInput,
@@ -75,7 +76,7 @@ import { BookingFundsService } from './booking-funds.service';
 import { busTicketViews } from './bus-tickets';
 import { InhouseFulfilment } from './inhouse-fulfilment';
 import { cancellableFlight } from './flight-cancellation';
-import { changeSlices } from './schedule-changes';
+import { changeSlices, refundOfferOpen } from './schedule-changes';
 import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
 import { RENTAL_RESERVATION_INCLUDE, rentalReservationView } from './rental-views';
 import { claimBusSeats, claimRental, reserveSeats, syncRentalDeposit } from './seat-inventory';
@@ -280,6 +281,7 @@ export class BookingsService {
           })
         : null,
     ]);
+    const cancellable = cancellableFlight(booking, this.flightSuppliers, now);
     return {
       voucher: voucher ? this.fulfilment.view(voucher) : null,
       cancellation:
@@ -288,12 +290,18 @@ export class BookingsService {
         !busTickets.some((ticket) => ticket.status === 'boarded')
           ? cancellationTerms(payload, booking.status, paid, now)
           : null,
-      flightCancellable: cancellableFlight(booking, this.flightSuppliers, now) !== null,
+      flightCancellable: cancellable !== null,
       scheduleChange: scheduleChange
         ? {
             id: scheduleChange.id,
             status: scheduleChange.status,
             acceptable: scheduleChange.status === 'open' && scheduleChange.acceptable,
+            significant: scheduleChange.significant,
+            refundOffer:
+              paid.minor > 0n &&
+              refundOfferOpen(scheduleChange, cancellable?.item.id === scheduleChange.bookingItemId)
+                ? { amount: toWire(paid) }
+                : null,
             detectedAt: scheduleChange.detectedAt.toISOString(),
             previous: changeSlices(scheduleChange.removed),
             updated: changeSlices(scheduleChange.added),

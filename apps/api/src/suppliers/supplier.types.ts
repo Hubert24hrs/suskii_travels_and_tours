@@ -220,6 +220,11 @@ export interface FlightCancellationRequest {
   /** The booked offer and what we paid the supplier for it (fare and extras). */
   offer: SupplierFlightOffer;
   supplierTotal: Money;
+  /**
+   * The airline change the traveller declines (ADR-073): an involuntary cancellation, which
+   * airlines refund in full whatever the fare's rules.
+   */
+  airlineChangeId?: string;
 }
 
 /** What cancelling a ticketed order would refund us; confirming `quoteId` cancels it (ADR-064). */

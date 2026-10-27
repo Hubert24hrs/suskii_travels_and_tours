@@ -25,7 +25,8 @@ import { cancellableFlight, supplierPaid, travellerRefund } from './flight-cance
 import { RefundsService } from './refunds.service';
 
 const QUOTE_PREFIX = 'booking:flight-cancellation:';
-const LOCK_PREFIX = 'booking:flight-cancellation-lock:';
+/** Held while a flight is cancelled online, and by the refund offer (ADR-073), which also cancels. */
+export const CANCELLATION_LOCK_PREFIX = 'booking:flight-cancellation-lock:';
 /** The longest a refund quote is kept, whatever the supplier allows. */
 const QUOTE_MAX_MS = 30 * 60_000;
 /** A quote about to lapse is not offered: the traveller needs time to read and confirm it. */
@@ -149,7 +150,7 @@ export class FlightCancellationService {
     const refund = fromStored(stored.refund);
     if (expected && !equals(expected, refund)) throw cancellationQuoteExpired();
 
-    const lock = LOCK_PREFIX + booking.id;
+    const lock = CANCELLATION_LOCK_PREFIX + booking.id;
     if ((await this.redis.set(lock, '1', 'PX', LOCK_MS, 'NX')) !== 'OK') throw bookingConflict();
     try {
       try {

@@ -47,9 +47,11 @@ import {
   quoteIdParamsSchema,
   quoteSchema,
   scheduleChangeParamsSchema,
+  scheduleChangeRefundRequestSchema,
   startPaymentRequestSchema,
   type BookingLinkRequest,
   type CancelBookingRequest,
+  type ScheduleChangeRefundRequest,
   type CreateBookingRequest,
   type StartPaymentRequest,
 } from './bookings.schemas';
@@ -331,7 +333,7 @@ export class BookingsController {
     operationId: 'acceptScheduleChange',
     summary: "Accept the airline's new flight times",
     description:
-      'For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To cancel instead, use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).',
+      'For an open `scheduleChange` with `acceptable`: the airline is told the traveller accepts, and the booking then shows the new flights (the e-ticket follows). Accepting again answers the booking. To decline a significant change, take its `refundOffer`; otherwise use online cancellation when `flightCancellable`, or contact support. 409 `schedule-change-not-acceptable` when it can no longer be accepted online (ADR-065).',
     tags: TAGS,
     params: scheduleChangeParamsSchema,
     headers: [BOOKING_TOKEN_HEADER],
@@ -344,6 +346,35 @@ export class BookingsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof bookingSchema>> {
     return this.scheduleChanges.accept(bookingId, changeId, caller(request));
+  }
+
+  @Post('bookings/:bookingId/schedule-changes/:changeId/refund')
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'refundScheduleChange',
+    summary: 'Decline the airline change and take a full refund',
+    description:
+      'For a `scheduleChange` with a `refundOffer`: the airline cancels the booking first, then everything the traveller paid goes back to the original payments, with no fee, and the booking moves to `REFUND_PENDING` (ADR-073). 409 `refund-offer-unavailable` when the refund cannot be taken online (support then contacts the traveller), `refund-offer-changed` when `refund` differs from the current amount. 503 when the airline cannot be reached; the offer stays.',
+    tags: TAGS,
+    params: scheduleChangeParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    body: scheduleChangeRefundRequestSchema,
+    responses: { 200: bookingSchema },
+    errors: [404, 409, 503],
+    idempotent: true,
+  })
+  refundScheduleChange(
+    @Param('bookingId') bookingId: string,
+    @Param('changeId') changeId: string,
+    @Body() body: ScheduleChangeRefundRequest,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof bookingSchema>> {
+    return this.scheduleChanges.refund(
+      bookingId,
+      changeId,
+      caller(request),
+      body.refund ? fromWire(body.refund) : null,
+    );
   }
 
   @Get('bookings/:bookingId/documents/:documentId')

@@ -346,14 +346,21 @@ export interface ScheduleChangeDetails {
   reference: string;
   /** One line per changed flight, old and new times. */
   lines: string[];
-  /** Accept online, wait for support, or nothing to do (already accepted). */
-  next: 'accept' | 'support' | 'done';
+  /**
+   * Accept online, choose between the new times and a full refund (ADR-073), take the refund
+   * (the flight is gone), wait for support, or nothing to do (already accepted).
+   */
+  next: 'accept' | 'choose' | 'refund' | 'support' | 'done';
   bookingUrl: string;
 }
 
 const SCHEDULE_CHANGE_NEXT: Record<ScheduleChangeDetails['next'], string> = {
   accept:
     'Open your booking to accept the new times. If they do not work for you, you can cancel there or contact us.',
+  choose:
+    'This is a significant change, so you can choose: accept the new times, or cancel and get everything you paid back to your original payment. Open your booking to decide.',
+  refund:
+    'You can cancel and get everything you paid back to your original payment. Open your booking to take the refund, or contact us about other flights.',
   support: 'Our team will contact you about your options.',
   done: 'Your booking already shows the new times.',
 };

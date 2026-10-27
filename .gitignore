@@ -73,3 +73,6 @@ apps/api/src/generated/
 crash.log
 infra/terraform/environments/*.tfvars
 infra/terraform/environments/*.tfbackend
+
+# Redis snapshots from a local redis-server
+*.rdb
