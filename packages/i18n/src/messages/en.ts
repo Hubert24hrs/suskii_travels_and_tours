@@ -843,7 +843,7 @@ export const en = {
     loading: 'Loading',
     notificationChannel: 'Bookings',
     update: {
-      title: 'Update Suskii Travels',
+      title: 'Update SUSKII T&T',
       body: 'This version of the app is no longer supported. Update it to keep searching, booking and opening your trips.',
       action: 'Update the app',
       noStore: 'Update the app from your app store to continue.',
@@ -862,6 +862,7 @@ export const en = {
       carsBuses: 'Book a bus seat',
       carsRides: 'Request a ride',
       carsRentals: 'Rent a car',
+      tagline: 'for your travels & tours globally',
       unreachable:
         'We could not reach the Suskii server, so prices, deals and buses, rides and car rental cannot load yet.',
       unreachableTestBuild:

@@ -1,9 +1,11 @@
+import { BRAND } from '@suskii/shared';
 import { Button, Card, Tabs } from '@suskii/ui-native';
 import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import logo from '../../assets/logo.png';
 import { DealList, useDeals } from '../components/deal-list';
 import { FlightSearchForm } from '../components/search/flight-search-form';
 import { HotelSearchForm } from '../components/search/hotel-search-form';
@@ -86,6 +88,16 @@ export function HomeScreen() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background">
       <ScrollView contentContainerClassName="gap-6 p-4 pb-12" keyboardShouldPersistTaps="handled">
+        {/* The logo and its name (ADR-068). */}
+        <View testID="home-brand" className="flex-row items-center gap-3">
+          <Image source={logo} accessibilityIgnoresInvertColors className="size-12 rounded-md" />
+          <View className="flex-1">
+            <Text className="font-heading-extrabold text-h3 text-heading">{BRAND.shortName}</Text>
+            <Text className="font-body-medium text-caption text-muted">
+              {t('mobile.home.tagline')}
+            </Text>
+          </View>
+        </View>
         <View className="gap-2">
           <Text
             accessibilityRole="header"

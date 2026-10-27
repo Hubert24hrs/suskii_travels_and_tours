@@ -48,13 +48,16 @@ const linkPaths = [
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: variant === 'production' ? 'Suskii Travels' : `Suskii Travels (${variant})`,
+  // The name under the icon (ADR-068); the test build carries it too, as testers asked.
+  name: variant === 'production' || variant === 'e2e' ? 'SUSKII T&T' : `SUSKII T&T (${variant})`,
   slug: 'suskii-travels',
   scheme: 'suskii',
   version: '0.1.0',
   orientation: 'portrait',
   // Design tokens define a light theme only.
   userInterfaceStyle: 'light',
+  // Built from brand/suskii-tt-logo.webp by scripts/brand-assets.mjs (ADR-068).
+  icon: './assets/icon.png',
   platforms: ['ios', 'android'],
   runtimeVersion: { policy: 'fingerprint' },
   updates: projectId ? { url: `https://u.expo.dev/${projectId}` } : { enabled: false },
@@ -75,6 +78,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: bundleId,
+    adaptiveIcon: { foregroundImage: './assets/adaptive-icon.png', backgroundColor: color.primary },
     // Trips, documents and the secure store never leave the device through backups (ADR-020).
     allowBackup: false,
     ...(appLinks
@@ -95,12 +99,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-secure-store',
     'expo-localization',
     'expo-web-browser',
+    [
+      'expo-splash-screen',
+      { image: './assets/splash-icon.png', imageWidth: 200, backgroundColor: color.surface },
+    ],
     ['expo-notifications', { color: color.primary, defaultChannel: 'bookings' }],
     // Bus operator agents scan boarding passes (Cars, ADR-050); no recording, no microphone.
     [
       'expo-camera',
       {
-        cameraPermission: 'Allow Suskii Travels to use the camera to scan boarding pass QR codes.',
+        cameraPermission: 'Allow SUSKII T&T to use the camera to scan boarding pass QR codes.',
         microphonePermission: false,
         recordAudioAndroid: false,
         barcodeScannerEnabled: true,

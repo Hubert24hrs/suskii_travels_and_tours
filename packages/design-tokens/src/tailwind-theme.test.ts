@@ -5,6 +5,7 @@ import postcss from 'postcss';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { getTailwindThemeCss } from './tailwind-theme';
+import { color } from './tokens';
 import { ALL_CANDIDATES, FORBIDDEN_CLASSES, TOKEN_CLASSES, definedClasses } from './test-utils';
 
 // Resolve `@import "tailwindcss"` from this package's node_modules.
@@ -39,7 +40,7 @@ describe('Tailwind v4 theme (web)', () => {
   });
 
   it('emits theme values as CSS variables and honours reduced motion', () => {
-    expect(css).toContain('--color-primary: #004BBE');
+    expect(css).toContain(`--color-primary: ${color.primary}`);
     expect(css).toContain('--text-body: 16px');
     expect(css).toMatch(/prefers-reduced-motion:\s*reduce/);
   });

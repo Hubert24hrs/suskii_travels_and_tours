@@ -42,11 +42,12 @@ test.describe('crawling and sharing', () => {
     expect(manifest.icons.length).toBeGreaterThan(0);
   });
 
-  test('points the browser default /favicon.ico at the SVG icon', async ({ request }) => {
+  test('points the browser default /favicon.ico at the logo icon', async ({ request }) => {
     const favicon = await request.get('/favicon.ico', { maxRedirects: 0 });
     expect(favicon.status()).toBe(308);
-    expect(favicon.headers().location).toBe('/icon.svg');
-    expect((await request.get('/icon.svg')).headers()['content-type']).toContain('image/svg+xml');
+    expect(favicon.headers().location).toBe('/icon.png');
+    expect((await request.get('/icon.png')).headers()['content-type']).toContain('image/png');
+    expect((await request.get('/apple-icon.png')).headers()['content-type']).toContain('image/png');
   });
 
   test('route pages carry their own metadata and breadcrumbs', async ({ page }) => {

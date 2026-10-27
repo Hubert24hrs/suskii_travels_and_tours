@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { openAuthSessionAsync } from 'expo-web-browser';
+import { openAuthSessionAsync, type WebBrowserAuthSessionResult } from 'expo-web-browser';
 import { Platform } from 'react-native';
 
 import { json, mockApi } from '../test/app';
@@ -62,7 +62,9 @@ describe('Google and Apple through the website', () => {
       );
     await expect(providerToken(createBareApi(), 'google')).resolves.toEqual({ status: 'error' });
 
-    jest.mocked(openAuthSessionAsync).mockResolvedValueOnce({ type: 'cancel' });
+    jest
+      .mocked(openAuthSessionAsync)
+      .mockResolvedValueOnce({ type: 'cancel' } as WebBrowserAuthSessionResult);
     await expect(providerToken(createBareApi(), 'google')).resolves.toEqual({
       status: 'cancelled',
     });
