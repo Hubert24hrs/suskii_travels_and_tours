@@ -59,6 +59,7 @@ model User {
   mfaFactors              MfaFactor[]
   recoveryCodes           MfaRecoveryCode[]
   socialIdentities        SocialIdentity[]
+  deviceCredentials       DeviceCredential[]
   verificationTokens      VerificationToken[]
   bookings                Booking[]
   travellers              Traveller[]
@@ -124,6 +125,8 @@ enum AuthMethod {
   otp
   google
   apple
+  /// Fingerprint (biometric) sign-in with a device credential (ADR-067).
+  device
 }
 
 /// One signed-in device. Its refresh tokens form a rotation family.
@@ -215,6 +218,25 @@ model SocialIdentity {
   @@unique([provider, subject])
   @@index([userId])
   @@map("social_identities")
+}
+
+/// Fingerprint sign-in on one phone (ADR-067): the secret stays in the phone's secure store
+/// behind the biometric prompt; only its HMAC is kept here. Revoked when every session of the
+/// account is ended (password reset or change, sign-out everywhere, staff actions, incidents).
+model DeviceCredential {
+  id         String    @id @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  /// HMAC (`device-credential` purpose) of the id and secret; the secret is never stored.
+  secretHash String    @map("secret_hash")
+  /// The phone's own description ("Android", "iPhone"), shown under Signed-in devices.
+  label      String    @db.VarChar(80)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_credentials")
 }
 
 enum VerificationPurpose {

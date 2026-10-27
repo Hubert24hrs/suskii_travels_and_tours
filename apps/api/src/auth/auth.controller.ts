@@ -1,4 +1,14 @@
-import { Body, Controller, HttpCode, HttpStatus, Inject, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
 
@@ -19,10 +29,13 @@ import { presentSession, presentSignIn } from './auth.presenter';
 import {
   acceptedSchema,
   authSessionSchema,
+  deviceSignInBodySchema,
   forgotPasswordBodySchema,
   loginBodySchema,
   logoutBodySchema,
   mfaVerifyBodySchema,
+  mockSocialTokenBodySchema,
+  mockSocialTokenSchema,
   otpDispatchedSchema,
   otpRequestBodySchema,
   otpVerifyBodySchema,
@@ -31,6 +44,7 @@ import {
   resetPasswordBodySchema,
   signInResultSchema,
   socialNonceSchema,
+  socialProvidersSchema,
   socialSignInBodySchema,
   tokenBodySchema,
 } from './auth.schemas';
@@ -42,7 +56,8 @@ import { csrfFailed, invalidToken } from './errors';
 import { MfaService } from './mfa.service';
 import { OTP_RESEND_SECONDS, OTP_TTL_SECONDS } from './otp.service';
 import { SessionService } from './session.service';
-import { SocialNonces } from './social.service';
+import { MockSocialIssuer } from './mock-social';
+import { SocialIdentityVerifier, SocialNonces } from './social.service';
 
 const TAGS = ['Auth'];
 type Accepted = z.infer<typeof acceptedSchema>;
@@ -60,6 +75,8 @@ export class AuthController {
     private readonly csrf: CsrfService,
     private readonly audit: AuditService,
     private readonly nonces: SocialNonces,
+    private readonly social: SocialIdentityVerifier,
+    private readonly mockSocial: MockSocialIssuer,
     private readonly turnstile: TurnstileVerifier,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
@@ -287,6 +304,66 @@ export class AuthController {
   async socialNonce(): Promise<z.infer<typeof socialNonceSchema>> {
     const { nonce, expiresAt } = await this.nonces.issue();
     return { nonce, expiresAt: expiresAt.toISOString() };
+  }
+
+  @Get('social/providers')
+  @Contract({
+    operationId: 'getSocialProviders',
+    summary: 'Which sign-in providers to offer',
+    description:
+      'Google and Apple are offered when their client ids are configured. On a test stack, `mock` says both use the mock provider (ADR-067).',
+    tags: TAGS,
+    responses: { 200: socialProvidersSchema },
+  })
+  socialProviders(): z.infer<typeof socialProvidersSchema> {
+    return this.social.status();
+  }
+
+  @Post('social/mock-token')
+  @RateLimit(AUTH_LIMITS.social)
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'createMockSocialToken',
+    summary: 'Test stacks only: a mock Google or Apple ID token',
+    description:
+      'Stands in for the provider on test stacks (SOCIAL_MOCK_ENABLED, refused in production; ADR-067). The token carries the nonce and signs in like a real one, always as the same user for the same provider and email. Answers 404 everywhere else.',
+    tags: TAGS,
+    body: mockSocialTokenBodySchema,
+    responses: { 200: mockSocialTokenSchema },
+    errors: [404, 422],
+  })
+  async mockSocialToken(
+    @Body() body: z.infer<typeof mockSocialTokenBodySchema>,
+  ): Promise<z.infer<typeof mockSocialTokenSchema>> {
+    return { idToken: await this.mockSocial.issue(body) };
+  }
+
+  @Post('device')
+  @RateLimit(AUTH_LIMITS.login)
+  @DeviceAttested('login')
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'signInWithDevice',
+    summary: 'Sign in with fingerprint on this phone',
+    description:
+      'Trades the device credential the phone keeps behind its biometric prompt (POST /v1/me/device-credentials) for a session, or an MFA challenge when MFA is on (ADR-067).',
+    tags: TAGS,
+    headers: [ATTESTATION_HEADER],
+    body: deviceSignInBodySchema,
+    responses: { 200: signInResultSchema },
+    errors: [401, 403],
+  })
+  async device(
+    @Body() body: z.infer<typeof deviceSignInBodySchema>,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<unknown> {
+    const outcome = await this.auth.deviceSignIn(
+      body.credentialId,
+      body.secret,
+      requestContext(request),
+    );
+    return presentSignIn(outcome, body.transport, response, this.config);
   }
 
   @Post('google')

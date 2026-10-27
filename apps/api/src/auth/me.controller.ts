@@ -25,6 +25,9 @@ import {
   authUserSchema,
   changePasswordBodySchema,
   codeBodySchema,
+  deviceCredentialBodySchema,
+  deviceCredentialCreatedSchema,
+  deviceCredentialListSchema,
   otpDispatchedSchema,
   phoneBodySchema,
   phoneVerifyBodySchema,
@@ -38,6 +41,7 @@ import {
   updateProfileBodySchema,
 } from './auth.schemas';
 import { AuthService } from './auth.service';
+import { DeviceCredentialsService } from './device-credentials.service';
 import { MfaService, type MfaProof } from './mfa.service';
 import { OTP_RESEND_SECONDS, OTP_TTL_SECONDS } from './otp.service';
 import { ReauthService } from './reauth.service';
@@ -58,6 +62,7 @@ export class MeController {
     private readonly mfa: MfaService,
     private readonly audit: AuditService,
     private readonly reauth: ReauthService,
+    private readonly devices: DeviceCredentialsService,
   ) {}
 
   @Get()
@@ -248,6 +253,59 @@ export class MeController {
       context: requestContext(request),
       metadata: { count, keptCurrent: true },
     });
+  }
+
+  // --- Fingerprint sign-in (ADR-067) ----------------------------------------------------
+
+  @Post('device-credentials')
+  @RateLimit(AUTH_LIMITS.sensitive)
+  @Contract({
+    operationId: 'createDeviceCredential',
+    summary: 'Turn on fingerprint sign-in for this phone',
+    description:
+      'Only within 10 minutes of signing in. The secret is shown once; at most five phones keep one, so the oldest is turned off.',
+    tags: TAGS,
+    body: deviceCredentialBodySchema,
+    responses: { 201: deviceCredentialCreatedSchema },
+    errors: [401, 422],
+  })
+  createDeviceCredential(
+    @CurrentAuth() auth: AuthContext,
+    @Body() body: z.infer<typeof deviceCredentialBodySchema>,
+    @Req() request: Request,
+  ): Promise<z.infer<typeof deviceCredentialCreatedSchema>> {
+    return this.devices.create(auth, body.label, requestContext(request));
+  }
+
+  @Get('device-credentials')
+  @Contract({
+    operationId: 'listDeviceCredentials',
+    summary: 'Phones with fingerprint sign-in',
+    tags: TAGS,
+    responses: { 200: deviceCredentialListSchema },
+  })
+  async listDeviceCredentials(
+    @CurrentAuth() auth: AuthContext,
+  ): Promise<z.infer<typeof deviceCredentialListSchema>> {
+    return { credentials: await this.devices.list(auth.userId) };
+  }
+
+  @Delete('device-credentials/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Contract({
+    operationId: 'revokeDeviceCredential',
+    summary: 'Turn off fingerprint sign-in for a phone',
+    tags: TAGS,
+    params: sessionIdParamsSchema,
+    responses: { 204: null },
+    errors: [401, 404],
+  })
+  async revokeDeviceCredential(
+    @CurrentAuth() auth: AuthContext,
+    @Param('id') id: string,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.devices.revoke(auth, id, requestContext(request));
   }
 
   // --- MFA -----------------------------------------------------------------------------

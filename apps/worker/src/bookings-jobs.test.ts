@@ -31,6 +31,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   runRetention: vi.fn(() =>
     Promise.resolve({
       sessions: 3,
+      'device-credentials': 0,
       'verification-tokens': 0,
       'idempotency-keys': 5,
       'booking-access-links': 0,

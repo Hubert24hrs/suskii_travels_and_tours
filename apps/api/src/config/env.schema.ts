@@ -164,6 +164,12 @@ export const envSchema = z
 
     GOOGLE_CLIENT_IDS: csv(z.string().min(1)).default([]),
     APPLE_CLIENT_IDS: csv(z.string().min(1)).default([]),
+    /**
+     * Test stacks only (ADR-067): a mock Google and Apple sign-in, so the buttons work without the
+     * providers' client ids. It signs anyone in as any email, so production refuses it even with
+     * ALLOW_MOCK_PROVIDERS.
+     */
+    SOCIAL_MOCK_ENABLED: booleanish.default(false),
 
     /** Optional IP allowlist for /v1/admin routes (exact IPs). */
     ADMIN_IP_ALLOWLIST: csv(z.string().min(1)).default([]),
@@ -537,6 +543,8 @@ export const envSchema = z
     else if (env.INTERNAL_API_TOKEN.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
       require('INTERNAL_API_TOKEN', 'the local development token is not allowed in production');
     if (!env.TURNSTILE_SECRET_KEY) require('TURNSTILE_SECRET_KEY', 'is required in production');
+    if (env.SOCIAL_MOCK_ENABLED)
+      require('SOCIAL_MOCK_ENABLED', 'is never allowed in production: it signs anyone in as any email');
     if (!env.JWT_PRIVATE_KEY || !env.JWT_PUBLIC_KEY)
       require('JWT_PRIVATE_KEY', 'signing keys are required in production');
     if (!env.FIELD_ENCRYPTION_KEY) require('FIELD_ENCRYPTION_KEY', 'is required in production');

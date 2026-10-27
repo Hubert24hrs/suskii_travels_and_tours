@@ -2117,6 +2117,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with fingerprint on this phone
+         * @description Trades the device credential the phone keeps behind its biometric prompt (POST /v1/me/device-credentials) for a session, or an MFA challenge when MFA is on (ADR-067).
+         */
+        post: operations["signInWithDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/email/verify": {
         parameters: {
             query?: never;
@@ -2325,6 +2345,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/social/mock-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test stacks only: a mock Google or Apple ID token
+         * @description Stands in for the provider on test stacks (SOCIAL_MOCK_ENABLED, refused in production; ADR-067). The token carries the nonce and signs in like a real one, always as the same user for the same provider and email. Answers 404 everywhere else.
+         */
+        post: operations["createMockSocialToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/social/nonce": {
         parameters: {
             query?: never;
@@ -2339,6 +2379,26 @@ export interface paths {
          * @description Pass it to the provider (Apple: its SHA-256 hex digest) and send it back with the ID token within 10 minutes. Sign-in refuses tokens without an unused nonce from here.
          */
         post: operations["createSocialNonce"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/social/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which sign-in providers to offer
+         * @description Google and Apple are offered when their client ids are configured. On a test stack, `mock` says both use the mock provider (ADR-067).
+         */
+        get: operations["getSocialProviders"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4025,6 +4085,44 @@ export interface paths {
          */
         post: operations["deleteMyAccount"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/device-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Phones with fingerprint sign-in */
+        get: operations["listDeviceCredentials"];
+        put?: never;
+        /**
+         * Turn on fingerprint sign-in for this phone
+         * @description Only within 10 minutes of signing in. The secret is shown once; at most five phones keep one, so the oldest is turned off.
+         */
+        post: operations["createDeviceCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/device-credentials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Turn off fingerprint sign-in for a phone */
+        delete: operations["revokeDeviceCredential"];
         options?: never;
         head?: never;
         patch?: never;
@@ -7086,6 +7184,34 @@ export interface components {
             imageUrl?: string | null;
             published?: boolean;
         };
+        DeviceCredentialCreated: {
+            /** Format: uuid */
+            credentialId: string;
+            secret: string;
+        };
+        DeviceCredentialList: {
+            credentials: {
+                /** Format: uuid */
+                id: string;
+                label: string;
+                /** Format: date-time */
+                createdAt: string;
+                lastUsedAt: string | null;
+            }[];
+        };
+        DeviceCredentialRequestInput: {
+            label: string;
+        };
+        DeviceSignInRequestInput: {
+            /** Format: uuid */
+            credentialId: string;
+            secret: string;
+            /**
+             * @default token
+             * @enum {string}
+             */
+            transport?: "cookie" | "token";
+        };
         DriverDocumentScanRun: {
             scanned: number;
         };
@@ -7964,6 +8090,16 @@ export interface components {
             /** @enum {string} */
             status: "pending" | "succeeded" | "failed" | "cancelled" | "expired";
             returnUrl: string;
+        };
+        MockSocialToken: {
+            idToken: string;
+        };
+        MockSocialTokenRequestInput: {
+            /** @enum {string} */
+            provider: "google" | "apple";
+            email: string;
+            name?: string;
+            nonce: string;
         };
         Money: {
             amountMinor: number;
@@ -8926,6 +9062,7 @@ export interface components {
         };
         RetentionRun: {
             sessions: number;
+            "device-credentials": number;
             "verification-tokens": number;
             "idempotency-keys": number;
             "booking-access-links": number;
@@ -9179,7 +9316,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            authMethod: "password" | "otp" | "google" | "apple";
+            authMethod: "password" | "otp" | "google" | "apple" | "device";
             userAgent: string | null;
             /** Format: date-time */
             createdAt: string;
@@ -9247,6 +9384,11 @@ export interface components {
             nonce: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        SocialProviders: {
+            google: boolean;
+            apple: boolean;
+            mock: boolean;
         };
         SocialSignInRequestInput: {
             idToken: string;
@@ -14546,6 +14688,41 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    signInWithDevice: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once. */
+                "X-Suskii-Attestation"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceSignInRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     verifyEmail: {
         parameters: {
             query?: never;
@@ -14897,6 +15074,39 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    createMockSocialToken: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MockSocialTokenRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MockSocialToken"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     createSocialNonce: {
         parameters: {
             query?: never;
@@ -14916,6 +15126,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SocialNonce"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getSocialProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialProviders"];
                 };
             };
             400: components["responses"]["Problem400"];
@@ -17813,6 +18047,93 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listDeviceCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceCredentialList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    createDeviceCredential: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceCredentialRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceCredentialCreated"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    revokeDeviceCredential: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

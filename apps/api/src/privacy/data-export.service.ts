@@ -69,6 +69,7 @@ export class DataExportService {
       sessions,
       factor,
       recoveryCodes,
+      fingerprintSignIn,
       devices,
       travellers,
       payments,
@@ -88,6 +89,7 @@ export class DataExportService {
       this.prisma.session.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
       this.prisma.mfaFactor.findUnique({ where: { userId_type: { userId, type: 'totp' } } }),
       this.prisma.mfaRecoveryCode.findMany({ where: { userId }, select: { usedAt: true } }),
+      this.prisma.deviceCredential.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
       this.prisma.pushToken.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
       this.prisma.traveller.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
       this.prisma.payment.findMany({
@@ -186,6 +188,12 @@ export class DataExportService {
           total: recoveryCodes.length,
           unused: recoveryCodes.filter((code) => code.usedAt === null).length,
         },
+        fingerprintSignIn: fingerprintSignIn.map((credential) => ({
+          phone: credential.label,
+          turnedOnAt: iso(credential.createdAt),
+          lastUsedAt: iso(credential.lastUsedAt),
+          turnedOffAt: iso(credential.revokedAt),
+        })),
       },
       devices: devices.map((device) => ({
         platform: device.platform,

@@ -113,7 +113,7 @@ export const sessionSummarySchema = named(
   'SessionSummary',
   z.object({
     id: z.uuid(),
-    authMethod: z.enum(['password', 'otp', 'google', 'apple']),
+    authMethod: z.enum(['password', 'otp', 'google', 'apple', 'device']),
     userAgent: z.string().nullable(),
     createdAt: timestamp,
     lastSeenAt: timestamp,
@@ -223,6 +223,35 @@ export const socialNonceSchema = named(
   }),
 );
 
+export const socialProvidersSchema = named(
+  'SocialProviders',
+  z.object({
+    google: z.boolean().meta({ description: 'Offer "Continue with Google".' }),
+    apple: z.boolean().meta({ description: 'Offer "Continue with Apple".' }),
+    mock: z.boolean().meta({
+      description:
+        'Test stacks only: both buttons use POST /v1/auth/social/mock-token instead of the providers.',
+    }),
+  }),
+);
+
+export const mockSocialTokenBodySchema = named(
+  'MockSocialTokenRequest',
+  z.object({
+    provider: z.enum(['google', 'apple']),
+    email: emailSchema,
+    name: displayNameSchema.optional(),
+    nonce: z.string().min(1).max(256),
+  }),
+);
+
+export const mockSocialTokenSchema = named(
+  'MockSocialToken',
+  z.object({
+    idToken: z.string().meta({ description: 'Send to POST /v1/auth/google or /v1/auth/apple.' }),
+  }),
+);
+
 export const socialSignInBodySchema = named(
   'SocialSignInRequest',
   z.object({
@@ -290,6 +319,56 @@ export const phoneVerifyBodySchema = named(
 );
 
 export const sessionIdParamsSchema = z.object({ id: z.uuid() });
+
+// ---------------------------------------------------------------------------
+// Fingerprint sign-in on a phone (ADR-067)
+// ---------------------------------------------------------------------------
+
+export const deviceCredentialBodySchema = named(
+  'DeviceCredentialRequest',
+  z.object({
+    label: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .meta({ description: 'How the phone describes itself, such as "Android" or "iPhone".' }),
+  }),
+);
+
+export const deviceCredentialCreatedSchema = named(
+  'DeviceCredentialCreated',
+  z.object({
+    credentialId: z.uuid(),
+    secret: z.string().meta({
+      description:
+        'Shown once. Keep it in the secure store behind the biometric prompt; never log or back it up.',
+    }),
+  }),
+);
+
+export const deviceCredentialListSchema = named(
+  'DeviceCredentialList',
+  z.object({
+    credentials: z.array(
+      z.object({
+        id: z.uuid(),
+        label: z.string(),
+        createdAt: timestamp,
+        lastUsedAt: timestamp.nullable(),
+      }),
+    ),
+  }),
+);
+
+export const deviceSignInBodySchema = named(
+  'DeviceSignInRequest',
+  z.object({
+    credentialId: z.uuid(),
+    secret: z.string().min(1).max(256),
+    transport,
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // Re-authentication for data export and account deletion (ADR-029)

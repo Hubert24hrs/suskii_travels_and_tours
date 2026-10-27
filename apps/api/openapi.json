@@ -10574,6 +10574,77 @@
         }
       }
     },
+    "/v1/auth/device": {
+      "post": {
+        "operationId": "signInWithDevice",
+        "summary": "Sign in with fingerprint on this phone",
+        "description": "Trades the device credential the phone keeps behind its biometric prompt (POST /v1/me/device-credentials) for a session, or an MFA challenge when MFA is on (ADR-067).",
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Suskii-Attestation",
+            "in": "header",
+            "required": false,
+            "description": "Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceSignInRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/auth/email/verify": {
       "post": {
         "operationId": "verifyEmail",
@@ -11219,6 +11290,68 @@
         }
       }
     },
+    "/v1/auth/social/mock-token": {
+      "post": {
+        "operationId": "createMockSocialToken",
+        "summary": "Test stacks only: a mock Google or Apple ID token",
+        "description": "Stands in for the provider on test stacks (SOCIAL_MOCK_ENABLED, refused in production; ADR-067). The token carries the nonce and signs in like a real one, always as the same user for the same provider and email. Answers 404 everywhere else.",
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MockSocialTokenRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MockSocialToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/auth/social/nonce": {
       "post": {
         "operationId": "createSocialNonce",
@@ -11246,6 +11379,42 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SocialNonce"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/auth/social/providers": {
+      "get": {
+        "operationId": "getSocialProviders",
+        "summary": "Which sign-in providers to offer",
+        "description": "Google and Apple are offered when their client ids are configured. On a test stack, `mock` says both use the mock provider (ADR-067).",
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialProviders"
                 }
               }
             }
@@ -17308,6 +17477,154 @@
           },
           "409": {
             "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/device-credentials": {
+      "post": {
+        "operationId": "createDeviceCredential",
+        "summary": "Turn on fingerprint sign-in for this phone",
+        "description": "Only within 10 minutes of signing in. The secret is shown once; at most five phones keep one, so the oldest is turned off.",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceCredentialRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCredentialCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listDeviceCredentials",
+        "summary": "Phones with fingerprint sign-in",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCredentialList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/device-credentials/{id}": {
+      "delete": {
+        "operationId": "revokeDeviceCredential",
+        "summary": "Turn off fingerprint sign-in for a phone",
+        "tags": [
+          "Account"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
           },
           "426": {
             "$ref": "#/components/responses/Problem426"
@@ -31119,6 +31436,108 @@
           }
         }
       },
+      "DeviceCredentialCreated": {
+        "type": "object",
+        "properties": {
+          "credentialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "credentialId",
+          "secret"
+        ],
+        "additionalProperties": false
+      },
+      "DeviceCredentialList": {
+        "type": "object",
+        "properties": {
+          "credentials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "lastUsedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "createdAt",
+                "lastUsedAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "credentials"
+        ],
+        "additionalProperties": false
+      },
+      "DeviceCredentialRequestInput": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "label"
+        ]
+      },
+      "DeviceSignInRequestInput": {
+        "type": "object",
+        "properties": {
+          "credentialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "secret": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "transport": {
+            "default": "token",
+            "type": "string",
+            "enum": [
+              "cookie",
+              "token"
+            ]
+          }
+        },
+        "required": [
+          "credentialId",
+          "secret"
+        ]
+      },
       "DriverDocumentScanRun": {
         "type": "object",
         "properties": {
@@ -35517,6 +35936,48 @@
           "returnUrl"
         ],
         "additionalProperties": false
+      },
+      "MockSocialToken": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "idToken"
+        ],
+        "additionalProperties": false
+      },
+      "MockSocialTokenRequestInput": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "google",
+              "apple"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "nonce": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "provider",
+          "email",
+          "nonce"
+        ]
       },
       "Money": {
         "type": "object",
@@ -40445,6 +40906,11 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "device-credentials": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "verification-tokens": {
             "type": "integer",
             "minimum": 0,
@@ -40558,6 +41024,7 @@
         },
         "required": [
           "sessions",
+          "device-credentials",
           "verification-tokens",
           "idempotency-keys",
           "booking-access-links",
@@ -41723,7 +42190,8 @@
               "password",
               "otp",
               "google",
-              "apple"
+              "apple",
+              "device"
             ]
           },
           "userAgent": {
@@ -42074,6 +42542,26 @@
         "required": [
           "nonce",
           "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "SocialProviders": {
+        "type": "object",
+        "properties": {
+          "google": {
+            "type": "boolean"
+          },
+          "apple": {
+            "type": "boolean"
+          },
+          "mock": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "google",
+          "apple",
+          "mock"
         ],
         "additionalProperties": false
       },

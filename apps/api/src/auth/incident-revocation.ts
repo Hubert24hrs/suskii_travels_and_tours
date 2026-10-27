@@ -68,8 +68,19 @@ function scopeWhere(scope: IncidentScope): Prisma.SessionWhereInput {
   }
 }
 
+function credentialScopeWhere(scope: IncidentScope): Prisma.DeviceCredentialWhereInput {
+  switch (scope.kind) {
+    case 'all':
+      return {};
+    case 'staff':
+      return { user: { roles: { some: { roleKey: { not: 'customer' } } } } };
+    case 'user':
+      return { userId: scope.userId };
+  }
+}
+
 export interface IncidentDeps {
-  prisma: Pick<PrismaService, 'session' | 'refreshToken' | '$transaction'>;
+  prisma: Pick<PrismaService, 'session' | 'refreshToken' | 'deviceCredential' | '$transaction'>;
   redis: Pick<Redis, 'pipeline'>;
   audit: Pick<AuditService, 'record'>;
   accessTokenTtlSeconds: number;
@@ -94,13 +105,23 @@ export async function revokeForIncident(
     options.reason,
     deps.accessTokenTtlSeconds,
   );
+  // Fingerprint sign-in would start new sessions (ADR-067): it ends for the same accounts.
+  const credentials = await deps.prisma.deviceCredential.updateMany({
+    where: { revokedAt: null, ...credentialScopeWhere(options.scope) },
+    data: { revokedAt: new Date() },
+  });
   await deps.audit.record({
     action: 'auth.sessions.revoked_incident',
     actorType: 'system',
     ...(options.scope.kind === 'user'
       ? { targetType: 'user', targetId: options.scope.userId }
       : {}),
-    metadata: { scope: options.scope.kind, reason: options.reason, revoked },
+    metadata: {
+      scope: options.scope.kind,
+      reason: options.reason,
+      revoked,
+      fingerprintSignInRevoked: credentials.count,
+    },
   });
   return { matched, revoked };
 }
