@@ -169,6 +169,7 @@ export function BusSearchScreen() {
             onChange={setTo}
           />
           <DateRangePicker
+            testID="bus-date"
             mode="single"
             label={t('cars.buses.date')}
             value={{ from: fromIso(date), to: undefined }}

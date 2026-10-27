@@ -33,6 +33,8 @@ export interface PassengerPickerProps {
   onChange: (value: TravellerCounts) => void;
   labels: PassengerPickerLabels;
   className?: string;
+  /** UI tests: the field, `{testID}-done` and steppers as `{testID}-{type}-add` / `-remove`. */
+  testID?: string;
 }
 
 function StepButton({
@@ -40,14 +42,17 @@ function StepButton({
   enabled,
   onPress,
   children,
+  testID,
 }: {
   label: string;
   enabled: boolean;
   onPress: () => void;
   children: ReactNode;
+  testID?: string | undefined;
 }) {
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !enabled }}
@@ -71,11 +76,13 @@ export function PassengerPicker({
   onChange,
   labels,
   className,
+  testID,
 }: PassengerPickerProps) {
   const [open, setOpen] = useState(false);
   return (
     <View className={className}>
       <FieldButton
+        testID={testID}
         label={label}
         value={summary}
         icon={<Users color={color.muted} size={iconSize.md} />}
@@ -86,8 +93,13 @@ export function PassengerPicker({
         onOpenChange={setOpen}
         title={label}
         closeLabel={labels.close}
+        testID={testID ? `${testID}-sheet` : undefined}
         footer={
-          <Button fullWidth onPress={() => setOpen(false)}>
+          <Button
+            testID={testID ? `${testID}-done` : undefined}
+            fullWidth
+            onPress={() => setOpen(false)}
+          >
             {labels.done}
           </Button>
         }
@@ -110,6 +122,7 @@ export function PassengerPicker({
               </View>
               <View className="flex-row items-center gap-3">
                 <StepButton
+                  testID={testID ? `${testID}-${type}-remove` : undefined}
                   label={labels.decrement[type]}
                   enabled={canRemove}
                   onPress={() => onChange(stepTravellers(value, type, -1))}
@@ -124,6 +137,7 @@ export function PassengerPicker({
                   {value[type]}
                 </Text>
                 <StepButton
+                  testID={testID ? `${testID}-${type}-add` : undefined}
                   label={labels.increment[type]}
                   enabled={canAdd}
                   onPress={() => onChange(stepTravellers(value, type, 1))}

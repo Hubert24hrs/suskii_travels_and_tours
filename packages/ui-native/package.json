@@ -22,7 +22,6 @@
     "tailwind-merge": "catalog:"
   },
   "peerDependencies": {
-    "@gorhom/bottom-sheet": "^5.2.0",
     "lucide-react-native": "^1.0.0",
     "nativewind": "^4.2.0",
     "react": "^19.2.0",
@@ -34,7 +33,6 @@
     "react-native-svg": "^15.0.0"
   },
   "devDependencies": {
-    "@gorhom/bottom-sheet": "catalog:",
     "@suskii/config": "workspace:*",
     "@testing-library/react-native": "catalog:",
     "@types/jest": "catalog:expo-jest",

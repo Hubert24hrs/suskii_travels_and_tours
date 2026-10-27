@@ -5,7 +5,7 @@ React Native equivalents of `@suskii/ui-web` for the Expo app, styled with Nativ
 
 Components: Button, Input, Tabs, SegmentedControl, Combobox, DateRangePicker (month list in a bottom
 sheet), PassengerPicker (bottom sheet), Card, DealCard, DestinationCard, Badge, TrustBar, Skeleton
-(Reanimated pulse, static under reduced motion), Sheet (`@gorhom/bottom-sheet`), Modal, Toast.
+(Reanimated pulse, static under reduced motion), Sheet (React Native `Modal`), Modal, Toast.
 
 Every interactive element sets an accessibility role, label and state (`selected`, `checked`,
 `disabled`, `busy`). Icons take colours and sizes from tokens (`iconColor`, `iconSize`). Labels are

@@ -55,6 +55,7 @@ export function HotelSearchForm() {
         error={errors['destination.cityId']}
       />
       <DateRangePicker
+        testID="hotel-dates"
         mode="range"
         label={t('search.hotels.dates')}
         value={{ from: fromIso(draft.checkIn), to: fromIso(draft.checkOut) }}
@@ -81,7 +82,7 @@ export function HotelSearchForm() {
         </Text>
       ) : null}
       <RoomsPicker rooms={draft.rooms} onChange={(rooms) => update({ rooms })} />
-      <Button fullWidth onPress={submit}>
+      <Button testID="hotel-submit" fullWidth onPress={submit}>
         {t('search.hotels.submit')}
       </Button>
     </View>

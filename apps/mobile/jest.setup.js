@@ -5,7 +5,6 @@ jest.mock('react-native-reanimated', () => ({
   ...require('react-native-reanimated/mock'),
   useReducedMotion: () => false,
 }));
-jest.mock('@gorhom/bottom-sheet', () => require('@gorhom/bottom-sheet/mock'));
 
 // Expo Router pulls native views (glass effect, native tabs) at import time. Screens only use the
 // hooks below; tests assert navigation through the exported `router` mock.

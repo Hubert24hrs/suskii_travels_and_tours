@@ -80,6 +80,7 @@ export function RoomsPicker({
   return (
     <View>
       <FieldButton
+        testID="hotel-rooms"
         label={t('search.hotels.rooms')}
         value={`${t('search.hotels.roomsCount', { count: rooms.length })}, ${t('search.hotels.guestsCount', { count: guests })}`}
         icon={<BedDouble color={color.muted} size={iconSize.md} />}
@@ -91,8 +92,9 @@ export function RoomsPicker({
         title={t('search.hotels.rooms')}
         closeLabel={t('common.close')}
         snapPoints={['85%']}
+        testID="hotel-rooms-sheet"
         footer={
-          <Button fullWidth onPress={() => setOpen(false)}>
+          <Button testID="hotel-rooms-done" fullWidth onPress={() => setOpen(false)}>
             {t('common.done')}
           </Button>
         }

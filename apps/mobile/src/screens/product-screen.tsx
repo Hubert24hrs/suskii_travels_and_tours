@@ -174,6 +174,7 @@ function Product({ kind, slug }: { kind: Kind; slug: string }) {
           {t('inhouse.book.heading')}
         </Text>
         <PassengerPicker
+          testID="product-travellers"
           label={t('inhouse.book.travellers')}
           summary={travellerSummary(t, travellers)}
           value={travellers}
