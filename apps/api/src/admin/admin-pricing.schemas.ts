@@ -140,3 +140,54 @@ export const adminFeeRuleListSchema = named(
 );
 
 export const ruleIdParamsSchema = z.object({ id: z.uuid() });
+
+const taxFields = z.object({
+  country: country.meta({ description: "The selling entity's country (ISO 3166-1 alpha-2)." }),
+  code: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{1,39}$/)
+    .meta({ description: 'Stable machine code, e.g. vat.' }),
+  label: z.string().trim().min(2).max(80),
+  rateBps: z.number().int().min(0).max(10_000).meta({ description: 'Basis points: 750 = 7.5%.' }),
+  basis: z.enum(['margin', 'full']).meta({
+    description:
+      "margin: Suskii's markup and fees (sold as agent); full: fare and fees (sold as principal). Both after discounts.",
+  }),
+  vertical: bookingVerticalSchema.nullable().meta({ description: 'Null: every vertical.' }),
+  active: z.boolean(),
+  registrationNumber: z.string().trim().min(2).max(64).nullable(),
+  validFrom: timestamp.nullable(),
+  validTo: timestamp.nullable(),
+});
+export type TaxFields = z.infer<typeof taxFields>;
+
+function checkTaxDates(value: TaxFields, ctx: z.RefinementCtx): void {
+  if (
+    value.validFrom &&
+    value.validTo &&
+    Date.parse(value.validTo) <= Date.parse(value.validFrom)
+  ) {
+    ctx.addIssue({ code: 'custom', path: ['validTo'], message: 'ends_before_start' });
+  }
+}
+
+export const taxRuleInputSchema = named('TaxRuleInput', taxFields.superRefine(checkTaxDates));
+export const taxRulePatchSchema = named('TaxRulePatch', taxFields.partial());
+export const taxRuleCheck = taxFields.superRefine(checkTaxDates);
+
+export const adminTaxRuleSchema = named(
+  'AdminTaxRule',
+  taxFields.extend({ id: z.uuid(), createdAt: timestamp, updatedAt: timestamp }),
+);
+
+export const taxRuleListQuerySchema = z.object({ country: country.optional() });
+
+export const adminTaxRuleListSchema = named(
+  'AdminTaxRuleList',
+  z.object({
+    sellerCountry: country.meta({
+      description: "TAX_SELLER_COUNTRY: only this country's rules price offers (ADR-072).",
+    }),
+    rules: z.array(adminTaxRuleSchema),
+  }),
+);

@@ -5593,6 +5593,211 @@
         "x-step-up": true
       }
     },
+    "/v1/admin/pricing/taxes": {
+      "get": {
+        "operationId": "adminListTaxRules",
+        "summary": "Tax rules by country, with the selling country whose rules apply",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTaxRuleList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateTaxRule",
+        "summary": "Add a tax on Suskii's service",
+        "description": "Every active rule of the selling country that matches the vertical applies, added to the total (ADR-072). Applies to the next search or quote; quotes already given keep their price.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaxRuleInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTaxRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "pricing.tax_created"
+        ],
+        "x-step-up": true
+      }
+    },
+    "/v1/admin/pricing/taxes/{id}": {
+      "patch": {
+        "operationId": "adminUpdateTaxRule",
+        "summary": "Change or deactivate a tax rule",
+        "description": "The merged rule is validated like a new one. Applies to the next search or quote; quotes already given keep their price.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaxRulePatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTaxRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "pricing.tax_updated"
+        ],
+        "x-step-up": true
+      }
+    },
     "/v1/admin/prime/plans": {
       "get": {
         "operationId": "adminListPrimePlans",
@@ -27124,6 +27329,143 @@
         ],
         "additionalProperties": false
       },
+      "AdminTaxRule": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,39}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "rateBps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "margin",
+              "full"
+            ]
+          },
+          "vertical": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "flights",
+                  "hotels",
+                  "packages",
+                  "tours",
+                  "visa",
+                  "travel_addons",
+                  "prime",
+                  "buses",
+                  "rides",
+                  "rentals"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "registrationNumber": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "country",
+          "code",
+          "label",
+          "rateBps",
+          "basis",
+          "vertical",
+          "active",
+          "registrationNumber",
+          "validFrom",
+          "validTo",
+          "id",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminTaxRuleList": {
+        "type": "object",
+        "properties": {
+          "sellerCountry": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminTaxRule"
+            }
+          }
+        },
+        "required": [
+          "sellerCountry",
+          "rules"
+        ],
+        "additionalProperties": false
+      },
       "AdminTrustSignal": {
         "type": "object",
         "properties": {
@@ -28711,6 +29053,13 @@
               }
             ]
           },
+          "serviceTaxes": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceTax"
+            }
+          },
           "total": {
             "$ref": "#/components/schemas/Money"
           },
@@ -28788,6 +29137,7 @@
           "taxes",
           "fees",
           "discount",
+          "serviceTaxes",
           "total",
           "memberSaving",
           "fx",
@@ -39171,6 +39521,13 @@
               }
             ]
           },
+          "serviceTaxes": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServiceTax"
+            }
+          },
           "total": {
             "$ref": "#/components/schemas/Money"
           },
@@ -39232,6 +39589,7 @@
           "taxes",
           "fees",
           "discount",
+          "serviceTaxes",
           "total",
           "memberSaving",
           "fx"
@@ -43153,6 +43511,39 @@
         ],
         "additionalProperties": false
       },
+      "ServiceTax": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "rateBps": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "registrationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "rateBps",
+          "amount",
+          "registrationNumber"
+        ],
+        "additionalProperties": false
+      },
       "SessionList": {
         "type": "object",
         "properties": {
@@ -43718,6 +44109,196 @@
           "durationMs"
         ],
         "additionalProperties": false
+      },
+      "TaxRuleInputInput": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,39}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "rateBps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "margin",
+              "full"
+            ]
+          },
+          "vertical": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "flights",
+                  "hotels",
+                  "packages",
+                  "tours",
+                  "visa",
+                  "travel_addons",
+                  "prime",
+                  "buses",
+                  "rides",
+                  "rentals"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "registrationNumber": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "country",
+          "code",
+          "label",
+          "rateBps",
+          "basis",
+          "vertical",
+          "active",
+          "registrationNumber",
+          "validFrom",
+          "validTo"
+        ]
+      },
+      "TaxRulePatchInput": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,39}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "rateBps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "margin",
+              "full"
+            ]
+          },
+          "vertical": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "flights",
+                  "hotels",
+                  "packages",
+                  "tours",
+                  "visa",
+                  "travel_addons",
+                  "prime",
+                  "buses",
+                  "rides",
+                  "rentals"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "registrationNumber": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validTo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       },
       "TicketingRun": {
         "type": "object",

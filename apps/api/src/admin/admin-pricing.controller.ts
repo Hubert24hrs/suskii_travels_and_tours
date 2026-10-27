@@ -18,6 +18,11 @@ import {
   markupRulePatchSchema,
   ruleIdParamsSchema,
   ruleListQuerySchema,
+  adminTaxRuleListSchema,
+  adminTaxRuleSchema,
+  taxRuleInputSchema,
+  taxRuleListQuerySchema,
+  taxRulePatchSchema,
 } from './admin-pricing.schemas';
 import { AdminPricingService } from './admin-pricing.service';
 
@@ -146,5 +151,65 @@ export class AdminPricingController {
     @Req() request: Request,
   ): Promise<z.infer<typeof adminFeeRuleSchema>> {
     return this.pricing.updateFee(id, body, staffActor(auth, request));
+  }
+
+  @Get('taxes')
+  @AdminRoute('pricing:manage')
+  @Contract({
+    operationId: 'adminListTaxRules',
+    summary: 'Tax rules by country, with the selling country whose rules apply',
+    tags: TAGS,
+    query: taxRuleListQuerySchema,
+    responses: { 200: adminTaxRuleListSchema },
+    errors: [403],
+  })
+  listTaxes(
+    @Query() query: z.infer<typeof taxRuleListQuerySchema>,
+  ): Promise<z.infer<typeof adminTaxRuleListSchema>> {
+    return this.pricing.listTaxes(query.country);
+  }
+
+  @Post('taxes')
+  @AdminRoute('pricing:manage')
+  @StepUp()
+  @Contract({
+    operationId: 'adminCreateTaxRule',
+    summary: "Add a tax on Suskii's service",
+    description: `Every active rule of the selling country that matches the vertical applies, added to the total (ADR-072). ${CACHE_NOTE}`,
+    tags: TAGS,
+    body: taxRuleInputSchema,
+    responses: { 201: adminTaxRuleSchema },
+    errors: [403, 409],
+    audit: ['pricing.tax_created'],
+  })
+  createTax(
+    @CurrentAuth() auth: AuthContext,
+    @Body() body: z.infer<typeof taxRuleInputSchema>,
+    @Req() request: Request,
+  ): Promise<z.infer<typeof adminTaxRuleSchema>> {
+    return this.pricing.createTax(body, staffActor(auth, request));
+  }
+
+  @Patch('taxes/:id')
+  @AdminRoute('pricing:manage')
+  @StepUp()
+  @Contract({
+    operationId: 'adminUpdateTaxRule',
+    summary: 'Change or deactivate a tax rule',
+    description: `The merged rule is validated like a new one. ${CACHE_NOTE}`,
+    tags: TAGS,
+    params: ruleIdParamsSchema,
+    body: taxRulePatchSchema,
+    responses: { 200: adminTaxRuleSchema },
+    errors: [403, 404, 409],
+    audit: ['pricing.tax_updated'],
+  })
+  updateTax(
+    @CurrentAuth() auth: AuthContext,
+    @Param('id') id: string,
+    @Body() body: z.infer<typeof taxRulePatchSchema>,
+    @Req() request: Request,
+  ): Promise<z.infer<typeof adminTaxRuleSchema>> {
+    return this.pricing.updateTax(id, body, staffActor(auth, request));
   }
 }

@@ -21,6 +21,7 @@ import type {
   MarkupRule,
   PromoCode,
   SalesChannel,
+  TaxRule,
   UserTier,
   Vertical,
 } from '../generated/prisma/client';
@@ -114,6 +115,30 @@ export type PromoData = Pick<
   | 'active'
 >;
 
+/** The selling country's tax rules (ADR-072); the pricer passes only that country's rules. */
+export type TaxRuleData = Pick<
+  TaxRule,
+  | 'id'
+  | 'code'
+  | 'label'
+  | 'rateBps'
+  | 'basis'
+  | 'vertical'
+  | 'active'
+  | 'registrationNumber'
+  | 'validFrom'
+  | 'validTo'
+>;
+
+/** Tax on Suskii's own service: added to the total, shown as its own line (ADR-072). */
+export interface ServiceTax {
+  code: string;
+  label: string;
+  rateBps: number;
+  amount: Money;
+  registrationNumber: string | null;
+}
+
 export interface PromoUsage {
   total: number;
   byUser: number;
@@ -136,6 +161,8 @@ export interface PriceBreakdown {
   taxes: Money;
   fees: { code: string; label: string; amount: Money }[];
   discount: { code: string; amount: Money } | null;
+  /** Tax on Suskii's margin and fees (or the whole price of what it sells as principal). */
+  serviceTaxes: ServiceTax[];
   total: Money;
   /**
    * What Suskii Prime took off this price (markup given back and waived fees), before any promo;
@@ -160,6 +187,8 @@ export interface PricingInput {
   /** Sorted by priority ascending; the first match wins. */
   markupRules: readonly MarkupRuleData[];
   feeRules: readonly FeeRuleData[];
+  /** The selling country's tax rules; none means no tax on our service. */
+  taxRules?: readonly TaxRuleData[];
   promo?: { data: PromoData; usage: PromoUsage } | null;
   fx: Converter;
 }
@@ -236,6 +265,11 @@ function clamp(
   return result;
 }
 
+export function taxMatches(rule: TaxRuleData, ctx: PricingContext): boolean {
+  if (!isInForce(rule, ctx.now)) return false;
+  return rule.vertical === null || rule.vertical === ctx.vertical;
+}
+
 export function checkPromo(
   promo: PromoData,
   usage: PromoUsage,
@@ -272,7 +306,10 @@ export function checkPromo(
  *   3. fees: every matching rule, per booking or per passenger, clamped to caps; fees a member's
  *      plan waives are dropped;
  *   4. promo: percentage or fixed off fare + fees (never taxes), capped, never below zero;
- *   5. total = fare + taxes + fees - discount, which holds exactly by construction.
+ *   5. service taxes (ADR-072): each matching rule on Suskii's margin and fees (`margin`) or on
+ *      fare and fees (`full`), both after the discount and never below zero; rounded half-up;
+ *   6. total = fare + taxes + fees + service taxes - discount, which holds exactly by
+ *      construction.
  * The member saving is the difference with the same offer priced for a signed-in non-member.
  */
 export function priceOffer(input: PricingInput): PricingResult {
@@ -376,8 +413,34 @@ function priceCore(
     }
   }
 
+  const discountAmount = discount ? discount.amount : zero(displayCurrency);
+  const markupShown = markupRuleId
+    ? fx.convert(markup, displayCurrency, 'half-up')
+    : zero(displayCurrency);
+  const taxBase = {
+    margin: maxOf(subtract(add(markupShown, feeTotal), discountAmount), zero(displayCurrency)),
+    full: maxOf(subtract(discountable, discountAmount), zero(displayCurrency)),
+  };
+  const serviceTaxes: ServiceTax[] = (input.taxRules ?? [])
+    .filter((taxRule) => taxMatches(taxRule, ctx))
+    .map((taxRule) => ({
+      code: taxRule.code,
+      label: taxRule.label,
+      rateBps: taxRule.rateBps,
+      amount: percentageOf(taxBase[taxRule.basis], taxRule.rateBps, 'half-up'),
+      registrationNumber: taxRule.registrationNumber,
+    }))
+    .filter((line) => line.amount.minor > 0n);
+
   const subtotal = add(add(fare, taxes), feeTotal);
-  const total = discount ? subtract(subtotal, discount.amount) : subtotal;
+  const taxed = add(
+    subtotal,
+    sum(
+      displayCurrency,
+      serviceTaxes.map((line) => line.amount),
+    ),
+  );
+  const total = subtract(taxed, discountAmount);
 
   return {
     breakdown: {
@@ -386,10 +449,9 @@ function priceCore(
       taxes,
       fees,
       discount,
+      serviceTaxes,
       total,
-      markup: markupRuleId
-        ? { ruleId: markupRuleId, amount: fx.convert(markup, displayCurrency, 'half-up') }
-        : null,
+      markup: markupRuleId ? { ruleId: markupRuleId, amount: markupShown } : null,
       supplierTotal: add(price.base, price.taxes),
       fx: fx.describe(supplierCurrency, displayCurrency),
     },

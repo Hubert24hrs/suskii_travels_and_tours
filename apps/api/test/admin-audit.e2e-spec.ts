@@ -149,7 +149,7 @@ describe('admin audit coverage (e2e)', () => {
     await audited('adminRevokeUserSessions', { id: target.userId }, none);
   });
 
-  it('pricing: markup and fee rules', async () => {
+  it('pricing: markup, fee and tax rules', async () => {
     const markup = await audited('adminCreateMarkupRule', {}, (request) =>
       request.send({
         name: 'Domestic flights',
@@ -197,6 +197,23 @@ describe('admin audit coverage (e2e)', () => {
       }),
     );
     await audited('adminUpdateFeeRule', { id: fee.body.id as string }, (request) =>
+      request.send({ active: false }),
+    );
+    const tax = await audited('adminCreateTaxRule', {}, (request) =>
+      request.send({
+        country: 'NG',
+        code: 'vat',
+        label: 'VAT',
+        rateBps: 750,
+        basis: 'margin',
+        vertical: 'hotels',
+        active: true,
+        registrationNumber: 'TIN 01234567-0001',
+        validFrom: null,
+        validTo: null,
+      }),
+    );
+    await audited('adminUpdateTaxRule', { id: tax.body.id as string }, (request) =>
       request.send({ active: false }),
     );
   });

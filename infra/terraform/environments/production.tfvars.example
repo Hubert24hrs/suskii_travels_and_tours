@@ -65,6 +65,7 @@ api_env = {
   # HOTEL_SUPPLIERS   = "duffel,hotelbeds"
   # HOTELBEDS_API_URL = "https://api.hotelbeds.com"
   PAYMENT_PROVIDERS  = "paystack"
+  TAX_SELLER_COUNTRY = "NG" # whose tax rules price offers (ADR-072); rates in the console
   EMAIL_PROVIDER     = "smtp"
   EMAIL_FROM         = "Suskii Travels <no-reply@suskii.example>"
   SMTP_HOST          = "REPLACE"

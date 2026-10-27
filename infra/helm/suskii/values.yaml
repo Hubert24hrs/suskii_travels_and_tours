@@ -40,6 +40,8 @@ api:
   env:
     LOG_LEVEL: info
     OBJECT_STORAGE: s3
+    # Whose tax rules price every offer (ADR-072); the rates are edited in the console.
+    TAX_SELLER_COUNTRY: NG
   # The edge's client address header (Cloudflare: cf-connecting-ip). Use only when the ingress
   # accepts nothing but the edge's traffic; otherwise set trustProxyHops instead.
   clientIpHeader: cf-connecting-ip

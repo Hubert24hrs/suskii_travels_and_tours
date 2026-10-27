@@ -55,6 +55,7 @@ api_env = {
   FLIGHT_SUPPLIERS     = "mock"
   HOTEL_SUPPLIERS      = "mock"
   PAYMENT_PROVIDERS    = "mock"
+  TAX_SELLER_COUNTRY   = "NG"
   EMAIL_PROVIDER       = "mock"
   PUSH_PROVIDER        = "mock"
   ANTIVIRUS_PROVIDER   = "mock"

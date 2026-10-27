@@ -17,6 +17,20 @@ export const moneySchema = named(
   }),
 );
 
+export const serviceTaxSchema = named(
+  'ServiceTax',
+  z.object({
+    code: z.string(),
+    label: z.string(),
+    rateBps: z.number().int().meta({ description: 'Rate in basis points (750 = 7.5%).' }),
+    amount: moneySchema,
+    registrationNumber: z
+      .string()
+      .nullable()
+      .meta({ description: "The seller's tax registration number, for receipts." }),
+  }),
+);
+
 export const priceSchema = named(
   'Price',
   z.object({
@@ -25,7 +39,13 @@ export const priceSchema = named(
     taxes: moneySchema.meta({ description: 'Taxes and charges collected for the supplier.' }),
     fees: z.array(z.object({ code: z.string(), label: z.string(), amount: moneySchema })),
     discount: z.object({ code: z.string(), amount: moneySchema }).nullable(),
-    total: moneySchema,
+    serviceTaxes: z.array(serviceTaxSchema).default([]).meta({
+      description:
+        "Tax on Suskii's own service (its margin and fees, or the whole price of what it sells as principal); included in total (ADR-072).",
+    }),
+    total: moneySchema.meta({
+      description: 'What the customer pays: fare, taxes, fees and service taxes, less discount.',
+    }),
     memberSaving: moneySchema.nullable().default(null).meta({
       description:
         'What Suskii Prime took off this price, before any promo; null when the buyer is not a member.',
@@ -59,6 +79,13 @@ export function toPriceDto(breakdown: PriceBreakdown): PriceDto {
     discount: breakdown.discount
       ? { code: breakdown.discount.code, amount: toWire(breakdown.discount.amount) }
       : null,
+    serviceTaxes: breakdown.serviceTaxes.map((line) => ({
+      code: line.code,
+      label: line.label,
+      rateBps: line.rateBps,
+      amount: toWire(line.amount),
+      registrationNumber: line.registrationNumber,
+    })),
     total: toWire(breakdown.total),
     memberSaving: breakdown.memberSaving ? toWire(breakdown.memberSaving) : null,
     fx: breakdown.fx,

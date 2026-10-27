@@ -443,6 +443,14 @@ enum AdjustmentType {
   fixed
 }
 
+/// What a tax rule is charged on (ADR-072).
+enum TaxBasis {
+  /// Suskii's markup and fees, less discounts: bookings sold as agent.
+  margin
+  /// Fare and fees, less discounts: products sold as principal.
+  full
+}
+
 enum FeeBasis {
   per_booking
   per_passenger
@@ -506,6 +514,32 @@ model FeeRule {
 
   @@index([vertical, active])
   @@map("fee_rules")
+}
+
+/// Tax on Suskii's own service, per selling country (ADR-072). Edited only from the admin API.
+model TaxRule {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  /// ISO 3166-1 alpha-2 code of the selling entity's country.
+  country            String    @db.Char(2)
+  /// Stable machine code, e.g. "vat".
+  code               String
+  /// Customer-facing label, e.g. "VAT".
+  label              String
+  /// Rate in basis points (750 = 7.5%).
+  rateBps            Int       @map("rate_bps")
+  basis              TaxBasis
+  /// Null applies the rule to every vertical.
+  vertical           Vertical?
+  active             Boolean   @default(true)
+  /// The seller's tax registration number, printed on receipts.
+  registrationNumber String?   @map("registration_number")
+  validFrom          DateTime? @map("valid_from") @db.Timestamptz(3)
+  validTo            DateTime? @map("valid_to") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([country, active])
+  @@map("tax_rules")
 }
 
 model PromoCode {
