@@ -36,8 +36,14 @@ export const TEST_APP = {
   appleAppId: 'TEAMID1234.com.suskii.travels.e2e',
 } as const;
 
+/**
+ * The API listens on the port of the inlined API URL, unless E2E_API_PORT names another: the
+ * hosted test server (ADR-066) inlines its public https address and reaches the API through a
+ * local proxy.
+ */
 export const API_PORT = Number(
-  new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000').port || 80,
+  process.env.E2E_API_PORT ??
+    (new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000').port || 80),
 );
 
 /**
@@ -256,18 +262,29 @@ export async function startStack(): Promise<Stack> {
       ...(process.env.E2E_RATE_LIMIT_ENABLED
         ? { RATE_LIMIT_ENABLED: process.env.E2E_RATE_LIMIT_ENABLED }
         : {}),
+      // Behind Cloudflare's tunnel every request comes from the local proxy; the edge's header
+      // names the visitor, so each phone gets its own rate limits (ADR-066).
+      ...(process.env.E2E_CLIENT_IP_HEADER
+        ? { CLIENT_IP_HEADER: process.env.E2E_CLIENT_IP_HEADER }
+        : {}),
     };
     const api = start('api', ['dist/main.js'], API_DIR, apiEnv);
     children.push(api);
     await waitFor(`${apiUrl}/ready`, api, 'api');
 
-    await run('worker-refresh', ['dist/refresh-once.js'], WORKER_DIR, {
+    const workerEnv = {
       ...base,
       LOG_LEVEL: 'info',
       REDIS_URL: redisUrl,
       API_INTERNAL_URL: apiUrl,
       INTERNAL_API_TOKEN: internalToken,
-    });
+    };
+    await run('worker-refresh', ['dist/refresh-once.js'], WORKER_DIR, workerEnv);
+    // A long-running stack (the hosted test server) also runs the worker's sweeps: expiry,
+    // ticketing retries, installments, reminders and ride dispatch.
+    if (process.env.E2E_WORKER === 'true') {
+      children.push(start('worker', ['dist/main.js'], WORKER_DIR, workerEnv));
+    }
 
     const web = start(
       'web',
@@ -296,7 +313,14 @@ export async function startStack(): Promise<Stack> {
           'demo-drivers',
           [apiRequire.resolve('tsx/cli'), 'scripts/demo-drivers.ts'],
           API_DIR,
-          { ...apiEnv, LOG_LEVEL: 'warn' },
+          {
+            ...apiEnv,
+            LOG_LEVEL: 'warn',
+            // Without a terminal, a local page takes the rider's PIN (the hosted test server).
+            ...(process.env.E2E_DEMO_DRIVERS_PIN_PORT
+              ? { DEMO_DRIVERS_PIN_PORT: process.env.E2E_DEMO_DRIVERS_PIN_PORT }
+              : {}),
+          },
           process.stdin.isTTY,
         ),
       );
