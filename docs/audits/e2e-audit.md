@@ -11,6 +11,25 @@ release cooldown; `pnpm audit --prod --audit-level high` passes on `90245c5`. Wh
 accepted moderate advisories in build-time and Expo tooling (F21, F22) and three informational
 notes (F23, F24, F34).
 
+## Re-verification, 2026-10-27
+
+Re-run at `aac132e` (partner supply and partner offers merged), on the same local setup (no
+Docker daemon). Every result below was produced that day; none is copied from the first audit.
+
+| Check                                         | Result                                                                                                                                                                                                                                  |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint, typecheck, unit tests (turbo `--force`) | 34 of 34 tasks                                                                                                                                                                                                                          |
+| API e2e                                       | 45 of 46 files, 487 of 492 tests. The 5 failures are `object-storage.e2e-spec.ts`, which starts Versity's S3 gateway through Testcontainers and needs Docker. CI ran it green on PR #34; the merged tree hashes to the same test inputs |
+| Admin e2e                                     | 14 of 14 (the axe walk over all 25 console pages now has a 2-minute budget: it ran out at the last page beside the other journeys, and takes about 50 s alone)                                                                          |
+| Web e2e incl. Lighthouse                      | 85 passed (PR #35 head, same day)                                                                                                                                                                                                       |
+| `pnpm audit --prod --audit-level high`        | passes; the open moderate and low advisories are listed in `docs/security/dependency-exceptions.md`                                                                                                                                     |
+| OpenAPI drift (`pnpm generate:api`)           | none                                                                                                                                                                                                                                    |
+| Security checklist (`--check`)                | 277 requirements mapped, up to date                                                                                                                                                                                                     |
+| CI on the merged tree                         | all 8 checks green: lint, tests and builds; Android build with the Maestro critical path (partner card on the trip); iOS build; Semgrep, gitleaks, Trivy and SBOM; ZAP baseline; k6                                                     |
+| Live supplier (Duffel test mode)              | 56 flight offers; our API booked one to a confirmed order with an e-ticket, cancelled one with a refund, sold a bag and booked two seats from one search. Duffel Stays answered 403 (not enabled on the account)                        |
+
+The findings table below is unchanged: no new finding, F21 and F22 stay accepted.
+
 ## Environment
 
 | Item      | Value                                                                                   |
