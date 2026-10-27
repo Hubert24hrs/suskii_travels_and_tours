@@ -97,6 +97,7 @@ export function AccountScreen() {
             </View>
           ) : null}
           <Button
+            testID="account-sign-out"
             variant="ghost"
             loading={signingOut}
             onPress={() => {
@@ -115,7 +116,11 @@ export function AccountScreen() {
           <Button testID="account-sign-in" onPress={() => router.push('/sign-in')}>
             {t('mobile.account.signIn')}
           </Button>
-          <Button variant="ghost" onPress={() => router.push('/register')}>
+          <Button
+            testID="account-register"
+            variant="ghost"
+            onPress={() => router.push('/register')}
+          >
             {t('mobile.account.register')}
           </Button>
         </Card>
