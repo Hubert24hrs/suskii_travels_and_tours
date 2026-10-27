@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Partner sandbox check (2026-10-27)
+
+#### Added
+
+- **`partner-sandbox.yml` and `sandbox:partners`.** A manual, read-only check that calls
+  Hotelbeds' evaluation host, Viator's Partner API and the Travelpayouts Partner Links API through
+  our adapters with the owner's secrets, and prints real hotels with their cheapest stays and a
+  rate check, tours with prices, and which affiliate programmes got a tracked link. A partner
+  without keys is named and skipped; the run fails at its first step when none is set. CI never
+  calls a partner.
+
 ### Partner offers on the website and in the app (2026-10-27)
 
 #### Added
