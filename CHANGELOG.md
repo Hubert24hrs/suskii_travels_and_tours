@@ -6,6 +6,60 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### SUSKII T&T redesign, phone testing and sign-in (2026-10-27)
+
+#### Added
+
+- **Hosted test server (ADR-066).** `test-server.yml` runs the e2e stack on a GitHub runner for up
+  to 5.5 hours behind one Cloudflare quick tunnel.
+  - The stack is the API, website, worker and demo drivers, with mock suppliers and payments.
+  - The address goes into `test-server.json` on the `test-server` pre-release.
+  - A single-origin proxy (`scripts/test-server-proxy.mjs`) serves the API, the website and the
+    ride WebSocket on one address.
+  - Demo drivers take the rider's PIN on `/demo-drivers` when no terminal is attached.
+- **The test app finds it.** The test APK reads the address file at launch and uses that server.
+  The address is remembered for an offline start until it expires. A server chosen under Test
+  server still wins.
+  - When the server cannot be reached, the banner offers to start it, and Try again looks for the
+    file again.
+- **Sign in after registering (ADR-067).** A new account signs straight in on the website and in
+  the app. An email that already had an account says so.
+- **Google and Apple sign-in.** "Continue with Google" and "Continue with Apple" appear on the
+  website and in the app when the API offers them (`GET /v1/auth/social/providers`).
+  - The website redirects to the provider and reads the ID token on `/sign-in/callback`.
+  - The app uses the system Apple sheet on an iPhone. Otherwise it goes through `/sign-in/app`
+    in the system browser, with a nonce bound to a secret only the app holds (`binding` and
+    `bindingSecret`).
+  - Test stacks use the mock provider (`SOCIAL_MOCK_ENABLED`, refused in production): the button
+    asks which email to sign in as.
+- **Fingerprint sign-in in the app.**
+  - **Offer.** Shown once after signing in, and switchable under Account.
+  - **API.** `POST /v1/me/device-credentials` (within 10 minutes of signing in, five phones at
+    most), `POST /v1/auth/device`, `GET` and `DELETE /v1/me/device-credentials`.
+  - **Storage.** The secret stays in the secure store behind the biometric prompt; the API keeps
+    an HMAC.
+  - **Lifetime.** Credentials end with every session of the account. New table
+    `device_credentials`, with a 30-day retention rule for revoked rows.
+
+#### Changed
+
+- **Redesign from the logo (ADR-068).**
+  - **Colours.** Tokens and `PROJECT_SPEC.json` take the logo's red for actions (`#D11F0E`), its
+    blue for headings (`#0B3FBF`), the cart tile's orange for promotions (`#F7A21B`) and a warm
+    white background. The contrast contract still passes.
+  - **Assets.** The logo is the app icon, adaptive icon and splash, and the website and console
+    icon. `scripts/brand-assets.mjs` builds them from `brand/suskii-tt-logo.webp`.
+  - **Name.** The app is called SUSKII T&T, the brand short name is SUSKII T&T, and the website
+    header and the app's Home show the logo.
+
+#### Fixed
+
+- **Pickers open.** The date, traveller, room and filter pickers in the app now open: the sheet
+  uses React Native's own modal instead of `@gorhom/bottom-sheet`, which never presented on some
+  phones.
+- **Place search.** Place fields say when places could not load instead of "No matching airports
+  or cities", and ask for a pick from the list instead of "This field is required".
+
 ### Airline schedule changes (2026-10-26)
 
 #### Added
