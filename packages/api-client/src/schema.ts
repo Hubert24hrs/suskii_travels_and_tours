@@ -970,6 +970,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/partners/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Affiliate clicks, conversions and commission per partner for a period
+         * @description Defaults to the last 30 days; at most 366. Commission is summed per currency from network postbacks and never converted; cancelled conversions earn nothing.
+         */
+        get: operations["adminGetPartnerSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/payment-reviews": {
         parameters: {
             query?: never;
@@ -2582,6 +2602,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{bookingId}/partner-offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Partner offers for a booked trip
+         * @description Offers for the trip's destination and dates (transfers, a car, an eSIM, insurance, activities). Empty for a cancelled or past trip. Owners use their session, guests the booking's access token. 404 while partner offers are off.
+         */
+        get: operations["getBookingPartnerOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{bookingId}/payments": {
         parameters: {
             query?: never;
@@ -3569,6 +3609,26 @@ export interface paths {
         };
         /** Sort, filter and page the offers of a search */
         get: operations["listFlightOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/go/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open a partner offer
+         * @description Records the click and redirects (302) to the partner, with the network's tracking. Only follows links this API sealed, and only to the partner's own hosts. An expired link still reaches the partner without naming the viewer.
+         */
+        get: operations["followPartnerLink"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4781,6 +4841,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/partners/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Car rental, transfers, activities, eSIMs and insurance from partners for a place
+         * @description Partner pages for each category and priced activities for the place and dates. The traveller books on the partner site through `href`; Suskii earns a commission and does not take the payment. 404 while partner offers are off.
+         */
+        get: operations["getPartnerOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/partners/postbacks/{network}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Record a conversion reported by a network (GET)
+         * @description Called by the affiliate network with its macros mapped to the documented parameters and `token` set to the postback secret. Status words: processing, pending, booked; paid, confirmed, approved; cancelled, canceled, rejected, declined. 400 for a malformed postback (the network retries), 404 while the network has no postback secret.
+         */
+        get: operations["partnerPostbackGet"];
+        put?: never;
+        /**
+         * Record a conversion reported by a network (POST)
+         * @description The same as the GET form with the fields in a JSON body and `token` in the query string.
+         */
+        post: operations["partnerPostback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/mock/{reference}": {
         parameters: {
             query?: never;
@@ -5897,6 +6001,37 @@ export interface components {
         };
         AdminMarkupRuleList: {
             rules: components["schemas"]["AdminMarkupRule"][];
+        };
+        AdminPartnerSummary: {
+            range: {
+                /** Format: date */
+                from: string;
+                /** Format: date */
+                to: string;
+            };
+            programs: {
+                programId: string;
+                partnerName: string;
+                /** @enum {string} */
+                category: "car_rental" | "transfer" | "activity" | "esim" | "insurance";
+                clicks: number;
+                conversions: {
+                    pending: number;
+                    confirmed: number;
+                    cancelled: number;
+                };
+                confirmedCommission: components["schemas"]["Money"][];
+                pendingCommission: components["schemas"]["Money"][];
+            }[];
+            unattributed: {
+                conversions: {
+                    pending: number;
+                    confirmed: number;
+                    cancelled: number;
+                };
+                confirmedCommission: components["schemas"]["Money"][];
+                pendingCommission: components["schemas"]["Money"][];
+            };
         };
         AdminPaymentReview: {
             /** Format: uuid */
@@ -8458,6 +8593,37 @@ export interface components {
         PackageList: {
             packages: components["schemas"]["PackageCard"][];
         };
+        PartnerOffer: {
+            id: string;
+            programId: string;
+            /** @enum {string} */
+            category: "car_rental" | "transfer" | "activity" | "esim" | "insurance";
+            partnerName: string;
+            title: string | null;
+            imageUrl: string | null;
+            rating: {
+                average: number;
+                count: number;
+            } | null;
+            durationMinutes: number | null;
+            fromPrice: components["schemas"]["Money"] | null;
+            href: string;
+            sample: boolean;
+        };
+        PartnerOffers: {
+            trip: {
+                countryCode: string;
+                cityName: string | null;
+                startDate: string | null;
+                endDate: string | null;
+            };
+            offers: components["schemas"]["PartnerOffer"][];
+            partial: boolean;
+        };
+        PartnerPostbackResult: {
+            /** @enum {string} */
+            status: "pending" | "confirmed" | "cancelled";
+        };
         PassengerIssue: {
             index: number | null;
             path: string[];
@@ -9114,6 +9280,8 @@ export interface components {
             "reconciliation-discrepancies": number;
             "rental-licences": number;
             "rental-photos": number;
+            "partner-clicks": number;
+            "partner-conversions": number;
         };
         RevokedSessions: {
             revoked: number;
@@ -12279,6 +12447,35 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetPartnerSummary: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPartnerSummary"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -15505,6 +15702,38 @@ export interface operations {
             503: components["responses"]["Problem503"];
         };
     };
+    getBookingPartnerOffers: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerOffers"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     startBookingPayment: {
         parameters: {
             query?: never;
@@ -17218,6 +17447,31 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    followPartnerLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -19443,6 +19697,122 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getPartnerOffers: {
+        parameters: {
+            query: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                countryCode: string;
+                cityName?: string;
+                startDate?: string;
+                endDate?: string;
+                categories?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerOffers"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    partnerPostbackGet: {
+        parameters: {
+            query: {
+                token: string;
+                id: string;
+                click?: string;
+                status: string;
+                price?: string;
+                commission?: string;
+                currency?: string;
+                commission_currency?: string;
+            };
+            header?: never;
+            path: {
+                network: "travelpayouts";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerPostbackResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    partnerPostback: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                network: "travelpayouts";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: string;
+                    click?: string;
+                    status: string;
+                    price?: string;
+                    commission?: string;
+                    currency?: string;
+                    commission_currency?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerPostbackResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

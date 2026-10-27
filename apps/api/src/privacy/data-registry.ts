@@ -540,6 +540,19 @@ export const DATA_REGISTRY = {
     retention: { kind: 'rule', rule: 'rental-photos' },
     note: 'Condition photos at check-out and check-in: files and keys destroyed RENTAL_PHOTO_RETENTION_DAYS after return (dispute window), or at deletion.',
   },
+  // --- Partner supply (ADR-070) -------------------------------------------------------------
+  PartnerClick: {
+    section: 'activity',
+    deletion: 'redact',
+    retention: { kind: 'rule', rule: 'partner-clicks' },
+    note: 'Outbound partner clicks: programme, booking and channel ids, no IP, browser or URL. The user id is cleared at deletion.',
+  },
+  PartnerConversion: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'partner-conversions' },
+    note: 'Commission reported by a partner network: its booking id, amounts and status. No personal data; kept for FINANCIAL_RECORDS_RETENTION_YEARS.',
+  },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 
 export type RegisteredModel = keyof typeof DATA_REGISTRY;

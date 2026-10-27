@@ -79,6 +79,14 @@ api_env = {
   ADMIN_IP_ALLOWLIST = "REPLACE_OFFICE_OR_VPN_CIDR"
   OPS_ALERT_EMAIL    = "REPLACE"
   SENTRY_DSN         = "REPLACE"
+  # Partner offers (ADR-069, ADR-070) are off unless set. Add "TRAVELPAYOUTS_TOKEN",
+  # "TRAVELPAYOUTS_POSTBACK_SECRET" and "VIATOR_API_KEY" to extra_secrets, set them in Secret
+  # Manager, then uncomment:
+  # PARTNER_OFFERS_ENABLED = "true"
+  # AFFILIATE_NETWORK      = "travelpayouts"
+  # TRAVELPAYOUTS_MARKER   = "REPLACE"
+  # TRAVELPAYOUTS_TRS      = "REPLACE"
+  # ACTIVITY_PARTNER       = "viator"
   # AI trip search (ADR-061) is off unless set. To offer it, add "LLM_API_KEY" to extra_secrets,
   # set its value in Secret Manager, run the eval (ai-eval.yml) and uncomment:
   # AI_SEARCH_ENABLED = "true"

@@ -152,6 +152,19 @@ describe('retention sweep (e2e)', () => {
       ],
     });
 
+    // Partner clicks go after 13 months; commission records after the financial period.
+    const click = { programId: 'ekta', category: 'insurance' as const, network: 'mock' as const };
+    await ctx.prisma.partnerClick.createMany({ data: [{ ...click, createdAt: ago(500) }, click] });
+    await ctx.prisma.partnerConversion.createMany({
+      data: [
+        { network: 'travelpayouts', externalId: 'retention-old', status: 'confirmed' },
+        { network: 'travelpayouts', externalId: 'retention-new', status: 'pending' },
+      ],
+    });
+    await ctx.prisma.$executeRaw`
+      UPDATE partner_conversions SET updated_at = now() - interval '8 years'
+       WHERE external_id = 'retention-old'`;
+
     const sweeps = () =>
       ctx.prisma.auditLog.count({ where: { action: 'retention.swept', actorType: 'system' } });
     const sweepsBefore = await sweeps();
@@ -165,7 +178,13 @@ describe('retention sweep (e2e)', () => {
       'newsletter-pending': 1,
       'cookie-consents': 1,
       'closed-bookings': 1,
+      'partner-clicks': 1,
+      'partner-conversions': 1,
     });
+    expect(await ctx.prisma.partnerClick.count()).toBe(1);
+    expect((await ctx.prisma.partnerConversion.findMany()).map((row) => row.externalId)).toEqual([
+      'retention-new',
+    ]);
     expect(first['verification-tokens']).toBeGreaterThanOrEqual(2);
     expect(first['idempotency-keys']).toBeGreaterThanOrEqual(4);
     // Every quote except the two that were booked.

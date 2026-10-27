@@ -4878,6 +4878,69 @@
         ]
       }
     },
+    "/v1/admin/partners/summary": {
+      "get": {
+        "operationId": "adminGetPartnerSummary",
+        "summary": "Affiliate clicks, conversions and commission per partner for a period",
+        "description": "Defaults to the last 30 days; at most 366. Commission is summed per currency from network postbacks and never converted; cancelled conversions earn nothing.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPartnerSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "reports:read"
+        ]
+      }
+    },
     "/v1/admin/payment-reviews": {
       "get": {
         "operationId": "adminListPaymentReviews",
@@ -12115,6 +12178,82 @@
         }
       }
     },
+    "/v1/bookings/{bookingId}/partner-offers": {
+      "get": {
+        "operationId": "getBookingPartnerOffers",
+        "summary": "Partner offers for a booked trip",
+        "description": "Offers for the trip's destination and dates (transfers, a car, an eSIM, insurance, activities). Empty for a cancelled or past trip. Owners use their session, guests the booking's access token. 404 while partner offers are off.",
+        "tags": [
+          "Partners"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerOffers"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/bookings/{bookingId}/payments": {
       "post": {
         "operationId": "startBookingPayment",
@@ -15798,6 +15937,49 @@
           },
           "410": {
             "$ref": "#/components/responses/Problem410"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/go/{token}": {
+      "get": {
+        "operationId": "followPartnerLink",
+        "summary": "Open a partner offer",
+        "description": "Records the click and redirects (302) to the partner, with the network's tracking. Only follows links this API sealed, and only to the partner's own hosts. An expired link still reaches the partner without naming the viewer.",
+        "tags": [
+          "Partners"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
           },
           "426": {
             "$ref": "#/components/responses/Problem426"
@@ -20021,6 +20203,362 @@
           },
           "404": {
             "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/partners/offers": {
+      "get": {
+        "operationId": "getPartnerOffers",
+        "summary": "Car rental, transfers, activities, eSIMs and insurance from partners for a place",
+        "description": "Partner pages for each category and priced activities for the place and dates. The traveller books on the partner site through `href`; Suskii earns a commission and does not take the payment. 404 while partner offers are off.",
+        "tags": [
+          "Partners"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "countryCode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          {
+            "name": "cityName",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "categories",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z_]+(,[a-z_]+)*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerOffers"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/partners/postbacks/{network}": {
+      "get": {
+        "operationId": "partnerPostbackGet",
+        "summary": "Record a conversion reported by a network (GET)",
+        "description": "Called by the affiliate network with its macros mapped to the documented parameters and `token` set to the postback secret. Status words: processing, pending, booked; paid, confirmed, approved; cancelled, canceled, rejected, declined. 400 for a malformed postback (the network retries), 404 while the network has no postback secret.",
+        "tags": [
+          "Partners"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "network",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "travelpayouts"
+              ]
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "click",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            }
+          },
+          {
+            "name": "price",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            }
+          },
+          {
+            "name": "commission",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 3
+            }
+          },
+          {
+            "name": "commission_currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 3
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerPostbackResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "post": {
+        "operationId": "partnerPostback",
+        "summary": "Record a conversion reported by a network (POST)",
+        "description": "The same as the GET form with the fields in a JSON body and `token` in the query string.",
+        "tags": [
+          "Partners"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "network",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "travelpayouts"
+              ]
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "click": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "status": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                  },
+                  "price": {
+                    "type": "string",
+                    "maxLength": 32
+                  },
+                  "commission": {
+                    "type": "string",
+                    "maxLength": 32
+                  },
+                  "currency": {
+                    "type": "string",
+                    "maxLength": 3
+                  },
+                  "commission_currency": {
+                    "type": "string",
+                    "maxLength": 3
+                  }
+                },
+                "required": [
+                  "id",
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerPostbackResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
           },
           "426": {
             "$ref": "#/components/responses/Problem426"
@@ -25078,6 +25616,161 @@
         },
         "required": [
           "rules"
+        ],
+        "additionalProperties": false
+      },
+      "AdminPartnerSummary": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false
+          },
+          "programs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "programId": {
+                  "type": "string"
+                },
+                "partnerName": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "car_rental",
+                    "transfer",
+                    "activity",
+                    "esim",
+                    "insurance"
+                  ]
+                },
+                "clicks": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "conversions": {
+                  "type": "object",
+                  "properties": {
+                    "pending": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "confirmed": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "cancelled": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "pending",
+                    "confirmed",
+                    "cancelled"
+                  ],
+                  "additionalProperties": false
+                },
+                "confirmedCommission": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Money"
+                  }
+                },
+                "pendingCommission": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Money"
+                  }
+                }
+              },
+              "required": [
+                "programId",
+                "partnerName",
+                "category",
+                "clicks",
+                "conversions",
+                "confirmedCommission",
+                "pendingCommission"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "unattributed": {
+            "type": "object",
+            "properties": {
+              "conversions": {
+                "type": "object",
+                "properties": {
+                  "pending": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "confirmed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "cancelled": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "pending",
+                  "confirmed",
+                  "cancelled"
+                ],
+                "additionalProperties": false
+              },
+              "confirmedCommission": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Money"
+                }
+              },
+              "pendingCommission": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Money"
+                }
+              }
+            },
+            "required": [
+              "conversions",
+              "confirmedCommission",
+              "pendingCommission"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "range",
+          "programs",
+          "unattributed"
         ],
         "additionalProperties": false
       },
@@ -37702,6 +38395,191 @@
         ],
         "additionalProperties": false
       },
+      "PartnerOffer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "programId": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "car_rental",
+              "transfer",
+              "activity",
+              "esim",
+              "insurance"
+            ]
+          },
+          "partnerName": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "average": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "average",
+                  "count"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "durationMinutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fromPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "href": {
+            "type": "string"
+          },
+          "sample": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "programId",
+          "category",
+          "partnerName",
+          "title",
+          "imageUrl",
+          "rating",
+          "durationMinutes",
+          "fromPrice",
+          "href",
+          "sample"
+        ],
+        "additionalProperties": false
+      },
+      "PartnerOffers": {
+        "type": "object",
+        "properties": {
+          "trip": {
+            "type": "object",
+            "properties": {
+              "countryCode": {
+                "type": "string"
+              },
+              "cityName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startDate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "endDate": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "countryCode",
+              "cityName",
+              "startDate",
+              "endDate"
+            ],
+            "additionalProperties": false
+          },
+          "offers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartnerOffer"
+            }
+          },
+          "partial": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "trip",
+          "offers",
+          "partial"
+        ],
+        "additionalProperties": false
+      },
+      "PartnerPostbackResult": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
       "PassengerIssue": {
         "type": "object",
         "properties": {
@@ -41121,6 +41999,16 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "partner-clicks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "partner-conversions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -41147,7 +42035,9 @@
           "driver-payouts",
           "reconciliation-discrepancies",
           "rental-licences",
-          "rental-photos"
+          "rental-photos",
+          "partner-clicks",
+          "partner-conversions"
         ],
         "additionalProperties": false
       },

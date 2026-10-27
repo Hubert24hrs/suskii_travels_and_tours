@@ -42,6 +42,9 @@ export const RETENTION_RULES = [
   'reconciliation-discrepancies',
   'rental-licences',
   'rental-photos',
+  // Partner supply (ADR-070).
+  'partner-clicks',
+  'partner-conversions',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -83,6 +86,8 @@ export const RETENTION_DAYS = {
   'driver-documents': 90,
   /** After the car came back or the rental ended without one: the licence served its purpose. */
   'rental-licences': 30,
+  /** Outbound partner clicks: 13 months, long enough for a network to report late bookings. */
+  'partner-clicks': 400,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -92,6 +97,7 @@ export const RETENTION_DAYS = {
     | 'driver-payouts'
     | 'reconciliation-discrepancies'
     | 'rental-photos'
+    | 'partner-conversions'
   >,
   number
 >;
@@ -248,6 +254,19 @@ export class RetentionService {
           where: {
             status: { not: 'pending' },
             createdAt: { lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS) },
+          },
+        }),
+      ),
+      'partner-clicks': counts(
+        await this.prisma.partnerClick.deleteMany({
+          where: { createdAt: { lt: before('partner-clicks') } },
+        }),
+      ),
+      // Commission records are revenue: kept for the financial period after their last change.
+      'partner-conversions': counts(
+        await this.prisma.partnerConversion.deleteMany({
+          where: {
+            updatedAt: { lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS) },
           },
         }),
       ),

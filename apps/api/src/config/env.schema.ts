@@ -338,6 +338,39 @@ export const envSchema = z
     /** Daily spend caps in micro-dollars: per user or guest, and for everyone together. */
     AI_SEARCH_USER_DAILY_MICROUSD: z.coerce.number().int().min(0).default(50_000),
     AI_SEARCH_GLOBAL_DAILY_MICROUSD: z.coerce.number().int().min(0).default(20_000_000),
+    /**
+     * Partner offers and affiliate tracking (ADR-069, ADR-070): on outside production, off in
+     * production unless set. The mock network and mock activities only outside production unless
+     * ALLOW_MOCK_PROVIDERS.
+     */
+    PARTNER_OFFERS_ENABLED: booleanish.optional(),
+    AFFILIATE_NETWORK: z.enum(['mock', 'travelpayouts']).default('mock'),
+    TRAVELPAYOUTS_API_URL: z.url().default('https://api.travelpayouts.com'),
+    /** Travelpayouts API token (Partner Links API). */
+    TRAVELPAYOUTS_TOKEN: z.string().min(1).optional(),
+    /** The account's partner marker and the project id (`trs`), from the dashboard. */
+    TRAVELPAYOUTS_MARKER: z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{1,40}$/)
+      .optional(),
+    TRAVELPAYOUTS_TRS: z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{1,40}$/)
+      .optional(),
+    /** Shared secret in the postback URL set in the network dashboard (`?token=`). */
+    TRAVELPAYOUTS_POSTBACK_SECRET: z.string().min(24).optional(),
+    /** Tours and activities with prices (Viator Partner API, Basic Access). */
+    ACTIVITY_PARTNER: z.enum(['mock', 'viator']).default('mock'),
+    VIATOR_API_URL: z.url().default('https://api.viator.com/partner'),
+    VIATOR_API_KEY: z.string().min(1).optional(),
+    /** Tags Viator's returned product links, to match Viator's campaign reports. */
+    VIATOR_CAMPAIGN: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,40}$/)
+      .default('suskii'),
+    PARTNER_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(5000),
+    /** How long an offer link stays valid after it was shown. */
+    PARTNER_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
     /** Driver identity checks and payouts: mock adapters until the owner picks providers. */
     KYC_PROVIDER: z.enum(['mock']).default('mock'),
     PAYOUT_PROVIDER: z.enum(['mock']).default('mock'),
@@ -543,6 +576,13 @@ export const envSchema = z
       if (!env.STRIPE_WEBHOOK_SECRET)
         require('STRIPE_WEBHOOK_SECRET', 'is required when PAYMENT_PROVIDERS includes stripe');
     }
+    if (env.AFFILIATE_NETWORK === 'travelpayouts') {
+      for (const key of ['TRAVELPAYOUTS_TOKEN', 'TRAVELPAYOUTS_MARKER'] as const) {
+        if (!env[key]) require(key, 'is required when AFFILIATE_NETWORK is travelpayouts');
+      }
+    }
+    if (env.ACTIVITY_PARTNER === 'viator' && !env.VIATOR_API_KEY)
+      require('VIATOR_API_KEY', 'is required when ACTIVITY_PARTNER is viator');
     if (env.OBJECT_STORAGE === 's3') {
       for (const key of [
         'OBJECT_STORAGE_ENDPOINT',
@@ -605,6 +645,8 @@ export const envSchema = z
       'STRIPE_API_URL',
       'DUFFEL_API_URL',
       'HOTELBEDS_API_URL',
+      'TRAVELPAYOUTS_API_URL',
+      'VIATOR_API_URL',
     ] as const) {
       if (!env[key].startsWith('https://')) require(key, 'must use https in production');
     }
@@ -629,6 +671,15 @@ export const envSchema = z
     // AI trip search is off in production unless set (ADR-061); when on it needs a real model.
     if (env.AI_SEARCH_ENABLED && !env.ALLOW_MOCK_PROVIDERS && env.LLM_PROVIDER === 'mock')
       require('LLM_PROVIDER', 'the mock model is not allowed in production');
+    // Partner offers are off in production unless set (ADR-070); when on they need real partners.
+    if (env.PARTNER_OFFERS_ENABLED && !env.ALLOW_MOCK_PROVIDERS) {
+      if (env.AFFILIATE_NETWORK === 'mock')
+        require('AFFILIATE_NETWORK', 'the mock network earns nothing; it is not allowed in production');
+      if (env.ACTIVITY_PARTNER === 'mock')
+        require('ACTIVITY_PARTNER', 'mock activities are not allowed in production');
+    }
+    if (env.AFFILIATE_NETWORK === 'travelpayouts' && !env.TRAVELPAYOUTS_POSTBACK_SECRET)
+      require('TRAVELPAYOUTS_POSTBACK_SECRET', 'is required in production: conversions are recorded from postbacks');
     // Cars products are off in production unless set; enabled ones need their real providers.
     if (env.CARS_BUSES_ENABLED && !env.CARS_TICKET_SIGNING_KEY)
       require('CARS_TICKET_SIGNING_KEY', 'is required in production when buses are enabled');
