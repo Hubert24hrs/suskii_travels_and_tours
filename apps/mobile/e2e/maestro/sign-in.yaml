@@ -35,11 +35,12 @@ tags:
 - tapOn:
     id: social-mock-email
 - inputText: maestro.google@example.com
-- hideKeyboard
+# Enter ends the field and closes the keyboard; Back (hideKeyboard) could close the dialog.
+- pressKey: Enter
 - tapOn:
     id: social-mock-name
 - inputText: Ada Maestro
-- hideKeyboard
+- pressKey: Enter
 - tapOn:
     id: social-mock-submit
 # A phone with a fingerprint is offered fingerprint sign-in first; the emulator usually has none.
@@ -82,7 +83,7 @@ tags:
 - tapOn:
     id: social-mock-email
 - inputText: maestro.google@example.com
-- hideKeyboard
+- pressKey: Enter
 - tapOn:
     id: social-mock-submit
 - runFlow:
