@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Payment methods at checkout (2026-10-27)
+
+#### Added
+
+- **Choose how to pay (ADR-074).** Checkout lists methods instead of payment companies: card,
+  bank transfer, USSD, mobile money, Apple Pay or Google Pay (`apple_google_pay`) and cash at a
+  bank or POS agent (`agent`), with a short hint under the chosen one. Only the methods that work
+  in the booking's currency are listed.
+- **Methods per provider and currency.** `PaymentProvider.methodsFor(currency)`: Paystack takes
+  transfers, USSD, agent payments and Apple Pay in naira and mobile money in cedis and shillings;
+  Flutterwave the same without Apple Pay or Google Pay; Stripe cards with Apple Pay and Google
+  Pay everywhere; the mock every method.
+- **The provider's page opens on the chosen method** (Paystack `channels`, Flutterwave
+  `payment_options`). Stripe Checkout requests 3D Secure whenever the card's bank or strong
+  customer authentication requires it.
+- **Routing by method.** `POST /v1/bookings/{id}/payments` takes `method`; the first provider in
+  `PAYMENT_PROVIDERS` order that takes it is charged, and 422 `payment-method-unavailable`
+  answers a method no enabled provider takes. `payment.created` audits the method.
+
+#### Changed
+
+- `PaymentOptions` gains `methods` (additive). `providers` and the request's `provider` stay for
+  older app builds, which keep working.
+
 ### Refund offer for airline changes (2026-10-27)
 
 #### Added
