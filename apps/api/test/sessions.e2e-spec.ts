@@ -160,6 +160,9 @@ describe('sessions: limits, staff lifetimes and step-up (e2e)', () => {
         'adminCreateFeeRule',
         'adminCreateMarkupRule',
         'adminCreatePrimePlan',
+        // Tax rules change every price customers see (ADR-072).
+        'adminCreateTaxRule',
+        'adminUpdateTaxRule',
         'adminDisableUser',
         'adminRejectPaymentReview',
         'adminResetUserMfa',
