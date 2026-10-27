@@ -2,7 +2,8 @@
  * Demo drivers for trying rides on a local or test stack (ADR-056). Sample drivers from
  * `db:seed:demo` come online near each waiting ride, accept it, drive to the pick-up and along the
  * route, and complete it, through the same services as a driver's phone. When a driver arrives,
- * type the PIN shown in the rider's app (as a real driver hears it from the rider). Refuses to
+ * type the PIN shown in the rider's app (as a real driver hears it from the rider), in the terminal
+ * or, with DEMO_DRIVERS_PIN_PORT and no terminal, on a local page (`/demo-drivers`). Refuses to
  * run with NODE_ENV=production. Needs the API's build output (`pnpm build`, or `pnpm dev` running)
  * and its configuration (the repo .env in development).
  *
@@ -23,6 +24,7 @@ import type * as PrismaSource from '../src/infra/prisma.service';
 import type * as DispatchSource from '../src/rides/ride-dispatch.service';
 import type * as DriverSource from '../src/rides/ride-driver.service';
 
+import { createPinPage, PIN_PAGE_PATH } from './demo-driver-pin-page';
 import {
   DemoDriverSimulator,
   describeError,
@@ -139,12 +141,19 @@ async function main(): Promise<void> {
     throw new Error('No sample drivers: run pnpm --filter @suskii/api db:seed:demo first');
   }
   const terminal = process.stdin.isTTY ? terminalPins() : null;
+  // Without a terminal (the hosted test server, ADR-066), a local page takes the PIN instead.
+  const pinPort = Number(process.env.DEMO_DRIVERS_PIN_PORT ?? 0);
+  const web = !terminal && pinPort > 0 ? createPinPage() : null;
+  if (web) {
+    await new Promise<void>((resolve) => web.server.listen(pinPort, '127.0.0.1', resolve));
+    say(`Type the rider's PIN at ${PIN_PAGE_PATH} on the test server`);
+  }
   const simulator = new DemoDriverSimulator({
     prisma,
     drivers: app.get(RideDriverService),
     dispatch: app.get(RideDispatchService),
     config,
-    pins: terminal?.pins ?? noPins,
+    pins: terminal?.pins ?? web?.pins ?? noPins,
     report: say,
     speed,
   });
@@ -167,6 +176,7 @@ async function main(): Promise<void> {
   const offline = await simulator.stop();
   say(`${offline} idle drivers went offline`);
   terminal?.close();
+  web?.server.close();
   await app.close();
 }
 

@@ -1,0 +1,236 @@
+name: Test server
+
+# A temporary public test server for trying the app and the website on a real phone (ADR-066).
+# It runs the e2e stack (API, worker, website, demo drivers; mock suppliers and payments only)
+# on this runner behind one Cloudflare quick tunnel (a random https://*.trycloudflare.com address,
+# no account needed) and publishes that address as `test-server.json` on the `test-server`
+# pre-release. The test APK (mobile-test-apk.yml) reads it at launch, so testers need no
+# computer of their own:
+#   https://github.com/<owner>/<repo>/releases/download/test-server/test-server.json
+#
+# Start it from Actions, Test server, Run workflow. It stops after `hours` (at most 5.5, the
+# runner's limit is 6) or when cancelled; starting another one replaces it. Data is throwaway:
+# every run seeds a fresh database. Pull requests that change it run a short smoke test instead.
+on:
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: How long to keep it running, in hours (0.25 to 5.5)
+        default: '5'
+  pull_request:
+    paths:
+      - .github/workflows/test-server.yml
+      - scripts/test-server-proxy.mjs
+      - apps/web/e2e/stack.ts
+      - apps/api/scripts/demo-driver*.ts
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-server-${{ github.event_name == 'workflow_dispatch' && 'live' || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+  # cloudflared 2026.10.0 (2026-10-05), pinned by digest.
+  CLOUDFLARED_IMAGE: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+  RELEASE_TAG: test-server
+  DISCOVERY_FILE: test-server.json
+  PROXY_PORT: 8080
+  PIN_PORT: 4200
+
+jobs:
+  serve:
+    name: Run the test server
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    permissions:
+      # Only to publish test-server.json on the `test-server` pre-release (manual runs).
+      contents: write
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: suskii
+          POSTGRES_PASSWORD: suskii_test_server
+          POSTGRES_DB: suskii_test_server
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U suskii" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Check the duration
+        id: duration
+        env:
+          HOURS: ${{ github.event_name == 'workflow_dispatch' && inputs.hours || '0' }}
+        run: |
+          minutes=$(awk -v h="$HOURS" 'BEGIN { if (h !~ /^[0-9]+(\.[0-9]+)?$/) exit 1; printf "%d", h * 60 }') \
+            || { echo "::error::hours must be a number between 0.25 and 5.5"; exit 1; }
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && { [ "$minutes" -lt 15 ] || [ "$minutes" -gt 330 ]; }; then
+            echo "::error::hours must be between 0.25 and 5.5"; exit 1
+          fi
+          echo "minutes=$minutes" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The proxy and the tunnel start first: the website is built for the tunnel's address.
+      - name: Start the proxy
+        run: |
+          mkdir -p test-server-logs
+          nohup node scripts/test-server-proxy.mjs --port "$PROXY_PORT" \
+            --pins "http://127.0.0.1:${PIN_PORT}" > test-server-logs/proxy.log 2>&1 &
+
+      - name: Open the tunnel
+        id: tunnel
+        run: |
+          docker run -d --name tunnel --network host "$CLOUDFLARED_IMAGE" \
+            tunnel --no-autoupdate --url "http://127.0.0.1:${PROXY_PORT}"
+          url=""
+          for _ in $(seq 1 60); do
+            url=$(docker logs tunnel 2>&1 | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1 || true)
+            [ -n "$url" ] && break
+            sleep 2
+          done
+          if [ -z "$url" ]; then docker logs tunnel; echo "::error::The tunnel did not start"; exit 1; fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Test server address: $url"
+
+      - name: Build the API, worker and website for this address
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ steps.tunnel.outputs.url }}
+        run: pnpm exec turbo run build --filter=@suskii/api --filter=@suskii/worker --filter=@suskii/web
+
+      - name: Start the stack
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ steps.tunnel.outputs.url }}
+          E2E_API_PORT: '4000'
+          E2E_PUBLIC_WEB_URL: ${{ steps.tunnel.outputs.url }}
+          E2E_CLIENT_IP_HEADER: cf-connecting-ip
+          E2E_WORKER: 'true'
+          E2E_DEMO_DRIVERS: 'true'
+          E2E_DEMO_DRIVERS_PIN_PORT: ${{ env.PIN_PORT }}
+          WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_test_server@localhost:5432/suskii_test_server
+          WEB_E2E_REDIS_URL: redis://localhost:6379/0
+        run: |
+          nohup pnpm --filter @suskii/web e2e:stack > test-server-logs/stack.log 2>&1 &
+          for _ in $(seq 1 200); do
+            grep -q 'STACK READY' test-server-logs/stack.log && exit 0
+            if ! pgrep -f 'e2e/stack-cli' > /dev/null; then break; fi
+            sleep 3
+          done
+          cat test-server-logs/stack.log
+          echo "::error::The stack did not start"; exit 1
+
+      - name: Check it from the internet
+        env:
+          URL: ${{ steps.tunnel.outputs.url }}
+        run: |
+          check() {
+            for _ in $(seq 1 20); do
+              if curl -fsS -m 20 "$@" -o /tmp/check.out; then return 0; fi
+              sleep 3
+            done
+            echo "::error::$* did not answer through the tunnel"; return 1
+          }
+          check "$URL/ready"
+          check "$URL/v1/catalog/places?q=lagos" && grep -q '"LOS"' /tmp/check.out
+          check "$URL/" && grep -qi '<html' /tmp/check.out
+          check "$URL/demo-drivers" && grep -q 'Demo drivers' /tmp/check.out
+          echo "The API, the website and the demo drivers' page answer at $URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the address
+        id: publish
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          URL: ${{ steps.tunnel.outputs.url }}
+          MINUTES: ${{ steps.duration.outputs.minutes }}
+        run: |
+          started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          expires=$(date -u -d "+${MINUTES} minutes" +%Y-%m-%dT%H:%M:%SZ)
+          jq -n --arg url "$URL" --arg started "$started" --arg expires "$expires" \
+            --arg commit "${GITHUB_SHA::7}" --argjson run "$GITHUB_RUN_ID" \
+            '{version: 1, status: "running", api: $url, web: $url, startedAt: $started,
+              expiresAt: $expires, commit: $commit, run: $run}' > "$DISCOVERY_FILE"
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --prerelease --title "Test server address" \
+              --notes "Where the test app finds the hosted test server (test-server.yml). Not a release."
+          fi
+          gh release upload "$RELEASE_TAG" "$DISCOVERY_FILE" --repo "$GITHUB_REPOSITORY" --clobber
+          {
+            echo "## Test server running"
+            echo
+            echo "- Website and API: $URL"
+            echo "- Demo drivers' PIN page: $URL/demo-drivers"
+            echo "- Until: $expires (cancel this run to stop it sooner)"
+            echo
+            echo "The test app finds it on its own; restart the app if it was open."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep it running
+        env:
+          URL: ${{ steps.tunnel.outputs.url }}
+          MINUTES: ${{ steps.duration.outputs.minutes }}
+        run: |
+          end=$((SECONDS + MINUTES * 60))
+          failures=0
+          while [ "$SECONDS" -lt "$end" ]; do
+            sleep 60
+            if curl -fsS -m 20 "$URL/ready" > /dev/null; then failures=0; else failures=$((failures + 1)); fi
+            if [ "$failures" -ge 5 ]; then
+              echo "::error::The test server stopped answering through the tunnel"
+              docker logs --tail 50 tunnel || true
+              tail -n 50 test-server-logs/stack.log || true
+              exit 1
+            fi
+          done
+
+      # Only this run's own address is marked stopped: a newer run may already have replaced it.
+      - name: Mark the address stopped
+        if: always() && steps.publish.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -f current.json
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$DISCOVERY_FILE" \
+            --output current.json || exit 0
+          if [ "$(jq -r .run current.json)" != "$GITHUB_RUN_ID" ]; then exit 0; fi
+          jq '.status = "stopped"' current.json > "$DISCOVERY_FILE"
+          gh release upload "$RELEASE_TAG" "$DISCOVERY_FILE" --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Collect the logs
+        if: always()
+        run: |
+          docker logs tunnel > test-server-logs/tunnel.log 2>&1 || true
+          cp -r apps/web/test-results/stack/*.log test-server-logs/ 2>/dev/null || true
+
+      - name: Upload the logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-server-logs
+          path: test-server-logs
+          retention-days: 7

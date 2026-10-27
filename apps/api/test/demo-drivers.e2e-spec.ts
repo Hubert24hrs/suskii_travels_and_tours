@@ -1,5 +1,8 @@
+import type { AddressInfo } from 'node:net';
+
 import { haversineMetres } from '@suskii/shared';
 
+import { createPinPage } from '../scripts/demo-driver-pin-page';
 import {
   advance,
   DemoDriverSimulator,
@@ -228,5 +231,46 @@ describe('demo drivers (e2e)', () => {
     await demo.tick();
     const ride = await rideRow(rideId);
     expect(ride).toMatchObject({ status: 'arrived', pinAttempts: 0 });
+  });
+
+  it('takes the PIN from the test server page when there is no terminal', async () => {
+    await sampleDriver();
+    const { rideId } = await requestRide(ctx, rider.headers, {
+      pickup: VICTORIA_ISLAND,
+      dropoff: LEKKI,
+    });
+    const page = createPinPage();
+    await new Promise<void>((resolve) => page.server.listen(0, '127.0.0.1', resolve));
+    const url = `http://127.0.0.1:${(page.server.address() as AddressInfo).port}/demo-drivers`;
+    const post = (pin: string) =>
+      fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ pin }).toString(),
+        redirect: 'manual',
+      });
+    try {
+      // Nobody is waiting yet, so a PIN has nowhere to go.
+      expect((await post('1234')).status).toBe(409);
+      const demo = simulator(page.pins);
+      await demo.tick();
+      await travel();
+      await demo.tick();
+      expect((await rideRow(rideId)).status).toBe('arrived');
+      // The arrived driver asked; the page says so and refuses a malformed PIN.
+      await demo.tick();
+      const waiting = await fetch(url);
+      expect(waiting.headers.get('content-security-policy')).toContain("default-src 'none'");
+      expect(await waiting.text()).toContain('A driver is waiting at the pick-up');
+      expect((await post('12ab')).status).toBe(400);
+
+      const sent = await post(await riderPin(rideId));
+      expect(sent.status).toBe(303);
+      expect(sent.headers.get('location')).toBe('/demo-drivers?sent=1');
+      const ride = await tickWhile(demo, rideId, 'arrived');
+      expect(ride).toMatchObject({ status: 'in_progress', pinAttempts: 0 });
+    } finally {
+      page.server.close();
+    }
   });
 });
