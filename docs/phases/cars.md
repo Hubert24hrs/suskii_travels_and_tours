@@ -14,6 +14,12 @@ The task then audits the whole platform end to end. Cars sits outside the `PROJE
 phase numbering: phase 12 (deployment) has not started, and Cars does not depend on it. Its
 sub-phases are numbered P0 to P11.
 
+> **Launch model (2026-10-27, ADR-069).** The owner chose an online travel agency model with no
+> driver KYC and no vetting of third parties. Buses stay (operators are partners). Rides and the own
+> rental fleet stay switched off in production (`CARS_RIDES_ENABLED`, `CARS_RENTALS_ENABLED`
+> unset): car rental and transfers come from affiliate partners instead (ADR-070). The ride and
+> rental code stays dormant and tested.
+
 ## Orientation notes
 
 - **One booking pipeline.** Packages, tours, visa, add-ons and Prime are in-house `ItemPayload`

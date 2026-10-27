@@ -8,8 +8,10 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 
 - **Authenticated by default.** Every route needs a session unless it is marked `@Public()`.
   Public routes are search, catalog and content reads, sign-up and sign-in, guest checkout,
-  webhooks, health probes, web-vitals beacons and AI trip search (`/v1/flights/natural-search`,
-  which fills a form and reads nothing private; ADR-061).
+  webhooks, health probes, web-vitals beacons, AI trip search (`/v1/flights/natural-search`,
+  which fills a form and reads nothing private; ADR-061), partner offers for a place, the
+  sealed partner redirect (`/v1/go/{token}`) and network postbacks, which need the network's
+  secret (ADR-070).
 - **Permissions, not roles, in code.** Routes declare `@RequirePermissions(...)`. Admin routes
   declare `@AdminRoute(permission)`, which also requires a staff role, an MFA session, an
   allowlisted IP and, for cookies, an allowlisted origin. The riskiest admin mutations add
@@ -23,7 +25,8 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 - **Switched-off products.** A disabled Cars product (`CARS_*_ENABLED`) answers 404 on all its
   routes, before authentication (`CarsFeatureGuard`).
   AI trip search with `AI_SEARCH_ENABLED` off answers 404 on its parse route; its status route
-  says it is off.
+  says it is off. Partner offers with `PARTNER_OFFERS_ENABLED` off answer 404, and postbacks
+  answer 404 while the network has no postback secret.
 - **Checked automatically.** The OpenAPI build fails for an admin route without a permission or
   audit list. `admin-matrix.e2e-spec.ts` calls every admin route as every role and expects 403
   unless the role holds the permission. Denials are audited (`rbac.access_denied`) or logged
@@ -42,28 +45,29 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 
 ## Data level
 
-| Resource                                                                                         | Who may access it                                                                                                         |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Bookings, their documents, payments, refunds                                                     | The owner's session, or a guest holding the booking token (`X-Booking-Token`, an HMAC lookup). Staff with `bookings:read` |
-| Saved travellers, price alerts, sessions, devices, notifications, wallet, memberships, referrals | Their owner only                                                                                                          |
-| Visa applications                                                                                | The owner; staff with `visa:process`                                                                                      |
-| Visa document content                                                                            | Only through a signed link issued to the owner or an officer, valid for 5 minutes, and audited                            |
-| Add-on purchase for an existing booking                                                          | A short-lived signed link, or the booking reference with the lead passenger's surname (rate limited)                      |
-| Bus seat holds                                                                                   | The account that made it, or a guest with its hold token (an HMAC lookup); 404 for anyone else                            |
-| Bus manifests and ticket scans                                                                   | Operator agents (`tickets:scan`) of the departure's own operator; other agents get 404 or `not_found`                     |
-| Bus inventory (operators, terminals, routes, layouts, departures, agents)                        | Staff with `ground:manage`                                                                                                |
-| Rides (live view, PIN, cancel, rate, share, SOS)                                                 | The rider's account only (rides need an account); SOS also the assigned driver; 404 for anyone else                       |
-| Ride socket subscriptions (`/v1/ws/rides`)                                                       | The rider, the assigned driver, or a driver holding an open offer; anything else answers `not_found`                      |
-| Live-trip links (`/v1/public/trips/{token}`)                                                     | Anyone with the 128-bit token until 30 minutes after the trip; driver first name, vehicle and a rounded position only     |
-| Ride offers and driver ride actions                                                              | Drivers (`driving`) with the offer or the assignment; other drivers get 404                                               |
-| Driver profile, documents, vehicles, payout account                                              | The applicant; payout changes need a recent sign-in. Staff with `drivers:review` (every document read audited)            |
-| Fare rules and ride places                                                                       | Staff with `ground:manage`                                                                                                |
-| Live ride board, staff ride stops, safety incidents                                              | Staff with `safety:manage` (operations, support)                                                                          |
-| Rental reservations and licences                                                                 | The renter's account only (rentals need an account); 404 for anyone else                                                  |
-| Rental fleet, licence review, handover photos, check-out and check-in, deposit release           | Staff with `ground:manage`; licence and photo reads audited                                                               |
-| Ledger reconciliation discrepancies, driver payout list                                          | Staff with `finance:reconcile` (finance, super admins); resolutions audited; payouts listed without bank details          |
-| Accounts                                                                                         | The owner; staff with `users:read` (view) or `users:manage` (disable, sign out, reset MFA)                                |
-| Audit log, dashboards                                                                            | Staff with `audit:read` or `reports:read`                                                                                 |
+| Resource                                                                                         | Who may access it                                                                                                                                |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Bookings, their documents, payments, refunds                                                     | The owner's session, or a guest holding the booking token (`X-Booking-Token`, an HMAC lookup). Staff with `bookings:read`                        |
+| Saved travellers, price alerts, sessions, devices, notifications, wallet, memberships, referrals | Their owner only                                                                                                                                 |
+| Visa applications                                                                                | The owner; staff with `visa:process`                                                                                                             |
+| Visa document content                                                                            | Only through a signed link issued to the owner or an officer, valid for 5 minutes, and audited                                                   |
+| Add-on purchase for an existing booking                                                          | A short-lived signed link, or the booking reference with the lead passenger's surname (rate limited)                                             |
+| Partner offers for a booking (`/v1/bookings/{id}/partner-offers`)                                | As the booking: the owner's session or the guest's booking token; 404 for anyone else. The offers' links carry the viewer sealed, never readable |
+| Bus seat holds                                                                                   | The account that made it, or a guest with its hold token (an HMAC lookup); 404 for anyone else                                                   |
+| Bus manifests and ticket scans                                                                   | Operator agents (`tickets:scan`) of the departure's own operator; other agents get 404 or `not_found`                                            |
+| Bus inventory (operators, terminals, routes, layouts, departures, agents)                        | Staff with `ground:manage`                                                                                                                       |
+| Rides (live view, PIN, cancel, rate, share, SOS)                                                 | The rider's account only (rides need an account); SOS also the assigned driver; 404 for anyone else                                              |
+| Ride socket subscriptions (`/v1/ws/rides`)                                                       | The rider, the assigned driver, or a driver holding an open offer; anything else answers `not_found`                                             |
+| Live-trip links (`/v1/public/trips/{token}`)                                                     | Anyone with the 128-bit token until 30 minutes after the trip; driver first name, vehicle and a rounded position only                            |
+| Ride offers and driver ride actions                                                              | Drivers (`driving`) with the offer or the assignment; other drivers get 404                                                                      |
+| Driver profile, documents, vehicles, payout account                                              | The applicant; payout changes need a recent sign-in. Staff with `drivers:review` (every document read audited)                                   |
+| Fare rules and ride places                                                                       | Staff with `ground:manage`                                                                                                                       |
+| Live ride board, staff ride stops, safety incidents                                              | Staff with `safety:manage` (operations, support)                                                                                                 |
+| Rental reservations and licences                                                                 | The renter's account only (rentals need an account); 404 for anyone else                                                                         |
+| Rental fleet, licence review, handover photos, check-out and check-in, deposit release           | Staff with `ground:manage`; licence and photo reads audited                                                                                      |
+| Ledger reconciliation discrepancies, driver payout list                                          | Staff with `finance:reconcile` (finance, super admins); resolutions audited; payouts listed without bank details                                 |
+| Accounts                                                                                         | The owner; staff with `users:read` (view) or `users:manage` (disable, sign out, reset MFA)                                                       |
+| Audit log, dashboards, partner commission summary                                                | Staff with `audit:read` or `reports:read`                                                                                                        |
 
 Anything a caller may not access answers **404**, never 403, so ids cannot be probed. Ownership
 is checked in the service that loads the record (`BookingsService.load()` and the like), not in

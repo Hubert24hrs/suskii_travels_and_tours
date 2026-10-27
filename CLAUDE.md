@@ -52,6 +52,11 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 Cars (buses, rides and car rental; task `suskii-cars-v1`, outside the numbered phases): P0 to P11
 done (merged). Plan, decisions and status: `docs/phases/cars.md`; audit: `docs/audits/e2e-audit.md`.
 
+Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
+hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
+needs the owner's account (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
+in production (ADR-069).
+
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
 submission wait for the owner's accounts (`docs/phases/phase-12.md`, Outcome).
@@ -265,6 +270,10 @@ Tooling notes for agents:
   on a single offer, per passenger and segment: its adapter fetches them on quote and re-check,
   bundles one weight across every segment, sells it only at one price for every seated
   passenger (id `<offer>.bag<kg>`), and `book()` refuses a bag that is gone or repriced (ADR-063).
+- Hotel suppliers: `mock`, `duffel` (Stays) and `hotelbeds` (ADR-071; signed APItude calls,
+  rate checks before payment, no idempotency key so ambiguous bookings go to review). When more
+  than one returns results, `mergeDuplicateHotels` keeps the cheaper copy of a hotel (same
+  normalised name within 250 m, different suppliers only).
 - A hotel supplier whose search returns only the cheapest price (Duffel Stays) sets
   `ratesComplete: false` and implements `rates()`; the hotel page loads the full list once per
   search (`SearchStore.completeItem`, rate ids `.f<n>`; search rates are `.r<n>`) and falls back to
@@ -566,6 +575,27 @@ Tooling notes for agents:
   (route handlers keep the CSRF and origin checks in one place). Semver 6 is overridden to 7
   (`semver@<7`) so Babel's graph never needs `semver@6.3.1`, which the trust policy refuses.
 
+### Partner offers and affiliate tracking (apps/api/src/partners, ADR-069, ADR-070)
+
+- Merchant supply (we sell at our price) goes through the supplier interfaces; affiliate supply
+  (the partner sells, we earn commission) goes through `src/partners`. Never take payment for an
+  affiliate product: the traveller books on the partner's site.
+- Programmes live in `partner-programs.ts` (category, network, brand, allowed hosts, landing
+  page); adding a partner is one entry. Offers never carry raw partner URLs: links are
+  `PartnerLinks.href()` (AES-GCM, context `partner-link`, expiry `PARTNER_LINK_TTL_HOURS`), and
+  `/v1/go/{token}` only redirects to the programme's hosts (or Travelpayouts' tracking hosts).
+- Clicks are recorded only by `PartnerClicksService.follow()` (ids only: no IP, browser or URL);
+  the click id is the network's `sub_id`. An expired link still redirects, without the viewer.
+- Network calls go through `AffiliateLinker` (mock, Travelpayouts) and `ActivityPartner` (mock,
+  Viator); vendor payloads stay in the adapter, failures fall back (untracked link, offers
+  without activities and `partial: true`), never an error page.
+- Conversions are recorded only by `PartnerConversionsService` from postbacks with the network's
+  secret (constant-time compare); states move forward only, amounts are minor units. They are
+  commission records counted per partner, never joined to people for advertising (store forms,
+  ADR-070).
+- `PARTNER_OFFERS_ENABLED` is off in production unless set; production then refuses the mock
+  network and mock activities.
+
 ### AI trip search (phase 13, ADR-061)
 
 - The model only fills the flight form; it never searches, books or reads private data. Clients
@@ -756,6 +786,9 @@ Tooling notes for agents:
 - [ADR-066: Hosted test server for phone testing](docs/decisions/ADR-066-hosted-test-server.md)
 - [ADR-067: Google, Apple and fingerprint sign-in](docs/decisions/ADR-067-social-and-fingerprint-sign-in.md)
 - [ADR-068: Brand refresh from the SUSKII T&T logo](docs/decisions/ADR-068-brand-refresh-from-the-logo.md)
+- [ADR-069: Partner supply model](docs/decisions/ADR-069-partner-supply-model.md)
+- [ADR-070: Affiliate click and conversion tracking](docs/decisions/ADR-070-affiliate-click-and-conversion-tracking.md)
+- [ADR-071: Hotelbeds hotel adapter](docs/decisions/ADR-071-hotelbeds-hotel-adapter.md)
 
 ## Open questions for the owner
 
@@ -828,4 +861,11 @@ check more often close to departure, a console view and actions for changes, and
 for faster detection. Added with the redesign and sign-in work (ADR-066 to ADR-068): Google OAuth
 client ids (web client for the website and the app's relay) and the Apple Services ID and App ID
 for real Google and Apple sign-in; confirmation of the derived brand shades and a vector logo for
-sharper small icons; and a staging environment to replace the hosted test server.
+sharper small icons; and a staging environment to replace the hosted test server. Added with
+partner supply (ADR-069 to ADR-071): a Hotelbeds account (evaluation key, then certification and
+the live key); Viator Partner API Basic Access (API key and campaign); a Travelpayouts account
+with DiscoverCars, Localrent, Economybookings, GetTransfer, Kiwitaxi, Airalo and EKTA connected
+(token, marker, project id) and the postback URL with its macros; whether to show partner offers
+in production; and IATA accreditation or a consolidator for Nigerian domestic airlines. While
+rides and the own fleet stay off (ADR-069), the KYC, maps and payout provider questions are no
+longer blocking.

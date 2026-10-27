@@ -1,6 +1,6 @@
 # ADR-070: Affiliate click and conversion tracking
 
-- Status: Accepted (network sandbox checks pending)
+- Status: Accepted, implemented (network sandbox checks pending)
 - Date: 2026-10-27
 - Deciders: Claude Code (implementer), pending owner review
 - Context: [ADR-069](ADR-069-partner-supply-model.md)
@@ -42,12 +42,18 @@ even with a valid token).
 (uuidv7 id, programme, category, user, channel, booking) and answers `302` to the partner:
 
 - **Travelpayouts**: the destination becomes a partner link through the Partner Links API with
-  `sub_id` set to the click id. Links are cached per destination and click budget; when the API
-  fails or the per-minute budget (90 of the 100 allowed calls) is spent, the redirect falls back
-  to the brand URL with the account marker, so a click is never lost to an outage.
+  `sub_id` set to the click id. Full (unshortened) links carry `sub_id` as a query parameter, so
+  the link for a partner page is cached in Redis for 7 days and each later click only swaps the
+  sub id; the API is called again only for new pages. When the API fails, answers with a link
+  off Travelpayouts' hosts, or the shared per-minute budget (90 of the 100 allowed calls) is
+  spent, the redirect sends the traveller to the plain partner page: the click is recorded but
+  untracked (metric `suskii.partner.clicks` with `link=fallback`), never lost to an outage.
 - **Viator**: the `productUrl` from search, used verbatim (already tagged); the search's campaign
   value is stored on the click to match Viator's campaign reports.
-- **Mock** (tests, local stacks): an example partner URL carrying the click id.
+- **Mock** (tests, local stacks): the partner page with the click id as `sub_id`.
+
+An expired link still opens the partner (the commission is ours), but the click no longer names
+the viewer or the booking: expiry bounds how long a link carries a person.
 
 ### Postbacks record conversions
 
@@ -56,20 +62,24 @@ network's postback secret (`TRAVELPAYOUTS_POSTBACK_SECRET`), compared in constan
 sets the postback URL in the network dashboard with the network's macros mapped to these
 parameters:
 
-| Parameter    | Meaning                                                                                                                                        |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`         | The network's booking or action id (required; with the network, the conversion's key)                                                          |
-| `click`      | Our click id (the `sub_id` we sent)                                                                                                            |
-| `status`     | `processing`/`pending`/`booked` → pending; `paid`/`confirmed`/`approved` → confirmed; `cancelled`/`canceled`/`rejected`/`declined` → cancelled |
-| `price`      | Booking value, decimal string                                                                                                                  |
-| `commission` | Our commission, decimal string                                                                                                                 |
-| `currency`   | ISO 4217 code                                                                                                                                  |
+| Parameter             | Meaning                                                                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                  | The network's booking or action id (required; with the network, the conversion's key)                                                          |
+| `click`               | Our click id (the `sub_id` we sent)                                                                                                            |
+| `status`              | `processing`/`pending`/`booked` → pending; `paid`/`confirmed`/`approved` → confirmed; `cancelled`/`canceled`/`rejected`/`declined` → cancelled |
+| `price`               | Booking value, decimal string                                                                                                                  |
+| `commission`          | Our commission, decimal string                                                                                                                 |
+| `currency`            | ISO 4217 code                                                                                                                                  |
+| `commission_currency` | ISO 4217 code of the commission when it differs from `currency`                                                                                |
 
 Rows in `partner_conversions` are unique per network and id; a repeated postback updates the
 status and amounts (pending can become confirmed or cancelled; confirmed can become cancelled).
-Amounts are integer minor units parsed from decimal strings, never floats. A conversion whose
-click is unknown is still recorded (the partner pays it); one with a malformed amount or currency
-is refused with 400 so the network retries after the dashboard is fixed.
+Amounts are integer minor units parsed from decimal strings (extra decimals round half to even),
+never floats. A conversion whose click is unknown is still recorded (the partner pays it); one
+with a malformed, negative or currency-less amount, or an unknown status word, is refused with
+400 so the network retries after the dashboard is fixed. Late or out-of-order postbacks (pending
+after paid, anything after cancelled) are acknowledged with the record's current state. A wrong
+token answers 401; a network without a configured secret answers 404.
 
 ### Reporting
 

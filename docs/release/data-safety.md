@@ -28,6 +28,12 @@ forms must match the shipped build.
   scrubbed of e-mail addresses, phone numbers and long digit runs, sent to the model provider
   (Anthropic) once to fill the flight form, and never stored or logged. It carries no user id.
   Off in production unless the owner turns it on.
+- **Partner offers (ADR-069, ADR-070):** car rental, transfers, eSIMs, insurance and tours that
+  partners sell open in the browser through a Suskii link. Suskii records which partner offer the
+  user opened (programme, trip and account ids; no IP address, browser or URL) and sends the
+  partner only a random click id. Partners report bookings against that click id for commission;
+  conversions are counted per partner and never joined to people for advertising. Off in
+  production unless the owner turns it on.
 - **Encrypted in transit:** everything goes over HTTPS.
 - **Deletion:** users can delete their account in the app (Account, Privacy) and on the website
   (`/account/privacy`). Financial records are kept without contact details for the legal period
@@ -72,6 +78,7 @@ needs them. Optional ones are marked.
 | Files and docs           | Files and docs               | Yes       | Yes      | App functionality                                                                              | PDFs the user uploads for a visa application or driver approval                                                                                    |
 | App activity             | Other user-generated content | Yes       | Yes      | App functionality                                                                              | Ride and trip ratings with comments                                                                                                                |
 | App activity             | In-app search history        | Yes       | No       | App functionality, Analytics                                                                   | Searches run on the server; search logs keep routes, dates and counts without the user. Described trips (AI trip search) are processed, not stored |
+| App activity             | App interactions             | Yes       | Yes      | App functionality, Analytics                                                                   | Partner offers the user opens (programme and trip ids), for partner commission                                                                     |
 | App info and performance | Crash logs                   | Yes       | No       | App functionality, Analytics                                                                   | Error reports without user ids (Sentry)                                                                                                            |
 | App info and performance | Diagnostics                  | Yes       | No       | App functionality                                                                              | App version and platform with requests (`X-Suskii-Client`)                                                                                         |
 | Device or other IDs      | Device or other IDs          | Yes       | Yes      | App functionality, Fraud prevention and security                                               | Push token (if notifications are allowed); device attestation results (App Attest, Play Integrity)                                                 |
@@ -110,6 +117,7 @@ websites, so it does not need App Tracking Transparency.
 | Identifiers    | User ID                 | App Functionality                                       |                                                                                      |
 | Identifiers    | Device ID               | App Functionality                                       | Push token                                                                           |
 | Purchases      | Purchase History        | App Functionality                                       | Bookings, Prime, wallet                                                              |
+| Usage Data     | Product Interaction     | App Functionality, Analytics                            | Partner offers opened; partners get a random click id only                           |
 | Other Data     | Other Data Types        | App Functionality                                       | Dates of birth, nationality, gender and passport details required by fares and visas |
 
 ### Data Not Linked to You
@@ -126,12 +134,13 @@ attestation.
 
 ## Keeping this page true
 
-| Change                                                  | Update                                                                                                                                  |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Device location for drivers or riders                   | Precise (and possibly Approximate) location from the device; the location permission text; background location needs Play's declaration |
-| A new SDK (analytics, attribution, ads, chat)           | Both forms, and probably "tracking" on iOS (then App Tracking Transparency)                                                             |
-| Native crash reporting (Sentry native SDK)              | Crash Data stays not linked if no user id is set                                                                                        |
-| Sign in with Google or Apple in the app                 | Identifiers and the third-party sign-in data; Apple then also requires Sign in with Apple                                               |
-| Storing described trips, or sending them with a user id | In-app search history becomes linked to the user on both forms; `data-classification.md`                                                |
-| A new upload or document type                           | Photos or Files rows, and `data-classification.md`                                                                                      |
-| Marketing push notifications                            | Purposes: Developer's Advertising or Marketing; consent stays required                                                                  |
+| Change                                                              | Update                                                                                                                                  |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Device location for drivers or riders                               | Precise (and possibly Approximate) location from the device; the location permission text; background location needs Play's declaration |
+| A new SDK (analytics, attribution, ads, chat)                       | Both forms, and probably "tracking" on iOS (then App Tracking Transparency)                                                             |
+| Native crash reporting (Sentry native SDK)                          | Crash Data stays not linked if no user id is set                                                                                        |
+| Sign in with Google or Apple in the app                             | Identifiers and the third-party sign-in data; Apple then also requires Sign in with Apple                                               |
+| Storing described trips, or sending them with a user id             | In-app search history becomes linked to the user on both forms; `data-classification.md`                                                |
+| A new upload or document type                                       | Photos or Files rows, and `data-classification.md`                                                                                      |
+| Marketing push notifications                                        | Purposes: Developer's Advertising or Marketing; consent stays required                                                                  |
+| Joining partner conversions to people (targeting, per-user reports) | Likely tracking on iOS (App Tracking Transparency) and Shared data on Play; ADR-070                                                     |
