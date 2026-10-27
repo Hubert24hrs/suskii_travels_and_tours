@@ -193,11 +193,20 @@ export const envSchema = z
     /** The deployed version (the git SHA), so reports match the uploaded source maps. */
     SENTRY_RELEASE: z.string().min(1).max(128).optional(),
 
-    /** Enabled flight and hotel suppliers (feature flags). `duffel` needs DUFFEL_API_TOKEN. */
+    /**
+     * Enabled flight and hotel suppliers (feature flags). `duffel` needs DUFFEL_API_TOKEN;
+     * `hotelbeds` needs HOTELBEDS_API_KEY and HOTELBEDS_API_SECRET (ADR-071).
+     */
     FLIGHT_SUPPLIERS: csv(z.enum(['mock', 'duffel'])).default(['mock']),
-    HOTEL_SUPPLIERS: csv(z.enum(['mock', 'duffel'])).default(['mock']),
+    HOTEL_SUPPLIERS: csv(z.enum(['mock', 'duffel', 'hotelbeds'])).default(['mock']),
     DUFFEL_API_TOKEN: z.string().min(1).optional(),
     DUFFEL_API_URL: z.url().default('https://api.duffel.com'),
+    /** Hotelbeds APItude; the default is the evaluation host, which books nothing. */
+    HOTELBEDS_API_URL: z.url().default('https://api.test.hotelbeds.com'),
+    HOTELBEDS_API_KEY: z.string().min(1).optional(),
+    HOTELBEDS_API_SECRET: z.string().min(1).optional(),
+    /** Kilometres around the city centre a Hotelbeds search covers. */
+    HOTELBEDS_SEARCH_RADIUS_KM: z.coerce.number().int().min(1).max(200).default(20),
     /** Whole-search budget (spec: 12 s) and per-supplier timeout inside it. */
     SEARCH_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(12_000),
     SUPPLIER_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(10_000),
@@ -495,6 +504,12 @@ export const envSchema = z
     ) {
       require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS or HOTEL_SUPPLIERS includes duffel');
     }
+    if (env.HOTEL_SUPPLIERS.includes('hotelbeds')) {
+      if (!env.HOTELBEDS_API_KEY)
+        require('HOTELBEDS_API_KEY', 'is required when HOTEL_SUPPLIERS includes hotelbeds');
+      if (!env.HOTELBEDS_API_SECRET)
+        require('HOTELBEDS_API_SECRET', 'is required when HOTEL_SUPPLIERS includes hotelbeds');
+    }
     if (env.MAPS_PROVIDER === 'osrm' && !env.OSRM_URL)
       require('OSRM_URL', 'is required when MAPS_PROVIDER is osrm');
     if (env.LLM_PROVIDER === 'anthropic' && !env.LLM_API_KEY)
@@ -589,9 +604,17 @@ export const envSchema = z
       'FLUTTERWAVE_API_URL',
       'STRIPE_API_URL',
       'DUFFEL_API_URL',
+      'HOTELBEDS_API_URL',
     ] as const) {
       if (!env[key].startsWith('https://')) require(key, 'must use https in production');
     }
+    // The evaluation host confirms bookings that do not exist: travellers would pay for nothing.
+    if (
+      env.HOTEL_SUPPLIERS.includes('hotelbeds') &&
+      !env.ALLOW_MOCK_PROVIDERS &&
+      new URL(env.HOTELBEDS_API_URL).hostname === 'api.test.hotelbeds.com'
+    )
+      require('HOTELBEDS_API_URL', 'the evaluation host books nothing; use https://api.hotelbeds.com in production');
     // Telemetry may go to a collector on the same host; anywhere else it needs TLS.
     if (env.OTEL_EXPORTER_OTLP_ENDPOINT && !isTlsOrLoopback(env.OTEL_EXPORTER_OTLP_ENDPOINT))
       require('OTEL_EXPORTER_OTLP_ENDPOINT', 'must use https in production unless the collector is on localhost');

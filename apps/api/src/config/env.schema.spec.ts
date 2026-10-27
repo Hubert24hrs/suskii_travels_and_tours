@@ -162,6 +162,40 @@ describe('parseEnv', () => {
     );
   });
 
+  it('requires the Hotelbeds key and secret, and refuses its evaluation host in production', () => {
+    const hotelbeds = { ...base, HOTEL_SUPPLIERS: 'hotelbeds' };
+    expect(() => parseEnv(hotelbeds)).toThrow(/HOTELBEDS_API_KEY.*HOTELBEDS_API_SECRET/s);
+    const env = parseEnv({ ...hotelbeds, HOTELBEDS_API_KEY: 'k', HOTELBEDS_API_SECRET: 's' });
+    expect(env.HOTEL_SUPPLIERS).toEqual(['hotelbeds']);
+    expect(env.HOTELBEDS_API_URL).toBe('https://api.test.hotelbeds.com');
+    expect(env.HOTELBEDS_SEARCH_RADIUS_KM).toBe(20);
+    expect(() => parseEnv({ ...base, HOTELBEDS_SEARCH_RADIUS_KM: '0' })).toThrow(
+      /HOTELBEDS_SEARCH_RADIUS_KM/,
+    );
+
+    const production = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({ ...base, NODE_ENV: 'production', ...overrides });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    const credentials = {
+      HOTEL_SUPPLIERS: 'hotelbeds',
+      HOTELBEDS_API_KEY: 'k',
+      HOTELBEDS_API_SECRET: 's',
+    };
+    // The evaluation host confirms bookings that do not exist.
+    expect(production(credentials)).toMatch(/HOTELBEDS_API_URL: the evaluation host books nothing/);
+    expect(
+      production({ ...credentials, HOTELBEDS_API_URL: 'https://api.hotelbeds.com' }),
+    ).not.toContain('HOTELBEDS_API_URL');
+    expect(production({ HOTELBEDS_API_URL: 'http://api.hotelbeds.com' })).toContain(
+      'HOTELBEDS_API_URL: must use https',
+    );
+  });
+
   it('requires TLS to suppliers and telemetry in production, except a local collector', () => {
     const production = (overrides: Record<string, string>) => {
       try {
