@@ -65,6 +65,8 @@ class FakePaystack {
   /** Test hook: what verify reports instead of the truth. */
   verifyOverride: Partial<{ status: string; amount: number }> | null = null;
   refunds: { id: number; transaction: string; amount: number; note: string }[] = [];
+  /** The checkout channels each initialize asked for, by reference (ADR-074). */
+  channels = new Map<string, unknown>();
   private nextId = 5000;
 
   async start(): Promise<string> {
@@ -76,6 +78,7 @@ class FakePaystack {
     this.transactions.clear();
     this.refunds = [];
     this.verifyOverride = null;
+    this.channels.clear();
   }
 
   /** The traveller paid on the hosted page. */
@@ -98,6 +101,7 @@ class FakePaystack {
     const url = new URL(request.url ?? '/', 'http://fake');
     if (request.method === 'POST' && url.pathname === '/transaction/initialize') {
       const reference = body.reference ?? '';
+      this.channels.set(reference, (body as Record<string, unknown>).channels);
       this.transactions.set(reference, {
         id: (this.nextId += 1),
         amount: Number(body.amount),
@@ -500,6 +504,68 @@ describe('payments (e2e): providers, ledger, plans and refunds', () => {
     const other = await domesticBooking();
     const refused = await startPayment(other.id, other.token, { provider: 'stripe' }).expect(422);
     expect(refused.body.type).toBe('urn:suskii:problem:payment-provider-unavailable');
+  });
+
+  it('routes by the chosen method and opens the hosted page on it (ADR-074)', async () => {
+    const [offer] = await search('LOS', 'ABV', 30);
+    const offered = await quote(offer?.id ?? '');
+    const methods = (offered.payment as unknown as { methods: unknown }).methods;
+    // The mock takes every method; Paystack takes cards, transfers, USSD, Apple Pay and agent
+    // payments in naira, but not mobile money.
+    expect(methods).toEqual([
+      { method: 'card', providers: ['mock', 'paystack'] },
+      { method: 'bank_transfer', providers: ['mock', 'paystack'] },
+      { method: 'ussd', providers: ['mock', 'paystack'] },
+      { method: 'mobile_money', providers: ['mock'] },
+      { method: 'apple_google_pay', providers: ['mock', 'paystack'] },
+      { method: 'agent', providers: ['mock', 'paystack'] },
+    ]);
+    const { id, token } = await book(offered.quoteId);
+
+    // A named provider gets the method as its only channel; agent payments are transfers.
+    const ussd = await startPayment(id, token, { provider: 'paystack', method: 'ussd' }).expect(
+      201,
+    );
+    const ussdReference = (ussd.body.checkoutUrl as string).split('/').pop() ?? '';
+    expect(paystack.channels.get(ussdReference)).toEqual(['ussd']);
+    const agent = await startPayment(id, token, { provider: 'paystack', method: 'agent' }).expect(
+      201,
+    );
+    expect(
+      paystack.channels.get((agent.body.checkoutUrl as string).split('/').pop() ?? ''),
+    ).toEqual(['bank_transfer']);
+    // Without a method the page shows every channel, as before.
+    const plain = await startPayment(id, token, { provider: 'paystack' }).expect(201);
+    expect(paystack.channels.get((plain.body.checkoutUrl as string).split('/').pop() ?? '')).toBe(
+      undefined,
+    );
+
+    // Without a provider the first one in configured order that takes the method is charged.
+    const applePay = await startPayment(id, token, { method: 'apple_google_pay' }).expect(201);
+    const applePayReference = (applePay.body.checkoutUrl as string).split('/').pop() ?? '';
+    expect(ctx.app.get(MockPaymentProvider).requestedMethods.get(applePayReference)).toBe(
+      'apple_google_pay',
+    );
+    const applePayPayment = await ctx.prisma.payment.findUniqueOrThrow({
+      where: { providerReference: applePayReference },
+    });
+    const audit = await ctx.prisma.auditLog.findFirst({
+      where: { action: 'payment.created', targetId: applePayPayment.id },
+    });
+    expect(audit?.metadata).toMatchObject({
+      bookingId: id,
+      provider: 'mock',
+      method: 'apple_google_pay',
+    });
+
+    // A provider that does not take the method in this currency is refused, as is a method
+    // nobody offers.
+    const refused = await startPayment(id, token, {
+      provider: 'paystack',
+      method: 'mobile_money',
+    }).expect(422);
+    expect(refused.body.type).toBe('urn:suskii:problem:payment-method-unavailable');
+    await startPayment(id, token, { method: 'cheque' }).expect(400);
   });
 
   it('recovers a payment whose webhook never arrived', async () => {

@@ -10,6 +10,7 @@ import {
   WebhookVerificationError,
   paymentCard,
   type PaymentEvent,
+  type PaymentMethod,
 } from './payment-provider';
 import { PaystackPaymentProvider } from './paystack/paystack-payment-provider';
 import { StripePaymentProvider } from './stripe/stripe-payment-provider';
@@ -112,6 +113,43 @@ describe('PaystackPaymentProvider', () => {
       reference: PAYMENT_ID,
       email: 'ngozi@example.com',
     });
+  });
+
+  it('opens the page on the chosen method and offers methods by currency (ADR-074)', async () => {
+    const created = {
+      body: {
+        status: true,
+        data: { authorization_url: 'https://x.test/a', reference: PAYMENT_ID },
+      },
+    };
+    const { fetch, calls } = fakeFetch(created, created, created);
+    const checkout = (method: PaymentMethod | null, currency = 'NGN') =>
+      provider(fetch).createCheckout({
+        paymentId: PAYMENT_ID,
+        reference: 'K7M2QX',
+        amount: money(4_550_000n, currency),
+        customerEmail: 'ngozi@example.com',
+        returnUrl: 'https://web.test/bookings/1',
+        expiresAt: new Date(Date.now() + 1_800_000),
+        method,
+      });
+    await checkout('agent');
+    await checkout('mobile_money', 'GHS');
+    await checkout(null);
+    const bodies = calls.map((call) => JSON.parse(call.body ?? '{}') as Record<string, unknown>);
+    expect(bodies[0]?.channels).toEqual(['bank_transfer']);
+    expect(bodies[1]?.channels).toEqual(['mobile_money']);
+    expect(bodies[2]).not.toHaveProperty('channels');
+
+    expect(provider(fetch).methodsFor('NGN')).toEqual([
+      'card',
+      'bank_transfer',
+      'ussd',
+      'apple_google_pay',
+      'agent',
+    ]);
+    expect(provider(fetch).methodsFor('KES')).toEqual(['card', 'mobile_money']);
+    expect(provider(fetch).methodsFor('EUR')).toEqual([]);
   });
 
   it('accepts a correctly signed charge.success and never keeps card details', () => {
@@ -298,6 +336,35 @@ describe('FlutterwavePaymentProvider', () => {
     expect(sent.session_duration).toBe(30);
   });
 
+  it('opens the page on the chosen method and offers methods by currency (ADR-074)', async () => {
+    const created = {
+      body: { status: 'success', data: { link: 'https://checkout.flutterwave.com/x' } },
+    };
+    const { fetch, calls } = fakeFetch(created, created, created);
+    const checkout = (method: PaymentMethod | null, currency: string) =>
+      provider(fetch).createCheckout({
+        paymentId: PAYMENT_ID,
+        reference: 'K7M2QX',
+        amount: money(1_000_000n, currency),
+        customerEmail: 'ngozi@example.com',
+        returnUrl: 'https://web.test/bookings/1',
+        expiresAt: new Date(Date.now() + 30 * 60_000),
+        method,
+      });
+    await checkout('ussd', 'NGN');
+    await checkout('mobile_money', 'KES');
+    await checkout(null, 'NGN');
+    const bodies = calls.map((call) => JSON.parse(call.body ?? '{}') as Record<string, unknown>);
+    expect(bodies[0]?.payment_options).toBe('ussd');
+    expect(bodies[1]?.payment_options).toBe('mpesa');
+    expect(bodies[2]).not.toHaveProperty('payment_options');
+
+    expect(provider(fetch).methodsFor('NGN')).toEqual(['card', 'bank_transfer', 'ussd', 'agent']);
+    expect(provider(fetch).methodsFor('GHS')).toEqual(['card', 'mobile_money']);
+    // Apple Pay and Google Pay follow the currency on Flutterwave, so wallets go to Stripe.
+    expect(provider(fetch).methodsFor('USD')).toEqual(['card']);
+  });
+
   it('checks the secret hash and converts amounts exactly', () => {
     const body = JSON.stringify(completed());
     const event = provider().parseWebhook(Buffer.from(body), { 'verif-hash': webhookHash });
@@ -442,6 +509,10 @@ describe('StripePaymentProvider', () => {
     expect(Number(form.get('expires_at'))).toBe(Math.floor(now.getTime() / 1000) + 31 * 60);
     expect(calls[0]?.headers['Idempotency-Key']).toBe(`checkout-${PAYMENT_ID}`);
     expect(calls[0]?.headers['Content-Type']).toBe('application/x-www-form-urlencoded');
+    // 3D Secure whenever the bank or strong customer authentication requires it (ADR-074).
+    expect(form.get('payment_method_options[card][request_three_d_secure]')).toBe('automatic');
+    // Cards and Apple Pay or Google Pay share one Checkout page.
+    expect(provider(fetch).methodsFor('EUR')).toEqual(['card', 'apple_google_pay']);
   });
 
   it('verifies the signature, the timestamp tolerance and any matching v1', () => {

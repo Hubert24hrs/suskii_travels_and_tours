@@ -9,6 +9,8 @@ export interface CheckoutRequest {
   /** Where the traveller lands afterwards. The outcome itself only ever comes by webhook. */
   returnUrl: string;
   expiresAt: Date;
+  /** The method the traveller chose: the hosted page opens on it (ADR-074). */
+  method?: PaymentMethod | null;
 }
 
 export interface CheckoutSession {
@@ -95,7 +97,19 @@ export interface ProviderRefund {
 
 export type WebhookHeaders = Record<string, string | string[] | undefined>;
 
-export type PaymentMethod = 'card' | 'bank_transfer' | 'ussd' | 'mobile_money';
+/**
+ * How the traveller pays, in the order checkout lists them (ADR-074). `apple_google_pay` is Apple Pay or
+ * Google Pay; `agent` is a bank transfer made in cash through a bank teller or a POS agent.
+ */
+export const PAYMENT_METHOD_LIST = [
+  'card',
+  'bank_transfer',
+  'ussd',
+  'mobile_money',
+  'apple_google_pay',
+  'agent',
+] as const;
+export type PaymentMethod = (typeof PAYMENT_METHOD_LIST)[number];
 
 export class WebhookSignatureError extends Error {
   constructor(message = 'Webhook signature is missing or invalid') {
@@ -141,8 +155,8 @@ export abstract class PaymentProvider {
   abstract readonly name: PaymentProviderName;
   /** Currencies this provider settles. */
   abstract readonly currencies: readonly string[];
-  /** What the traveller can pay with on the hosted page, for the checkout's labels. */
-  abstract readonly methods: readonly PaymentMethod[];
+  /** What the traveller can pay with in `currency` on the hosted page (ADR-074). */
+  abstract methodsFor(currency: string): readonly PaymentMethod[];
   /** Whether repeating `refund()` with the same refund id is safe after an ambiguous failure. */
   abstract readonly idempotentRefunds: boolean;
 

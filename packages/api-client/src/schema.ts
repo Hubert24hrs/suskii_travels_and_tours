@@ -8720,8 +8720,14 @@ export interface components {
             /** @enum {string} */
             code: "name_not_latin" | "name_too_long" | "passenger_count_mismatch" | "passenger_type_mismatch" | "born_after_travel" | "infants_exceed_adults" | "passport_required" | "passport_expired" | "passport_expires_soon" | "traveller_not_found" | "nationality_mismatch";
         };
+        PaymentMethodOption: {
+            /** @enum {string} */
+            method: "card" | "bank_transfer" | "ussd" | "mobile_money" | "apple_google_pay" | "agent";
+            providers: ("mock" | "paystack" | "flutterwave" | "stripe")[];
+        };
         PaymentOptions: {
             providers: components["schemas"]["PaymentProviderOption"][];
+            methods: components["schemas"]["PaymentMethodOption"][];
             hold: {
                 /** Format: date-time */
                 deadline: string;
@@ -8769,7 +8775,7 @@ export interface components {
         PaymentProviderOption: {
             /** @enum {string} */
             name: "mock" | "paystack" | "flutterwave" | "stripe";
-            methods: ("card" | "bank_transfer" | "ussd" | "mobile_money")[];
+            methods: ("card" | "bank_transfer" | "ussd" | "mobile_money" | "apple_google_pay" | "agent")[];
         };
         PaymentReconciliationRun: {
             checked: number;
@@ -9714,6 +9720,8 @@ export interface components {
         StartPaymentRequestInput: {
             /** @default null */
             provider?: ("mock" | "paystack" | "flutterwave" | "stripe") | null;
+            /** @default null */
+            method?: ("card" | "bank_transfer" | "ussd" | "mobile_money" | "apple_google_pay" | "agent") | null;
             /** @default null */
             installmentId?: string | null;
             /** @default false */

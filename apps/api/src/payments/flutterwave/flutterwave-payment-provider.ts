@@ -10,8 +10,10 @@ import {
   WebhookVerificationError,
   headerValue,
   paymentCard,
+  PAYMENT_METHOD_LIST,
   type CheckoutRequest,
   type PaymentCard,
+  type PaymentMethod,
   type CheckoutSession,
   type PaymentEvent,
   type PaymentRef,
@@ -89,6 +91,32 @@ function method(paymentType: string | null | undefined): string | null {
 
 const amountOf = (value: string, code: string): Money => parseMoney(value, code);
 
+/** Flutterwave's mobile money option per currency (`payment_options`, ADR-074). */
+const MOBILE_MONEY_OPTIONS: Readonly<Record<string, string>> = {
+  GHS: 'mobilemoneyghana',
+  KES: 'mpesa',
+};
+
+/**
+ * Flutterwave's `payment_options` value for a method, or null when it does not offer it in
+ * that currency. Apple Pay and Google Pay follow the currency only, so `apple_google_pay` is not offered.
+ */
+function flutterwaveOption(method: PaymentMethod, currency: string): string | null {
+  switch (method) {
+    case 'card':
+      return 'card';
+    case 'bank_transfer':
+    case 'agent':
+      return currency === 'NGN' ? 'banktransfer' : null;
+    case 'ussd':
+      return currency === 'NGN' ? 'ussd' : null;
+    case 'mobile_money':
+      return MOBILE_MONEY_OPTIONS[currency] ?? null;
+    case 'apple_google_pay':
+      return null;
+  }
+}
+
 /**
  * Flutterwave v3 standard checkout (ADR-016). The webhook's `verif-hash` is a static shared
  * secret, so every outcome is confirmed with `GET /v3/transactions/:id/verify` before it is
@@ -97,7 +125,10 @@ const amountOf = (value: string, code: string): Money => parseMoney(value, code)
 export class FlutterwavePaymentProvider extends PaymentProvider {
   readonly name = 'flutterwave' as const;
   readonly currencies = ['NGN', 'GHS', 'KES', 'ZAR', 'USD', 'EUR', 'GBP'] as const;
-  readonly methods = ['card', 'bank_transfer', 'ussd', 'mobile_money'] as const;
+  methodsFor(currency: string): PaymentMethod[] {
+    if (!(this.currencies as readonly string[]).includes(currency)) return [];
+    return PAYMENT_METHOD_LIST.filter((method) => flutterwaveOption(method, currency) !== null);
+  }
   readonly idempotentRefunds = false;
   private readonly http: ProviderHttp;
 
@@ -121,6 +152,10 @@ export class FlutterwavePaymentProvider extends PaymentProvider {
           customizations: { title: 'Suskii Travels', description: `Booking ${request.reference}` },
           meta: { payment_id: request.paymentId, booking_reference: request.reference },
           session_duration: Math.min(1440, Math.max(1, minutes)),
+          // The page opens on the chosen method only; without one it shows the account's options.
+          ...(request.method
+            ? { payment_options: flutterwaveOption(request.method, request.amount.currency) }
+            : {}),
         },
       }),
     );

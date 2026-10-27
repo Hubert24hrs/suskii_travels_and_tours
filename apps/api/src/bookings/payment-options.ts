@@ -101,13 +101,14 @@ export function planOptions(
 
 /** The wire shape shared by quotes and bookings. */
 export function paymentOptionsDto(
-  providers: PaymentOptionsDto['providers'],
+  choices: Pick<PaymentOptionsDto, 'providers' | 'methods'>,
   plans: PlanOptions,
   policy: PlanPolicy,
   wallet: Money | null,
 ): PaymentOptionsDto {
   return {
-    providers,
+    providers: choices.providers,
+    methods: choices.methods,
     hold: plans.hold
       ? { deadline: plans.hold.deadline.toISOString(), total: toWire(plans.hold.total) }
       : null,
