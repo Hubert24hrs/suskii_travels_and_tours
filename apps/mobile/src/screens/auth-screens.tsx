@@ -88,6 +88,8 @@ export function SignInScreen() {
   const referral = useReferralParam();
   const { offer, signedIn, done } = useSignedIn();
   const [fingerprint] = useState(() => biometrics.enabled());
+  // The button always shows; until it is set up, a press says how to turn it on.
+  const [fingerprintHint, setFingerprintHint] = useState<string | null>(null);
   const [method, setMethod] = useState<'password' | 'code'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -153,6 +155,13 @@ export function SignInScreen() {
 
   const withFingerprint = () =>
     run(async () => {
+      if (!fingerprint) {
+        const available = await biometrics.available();
+        setFingerprintHint(
+          t(available ? 'mobile.auth.fingerprint.notSetUp' : 'mobile.auth.fingerprint.phoneSetup'),
+        );
+        return;
+      }
       const outcome = await fingerprintSignIn(t('mobile.auth.fingerprint.prompt'));
       if (outcome.status === 'cancelled') return;
       if (outcome.status === 'expired') {
@@ -207,16 +216,29 @@ export function SignInScreen() {
 
   return (
     <Form>
-      {fingerprint ? (
-        <Button
-          testID="sign-in-fingerprint"
-          fullWidth
-          loading={busy}
-          onPress={() => void withFingerprint()}
+      <Button
+        testID="sign-in-fingerprint"
+        variant={fingerprint ? 'primary' : 'secondary'}
+        fullWidth
+        loading={busy && fingerprint}
+        onPress={() => void withFingerprint()}
+      >
+        {t('mobile.auth.fingerprint.signIn')}
+      </Button>
+      {fingerprintHint ? (
+        <Text
+          testID="fingerprint-hint"
+          accessibilityLiveRegion="polite"
+          className="font-body text-body-sm text-foreground"
         >
-          {t('mobile.auth.fingerprint.signIn')}
-        </Button>
+          {fingerprintHint}
+        </Text>
       ) : null}
+      <SocialButtons
+        referralCode={referral || undefined}
+        divider={t('mobile.auth.orSignIn')}
+        onOutcome={finish}
+      />
       {method === 'password' ? (
         <>
           <Input
@@ -295,7 +317,6 @@ export function SignInScreen() {
       <Button testID="sign-in-switch" variant="ghost" onPress={switchMethod}>
         {method === 'password' ? t('mobile.auth.usePhone') : t('mobile.auth.useEmail')}
       </Button>
-      <SocialButtons referralCode={referral || undefined} onOutcome={finish} />
       <Button
         testID="sign-in-to-register"
         variant="ghost"
@@ -381,6 +402,11 @@ export function RegisterScreen() {
 
   return (
     <Form>
+      <SocialButtons
+        referralCode={referral.trim() ? (parseReferralCode(referral) ?? undefined) : undefined}
+        divider={t('mobile.auth.orRegister')}
+        onOutcome={socialOutcome}
+      />
       <Input
         testID="register-email"
         label={t('mobile.auth.email')}
@@ -426,10 +452,9 @@ export function RegisterScreen() {
       <Button testID="register-submit" fullWidth loading={busy} onPress={() => void submit()}>
         {t('mobile.auth.submitRegister')}
       </Button>
-      <SocialButtons
-        referralCode={referral.trim() ? (parseReferralCode(referral) ?? undefined) : undefined}
-        onOutcome={socialOutcome}
-      />
+      <Text className="font-body text-body-sm text-muted">
+        {t('mobile.auth.fingerprint.afterRegister')}
+      </Text>
       <Button
         testID="register-to-sign-in"
         variant="ghost"

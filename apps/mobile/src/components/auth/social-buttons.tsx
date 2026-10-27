@@ -15,15 +15,19 @@ import {
 const PROVIDERS: readonly SocialProvider[] = ['google', 'apple'];
 
 /**
- * "Continue with Google" and "Continue with Apple" (ADR-067), shown when the API offers them. On
- * the test server the API's mock stands in: the button asks which email to sign in as, and the
- * same email always opens the same account.
+ * "Continue with Google" and "Continue with Apple" (ADR-067), at the top of Sign in and Register
+ * with `divider` below them. Only the API's own answer hides a provider (a build without its
+ * client id); while that answer is unknown (loading, or the API unreachable) both show, and a
+ * press asks again before going on. On the test server the API's mock stands in: the button asks
+ * which email to sign in as, and the same email always opens the same account.
  */
 export function SocialButtons({
   referralCode,
+  divider,
   onOutcome,
 }: {
   referralCode?: string | undefined;
+  divider: string;
   onOutcome: (outcome: SignInOutcome) => void;
 }) {
   const { t } = useT();
@@ -41,7 +45,9 @@ export function SocialButtons({
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const offered = PROVIDERS.filter((provider) => providers.data?.[provider]);
+  const offered = providers.data
+    ? PROVIDERS.filter((provider) => providers.data?.[provider])
+    : PROVIDERS;
   if (offered.length === 0) return null;
 
   const complete = async (provider: SocialProvider, token: ProviderToken) => {
@@ -61,12 +67,21 @@ export function SocialButtons({
 
   const start = async (provider: SocialProvider) => {
     setError(null);
-    if (providers.data?.mock) {
-      setMock(provider);
-      return;
-    }
     setBusy(provider);
     try {
+      const status = providers.data ?? (await providers.refetch()).data;
+      if (!status) {
+        setError(t('mobile.networkError'));
+        return;
+      }
+      if (!status[provider]) {
+        setError(t('auth.social.failed'));
+        return;
+      }
+      if (status.mock) {
+        setMock(provider);
+        return;
+      }
       await complete(provider, await providerToken(api, provider));
     } catch {
       setError(t('mobile.networkError'));
@@ -90,7 +105,6 @@ export function SocialButtons({
 
   return (
     <View testID="social-sign-in" className="gap-3">
-      <Text className="text-center font-body text-body-sm text-muted">{t('auth.social.or')}</Text>
       {offered.map((provider) => (
         <Button
           key={provider}
@@ -108,6 +122,7 @@ export function SocialButtons({
           {error}
         </Text>
       ) : null}
+      <Text className="text-center font-body text-body-sm text-muted">{divider}</Text>
       <Modal
         open={mock !== null}
         onOpenChange={(open) => {
