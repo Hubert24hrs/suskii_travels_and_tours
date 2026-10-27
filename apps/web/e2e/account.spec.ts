@@ -196,18 +196,23 @@ test.describe('account', () => {
     expect(stored).toContain('suskii.unrelated');
   });
 
-  test('says when the email already had an account, instead of signing in', async ({ page }) => {
-    const email = newEmail('web-existing');
-    await register(page, email);
-    await page.getByTestId('sign-out').click();
-    await page.waitForURL((url) => url.pathname === '/');
+  test.describe('an email that already has an account', () => {
+    // The sign-in attempt after registering is refused with the other password.
+    test.use({ allowedConsoleErrors: [/status of 401/] });
 
-    await page.goto('/register');
-    await page.getByTestId('register-email').fill(email);
-    await page.getByTestId('register-password').fill('another perfectly long passphrase');
-    await page.getByTestId('register-submit').click();
-    await expect(page.getByTestId('register-done')).toHaveText(t('auth.register.existing'));
-    await expect(page.getByTestId('header-account')).toHaveText(t('header.signIn'));
+    test('says when the email already had an account, instead of signing in', async ({ page }) => {
+      const email = newEmail('web-existing');
+      await register(page, email);
+      await page.getByTestId('sign-out').click();
+      await page.waitForURL((url) => url.pathname === '/');
+
+      await page.goto('/register');
+      await page.getByTestId('register-email').fill(email);
+      await page.getByTestId('register-password').fill('another perfectly long passphrase');
+      await page.getByTestId('register-submit').click();
+      await expect(page.getByTestId('register-done')).toHaveText(t('auth.register.existing'));
+      await expect(page.getByTestId('header-account')).toHaveText(t('header.signIn'));
+    });
   });
 
   test('signs up with Google on the test stack, and signs in again as the same account', async ({

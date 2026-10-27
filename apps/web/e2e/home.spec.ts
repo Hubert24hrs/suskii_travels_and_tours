@@ -93,7 +93,7 @@ test.describe('homepage', () => {
   });
 
   test('has search-engine metadata and structured data', async ({ page }) => {
-    await expect(page).toHaveTitle(/Suskii Travels/);
+    await expect(page).toHaveTitle(/SUSKII T&T/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en-NG');
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /.{50,}/);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
