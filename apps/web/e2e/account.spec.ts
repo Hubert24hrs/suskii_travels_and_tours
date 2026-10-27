@@ -25,13 +25,16 @@ const pattern = (text: string): RegExp =>
       .join('.+'),
   );
 
+/** Creates the account, which signs straight in and opens the account page. */
 async function register(page: Page, email: string): Promise<void> {
   await page.goto('/register');
   await expectNoAxeViolations(page);
   await page.getByTestId('register-email').fill(email);
   await page.getByTestId('register-password').fill(PASSWORD);
   await page.getByTestId('register-submit').click();
-  await expect(page.getByTestId('register-done')).toHaveText(t('auth.register.done'));
+  await page.waitForURL(/\/account$/);
+  await expect(page.getByTestId('account-profile')).toBeVisible();
+  await expect(page.getByTestId('header-account')).toHaveText(t('header.account'));
 }
 
 async function signIn(page: Page, email: string): Promise<void> {
@@ -51,6 +54,9 @@ test.describe('account', () => {
   }) => {
     const email = newEmail('web-account');
     await register(page, email);
+    // Sign out and in again with the password.
+    await page.getByTestId('sign-out').click();
+    await page.waitForURL((url) => url.pathname === '/');
     await signIn(page, email);
     await expect(page.getByText(t('account.signedInAs', { name: email }))).toBeVisible();
     await expectNoAxeViolations(page);
@@ -150,7 +156,6 @@ test.describe('account', () => {
     test('deletes an account after re-authentication; the sign-in then fails', async ({ page }) => {
       const email = newEmail('web-delete');
       await register(page, email);
-      await signIn(page, email);
 
       await page.goto('/account/privacy');
       const card = page.getByTestId('account-delete');
@@ -174,7 +179,6 @@ test.describe('account', () => {
   test('signs out and forgets the guest booking tokens of this tab', async ({ page }) => {
     const email = newEmail('web-sign-out');
     await register(page, email);
-    await signIn(page, email);
     // A guest checkout earlier in this tab left its booking token behind.
     await page.evaluate(() => {
       sessionStorage.setItem('suskii.booking.0192d3a0-7c1e-7b2a-9f00-00000000b001', 'guest-token');
@@ -187,6 +191,47 @@ test.describe('account', () => {
     const stored = await page.evaluate(() => Object.keys(sessionStorage));
     expect(stored.filter((name) => name.startsWith('suskii.booking.'))).toEqual([]);
     expect(stored).toContain('suskii.unrelated');
+  });
+
+  test('says when the email already had an account, instead of signing in', async ({ page }) => {
+    const email = newEmail('web-existing');
+    await register(page, email);
+    await page.getByTestId('sign-out').click();
+    await page.waitForURL((url) => url.pathname === '/');
+
+    await page.goto('/register');
+    await page.getByTestId('register-email').fill(email);
+    await page.getByTestId('register-password').fill('another perfectly long passphrase');
+    await page.getByTestId('register-submit').click();
+    await expect(page.getByTestId('register-done')).toHaveText(t('auth.register.existing'));
+    await expect(page.getByTestId('header-account')).toHaveText(t('header.signIn'));
+  });
+
+  test('signs up with Google on the test stack, and signs in again as the same account', async ({
+    page,
+  }) => {
+    const email = newEmail('web-google');
+    const google = async () => {
+      await page.getByTestId('social-google').click();
+      const dialog = page.getByRole('dialog', { name: t('auth.social.mockTitle') });
+      await expect(dialog).toBeVisible();
+      await expectNoAxeViolations(page);
+      await dialog.getByTestId('social-mock-email').fill(email);
+      await dialog.getByTestId('social-mock-name').fill('Ada Okafor');
+      await dialog.getByTestId('social-mock-submit').click();
+      await page.waitForURL(/\/account$/);
+      await expect(page.getByTestId('account-profile')).toBeVisible();
+    };
+    await page.goto('/register');
+    await google();
+    await expect(page.getByText(t('account.signedInAs', { name: 'Ada Okafor' }))).toBeVisible();
+
+    await page.getByTestId('sign-out').click();
+    await page.waitForURL((url) => url.pathname === '/');
+    await page.goto('/sign-in?next=/account');
+    await expect(page.getByTestId('social-apple')).toBeVisible();
+    await google();
+    await expect(page.getByText(t('account.signedInAs', { name: 'Ada Okafor' }))).toBeVisible();
   });
 
   test('sends visitors to sign in and back to the page they asked for', async ({ page }) => {

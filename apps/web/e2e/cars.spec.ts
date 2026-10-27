@@ -25,12 +25,7 @@ async function signedIn(page: Page, label: string): Promise<void> {
   await page.getByTestId('register-email').fill(email);
   await page.getByTestId('register-password').fill(PASSWORD);
   await page.getByTestId('register-submit').click();
-  await expect(page.getByTestId('register-done')).toHaveText(t('auth.register.done'));
-  await page.goto('/sign-in?next=/account');
-  await page.getByTestId('sign-in-email').fill(email);
-  await page.getByTestId('sign-in-password').fill(PASSWORD);
-  await page.getByTestId('sign-in-submit').click();
-  // The sign-in URL itself ends in `next=/account`: wait for the account page proper.
+  // A new account signs straight in and lands on the account page.
   await page.waitForURL((url) => url.pathname === '/account');
   await expect(page.getByTestId('header-account')).toHaveText(t('header.account'));
 }

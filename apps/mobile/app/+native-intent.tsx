@@ -10,11 +10,14 @@ import { tripStore } from '../src/lib/trips';
  */
 export async function redirectSystemPath({
   path,
+  initial,
 }: {
   path: string;
   initial: boolean;
 }): Promise<string> {
   const link = resolveIncomingUrl(path, webHost());
+  // A sign-in handed back to the running app stays with the screen that asked for it.
+  if (link.path === '') return initial ? '/' : '';
   if (link.access) {
     try {
       await openSecureCache();

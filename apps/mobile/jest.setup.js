@@ -37,6 +37,8 @@ jest.mock('expo-secure-store', () => {
   const store = new Map();
   return {
     WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
+    WHEN_PASSCODE_SET_THIS_DEVICE_ONLY: 'WHEN_PASSCODE_SET_THIS_DEVICE_ONLY',
+    canUseBiometricAuthentication: jest.fn(() => true),
     getItemAsync: jest.fn((key) => Promise.resolve(store.get(key) ?? null)),
     setItemAsync: jest.fn((key, value) => {
       store.set(key, value);
@@ -173,3 +175,15 @@ jest.mock('expo-file-system', () => {
     Paths: { document: { uri: 'file:///data/documents' }, cache: { uri: 'file:///data/cache' } },
   };
 });
+
+// Fingerprint sign-in (ADR-067): no fingerprint enrolled unless a test enrols one.
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn(() => Promise.resolve(true)),
+  isEnrolledAsync: jest.fn(() => Promise.resolve(false)),
+}));
+
+jest.mock('expo-apple-authentication', () => ({
+  AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
+  isAvailableAsync: jest.fn(() => Promise.resolve(false)),
+  signInAsync: jest.fn(),
+}));

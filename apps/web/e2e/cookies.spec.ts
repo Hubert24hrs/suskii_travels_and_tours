@@ -47,11 +47,7 @@ test.describe('cookies', () => {
     await page.getByTestId('register-email').fill(email);
     await page.getByTestId('register-password').fill(PASSWORD);
     await page.getByTestId('register-submit').click();
-    await expect(page.getByTestId('register-done')).toBeVisible();
-    await page.goto('/sign-in?next=/account');
-    await page.getByTestId('sign-in-email').fill(email);
-    await page.getByTestId('sign-in-password').fill(PASSWORD);
-    await page.getByTestId('sign-in-submit').click();
+    // A new account signs straight in.
     await page.waitForURL(/\/account$/);
 
     await expect(page.getByTestId('account-profile')).toBeVisible();

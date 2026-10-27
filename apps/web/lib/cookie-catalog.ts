@@ -101,6 +101,14 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
     duration: 'tab',
   },
   {
+    name: 'suskii:social-sign-in',
+    kind: 'sessionStorage',
+    category: 'necessary',
+    provider: 'suskii',
+    purpose: 'socialSignIn',
+    duration: 'tab',
+  },
+  {
     name: 'Turnstile',
     kind: 'third-party',
     category: 'necessary',

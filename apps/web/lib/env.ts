@@ -14,6 +14,10 @@ export const publicEnv = {
   sentryEnvironment: setting(process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT, process.env.NODE_ENV),
   /** The deployed version (the git SHA), so reports match the uploaded source maps. */
   sentryRelease: setting(process.env.NEXT_PUBLIC_SENTRY_RELEASE, ''),
+  /** Google OAuth web client id for "Continue with Google" (public; empty: none, ADR-067). */
+  googleClientId: setting(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, ''),
+  /** Apple Services ID for "Continue with Apple" on the web (public; empty: none). */
+  appleServicesId: setting(process.env.NEXT_PUBLIC_APPLE_SERVICES_ID, ''),
   /** Share of page views that report field Core Web Vitals (0 to 1; ADR-044). */
   webVitalsSampleRate: sampleRate(process.env.NEXT_PUBLIC_WEB_VITALS_SAMPLE_RATE),
 } as const;

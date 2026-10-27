@@ -61,6 +61,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: bundleId,
     supportsTablet: true,
+    usesAppleSignIn: true,
     config: { usesNonExemptEncryption: false },
     ...(appLinks ? { associatedDomains: [`applinks:${webHost}`] } : {}),
     ...(nativeAttestation
@@ -105,6 +106,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         barcodeScannerEnabled: true,
       },
     ],
+    // Fingerprint sign-in and Sign in with Apple (ADR-067).
+    [
+      'expo-local-authentication',
+      { faceIDPermission: 'Allow SUSKII T&T to use Face ID to sign you in.' },
+    ],
+    'expo-apple-authentication',
     ['expo-build-properties', { android: { usesCleartextTraffic: insecureAllowed } }],
   ],
   experiments: { typedRoutes: true },

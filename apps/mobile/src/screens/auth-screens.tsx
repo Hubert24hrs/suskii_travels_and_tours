@@ -5,6 +5,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
 
+import { FingerprintOffer } from '../components/auth/fingerprint-offer';
+import { SocialButtons } from '../components/auth/social-buttons';
+import { biometrics } from '../lib/biometric';
 import { useT } from '../providers/app-provider';
 import { useAuth, type SignInOutcome } from '../providers/auth';
 
@@ -41,6 +44,24 @@ function Form({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * After signing in: offers fingerprint sign-in once when the phone can use it and it is off
+ * (ADR-067), otherwise closes the sign-in screen.
+ */
+function useSignedIn(): { offer: boolean; signedIn: () => void; done: () => void } {
+  const router = useRouter();
+  const [offer, setOffer] = useState(false);
+  const done = () => router.back();
+  const signedIn = () => {
+    if (biometrics.enabled()) {
+      done();
+      return;
+    }
+    void biometrics.available().then((available) => (available ? setOffer(true) : done()));
+  };
+  return { offer, signedIn, done };
+}
+
 function ErrorText({ message }: { message: string | null }) {
   return message ? (
     <Text accessibilityRole="alert" className="font-body text-body-sm text-danger">
@@ -56,9 +77,11 @@ function ErrorText({ message }: { message: string | null }) {
 export function SignInScreen() {
   const { t } = useT();
   const router = useRouter();
-  const { signIn, verifyMfa, requestCode, verifyCode } = useAuth();
+  const { signIn, verifyMfa, requestCode, verifyCode, fingerprintSignIn } = useAuth();
   const describe = useOutcomeText();
   const referral = useReferralParam();
+  const { offer, signedIn, done } = useSignedIn();
+  const [fingerprint] = useState(() => biometrics.enabled());
   const [method, setMethod] = useState<'password' | 'code'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -72,7 +95,7 @@ export function SignInScreen() {
 
   const finish = (outcome: SignInOutcome) => {
     if (outcome.status === 'signed-in') {
-      router.back();
+      signedIn();
       return;
     }
     if (outcome.status === 'mfa') {
@@ -120,12 +143,35 @@ export function SignInScreen() {
       else if (codeSentTo) finish(await verifyCode(codeSentTo, code.trim(), referral || undefined));
     });
 
+  const withFingerprint = () =>
+    run(async () => {
+      const outcome = await fingerprintSignIn(t('mobile.auth.fingerprint.prompt'));
+      if (outcome.status === 'cancelled') return;
+      if (outcome.status === 'expired') {
+        setError(t('mobile.auth.fingerprint.expired'));
+        return;
+      }
+      if (outcome.status === 'signed-in') {
+        done();
+        return;
+      }
+      finish(outcome);
+    });
+
   const switchMethod = () => {
     setMethod(method === 'password' ? 'code' : 'password');
     setCodeSentTo(null);
     setCode('');
     setError(null);
   };
+
+  if (offer) {
+    return (
+      <Form>
+        <FingerprintOffer onDone={done} />
+      </Form>
+    );
+  }
 
   if (challenge) {
     return (
@@ -153,6 +199,16 @@ export function SignInScreen() {
 
   return (
     <Form>
+      {fingerprint ? (
+        <Button
+          testID="sign-in-fingerprint"
+          fullWidth
+          loading={busy}
+          onPress={() => void withFingerprint()}
+        >
+          {t('mobile.auth.fingerprint.signIn')}
+        </Button>
+      ) : null}
       {method === 'password' ? (
         <>
           <Input
@@ -231,18 +287,27 @@ export function SignInScreen() {
       <Button testID="sign-in-switch" variant="ghost" onPress={switchMethod}>
         {method === 'password' ? t('mobile.auth.usePhone') : t('mobile.auth.useEmail')}
       </Button>
-      <Button variant="ghost" onPress={() => router.replace('/register')}>
+      <SocialButtons referralCode={referral || undefined} onOutcome={finish} />
+      <Button
+        testID="sign-in-to-register"
+        variant="ghost"
+        onPress={() => router.replace('/register')}
+      >
         {t('mobile.auth.toRegister')}
       </Button>
     </Form>
   );
 }
 
-/** Registration always answers the same way, so it never reveals whether an email exists. */
+/**
+ * Registration always answers the same way, so it never reveals whether an email exists; the app
+ * then signs straight in. Google and Apple create the account in one step (ADR-067).
+ */
 export function RegisterScreen() {
   const { t } = useT();
   const router = useRouter();
   const { register } = useAuth();
+  const { offer, signedIn, done } = useSignedIn();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const invited = useReferralParam();
@@ -260,25 +325,47 @@ export function RegisterScreen() {
         return;
       }
       const result = await register(email.trim(), password, code ?? undefined);
-      setMessage(
-        result === 'accepted'
-          ? { text: t('mobile.auth.registered'), ok: true }
-          : {
-              text:
-                result === 'weak'
-                  ? t('auth.register.breached')
-                  : result === 'invalid'
-                    ? t('mobile.auth.registerInvalid')
-                    : t('mobile.auth.error'),
-              ok: false,
-            },
-      );
+      if (result.status === 'signed-in') {
+        signedIn();
+        return;
+      }
+      if (result.status === 'mfa') {
+        // The email already had an account with this password and MFA: finish on Sign in.
+        router.replace('/sign-in');
+        return;
+      }
+      setMessage({
+        text:
+          result.status === 'existing'
+            ? t('mobile.auth.registeredExisting')
+            : result.status === 'weak'
+              ? t('auth.register.breached')
+              : result.status === 'invalid'
+                ? t('mobile.auth.registerInvalid')
+                : result.status === 'locked'
+                  ? t('mobile.auth.locked')
+                  : t('mobile.auth.error'),
+        ok: false,
+      });
     } catch {
       setMessage({ text: t('mobile.networkError'), ok: false });
     } finally {
       setBusy(false);
     }
   };
+
+  const socialOutcome = (outcome: SignInOutcome) => {
+    if (outcome.status === 'signed-in') signedIn();
+    else if (outcome.status === 'mfa') router.replace('/sign-in');
+  };
+
+  if (offer) {
+    return (
+      <Form>
+        <FingerprintOffer onDone={done} />
+      </Form>
+    );
+  }
 
   return (
     <Form>
@@ -327,7 +414,15 @@ export function RegisterScreen() {
       <Button testID="register-submit" fullWidth loading={busy} onPress={() => void submit()}>
         {t('mobile.auth.submitRegister')}
       </Button>
-      <Button variant="ghost" onPress={() => router.replace('/sign-in')}>
+      <SocialButtons
+        referralCode={referral.trim() ? (parseReferralCode(referral) ?? undefined) : undefined}
+        onOutcome={socialOutcome}
+      />
+      <Button
+        testID="register-to-sign-in"
+        variant="ghost"
+        onPress={() => router.replace('/sign-in')}
+      >
         {t('mobile.auth.toSignIn')}
       </Button>
     </Form>

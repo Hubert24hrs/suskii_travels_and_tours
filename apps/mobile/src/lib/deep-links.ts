@@ -12,7 +12,10 @@ import {
  */
 
 export interface IncomingLink {
-  /** In-app route, e.g. `/trips/{id}` or `/search/flights?...`. */
+  /**
+   * In-app route, e.g. `/trips/{id}` or `/search/flights?...`; empty to stay on the current
+   * screen (a Google or Apple sign-in coming back to the screen that started it, ADR-067).
+   */
   path: string;
   /** Guest access token from an emailed booking link (`#access=`), never passed to the router. */
   access?: { bookingId: string; token: string };
@@ -90,6 +93,8 @@ function appPath({ path, query }: Parts): IncomingLink {
   const segments = path.split('/').filter(Boolean);
   const [first, second, third] = segments;
   if (segments.length === 0) return HOME;
+  // The website hands a finished sign-in back here; the sign-in screen reads it, not the router.
+  if (first === 'auth' && second === 'social' && segments.length === 2) return { path: '' };
   if (first === 'trips' && segments.length === 1) return { path: '/trips' };
   if (first === 'trips' && second && UUID.test(second) && segments.length === 2)
     return tripLink(second, '', false);
