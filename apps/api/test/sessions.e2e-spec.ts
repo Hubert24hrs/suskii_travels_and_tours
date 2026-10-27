@@ -223,10 +223,17 @@ describe('sessions: limits, staff lifetimes and step-up (e2e)', () => {
 
     const sessions = await ctx.prisma.session.findMany({ where: { userId: staff.userId } });
     expect(sessions.every((session) => session.revokedReason === 'incident-e2e')).toBe(true);
+    // The audit log is append-only and outlives each test: read the latest entry.
     const audit = await ctx.prisma.auditLog.findFirst({
       where: { action: 'auth.sessions.revoked_incident' },
+      orderBy: { occurredAt: 'desc' },
     });
     expect(audit).toMatchObject({ actorType: 'system', actorUserId: null });
-    expect(audit?.metadata).toEqual({ scope: 'staff', reason: 'incident-e2e', revoked: 2 });
+    expect(audit?.metadata).toEqual({
+      scope: 'staff',
+      reason: 'incident-e2e',
+      revoked: 2,
+      fingerprintSignInRevoked: 0,
+    });
   });
 });
