@@ -35,3 +35,43 @@ test('a markup rule raises the public price of a tour', async ({ page, stack }) 
   const after = await publicTourPrice(stack.tourSlug);
   expect(after).toBeLessThanOrEqual(Math.ceil(before * 1.1) + 100);
 });
+
+/**
+ * Tax rules (ADR-072): the selling country's rules apply, others are prepared for later. The
+ * effect on prices is covered by the API's tax e2e; visa keeps this rule off the tour above.
+ */
+test('a tax rule for the selling country applies; another country waits', async ({
+  page,
+  stack,
+}) => {
+  await signIn(page, stack, 'taxes');
+  await page.goto('/pricing');
+  const taxes = page.getByRole('region', { name: t('pricing.taxes') });
+  await expect(taxes).toContainText(t('pricing.noTaxes'));
+
+  await page.getByTestId('new-tax').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expectNoAxeViolations(page);
+  await expect(dialog.getByLabel(t('pricing.country'))).toHaveValue('NG');
+  await dialog.getByLabel(t('pricing.label')).fill('VAT E2E');
+  await dialog.getByLabel(t('pricing.rate')).fill('7.5');
+  await dialog.getByLabel(t('pricing.taxBasis')).selectOption('full');
+  await dialog.getByLabel(t('pricing.vertical')).selectOption('visa');
+  await dialog.getByLabel(t('pricing.registration')).fill('TIN 01234567-0001');
+  await dialog.getByRole('button', { name: t('common.save') }).click();
+  const row = page.getByRole('row', { name: /VAT E2E/ });
+  await expect(row).toContainText('7.5%');
+  await expect(row).toContainText(t('pricing.taxApplies'));
+
+  await page.getByTestId('new-tax').click();
+  await dialog.getByLabel(t('pricing.country')).fill('GH');
+  await dialog.getByLabel(t('pricing.code')).fill('vat_gh');
+  await dialog.getByLabel(t('pricing.label')).fill('Ghana VAT E2E');
+  await dialog.getByLabel(t('pricing.rate')).fill('15');
+  await dialog.getByLabel(t('pricing.vertical')).selectOption('visa');
+  await dialog.getByRole('button', { name: t('common.save') }).click();
+  await expect(page.getByRole('row', { name: /Ghana VAT E2E/ })).toContainText(
+    t('pricing.taxPrepared'),
+  );
+});

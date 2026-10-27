@@ -56,6 +56,8 @@ export const adminMessages = {
   },
   problems: {
     'validation-failed': 'Some fields are invalid.',
+    'tax-overlaps-cars-vat':
+      'Cars fares already include VAT: choose another vertical or tax only our margin and fees.',
     forbidden: 'Your role does not allow this.',
     'mfa-required': 'Sign in again with your authenticator to continue.',
     'step-up-required': 'Confirm with your authenticator code to make this change.',
@@ -471,9 +473,9 @@ export const adminMessages = {
     filterTarget: 'Target ID',
   },
   pricing: {
-    title: 'Markups and fees',
+    title: 'Markups, fees and taxes',
     intro:
-      'Markups are hidden margins (the first active match wins); fees are shown to customers. Changes apply to the next search or quote.',
+      'Markups are hidden margins (the first active match wins); fees and taxes are shown to customers and included in every price. Changes apply to the next search or quote.',
     markups: 'Markup rules',
     fees: 'Fees',
     newMarkup: 'New markup rule',
@@ -521,6 +523,23 @@ export const adminMessages = {
     noMarkups: 'No markup rules: customers pay the supplier price plus fees.',
     noFees: 'No fees.',
     rule: '{value} on {vertical}',
+    taxes: 'Taxes on our service',
+    taxesIntro:
+      "Added to the price customers see: on Suskii's margin and fees for bookings sold as agent, or the whole price for what Suskii sells itself. Only the selling country's rules apply ({country}); rules for other countries wait until Suskii sells there.",
+    newTax: 'New tax rule',
+    editTax: 'Edit tax rule',
+    country: 'Country',
+    countryHint: 'Two-letter code of the selling country, e.g. NG.',
+    taxCodeHint: 'Lower-case letters, digits and underscores, e.g. vat.',
+    rate: 'Rate (%)',
+    taxBasis: 'Taxed on',
+    taxBases: { margin: 'Our margin and fees', full: 'Whole price (fare and fees)' },
+    allVerticals: 'Every vertical',
+    registration: 'Registration number',
+    registrationHint: 'Printed on receipts, e.g. TIN 01234567-0001.',
+    noTaxes: 'No tax rules: no tax is added to our service.',
+    taxApplies: 'Applies',
+    taxPrepared: 'Prepared',
   },
   promos: {
     title: 'Promo codes',

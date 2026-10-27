@@ -21,6 +21,8 @@ export const PERSONAS = {
   finance: { roles: ['finance'], enrolled: true },
   /** Adds the markup rule. */
   pricing: { roles: ['finance'], enrolled: true },
+  /** Adds the tax rule. */
+  taxes: { roles: ['finance'], enrolled: true },
   /** Creates the promo code; cannot see pricing or the audit log. */
   operations: { roles: ['operations'], enrolled: true },
   /** Verifies the trust signal (super admins only). */
