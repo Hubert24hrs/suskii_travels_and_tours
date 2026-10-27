@@ -295,6 +295,26 @@ test.describe('account', () => {
     await expect(page.getByText(t('account.signedInAs', { name: 'Ada Okafor' }))).toBeVisible();
   });
 
+  test('reaches "Manage booking" from the header and asks for the booking link', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/');
+    await page
+      .getByRole('navigation', { name: t('header.utilityNav') })
+      .getByRole('link', { name: t('header.manageBooking') })
+      .click();
+    await page.waitForURL(/\/manage-booking$/);
+    await expect(page.getByRole('heading', { name: t('booking.manage.heading') })).toBeVisible();
+    await expectNoAxeViolations(page);
+
+    await page.getByTestId('manage-booking-reference').fill('K7QX3M');
+    await page.getByTestId('manage-booking-email').fill(newEmail('manage'));
+    await page.getByTestId('manage-booking-submit').click();
+    // The same answer whether or not the booking exists.
+    await expect(page.getByTestId('manage-booking-sent')).toHaveText(t('booking.manage.sent'));
+  });
+
   test('sends visitors to sign in and back to the page they asked for', async ({ page }) => {
     await page.goto('/account/wallet');
     await page.waitForURL(/\/sign-in\?next=%2Faccount%2Fwallet$/);

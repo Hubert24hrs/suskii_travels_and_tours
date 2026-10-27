@@ -1,7 +1,7 @@
 import { SetMetadata } from '@nestjs/common';
 
 /** What a limit counts against. Body fields are HMAC'd before they reach Redis. */
-export type RateLimitSubject = 'ip' | 'user' | { body: 'email' | 'phone' };
+export type RateLimitSubject = 'ip' | 'user' | { body: 'email' | 'phone' | 'reference' };
 
 export interface RateLimitPolicy {
   /** Stable name; part of the Redis key and shared across routes that use the same policy. */
@@ -104,6 +104,14 @@ export const BOOKING_LIMITS = {
     by: 'ip',
   },
   travellersUser: { name: 'travellers-user', limit: 60, windowSeconds: 600, by: 'user' },
+  /** "Manage booking" emails a link: few per address, fewer per booking (no email bombing). */
+  linkIp: { name: 'booking-link-ip', limit: 10, windowSeconds: 600, by: 'ip' },
+  linkReference: {
+    name: 'booking-link-reference',
+    limit: 3,
+    windowSeconds: 3600,
+    by: { body: 'reference' },
+  },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 /** Mobile devices: push token registration and attestation challenges (ADR-022, ADR-023). */

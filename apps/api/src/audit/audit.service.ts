@@ -102,6 +102,7 @@ export type AuditAction =
   | 'booking.note_added'
   | 'booking.contact_revealed'
   | 'booking.confirmation_resent'
+  | 'booking.link_sent'
   | 'user.disabled'
   | 'user.enabled'
   | 'user.mfa_reset'

@@ -12824,6 +12824,62 @@
         }
       }
     },
+    "/v1/bookings/link": {
+      "post": {
+        "operationId": "requestBookingLink",
+        "summary": "Email the link to a booking",
+        "description": "\"Manage booking\": always answers 202 with the same body. When the reference and the contact email belong to the same booking, its contact address receives the link (a fresh access link for guests, valid for a day).",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookingLinkRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingLinkAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/buses/cities": {
       "get": {
         "operationId": "listBusCities",
@@ -27721,6 +27777,41 @@
           "amount"
         ],
         "additionalProperties": false
+      },
+      "BookingLinkAccepted": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "accepted"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "BookingLinkRequestInput": {
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{6,8}$"
+          },
+          "email": {
+            "type": "string"
+          },
+          "turnstileToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "reference",
+          "email",
+          "turnstileToken"
+        ]
       },
       "BookingNote": {
         "type": "object",

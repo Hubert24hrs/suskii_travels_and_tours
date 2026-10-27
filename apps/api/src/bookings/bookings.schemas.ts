@@ -15,7 +15,9 @@ import {
   VISA_APPLICATION_STATUSES,
   PRIME_PERIODS,
   VISA_PURPOSES,
+  bookingReferenceSchema,
   contactDetailsSchema,
+  emailSchema,
   flightSearchRequestSchema,
   GENDERS,
   hotelGuestSchema,
@@ -867,6 +869,24 @@ export const createdBookingSchema = named(
         'Guest bookings only, returned once: send it as `X-Booking-Token`. It cannot be recovered.',
     }),
   }),
+);
+
+/** "Manage booking": the reference and the contact email together are the proof (ADR-015). */
+export const bookingLinkRequestSchema = named(
+  'BookingLinkRequest',
+  z.object({
+    reference: bookingReferenceSchema,
+    email: emailSchema,
+    turnstileToken: z.string().min(1).max(2048).meta({
+      description: 'Cloudflare Turnstile token (action `manage-booking`).',
+    }),
+  }),
+);
+export type BookingLinkRequest = z.infer<typeof bookingLinkRequestSchema>;
+
+export const bookingLinkAcceptedSchema = named(
+  'BookingLinkAccepted',
+  z.object({ status: z.literal('accepted') }),
 );
 
 export const startPaymentRequestSchema = named(
