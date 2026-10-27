@@ -58,6 +58,9 @@ All notable changes to this project are documented here. The format follows
   opens a form that emails the booking link to the booking's contact address when the reference
   and email match (`POST /v1/bookings/link`, always 202; guests get a fresh access link valid for
   a day).
+- **After registering on the website.** When the automatic sign-in was refused for a reason other
+  than the password (too many attempts, a second factor), the page claimed the email already had
+  an account. It now says the account is ready and to sign in.
 - **MFA after Google or Apple.** A traveller with MFA who signed in with Google or Apple on the
   website, or registered in the app with an account that has MFA, lost the second-factor step.
   It now continues on the page.
