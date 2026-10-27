@@ -76,6 +76,7 @@ model User {
   driver                  Driver?
   rides                   Ride[]                   @relation("RideRider")
   emergencyContacts       EmergencyContact[]
+  partnerClicks           PartnerClick[]
 
   @@map("users")
 }
@@ -930,6 +931,7 @@ model Booking {
   notes            BookingNote[]
   riskReviews      PaymentRiskReview[]
   scheduleChanges  FlightScheduleChange[]
+  partnerClicks    PartnerClick[]
 
   @@index([userId, createdAt])
   /// Admin booking search and the dashboard filter by creation date (ADR-036).
@@ -2949,4 +2951,82 @@ model RentalHandoverPhoto {
   @@index([reservationId])
   @@index([handoverId])
   @@map("rental_handover_photos")
+}
+
+// --- Partner supply (ADR-069, ADR-070) ------------------------------------------------------
+
+/// What an affiliate partner sells (ADR-069).
+enum PartnerCategory {
+  car_rental
+  transfer
+  activity
+  esim
+  insurance
+}
+
+/// Who tracks the click and pays the commission.
+enum AffiliateNetwork {
+  mock
+  travelpayouts
+  viator
+}
+
+enum PartnerConversionStatus {
+  pending
+  confirmed
+  cancelled
+}
+
+/// An outbound click on a partner offer (ADR-070). Ids only: no IP address, browser or URL.
+/// The id is the `sub_id` the network reports back on a conversion.
+model PartnerClick {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  /// A key of the programme catalogue (`src/partners/partner-programs.ts`).
+  programId String           @map("program_id") @db.VarChar(40)
+  category  PartnerCategory
+  network   AffiliateNetwork
+  userId    String?          @map("user_id") @db.Uuid
+  /// The trip the offer was shown with (cross-sell), when there was one.
+  bookingId String?          @map("booking_id") @db.Uuid
+  channel   SalesChannel?
+  /// Viator's campaign value from the search that produced the link.
+  campaign  String?          @db.VarChar(64)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  booking     Booking?            @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  conversions PartnerConversion[]
+
+  @@index([programId, createdAt])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("partner_clicks")
+}
+
+/// A booking a network reported for one of our clicks (postback). Revenue record: the network's
+/// id, amounts and status, no personal data.
+model PartnerConversion {
+  id                 String                  @id @default(uuid(7)) @db.Uuid
+  network            AffiliateNetwork
+  /// The network's booking or action id.
+  externalId         String                  @map("external_id") @db.VarChar(128)
+  /// Unknown or purged clicks leave this empty; the network still pays.
+  clickId            String?                 @map("click_id") @db.Uuid
+  programId          String?                 @map("program_id") @db.VarChar(40)
+  status             PartnerConversionStatus
+  priceMinor         BigInt?                 @map("price_minor")
+  priceCurrency      String?                 @map("price_currency") @db.Char(3)
+  commissionMinor    BigInt?                 @map("commission_minor")
+  commissionCurrency String?                 @map("commission_currency") @db.Char(3)
+  confirmedAt        DateTime?               @map("confirmed_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?               @map("cancelled_at") @db.Timestamptz(3)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  click PartnerClick? @relation(fields: [clickId], references: [id], onDelete: SetNull)
+
+  @@unique([network, externalId])
+  @@index([programId, createdAt])
+  @@index([clickId])
+  @@map("partner_conversions")
 }

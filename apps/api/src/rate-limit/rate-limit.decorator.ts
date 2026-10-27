@@ -130,6 +130,16 @@ export const INHOUSE_LIMITS = {
   voucherRedeemUser: { name: 'voucher-redeem-user', limit: 120, windowSeconds: 600, by: 'user' },
 } as const satisfies Record<string, RateLimitPolicy>;
 
+/** Partner offers and tracking (ADR-070). */
+export const PARTNER_LIMITS = {
+  /** Offers call the activity partner: generous for browsing, not for scraping. */
+  offersIp: { name: 'partner-offers-ip', limit: 60, windowSeconds: 60, by: 'ip' },
+  /** Every click is a row: plenty for a person, a ceiling for click inflation. */
+  redirectIp: { name: 'partner-redirect-ip', limit: 60, windowSeconds: 60, by: 'ip' },
+  /** Networks send postbacks from a few addresses, sometimes in bursts after an outage. */
+  postbackIp: { name: 'partner-postback-ip', limit: 600, windowSeconds: 60, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
 /** Cars (ADR-050): holds and quotes are scraping and hoarding targets; safety routes never starve. */
 export const CARS_LIMITS = {
   catalogIp: { name: 'cars-catalog-ip', limit: 60, windowSeconds: 60, by: 'ip' },

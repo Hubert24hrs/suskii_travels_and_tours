@@ -207,6 +207,9 @@ export class AccountDeletionService {
           await tx.newsletterSubscription.deleteMany({ where: { email: user.email } });
         }
 
+        // Partner clicks stay for commission reports, no longer linked to the person.
+        await tx.partnerClick.updateMany({ where: { userId }, data: { userId: null } });
+
         // Purchase and reward records stay, ended and without sign-up signals.
         await tx.primeMembership.updateMany({
           where: { userId, endsAt: { gt: now } },

@@ -31,3 +31,5 @@ export const rentalLicenceNumberContext = (licenceId: string): string =>
   `rental-licence:${licenceId}:number`;
 export const rentalLicenceKeyContext = (licenceId: string): string => `rental-licence:${licenceId}`;
 export const rentalPhotoKeyContext = (photoId: string): string => `rental-photo:${photoId}`;
+// Partner offer links (ADR-070): not stored, but sealed so they cannot be read or altered.
+export const partnerLinkContext = (): string => 'partner-link';

@@ -110,6 +110,16 @@ export const aiSearchTokens = meter.createCounter('suskii.ai_search.tokens', {
   description: 'AI search tokens by kind (input, output, cache_read, cache_write)',
 });
 
+/** Partner offers (ADR-070): outbound clicks by programme and how the link was made. */
+export const partnerClicks = meter.createCounter('suskii.partner.clicks', {
+  description: 'Outbound partner clicks by programme, network and link (tracked, fallback)',
+});
+
+/** Postbacks by network and the conversion status they recorded (or `rejected`). */
+export const partnerConversions = meter.createCounter('suskii.partner.conversions', {
+  description: 'Affiliate conversions reported by networks, by network and status',
+});
+
 /**
  * Field Core Web Vitals from the website (ADR-044), by page template and device class. Buckets
  * are finer around the "good" thresholds so dashboards can read the 75th percentile accurately.

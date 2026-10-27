@@ -81,6 +81,7 @@ export class DataExportService {
       priceAlerts,
       newsletter,
       activity,
+      partnerClicks,
     ] = await Promise.all([
       this.preferences.get(userId),
       this.preferences.notifications(userId),
@@ -124,6 +125,7 @@ export class DataExportService {
         where: { actorUserId: userId },
         orderBy: { occurredAt: 'asc' },
       }),
+      this.prisma.partnerClick.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
     ]);
 
     const presented = [];
@@ -321,14 +323,29 @@ export class DataExportService {
             unsubscribedAt: iso(newsletter.unsubscribedAt),
           }
         : null,
-      activity: activity.map((event) => ({
-        occurredAt: iso(event.occurredAt),
-        action: event.action,
-        targetType: event.targetType,
-        targetId: event.targetId,
-        userAgent: event.userAgent,
-        metadata: event.metadata,
-      })),
+      activity: [
+        ...activity.map((event) => ({
+          occurredAt: iso(event.occurredAt),
+          action: event.action,
+          targetType: event.targetType,
+          targetId: event.targetId,
+          userAgent: event.userAgent,
+          metadata: event.metadata,
+        })),
+        // Partner offers the account opened (ADR-070), in the same shape as audit events.
+        ...partnerClicks.map((click) => ({
+          occurredAt: iso(click.createdAt),
+          action: 'partner.offer_opened',
+          targetType: 'partner_program',
+          targetId: click.programId,
+          userAgent: null,
+          metadata: {
+            category: click.category,
+            bookingId: click.bookingId,
+            channel: click.channel,
+          },
+        })),
+      ].sort((a, b) => (a.occurredAt ?? '').localeCompare(b.occurredAt ?? '')),
       rides: await this.rides(userId),
       emergencyContacts: await this.emergencyContacts(userId),
       driving: await this.driving(userId),

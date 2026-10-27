@@ -196,6 +196,46 @@ describe('parseEnv', () => {
     );
   });
 
+  it('requires partner credentials and refuses mock partners in production (ADR-070)', () => {
+    expect(() => parseEnv({ ...base, AFFILIATE_NETWORK: 'travelpayouts' })).toThrow(
+      /TRAVELPAYOUTS_TOKEN.*TRAVELPAYOUTS_MARKER/s,
+    );
+    expect(() => parseEnv({ ...base, ACTIVITY_PARTNER: 'viator' })).toThrow(/VIATOR_API_KEY/);
+    expect(() => parseEnv({ ...base, TRAVELPAYOUTS_POSTBACK_SECRET: 'too-short' })).toThrow(
+      /TRAVELPAYOUTS_POSTBACK_SECRET/,
+    );
+    const env = parseEnv(base);
+    expect(env.PARTNER_OFFERS_ENABLED).toBeUndefined();
+    expect([env.AFFILIATE_NETWORK, env.ACTIVITY_PARTNER]).toEqual(['mock', 'mock']);
+    expect(env.PARTNER_LINK_TTL_HOURS).toBe(24);
+
+    const production = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({ ...base, NODE_ENV: 'production', ...overrides });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    // Off in production unless set: the mocks are only refused once partner offers are on.
+    expect(production({})).not.toContain('AFFILIATE_NETWORK');
+    const on = production({ PARTNER_OFFERS_ENABLED: 'true' });
+    expect(on).toContain('AFFILIATE_NETWORK: the mock network earns nothing');
+    expect(on).toContain('ACTIVITY_PARTNER: mock activities');
+    const real = production({
+      PARTNER_OFFERS_ENABLED: 'true',
+      AFFILIATE_NETWORK: 'travelpayouts',
+      TRAVELPAYOUTS_TOKEN: 't',
+      TRAVELPAYOUTS_MARKER: '12345',
+      ACTIVITY_PARTNER: 'viator',
+      VIATOR_API_KEY: 'v',
+      VIATOR_API_URL: 'http://api.viator.com/partner',
+    });
+    expect(real).not.toContain('AFFILIATE_NETWORK');
+    expect(real).toContain('TRAVELPAYOUTS_POSTBACK_SECRET: is required in production');
+    expect(real).toContain('VIATOR_API_URL: must use https');
+  });
+
   it('requires TLS to suppliers and telemetry in production, except a local collector', () => {
     const production = (overrides: Record<string, string>) => {
       try {
