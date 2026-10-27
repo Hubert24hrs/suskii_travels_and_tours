@@ -60,6 +60,10 @@ extra_secrets = [
 api_env = {
   FLIGHT_SUPPLIERS   = "duffel"
   HOTEL_SUPPLIERS    = "duffel" # needs Duffel Stays on the account (ADR-062)
+  # Hotelbeds as a second hotel source (ADR-071): add "HOTELBEDS_API_KEY" and
+  # "HOTELBEDS_API_SECRET" to extra_secrets, set them in Secret Manager, then use:
+  # HOTEL_SUPPLIERS   = "duffel,hotelbeds"
+  # HOTELBEDS_API_URL = "https://api.hotelbeds.com"
   PAYMENT_PROVIDERS  = "paystack"
   EMAIL_PROVIDER     = "smtp"
   EMAIL_FROM         = "Suskii Travels <no-reply@suskii.example>"

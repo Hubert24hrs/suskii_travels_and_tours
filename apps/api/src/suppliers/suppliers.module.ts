@@ -8,6 +8,8 @@ import { CircuitBreakerRegistry } from './circuit-breaker';
 import { DuffelFlightSupplier } from './duffel/duffel-flight-supplier';
 import { DuffelHotelSupplier } from './duffel/duffel-hotel-supplier';
 import { DuffelClient } from './duffel/duffel.client';
+import { HotelbedsHotelSupplier } from './hotelbeds/hotelbeds-hotel-supplier';
+import { HotelbedsClient } from './hotelbeds/hotelbeds.client';
 import { MockFlightSupplier } from './mock/mock-flight-supplier';
 import { MockHotelSupplier } from './mock/mock-hotel-supplier';
 import type { FlightSupplier, HotelSupplier } from './supplier.types';
@@ -54,6 +56,17 @@ export const HOTEL_SUPPLIERS = Symbol('HOTEL_SUPPLIERS');
       useFactory: (config: AppConfig, mock: MockHotelSupplier): HotelSupplier[] =>
         config.HOTEL_SUPPLIERS.map((name) => {
           if (name === 'mock') return mock;
+          if (name === 'hotelbeds') {
+            // The env schema guarantees a key and secret when hotelbeds is enabled.
+            return new HotelbedsHotelSupplier(
+              new HotelbedsClient({
+                baseUrl: config.HOTELBEDS_API_URL,
+                apiKey: config.HOTELBEDS_API_KEY ?? '',
+                secret: config.HOTELBEDS_API_SECRET ?? '',
+              }),
+              config.HOTELBEDS_SEARCH_RADIUS_KM,
+            );
+          }
           // The env schema guarantees a token when duffel is enabled.
           return new DuffelHotelSupplier(
             new DuffelClient({
