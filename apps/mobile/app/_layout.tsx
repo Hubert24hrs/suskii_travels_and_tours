@@ -5,7 +5,6 @@ import {
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { getMessages } from '@suskii/i18n';
 import * as Notifications from 'expo-notifications';
 import { useFonts } from 'expo-font';
@@ -15,22 +14,41 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { appConfig, setHostedServer, subscribeServer } from '../src/config';
 import { appUpdate } from '../src/lib/app-update';
 import { untilStarted } from '../src/lib/bootstrap';
 import { openSecureCache } from '../src/lib/cache';
 import { resolveNotificationPath } from '../src/lib/deep-links';
+import { discoverHostedServer } from '../src/lib/hosted-server';
 import { configureNotifications } from '../src/lib/push';
 import type { SessionStore } from '../src/lib/session';
 import { AppProvider, createSessionStore, deviceLocale, useT } from '../src/providers/app-provider';
 import { UpdateRequiredScreen } from '../src/screens/update-required-screen';
 
+/** Test builds look for the hosted test server first, unless the tester chose a server. */
+const discoversServer = (): boolean =>
+  appConfig.testServerDiscoveryUrl !== '' && !appConfig.customServer;
+
 /**
- * Opens the encrypted cache and restores the session before the first screen renders, trying
- * again until it works (the keychain is locked during a background start).
+ * Finds the hosted test server (test builds, ADR-066), then opens the encrypted cache and restores
+ * the session before the first screen renders, trying again until it works (the keychain is
+ * locked during a background start). When the hosted server moves, the session starts again
+ * against the new address.
  */
-function useBootstrap(): SessionStore | null {
-  const [session, setSession] = useState<SessionStore | null>(null);
+function useBootstrap(): { store: SessionStore; server: string } | null {
+  const server = useSyncExternalStore(subscribeServer, () => appConfig.apiBaseUrl);
+  const [discovered, setDiscovered] = useState(() => !discoversServer());
+  const [session, setSession] = useState<{ store: SessionStore; server: string } | null>(null);
   useEffect(() => {
+    configureNotifications(getMessages(deviceLocale()).mobile.notificationChannel);
+    if (!discoversServer()) return;
+    void discoverHostedServer(appConfig.testServerDiscoveryUrl).then((found) => {
+      setHostedServer(found);
+      setDiscovered(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (!discovered) return;
     let cancelled = false;
     void untilStarted(
       async () => {
@@ -41,14 +59,13 @@ function useBootstrap(): SessionStore | null {
       },
       { cancelled: () => cancelled },
     ).then((store) => {
-      if (store && !cancelled) setSession(store);
+      if (store && !cancelled) setSession({ store, server });
     });
-    configureNotifications(getMessages(deviceLocale()).mobile.notificationChannel);
     return () => {
       cancelled = true;
     };
-  }, []);
-  return session;
+  }, [discovered, server]);
+  return session?.server === server ? session : null;
 }
 
 /** A tapped notification opens its trip or a fixed screen; only validated paths are followed. */
@@ -150,11 +167,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView className="flex-1">
       <SafeAreaProvider>
-        <AppProvider session={session}>
-          <BottomSheetModalProvider>
-            <StatusBar style="dark" />
-            <Gate />
-          </BottomSheetModalProvider>
+        <AppProvider key={session.server} session={session.store}>
+          <StatusBar style="dark" />
+          <Gate />
         </AppProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
