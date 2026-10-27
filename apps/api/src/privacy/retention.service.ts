@@ -18,6 +18,7 @@ import { redactCarsBooking } from './cars-redaction';
  */
 export const RETENTION_RULES = [
   'sessions',
+  'device-credentials',
   'verification-tokens',
   'idempotency-keys',
   'booking-access-links',
@@ -48,6 +49,8 @@ export type RetentionRule = (typeof RETENTION_RULES)[number];
 export const RETENTION_DAYS = {
   /** After the session was revoked or expired (the account's session list shows live ones). */
   sessions: 30,
+  /** After fingerprint sign-in was turned off for the phone (ADR-067). */
+  'device-credentials': 30,
   /** After the email or password-reset link expired. */
   'verification-tokens': 7,
   /** After the stored response expired (24 hours after the write). */
@@ -147,6 +150,11 @@ export class RetentionService {
               { expiresAt: { lt: before('sessions') } },
             ],
           },
+        }),
+      ),
+      'device-credentials': counts(
+        await this.prisma.deviceCredential.deleteMany({
+          where: { revokedAt: { lt: before('device-credentials') } },
         }),
       ),
       'verification-tokens': counts(

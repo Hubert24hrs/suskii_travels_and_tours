@@ -28,6 +28,8 @@ const AMR: Record<AuthMethod, string> = {
   otp: 'otp',
   google: 'google',
   apple: 'apple',
+  // A software key on the phone, unlocked by its biometric prompt (RFC 8176).
+  device: 'swk',
 };
 
 export const userWithRoles = { roles: { select: { roleKey: true } } } as const;
@@ -344,12 +346,19 @@ export class SessionService {
     return count > 0;
   }
 
-  /** Signs a user out everywhere (password reset, role change, account disable, staff action). */
+  /**
+   * Signs a user out everywhere (password reset, role change, account disable, staff action).
+   * Fingerprint sign-in ends too (ADR-067): each phone turns it on again after signing in.
+   */
   async revokeAllForUser(
     userId: string,
     reason: string,
     exceptSessionId?: string,
   ): Promise<number> {
+    await this.prisma.deviceCredential.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
     return revokeSessionsWhere(
       this.prisma,
       this.redis,

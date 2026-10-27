@@ -28,7 +28,10 @@ export type HmacPurpose =
   | 'driver-nin'
   | 'driver-licence'
   | 'ride-share'
-  | 'bus-hold';
+  | 'bus-hold'
+  // Fingerprint sign-in on a device (ADR-067), and the test stacks' mock sign-in key.
+  | 'device-credential'
+  | 'social-mock-key';
 
 const PURPOSES: readonly HmacPurpose[] = [
   'ip',
@@ -51,6 +54,8 @@ const PURPOSES: readonly HmacPurpose[] = [
   'driver-licence',
   'ride-share',
   'bus-hold',
+  'device-credential',
+  'social-mock-key',
 ];
 const HKDF_SALT = 'suskii-api:hmac:v1';
 

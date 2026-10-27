@@ -124,6 +124,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'account' },
     note: 'Provider and email (the provider subject is an internal identifier).',
   },
+  DeviceCredential: {
+    section: 'mfa',
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'device-credentials' },
+    note: 'Fingerprint sign-in: exported as the phone label and dates; the secret hash is a credential.',
+  },
   VerificationToken: {
     section: null,
     deletion: 'delete',

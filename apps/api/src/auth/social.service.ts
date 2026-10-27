@@ -11,6 +11,12 @@ import { randomToken, safeEqual, sha256 } from '../crypto/random';
 import { REDIS } from '../infra/redis';
 
 import { invalidToken } from './errors';
+import {
+  isMockSocialToken,
+  MOCK_SOCIAL_AUDIENCE,
+  mockIssuer,
+  MockSocialIssuer,
+} from './mock-social';
 
 export type SocialProviderName = 'google' | 'apple';
 
@@ -79,9 +85,17 @@ export interface VerifiedSocialIdentity {
   name: string | null;
 }
 
+/** Which sign-in providers clients may offer, and whether they are the test stack's mock. */
+export interface SocialProvidersStatus {
+  google: boolean;
+  apple: boolean;
+  mock: boolean;
+}
+
 /**
  * Verifies Google and Apple ID tokens: signature (provider JWKS), issuer, audience, expiry, and a
- * nonce this API issued and has not seen before.
+ * nonce this API issued and has not seen before. On a test stack with SOCIAL_MOCK_ENABLED, tokens
+ * from the mock issuer (ADR-067) pass the same checks against its key.
  */
 @Injectable()
 export class SocialIdentityVerifier {
@@ -89,10 +103,20 @@ export class SocialIdentityVerifier {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(SOCIAL_KEY_RESOLVERS) private readonly resolvers: SocialKeyResolvers,
     private readonly nonces: SocialNonces,
+    private readonly mock: MockSocialIssuer,
   ) {}
 
   private audiences(provider: SocialProviderName): string[] {
     return provider === 'google' ? this.config.GOOGLE_CLIENT_IDS : this.config.APPLE_CLIENT_IDS;
+  }
+
+  status(): SocialProvidersStatus {
+    const mock = this.mock.enabled;
+    return {
+      google: mock || this.audiences('google').length > 0,
+      apple: mock || this.audiences('apple').length > 0,
+      mock,
+    };
   }
 
   async verify(
@@ -100,7 +124,8 @@ export class SocialIdentityVerifier {
     idToken: string,
     nonce: string,
   ): Promise<VerifiedSocialIdentity> {
-    const audience = this.audiences(provider);
+    const mock = this.mock.enabled && isMockSocialToken(idToken);
+    const audience = mock ? [MOCK_SOCIAL_AUDIENCE] : this.audiences(provider);
     if (audience.length === 0) {
       throw new ProblemDetailsException(
         HttpStatus.NOT_FOUND,
@@ -110,12 +135,16 @@ export class SocialIdentityVerifier {
     }
     let payload: unknown;
     try {
-      ({ payload } = await jwtVerify(idToken, this.resolvers[provider], {
-        issuer: PROVIDERS[provider].issuers,
-        audience,
-        algorithms: ['RS256', 'ES256'],
-        clockTolerance: 30,
-      }));
+      ({ payload } = await jwtVerify(
+        idToken,
+        mock ? this.mock.resolver() : this.resolvers[provider],
+        {
+          issuer: mock ? [mockIssuer(provider)] : PROVIDERS[provider].issuers,
+          audience,
+          algorithms: mock ? ['EdDSA'] : ['RS256', 'ES256'],
+          clockTolerance: 30,
+        },
+      ));
     } catch {
       throw invalidToken();
     }

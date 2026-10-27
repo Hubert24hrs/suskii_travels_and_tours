@@ -7,10 +7,12 @@ import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { CsrfService } from './csrf.service';
+import { DeviceCredentialsService } from './device-credentials.service';
 import { JwksController } from './jwks.controller';
 import { LoginThrottleService } from './login-throttle.service';
 import { MeController } from './me.controller';
 import { MfaService } from './mfa.service';
+import { MockSocialIssuer } from './mock-social';
 import { OtpService } from './otp.service';
 import { PermissionsGuard } from './permissions.guard';
 import { ReauthService } from './reauth.service';
@@ -33,8 +35,10 @@ import { AccessTokenService } from './tokens/access-token.service';
     PermissionsGuard,
     BackgroundTasks,
     CsrfService,
+    DeviceCredentialsService,
     LoginThrottleService,
     MfaService,
+    MockSocialIssuer,
     OtpService,
     ReauthService,
     SessionService,

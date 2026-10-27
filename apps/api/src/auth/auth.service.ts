@@ -27,6 +27,7 @@ import {
   invalidToken,
   passwordGuessable,
 } from './errors';
+import { DeviceCredentialsService } from './device-credentials.service';
 import { LoginThrottleService } from './login-throttle.service';
 import { MfaService, type MfaChallenge, type MfaProof } from './mfa.service';
 import { OtpService } from './otp.service';
@@ -85,6 +86,7 @@ export class AuthService {
     private readonly email: EmailProvider,
     private readonly background: BackgroundTasks,
     private readonly referrals: ReferralsService,
+    private readonly devices: DeviceCredentialsService,
   ) {}
 
   // --- Email + password ---------------------------------------------------------
@@ -219,6 +221,23 @@ export class AuthService {
       session,
       mfaEnabled: mfaVerified || (await this.mfa.isEnabled(user.id)),
     };
+  }
+
+  // --- Fingerprint sign-in (ADR-067) ------------------------------------------------
+
+  /** Trades a phone's device credential for a session; MFA still applies when it is on. */
+  async deviceSignIn(
+    credentialId: string,
+    secret: string,
+    context: RequestContext,
+  ): Promise<SignInOutcome> {
+    const userId = await this.devices.verify(credentialId, secret);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: userWithRoles,
+    });
+    if (user?.status !== 'active') throw invalidCredentials();
+    return this.completeSignIn(user, 'device', context);
   }
 
   // --- Phone OTP ------------------------------------------------------------------

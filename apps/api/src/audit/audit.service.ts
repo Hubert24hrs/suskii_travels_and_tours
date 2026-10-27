@@ -29,6 +29,8 @@ export type AuditAction =
   | 'auth.email.verified'
   | 'auth.phone.verified'
   | 'auth.social.linked'
+  | 'auth.device_credential.created'
+  | 'auth.device_credential.revoked'
   | 'rbac.roles.changed'
   | 'rbac.access_denied'
   | 'booking.created'

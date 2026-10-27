@@ -191,6 +191,7 @@ export class AccountDeletionService {
         await tx.mfaFactor.deleteMany({ where: { userId } });
         await tx.mfaRecoveryCode.deleteMany({ where: { userId } });
         await tx.socialIdentity.deleteMany({ where: { userId } });
+        await tx.deviceCredential.deleteMany({ where: { userId } });
         await tx.verificationToken.deleteMany({ where: { userId } });
         await tx.traveller.deleteMany({ where: { userId } });
         await tx.pushToken.deleteMany({ where: { userId } });
