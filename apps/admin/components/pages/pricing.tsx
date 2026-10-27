@@ -33,28 +33,14 @@ import {
   type SelectOption,
 } from '../ui';
 
+import { Taxes } from './pricing-taxes';
+import { verticalOptions, type Vertical } from './verticals';
+
+export { VERTICALS, verticalOptions } from './verticals';
+
 type Markup = Schemas['AdminMarkupRule'];
 type Fee = Schemas['AdminFeeRule'];
 type Kind = 'markup' | 'fee';
-
-export const VERTICALS = [
-  'flights',
-  'hotels',
-  'packages',
-  'tours',
-  'visa',
-  'travel_addons',
-  'prime',
-  'buses',
-  'rides',
-  'rentals',
-] as const;
-type Vertical = (typeof VERTICALS)[number];
-
-export const verticalOptions: SelectOption[] = VERTICALS.map((vertical) => ({
-  value: vertical,
-  label: label('verticals', vertical),
-}));
 
 const anyOption = (labelKey: 'common.any' = 'common.any'): SelectOption => ({
   value: '',
@@ -592,6 +578,7 @@ export function PricingPage() {
       <PageHeader title={t('pricing.title')} intro={t('pricing.intro')} />
       <Markups />
       <Fees />
+      <Taxes />
     </RequirePermission>
   );
 }
