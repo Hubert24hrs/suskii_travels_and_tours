@@ -7,6 +7,10 @@ import { expect, expectNoAxeViolations, signIn, t, test } from './fixtures';
  * the journeys). A super admin sees every section; detail pages use the provisioned records.
  */
 test('every console page passes axe', async ({ page, stack }) => {
+  // One test visits and scans every page (25 today), so the default 60 s budget scales badly:
+  // alone it takes about 50 s on a slow machine and ran out at the last page beside the other
+  // journeys.
+  test.setTimeout(120_000);
   await signIn(page, stack, 'axe');
   const paths = [
     ...NAV_ITEMS.map((item) => item.href),
