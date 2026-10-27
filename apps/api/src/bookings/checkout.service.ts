@@ -54,6 +54,7 @@ import {
   installmentInvalid,
   paymentProviderDown,
   priceChanged,
+  paymentMethodUnavailable,
   providerUnavailable,
   walletInsufficient,
 } from './booking.errors';
@@ -204,8 +205,8 @@ export class CheckoutService {
     if (request.useWallet)
       return this.payFromWallet(booking, amount, installmentId, fresh, actor, caller);
 
-    const provider = this.providers.choose(booking.currency, request.provider);
-    if (!provider) throw providerUnavailable();
+    const provider = this.providers.choose(booking.currency, request.provider, request.method);
+    if (!provider) throw request.method ? paymentMethodUnavailable() : providerUnavailable();
     const contact = this.bookings.contact(booking);
     const paymentId = uuidv7();
     let session: { providerReference: string; checkoutUrl: string };
@@ -217,6 +218,7 @@ export class CheckoutService {
         customerEmail: contact.email,
         returnUrl: paymentReturnUrl(this.config, booking.id, caller.client.channel),
         expiresAt,
+        method: request.method,
       });
     } catch (error) {
       this.logger.warn(
@@ -263,6 +265,7 @@ export class CheckoutService {
           metadata: {
             bookingId: booking.id,
             provider: provider.name,
+            ...(request.method ? { method: request.method } : {}),
             ...(installmentId ? { installmentId } : {}),
           },
         },

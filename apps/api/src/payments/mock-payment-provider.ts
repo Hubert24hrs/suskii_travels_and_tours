@@ -10,9 +10,11 @@ import {
   PaymentProvider,
   PaymentProviderRequestError,
   WebhookSignatureError,
+  PAYMENT_METHOD_LIST,
   type CheckoutRequest,
   type CheckoutSession,
   type PaymentCard,
+  type PaymentMethod,
   type PaymentEvent,
   type PaymentRef,
   type PaymentVerification,
@@ -60,7 +62,12 @@ interface MockCharge {
 export class MockPaymentProvider extends PaymentProvider {
   readonly name = 'mock' as const;
   readonly currencies = SUPPORTED_CURRENCIES;
-  readonly methods = ['card', 'bank_transfer', 'ussd'] as const;
+  /** Every method in every currency, so tests and the demo can take each one. */
+  methodsFor(currency: string): readonly PaymentMethod[] {
+    return (this.currencies as readonly string[]).includes(currency) ? PAYMENT_METHOD_LIST : [];
+  }
+  /** Test hook: the method each checkout was opened on, by provider reference. */
+  readonly requestedMethods = new Map<string, PaymentMethod | null>();
   readonly idempotentRefunds = true;
 
   /** Test hook: the next completions record the charge but never deliver their webhook. */
@@ -83,6 +90,7 @@ export class MockPaymentProvider extends PaymentProvider {
   createCheckout(request: CheckoutRequest): Promise<CheckoutSession> {
     const providerReference = `mockpay_${randomToken(16)}`;
     this.charges.set(providerReference, { amount: request.amount, status: 'pending' });
+    this.requestedMethods.set(providerReference, request.method ?? null);
     return Promise.resolve({
       providerReference,
       checkoutUrl: `${this.config.WEB_APP_URL.replace(/\/$/, '')}/checkout/mock-payment/${providerReference}`,

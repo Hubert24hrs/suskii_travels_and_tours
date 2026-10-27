@@ -38975,6 +38975,39 @@
         ],
         "additionalProperties": false
       },
+      "PaymentMethodOption": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "card",
+              "bank_transfer",
+              "ussd",
+              "mobile_money",
+              "apple_google_pay",
+              "agent"
+            ]
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "mock",
+                "paystack",
+                "flutterwave",
+                "stripe"
+              ]
+            }
+          }
+        },
+        "required": [
+          "method",
+          "providers"
+        ],
+        "additionalProperties": false
+      },
       "PaymentOptions": {
         "type": "object",
         "properties": {
@@ -38982,6 +39015,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PaymentProviderOption"
+            }
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethodOption"
             }
           },
           "hold": {
@@ -39068,6 +39107,7 @@
         },
         "required": [
           "providers",
+          "methods",
           "hold",
           "installments",
           "wallet"
@@ -39225,7 +39265,9 @@
                 "card",
                 "bank_transfer",
                 "ussd",
-                "mobile_money"
+                "mobile_money",
+                "apple_google_pay",
+                "agent"
               ]
             }
           }
@@ -44034,6 +44076,25 @@
                   "paystack",
                   "flutterwave",
                   "stripe"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "card",
+                  "bank_transfer",
+                  "ussd",
+                  "mobile_money",
+                  "apple_google_pay",
+                  "agent"
                 ]
               },
               {

@@ -10,6 +10,7 @@ import {
   type CheckoutRequest,
   type CheckoutSession,
   type PaymentEvent,
+  type PaymentMethod,
   type PaymentRef,
   type PaymentVerification,
   type ProviderRefund,
@@ -93,7 +94,12 @@ function toRefund(data: z.infer<typeof refund>): ProviderRefund {
 export class StripePaymentProvider extends PaymentProvider {
   readonly name = 'stripe' as const;
   readonly currencies = SUPPORTED_CURRENCIES;
-  readonly methods = ['card'] as const;
+  /** Checkout shows cards with Apple Pay and Google Pay wherever the device supports them. */
+  methodsFor(currency: string): PaymentMethod[] {
+    return (this.currencies as readonly string[]).includes(currency)
+      ? ['card', 'apple_google_pay']
+      : [];
+  }
   readonly idempotentRefunds = true;
   private readonly http: ProviderHttp;
   private readonly now: () => Date;
@@ -126,6 +132,8 @@ export class StripePaymentProvider extends PaymentProvider {
       'metadata[payment_id]': request.paymentId,
       'metadata[booking_reference]': request.reference,
       'payment_intent_data[metadata][payment_id]': request.paymentId,
+      // 3D Secure whenever the card's bank or strong customer authentication requires it (ADR-074).
+      'payment_method_options[card][request_three_d_secure]': 'automatic',
     });
     const created = session.parse(
       await this.http.request({
