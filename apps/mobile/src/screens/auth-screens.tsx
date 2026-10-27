@@ -2,14 +2,20 @@ import type { Schemas } from '@suskii/api-client';
 import { normalisePhone, parseReferralCode, phoneSchema } from '@suskii/shared';
 import { Button, Input } from '@suskii/ui-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
 
 import { FingerprintOffer } from '../components/auth/fingerprint-offer';
 import { SocialButtons } from '../components/auth/social-buttons';
 import { biometrics } from '../lib/biometric';
 import { useT } from '../providers/app-provider';
-import { useAuth, type SignInOutcome } from '../providers/auth';
+import {
+  clearMfaHandOff,
+  handOffMfa,
+  mfaHandOff,
+  useAuth,
+  type SignInOutcome,
+} from '../providers/auth';
 
 function useOutcomeText() {
   const { t } = useT();
@@ -89,7 +95,9 @@ export function SignInScreen() {
   const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [mfaCode, setMfaCode] = useState('');
-  const [challenge, setChallenge] = useState<Schemas['MfaChallenge'] | null>(null);
+  // A second factor started on Register (by password, Google or Apple) continues here.
+  const [challenge, setChallenge] = useState<Schemas['MfaChallenge'] | null>(mfaHandOff);
+  useEffect(clearMfaHandOff, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -331,6 +339,7 @@ export function RegisterScreen() {
       }
       if (result.status === 'mfa') {
         // The email already had an account with this password and MFA: finish on Sign in.
+        handOffMfa(result.challenge);
         router.replace('/sign-in');
         return;
       }
@@ -356,7 +365,10 @@ export function RegisterScreen() {
 
   const socialOutcome = (outcome: SignInOutcome) => {
     if (outcome.status === 'signed-in') signedIn();
-    else if (outcome.status === 'mfa') router.replace('/sign-in');
+    else if (outcome.status === 'mfa') {
+      handOffMfa(outcome.challenge);
+      router.replace('/sign-in');
+    }
   };
 
   if (offer) {
