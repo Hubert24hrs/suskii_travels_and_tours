@@ -637,6 +637,19 @@ function Checkout({ quote }: { quote: Quote }) {
                 </Text>
               </View>
             ))}
+            {price.serviceTaxes.map((tax) => (
+              <View key={tax.code} testID="service-tax" className="flex-row justify-between">
+                <Text className="font-body text-body-sm text-foreground">
+                  {t('checkout.serviceTax', {
+                    label: tax.label,
+                    rate: format.number(tax.rateBps / 100),
+                  })}
+                </Text>
+                <Text className="font-body text-body-sm text-foreground">
+                  {format.money(tax.amount)}
+                </Text>
+              </View>
+            ))}
             {extras ? (
               <View testID="checkout-extras" className="flex-row justify-between">
                 <Text className="font-body text-body-sm text-foreground">
@@ -666,6 +679,13 @@ function Checkout({ quote }: { quote: Quote }) {
               </Text>
             ) : null}
             <Text className="font-body text-caption text-muted">{t('checkout.totalNote')}</Text>
+            {quote.hotel?.rate.payAtProperty ? (
+              <Text testID="checkout-pay-at-property" className="font-body text-caption text-muted">
+                {t('checkout.payAtProperty', {
+                  amount: format.money(quote.hotel.rate.payAtProperty),
+                })}
+              </Text>
+            ) : null}
           </Card>
         ) : null}
 

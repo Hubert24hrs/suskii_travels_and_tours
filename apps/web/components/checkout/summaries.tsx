@@ -168,6 +168,17 @@ export function PriceSummary({ lines }: { lines: PriceLines }) {
             <dd>{format.money(fee.amount)}</dd>
           </div>
         ))}
+        {price.serviceTaxes.map((tax) => (
+          <div key={tax.code} className="flex justify-between gap-4" data-testid="service-tax">
+            <dt>
+              {t('checkout.serviceTax', {
+                label: tax.label,
+                rate: format.number(tax.rateBps / 100),
+              })}
+            </dt>
+            <dd>{format.money(tax.amount)}</dd>
+          </div>
+        ))}
         {lines.extras ? (
           <div className="flex justify-between gap-4">
             <dt>{t('checkout.extrasLine')}</dt>
