@@ -20,6 +20,7 @@ import { publicEnv } from '../../lib/env';
 import { AppLink } from '../app-link';
 
 import { useAccountT } from './account-messages';
+import { SignInForm } from './auth-forms';
 import { signInWithProvider } from './social-sign-in';
 import { safeNext } from './use-account';
 
@@ -33,6 +34,7 @@ export function SocialCallback() {
   const { t } = useAccountT();
   const router = useRouter();
   const [failed, setFailed] = useState(false);
+  const [mfa, setMfa] = useState<{ token: string; next: string | null } | null>(null);
 
   useEffect(() => {
     const { idToken, state } = readCallback(window.location.hash);
@@ -61,7 +63,8 @@ export function SocialCallback() {
       ({ data }) => {
         if (!data) return fail();
         if (data.status === 'mfa_required') {
-          router.replace('/sign-in');
+          // The second factor continues here: the challenge lives only in this page's state.
+          setMfa({ token: data.mfaToken, next: pending.next });
           return;
         }
         rememberSession(data.accessTokenExpiresAt);
@@ -71,6 +74,8 @@ export function SocialCallback() {
       () => fail(),
     );
   }, [router]);
+
+  if (mfa) return <SignInForm next={mfa.next} mfaToken={mfa.token} />;
 
   return (
     <Card className="flex flex-col gap-4 p-6">

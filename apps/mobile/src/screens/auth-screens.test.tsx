@@ -6,6 +6,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
 import { biometrics } from '../lib/biometric';
+import { clearMfaHandOff, handOffMfa, mfaHandOff } from '../providers/auth';
 import { guestSession, json, mockApi, renderWithApp, USER_ID } from '../test/app';
 
 import { RegisterScreen, SignInScreen } from './auth-screens';
@@ -219,6 +220,57 @@ describe('Google and Apple on the test server (mock provider)', () => {
     expect(await google?.json()).toEqual({
       idToken: 'mock.id.token',
       nonce: 'n'.repeat(43),
+      transport: 'token',
+    });
+  });
+
+  it('hands an account with MFA to Sign in, in memory rather than through the router', async () => {
+    const challenge = {
+      status: 'mfa_required' as const,
+      mfaToken: 'mfa-token',
+      expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+      methods: ['totp' as const],
+    };
+    mockApi({
+      'GET /v1/auth/social/providers': () => json({ google: true, apple: true, mock: true }),
+      'POST /v1/auth/social/nonce': () =>
+        json({ nonce: 'n'.repeat(43), expiresAt: '2026-10-27T12:10:00.000Z' }),
+      'POST /v1/auth/social/mock-token': () => json({ idToken: 'mock.id.token' }),
+      'POST /v1/auth/google': () => json(challenge),
+    });
+    await renderWithApp(<RegisterScreen />);
+    await fireEvent.press(await screen.findByTestId('social-google'));
+    await fireEvent.changeText(screen.getByTestId('social-mock-email'), 'ada@example.com');
+    await fireEvent.press(screen.getByTestId('social-mock-submit'));
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/sign-in'));
+    expect(mfaHandOff()).toEqual(challenge);
+    clearMfaHandOff();
+  });
+
+  it('continues a handed-over second factor on Sign in, once', async () => {
+    handOffMfa({
+      status: 'mfa_required',
+      mfaToken: 'mfa-token',
+      expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+      methods: ['totp'],
+    });
+    const { calls } = mockApi({
+      'GET /v1/auth/social/providers': () => json({ google: false, apple: false, mock: false }),
+      'POST /v1/auth/mfa/verify': () => json(signedIn),
+    });
+    const session = guestSession();
+    await renderWithApp(<SignInScreen />, session);
+
+    expect(mfaHandOff()).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('mfa-code'), '123456');
+    await fireEvent.press(screen.getByTestId('sign-in-submit'));
+
+    await waitFor(() => expect(session.signedIn).toBe(true));
+    const verify = calls.find((request) => request.url.endsWith('/v1/auth/mfa/verify'));
+    expect(await verify?.json()).toEqual({
+      mfaToken: 'mfa-token',
+      code: '123456',
       transport: 'token',
     });
   });

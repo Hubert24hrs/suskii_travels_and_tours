@@ -17,6 +17,26 @@ export type SignInOutcome =
   | { status: 'locked' }
   | { status: 'error' };
 
+let handedOffMfa: Schemas['MfaChallenge'] | null = null;
+
+/**
+ * Hands a second-factor step that started on another screen (registering, or Google and Apple
+ * there) to Sign in. It stays in memory and never goes through the router.
+ */
+export function handOffMfa(challenge: Schemas['MfaChallenge']): void {
+  handedOffMfa = challenge;
+}
+
+/** The handed-off challenge while it is still valid. */
+export function mfaHandOff(): Schemas['MfaChallenge'] | null {
+  return handedOffMfa && Date.parse(handedOffMfa.expiresAt) > Date.now() ? handedOffMfa : null;
+}
+
+/** Sign in has taken the challenge: a later visit starts afresh. */
+export function clearMfaHandOff(): void {
+  handedOffMfa = null;
+}
+
 export type CodeRequest =
   | { status: 'sent'; resendAfterSeconds: number }
   | { status: 'invalid' }

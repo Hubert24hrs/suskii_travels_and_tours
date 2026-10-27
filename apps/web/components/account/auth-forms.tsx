@@ -47,7 +47,14 @@ function useFragmentToken(): string | null | undefined {
   return token;
 }
 
-export function SignInForm({ next }: { next: string | null }) {
+export function SignInForm({
+  next,
+  mfaToken: pendingMfa = null,
+}: {
+  next: string | null;
+  /** A second-factor step already started elsewhere (a Google or Apple sign-in, ADR-067). */
+  mfaToken?: string | null;
+}) {
   const { t } = useAccountT();
   const router = useRouter();
   const [mode, setMode] = useState<'email' | 'phone'>('email');
@@ -56,7 +63,7 @@ export function SignInForm({ next }: { next: string | null }) {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
-  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaToken, setMfaToken] = useState<string | null>(pendingMfa);
   const [useRecovery, setUseRecovery] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

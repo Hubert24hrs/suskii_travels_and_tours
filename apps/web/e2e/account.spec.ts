@@ -1,8 +1,10 @@
+import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import type { Page } from '@playwright/test';
 
 import { expect, expectNoAxeViolations, t, test } from './fixtures';
+import { totp } from './totp';
 
 /**
  * Phase 9: the account area on the web. A visitor registers, signs in (the header switches to
@@ -11,6 +13,7 @@ import { expect, expectNoAxeViolations, t, test } from './fixtures';
  */
 
 const PASSWORD = 'a perfectly long passphrase';
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 
 /** A unique address per test run, so reruns against a long-lived stack never collide. */
 const newEmail = (label: string): string =>
@@ -231,6 +234,64 @@ test.describe('account', () => {
     await page.goto('/sign-in?next=/account');
     await expect(page.getByTestId('social-apple')).toBeVisible();
     await google();
+    await expect(page.getByText(t('account.signedInAs', { name: 'Ada Okafor' }))).toBeVisible();
+  });
+
+  test("finishes a Google return with the account's second factor on the callback page", async ({
+    page,
+    request,
+  }) => {
+    // Google's return trip as the provider makes it: the ID token in the fragment, for the nonce
+    // and state this tab saved before leaving (ADR-067). The mock signs the token.
+    const email = newEmail('web-google-mfa');
+    const nonce = async (): Promise<string> => {
+      const response = await request.post(`${API}/v1/auth/social/nonce`, { data: {} });
+      return ((await response.json()) as { nonce: string }).nonce;
+    };
+    const idToken = async (forNonce: string): Promise<string> => {
+      const response = await request.post(`${API}/v1/auth/social/mock-token`, {
+        data: { provider: 'google', email, name: 'Ada Okafor', nonce: forNonce },
+      });
+      return ((await response.json()) as { idToken: string }).idToken;
+    };
+    // The account already exists, with an authenticator.
+    const first = await nonce();
+    const created = await request.post(`${API}/v1/auth/google`, {
+      data: { idToken: await idToken(first), nonce: first, transport: 'token' },
+    });
+    const { accessToken } = (await created.json()) as { accessToken: string };
+    const headers = { authorization: `Bearer ${accessToken}` };
+    const setup = await request.post(`${API}/v1/me/mfa/totp`, { headers, data: {} });
+    const { secret } = (await setup.json()) as { secret: string };
+    const confirmed = await request.post(`${API}/v1/me/mfa/totp/confirm`, {
+      headers,
+      data: { code: totp(secret) },
+    });
+    expect(confirmed.ok()).toBe(true);
+
+    const second = await nonce();
+    const state = randomBytes(24).toString('base64url');
+    const pending = JSON.stringify({
+      provider: 'google',
+      state,
+      nonce: second,
+      next: '/account',
+      referralCode: null,
+      appState: null,
+    });
+    await page.addInitScript((value) => {
+      if (window.location.pathname === '/sign-in/callback')
+        sessionStorage.setItem('suskii:social-sign-in', value);
+    }, pending);
+    const fragment = new URLSearchParams({ id_token: await idToken(second), state });
+    await page.goto(`/sign-in/callback#${fragment.toString()}`);
+
+    await expect(page.getByText(t('auth.signIn.mfaHeading'))).toBeVisible();
+    // The token never stays in the address bar.
+    expect(new URL(page.url()).hash).toBe('');
+    await page.getByTestId('mfa-code').fill(totp(secret, 1));
+    await page.getByRole('button', { name: t('auth.signIn.submitMfa') }).click();
+    await page.waitForURL(/\/account$/);
     await expect(page.getByText(t('account.signedInAs', { name: 'Ada Okafor' }))).toBeVisible();
   });
 
