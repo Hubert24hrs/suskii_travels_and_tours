@@ -16,8 +16,9 @@ African markets). Decision record: [ADR-072](../decisions/ADR-072-all-in-prices-
   our markup), supplier taxes and our fees. Promos come off fare and fees.
 - No tax is charged on Suskii's own service (margin and fees, or the whole price of in-house
   products). `CARS_VAT_BPS` adds VAT to Cars fares only, as part of the operator's fare.
-- Hotel taxes collected at the property (`payAtProperty`) show on the room list and at
-  checkout, but not beside the price in hotel search results.
+- Hotel taxes collected at the property (`payAtProperty`) show on the website's results, room
+  list and checkout, and on the app's room list; the app's hotel results and checkout leave them
+  out.
 - Receipts show the total paid, with no tax line.
 
 ## Plan
@@ -47,4 +48,21 @@ African markets). Decision record: [ADR-072](../decisions/ADR-072-all-in-prices-
 
 ## Outcome
 
-To be filled in at the end of the work.
+All nine steps are built.
+
+- API: `tax_rules` (expand-only migration with range and country checks), the engine's
+  `serviceTaxes` (six new unit cases and the property test cover them), the seller-country
+  loader with the rule cache, and the admin routes with step-up and audit. `tax-rules.e2e-spec.ts`
+  follows a rule from the admin API to every search result's total, a booking, its total and its
+  e-ticket; it also checks that another country's rule and a deactivated rule are never applied,
+  that validation matches the console, and that whole-price rules on Cars are refused while
+  `CARS_VAT_BPS` is set. The admin matrix and audit suites cover the new routes.
+- Console: a Taxes section on the pricing page (admin e2e journey).
+- Receipts: tax lines with rate and registration number on every booking PDF (unit tests).
+- Website and app: tax lines in checkout (a Playwright check and a Jest case); the app's hotel
+  results and checkout note city tax paid at the hotel (Jest case for checkout).
+
+Waiting on the owner: the rates, bases and registration numbers per country from the accountant.
+Later items of the standards plan that build on this: the automatic refund offer (item 2) refunds
+the tax with the share it refunds, and revenue recognition adds a `tax-payable` ledger account
+(ADR-072, decision 8).

@@ -90,15 +90,15 @@ schema never leave the API.
 **Write.** Each request body is parsed by a schema listing the fields that action may set. Zod
 drops unknown fields before the handler runs, which prevents mass assignment.
 
-| Field or change             | Rule                                                                                                      |
-| --------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Booking status              | Only through `BookingTransitions.apply()` under the state machine; never set from a request               |
-| Prices and totals           | Only computed by the API from the offer, pricing rules and the ledger                                     |
-| Roles                       | Only `roles:manage` with step-up, never on one's own account                                              |
-| Trust signal `verified`     | Only `trust-signals:verify` with an https evidence URL; any edit clears it                                |
-| Markups, fees, Prime plans  | Only `pricing:manage` with step-up                                                                        |
-| Refund approval             | Only `refunds:approve` with step-up, and never by the staff member who requested the refund               |
-| Catalog and content records | The merged record is re-validated with the public schema (`checkMerged`); changed field names are audited |
+| Field or change                       | Rule                                                                                                      |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Booking status                        | Only through `BookingTransitions.apply()` under the state machine; never set from a request               |
+| Prices and totals                     | Only computed by the API from the offer, pricing rules and the ledger                                     |
+| Roles                                 | Only `roles:manage` with step-up, never on one's own account                                              |
+| Trust signal `verified`               | Only `trust-signals:verify` with an https evidence URL; any edit clears it                                |
+| Markups, fees, tax rules, Prime plans | Only `pricing:manage` with step-up; a `full` tax rule on Cars is refused while `CARS_VAT_BPS` is set      |
+| Refund approval                       | Only `refunds:approve` with step-up, and never by the staff member who requested the refund               |
+| Catalog and content records           | The merged record is re-validated with the public schema (`checkMerged`); changed field names are audited |
 
 **State.** Some rights depend on the record's state:
 

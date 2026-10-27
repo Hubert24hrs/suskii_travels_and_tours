@@ -57,6 +57,10 @@ hotel merging, affiliate partner offers with click and conversion tracking. Buil
 needs the owner's account, then one run of `partner-sandbox.yml` (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
 in production (ADR-069).
 
+Standards plan (agreed with the owner on 2026-10-27, US and European standards for African
+markets): item 1, all-in prices with a tax table per country, is built (`docs/phases/all-in-pricing.md`);
+the rates wait for the owner's accountant.
+
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
 submission wait for the owner's accounts (`docs/phases/phase-12.md`, Outcome).
@@ -280,6 +284,11 @@ Tooling notes for agents:
   search (`SearchStore.completeItem`, rate ids `.f<n>`; search rates are `.r<n>`) and falls back to
   the search rates when the supplier cannot answer. Only rates paid in full from the supplier
   balance are sold (ADR-062).
+- Tax on Suskii's own service comes only from `tax_rules` (ADR-072): `PricingService` loads the
+  `TAX_SELLER_COUNTRY` rules with markups and fees, and the engine adds `serviceTaxes` lines inside
+  `total` (`margin`: markup plus fees less the discount; `full`: fare plus fees less the discount;
+  supplier taxes are never taxed again). Never compute tax in a client or hard-code a rate; receipts
+  print the booking's stored lines. A `full` rule reaching Cars is refused while `CARS_VAT_BPS` is set.
 - Times: store local wall time + IANA zone + UTC instant (`localToUtc`, `utcToLocal` in shared).
 - `X-Suskii-Client: web/<version>` or `mobile-<platform>/<version>` selects the sales channel.
 
@@ -510,7 +519,7 @@ Tooling notes for agents:
 - Cookie-authenticated admin calls must come from an `ADMIN_ORIGINS` origin (every method);
   bearer tokens are not origin-checked but still need staff, MFA and the permission.
 - The riskiest admin mutations (roles, disable, MFA reset, refund approval, trust-signal verify,
-  markups, fees, Prime plans, driver approval and reinstatement) also carry `@StepUp()`: an authenticator check within
+  markups, fees, tax rules, Prime plans, driver approval and reinstatement) also carry `@StepUp()`: an authenticator check within
   `STEP_UP_WINDOW_MINUTES` (sign-in or `POST /v1/me/mfa/step-up`), else 403 `step-up-required`.
   The console's API client prompts and repeats the write itself (ADR-037).
 - Staff sessions are short (`STAFF_SESSION_*`) and every account has a device cap; end sessions
@@ -795,6 +804,7 @@ Tooling notes for agents:
 - [ADR-069: Partner supply model](docs/decisions/ADR-069-partner-supply-model.md)
 - [ADR-070: Affiliate click and conversion tracking](docs/decisions/ADR-070-affiliate-click-and-conversion-tracking.md)
 - [ADR-071: Hotelbeds hotel adapter](docs/decisions/ADR-071-hotelbeds-hotel-adapter.md)
+- [ADR-072: All-in prices and tax rules per country](docs/decisions/ADR-072-all-in-prices-and-tax-rules.md)
 
 ## Open questions for the owner
 
@@ -874,4 +884,6 @@ with DiscoverCars, Localrent, Economybookings, GetTransfer, Kiwitaxi, Airalo and
 (token, marker, project id) and the postback URL with its macros; whether to show partner offers
 in production; and IATA accreditation or a consolidator for Nigerian domestic airlines. While
 rides and the own fleet stay off (ADR-069), the KYC, maps and payout provider questions are no
-longer blocking.
+longer blocking. Added with all-in prices (ADR-072): the tax rates, bases and registration number per
+country from the accountant (nothing is seeded), and which entity sells in each market
+(`TAX_SELLER_COUNTRY`).

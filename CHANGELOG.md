@@ -6,6 +6,35 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### All-in prices and tax rules per country (2026-10-27)
+
+#### Added
+
+- **Tax table (ADR-072).** `tax_rules` holds tax on Suskii's own service per country: code,
+  label, rate in basis points, basis (`margin`: our markup and fees less any promo; `full`: fare
+  and fees less any promo, for products sold as principal), an optional vertical, validity dates
+  and the registration number. The rules of `TAX_SELLER_COUNTRY` (default `NG`) are applied;
+  rules for other countries can be prepared in advance. Nothing is seeded: the rates come from
+  the owner's accountant.
+- **All-in totals.** Each matching rule adds a `serviceTaxes` line to every price (search
+  results, deals, quotes, bookings), and `total` includes it, so the first price a customer sees
+  is the price they pay. Supplier taxes are never taxed again. With no rule, every price is
+  unchanged.
+- **Admin API and console.** `GET`, `POST` and `PATCH /v1/admin/pricing/taxes` (`pricing:manage`,
+  step-up, audited as `pricing.tax_created` / `pricing.tax_updated`) and a Taxes section on the
+  pricing page. A `full` rule reaching buses, rides or rentals is refused (409
+  `tax-overlaps-cars-vat`) while `CARS_VAT_BPS` already puts VAT in Cars fares.
+- **Receipts.** E-tickets, vouchers and passes print each tax line with its rate and the
+  registration number, from the booking's stored price, so a receipt never changes with a rule.
+- **Website and app.** Checkout shows each tax line inside the total. The app's hotel results and
+  checkout now say when city tax is paid at the hotel, as the website already did.
+- `TAX_SELLER_COUNTRY` in `.env.example`, the Terraform examples and the Helm values.
+
+#### Changed
+
+- `Price` gains `serviceTaxes` (additive, empty by default). Older app builds ignore it and show
+  the same total, which already includes the tax.
+
 ### Partner sandbox check (2026-10-27)
 
 #### Added
