@@ -47,4 +47,24 @@ call (the US DOT standard).
 
 ## Outcome
 
-To be filled in at the end of the work.
+All eight steps are built.
+
+- API: `significantChange()` (unit tests for every rule and both thresholds), the two columns
+  (expand-only migration; a fresh database migrated from scratch has no drift against the
+  schema), the supplier contract and mock, and the refund route.
+- `schedule-changes.e2e-spec.ts`:
+  - a four-hour move on a non-refundable fare offers everything back, where online cancellation
+    would refund nothing;
+  - the refund cancels with the airline first and repeats safely;
+  - the booking ends `REFUNDED` once the refunds run;
+  - a 90-minute move offers no refund;
+  - an airline refund of half what we paid withdraws the offer, alerts operations and leaves
+    the booking confirmed and acceptable;
+  - an airline outage answers 503 and keeps the offer;
+  - a changed amount answers 409;
+  - another booking's change answers 404.
+- Website: the booking page's refund button and confirmation (Playwright, with axe).
+- App: the trip screen's refund button and confirmation (Jest).
+
+Waiting on the owner: one Duffel sandbox run with an airline change, to confirm that Duffel quotes
+the full involuntary refund (otherwise every offer goes to support, which is safe).

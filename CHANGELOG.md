@@ -6,6 +6,33 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Refund offer for airline changes (2026-10-27)
+
+#### Added
+
+- **Significant changes (ADR-073).** An airline change is significant when a flight is
+  cancelled, moves to another airport, gains a connection, or moves by 3 hours within one country
+  or 6 hours otherwise (`SIGNIFICANT_CHANGE_DOMESTIC_HOURS`,
+  `SIGNIFICANT_CHANGE_INTERNATIONAL_HOURS`). It is decided when the change is found and stored on
+  the change.
+- **One-tap full refund.** The booking's `scheduleChange.refundOffer` offers everything the
+  traveller paid. `POST /v1/bookings/{id}/schedule-changes/{changeId}/refund`
+  (`Idempotency-Key`) cancels with the airline first. Only when the airline's refund covers what
+  we paid it does the whole balance go back to the original payments, with no fee. A short or
+  refused airline refund withdraws the offer to support with an operations alert
+  (`airline.refund_offer_blocked`); a supplier outage answers 503 and keeps the offer.
+- **Email, website and app.** The change email names both choices. The booking page and the trip
+  screen show "Cancel and get {amount} back" beside "Accept new times", behind a confirmation.
+- Audit action `booking.schedule_change_refunded`. The mock airline refunds a declined change in
+  full (`involuntaryRefundBps` for tests).
+
+#### Changed
+
+- `FlightScheduleChange` gains `significant` and `refundOffer` (additive). Older app builds keep
+  the accept button and the support note.
+- A change that cannot be accepted online but carries a refund offer no longer alerts operations
+  on detection: the traveller can resolve it alone.
+
 ### All-in prices and tax rules per country (2026-10-27)
 
 #### Added
