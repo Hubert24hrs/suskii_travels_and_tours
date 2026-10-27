@@ -135,9 +135,11 @@ jobs:
           WEB_E2E_REDIS_URL: redis://localhost:6379/0
         run: |
           nohup pnpm --filter @suskii/web e2e:stack > test-server-logs/stack.log 2>&1 &
+          stack=$!
           for _ in $(seq 1 200); do
             grep -q 'STACK READY' test-server-logs/stack.log && exit 0
-            if ! pgrep -f 'e2e/stack-cli' > /dev/null; then break; fi
+            # The launched process itself, not a pattern: pnpm starts the stack a moment later.
+            kill -0 "$stack" 2> /dev/null || break
             sleep 3
           done
           cat test-server-logs/stack.log
