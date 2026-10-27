@@ -25,7 +25,7 @@ describe('auth: TOTP MFA and recovery codes (e2e)', () => {
       .set(bearer(session.accessToken))
       .expect(201);
     expect(setup.body.otpauthUri).toMatch(
-      /^otpauth:\/\/totp\/Suskii%20Travels%3Amfa%40example\.com\?secret=/,
+      /^otpauth:\/\/totp\/SUSKII%20T%26T%3Amfa%40example\.com\?secret=/,
     );
     await ctx
       .http()
