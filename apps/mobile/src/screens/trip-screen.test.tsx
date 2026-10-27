@@ -142,6 +142,8 @@ describe('TripScreen', () => {
       id: '01900000-0000-7000-8000-00000000aaaa',
       status: 'open' as const,
       acceptable: true,
+      significant: false,
+      refundOffer: null,
       detectedAt: '2026-10-02T09:00:00.000Z',
       previous: [booked],
       updated: [moved],
@@ -185,6 +187,8 @@ describe('TripScreen', () => {
               id: '01900000-0000-7000-8000-00000000bbbb',
               status: 'open',
               acceptable: false,
+              significant: false,
+              refundOffer: null,
               detectedAt: '2026-10-02T09:00:00.000Z',
               previous: [booked],
               updated: [],
@@ -196,6 +200,52 @@ describe('TripScreen', () => {
     expect(await screen.findByText(m.booking.scheduleChange.support)).toBeOnTheScreen();
     expect(screen.getByText(m.booking.scheduleChange.removed, { exact: false })).toBeOnTheScreen();
     expect(screen.queryByTestId('schedule-change-accept')).toBeNull();
+  });
+
+  it('offers everything back for a cancelled flight and takes the refund after confirmation', async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    const booked = booking().flight?.slices[0];
+    if (!booked) throw new Error('the fixture has a flight');
+    const amount = { amountMinor: 8_500_000, currency: 'NGN' };
+    const change = {
+      id: '01900000-0000-7000-8000-00000000cccc',
+      status: 'open' as const,
+      acceptable: false,
+      significant: true,
+      refundOffer: { amount },
+      detectedAt: '2026-10-02T09:00:00.000Z',
+      previous: [booked],
+      updated: [],
+    };
+    let refunded = false;
+    const refundedBooking = () =>
+      booking({
+        status: 'REFUND_PENDING',
+        scheduleChange: { ...change, status: 'cancelled', refundOffer: null },
+      });
+    const { calls } = mockApi({
+      [GET]: () => json(refunded ? refundedBooking() : booking({ scheduleChange: change })),
+      [`POST /v1/bookings/${BOOKING_ID}/schedule-changes/${change.id}/refund`]: () => {
+        refunded = true;
+        return json(refundedBooking());
+      },
+    });
+    await renderWithApp(<TripScreen />);
+
+    expect(await screen.findByText(m.booking.scheduleChange.significant)).toBeOnTheScreen();
+    // A cancelled flight cannot be accepted, and support is not the only way out.
+    expect(screen.queryByTestId('schedule-change-accept')).toBeNull();
+    expect(screen.queryByText(m.booking.scheduleChange.support)).toBeNull();
+    await fireEvent.press(screen.getByTestId('schedule-change-refund'));
+    expect(await screen.findByText(m.booking.scheduleChange.refundTitle)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('schedule-change-refund-confirm'));
+
+    expect(await screen.findByText(/Your flights are cancelled/)).toBeOnTheScreen();
+    const request = calls.find((call) => call.url.endsWith('/refund'));
+    expect(request?.headers.get('X-Booking-Token')).toBe(TOKEN);
+    expect(request?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(await request?.json()).toEqual({ refund: amount });
+    expect(screen.queryByTestId('schedule-change')).toBeNull();
   });
 
   it('explains a booking this phone cannot open', async () => {

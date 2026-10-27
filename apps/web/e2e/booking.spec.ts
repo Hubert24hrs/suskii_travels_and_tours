@@ -444,6 +444,84 @@ test.describe('tax on our service (ADR-072)', () => {
   });
 });
 
+test.describe('airline changes (ADR-073)', () => {
+  test('offers everything back for a significant change, behind a confirmation', async ({
+    page,
+  }) => {
+    await page.goto(flightSearch('LOS', 'ABV'));
+    await page
+      .getByTestId('flight-offer')
+      .first()
+      .getByRole('button', { name: /^Select/ })
+      .click({ timeout: 30_000 });
+    await page.waitForURL(/\/checkout\//);
+    await fillTraveller(page, false);
+    await fillContactAndAccept(page, 'airline-change@example.com');
+    await page.getByRole('button', { name: t('checkout.pay') }).click();
+    await payWithMock(page);
+    await expectConfirmed(page);
+
+    // The stack's airline moves no flight here: the booking gets the change the API reports
+    // after a significant one, and the refund call is answered as the API would.
+    const CHANGE_ID = '01900000-0000-7000-8000-00000000c0de';
+    let latest: Record<string, unknown> | null = null;
+    let refunded = false;
+    let sent: { key: string | undefined; body: unknown } | null = null;
+    const withChange = (booking: Record<string, unknown>): Record<string, unknown> => {
+      const flight = booking.flight as { slices: { departureUtc: string }[] };
+      const slice = flight.slices[0];
+      const change = {
+        id: CHANGE_ID,
+        status: refunded ? 'cancelled' : 'open',
+        acceptable: false,
+        significant: true,
+        refundOffer: refunded ? null : { amount: booking.paid },
+        detectedAt: new Date().toISOString(),
+        previous: slice ? [slice] : [],
+        updated: [],
+      };
+      return {
+        ...booking,
+        ...(refunded ? { status: 'REFUND_PENDING' } : {}),
+        scheduleChange: change,
+      };
+    };
+    await page.route(/\/v1\/bookings\/[0-9a-f-]{36}$/, async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const response = await route.fetch();
+      latest ??= (await response.json()) as Record<string, unknown>;
+      await route.fulfill({ response, json: withChange(latest) });
+    });
+    await page.route(/\/schedule-changes\/[^/]+\/refund$/, async (route) => {
+      sent = {
+        key: route.request().headers()['idempotency-key'],
+        body: route.request().postDataJSON() as unknown,
+      };
+      refunded = true;
+      await route.fulfill({ json: withChange(latest ?? {}) });
+    });
+    await page.reload();
+
+    const banner = page.getByTestId('schedule-change');
+    await expect(banner).toContainText(t('booking.scheduleChange.significant'));
+    await expect(banner).toContainText(t('booking.scheduleChange.removed'));
+    await expect(banner.getByText(t('booking.scheduleChange.support'))).toHaveCount(0);
+    await expectNoAxeViolations(page);
+    await page.getByTestId('schedule-change-refund').click();
+    await expect(page.getByRole('dialog')).toContainText(t('booking.scheduleChange.refundTitle'));
+    await expectNoAxeViolations(page);
+    await page.getByTestId('schedule-change-refund-confirm').click();
+
+    await expect(
+      page.getByRole('status').filter({ hasText: /Your flights are cancelled/ }),
+    ).toBeVisible();
+    expect(sent).not.toBeNull();
+    const request = sent as unknown as { key: string | undefined; body: unknown };
+    expect(request.key).toBeTruthy();
+    expect(request.body).toEqual({ refund: (latest as unknown as { paid: unknown }).paid });
+  });
+});
+
 test.describe('booking pages on a phone', () => {
   test.use({ viewport: { width: 360, height: 740 } });
 
