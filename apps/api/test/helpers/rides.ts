@@ -55,6 +55,10 @@ export async function rideCatalog(ctx: TestContext, staff: Record<string, string
 
 let counter = 0;
 const unique = (): string => `${Date.now()}${(counter += 1)}`.slice(-11).padStart(11, '1');
+// Plates are unique per test run: slices of `unique()` collided when a test created hundreds of
+// drivers (the time and counter digits run together).
+let plates = 0;
+const nextPlate = (): string => String((plates += 1) % 1_000_000).padStart(6, '0');
 
 export interface DriverOptions {
   userId?: string;
@@ -78,7 +82,6 @@ export async function createDriver(
   const userId =
     options.userId ??
     (await ctx.prisma.user.create({ data: { email: `driver-${randomUUID()}@suskii.test` } })).id;
-  const id = unique();
   const driver = await ctx.prisma.driver.create({
     data: {
       userId,
@@ -107,7 +110,7 @@ export async function createDriver(
       model: 'Corolla',
       year: 2019,
       colour: 'Silver',
-      plate: `LND${id.slice(-6)}`,
+      plate: `LND${nextPlate()}`,
       category: options.category ?? 'standard',
       seats: 4,
       insuranceExpiresOn: new Date('2030-01-01T00:00:00Z'),
@@ -248,7 +251,7 @@ export async function driverApplicant(
       model: 'Camry',
       year: 2018,
       colour: 'Black',
-      plate: `KJA-${unique().slice(-3)}-AB`,
+      plate: `KJA-${nextPlate().slice(-3)}-AB`,
       category: 'standard',
       seats: 4,
       insuranceExpiresOn: '2030-12-31',
