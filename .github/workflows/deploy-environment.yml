@@ -209,6 +209,8 @@ jobs:
           PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
           PUBLIC_ADMIN_URL: ${{ vars.PUBLIC_ADMIN_URL }}
           TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
+          GOOGLE_CLIENT_ID: ${{ vars.PUBLIC_GOOGLE_CLIENT_ID }}
+          APPLE_SERVICES_ID: ${{ vars.PUBLIC_APPLE_SERVICES_ID }}
           SENTRY_DSN_WEB: ${{ vars.PUBLIC_SENTRY_DSN_WEB }}
           SENTRY_DSN_ADMIN: ${{ vars.PUBLIC_SENTRY_DSN_ADMIN }}
           WEB_VITALS_SAMPLE_RATE: ${{ vars.PUBLIC_WEB_VITALS_SAMPLE_RATE }}
@@ -220,6 +222,8 @@ jobs:
             --build-arg NEXT_PUBLIC_SITE_URL="$PUBLIC_WEB_URL" \
             --build-arg NEXT_PUBLIC_ADMIN_URL="$PUBLIC_ADMIN_URL" \
             --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY="$TURNSTILE_SITE_KEY" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+            --build-arg NEXT_PUBLIC_APPLE_SERVICES_ID="$APPLE_SERVICES_ID" \
             --build-arg NEXT_PUBLIC_SENTRY_DSN="$SENTRY_DSN_WEB" \
             --build-arg NEXT_PUBLIC_SENTRY_ENVIRONMENT="$ENVIRONMENT" \
             --build-arg NEXT_PUBLIC_SENTRY_RELEASE="$REF" \
