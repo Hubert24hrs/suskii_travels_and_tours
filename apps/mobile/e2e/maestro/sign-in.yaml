@@ -1,0 +1,103 @@
+# Google sign-up, sign-out and Google sign-in again into the same account, on an Android emulator
+# against the e2e stack, whose API stands in for Google with its mock provider (ADR-067). The
+# Google and Apple buttons sit at the top of Register and Sign in, and Sign in always shows the
+# fingerprint button (it explains how to turn it on until this phone has a credential).
+appId: com.suskii.travels.e2e
+name: Sign in with Google
+tags:
+  - account
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/dismiss-system-dialogs.yaml
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 60000
+
+# Sign up with Google from Account.
+- tapOn:
+    id: tab-account
+- tapOn:
+    id: account-register
+- extendedWaitUntil:
+    visible:
+      id: social-google
+    timeout: 15000
+- assertVisible:
+    id: social-apple
+- tapOn:
+    id: social-google
+- extendedWaitUntil:
+    visible:
+      id: social-mock-email
+    timeout: 15000
+- tapOn:
+    id: social-mock-email
+- inputText: maestro.google@example.com
+- hideKeyboard
+- tapOn:
+    id: social-mock-name
+- inputText: Ada Maestro
+- hideKeyboard
+- tapOn:
+    id: social-mock-submit
+# A phone with a fingerprint is offered fingerprint sign-in first; the emulator usually has none.
+- runFlow:
+    when:
+      visible:
+        id: fingerprint-offer
+    commands:
+      - tapOn:
+          id: fingerprint-not-now
+- extendedWaitUntil:
+    visible: 'Signed in as maestro.google@example.com'
+    timeout: 20000
+
+# Sign out, then back in with the same Google account.
+- tapOn:
+    id: account-sign-out
+- extendedWaitUntil:
+    visible:
+      id: account-sign-in
+    timeout: 15000
+- tapOn:
+    id: account-sign-in
+- extendedWaitUntil:
+    visible:
+      id: sign-in-fingerprint
+    timeout: 15000
+- tapOn:
+    id: sign-in-fingerprint
+- assertVisible:
+    id: fingerprint-hint
+- assertVisible:
+    id: social-apple
+- tapOn:
+    id: social-google
+- extendedWaitUntil:
+    visible:
+      id: social-mock-email
+    timeout: 15000
+- tapOn:
+    id: social-mock-email
+- inputText: maestro.google@example.com
+- hideKeyboard
+- tapOn:
+    id: social-mock-submit
+- runFlow:
+    when:
+      visible:
+        id: fingerprint-offer
+    commands:
+      - tapOn:
+          id: fingerprint-not-now
+- extendedWaitUntil:
+    visible: 'Signed in as maestro.google@example.com'
+    timeout: 20000
+- tapOn:
+    id: account-sign-out
+- extendedWaitUntil:
+    visible:
+      id: account-sign-in
+    timeout: 15000
