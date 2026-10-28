@@ -189,6 +189,9 @@ export function Checkout({
   // Company accounts (ADR-078): members of an active company may book the trip for it.
   const [company, setCompany] = useState<{ name: string } | null>(null);
   const [forCompany, setForCompany] = useState(false);
+  // Company wallet (ADR-090): the booker pays the whole trip from the company's balance.
+  const [fromCompanyWallet, setFromCompanyWallet] = useState(false);
+  const companyWallet = company !== null && forCompany && fromCompanyWallet;
   const booking = useRef<{ id: string } | null>(null);
   const createKey = useRef<{ body: string; key: string } | null>(null);
   const token = useRef<string | null>(turnstileSiteKey ? null : DEVELOPMENT_TOKEN);
@@ -349,8 +352,8 @@ export function Checkout({
   };
 
   const extrasSelected = draft.passengers.some((passenger) => passenger.bags > 0);
-  // Paid extras cannot be held (ADR-018): choosing a bag switches back to paying in full.
-  const chosenPlan: PaymentPlanChoice = extrasSelected ? 'full' : plan;
+  // Paid extras cannot be held (ADR-018), nor is a wallet payment split: both pay in full.
+  const chosenPlan: PaymentPlanChoice = extrasSelected || companyWallet ? 'full' : plan;
 
   /** Shared handling of the answers a payment or plan request can give. */
   const handleProblem = (bookingId: string, error: unknown, status: number) => {
@@ -372,6 +375,14 @@ export function Checkout({
     } else if (slug === 'payment-method-unavailable' && status === 422) {
       setMethod(null);
       setFormError(t('checkout.errors.methodUnavailable'));
+    } else if (slug === 'company-wallet-insufficient' || slug === 'company-wallet-unavailable') {
+      // The booking exists: submitting again pays it another way.
+      setFromCompanyWallet(false);
+      setFormError(
+        t(
+          `checkout.errors.${slug === 'company-wallet-insufficient' ? 'companyWalletInsufficient' : 'companyWalletUnavailable'}`,
+        ),
+      );
     } else if (status === 409) {
       router.push(`/bookings/${bookingId}`);
     } else if (status === 429) {
@@ -389,7 +400,9 @@ export function Checkout({
         path: { bookingId },
         header: { 'Idempotency-Key': idempotencyKey(), ...bookingHeaders(bookingId) },
       },
-      body: { method: chosenMethod(quote.payment.methods, method) },
+      body: companyWallet
+        ? { useCompanyWallet: true }
+        : { method: chosenMethod(quote.payment.methods, method) },
     });
     if (data) {
       if (data.checkoutUrl) window.location.assign(data.checkoutUrl);
@@ -775,6 +788,20 @@ export function Checkout({
                 onChange={(event) => setForCompany(event.target.checked)}
               />
               <p className="font-body text-body-sm text-muted">{t('checkout.company.help')}</p>
+              {forCompany ? (
+                <>
+                  <CheckboxField
+                    name="payFromCompanyWallet"
+                    data-testid="checkout-company-wallet"
+                    label={t('checkout.company.wallet')}
+                    checked={fromCompanyWallet}
+                    onChange={(event) => setFromCompanyWallet(event.target.checked)}
+                  />
+                  <p className="font-body text-body-sm text-muted">
+                    {t('checkout.company.walletHelp')}
+                  </p>
+                </>
+              ) : null}
             </section>
           </Card>
         ) : null}
@@ -820,14 +847,18 @@ export function Checkout({
           </section>
         </Card>
 
-        <PlanChoice
-          vertical={quote.vertical}
-          options={quote.payment}
-          value={chosenPlan}
-          onChange={setPlan}
-          extrasSelected={extrasSelected}
-        />
-        <MethodChoice methods={quote.payment.methods} value={method} onChange={setMethod} />
+        {companyWallet ? null : (
+          <>
+            <PlanChoice
+              vertical={quote.vertical}
+              options={quote.payment}
+              value={chosenPlan}
+              onChange={setPlan}
+              extrasSelected={extrasSelected}
+            />
+            <MethodChoice methods={quote.payment.methods} value={method} onChange={setMethod} />
+          </>
+        )}
 
         <div className="flex flex-col gap-3">
           <label className="flex items-start gap-3 font-body text-body-sm text-foreground">
