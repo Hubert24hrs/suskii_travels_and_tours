@@ -39,6 +39,7 @@ export {
   fromWire,
   money,
   roundDiv,
+  toDecimalString,
   toWire,
   type Money,
   type MoneyWire,
@@ -319,7 +320,10 @@ export {
 export {
   AD_CLICK_COOKIES,
   AD_EVENTS,
+  META_CLICK_ID,
+  TIKTOK_CLICK_ID,
   TIKTOK_CLICK_PARAM,
   type AdEvent,
   type AdNetwork,
+  type MarketingAttribution,
 } from './ad-tracking';

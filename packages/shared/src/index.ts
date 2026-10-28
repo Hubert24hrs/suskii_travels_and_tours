@@ -604,8 +604,11 @@ export {
   AD_CONVERSION_MAX_ATTEMPTS,
   AD_EVENTS,
   AD_NETWORKS,
+  META_CLICK_ID,
+  TIKTOK_CLICK_ID,
   TIKTOK_CLICK_PARAM,
   type AdEvent,
   type AdNetwork,
+  type MarketingAttribution,
 } from './ad-tracking';
-export { marketingAttributionSchema, type MarketingAttribution } from './ad-tracking-schemas';
+export { marketingAttributionSchema } from './ad-tracking-schemas';
