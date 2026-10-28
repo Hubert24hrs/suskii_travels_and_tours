@@ -90,7 +90,7 @@ Verification on this branch (local):
 | Shared, i18n, worker                | 233, 33 and 49 passed                                      |
 | App (Jest)                          | 245 passed (43 suites)                                     |
 | Admin e2e                           | 16 of 16, including the moderation journey                 |
-| Website e2e                         | see the PR (full run before merge)                         |
+| Website e2e                         | 114 of 114 (budgets, hydration, slow 3G, Lighthouse)       |
 | Security checklist, format, scripts | up to date, clean, 13 of 13                                |
 
 What waits for the owner: who moderates (content managers and support hold
