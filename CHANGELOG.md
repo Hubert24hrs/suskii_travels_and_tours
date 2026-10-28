@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Accessibility audit, WCAG 2.2 AA (2026-10-28)
+
+#### Added
+
+- **WCAG 2.2 AA as the target (ADR-088)** for the website, the console and the app, with a
+  conformance table for all 55 A and AA criteria (`docs/accessibility/wcag-2.2-aa.md`): how each
+  is met, what checks it and what still needs a person.
+- **A sweep of every public page** (`apps/web/e2e/a11y.spec.ts`, 72 tests in the web e2e run):
+  axe with the WCAG 2.2 tags and targets of 24 px or more at 360 and 1280 px on 21 pages, reflow
+  at 320 px, text spacing at the criterion's values, 44 px search controls, a focus indicator on
+  every homepage tab stop, the sticky header never covering focus, and a flight search with the
+  keyboard alone.
+- **An accessibility guard for the app** (`apps/mobile/src/accessibility.test.ts`): every
+  touchable has a role and a name, radios and checkboxes report `checked`, tabs `selected`, text
+  inputs carry a label, and nothing turns off the system font size.
+
+#### Fixed
+
+- The deals page skipped a heading level (deal cards are `h2` there).
+- The "watch this route" link and the sign-in and register helper links are at least 24 px tall.
+- Focus moved by the keyboard, or an in-page link, stays clear of the sticky header.
+- The app's support category and approval reason choices announce "checked", not "selected".
+- The app follows the device's orientation instead of locking to portrait (WCAG 1.3.4).
+
 ### After-hours support assistant (2026-10-28)
 
 #### Added
