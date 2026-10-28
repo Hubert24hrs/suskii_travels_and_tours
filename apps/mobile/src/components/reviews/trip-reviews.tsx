@@ -66,7 +66,7 @@ function TextArea({
         value={value}
         onChangeText={onChange}
         textAlignVertical="top"
-        className="min-h-24 rounded-md border border-border-strong bg-surface px-4 py-3 font-body text-body text-foreground"
+        className="min-h-20 rounded-md border border-border-strong bg-surface px-4 py-3 font-body text-body text-foreground"
       />
     </View>
   );
