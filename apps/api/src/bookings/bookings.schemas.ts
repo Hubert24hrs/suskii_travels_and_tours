@@ -152,6 +152,17 @@ export const paymentOptionsSchema = named(
     wallet: moneySchema
       .nullable()
       .meta({ description: 'Signed-in travellers: wallet balance in the booking currency.' }),
+    companyWallet: z
+      .object({
+        covers: z.boolean().meta({
+          description: 'Whether the company wallet holds at least the amount due now.',
+        }),
+      })
+      .nullable()
+      .meta({
+        description:
+          'Company trips, to their booker in an active company, without a payment plan: the company wallet can pay (ADR-090). The balance itself is shown to admins and approvers only. Null on quotes and otherwise.',
+      }),
   }),
 );
 export type PaymentOptionsDto = z.infer<typeof paymentOptionsSchema>;
@@ -976,6 +987,10 @@ export const startPaymentRequestSchema = named(
       .boolean()
       .default(false)
       .meta({ description: 'Pay from the wallet; it must cover the whole amount.' }),
+    useCompanyWallet: z.boolean().default(false).meta({
+      description:
+        'Company trips: pay the whole amount from the company wallet (ADR-090). Only the booker, while a member of the active company and without a payment plan (409 `company-wallet-unavailable`); 409 `company-wallet-insufficient` when the balance is short.',
+    }),
   }),
 );
 export type StartPaymentRequest = z.output<typeof startPaymentRequestSchema>;
@@ -1185,7 +1200,10 @@ export const createRefundRequestSchema = named(
   z.object({
     paymentId: z.uuid(),
     amount: moneySchema,
-    destination: z.enum(REFUND_DESTINATIONS).default('original'),
+    destination: z.enum(['original', 'wallet']).default('original').meta({
+      description:
+        'A wallet or company wallet payment always refunds to the wallet it came from (ADR-090).',
+    }),
     reason: z.enum(STAFF_REFUND_REASONS),
     note: z.string().trim().max(500).nullable().default(null),
     cancelBooking: z

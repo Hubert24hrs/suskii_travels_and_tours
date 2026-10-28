@@ -11,6 +11,27 @@ export interface CheckoutRequest {
   expiresAt: Date;
   /** The method the traveller chose: the hosted page opens on it (ADR-074). */
   method?: PaymentMethod | null;
+  /** What is paid for: a booking (the default) or a company wallet top-up (ADR-090). */
+  purpose?: 'booking' | 'company_top_up';
+}
+
+/** How a checkout names what it pays for at the provider, and the metadata key of its reference. */
+export function checkoutLabel(request: CheckoutRequest): {
+  subject: 'booking' | 'company wallet top-up';
+  title: string;
+  referenceKey: 'booking_reference' | 'top_up_reference';
+} {
+  return request.purpose === 'company_top_up'
+    ? {
+        subject: 'company wallet top-up',
+        title: `Company wallet top-up ${request.reference}`,
+        referenceKey: 'top_up_reference',
+      }
+    : {
+        subject: 'booking',
+        title: `Booking ${request.reference}`,
+        referenceKey: 'booking_reference',
+      };
 }
 
 export interface CheckoutSession {

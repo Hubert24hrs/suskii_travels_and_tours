@@ -4,22 +4,23 @@ import { money } from '@suskii/shared';
 import { z } from 'zod';
 
 import {
-  PaymentProvider,
-  PaymentProviderUnavailableError,
-  WebhookSignatureError,
-  WebhookVerificationError,
-  headerValue,
-  paymentCard,
-  PAYMENT_METHOD_LIST,
+  checkoutLabel,
   type CheckoutRequest,
   type CheckoutSession,
+  headerValue,
+  PAYMENT_METHOD_LIST,
+  paymentCard,
   type PaymentEvent,
   type PaymentMethod,
+  PaymentProvider,
+  PaymentProviderUnavailableError,
   type PaymentRef,
   type PaymentVerification,
   type ProviderRefund,
   type RefundRequest,
   type WebhookHeaders,
+  WebhookSignatureError,
+  WebhookVerificationError,
 } from '../payment-provider';
 import { ProviderHttp } from '../provider-http';
 
@@ -163,7 +164,7 @@ export class PaystackPaymentProvider extends PaymentProvider {
           ...(request.method ? { channels: [PAYSTACK_CHANNELS[request.method]] } : {}),
           metadata: {
             payment_id: request.paymentId,
-            booking_reference: request.reference,
+            [checkoutLabel(request).referenceKey]: request.reference,
             cancel_action: request.returnUrl,
           },
         },

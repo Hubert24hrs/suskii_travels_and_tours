@@ -79,6 +79,7 @@ model User {
   partnerClicks           PartnerClick[]
   reviews                 Review[]
   companyMembership       CompanyMember?
+  companyTopUps           CompanyWalletTopUp[]     @relation("CompanyTopUpRequester")
   supportConversations    SupportConversation[]    @relation("SupportOwner")
   assignedSupport         SupportConversation[]    @relation("SupportAssignee")
   supportMessages         SupportMessage[]         @relation("SupportStaffAuthor")
@@ -1209,6 +1210,8 @@ model Traveller {
 enum PaymentKind {
   checkout
   wallet
+  /// Paid from the company wallet (ADR-090); refunds go back to it.
+  company_wallet
 }
 
 model Payment {
@@ -1473,6 +1476,7 @@ enum RefundStatus {
 enum RefundDestination {
   original
   wallet
+  company_wallet
 }
 
 enum RefundReason {
@@ -2868,6 +2872,7 @@ enum DiscrepancySubject {
   payment
   refund
   payout
+  company_topup
 }
 
 enum DiscrepancyStatus {
@@ -3323,10 +3328,11 @@ model Company {
   createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  members     CompanyMember[]
-  invitations CompanyInvitation[]
-  policy      CompanyPolicy?
-  bookings    Booking[]
+  members      CompanyMember[]
+  invitations  CompanyInvitation[]
+  policy       CompanyPolicy?
+  bookings     Booking[]
+  walletTopUps CompanyWalletTopUp[]
 
   @@index([status, createdAt])
   @@map("companies")
@@ -3642,4 +3648,57 @@ model StatusIncidentUpdate {
 
   @@index([incidentId, createdAt])
   @@map("status_incident_updates")
+}
+
+// --- Company wallet (ADR-090) -------------------------------------------------------------------
+
+enum CompanyTopUpStatus {
+  pending
+  succeeded
+  failed
+  expired
+  cancelled
+}
+
+/// Money a company admin adds to the company wallet by hosted checkout (ADR-090). Webhooks and
+/// reconciliation find it by provider reference; the capture credits
+/// `company-wallet:{companyId}:{CUR}` once (key `company-topup:{id}:captured`).
+model CompanyWalletTopUp {
+  id                    String             @id @default(uuid(7)) @db.Uuid
+  companyId             String             @map("company_id") @db.Uuid
+  /// Shown on the provider's page and the company's history, such as `W-K7QX3M`.
+  reference             String             @unique
+  requestedById         String?            @map("requested_by_id") @db.Uuid
+  provider              String
+  providerReference     String             @unique @map("provider_reference")
+  providerTransactionId String?            @map("provider_transaction_id")
+  status                CompanyTopUpStatus @default(pending)
+  amountMinor           BigInt             @map("amount_minor")
+  currency              String             @db.Char(3)
+  /// What the provider charged when it differs from the request; credited as charged, audited.
+  receivedMinor         BigInt?            @map("received_minor")
+  receivedCurrency      String?            @map("received_currency") @db.Char(3)
+  checkoutUrl           String             @map("checkout_url")
+  /// Channel reported by the provider (card, bank_transfer, ussd...). Never card details.
+  method                String?
+  expiresAt             DateTime           @map("expires_at") @db.Timestamptz(3)
+  succeededAt           DateTime?          @map("succeeded_at") @db.Timestamptz(3)
+  failureReason         String?            @map("failure_reason")
+  /// Last time the worker asked the provider about this pending top-up.
+  reconciledAt          DateTime?          @map("reconciled_at") @db.Timestamptz(3)
+  /// When the ledger reconciliation last compared it with the ledger and the provider.
+  ledgerCheckedAt       DateTime?          @map("ledger_checked_at") @db.Timestamptz(3)
+  /// Risk signals: HMAC of the payer's IP and the country the edge reported for it.
+  ipHash                String?            @map("ip_hash")
+  ipCountry             String?            @map("ip_country") @db.Char(2)
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  requestedBy User?   @relation("CompanyTopUpRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([status, expiresAt])
+  @@index([status, ledgerCheckedAt])
+  @@map("company_wallet_top_ups")
 }

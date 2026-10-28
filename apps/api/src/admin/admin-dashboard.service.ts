@@ -23,8 +23,9 @@ const isoDate = (value: Date): string => value.toISOString().slice(0, 10);
 /** Ledger transaction kinds behind each money figure (ADR-017, ADR-036). */
 const MONEY_KINDS = {
   captured: ['payment_captured', 'payment_unapplied'],
-  fromWallet: ['wallet_payment'],
-  refunded: ['refund_settled', 'refund_to_wallet'],
+  // Company top-ups are prepayments, counted when a trip spends them (ADR-090).
+  fromWallet: ['wallet_payment', 'company_wallet_payment'],
+  refunded: ['refund_settled', 'refund_to_wallet', 'refund_to_company_wallet'],
 } as const satisfies Record<string, readonly LedgerKind[]>;
 
 /** Statuses a booking reaches only after it was paid in full. */

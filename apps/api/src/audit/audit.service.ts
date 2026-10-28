@@ -201,6 +201,10 @@ export type AuditAction =
   | 'company.trip_rejected'
   | 'company.suspended'
   | 'company.reinstated'
+  | 'company_wallet.topup_started'
+  | 'company_wallet.topped_up'
+  | 'company_wallet.topup_amount_mismatch'
+  | 'company_wallet.paid'
   // Metasearch partners (ADR-081)
   | 'metasearch_partner.created'
   | 'metasearch_partner.updated'

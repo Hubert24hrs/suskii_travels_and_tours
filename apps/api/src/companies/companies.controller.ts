@@ -15,6 +15,8 @@ import {
 import type { Request } from 'express';
 import type { z } from 'zod';
 
+import { fromWire } from '@suskii/shared';
+
 import { CurrentAuth, type AuthContext } from '../auth/auth-context';
 import { requestContext } from '../common/request-context';
 import { Contract, fileResponse } from '../contract/contract';
@@ -32,17 +34,22 @@ import {
   companySchema,
   companySpendQuerySchema,
   companySpendSchema,
+  companyTopUpSchema,
+  companyWalletSchema,
   createCompanySchema,
   invitationParamsSchema,
   inviteMemberSchema,
   memberParamsSchema,
   myCompanySchema,
   rejectApprovalSchema,
+  startTopUpSchema,
+  topUpParamsSchema,
   updateCompanySchema,
   updatePolicySchema,
 } from './companies.schemas';
 import { CompaniesService } from './companies.service';
 import { CompanyTripsService } from './company-trips.service';
+import { CompanyWalletService } from './company-wallet.service';
 
 type CompanyView = z.infer<typeof companySchema>;
 const TAGS = ['Companies'];
@@ -56,6 +63,7 @@ export class CompaniesController {
   constructor(
     private readonly companies: CompaniesService,
     private readonly trips: CompanyTripsService,
+    private readonly wallet: CompanyWalletService,
   ) {}
 
   @Get()
@@ -349,5 +357,62 @@ export class CompaniesController {
       disposition: `attachment; filename="${fileName}"`,
       length: bytes.byteLength,
     });
+  }
+
+  @Get('wallet')
+  @Contract({
+    operationId: 'getCompanyWallet',
+    summary: 'The company wallet',
+    description:
+      'Admins and approvers (403 `company-approver-required`): balances, the latest movements and top-ups, and the currencies and limits a top-up can use (ADR-090).',
+    tags: TAGS,
+    responses: { 200: companyWalletSchema },
+    errors: [403, 404],
+  })
+  companyWallet(@CurrentAuth() auth: AuthContext): Promise<z.infer<typeof companyWalletSchema>> {
+    return this.wallet.view(auth.userId);
+  }
+
+  @Post('wallet/top-ups')
+  @RateLimit(COMPANY_LIMITS.topUpUser)
+  @Contract({
+    operationId: 'startCompanyTopUp',
+    idempotent: true,
+    audit: ['company_wallet.topup_started'],
+    summary: 'Add funds to the company wallet',
+    description:
+      'Admins of an active company (403 `company-admin-required`, 409 `company-suspended`). Opens a hosted checkout; the wallet is credited only when the provider confirms the payment. 422 `top-up-currency-unavailable` or `top-up-amount-out-of-range` outside `topUpOptions`; 409 `top-up-limit` after `topUpsPerDay` top-ups in 24 hours.',
+    tags: TAGS,
+    body: startTopUpSchema,
+    responses: { 201: companyTopUpSchema },
+    errors: [403, 404, 409, 422, 503],
+  })
+  startTopUp(
+    @CurrentAuth() auth: AuthContext,
+    @Body() body: z.output<typeof startTopUpSchema>,
+    @Req() request: Request,
+  ): Promise<z.infer<typeof companyTopUpSchema>> {
+    return this.wallet.startTopUp(
+      auth.userId,
+      { amount: fromWire(body.amount), provider: body.provider, method: body.method },
+      requestContext(request),
+    );
+  }
+
+  @Get('wallet/top-ups/:topUpId')
+  @Contract({
+    operationId: 'getCompanyTopUp',
+    summary: 'One company wallet top-up',
+    description: 'Admins and approvers. The return page polls it until the provider confirms.',
+    tags: TAGS,
+    params: topUpParamsSchema,
+    responses: { 200: companyTopUpSchema },
+    errors: [403, 404],
+  })
+  companyTopUp(
+    @CurrentAuth() auth: AuthContext,
+    @Param('topUpId') topUpId: string,
+  ): Promise<z.infer<typeof companyTopUpSchema>> {
+    return this.wallet.topUp(auth.userId, topUpId);
   }
 }

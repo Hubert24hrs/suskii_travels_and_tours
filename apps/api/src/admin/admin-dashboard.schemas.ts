@@ -42,7 +42,9 @@ export const adminDashboardSchema = named(
         z.object({
           currency: z.string(),
           captured: moneySchema.meta({ description: 'Card and transfer payments received.' }),
-          fromWallet: moneySchema.meta({ description: 'Paid from wallet credit.' }),
+          fromWallet: moneySchema.meta({
+            description: 'Paid from wallet credit, personal or company.',
+          }),
           refunded: moneySchema.meta({ description: 'Refunds paid out or credited to wallets.' }),
         }),
       )

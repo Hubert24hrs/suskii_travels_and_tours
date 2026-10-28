@@ -14,7 +14,7 @@ export const DISCREPANCY_KINDS = [
   'provider_amount',
   'orphan_ledger',
 ] as const;
-export const DISCREPANCY_SUBJECTS = ['payment', 'refund', 'payout'] as const;
+export const DISCREPANCY_SUBJECTS = ['payment', 'refund', 'payout', 'company_topup'] as const;
 export const DISCREPANCY_STATUSES = ['open', 'resolved'] as const;
 export const DISCREPANCY_RESOLUTIONS = ['corrected', 'accepted'] as const;
 export const PAYOUT_STATUSES = ['pending', 'paid', 'failed'] as const;

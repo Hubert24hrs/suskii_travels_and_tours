@@ -20956,6 +20956,188 @@
         }
       }
     },
+    "/v1/me/company/wallet": {
+      "get": {
+        "operationId": "getCompanyWallet",
+        "summary": "The company wallet",
+        "description": "Admins and approvers (403 `company-approver-required`): balances, the latest movements and top-ups, and the currencies and limits a top-up can use (ADR-090).",
+        "tags": [
+          "Companies"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyWallet"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/me/company/wallet/top-ups": {
+      "post": {
+        "operationId": "startCompanyTopUp",
+        "summary": "Add funds to the company wallet",
+        "description": "Admins of an active company (403 `company-admin-required`, 409 `company-suspended`). Opens a hosted checkout; the wallet is credited only when the provider confirms the payment. 422 `top-up-currency-unavailable` or `top-up-amount-out-of-range` outside `topUpOptions`; 409 `top-up-limit` after `topUpsPerDay` top-ups in 24 hours.",
+        "tags": [
+          "Companies"
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartCompanyTopUpInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyTopUp"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/me/company/wallet/top-ups/{topUpId}": {
+      "get": {
+        "operationId": "getCompanyTopUp",
+        "summary": "One company wallet top-up",
+        "description": "Admins and approvers. The return page polls it until the provider confirms.",
+        "tags": [
+          "Companies"
+        ],
+        "parameters": [
+          {
+            "name": "topUpId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyTopUp"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/me/data-export": {
       "post": {
         "operationId": "exportMyData",
@@ -27524,7 +27706,8 @@
                   "type": "string",
                   "enum": [
                     "checkout",
-                    "wallet"
+                    "wallet",
+                    "company_wallet"
                   ]
                 },
                 "provider": {
@@ -28270,6 +28453,80 @@
           "policy": {
             "$ref": "#/components/schemas/CompanyPolicy"
           },
+          "walletBalances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Money"
+            }
+          },
+          "recentTopUps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reference": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "succeeded",
+                    "failed",
+                    "expired",
+                    "cancelled"
+                  ]
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "received": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "expiresAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "succeededAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "reference",
+                "status",
+                "amount",
+                "received",
+                "expiresAt",
+                "createdAt",
+                "succeededAt"
+              ],
+              "additionalProperties": false
+            }
+          },
           "memberList": {
             "type": "array",
             "items": {
@@ -28328,6 +28585,8 @@
           "bookings",
           "createdAt",
           "policy",
+          "walletBalances",
+          "recentTopUps",
           "memberList"
         ],
         "additionalProperties": false
@@ -31148,7 +31407,8 @@
             "type": "string",
             "enum": [
               "original",
-              "wallet"
+              "wallet",
+              "company_wallet"
             ]
           },
           "reason": {
@@ -34769,7 +35029,8 @@
             "type": "string",
             "enum": [
               "original",
-              "wallet"
+              "wallet",
+              "company_wallet"
             ]
           },
           "status": {
@@ -36807,6 +37068,209 @@
           "byMonth",
           "byTraveller",
           "totals"
+        ],
+        "additionalProperties": false
+      },
+      "CompanyTopUp": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "expired",
+              "cancelled"
+            ]
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "received": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkoutUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "succeededAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "status",
+          "amount",
+          "received",
+          "checkoutUrl",
+          "expiresAt",
+          "createdAt",
+          "succeededAt"
+        ],
+        "additionalProperties": false
+      },
+      "CompanyWallet": {
+        "type": "object",
+        "properties": {
+          "balances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Money"
+            }
+          },
+          "canTopUp": {
+            "type": "boolean"
+          },
+          "topUpOptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "currency": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 3
+                },
+                "min": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "max": {
+                  "$ref": "#/components/schemas/Money"
+                }
+              },
+              "required": [
+                "currency",
+                "min",
+                "max"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "topUpsPerDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "movements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "payment_captured",
+                    "payment_unapplied",
+                    "wallet_payment",
+                    "refund_initiated",
+                    "refund_settled",
+                    "refund_failed",
+                    "refund_to_wallet",
+                    "company_topup_captured",
+                    "company_wallet_payment",
+                    "refund_to_company_wallet",
+                    "cancellation_fee",
+                    "referral_reward",
+                    "ride_earnings",
+                    "payout_sent",
+                    "payout_settled",
+                    "payout_failed",
+                    "deposit_deduction"
+                  ]
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "bookingId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "bookingReference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "occurredAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "amount",
+                "bookingId",
+                "bookingReference",
+                "occurredAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "topUps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompanyTopUp"
+            }
+          }
+        },
+        "required": [
+          "balances",
+          "canTopUp",
+          "topUpOptions",
+          "topUpsPerDay",
+          "movements",
+          "topUps"
         ],
         "additionalProperties": false
       },
@@ -46455,6 +46919,25 @@
                 "type": "null"
               }
             ]
+          },
+          "companyWallet": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "covers": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "covers"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -46462,7 +46945,8 @@
           "methods",
           "hold",
           "installments",
-          "wallet"
+          "wallet",
+          "companyWallet"
         ],
         "additionalProperties": false
       },
@@ -48258,7 +48742,8 @@
             "enum": [
               "payment",
               "refund",
-              "payout"
+              "payout",
+              "company_topup"
             ]
           },
           "subjectId": {
@@ -49901,6 +50386,11 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "company-top-ups": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "ad-conversions": {
             "type": "integer",
             "minimum": 0,
@@ -49961,6 +50451,7 @@
           "partner-conversions",
           "rejected-reviews",
           "company-invitations",
+          "company-top-ups",
           "ad-conversions",
           "metasearch-landings",
           "support-conversations",
@@ -51792,6 +52283,68 @@
         ],
         "additionalProperties": false
       },
+      "StartCompanyTopUpInput": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "object",
+            "properties": {
+              "amountMinor": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              }
+            },
+            "required": [
+              "amountMinor",
+              "currency"
+            ]
+          },
+          "provider": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "mock",
+                  "paystack",
+                  "flutterwave",
+                  "stripe"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "card",
+                  "bank_transfer",
+                  "ussd",
+                  "mobile_money",
+                  "apple_google_pay",
+                  "agent"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "amount"
+        ]
+      },
       "StartedSupportConversation": {
         "type": "object",
         "properties": {
@@ -51867,6 +52420,10 @@
             "type": "boolean"
           },
           "useWallet": {
+            "default": false,
+            "type": "boolean"
+          },
+          "useCompanyWallet": {
             "default": false,
             "type": "boolean"
           }
@@ -55236,6 +55793,9 @@
                     "refund_settled",
                     "refund_failed",
                     "refund_to_wallet",
+                    "company_topup_captured",
+                    "company_wallet_payment",
+                    "refund_to_company_wallet",
                     "cancellation_fee",
                     "referral_reward",
                     "ride_earnings",

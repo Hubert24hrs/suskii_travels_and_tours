@@ -261,7 +261,7 @@ export function paymentDueSmsBody(details: PaymentDueDetails): string {
 export interface RefundDetails {
   reference: string;
   amount: string;
-  destination: 'original' | 'wallet';
+  destination: 'original' | 'wallet' | 'company_wallet';
   /** Why the money goes back, in plain words. */
   reason: string;
 }
@@ -270,7 +270,9 @@ export function refundStartedTemplate(details: RefundDetails): Template {
   const where =
     details.destination === 'wallet'
       ? 'It goes to your Suskii wallet.'
-      : 'It goes back to the card or account you paid with; banks usually take 5 to 10 working days.';
+      : details.destination === 'company_wallet'
+        ? "It goes back to your company's Suskii wallet."
+        : 'It goes back to the card or account you paid with; banks usually take 5 to 10 working days.';
   const intro = `We are refunding ${details.amount} for booking ${details.reference}. ${details.reason}`;
   return {
     template: 'refund-started',
@@ -285,7 +287,9 @@ export function refundCompletedTemplate(details: RefundDetails): Template {
   const where =
     details.destination === 'wallet'
       ? 'It is in your Suskii wallet now.'
-      : 'Your bank may take a few days to show it.';
+      : details.destination === 'company_wallet'
+        ? "It is in your company's Suskii wallet now."
+        : 'Your bank may take a few days to show it.';
   return {
     template: 'refund-completed',
     subject: `Refund completed: ${details.reference}`,
