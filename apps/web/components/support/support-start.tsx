@@ -16,7 +16,7 @@ import { NativeSelect } from '../search/native-select';
 import { useSupportT } from './use-support-t';
 
 export const SUPPORT_TEXTAREA =
-  'min-h-28 w-full rounded-md border border-border-strong bg-surface px-4 py-3 font-body text-body text-foreground focus-visible:focus-ring';
+  'min-h-20 w-full rounded-md border border-border-strong bg-surface px-4 py-3 font-body text-body text-foreground focus-visible:focus-ring';
 
 /**
  * Starts a support conversation (ADR-083), optionally about one booking. Visitors without a
