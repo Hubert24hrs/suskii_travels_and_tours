@@ -2508,6 +2508,8 @@ export const fr: Messages = {
         refund_in_progress: 'Un remboursement est encore en route.',
         wallet_balance:
           "Votre portefeuille contient de l'argent. Contactez l'assistance pour le faire verser.",
+        company_admin:
+          "Vous êtes le seul administrateur d'une entreprise qui a d'autres membres. Nommez d'abord un autre administrateur, ou retirez les membres.",
       },
       confirmLabel: 'Saisissez DELETE pour confirmer',
       deleteButton: 'Supprimer mon compte',

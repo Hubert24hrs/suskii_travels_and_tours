@@ -5,9 +5,11 @@ import {
   money,
   subtract,
   toWire,
+  type ApprovalRejectReason,
   type ContactDetails,
   type Money,
   type PassengerIssue,
+  type PolicyFinding,
 } from '@suskii/shared';
 
 import { fromJsonValue } from '../common/json';
@@ -175,6 +177,8 @@ export function toBookingDto(
   const price = bookingPrice(booking);
   const pending = pendingPrice(booking);
   const payment = booking.payments[0];
+  // A company trip waiting for an approver cannot be paid yet (ADR-078).
+  const awaitingApproval = booking.approvalStatus === 'pending';
 
   return {
     id: booking.id,
@@ -311,7 +315,7 @@ export function toBookingDto(
       createdAt: document.createdAt.toISOString(),
     })),
     paid: toWire(funds.paid),
-    amountDue: funds.amountDue ? toWire(funds.amountDue) : null,
+    amountDue: funds.amountDue && !awaitingApproval ? toWire(funds.amountDue) : null,
     paymentPlan: booking.paymentPlan
       ? {
           kind: booking.paymentPlan.kind,
@@ -331,7 +335,7 @@ export function toBookingDto(
           })),
         }
       : null,
-    paymentOptions: funds.options,
+    paymentOptions: awaitingApproval ? null : funds.options,
     refunds: booking.refunds.flatMap((refund) =>
       refund.status === 'rejected'
         ? []
@@ -346,6 +350,14 @@ export function toBookingDto(
             },
           ],
     ),
+    company: booking.companyId
+      ? {
+          approvalStatus: booking.approvalStatus,
+          policyFindings: booking.policyFindings as PolicyFinding[],
+          approvalRejectReason:
+            (booking.approvalRejectReason as ApprovalRejectReason | null) ?? null,
+        }
+      : null,
   };
 }
 

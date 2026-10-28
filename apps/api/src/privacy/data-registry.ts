@@ -41,6 +41,7 @@ export const EXPORT_SECTIONS = [
   'driving',
   'rentals',
   'reviews',
+  'company',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -564,6 +565,25 @@ export const DATA_REGISTRY = {
     deletion: 'redact',
     retention: { kind: 'rule', rule: 'rejected-reviews' },
     note: 'Rating, texts and the shown name ("Ada O." or none). Deletion removes unpublished reviews and keeps published ones without the account or name; rejected ones go after 90 days; the name goes when the booking is anonymised.',
+  },
+  // --- Company accounts (ADR-078) ----------------------------------------------------------
+  Company: reference(
+    "A company that books travel for its people: name, country, registration and tax numbers and its billing email. Kept while in use; staff suspend it. Members' trips stay with it for its reports.",
+  ),
+  CompanyPolicy: reference(
+    "A company's travel policy: caps and the approval mode, no personal data.",
+  ),
+  CompanyMember: {
+    section: 'company',
+    deletion: 'delete',
+    retention: { kind: 'account' },
+    note: "The account's company and role. Deleted with the account; the last admin of a company with other members hands it over first (`company_admin` blocker).",
+  },
+  CompanyInvitation: {
+    section: null,
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'company-invitations' },
+    note: 'Emailed invitations: HMACs of the token and the address, a masked address and the role. Purged 30 days after they expire.',
   },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 

@@ -351,6 +351,7 @@ export class DataExportService {
       driving: await this.driving(userId),
       rentals: await this.rentals(userId),
       reviews: await this.reviews(userId),
+      company: await this.company(userId),
     };
 
     return {
@@ -487,6 +488,17 @@ export class DataExportService {
         resolvedAt: iso(incident.resolvedAt),
       })),
     }));
+  }
+
+  /** Company accounts (ADR-078): the account's company and role. */
+  private async company(userId: string): Promise<unknown> {
+    const member = await this.prisma.companyMember.findUnique({
+      where: { userId },
+      include: { company: { select: { id: true, name: true, countryCode: true } } },
+    });
+    return member
+      ? { company: member.company, role: member.role, joinedAt: iso(member.createdAt) }
+      : null;
   }
 
   /** Verified reviews (ADR-077): what was written, about what, and where moderation stands. */

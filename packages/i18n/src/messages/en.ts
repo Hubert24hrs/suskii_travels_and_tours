@@ -2414,6 +2414,8 @@ export const en = {
         visa_in_progress: 'A visa application is still open.',
         refund_in_progress: 'A refund is still on its way.',
         wallet_balance: 'Your wallet holds money. Contact support to have it paid out.',
+        company_admin:
+          'You are the only admin of a company with other members. Make someone else an admin, or remove the members, first.',
       },
       confirmLabel: 'Type DELETE to confirm',
       deleteButton: 'Delete my account',

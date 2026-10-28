@@ -29,6 +29,7 @@ export const DELETION_BLOCKERS = [
   'visa_in_progress',
   'refund_in_progress',
   'wallet_balance',
+  'company_admin',
 ] as const;
 export type DeletionBlocker = (typeof DELETION_BLOCKERS)[number];
 
@@ -95,6 +96,7 @@ export class AccountDeletionService {
       wallets,
       liveRides,
       driver,
+      membership,
     ] = await Promise.all([
       tx.userRole.findMany({ where: { userId }, select: { roleKey: true } }),
       tx.booking.count({ where: { userId, status: { in: UNSETTLED } } }),
@@ -119,6 +121,7 @@ export class AccountDeletionService {
         },
       }),
       tx.driver.findUnique({ where: { userId }, select: { id: true } }),
+      tx.companyMember.findUnique({ where: { userId }, select: { companyId: true, role: true } }),
     ]);
     // Unpaid driver earnings and payouts on their way are money held for the account, like a
     // wallet balance: support pays them out first.
@@ -146,6 +149,14 @@ export class AccountDeletionService {
     if (openRefunds > 0) result.push('refund_in_progress');
     if (wallets.some((wallet) => wallet.balanceMinor !== 0n) || driverMoney > 0)
       result.push('wallet_balance');
+    // The last admin of a company with other members hands it over first (ADR-078).
+    if (membership?.role === 'admin') {
+      const [admins, members] = await Promise.all([
+        tx.companyMember.count({ where: { companyId: membership.companyId, role: 'admin' } }),
+        tx.companyMember.count({ where: { companyId: membership.companyId } }),
+      ]);
+      if (admins === 1 && members > 1) result.push('company_admin');
+    }
     return result;
   }
 
@@ -203,6 +214,8 @@ export class AccountDeletionService {
         await tx.idempotencyKey.deleteMany({ where: { scope: `user:${userId}` } });
         await tx.emergencyContact.deleteMany({ where: { userId } });
         await tx.operatorMember.deleteMany({ where: { userId } });
+        // Company trips stay with the company for its reports; the membership goes (ADR-078).
+        await tx.companyMember.deleteMany({ where: { userId } });
         if (user.email) {
           await tx.newsletterSubscription.deleteMany({ where: { email: user.email } });
         }

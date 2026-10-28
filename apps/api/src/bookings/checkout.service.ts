@@ -49,6 +49,7 @@ import {
 } from './booking-pricing';
 import { BookingTransitions, SYSTEM_ACTOR, type BookingActor } from './booking-transitions';
 import {
+  approvalRequired,
   bookingConflict,
   bookingExpired,
   installmentInvalid,
@@ -158,6 +159,7 @@ export class CheckoutService {
     if (!item) throw bookingConflict();
     const pending = pendingPrice(booking);
     if (pending) throw priceChanged(this.change(booking, pending));
+    if (booking.approvalStatus === 'pending') throw approvalRequired();
     if (!PAYABLE_STATUSES.includes(booking.status)) {
       throw bookingConflict('This booking is not waiting for payment.');
     }

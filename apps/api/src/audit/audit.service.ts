@@ -186,7 +186,21 @@ export type AuditAction =
   | 'review.withdrawn'
   | 'review.published'
   | 'review.rejected'
-  | 'review.invitation_sent';
+  | 'review.invitation_sent'
+  // Company accounts (ADR-078)
+  | 'company.created'
+  | 'company.updated'
+  | 'company.policy_updated'
+  | 'company.member_invited'
+  | 'company.invitation_revoked'
+  | 'company.member_joined'
+  | 'company.member_role_changed'
+  | 'company.member_left'
+  | 'company.member_removed'
+  | 'company.trip_approved'
+  | 'company.trip_rejected'
+  | 'company.suspended'
+  | 'company.reinstated';
 
 export interface AuditEvent {
   action: AuditAction;

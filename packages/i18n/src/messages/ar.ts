@@ -2681,6 +2681,8 @@ export const ar: Messages = {
         visa_in_progress: 'لا يزال هناك طلب تأشيرة مفتوح.',
         refund_in_progress: 'لا يزال هناك مبلغ مسترد في الطريق.',
         wallet_balance: 'في محفظتك رصيد. تواصل مع الدعم لصرفه لك.',
+        company_admin:
+          'أنت المسؤول الوحيد عن شركة فيها أعضاء آخرون. عيّن مسؤولًا آخر أو أزل الأعضاء أولًا.',
       },
       confirmLabel: 'اكتب DELETE للتأكيد',
       deleteButton: 'حذف حسابي',

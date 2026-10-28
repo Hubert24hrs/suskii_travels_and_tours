@@ -288,6 +288,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/companies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company accounts (newest first) */
+        get: operations["adminListCompanies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/companies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A company with its members and policy */
+        get: operations["adminGetCompany"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/companies/{id}/reinstate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reinstate a suspended company */
+        post: operations["adminReinstateCompany"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/companies/{id}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suspend a company
+         * @description Members can no longer book for the company (409 `company-suspended`); their own accounts and bookings are untouched.
+         */
+        post: operations["adminSuspendCompany"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/content/blocks": {
         parameters: {
             query?: never;
@@ -4302,6 +4373,271 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/company": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The company the caller belongs to
+         * @description 404 when the caller belongs to no company.
+         */
+        get: operations["getMyCompany"];
+        /**
+         * Change the company's details
+         * @description Admins only (403 `company-admin-required`).
+         */
+        put: operations["updateCompany"];
+        /**
+         * Create a company with the caller as its admin
+         * @description A person belongs to one company: 409 `company-member-exists` when the caller already does.
+         */
+        post: operations["createCompany"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Company trips
+         * @description Newest first. Admins and approvers see every company trip; bookers and travellers the ones they booked. `approval=pending` lists the trips waiting for a decision.
+         */
+        get: operations["listCompanyBookings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/bookings/{bookingId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a trip waiting for approval
+         * @description Approvers and admins, never for their own trip (403 `approval-own-trip`). The booker can then pay. 409 `approval-not-pending` when it was decided, paid, cancelled or expired.
+         */
+        post: operations["approveCompanyTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/bookings/{bookingId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a trip waiting for approval
+         * @description Approvers and admins, never for their own trip. Cancels the unpaid booking; the reason is a code, so no free text is stored.
+         */
+        post: operations["rejectCompanyTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Company trips as CSV
+         * @description Admins and approvers. One row per trip booked in the range (newest 5,000): reference, dates, product, traveller, booker, status, approval, policy findings, currency and total in minor units. No contact or passport details.
+         */
+        get: operations["exportCompanyBookings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite someone by email
+         * @description Admins only. Emails a single-use link valid for 7 days; accepting needs an account whose verified email is the invited one.
+         */
+        post: operations["inviteCompanyMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/invitations/{invitationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Withdraw an open invitation */
+        delete: operations["revokeCompanyInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join a company with an invitation
+         * @description 400 `company-invitation-invalid` when the link expired, was used or withdrawn, or the account email is not the invited one (or not verified); 409 `company-member-exists` when the caller already belongs to a company.
+         */
+        post: operations["acceptCompanyInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Members and open invitations
+         * @description Email addresses and invitations are shown to admins only.
+         */
+        get: operations["listCompanyMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/members/{memberId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a member, or leave the company
+         * @description Admins remove anyone; every member can remove themself (leave). 409 `company-last-admin` for the last admin. Company trips stay with the company.
+         */
+        delete: operations["removeCompanyMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/members/{memberId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a member's role
+         * @description Admins only. 409 `company-last-admin` when it would leave no admin.
+         */
+        put: operations["changeCompanyMemberRole"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the travel policy
+         * @description Admins only. A field set to null does not apply. Applies to company trips booked from now on.
+         */
+        put: operations["setCompanyPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Company spend by month and by traveller
+         * @description Admins and approvers (403 `company-approver-required`).
+         */
+        get: operations["getCompanySpend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/data-export": {
         parameters: {
             query?: never;
@@ -4334,7 +4670,7 @@ export interface paths {
         put?: never;
         /**
          * Delete my account
-         * @description Signs out every device and anonymises the account at once. Refused (409 with `blockers`) while a booking, payment, trip, visa application or refund is in progress or the wallet holds money. Bookings, payments and refunds are kept for the retention period without contact details.
+         * @description Signs out every device and anonymises the account at once. Refused (409 with `blockers`) while a booking, payment, trip, visa application or refund is in progress, the wallet holds money, or the account is the last admin of a company with other members. Bookings, payments and refunds are kept for the retention period without contact details.
          */
         post: operations["deleteMyAccount"];
         delete?: never;
@@ -5628,7 +5964,7 @@ export interface components {
         };
         AccountDeletionCheck: {
             allowed: boolean;
-            blockers: ("staff_account" | "booking_in_progress" | "payment_in_progress" | "upcoming_trip" | "visa_in_progress" | "refund_in_progress" | "wallet_balance")[];
+            blockers: ("staff_account" | "booking_in_progress" | "payment_in_progress" | "upcoming_trip" | "visa_in_progress" | "refund_in_progress" | "wallet_balance" | "company_admin")[];
             retentionYears: number;
         };
         AccountPreferences: {
@@ -5868,6 +6204,51 @@ export interface components {
         AdminCmsBlockList: {
             blocks: components["schemas"]["AdminCmsBlock"][];
             fixedKeys: string[];
+        };
+        AdminCompany: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            countryCode: string;
+            registrationNumber: string | null;
+            taxId: string | null;
+            billingEmail: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            members: number;
+            bookings: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminCompanyDetail: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            countryCode: string;
+            registrationNumber: string | null;
+            taxId: string | null;
+            billingEmail: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            members: number;
+            bookings: number;
+            /** Format: date-time */
+            createdAt: string;
+            policy: components["schemas"]["CompanyPolicy"];
+            memberList: {
+                /** Format: uuid */
+                userId: string;
+                name: string | null;
+                email: string | null;
+                /** @enum {string} */
+                role: "admin" | "approver" | "booker" | "traveller";
+                /** Format: date-time */
+                joinedAt: string;
+            }[];
+        };
+        AdminCompanyPage: {
+            items: components["schemas"]["AdminCompany"][];
+            nextCursor: string | null;
         };
         AdminDashboard: {
             range: {
@@ -6774,6 +7155,12 @@ export interface components {
             paymentPlan: components["schemas"]["PaymentPlan"] | null;
             paymentOptions: components["schemas"]["PaymentOptions"] | null;
             refunds: components["schemas"]["BookingRefund"][];
+            company: {
+                /** @enum {string} */
+                approvalStatus: "not_required" | "pending" | "approved" | "rejected";
+                policyFindings: ("cabin_above_policy" | "hotel_above_cap" | "too_late")[];
+                approvalRejectReason: ("over_budget" | "not_needed" | "cheaper_option" | "wrong_details" | "other") | null;
+            } | null;
         };
         BookingExpiryRun: {
             expired: number;
@@ -7177,6 +7564,122 @@ export interface components {
                 name: string;
             }[];
         };
+        Company: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            countryCode: string;
+            registrationNumber: string | null;
+            taxId: string | null;
+            billingEmail: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            /** @enum {string} */
+            myRole: "admin" | "approver" | "booker" | "traveller";
+            policy: components["schemas"]["CompanyPolicy"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CompanyBooking: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+            /** @enum {string} */
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            /** Format: date-time */
+            createdAt: string;
+            total: components["schemas"]["Money"];
+            startsOn: string;
+            endsOn: string | null;
+            flight: {
+                /** @enum {string} */
+                tripType: "one_way" | "round_trip" | "multi_city";
+                origin: {
+                    code: string;
+                    cityName: string | null;
+                };
+                destination: {
+                    code: string;
+                    cityName: string | null;
+                };
+                airline: string;
+            } | null;
+            hotel: {
+                name: string;
+                cityName: string;
+            } | null;
+            product: {
+                title: string;
+                cityName: string | null;
+                countryCode: string | null;
+            } | null;
+            travellerName: string | null;
+            bookerName: string | null;
+            bookedByMe: boolean;
+            /** @enum {string} */
+            approvalStatus: "not_required" | "pending" | "approved" | "rejected";
+            approvalRejectReason: ("over_budget" | "not_needed" | "cheaper_option" | "wrong_details" | "other") | null;
+            policyFindings: ("cabin_above_policy" | "hotel_above_cap" | "too_late")[];
+            canDecide: boolean;
+        };
+        CompanyBookingPage: {
+            items: components["schemas"]["CompanyBooking"][];
+            nextCursor: string | null;
+        };
+        CompanyInvitation: {
+            /** Format: uuid */
+            id: string;
+            emailHint: string;
+            /** @enum {string} */
+            role: "admin" | "approver" | "booker" | "traveller";
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CompanyMember: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            userId: string;
+            name: string | null;
+            email: string | null;
+            /** @enum {string} */
+            role: "admin" | "approver" | "booker" | "traveller";
+            /** Format: date-time */
+            joinedAt: string;
+        };
+        CompanyMembers: {
+            members: components["schemas"]["CompanyMember"][];
+            invitations: components["schemas"]["CompanyInvitation"][];
+        };
+        CompanyPolicy: {
+            hotelNightlyCap: components["schemas"]["Money"] | null;
+            maxCabin: ("economy" | "premium_economy" | "business" | "first") | null;
+            minAdvanceDays: number | null;
+            /** @enum {string} */
+            approvalMode: "never" | "out_of_policy" | "always";
+        };
+        CompanySpend: {
+            from: string;
+            to: string;
+            byMonth: {
+                total: components["schemas"]["Money"];
+                bookings: number;
+                month: string;
+            }[];
+            byTraveller: {
+                total: components["schemas"]["Money"];
+                bookings: number;
+                travellerName: string;
+            }[];
+            totals: {
+                total: components["schemas"]["Money"];
+                bookings: number;
+            }[];
+        };
         ContentPage: {
             slug: string;
             title: string;
@@ -7294,6 +7797,8 @@ export interface components {
             locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             /** @default null */
             turnstileToken?: string | null;
+            /** @default false */
+            company?: boolean;
         };
         CreatedBooking: {
             booking: components["schemas"]["Booking"];
@@ -9605,6 +10110,7 @@ export interface components {
             "partner-clicks": number;
             "partner-conversions": number;
             "rejected-reviews": number;
+            "company-invitations": number;
         };
         ReviewInvitationRun: {
             planned: number;
@@ -11194,6 +11700,132 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListCompanies: {
+        parameters: {
+            query?: {
+                q?: string;
+                status?: "active" | "suspended";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCompanyPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetCompany: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCompanyDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReinstateCompany: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCompanyDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminSuspendCompany: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCompanyDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -19035,6 +19667,517 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getMyCompany: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    updateCompany: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    countryCode: string;
+                    registrationNumber?: string | null;
+                    taxId?: string | null;
+                    billingEmail: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    createCompany: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    countryCode: string;
+                    registrationNumber?: string | null;
+                    taxId?: string | null;
+                    billingEmail: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listCompanyBookings: {
+        parameters: {
+            query?: {
+                approval?: "pending";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyBookingPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    approveCompanyTrip: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyBooking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    rejectCompanyTrip: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    reason: "over_budget" | "not_needed" | "cheaper_option" | "wrong_details" | "other";
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyBooking"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    exportCompanyBookings: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    inviteCompanyMember: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email: string;
+                    /** @enum {string} */
+                    role: "admin" | "approver" | "booker" | "traveller";
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyInvitation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    revokeCompanyInvitation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                invitationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    acceptCompanyInvitation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listCompanyMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyMembers"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    removeCompanyMember: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    changeCompanyMemberRole: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    role: "admin" | "approver" | "booker" | "traveller";
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyMembers"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    setCompanyPolicy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hotelNightlyCap: {
+                        amountMinor: number;
+                        currency: string;
+                    } | null;
+                    maxCabin: ("economy" | "premium_economy" | "business" | "first") | null;
+                    minAdvanceDays: number | null;
+                    /** @enum {string} */
+                    approvalMode: "never" | "out_of_policy" | "always";
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getCompanySpend: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanySpend"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

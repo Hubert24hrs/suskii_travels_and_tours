@@ -2493,6 +2493,8 @@ export const pt: Messages = {
         visa_in_progress: 'Ainda há um pedido de visto em aberto.',
         refund_in_progress: 'Ainda há um reembolso a caminho.',
         wallet_balance: 'A sua carteira tem dinheiro. Contacte o apoio para que lhe seja pago.',
+        company_admin:
+          'É o único administrador de uma empresa com outros membros. Nomeie primeiro outro administrador ou remova os membros.',
       },
       confirmLabel: 'Escreva DELETE para confirmar',
       deleteButton: 'Eliminar a minha conta',

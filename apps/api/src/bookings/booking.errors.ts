@@ -196,3 +196,21 @@ export const notCancellable = (): ProblemDetailsException =>
     'This booking cannot be cancelled online',
     'Contact support to change or cancel it.',
   );
+
+/** Company trips (ADR-078): a guest, a membership or an on-demand ride cannot be one. */
+export const companyBookingUnavailable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'company-booking-unavailable',
+    'This cannot be booked for a company',
+    'Sign in with your company account, or book it for yourself.',
+  );
+
+/** A company trip waiting for an approver cannot be paid yet (ADR-078). */
+export const approvalRequired = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'approval-required',
+    'This trip is waiting for approval',
+    'An approver in your company must approve it before it can be paid.',
+  );
