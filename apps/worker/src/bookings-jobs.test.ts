@@ -29,6 +29,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   runReminders: vi.fn(() => Promise.resolve({ checkin: 2, prime: 1 })),
   runReferrals: vi.fn(() => Promise.resolve({ qualified: 1, review: 1, rewarded: 1 })),
   runReviewInvitations: vi.fn(() => Promise.resolve({ planned: 3, sent: 2, skipped: 1 })),
+  runAdConversions: vi.fn(() => Promise.resolve({ sent: 2, retried: 1, failed: 1, withdrawn: 0 })),
   runRetention: vi.fn(() =>
     Promise.resolve({
       sessions: 3,
@@ -59,6 +60,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
       'partner-conversions': 0,
       'rejected-reviews': 0,
       'company-invitations': 0,
+      'ad-conversions': 0,
     }),
   ),
   reconcileLedger: vi.fn(() => Promise.resolve({ checked: 12, discrepancies: 1, unconfirmed: 2 })),
@@ -163,6 +165,18 @@ describe('account sweeps', () => {
       },
     );
     expect(quiet.info).not.toHaveBeenCalled();
+  });
+
+  it('sends ad conversions and warns when some were given up (ADR-079)', async () => {
+    const log = logger();
+    await expect(
+      processBookingJob({ name: ACCOUNT_JOB.adConversions }, { api: fakeApi(), logger: log }),
+    ).resolves.toEqual({ sent: 2, retried: 1, failed: 1, withdrawn: 0 });
+    expect(log.info).toHaveBeenCalledWith(
+      { sent: 2, retried: 1, failed: 1, withdrawn: 0 },
+      'ad conversions sent',
+    );
+    expect(log.warn).toHaveBeenCalledWith({ failed: 1 }, 'ad conversions given up after retries');
   });
 
   it('stops on a final failure until the next tick', async () => {

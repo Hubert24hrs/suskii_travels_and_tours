@@ -2,6 +2,7 @@ import { UnrecoverableError } from 'bullmq';
 
 import {
   InternalApiError,
+  type AdConversionRun,
   type BookingsApi,
   type DriverPayoutRun,
   type ExpiryRun,
@@ -29,7 +30,8 @@ import { type Logger } from './logger.js';
  * followed up; and ticketed flights due a check are asked for airline schedule changes (ADR-065). Visa documents whose background scan was lost are scanned again every few
  * minutes, and documents past their retention period are deleted daily (ADR-026). Check-in and
  * Prime reminders and referral qualification run every few minutes (ADR-030, ADR-031), review
- * invitations hourly (ADR-077), and the retention sweep daily (ADR-039). Captured payments, refunds and driver payouts are compared
+ * invitations hourly (ADR-077), ad conversions every few minutes (ADR-079), and the retention
+ * sweep daily (ADR-039). Captured payments, refunds and driver payouts are compared
  * with the ledger hourly, and driver earnings are paid out daily (ADR-051). The API owns
  * the state machine, the ledger, locking and backoff; the worker only keeps the clock.
  */
@@ -65,6 +67,8 @@ export const ACCOUNT_JOB = {
   retention: 'accounts-retention',
   /** Review invitations the morning after a trip ends (ADR-077). */
   reviewInvitations: 'accounts-review-invitations',
+  /** Server-side Purchase events for consented, paid bookings (ADR-079). */
+  adConversions: 'accounts-ad-conversions',
 } as const;
 
 export interface BookingJobDeps {
@@ -100,6 +104,7 @@ export async function processBookingJob(
   | ReferralRun
   | RetentionRun
   | ReviewInvitationRun
+  | AdConversionRun
   | LedgerReconciliationRun
   | DriverPayoutRun
 > {
@@ -186,6 +191,13 @@ export async function processBookingJob(
     case ACCOUNT_JOB.reviewInvitations: {
       const result = await sweep(() => deps.api.runReviewInvitations());
       if (result.sent > 0) deps.logger.info(result, 'review invitations sent');
+      return result;
+    }
+    case ACCOUNT_JOB.adConversions: {
+      const result = await sweep(() => deps.api.runAdConversions());
+      if (result.sent > 0 || result.withdrawn > 0) deps.logger.info(result, 'ad conversions sent');
+      if (result.failed > 0)
+        deps.logger.warn({ failed: result.failed }, 'ad conversions given up after retries');
       return result;
     }
     case ACCOUNT_JOB.retention: {
