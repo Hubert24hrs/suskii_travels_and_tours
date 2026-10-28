@@ -137,7 +137,7 @@ export function SupportConversation({ conversationId }: { conversationId: string
       </Card>
     );
   }
-  if (!conversation) return <Card className="min-h-48 p-6" aria-busy="true" />;
+  if (!conversation) return <Card className="min-h-20 p-6" aria-busy="true" />;
 
   const author = (message: Message): string =>
     message.author === 'customer'
@@ -169,7 +169,7 @@ export function SupportConversation({ conversationId }: { conversationId: string
           >
             <p className="font-body text-body-sm font-bold text-foreground">
               {author(message)}{' '}
-              <span className="font-normal text-muted" suppressHydrationWarning>
+              <span className="font-regular text-muted" suppressHydrationWarning>
                 {format.dateTime(message.createdAt)}
               </span>
             </p>
