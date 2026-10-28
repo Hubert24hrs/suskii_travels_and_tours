@@ -10,6 +10,8 @@ export const passportContext = (kind: 'booking-passenger' | 'traveller', id: str
   `${kind}:${id}:passport`;
 export const addonDetailsContext = (itemId: string): string =>
   `booking-item:${itemId}:addon-details`;
+// The checkout IP a hotel supplier requires on its booking call (ADR-086).
+export const customerIpContext = (itemId: string): string => `booking-item:${itemId}:customer-ip`;
 export const voucherContext = (voucherId: string): string => `booking-voucher:${voucherId}`;
 export const noteContext = (noteId: string): string => `booking-note:${noteId}`;
 export const pushTokenContext = (id: string): string => `push-token:${id}`;

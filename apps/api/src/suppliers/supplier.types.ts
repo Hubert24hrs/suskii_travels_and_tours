@@ -307,6 +307,11 @@ export interface HotelBookingRequest {
   guests: { givenNames: string; surname: string }[];
   contact: SupplierContact;
   idempotencyKey: string;
+  /**
+   * The traveller's IP from the checkout request, for suppliers that require it on booking
+   * calls (`HotelSupplier.needsCustomerIp`, ADR-086); null otherwise.
+   */
+  customerIp?: string | null;
 }
 
 export interface HotelBookingResult {
@@ -406,6 +411,11 @@ export abstract class HotelSupplier {
   abstract readonly name: string;
   /** See `FlightSupplier.idempotentBooking`. */
   abstract readonly idempotentBooking: boolean;
+  /**
+   * Whether booking calls need the traveller's IP (Expedia Rapid, ADR-086). When true, the
+   * checkout request's IP is kept encrypted on the booking item until the stay ends.
+   */
+  readonly needsCustomerIp: boolean = false;
   abstract search(query: HotelSearchQuery, signal: AbortSignal): Promise<SupplierHotel[]>;
   abstract reprice(
     hotel: SupplierHotel,

@@ -338,6 +338,11 @@ export class AccountDeletionService {
       },
     });
     await tx.bookingAccessLink.deleteMany({ where: { bookingId: { in: bookingIds } } });
+    // The checkout IP a hotel supplier needed (ADR-086), if a booking call never cleared it.
+    await tx.bookingItem.updateMany({
+      where: { bookingId: { in: bookingIds }, customerIpEncrypted: { not: null } },
+      data: { customerIpEncrypted: null },
+    });
     // Risk signals are pseudonymous but still about the person (ADR-040).
     await tx.payment.updateMany({
       where: { bookingId: { in: bookingIds } },
