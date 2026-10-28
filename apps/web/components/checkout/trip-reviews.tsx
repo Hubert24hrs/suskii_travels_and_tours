@@ -28,7 +28,7 @@ const RATINGS = Array.from(
   (_, index) => REVIEW_RATING_MAX - index,
 );
 const TEXTAREA =
-  'min-h-24 w-full rounded-md border border-border-strong bg-surface px-4 py-3 font-body text-body text-foreground focus-visible:focus-ring';
+  'min-h-20 w-full rounded-md border border-border-strong bg-surface px-4 py-3 font-body text-body text-foreground focus-visible:focus-ring';
 
 interface Draft {
   rating: number;
