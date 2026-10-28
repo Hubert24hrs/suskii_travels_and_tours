@@ -21,6 +21,7 @@ import { PrismaService } from '../../infra/prisma.service';
 import { REDIS } from '../../infra/redis';
 import { consume } from '../../rate-limit/sliding-window';
 import { supportConversations, supportWhatsAppInbound } from '../../telemetry/metrics';
+import { SupportAssistant } from '../assistant/support-assistant.service';
 import { customerMessageChanges, newSupportReference } from '../support.service';
 
 import { WhatsAppReplies } from './whatsapp-replies.service';
@@ -48,6 +49,7 @@ export class WhatsAppInbox {
     private readonly hmac: HmacService,
     @Inject(REDIS) private readonly redis: Redis,
     private readonly replies: WhatsAppReplies,
+    private readonly assistant: SupportAssistant,
   ) {}
 
   async receive(deliveries: WhatsAppDelivery[]): Promise<void> {
@@ -84,7 +86,10 @@ export class WhatsAppInbox {
       throw error;
     }
     supportWhatsAppInbound.add(1, { kind: inbound.kind, outcome: stop ? 'stop' : 'stored' });
-    if (conversationId && !stop) await this.replies.forwardWaiting(conversationId);
+    if (conversationId && !stop) {
+      await this.replies.forwardWaiting(conversationId);
+      if (inbound.kind === 'text') this.assistant.consider(conversationId);
+    }
   }
 
   /**

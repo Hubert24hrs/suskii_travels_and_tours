@@ -11,7 +11,7 @@ import { NaturalSearchController } from './natural-search.controller';
 import { NaturalSearchService } from './natural-search.service';
 import { PlaceResolver } from './place-resolver';
 
-/** AI trip search (phase 13, ADR-061). */
+/** AI trip search (phase 13, ADR-061); its model and budget also serve the support assistant. */
 @Module({
   imports: [CatalogModule],
   controllers: [NaturalSearchController],
@@ -34,6 +34,6 @@ import { PlaceResolver } from './place-resolver';
           : mock,
     },
   ],
-  exports: [NaturalSearchService, MockLlmProvider],
+  exports: [NaturalSearchService, MockLlmProvider, LlmProvider, AiSearchBudget],
 })
 export class AiSearchModule {}
