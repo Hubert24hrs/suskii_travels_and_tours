@@ -76,6 +76,8 @@ caches searches (ADR-009) and re-checks prices with the supplier before checkout
 - Partner prices are the website's guest prices. Channel-specific prices for metasearch (a
   common lever) would need a new sales channel carried through the sealed link; not built.
 - Hotels on metasearch (Google Hotel Ads, Trivago) use price feeds and are a separate decision.
+- `robots.txt` keeps generic crawlers off `/flights/go/` (each visit quotes with the supplier). A
+  partner's price-accuracy crawler is allowed by its own user agent once the partner names it.
 
 ## Alternatives considered
 
