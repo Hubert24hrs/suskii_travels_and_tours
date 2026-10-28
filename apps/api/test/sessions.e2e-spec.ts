@@ -168,6 +168,8 @@ describe('sessions: limits, staff lifetimes and step-up (e2e)', () => {
         'adminResetUserMfa',
         'adminResolveRefund',
         'adminSetUserRoles',
+        // Suspending a company stops every member booking for it (ADR-078).
+        'adminSuspendCompany',
         'adminUpdateFeeRule',
         'adminUpdateMarkupRule',
         'adminUpdatePrimePlan',
