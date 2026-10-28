@@ -206,7 +206,14 @@ function migrateAndSeed(databaseUrl: string, keys: Record<string, string>): void
   });
 }
 
-export async function startStack(): Promise<Stack> {
+/**
+ * Test ids for the ad tags (ADR-079): Playwright runs turn them on, so the first-visit prompt and
+ * the tags are tested; the hosted test server leaves them off, so phones never reach Meta or
+ * TikTok. Tests never do either: fixtures.ts refuses the networks' hosts unless a test stubs them.
+ */
+export const TEST_AD_TAGS = { META_PIXEL_ID: '1234567890', TIKTOK_PIXEL_ID: 'C0SUSKIITEST01' };
+
+export async function startStack(options: { adTags?: boolean } = {}): Promise<Stack> {
   mkdirSync(LOG_DIR, { recursive: true });
   await assertPortFree(API_PORT, 'API');
   await assertPortFree(WEB_PORT, 'web');
@@ -301,6 +308,7 @@ export async function startStack(): Promise<Stack> {
         MOBILE_ANDROID_PACKAGE: TEST_APP.androidPackage,
         MOBILE_ANDROID_CERT_SHA256: TEST_APP.androidFingerprint,
         MOBILE_IOS_APP_IDS: TEST_APP.appleAppId,
+        ...(options.adTags ? TEST_AD_TAGS : {}),
       },
     );
     children.push(web);

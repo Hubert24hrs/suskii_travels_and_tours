@@ -1,6 +1,9 @@
+import { randomUUID } from 'node:crypto';
+
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test as base, type Page } from '@playwright/test';
 import { createTranslator, getMessages, type Messages, type Translator } from '@suskii/i18n';
+import { COOKIE_CONSENT_COOKIE, COOKIE_POLICY_VERSION } from '@suskii/shared/lite';
 
 /** The catalog the site renders by default (en-NG), so tests never hard-code copy. */
 const translator = createTranslator(getMessages('en-NG'), 'en-NG');
@@ -15,15 +18,57 @@ const REPORTED_ISSUES = new Set([
   'QuirksModeIssue',
 ]);
 
+/** The ad networks' hosts (ADR-079): never contacted from a test. */
+export const AD_NETWORK_HOSTS =
+  /^https:\/\/([a-z0-9-]+\.)*(facebook\.net|facebook\.com|tiktok\.com|tiktokw\.us)\//;
+
+/** The consent cookie as the production build names it (`__Host-` prefix). */
+export const CONSENT_COOKIE_NAME = `__Host-${COOKIE_CONSENT_COOKIE}`;
+
 interface Fixtures {
   /** Console errors matching these patterns do not fail the test (e.g. an expected 404). */
   allowedConsoleErrors: RegExp[];
   /** Fails the test on uncaught page errors and console errors (hydration, CSP, React). */
   consoleGuard: void;
+  /**
+   * The cookie choice a test starts with. "rejected" (the default) is a returning visitor who
+   * said no, so the first-visit prompt stays out of the way; null is a first visit (ADR-079).
+   */
+  startingConsent: 'rejected' | null;
+  consentCookie: void;
+  /** Refuses the ad networks' hosts unless a test routes them itself. */
+  adNetworks: void;
 }
 
 export const test = base.extend<Fixtures>({
   allowedConsoleErrors: [[], { option: true }],
+  startingConsent: ['rejected', { option: true }],
+  consentCookie: [
+    async ({ context, startingConsent, baseURL }, use) => {
+      if (startingConsent && baseURL) {
+        await context.addCookies([
+          {
+            name: CONSENT_COOKIE_NAME,
+            value: `${COOKIE_POLICY_VERSION}.${randomUUID()}.00`,
+            // Chrome refuses a Secure cookie set for an http URL; localhost counts as secure.
+            domain: new URL(baseURL).hostname,
+            path: '/',
+            secure: true,
+            sameSite: 'Lax',
+          },
+        ]);
+      }
+      await use();
+    },
+    { auto: true },
+  ],
+  adNetworks: [
+    async ({ context }, use) => {
+      await context.route(AD_NETWORK_HOSTS, (route) => route.abort());
+      await use();
+    },
+    { auto: true },
+  ],
   consoleGuard: [
     async ({ page, allowedConsoleErrors }, use) => {
       const problems: string[] = [];
