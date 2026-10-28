@@ -5,6 +5,7 @@ import { money, type Money } from '@suskii/shared';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { documentDateTime, documentMoney } from '../documents/booking-pdf';
 import { PrismaService } from '../infra/prisma.service';
+import { reviewInvitationEmail } from '../messaging/messages';
 import { EmailProvider } from '../notifications/email';
 import { SmsProvider } from '../notifications/sms';
 import {
@@ -232,6 +233,24 @@ export class BookingNotifications {
         }),
       });
       await this.push(booking, 'schedule-changed');
+    });
+  }
+
+  /**
+   * Invites a guest to review a finished trip (ADR-077): one email to the booking contact, with
+   * an access link valid until the review window closes. Account holders are invited through
+   * their notification preferences instead.
+   */
+  async reviewInvitation(bookingId: string, name: string, windowEndsOn: string): Promise<void> {
+    await this.safely('review-invitation', async () => {
+      const booking = await this.bookings.reload(bookingId);
+      const contact = this.bookings.contact(booking);
+      const link = await this.link(booking, 'review', new Date(`${windowEndsOn}T23:59:59Z`));
+      await this.email.send({
+        to: contact.email,
+        template: 'review-invitation',
+        ...reviewInvitationEmail({ reference: booking.reference, name, reviewUrl: link }),
+      });
     });
   }
 

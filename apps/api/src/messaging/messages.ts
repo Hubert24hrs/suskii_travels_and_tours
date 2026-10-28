@@ -124,3 +124,40 @@ export function referralRewardMessage(details: {
     push: { title: 'Referral reward', body: `${amount} is in your wallet.`, path: '/account' },
   };
 }
+
+/** The review invitation email (ADR-077), shared by account holders and guests. */
+export function reviewInvitationEmail(details: {
+  reference: string;
+  name: string;
+  reviewUrl: string;
+}): { subject: string; text: string; html: string } {
+  return simpleEmail(
+    `How was ${details.name}?`,
+    'Tell other travellers about your trip',
+    [
+      `Your trip ${details.reference} has ended. A short review of ${details.name} helps other travellers choose, and it takes a minute.`,
+      `Only travellers who booked with ${BRAND.name} can review, and every review is checked before it appears.`,
+    ],
+    { label: 'Write a review', url: details.reviewUrl },
+  );
+}
+
+export function reviewInvitationMessage(details: {
+  reference: string;
+  name: string;
+  reviewUrl: string;
+  bookingId: string;
+}): NotificationContent {
+  return {
+    category: 'review_requests',
+    template: 'review-invitation',
+    bookingId: details.bookingId,
+    email: reviewInvitationEmail(details),
+    text: `${BRAND.name}: how was your trip ${details.reference}? Review it from your booking.`,
+    push: {
+      title: 'How was your trip?',
+      body: 'Tell other travellers in a short review.',
+      path: `/trips/${details.bookingId}`,
+    },
+  };
+}

@@ -210,6 +210,14 @@ export class AccountDeletionService {
         // Partner clicks stay for commission reports, no longer linked to the person.
         await tx.partnerClick.updateMany({ where: { userId }, data: { userId: null } });
 
+        // Unpublished reviews go; published ones stay in the scores, signed "Verified traveller"
+        // and no longer linked to the person (ADR-077).
+        await tx.review.deleteMany({ where: { userId, status: { not: 'published' } } });
+        await tx.review.updateMany({
+          where: { userId },
+          data: { userId: null, displayName: null },
+        });
+
         // Purchase and reward records stay, ended and without sign-up signals.
         await tx.primeMembership.updateMany({
           where: { userId, endsAt: { gt: now } },

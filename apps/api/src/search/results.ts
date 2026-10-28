@@ -196,7 +196,7 @@ export type HotelSort = 'recommended' | 'price' | 'rating' | 'stars';
 /** Words that say what a property is, not which one (ADR-071). */
 const HOTEL_NAME_FILLER = new Set(['hotel', 'hotels', 'the', 'and', 'by', 'at', 'of', 'a']);
 /** Two listings of one hotel from different suppliers sit within this many metres. */
-const SAME_HOTEL_METRES = 250;
+export const SAME_HOTEL_METRES = 250;
 
 /** A hotel name reduced to what identifies it: case, accents, punctuation and filler words gone. */
 export function hotelNameKey(name: string): string {

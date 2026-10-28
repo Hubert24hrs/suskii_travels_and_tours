@@ -180,7 +180,13 @@ export type AuditAction =
   | 'rental.photo_uploaded'
   | 'rental.photo_accessed'
   | 'reconciliation.discrepancy_resolved'
-  | 'account.emergency_contacts_updated';
+  | 'account.emergency_contacts_updated'
+  // Verified reviews (ADR-077)
+  | 'review.submitted'
+  | 'review.withdrawn'
+  | 'review.published'
+  | 'review.rejected'
+  | 'review.invitation_sent';
 
 export interface AuditEvent {
   action: AuditAction;

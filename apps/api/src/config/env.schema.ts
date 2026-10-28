@@ -425,6 +425,8 @@ export const envSchema = z
     SIGNIFICANT_CHANGE_INTERNATIONAL_HOURS: z.coerce.number().min(1).max(24).default(6),
     /** Prime members are reminded this many days before their paid-up end (ADR-030). */
     PRIME_REMINDER_DAYS: z.coerce.number().int().min(1).max(60).default(7),
+    /** A finished trip can be reviewed for this many days after it ends (ADR-077). */
+    REVIEW_WINDOW_DAYS: z.coerce.number().int().min(7).max(365).default(90),
     /**
      * Referral rewards (ADR-031), in minor units of REFERRAL_REWARD_CURRENCY; zero pays nothing
      * (referrals are still tracked). A referral qualifies on a completed trip of at least

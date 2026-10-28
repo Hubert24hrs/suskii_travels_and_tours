@@ -71,9 +71,13 @@ export function reviewScore(ratingSum: number, ratingCount: number): number | nu
   return Math.round((ratingSum / ratingCount) * 10) / 10;
 }
 
-/** "Ada O.": the lead traveller's first name and last initial, as shown under a review. */
+/**
+ * "Ada O.": the lead traveller's first name and last initial, as shown under a review. Names are
+ * stored in passport form ("ADA CHIOMA"), so the first name is put in title case.
+ */
 export function reviewDisplayName(givenName: string, familyName: string): string {
-  const first = givenName.trim().split(/\s+/)[0] ?? '';
+  const word = givenName.trim().split(/\s+/)[0] ?? '';
+  const first = word.charAt(0).toLocaleUpperCase() + word.slice(1).toLocaleLowerCase();
   const initial = familyName.trim().charAt(0).toLocaleUpperCase();
   return initial ? `${first} ${initial}.` : first;
 }

@@ -1531,6 +1531,57 @@ export interface paths {
         patch: operations["adminUpdateRentalVehicle"];
         trace?: never;
     };
+    "/v1/admin/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reviews by status (waiting ones first, oldest first) */
+        get: operations["adminListReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reviews/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a waiting review as written */
+        post: operations["adminPublishReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reviews/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a waiting review with a reason */
+        post: operations["adminRejectReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/rides/{rideId}/cancel": {
         parameters: {
             query?: never;
@@ -2643,6 +2694,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{bookingId}/items/{itemId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write the review of a finished trip, or change it while it waits
+         * @description Once per booking item, after the trip has ended and within the review window. The review waits for a moderator before it appears. 409 `review-not-eligible` when the item cannot be reviewed, `review-closed` when the review was already published or rejected (withdraw it instead).
+         */
+        put: operations["writeReview"];
+        post?: never;
+        /**
+         * Withdraw the review of a trip
+         * @description Removes it everywhere, whatever its status.
+         */
+        delete: operations["withdrawReview"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{bookingId}/partner-offers": {
         parameters: {
             query?: never;
@@ -2716,6 +2791,26 @@ export interface paths {
          * @description For guests (with the booking token) and owners alike; account devices can use `PUT /v1/me/push-token` instead (ADR-022).
          */
         put: operations["registerBookingPushToken"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{bookingId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What can be reviewed in a booking, and the reviews written
+         * @description Items that can be reviewed (stays, packages, tours, buses and rentals), whether the trip has ended and the window is open, and the traveller's own review with its moderation status.
+         */
+        get: operations["getBookingReviews"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -4081,6 +4176,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/reviews/invitations/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Plan and send due review invitations */
+        post: operations["runReviewInvitations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/rides/dispatch": {
         parameters: {
             query?: never;
@@ -5206,6 +5318,26 @@ export interface paths {
         };
         /** Periods a car is taken between two dates */
         get: operations["getRentalAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A subject's published reviews and verified score
+         * @description Pass `subject` (hotel results carry it as `verifiedReviews.subjectId`), or `kind` and `ref` for a package, tour, bus operator or rental vehicle. Newest first; `summary` is null until a review is published.
+         */
+        get: operations["listReviews"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6355,6 +6487,41 @@ export interface components {
                 upcomingRentals: number;
             }[];
         };
+        AdminReview: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "pending" | "published" | "rejected";
+            subject: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "hotel" | "package" | "tour" | "bus_operator" | "rental_vehicle";
+                name: string;
+            };
+            /** Format: uuid */
+            bookingId: string;
+            bookingReference: string;
+            rating: number;
+            title: string | null;
+            liked: string | null;
+            disliked: string | null;
+            /** @enum {string} */
+            tripType: "solo" | "couple" | "family" | "friends" | "business";
+            displayName: string | null;
+            locale: string;
+            travelledOn: string;
+            flags: ("contact_details" | "link")[];
+            rejectReason: ("personal_data" | "offensive" | "off_topic" | "spam" | "conflict_of_interest" | "unlawful") | null;
+            moderatedByUserId: string | null;
+            moderatedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminReviewPage: {
+            items: components["schemas"]["AdminReview"][];
+            nextCursor: string | null;
+        };
         AdminTaxRule: {
             country: string;
             code: string;
@@ -6702,6 +6869,22 @@ export interface components {
             createdAt: string;
             settledAt: string | null;
         };
+        BookingReviewItem: {
+            /** Format: uuid */
+            itemId: string;
+            /** @enum {string} */
+            kind: "hotel" | "package" | "tour" | "bus" | "rental";
+            name: string;
+            /** Format: date */
+            endsOn: string;
+            canReview: boolean;
+            /** Format: date */
+            windowEndsOn: string;
+            review: components["schemas"]["OwnReview"] | null;
+        };
+        BookingReviews: {
+            items: components["schemas"]["BookingReviewItem"][];
+        };
         BookingSummary: {
             /** Format: uuid */
             id: string;
@@ -6843,6 +7026,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             operator: {
+                /** Format: uuid */
+                id: string;
                 name: string;
                 slug: string;
             };
@@ -6877,6 +7062,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             operator: {
+                /** Format: uuid */
+                id: string;
                 name: string;
                 slug: string;
             };
@@ -7941,6 +8128,7 @@ export interface components {
             cityName: string;
             countryCode: string;
             amenities: string[];
+            verifiedReviews: components["schemas"]["ReviewSummary"] | null;
             nights: number;
             rates: components["schemas"]["HotelRate"][];
         };
@@ -8059,6 +8247,7 @@ export interface components {
             cityName: string;
             countryCode: string;
             amenities: string[];
+            verifiedReviews: components["schemas"]["ReviewSummary"] | null;
             cheapestRate: components["schemas"]["HotelRate"];
             freeCancellationAvailable: boolean;
         };
@@ -8487,7 +8676,7 @@ export interface components {
         };
         NotificationPreference: {
             /** @enum {string} */
-            category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "marketing";
+            category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "review_requests" | "marketing";
             /** @enum {string} */
             channel: "email" | "sms" | "whatsapp" | "push";
             enabled: boolean;
@@ -8607,6 +8796,22 @@ export interface components {
              */
             transport?: "cookie" | "token";
             referralCode?: string;
+        };
+        OwnReview: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "pending" | "published" | "rejected";
+            rating: number;
+            title: string | null;
+            liked: string | null;
+            disliked: string | null;
+            /** @enum {string} */
+            tripType: "solo" | "couple" | "family" | "friends" | "business";
+            showName: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            publishedAt: string | null;
         };
         PackageCard: {
             /** Format: uuid */
@@ -8984,6 +9189,21 @@ export interface components {
             deletedDeals: number;
             deletedDestinations: number;
         };
+        PublicReview: {
+            /** Format: uuid */
+            id: string;
+            rating: number;
+            title: string | null;
+            liked: string | null;
+            disliked: string | null;
+            /** @enum {string} */
+            tripType: "solo" | "couple" | "family" | "friends" | "business";
+            displayName: string | null;
+            locale: string;
+            travelledOn: string;
+            /** Format: date-time */
+            publishedAt: string;
+        };
         PushTokenPruneRun: {
             deleted: number;
         };
@@ -9134,6 +9354,10 @@ export interface components {
         };
         RejectRefundRequestInput: {
             reason: string;
+        };
+        RejectReviewRequestInput: {
+            /** @enum {string} */
+            reason: "personal_data" | "offensive" | "off_topic" | "spam" | "conflict_of_interest" | "unlawful";
         };
         RejectVisaDocumentInput: {
             message: string;
@@ -9380,6 +9604,23 @@ export interface components {
             "rental-photos": number;
             "partner-clicks": number;
             "partner-conversions": number;
+            "rejected-reviews": number;
+        };
+        ReviewInvitationRun: {
+            planned: number;
+            sent: number;
+            skipped: number;
+        };
+        ReviewPage: {
+            summary: components["schemas"]["ReviewSummary"] | null;
+            items: components["schemas"]["PublicReview"][];
+            nextCursor: string | null;
+        };
+        ReviewSummary: {
+            /** Format: uuid */
+            subjectId: string;
+            score: number;
+            count: number;
         };
         RevokedSessions: {
             revoked: number;
@@ -9977,7 +10218,7 @@ export interface components {
         UpdateNotificationPreferencesRequestInput: {
             changes: {
                 /** @enum {string} */
-                category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "marketing";
+                category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "review_requests" | "marketing";
                 /** @enum {string} */
                 channel: "email" | "sms" | "whatsapp" | "push";
                 enabled: boolean;
@@ -10306,6 +10547,17 @@ export interface components {
                 name: "TTFB";
                 value: number;
             })[];
+        };
+        WriteReviewRequestInput: {
+            rating: number;
+            title?: string | null;
+            liked?: string | null;
+            disliked?: string | null;
+            /** @enum {string} */
+            tripType: "solo" | "couple" | "family" | "friends" | "business";
+            showName: boolean;
+            /** @enum {string} */
+            locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
         };
     };
     responses: {
@@ -13874,6 +14126,106 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminListReviews: {
+        parameters: {
+            query?: {
+                status?: "pending" | "published" | "rejected";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReviewPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminPublishReview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReview"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRejectReview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectReviewRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminReview"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminCancelRide: {
         parameters: {
             query?: never;
@@ -15937,6 +16289,75 @@ export interface operations {
             503: components["responses"]["Problem503"];
         };
     };
+    writeReview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WriteReviewRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnReview"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    withdrawReview: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getBookingPartnerOffers: {
         parameters: {
             query?: {
@@ -16077,6 +16498,36 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getBookingReviews: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingReviews"];
+                };
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
@@ -18374,6 +18825,32 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    runReviewInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewInvitationRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     dispatchRides: {
         parameters: {
             query?: never;
@@ -20528,6 +21005,36 @@ export interface operations {
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listReviews: {
+        parameters: {
+            query?: {
+                subject?: string;
+                kind?: "package" | "tour" | "bus_operator" | "rental_vehicle";
+                ref?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

@@ -22,6 +22,7 @@ import { FxService, type Converter } from '../pricing/fx.service';
 import type { PricingContext } from '../pricing/pricing-engine';
 import { toPriceDto } from '../pricing/pricing.schemas';
 import { PricingService, type Pricer } from '../pricing/pricing.service';
+import { HotelReviewLookup } from '../reviews/hotel-review-lookup';
 import { OfferUnavailableError } from '../suppliers/supplier.errors';
 import type {
   HotelSearchQuery,
@@ -178,6 +179,7 @@ export class HotelSearchService {
     private readonly fx: FxService,
     private readonly prisma: PrismaService,
     private readonly searchLog: SearchLogService,
+    private readonly reviews: HotelReviewLookup,
   ) {}
 
   async search(
@@ -269,8 +271,10 @@ export class HotelSearchService {
     );
     if (!priced) throw offerUnavailable(meta.request);
     const nights = nightsOf(meta.request);
+    const [verifiedReviews = null] = await this.reviews.forHotels([item.hotel]);
     return {
       ...hotelBase(item.hotel, item.id),
+      verifiedReviews,
       nights,
       rates: [...priced.rates]
         .sort((a, b) => Number(a.price.total.minor - b.price.total.minor))
@@ -541,6 +545,7 @@ export class HotelSearchService {
     const facets = hotelFacets(priced);
     const filtered = sortHotels(filterHotels(priced, options), options.sort);
     const { page, nextCursor } = paginate(filtered, options.cursor, options.limit);
+    const verified = await this.reviews.forHotels(page.map((item) => item.hotel));
     return {
       searchId: meta.searchId,
       status: meta.partial ? 'partial' : 'complete',
@@ -551,8 +556,9 @@ export class HotelSearchService {
       resultsExpireAt: meta.resultsExpireAt,
       total: filtered.length,
       nextCursor,
-      hotels: page.map((item) => ({
+      hotels: page.map((item, index) => ({
         ...hotelBase(item.hotel, item.id),
+        verifiedReviews: verified[index] ?? null,
         cheapestRate: toHotelRateDto(item.cheapest, nights, fx),
         freeCancellationAvailable: item.rates.some(({ rate }) => rate.refundable),
       })),

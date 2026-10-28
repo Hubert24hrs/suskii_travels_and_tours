@@ -40,6 +40,7 @@ export const EXPORT_SECTIONS = [
   'emergencyContacts',
   'driving',
   'rentals',
+  'reviews',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -553,6 +554,16 @@ export const DATA_REGISTRY = {
     deletion: 'none',
     retention: { kind: 'rule', rule: 'partner-conversions' },
     note: 'Commission reported by a partner network: its booking id, amounts and status. No personal data; kept for FINANCIAL_RECORDS_RETENTION_YEARS.',
+  },
+  // --- Verified reviews (ADR-077) -----------------------------------------------------------
+  ReviewSubject: reference(
+    'What reviews are about (a hotel, package, tour, bus operator or rental car) and its published totals.',
+  ),
+  Review: {
+    section: 'reviews',
+    deletion: 'redact',
+    retention: { kind: 'rule', rule: 'rejected-reviews' },
+    note: 'Rating, texts and the shown name ("Ada O." or none). Deletion removes unpublished reviews and keeps published ones without the account or name; rejected ones go after 90 days; the name goes when the booking is anonymised.',
   },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 

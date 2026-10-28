@@ -11,14 +11,14 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   webhooks, health probes, web-vitals beacons, AI trip search (`/v1/flights/natural-search`,
   which fills a form and reads nothing private; ADR-061), partner offers for a place, the
   sealed partner redirect (`/v1/go/{token}`) and network postbacks, which need the network's
-  secret (ADR-070).
+  secret (ADR-070), and published reviews (`/v1/reviews`, ADR-077).
 - **Permissions, not roles, in code.** Routes declare `@RequirePermissions(...)`. Admin routes
   declare `@AdminRoute(permission)`, which also requires a staff role, an MFA session, an
   allowlisted IP and, for cookies, an allowlisted origin. The riskiest admin mutations add
   `@StepUp()`.
 - **One catalog.** `ROLE_PERMISSIONS` (`packages/shared/src/rbac.ts`) maps the nine roles
   (`customer`, `super_admin`, `operations`, `finance`, `support`, `content_manager`,
-  `visa_officer`, and the Cars roles `driver` and `operator_agent`) to 24 permissions. The seed
+  `visa_officer`, and the Cars roles `driver` and `operator_agent`) to 25 permissions. The seed
   syncs it to the database for the console. Drivers and operator agents are not staff
   (`NON_STAFF_ROLES`): no console, no MFA requirement, and their routes also check the record
   (the driver assigned to a ride, the agent's operator) (ADR-049, ADR-050).
@@ -53,6 +53,8 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Visa document content                                                                            | Only through a signed link issued to the owner or an officer, valid for 5 minutes, and audited                                                   |
 | Add-on purchase for an existing booking                                                          | A short-lived signed link, or the booking reference with the lead passenger's surname (rate limited)                                             |
 | Partner offers for a booking (`/v1/bookings/{id}/partner-offers`)                                | As the booking: the owner's session or the guest's booking token; 404 for anyone else. The offers' links carry the viewer sealed, never readable |
+| Reviews of a booking (`/v1/bookings/{id}/reviews`, `.../items/{itemId}/review`)                  | As the booking: the owner's session or the guest's booking token; 404 for anyone else. Written only for a finished, confirmed item (ADR-077)     |
+| Review moderation (`/v1/admin/reviews`)                                                          | Staff with `reviews:moderate` (content managers, support, super admins); publish and reject audited; nobody edits a traveller's words            |
 | Bus seat holds                                                                                   | The account that made it, or a guest with its hold token (an HMAC lookup); 404 for anyone else                                                   |
 | Bus manifests and ticket scans                                                                   | Operator agents (`tickets:scan`) of the departure's own operator; other agents get 404 or `not_found`                                            |
 | Bus inventory (operators, terminals, routes, layouts, departures, agents)                        | Staff with `ground:manage`                                                                                                                       |

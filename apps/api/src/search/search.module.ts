@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { HotelReviewLookup } from '../reviews/hotel-review-lookup';
 import { SuppliersModule } from '../suppliers/suppliers.module';
 
 import { FlightSearchService } from './flight-search.service';
@@ -20,6 +21,7 @@ import { SupplierRunner } from './supplier-runner';
   providers: [
     FlightSearchService,
     HotelSearchService,
+    HotelReviewLookup,
     PromoService,
     SearchLogService,
     SearchStore,

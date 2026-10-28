@@ -350,6 +350,7 @@ export class DataExportService {
       emergencyContacts: await this.emergencyContacts(userId),
       driving: await this.driving(userId),
       rentals: await this.rentals(userId),
+      reviews: await this.reviews(userId),
     };
 
     return {
@@ -485,6 +486,31 @@ export class DataExportService {
         createdAt: iso(incident.createdAt),
         resolvedAt: iso(incident.resolvedAt),
       })),
+    }));
+  }
+
+  /** Verified reviews (ADR-077): what was written, about what, and where moderation stands. */
+  private async reviews(userId: string): Promise<unknown> {
+    const rows = await this.prisma.review.findMany({
+      where: { userId },
+      include: { subject: { select: { kind: true, name: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      bookingId: row.bookingId,
+      about: row.subject,
+      rating: row.rating,
+      title: row.title,
+      liked: row.liked,
+      disliked: row.disliked,
+      tripType: row.tripType,
+      shownAs: row.displayName,
+      travelledOn: row.travelledOn,
+      status: row.status,
+      rejectReason: row.rejectReason,
+      createdAt: iso(row.createdAt),
+      publishedAt: iso(row.publishedAt),
     }));
   }
 

@@ -479,6 +479,34 @@ describe('admin audit coverage (e2e)', () => {
       await audited('adminRedeemVoucher', {}, (request) => request.send({ code: voucherCode }));
     });
 
+    it('reviews: publish and reject', async () => {
+      // Written straight to the table: eligibility is covered by reviews.e2e-spec.ts.
+      const item = await ctx.prisma.bookingItem.findFirstOrThrow({ where: { bookingId } });
+      const subject = await ctx.prisma.reviewSubject.create({
+        data: { kind: 'tour', refId: item.id, name: 'Audit walking tour' },
+      });
+      const pending = () =>
+        ctx.prisma.review.create({
+          data: {
+            subjectId: subject.id,
+            bookingId,
+            bookingItemId: item.id,
+            rating: 9,
+            tripType: 'friends',
+            locale: 'en-NG',
+            travelledOn: today.slice(0, 7),
+          },
+        });
+      const first = await pending();
+      await audited('adminPublishReview', { id: first.id }, none);
+      await ctx.prisma.review.delete({ where: { id: first.id } });
+      const second = await pending();
+      await audited('adminRejectReview', { id: second.id }, (request) =>
+        request.send({ reason: 'spam' }),
+      );
+      await ctx.prisma.review.delete({ where: { id: second.id } });
+    });
+
     it('refunds: create, reject, approve and resolve (maker-checker)', async () => {
       const request = () => ({
         paymentId,

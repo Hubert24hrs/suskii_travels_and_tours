@@ -10,6 +10,7 @@ import {
 
 import { named } from '../contract/contract';
 import { moneySchema, priceSchema } from '../pricing/pricing.schemas';
+import { reviewSummarySchema } from '../reviews/reviews.schemas';
 import { LAYOVER_WARNINGS } from '../suppliers/supplier.types';
 
 // ---------------------------------------------------------------------------
@@ -295,6 +296,10 @@ const hotelBase = {
   cityName: z.string(),
   countryCode: z.string().length(2),
   amenities: z.array(z.string()),
+  verifiedReviews: reviewSummarySchema.nullable().meta({
+    description:
+      "Suskii's own score from travellers who stayed through us (ADR-077); `reviewScore` is the supplier's. Null until a review is published.",
+  }),
 };
 
 export const hotelSummarySchema = named(

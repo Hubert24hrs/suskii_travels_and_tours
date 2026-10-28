@@ -45,6 +45,8 @@ export const RETENTION_RULES = [
   // Partner supply (ADR-070).
   'partner-clicks',
   'partner-conversions',
+  // Verified reviews (ADR-077).
+  'rejected-reviews',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -88,6 +90,8 @@ export const RETENTION_DAYS = {
   'rental-licences': 30,
   /** Outbound partner clicks: 13 months, long enough for a network to report late bookings. */
   'partner-clicks': 400,
+  /** After a moderator rejected the review: long enough to answer the traveller about it. */
+  'rejected-reviews': 90,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -260,6 +264,11 @@ export class RetentionService {
       'partner-clicks': counts(
         await this.prisma.partnerClick.deleteMany({
           where: { createdAt: { lt: before('partner-clicks') } },
+        }),
+      ),
+      'rejected-reviews': counts(
+        await this.prisma.review.deleteMany({
+          where: { status: 'rejected', moderatedAt: { lt: before('rejected-reviews') } },
         }),
       ),
       // Commission records are revenue: kept for the financial period after their last change.
@@ -461,6 +470,11 @@ export class RetentionService {
           await tx.bookingDocument.deleteMany({ where: { bookingId: booking.id } });
           await tx.bookingNote.deleteMany({ where: { bookingId: booking.id } });
           await tx.bookingAccessLink.deleteMany({ where: { bookingId: booking.id } });
+          // Published reviews stay, signed "Verified traveller" from now on (ADR-077).
+          await tx.review.updateMany({
+            where: { bookingId: booking.id },
+            data: { displayName: null },
+          });
           await tx.payment.updateMany({
             where: { bookingId: booking.id },
             data: { ipHash: null, ipCountry: null, cardCountry: null, cardFingerprintHash: null },

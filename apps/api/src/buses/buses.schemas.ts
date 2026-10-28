@@ -66,7 +66,13 @@ export const busTripCardSchema = named(
   'BusTripCard',
   z.object({
     id: z.uuid(),
-    operator: z.object({ name: z.string(), slug: z.string() }),
+    operator: z.object({
+      id: z
+        .uuid()
+        .meta({ description: 'Its verified reviews: `GET /v1/reviews?kind=bus_operator&ref=`.' }),
+      name: z.string(),
+      slug: z.string(),
+    }),
     sample: z.boolean().meta({ description: 'Demo inventory: show a "Sample" badge.' }),
     origin: terminalRefSchema,
     destination: terminalRefSchema,
