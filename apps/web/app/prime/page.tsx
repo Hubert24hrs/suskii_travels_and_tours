@@ -8,6 +8,7 @@ import { Breadcrumbs } from '../../components/breadcrumbs';
 import { Container } from '../../components/layout/container';
 import { JoinPrime } from '../../components/prime/join-prime';
 import { api } from '../../lib/api';
+import { edgeCountry } from '../../lib/edge-country';
 import { getI18n } from '../../lib/i18n';
 import { getPreferences } from '../../lib/preferences';
 import { pageMetadata } from '../../lib/seo';
@@ -18,13 +19,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Suskii Prime (ADR-030): the published plans in the visitor's currency, or "coming soon" when
- * staff have published none. Joining needs an account.
+ * Suskii Prime (ADR-030): the published plans in the visitor's currency and, where a plan has
+ * one, the price for the visitor's country (ADR-082); "coming soon" when staff have published
+ * none. Joining needs an account.
  */
 export default async function PrimePage() {
   const { t, format, locale, messages } = await getI18n();
   const { currency } = await getPreferences();
-  const plans = (await api.primePlans(currency))?.plans ?? [];
+  const plans = (await api.primePlans(currency, await edgeCountry()))?.plans ?? [];
   return (
     <Container className="flex flex-col gap-8 pt-8 pb-16">
       <Breadcrumbs items={[{ name: t('prime.title'), path: '/prime' }]} />

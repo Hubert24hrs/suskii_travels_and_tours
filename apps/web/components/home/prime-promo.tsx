@@ -2,6 +2,7 @@ import { buttonVariants } from '@suskii/ui-web';
 import { Check } from 'lucide-react';
 
 import { api, type HomeContent } from '../../lib/api';
+import { edgeCountry } from '../../lib/edge-country';
 import { getI18n } from '../../lib/i18n';
 import { getPreferences } from '../../lib/preferences';
 import { AppLink } from '../app-link';
@@ -9,12 +10,13 @@ import { Container } from '../layout/container';
 
 /**
  * Suskii Prime block. Title and benefits come from the CMS; the price line shows the published
- * plans in the visitor's currency (ADR-030), or the CMS prices until a plan is published.
+ * plans in the visitor's currency and country (ADR-030, ADR-082), or the CMS prices until a plan
+ * is published.
  */
 export async function PrimePromo({ prime }: { prime: HomeContent['prime'] | undefined }) {
   const { t, format } = await getI18n();
   const { currency } = await getPreferences();
-  const plans = (await api.primePlans(currency))?.plans ?? [];
+  const plans = (await api.primePlans(currency, await edgeCountry()))?.plans ?? [];
   const benefits = prime?.benefits.length
     ? prime.benefits
     : [

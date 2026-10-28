@@ -225,12 +225,13 @@ export const api = {
       revalidate: ONE_MINUTE,
       tags: ['ai-search'],
     }),
-  // Plans are staff-managed data; the purchase quote re-reads the plan anyway (ADR-030).
-  primePlans: (currency: string) =>
+  // Plans are staff-managed data; the purchase quote re-reads the plan anyway (ADR-030). The
+  // visitor's edge country picks country prices for display (ADR-082).
+  primePlans: (currency: string, country: string | null) =>
     apiGet<Schemas['PrimePlanList']>('/v1/prime/plans', {
       revalidate: ONE_MINUTE,
       tags: ['prime'],
-      query: { currency },
+      query: country ? { currency, country } : { currency },
     }),
 };
 

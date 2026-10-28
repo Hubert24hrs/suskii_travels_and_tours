@@ -262,6 +262,9 @@ export async function startStack(options: { adTags?: boolean } = {}): Promise<St
       SOCIAL_MOCK_ENABLED: 'true',
       // The stack refreshes deals once, so route facts show from a single day of fares (ADR-080).
       ROUTE_FACTS_MIN_DAYS: '1',
+      // Cloudflare's country header, as deployed (Prime country prices, ADR-082). Behind the
+      // hosted test server's tunnel Cloudflare sets it; tests send it themselves.
+      CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
       // Lagos-Dubai fares rise 5% at the re-check before payment (price-change consent test).
       MOCK_REPRICE_RULES: PRICE_CHANGE_ROUTE_RULE,
       // Mock suppliers unless a tester opts in to Duffel's test mode (phone and browser testing).
@@ -306,6 +309,7 @@ export async function startStack(options: { adTags?: boolean } = {}): Promise<St
         NODE_ENV: 'production',
         API_INTERNAL_URL: apiUrl,
         NEXT_TELEMETRY_DISABLED: '1',
+        CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
         // Test identities for the app-link association files (see mobile.spec.ts).
         MOBILE_ANDROID_PACKAGE: TEST_APP.androidPackage,
         MOBILE_ANDROID_CERT_SHA256: TEST_APP.androidFingerprint,
