@@ -398,7 +398,7 @@ export function SupportConversationPage({ conversationId }: { conversationId: st
                       ? t('support.internal')
                       : label('support.from', message.author)}
                     {message.staff ? ` · ${message.staff.name}` : ''}{' '}
-                    <span className="font-normal text-muted">
+                    <span className="font-regular text-muted">
                       {format.dateTime(message.createdAt)}
                     </span>
                   </p>
