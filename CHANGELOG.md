@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### SEO pages from fare history (2026-10-28)
+
+#### Added
+
+- **Route facts (ADR-080).** Every deal refresh now keeps the cheapest fare it found per
+  departure date (`route_fares`, 400 days). Route pages show what that history says: the typical
+  return fare (90-day median), the lowest fare in 30 days with its date and airline, whether
+  nonstop flights exist, the fastest journey, the cheapest month to fly and the airlines on the
+  route. Facts are priced at read time with today's markup, tax and currency, say what each
+  figure means, and appear only once `ROUTE_FACTS_MIN_DAYS` (3) days of fares exist.
+- **Flight hubs and airline pages.** `/flights/from/[city]` and `/flights/to/[city]` list popular
+  routes with their latest and typical fares; `/airlines/[code]` lists the routes an airline was
+  seen on in 90 days with its own lowest fare. Route pages link to both hubs and every airline;
+  pages without routes answer 404. All of them join the sitemap.
+- API: `facts` on the route detail (additive), `GET /v1/deals/cities`, `/cities/{slug}`,
+  `/airlines` and `/airlines/{code}`; the snapshot prune reports `deletedFares`.
+
 ### Ads with consent (2026-10-28)
 
 #### Added

@@ -72,7 +72,8 @@ Item 7, company accounts (members in roles, a travel policy, approval before pay
 reports), is built (`docs/phases/company-accounts.md`); the company wallet and invoiced credit
 come next. Item 8, growth, runs in four parts (`docs/phases/growth.md`): part 1, ads with consent
 (Meta and TikTok tags after marketing consent, server-side Purchase events), is built and waits
-for the owner's pixel ids and tokens; SEO pages, metasearch and Prime per country follow.
+for the owner's pixel ids and tokens; part 2, SEO pages from fare history (route facts, flight
+hubs, airline pages), is built; metasearch and Prime per country follow.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -734,6 +735,17 @@ Tooling notes for agents:
   settled. Production refuses the mock. The app has no ad SDK: adding one changes the store
   forms (`docs/release/data-safety.md`).
 
+### SEO pages from fare history (apps/api/src/deals, apps/web, ADR-080)
+
+- Fare history enters only through `RouteFactsService.record()` from the deal refresh (the same
+  day keeps the cheaper find, compared in `usd_minor`). Facts come from the pure rules in
+  `route-facts.ts` and are priced at read time through `DealsService.priceFor().fare()`; never
+  store or return a priced or supplier figure from `route_fares` directly.
+- Hub slugs come from `citySlug()` in `@suskii/shared` on both sides; hubs and airline pages
+  answer 404 without routes and are listed in the sitemap only when they have some.
+- Every figure on these pages says what it is (one adult, return, recent fares, today's rules);
+  sample (mock) fares stay badged. The web e2e stack sets `ROUTE_FACTS_MIN_DAYS=1`.
+
 ### AI trip search (phase 13, ADR-061)
 
 - The model only fills the flight form; it never searches, books or reads private data. Clients
@@ -937,6 +949,7 @@ Tooling notes for agents:
 - [ADR-077: Verified reviews](docs/decisions/ADR-077-verified-reviews.md)
 - [ADR-078: Company accounts](docs/decisions/ADR-078-company-accounts.md)
 - [ADR-079: Ads with consent](docs/decisions/ADR-079-ads-with-consent.md)
+- [ADR-080: SEO pages from fare history](docs/decisions/ADR-080-seo-pages-from-fare-history.md)
 
 ## Open questions for the owner
 
