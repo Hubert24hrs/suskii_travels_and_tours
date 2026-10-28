@@ -83,11 +83,13 @@ number and approved template; part 3, an after-hours assistant that answers from
 traveller's booking (ADR-085), is built and waits for the owner's staffed hours, `LLM_API_KEY`
 and one run of the assistant eval. Item 10, Expedia Rapid hotels (ADR-086), is built and waits for
 the owner's Expedia Partner Solutions account, one sandbox run and certification
-(`docs/phases/expedia-rapid.md`). Item 13, compliance, runs in two parts
+(`docs/phases/expedia-rapid.md`). Item 12, an accessibility audit against WCAG 2.2 AA, is built
+and checked in CI (`docs/phases/accessibility.md`, `docs/accessibility/wcag-2.2-aa.md`); the
+manual screen reader pass waits for devices and testers. Item 13, compliance, runs in two parts
 (`docs/phases/compliance.md`): part 1, payment pages that run only our scripts (PCI DSS SAQ A),
 the privacy obligations per country and a breach runbook, is built and waits for the owner's
 registrations and filings; part 2, rights request and breach registers with deadlines, comes next.
-Items 11 and 12 are in review.
+Item 11 is in review.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -853,6 +855,25 @@ Tooling notes for agents:
   then (homepage budget). The button shows while `GET /v1/flights/natural-search` says the feature
   is on, and hides when the API cannot say.
 
+### Accessibility (WCAG 2.2 AA, ADR-088)
+
+- The target is WCAG 2.2 AA on the website, the console and the app; the conformance table
+  (`docs/accessibility/wcag-2.2-aa.md`) changes with the code it describes.
+- A new public page goes in `PAGES` in `apps/web/e2e/a11y.spec.ts` (axe, 24 px targets, reflow at
+  320 px). Targets are at least 24 by 24 px except links inside a sentence; search and checkout
+  controls are 44 px or more (`min-h-12`). A short link outside a sentence gets
+  `inline-flex min-h-6 items-center`.
+- Headings follow the outline: cards listed straight under a page's `h1` are `h2` (pass
+  `headingLevel`), under a section heading `h3`.
+- Every interactive element shows `focus-visible:focus-ring`; nothing may sit above the sticky
+  header's scroll padding (`scroll-pt-20` on `html`) without being modal.
+- App touchables take `accessibilityRole` and a name (text inside or `accessibilityLabel`);
+  radios, checkboxes and switches report `accessibilityState.checked`, tabs `selected`; text
+  inputs carry `accessibilityLabel`; never set `allowFontScaling={false}`. `accessibility.test.ts`
+  fails otherwise. The app follows the device's orientation.
+- Run the screen reader checklist (`docs/runbooks/screen-reader-checklist.md`) before each store
+  release and any release that changes search, checkout or sign-in.
+
 ### Compliance (PCI DSS SAQ A and privacy laws, ADR-089)
 
 - Card data never touches Suskii: hosted checkout only, by redirect or the system browser. Never
@@ -1054,6 +1075,7 @@ Tooling notes for agents:
 - [ADR-084: WhatsApp as a support channel](docs/decisions/ADR-084-whatsapp-support-channel.md)
 - [ADR-085: After-hours support assistant](docs/decisions/ADR-085-after-hours-support-assistant.md)
 - [ADR-086: Expedia Rapid hotel adapter](docs/decisions/ADR-086-expedia-rapid-hotel-adapter.md)
+- [ADR-088: WCAG 2.2 AA as the accessibility target](docs/decisions/ADR-088-wcag-2-2-aa-accessibility.md)
 - [ADR-089: Payment pages without third-party scripts, and privacy obligations per country](docs/decisions/ADR-089-payment-pages-and-privacy-obligations.md)
 
 ## Open questions for the owner
@@ -1178,6 +1200,10 @@ Expedia Rapid (ADR-086): an Expedia Partner Solutions account with sandbox crede
 `partner-sandbox.yml`), confirmation of the commercial model (Expedia Collect rates resold under
 `affiliate_collect`, invoiced to Suskii) and the billing contact Expedia expects, the point of sale
 per market, and Expedia's certification before `expedia` is enabled in production. Added with
+the accessibility audit (ADR-088): someone with iOS and Android devices to run the screen reader
+checklist (including landscape and the largest text size), the support contact and legal text for
+an accessibility statement page, and whether to commission an external audit before launch in
+the EU. Added with
 compliance (ADR-089): registration with the NDPC (tier and fee), the ODPC and the Information
 Regulator; a data protection officer and an Information Officer; the yearly SAQ A with each
 payment provider's attestation; counsel's view on the rows marked "confirm" (registration tiers,
