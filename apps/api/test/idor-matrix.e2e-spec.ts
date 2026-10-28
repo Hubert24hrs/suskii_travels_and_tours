@@ -101,6 +101,8 @@ interface Fixture {
   companyBookingId: string;
   companyMemberId: string;
   companyInvitationId: string;
+  /** Support conversations (ADR-083): the owner's own. */
+  supportConversationId: string;
 }
 
 interface Case {
@@ -213,6 +215,17 @@ const CASES: Record<string, Case> = {
   },
   revokeCompanyInvitation: {
     path: (f) => `/v1/me/company/invitations/${f.companyInvitationId}`,
+  },
+  getSupportConversation: { path: (f) => `/v1/support/conversations/${f.supportConversationId}` },
+  markSupportConversationRead: {
+    path: (f) => `/v1/support/conversations/${f.supportConversationId}/read`,
+  },
+  replySupportConversation: {
+    path: (f) => `/v1/support/conversations/${f.supportConversationId}/messages`,
+    body: () => ({ message: 'Not my conversation.' }),
+  },
+  resolveSupportConversation: {
+    path: (f) => `/v1/support/conversations/${f.supportConversationId}/resolve`,
   },
   changeCompanyMemberRole: {
     path: (f) => `/v1/me/company/members/${f.companyMemberId}/role`,
@@ -573,8 +586,15 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       .expect(201);
     const members = await ctx.http().get('/v1/me/company/members').set(auth).expect(200);
     const companyTrip = await createFlightBooking(owner, { company: true });
+    const conversation = await ctx
+      .http()
+      .post('/v1/support/conversations')
+      .set(auth)
+      .send({ category: 'booking_change', message: 'Can I change my flight?' })
+      .expect(201);
 
     return {
+      supportConversationId: conversation.body.conversation.id as string,
       companyBookingId: companyTrip.bookingId,
       companyMemberId: members.body.members[0].id as string,
       companyInvitationId: invitation.body.id as string,
@@ -687,6 +707,10 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       where: { id: fixture.busHoldId },
     });
     expect(busHold.releasedAt).toBeNull();
+    const support = await ctx.prisma.supportConversation.findUniqueOrThrow({
+      where: { id: fixture.supportConversationId },
+    });
+    expect(support).toMatchObject({ status: 'open', messageCount: 1 });
     await ctx.http().get('/v1/me').set(auth).expect(200);
 
     // Nothing was attached to the owner's bookings either.

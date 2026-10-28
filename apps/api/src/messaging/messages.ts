@@ -221,3 +221,43 @@ export function companyApprovalDecisionMessage(details: {
     },
   };
 }
+
+/**
+ * A staff reply to a support conversation (ADR-083). The reply itself stays out of email, texts
+ * and push: the traveller reads it on the website or in the app.
+ */
+export function supportReplyEmail(details: { reference: string; conversationUrl: string }): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  return simpleEmail(
+    `We replied to ${details.reference}`,
+    'You have a reply from our support team',
+    [
+      `Our support team answered your request ${details.reference}.`,
+      'For your privacy the reply is not in this email: open the conversation to read it and answer.',
+    ],
+    { label: 'Read the reply', url: details.conversationUrl },
+  );
+}
+
+export function supportReplyMessage(details: {
+  reference: string;
+  conversationId: string;
+  conversationUrl: string;
+  bookingId: string | null;
+}): NotificationContent {
+  return {
+    category: 'support',
+    template: 'support-reply',
+    bookingId: details.bookingId,
+    email: supportReplyEmail(details),
+    text: `${BRAND.name}: we replied to your support request ${details.reference}. Open the app or website to read it.`,
+    push: {
+      title: `Reply to ${details.reference}`,
+      body: 'Our support team answered you.',
+      path: `/support/${details.conversationId}`,
+    },
+  };
+}

@@ -216,6 +216,8 @@ export class AccountDeletionService {
         await tx.operatorMember.deleteMany({ where: { userId } });
         // Company trips stay with the company for its reports; the membership goes (ADR-078).
         await tx.companyMember.deleteMany({ where: { userId } });
+        // Support conversations go with their messages (ADR-083).
+        await tx.supportConversation.deleteMany({ where: { userId } });
         if (user.email) {
           await tx.newsletterSubscription.deleteMany({ where: { email: user.email } });
         }

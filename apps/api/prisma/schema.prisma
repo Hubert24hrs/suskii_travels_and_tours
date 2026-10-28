@@ -79,6 +79,9 @@ model User {
   partnerClicks           PartnerClick[]
   reviews                 Review[]
   companyMembership       CompanyMember?
+  supportConversations    SupportConversation[]    @relation("SupportOwner")
+  assignedSupport         SupportConversation[]    @relation("SupportAssignee")
+  supportMessages         SupportMessage[]         @relation("SupportStaffAuthor")
 
   @@map("users")
 }
@@ -994,30 +997,31 @@ model Booking {
   createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user              User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  linkedBooking     Booking?               @relation("LinkedAddons", fields: [linkedBookingId], references: [id], onDelete: SetNull)
-  addons            Booking[]              @relation("LinkedAddons")
-  vouchers          BookingVoucher[]
-  visaApplications  VisaApplication[]
-  items             BookingItem[]
-  busTickets        BusTicket[]
-  ride              Ride?
-  passengers        BookingPassenger[]
-  history           BookingStatusHistory[]
-  payments          Payment[]
-  documents         BookingDocument[]
-  paymentPlan       PaymentPlan?
-  refunds           Refund[]
-  accessLinks       BookingAccessLink[]
-  pushTokens        PushToken[]
-  notes             BookingNote[]
-  riskReviews       PaymentRiskReview[]
-  scheduleChanges   FlightScheduleChange[]
-  partnerClicks     PartnerClick[]
-  reviews           Review[]
-  adConversion      AdConversion?
-  company           Company?               @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  metasearchLanding MetasearchLanding?     @relation(fields: [metasearchLandingId], references: [id], onDelete: SetNull)
+  user                 User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  linkedBooking        Booking?               @relation("LinkedAddons", fields: [linkedBookingId], references: [id], onDelete: SetNull)
+  addons               Booking[]              @relation("LinkedAddons")
+  vouchers             BookingVoucher[]
+  visaApplications     VisaApplication[]
+  items                BookingItem[]
+  busTickets           BusTicket[]
+  ride                 Ride?
+  passengers           BookingPassenger[]
+  history              BookingStatusHistory[]
+  payments             Payment[]
+  documents            BookingDocument[]
+  paymentPlan          PaymentPlan?
+  refunds              Refund[]
+  accessLinks          BookingAccessLink[]
+  pushTokens           PushToken[]
+  notes                BookingNote[]
+  riskReviews          PaymentRiskReview[]
+  scheduleChanges      FlightScheduleChange[]
+  partnerClicks        PartnerClick[]
+  reviews              Review[]
+  supportConversations SupportConversation[]
+  adConversion         AdConversion?
+  company              Company?               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  metasearchLanding    MetasearchLanding?     @relation(fields: [metasearchLandingId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   /// Admin booking search and the dashboard filter by creation date (ADR-036).
@@ -1952,6 +1956,7 @@ enum NotificationCategory {
   price_alert
   prime
   review_requests
+  support
   marketing
 }
 
@@ -3417,4 +3422,111 @@ model AdConversion {
   @@index([status, nextAttemptAt])
   @@index([createdAt])
   @@map("ad_conversions")
+}
+
+// ---------------------------------------------------------------------------
+// Support conversations (ADR-083)
+// ---------------------------------------------------------------------------
+
+enum SupportCategory {
+  pre_booking
+  booking_change
+  cancellation_refund
+  payment
+  documents
+  other
+}
+
+/// `open`: staff owe a reply; `waiting`: staff replied and wait for the traveller.
+enum SupportStatus {
+  open
+  waiting
+  resolved
+}
+
+enum SupportPriority {
+  urgent
+  prime
+  normal
+}
+
+enum SupportChannel {
+  web
+  app
+  whatsapp
+}
+
+enum SupportAuthor {
+  customer
+  staff
+  system
+}
+
+/// A traveller's support conversation (the spec's support ticket). Owned by an account, or by a
+/// guest who holds its access token; optionally about one booking. SLA times are in UTC.
+model SupportConversation {
+  id                    String          @id @default(uuid(7)) @db.Uuid
+  /// Short code travellers can quote ("S-7KX2Q9").
+  reference             String          @unique @db.VarChar(12)
+  userId                String?         @map("user_id") @db.Uuid
+  /// HMAC (`support-access`) of a guest's access token; null for account holders.
+  accessTokenHash       String?         @unique @map("access_token_hash")
+  /// A guest's email for reply notices, sealed with `support-conversation:{id}:email`.
+  emailEncrypted        String?         @map("email_encrypted")
+  bookingId             String?         @map("booking_id") @db.Uuid
+  channel               SupportChannel
+  category              SupportCategory
+  priority              SupportPriority
+  status                SupportStatus   @default(open)
+  assigneeId            String?         @map("assignee_id") @db.Uuid
+  /// Start of the current open spell: creation, or the traveller's message that reopened it.
+  openedAt              DateTime        @map("opened_at") @db.Timestamptz(3)
+  /// The traveller's first message staff have not answered yet; null while nothing is owed.
+  replyOwedSince        DateTime?       @map("reply_owed_since") @db.Timestamptz(3)
+  /// When staff owe the next reply (from `replyOwedSince` and the priority's target).
+  responseDueAt         DateTime?       @map("response_due_at") @db.Timestamptz(3)
+  /// When the conversation should be resolved (from `openedAt` and the priority's target).
+  resolutionDueAt       DateTime?       @map("resolution_due_at") @db.Timestamptz(3)
+  /// The nearer of the two while open or waiting; null once resolved. The inbox sorts by it.
+  dueAt                 DateTime?       @map("due_at") @db.Timestamptz(3)
+  firstRespondedAt      DateTime?       @map("first_responded_at") @db.Timestamptz(3)
+  lastCustomerMessageAt DateTime        @map("last_customer_message_at") @db.Timestamptz(3)
+  lastStaffMessageAt    DateTime?       @map("last_staff_message_at") @db.Timestamptz(3)
+  /// The traveller last opened the conversation (unread staff replies come after this).
+  customerReadAt        DateTime?       @map("customer_read_at") @db.Timestamptz(3)
+  resolvedAt            DateTime?       @map("resolved_at") @db.Timestamptz(3)
+  messageCount          Int             @default(0) @map("message_count")
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user     User?            @relation("SupportOwner", fields: [userId], references: [id], onDelete: Cascade)
+  booking  Booking?         @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  assignee User?            @relation("SupportAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages SupportMessage[]
+
+  @@index([status, dueAt, id])
+  @@index([userId, updatedAt])
+  @@index([assigneeId, status])
+  @@index([bookingId])
+  @@index([status, updatedAt])
+  @@map("support_conversations")
+}
+
+/// One message in a support conversation. Bodies are sealed per message
+/// (`support-message:{id}:body`); `internal` notes are never shown to the traveller.
+model SupportMessage {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  conversationId String        @map("conversation_id") @db.Uuid
+  author         SupportAuthor
+  /// The staff member who wrote it; null for travellers and system messages.
+  staffId        String?       @map("staff_id") @db.Uuid
+  internal       Boolean       @default(false)
+  bodyEncrypted  String        @map("body_encrypted")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  staff        User?               @relation("SupportStaffAuthor", fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, id])
+  @@map("support_messages")
 }

@@ -1854,6 +1854,81 @@ export interface paths {
         patch: operations["adminUpdateRidePlace"];
         trace?: never;
     };
+    "/v1/admin/support/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Staff members who can be assigned support conversations */
+        get: operations["adminListSupportAgents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/support/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Support conversations by queue (open and waiting ones nearest due first) */
+        get: operations["adminListSupportConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/support/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A support conversation with every message and internal note */
+        get: operations["adminGetSupportConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change status, priority, category or assignee
+         * @description Due times are recomputed from the new priority. 422 `support-assignee-invalid` for someone who does not handle support.
+         */
+        patch: operations["adminUpdateSupportConversation"];
+        trace?: never;
+    };
+    "/v1/admin/support/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reply to the traveller, or add an internal note
+         * @description A reply stops the response clock, waits for the traveller and tells them by email or push (never with the text). Unassigned conversations are assigned to whoever replies.
+         */
+        post: operations["adminReplySupportConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tour-departures/{id}": {
         parameters: {
             query?: never;
@@ -6003,6 +6078,107 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/support/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in traveller's support conversations
+         * @description Most recently active first; empty without a session (guests open theirs by id).
+         */
+        get: operations["listSupportConversations"];
+        put?: never;
+        /**
+         * Start a support conversation
+         * @description Optionally about one of the caller's bookings (guests add `X-Booking-Token`). Without a session, the website sends a Turnstile token and the app a device attestation, and an email is needed unless the booking gives one; guests receive an access token once. 409 `support-limit` when an account already has 5 open conversations.
+         */
+        post: operations["startSupportConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A support conversation and its messages
+         * @description Pass `after` with the last message id to poll for new messages. Internal staff notes are never included.
+         */
+        get: operations["getSupportConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/conversations/{conversationId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write to a support conversation
+         * @description Reopens a resolved conversation. 409 `support-conversation-full` after 500 messages (start a new one).
+         */
+        post: operations["replySupportConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/conversations/{conversationId}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark every reply so far as read */
+        put: operations["markSupportConversationRead"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/conversations/{conversationId}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a support conversation as solved
+         * @description Writing to it again reopens it.
+         */
+        post: operations["resolveSupportConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/telemetry/web-vitals": {
         parameters: {
             query?: never;
@@ -7136,6 +7312,131 @@ export interface components {
         AdminReviewPage: {
             items: components["schemas"]["AdminReview"][];
             nextCursor: string | null;
+        };
+        AdminSupportAgents: {
+            agents: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            }[];
+        };
+        AdminSupportConversation: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            /** @enum {string} */
+            priority: "urgent" | "prime" | "normal";
+            /** @enum {string} */
+            status: "open" | "waiting" | "resolved";
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp";
+            customer: {
+                userId: string | null;
+                label: string;
+                guest: boolean;
+            };
+            booking: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+            } | null;
+            assignee: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            } | null;
+            sla: {
+                /** @enum {string} */
+                state: "met" | "on_track" | "due_soon" | "breached";
+                responseDueAt: string | null;
+                resolutionDueAt: string | null;
+            };
+            awaitingReply: boolean;
+            messageCount: number;
+            /** Format: date-time */
+            lastCustomerMessageAt: string;
+            lastStaffMessageAt: string | null;
+            firstRespondedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            messages: components["schemas"]["AdminSupportMessage"][];
+        };
+        AdminSupportConversationPage: {
+            items: components["schemas"]["AdminSupportConversationRow"][];
+            nextCursor: string | null;
+        };
+        AdminSupportConversationRow: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            /** @enum {string} */
+            priority: "urgent" | "prime" | "normal";
+            /** @enum {string} */
+            status: "open" | "waiting" | "resolved";
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp";
+            customer: {
+                userId: string | null;
+                label: string;
+                guest: boolean;
+            };
+            booking: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+            } | null;
+            assignee: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            } | null;
+            sla: {
+                /** @enum {string} */
+                state: "met" | "on_track" | "due_soon" | "breached";
+                responseDueAt: string | null;
+                resolutionDueAt: string | null;
+            };
+            awaitingReply: boolean;
+            messageCount: number;
+            /** Format: date-time */
+            lastCustomerMessageAt: string;
+            lastStaffMessageAt: string | null;
+            firstRespondedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminSupportMessage: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            author: "customer" | "staff" | "system";
+            internal: boolean;
+            staff: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            } | null;
+            text: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminSupportReplyRequestInput: {
+            message: string;
+            /** @default false */
+            internal?: boolean;
+        };
+        AdminSupportUpdateRequestInput: {
+            /** @enum {string} */
+            status?: "open" | "waiting" | "resolved";
+            /** @enum {string} */
+            priority?: "urgent" | "prime" | "normal";
+            /** @enum {string} */
+            category?: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            assigneeId?: string | null;
         };
         AdminTaxRule: {
             country: string;
@@ -9605,7 +9906,7 @@ export interface components {
         };
         NotificationPreference: {
             /** @enum {string} */
-            category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "review_requests" | "marketing";
+            category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "review_requests" | "support" | "marketing";
             /** @enum {string} */
             channel: "email" | "sms" | "whatsapp" | "push";
             enabled: boolean;
@@ -10543,6 +10844,7 @@ export interface components {
             "company-invitations": number;
             "ad-conversions": number;
             "metasearch-landings": number;
+            "support-conversations": number;
         };
         ReviewInvitationRun: {
             planned: number;
@@ -10918,6 +11220,10 @@ export interface components {
             contactsNotified: number;
             emergencyNumber: string;
         };
+        StartedSupportConversation: {
+            conversation: components["schemas"]["SupportConversation"];
+            accessToken: string | null;
+        };
         StartPaymentRequestInput: {
             /** @default null */
             provider?: ("mock" | "paystack" | "flutterwave" | "stripe") | null;
@@ -10930,6 +11236,15 @@ export interface components {
             /** @default false */
             useWallet?: boolean;
         };
+        StartSupportConversationRequestInput: {
+            /** @enum {string} */
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            message: string;
+            bookingId?: string | null;
+            email?: string | null;
+            /** @default null */
+            turnstileToken?: string | null;
+        };
         StepUp: {
             /** Format: date-time */
             until: string;
@@ -10940,6 +11255,60 @@ export interface components {
             status: "ok" | "timeout" | "error" | "circuit_open";
             resultCount: number;
             durationMs: number;
+        };
+        SupportConversation: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            /** @enum {string} */
+            status: "open" | "waiting" | "resolved";
+            booking: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+            } | null;
+            /** Format: date-time */
+            lastMessageAt: string;
+            unread: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            messages: components["schemas"]["SupportMessage"][];
+        };
+        SupportConversationList: {
+            conversations: components["schemas"]["SupportConversationSummary"][];
+        };
+        SupportConversationSummary: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            /** @enum {string} */
+            status: "open" | "waiting" | "resolved";
+            booking: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+            } | null;
+            /** Format: date-time */
+            lastMessageAt: string;
+            unread: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SupportMessage: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            author: "customer" | "staff" | "system";
+            text: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SupportReplyRequestInput: {
+            message: string;
         };
         TaxRuleInputInput: {
             country: string;
@@ -11178,7 +11547,7 @@ export interface components {
         UpdateNotificationPreferencesRequestInput: {
             changes: {
                 /** @enum {string} */
-                category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "review_requests" | "marketing";
+                category: "booking" | "payment" | "trip_reminder" | "price_alert" | "prime" | "review_requests" | "support" | "marketing";
                 /** @enum {string} */
                 channel: "email" | "sms" | "whatsapp" | "push";
                 enabled: boolean;
@@ -15758,6 +16127,167 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListSupportAgents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSupportAgents"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListSupportConversations: {
+        parameters: {
+            query?: {
+                queue?: "active" | "open" | "waiting" | "resolved";
+                priority?: "urgent" | "prime" | "normal";
+                assignee?: "any" | "me" | "unassigned";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSupportConversationPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetSupportConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSupportConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateSupportConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSupportUpdateRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSupportConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReplySupportConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSupportReplyRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSupportConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -23223,6 +23753,202 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listSupportConversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportConversationList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    startSupportConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once. */
+                "X-Suskii-Attestation"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartSupportConversationRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedSupportConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getSupportConversation: {
+        parameters: {
+            query?: {
+                after?: string;
+            };
+            header?: {
+                /** @description Guests: the access token returned when the conversation started, or the link token from a reply email. Account holders use their session instead. */
+                "X-Support-Token"?: string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    replySupportConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guests: the access token returned when the conversation started, or the link token from a reply email. Account holders use their session instead. */
+                "X-Support-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportReplyRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    markSupportConversationRead: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guests: the access token returned when the conversation started, or the link token from a reply email. Account holders use their session instead. */
+                "X-Support-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    resolveSupportConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guests: the access token returned when the conversation started, or the link token from a reply email. Account holders use their session instead. */
+                "X-Support-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
