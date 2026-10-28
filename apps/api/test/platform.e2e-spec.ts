@@ -299,8 +299,8 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
       // Bookings and money (5), airline schedule changes (1), deal and destination refresh (4),
       // push tokens (1), visa (2), price alerts, reminders and referrals (3), retention (1), ride
       // dispatch and driver document scans (2), ledger reconciliation and driver payouts (2),
-      // review invitations (1).
-      expect(internalOperations).toBe(22);
+      // review invitations (1), ad conversions (1).
+      expect(internalOperations).toBe(23);
     });
 
     it('resolves every $ref (generated clients refuse dangling references)', () => {
