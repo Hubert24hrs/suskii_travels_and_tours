@@ -30,6 +30,8 @@ const NOT_OWNED: Record<string, string> = {
   getCity: 'reference data',
   getContentPage: 'published CMS page',
   getDealRoute: 'published deal',
+  getDealCity: 'public city hub from published deal routes',
+  getDealAirline: 'public airline page from published deal routes',
   getHotelDestination: 'published destination',
   getPackage: 'published catalog, by slug',
   getTour: 'published catalog, by slug',
