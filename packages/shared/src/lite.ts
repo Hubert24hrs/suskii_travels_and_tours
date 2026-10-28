@@ -327,5 +327,13 @@ export {
   type AdNetwork,
   type MarketingAttribution,
 } from './ad-tracking';
+export {
+  SUPPORT_CATEGORIES,
+  SUPPORT_MESSAGE_MAX,
+  SUPPORT_STATUSES,
+  type SupportAuthor,
+  type SupportCategory,
+  type SupportStatus,
+} from './support';
 
 export { citySlug } from './slug';

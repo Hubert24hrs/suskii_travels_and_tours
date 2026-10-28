@@ -25,6 +25,8 @@ export default function robots(): MetadataRoute.Robots {
           '/company/',
           '/rides/',
           '/trip/',
+          // Support conversations are private; the help page itself (/support) is not (ADR-083).
+          '/support/',
         ],
       },
     ],

@@ -87,6 +87,8 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
   ['sign in', () => '/sign-in'],
   ['register', () => '/register?ref=ABCDEFGH'],
   ['manage booking', () => '/manage-booking'],
+  // Support (ADR-083): the start form, which hides the email for signed-in travellers.
+  ['help and support', () => '/support'],
 ];
 
 function hydrationTests(): void {

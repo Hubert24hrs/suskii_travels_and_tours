@@ -70,6 +70,11 @@ export async function SiteFooter({ site }: { site: SiteContent | null }) {
         </Column>
         <Column title={t('footer.support')}>
           <li>
+            <AppLink href="/support" className={linkClass}>
+              {t('footer.help')}
+            </AppLink>
+          </li>
+          <li>
             <AppLink href="/manage-booking" className={linkClass}>
               {t('footer.manageBooking')}
             </AppLink>

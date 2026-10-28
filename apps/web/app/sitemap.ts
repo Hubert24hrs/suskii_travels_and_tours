@@ -31,6 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/travel-add-ons',
     '/deals',
     '/prime',
+    '/support',
     // Cars landing pages, while their product is switched on (ADR-049).
     ...(cars && (cars.buses || cars.rides || cars.rentals) ? ['/cars'] : []),
     ...(cars?.buses ? ['/buses'] : []),
