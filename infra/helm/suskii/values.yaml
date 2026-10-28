@@ -28,7 +28,7 @@ secrets:
   # TRAVELPAYOUTS_POSTBACK_SECRET and VIATOR_API_KEY for partner offers, ADR-070;
   # META_CAPI_ACCESS_TOKEN and TIKTOK_EVENTS_ACCESS_TOKEN for ad conversions, ADR-079;
   # WHATSAPP_ACCESS_TOKEN, WHATSAPP_APP_SECRET and WHATSAPP_VERIFY_TOKEN for WhatsApp support,
-  # ADR-084).
+  # ADR-084; EXPEDIA_RAPID_API_KEY and EXPEDIA_RAPID_SHARED_SECRET for Expedia hotels, ADR-086).
   api: suskii-api
   # DATABASE_URL (the schema owner) and DATABASE_APP_URL (the app role).
   migrate: suskii-migrate

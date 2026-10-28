@@ -79,7 +79,9 @@ part 4, Suskii Prime priced per country, is built and waits for the owner's pric
 Item 9, 24/7 support, runs in three parts (`docs/phases/support.md`): part 1, conversations tied to
 bookings with a console inbox, SLA timers and a Prime queue, is built and waits for people on
 shift; part 2, WhatsApp through the Cloud API, is built and waits for the owner's Meta app,
-number and approved template; an after-hours assistant comes next.
+number and approved template; an after-hours assistant comes next. Item 10, Expedia Rapid hotels
+(ADR-086), is built and waits for the owner's Expedia Partner Solutions account, one sandbox run
+and certification (`docs/phases/expedia-rapid.md`).
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -161,7 +163,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api eval:natural-search`   | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model) |
 | `pnpm --filter @suskii/api sandbox:duffel`        | Duffel flights and Stays test-mode check (ADR-062; test token, `--book`)   |
 | `pnpm --filter @suskii/api test:sandbox`          | Our API's booking journey against Duffel test mode (manual workflow only)  |
-| `pnpm --filter @suskii/api sandbox:partners`      | Hotelbeds, Viator and Travelpayouts live check (owner keys, read-only)     |
+| `pnpm --filter @suskii/api sandbox:partners`      | Hotelbeds, Expedia, Viator and Travelpayouts check (owner keys, read-only) |
 | `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)        |
 | `pnpm --filter @suskii/api staff:bootstrap`       | First super admin of a new environment (`--email`, `--yes`; once)          |
 | `pnpm release:rehearse`                           | Compose deploy, ops command, broken release, rollback (`:local` images)    |
@@ -295,10 +297,11 @@ Tooling notes for agents:
   on a single offer, per passenger and segment: its adapter fetches them on quote and re-check,
   bundles one weight across every segment, sells it only at one price for every seated
   passenger (id `<offer>.bag<kg>`), and `book()` refuses a bag that is gone or repriced (ADR-063).
-- Hotel suppliers: `mock`, `duffel` (Stays) and `hotelbeds` (ADR-071; signed APItude calls,
-  rate checks before payment, no idempotency key so ambiguous bookings go to review). When more
-  than one returns results, `mergeDuplicateHotels` keeps the cheaper copy of a hotel (same
-  normalised name within 250 m, different suppliers only).
+- Hotel suppliers: `mock`, `duffel` (Stays), `hotelbeds` (ADR-071; signed APItude calls,
+  rate checks before payment, no idempotency key so ambiguous bookings go to review) and
+  `expedia` (ADR-086; Rapid, property ids by polygon, price checks before quote and booking,
+  Expedia Collect only). When more than one returns results, `mergeDuplicateHotels` keeps the
+  cheaper copy of a hotel (same normalised name within 250 m, different suppliers only).
 - A hotel supplier whose search returns only the cheapest price (Duffel Stays) sets
   `ratesComplete: false` and implements `rates()`; the hotel page loads the full list once per
   search (`SearchStore.completeItem`, rate ids `.f<n>`; search rates are `.r<n>`) and falls back to
@@ -1019,6 +1022,7 @@ Tooling notes for agents:
 - [ADR-082: Suskii Prime priced per country](docs/decisions/ADR-082-prime-priced-per-country.md)
 - [ADR-083: Support conversations](docs/decisions/ADR-083-support-conversations.md)
 - [ADR-084: WhatsApp as a support channel](docs/decisions/ADR-084-whatsapp-support-channel.md)
+- [ADR-086: Expedia Rapid hotel adapter](docs/decisions/ADR-086-expedia-rapid-hotel-adapter.md)
 
 ## Open questions for the owner
 
@@ -1132,4 +1136,9 @@ business portfolio, a WhatsApp Business Account and number, a system user's perm
 app secret and a verify token (then `WHATSAPP_SUPPORT_PROVIDER=cloud`), the approved
 `support_reply_waiting` template, the privacy policy naming Meta as the Cloud API host,
 confirmation of Meta's per-message prices for the markets served, and one sandbox message from a
-username user to confirm the field for replying to a business-scoped user id.
+username user to confirm the field for replying to a business-scoped user id. Added with
+Expedia Rapid (ADR-086): an Expedia Partner Solutions account with sandbox credentials
+(`EXPEDIA_RAPID_API_KEY` and `EXPEDIA_RAPID_SHARED_SECRET` as repository secrets, then one run of
+`partner-sandbox.yml`), confirmation of the commercial model (Expedia Collect rates resold under
+`affiliate_collect`, invoiced to Suskii) and the billing contact Expedia expects, the point of sale
+per market, and Expedia's certification before `expedia` is enabled in production.

@@ -64,6 +64,11 @@ api_env = {
   # "HOTELBEDS_API_SECRET" to extra_secrets, set them in Secret Manager, then use:
   # HOTEL_SUPPLIERS   = "duffel,hotelbeds"
   # HOTELBEDS_API_URL = "https://api.hotelbeds.com"
+  # Expedia Rapid after certification (ADR-086): add "EXPEDIA_RAPID_API_KEY" and
+  # "EXPEDIA_RAPID_SHARED_SECRET" to extra_secrets, set them in Secret Manager, then use:
+  # HOTEL_SUPPLIERS       = "duffel,hotelbeds,expedia"
+  # EXPEDIA_RAPID_API_URL = "https://api.ean.com"
+  # EXPEDIA_POINT_OF_SALE = "NG"
   PAYMENT_PROVIDERS  = "paystack"
   TAX_SELLER_COUNTRY = "NG" # whose tax rules price offers (ADR-072); rates in the console
   EMAIL_PROVIDER     = "smtp"
