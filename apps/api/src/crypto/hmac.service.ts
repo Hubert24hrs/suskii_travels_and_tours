@@ -38,7 +38,10 @@ export type HmacPurpose =
   | 'metasearch-key'
   // Support conversations (ADR-083): a guest's access token and emailed link tokens.
   | 'support-access'
-  | 'support-link';
+  | 'support-link'
+  // WhatsApp support contacts (ADR-084): the number's digits and the business-scoped user id.
+  | 'whatsapp-phone'
+  | 'whatsapp-bsuid';
 
 const PURPOSES: readonly HmacPurpose[] = [
   'ip',
@@ -68,6 +71,8 @@ const PURPOSES: readonly HmacPurpose[] = [
   'metasearch-key',
   'support-access',
   'support-link',
+  'whatsapp-phone',
+  'whatsapp-bsuid',
 ];
 const HKDF_SALT = 'suskii-api:hmac:v1';
 

@@ -10,6 +10,8 @@ import {
   type SupportChannel,
   type SupportPriority,
   type SupportStartInput,
+  type SupportStatus,
+  type SupportTargets,
 } from '@suskii/shared';
 
 import { AttestationService } from '../attestation/attestation.service';
@@ -83,7 +85,36 @@ export const supportConversationFull = (): ProblemDetailsException =>
   );
 
 /** "S-7KX2Q9". */
-const newReference = (): string => `S-${randomCode(SUPPORT_REFERENCE_ALPHABET, 6)}`;
+export const newSupportReference = (): string => `S-${randomCode(SUPPORT_REFERENCE_ALPHABET, 6)}`;
+
+/**
+ * What a traveller's message changes, whichever channel it came on: staff owe a reply from the
+ * first unanswered one, and a message on a resolved conversation reopens it with fresh targets.
+ */
+export function customerMessageChanges(
+  row: {
+    status: SupportStatus;
+    priority: SupportPriority;
+    openedAt: Date;
+    replyOwedSince: Date | null;
+  },
+  now: Date,
+  targets: SupportTargets,
+) {
+  const openedAt = row.status === 'resolved' ? now : row.openedAt;
+  const replyOwedSince = row.replyOwedSince ?? now;
+  return {
+    status: 'open' as const,
+    openedAt,
+    replyOwedSince,
+    resolvedAt: null,
+    ...supportSchedule(
+      { status: 'open', priority: row.priority, openedAt, replyOwedSince },
+      targets,
+    ),
+    lastCustomerMessageAt: now,
+  };
+}
 
 /** When the booking's first item starts, for the urgent queue; null when it is not a trip. */
 function tripStart(booking: BookingRecord): Date | null {
@@ -154,11 +185,11 @@ export class SupportService {
     );
 
     const row = await this.prisma.$transaction(async (tx) => {
-      let reference = newReference();
+      let reference = newSupportReference();
       while (
         await tx.supportConversation.findUnique({ where: { reference }, select: { id: true } })
       ) {
-        reference = newReference();
+        reference = newSupportReference();
       }
       const created = await tx.supportConversation.create({
         data: {
@@ -243,9 +274,6 @@ export class SupportService {
     if (row.messageCount >= SUPPORT_MESSAGES_PER_CONVERSATION) throw supportConversationFull();
     const now = new Date();
     const messageId = uuidv7();
-    const reopened = row.status === 'resolved';
-    const openedAt = reopened ? now : row.openedAt;
-    const replyOwedSince = row.replyOwedSince ?? now;
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.supportMessage.create({
         data: {
@@ -259,15 +287,7 @@ export class SupportService {
       return tx.supportConversation.update({
         where: { id: row.id },
         data: {
-          status: 'open',
-          openedAt,
-          replyOwedSince,
-          resolvedAt: null,
-          ...supportSchedule(
-            { status: 'open', priority: row.priority, openedAt, replyOwedSince },
-            this.config.SUPPORT_SLA,
-          ),
-          lastCustomerMessageAt: now,
+          ...customerMessageChanges(row, now, this.config.SUPPORT_SLA),
           customerReadAt: now,
           messageCount: { increment: 1 },
         },
