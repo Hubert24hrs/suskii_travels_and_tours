@@ -1,4 +1,4 @@
-import { parseDsn, type SupportTargets } from '@suskii/shared';
+import { isValidTimeZone, parseDsn, parseSupportHours, type SupportTargets } from '@suskii/shared';
 import { z } from 'zod';
 
 const booleanish = z
@@ -550,6 +550,30 @@ export const envSchema = z
     /** Messages one WhatsApp contact may send a minute before the rest are dropped. */
     SUPPORT_WHATSAPP_MESSAGES_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),
     /**
+     * The after-hours assistant (ADR-085): answers from the FAQs and the booking's facts while
+     * nobody is on shift. Off unless set, in every environment; it uses the LLM_* settings.
+     */
+    SUPPORT_ASSISTANT_ENABLED: booleanish.default(false),
+    /**
+     * Staffed hours in SUPPORT_TIME_ZONE, e.g. `mon-fri 08:00-20:00, sat 09:00-14:00`; the
+     * assistant answers outside them. Empty: no staffed hours (it answers at any time).
+     */
+    SUPPORT_HOURS: z
+      .string()
+      .default('')
+      .refine((value) => parseSupportHours(value) !== null, {
+        message: 'use spans like "mon-fri 08:00-20:00, sat 09:00-14:00"',
+      }),
+    SUPPORT_TIME_ZONE: z
+      .string()
+      .default('Africa/Lagos')
+      .refine(isValidTimeZone, 'an IANA time zone such as Africa/Lagos'),
+    /** Answers the assistant gives in one conversation before leaving it to people. */
+    SUPPORT_ASSISTANT_MAX_REPLIES: z.coerce.number().int().min(1).max(10).default(3),
+    /** Assistant spend caps per UTC day in micro-dollars: all conversations, and each one. */
+    SUPPORT_ASSISTANT_DAILY_MICROUSD: z.coerce.number().int().min(0).default(5_000_000),
+    SUPPORT_ASSISTANT_CONVERSATION_MICROUSD: z.coerce.number().int().min(0).default(20_000),
+    /**
      * Referral rewards (ADR-031), in minor units of REFERRAL_REWARD_CURRENCY; zero pays nothing
      * (referrals are still tracked). A referral qualifies on a completed trip of at least
      * REFERRAL_MIN_SPEND_MINOR; at most REFERRAL_MONTHLY_CAP qualify per referrer per month.
@@ -805,6 +829,8 @@ export const envSchema = z
       require('PAYMENT_PROVIDERS', 'mock payments are not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.ANTIVIRUS_PROVIDER === 'mock')
       require('ANTIVIRUS_PROVIDER', 'uploaded documents must be scanned by a real scanner');
+    if (env.SUPPORT_ASSISTANT_ENABLED && !env.ALLOW_MOCK_PROVIDERS && env.LLM_PROVIDER === 'mock')
+      require('LLM_PROVIDER', 'the mock model is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.WHATSAPP_SUPPORT_PROVIDER === 'mock')
       require('WHATSAPP_SUPPORT_PROVIDER', 'the mock answers nobody on WhatsApp; it is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.AD_CONVERSIONS.includes('mock'))

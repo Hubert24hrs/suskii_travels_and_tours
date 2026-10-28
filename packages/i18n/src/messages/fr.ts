@@ -2903,6 +2903,11 @@ export const fr: Messages = {
       you: 'Vous',
       staff: 'Assistance Suskii',
       system: 'Suskii',
+      assistant: 'Réponse automatique',
+      assistantNote:
+        "Notre assistant a répondu à partir de nos articles d'aide et de votre réservation. Une personne lira aussi votre message.",
+      handover:
+        "Notre équipe n'est pas disponible pour le moment. Nous avons bien reçu votre message, et une personne vous répondra ici dès son retour.",
       reply: 'Votre réponse',
       send: 'Envoyer',
       resolve: 'Marquer comme résolue',

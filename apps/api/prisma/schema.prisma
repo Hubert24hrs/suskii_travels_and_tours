@@ -3459,16 +3459,20 @@ enum SupportChannel {
   whatsapp
 }
 
+/// `assistant`: the after-hours assistant (ADR-085), never a person.
 enum SupportAuthor {
   customer
   staff
   system
+  assistant
 }
 
-/// Text, or a WhatsApp attachment that is recorded by type and never downloaded (ADR-084).
+/// Text, a WhatsApp attachment that is recorded by type and never downloaded (ADR-084), or the
+/// assistant's handover to people, which clients show in the traveller's language (ADR-085).
 enum SupportMessageKind {
   text
   unsupported
+  handover
 }
 
 /// Where a staff reply sent over WhatsApp stands; statuses only move forward (ADR-084).
@@ -3561,25 +3565,28 @@ model SupportConversation {
 /// One message in a support conversation. Bodies are sealed per message
 /// (`support-message:{id}:body`); `internal` notes are never shown to the traveller.
 model SupportMessage {
-  id             String                 @id @default(uuid(7)) @db.Uuid
-  conversationId String                 @map("conversation_id") @db.Uuid
-  author         SupportAuthor
+  id               String                 @id @default(uuid(7)) @db.Uuid
+  conversationId   String                 @map("conversation_id") @db.Uuid
+  author           SupportAuthor
   /// The staff member who wrote it; null for travellers and system messages.
-  staffId        String?                @map("staff_id") @db.Uuid
-  internal       Boolean                @default(false)
-  kind           SupportMessageKind     @default(text)
-  bodyEncrypted  String                 @map("body_encrypted")
+  staffId          String?                @map("staff_id") @db.Uuid
+  internal         Boolean                @default(false)
+  kind             SupportMessageKind     @default(text)
+  bodyEncrypted    String                 @map("body_encrypted")
   /// WhatsApp's message id (`wamid`): inbound deliveries are deduplicated on it, and status
   /// webhooks find outbound replies by it.
-  externalId     String?                @unique @map("external_id") @db.VarChar(255)
+  externalId       String?                @unique @map("external_id") @db.VarChar(255)
   /// Staff replies sent over WhatsApp only.
-  deliveryStatus SupportDeliveryStatus? @map("delivery_status")
+  deliveryStatus   SupportDeliveryStatus? @map("delivery_status")
   /// Why a reply was not delivered: a short code (`timeout`, `no-phone`, Meta's error code).
-  deliveryError  String?                @map("delivery_error") @db.VarChar(64)
+  deliveryError    String?                @map("delivery_error") @db.VarChar(64)
   /// Outside the 24-hour window the template notice went instead; the reply stays `pending` and
   /// is sent as text when the traveller writes back.
-  noticeSentAt   DateTime?              @map("notice_sent_at") @db.Timestamptz(3)
-  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  noticeSentAt     DateTime?              @map("notice_sent_at") @db.Timestamptz(3)
+  /// What an assistant answer rested on, for staff: FAQ ids with their questions, booking fact
+  /// keys. Never personal data (ADR-085).
+  assistantSources Json?                  @map("assistant_sources")
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
 
   conversation SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   staff        User?               @relation("SupportStaffAuthor", fields: [staffId], references: [id], onDelete: SetNull)

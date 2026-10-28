@@ -321,7 +321,9 @@ export function SupportConversationScreen() {
       ? t('support.conversation.you')
       : value === 'staff'
         ? t('support.conversation.staff')
-        : t('support.conversation.system');
+        : value === 'assistant'
+          ? t('support.conversation.assistant')
+          : t('support.conversation.system');
 
   return (
     <ScrollView contentContainerClassName="gap-4 p-4" testID="support-conversation">
@@ -348,7 +350,14 @@ export function SupportConversationScreen() {
           <Text className="font-body-medium text-body-sm text-foreground">
             {author(message.author)} · {format.dateTime(message.createdAt)}
           </Text>
-          <Text className="font-body text-body text-foreground">{message.text}</Text>
+          <Text className="font-body text-body text-foreground">
+            {message.kind === 'handover' ? t('support.conversation.handover') : message.text}
+          </Text>
+          {message.author === 'assistant' && message.kind !== 'handover' ? (
+            <Text className="font-body text-body-sm text-muted">
+              {t('support.conversation.assistantNote')}
+            </Text>
+          ) : null}
         </View>
       ))}
       {conversation.status === 'resolved' ? (

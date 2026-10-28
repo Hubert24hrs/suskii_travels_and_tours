@@ -2883,6 +2883,11 @@ export const pt: Messages = {
       you: 'Você',
       staff: 'Apoio Suskii',
       system: 'Suskii',
+      assistant: 'Resposta automática',
+      assistantNote:
+        'O nosso assistente respondeu com base nos nossos artigos de ajuda e na sua reserva. Uma pessoa também vai ler a sua mensagem.',
+      handover:
+        'A nossa equipa não está disponível neste momento. Recebemos a sua mensagem, e uma pessoa vai responder aqui quando voltar.',
       reply: 'A sua resposta',
       send: 'Enviar',
       resolve: 'Marcar como resolvida',

@@ -108,6 +108,12 @@ api_env = {
   # set its value in Secret Manager, run the eval (ai-eval.yml) and uncomment:
   # AI_SEARCH_ENABLED = "true"
   # LLM_PROVIDER      = "anthropic"
+  # The after-hours support assistant (ADR-085) is off unless set. It uses the same model key
+  # (LLM_API_KEY above). Run ai-eval.yml with the support-assistant suite, set the staffed hours
+  # and uncomment:
+  # SUPPORT_ASSISTANT_ENABLED = "true"
+  # SUPPORT_HOURS             = "mon-fri 08:00-20:00, sat 09:00-14:00"
+  # SUPPORT_TIME_ZONE         = "Africa/Lagos"
 }
 
 worker_env = {
