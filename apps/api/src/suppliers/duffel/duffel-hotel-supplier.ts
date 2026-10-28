@@ -4,7 +4,9 @@ import { add, compare, equals, money, parseMoney, subtract, type Money } from '@
 
 import type { SupplierPrice } from '../../pricing/pricing-engine';
 import {
+  creating,
   OfferUnavailableError,
+  SupplierAmbiguousError,
   SupplierRequestError,
   SupplierUnavailableError,
 } from '../supplier.errors';
@@ -223,25 +225,28 @@ export class DuffelHotelSupplier extends HotelSupplier {
     if (!equals(total, add(request.rate.price.base, request.rate.price.taxes))) {
       throw new SupplierRequestError(this.name, 'The stay price changed after payment');
     }
-    const created = await this.client.request('POST', '/stays/bookings', signal, {
-      data: {
-        quote_id: quote.id,
-        guests: request.guests.map((guest) => ({
-          given_name: guest.givenNames,
-          family_name: guest.surname,
-        })),
-        email: request.contact.email,
-        phone_number: request.contact.phone,
-        metadata: { suskii_booking_item: request.idempotencyKey },
-      },
-    });
+    // Duffel takes no idempotency key here: a failure after sending goes to review.
+    const created = await creating(this.name, () =>
+      this.client.request('POST', '/stays/bookings', signal, {
+        data: {
+          quote_id: quote.id,
+          guests: request.guests.map((guest) => ({
+            given_name: guest.givenNames,
+            family_name: guest.surname,
+          })),
+          email: request.contact.email,
+          phone_number: request.contact.phone,
+          metadata: { suskii_booking_item: request.idempotencyKey },
+        },
+      }),
+    );
     const booking = duffelStaysBookingSchema.safeParse(dataOf(created));
     if (!booking.success) {
-      throw new SupplierUnavailableError(this.name, 'Duffel returned an invalid booking');
+      throw new SupplierAmbiguousError(this.name, 'Duffel returned an invalid booking');
     }
     // Anything but confirmed leaves the outcome unclear: it goes to review, never to a retry.
     if (booking.data.status !== 'confirmed') {
-      throw new SupplierUnavailableError(this.name, `Duffel booking is ${booking.data.status}`);
+      throw new SupplierAmbiguousError(this.name, `Duffel booking is ${booking.data.status}`);
     }
     return { confirmationNumber: booking.data.reference ?? booking.data.id };
   }

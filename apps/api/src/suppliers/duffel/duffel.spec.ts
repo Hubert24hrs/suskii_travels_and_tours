@@ -2,6 +2,7 @@ import { money } from '@suskii/shared';
 
 import {
   OfferUnavailableError,
+  SupplierAmbiguousError,
   SupplierRequestError,
   SupplierTimeoutError,
   SupplierUnavailableError,
@@ -343,6 +344,23 @@ describe('DuffelFlightSupplier', () => {
       ),
     ).rejects.toBeInstanceOf(SupplierRequestError);
     expect(noBags.calls).toHaveLength(1);
+
+    // The order may exist when its call fails: unclear, for review, never another order.
+    const freshOffer = () =>
+      json(200, { data: duffelOffer('off_1', { passengers: offerPassengers }) });
+    const lost = fakeFetch(freshOffer(), json(502, { errors: [] }));
+    await expect(supplierWith(lost.fn).book(request, signal)).rejects.toBeInstanceOf(
+      SupplierAmbiguousError,
+    );
+    const unreadable = fakeFetch(freshOffer(), json(201, { data: {} }));
+    await expect(supplierWith(unreadable.fn).book(request, signal)).rejects.toBeInstanceOf(
+      SupplierAmbiguousError,
+    );
+    // Nothing was ordered when the offer could not be read: safe to retry.
+    const early = fakeFetch(json(503, { errors: [] }));
+    await expect(supplierWith(early.fn).book(request, signal)).rejects.toBeInstanceOf(
+      SupplierUnavailableError,
+    );
   });
 
   it('maps transport and HTTP failures to supplier errors without leaking the token', async () => {
