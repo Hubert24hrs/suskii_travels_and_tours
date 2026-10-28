@@ -2450,6 +2450,7 @@ export const fr: Messages = {
         price_alert: 'Alertes de prix',
         prime: 'Suskii Prime',
         review_requests: 'Demandes d’avis après un voyage',
+        support: 'Réponses de notre service client',
         marketing: 'Offres et actualités',
       },
       channels: { email: 'E-mail', sms: 'SMS', whatsapp: 'WhatsApp', push: 'Application' },

@@ -2626,6 +2626,7 @@ export const ar: Messages = {
         price_alert: 'تنبيهات الأسعار',
         prime: 'Suskii Prime',
         review_requests: 'طلبات التقييم بعد الرحلة',
+        support: 'ردود فريق الدعم',
         marketing: 'العروض والأخبار',
       },
       channels: {
