@@ -24,12 +24,12 @@ with Prime "yearly, priced per country".
 
 One pull request each, in this order.
 
-| Part | Work                                                                                                                                                                                                                                                              | Decision |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 1    | Ads with consent: Meta Pixel and TikTok Pixel on the website after `marketing` consent, the first-visit prompt, server-side Purchase events (Meta Conversions API, TikTok Events API) for consented bookings                                                      | ADR-079  |
-| 2    | SEO pages: route facts from a daily fare history (cheapest and typical fare, airlines, direct flights, fastest time, cheapest month), `/flights/from/[city]`, `/flights/to/[city]`, `/airlines/[code]`, internal links, sitemap                                   | ADR-080  |
-| 3    | Metasearch: partners with hashed API keys created in the console, `GET /v1/meta/flights` with all-in prices and sealed deep links, per-partner limits, a landing page that re-quotes the itinerary and says when the price moved, partner attribution on bookings | ADR-081  |
-| 4    | Prime per country: price entries may name a country, the edge's country picks the entry (else the currency's), console editing, the quote keeps the resolved price                                                                                                | ADR-082  |
+| Part | Work                                                                                                                                                                                                                                                                    | Decision |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1    | Ads with consent: Meta Pixel and TikTok Pixel on the website after `marketing` consent, the first-visit prompt, server-side Purchase events (Meta Conversions API, TikTok Events API) for consented bookings                                                            | ADR-079  |
+| 2    | SEO pages: route facts from a daily fare history (cheapest and typical fare, airlines, direct flights, fastest time, cheapest month), `/flights/from/[city]`, `/flights/to/[city]`, `/airlines/[code]`, internal links, sitemap                                         | ADR-080  |
+| 3    | Metasearch: partners with hashed API keys created in the console, `GET /v1/metasearch/flights` with all-in prices and sealed deep links, per-partner limits, a landing page that re-quotes the itinerary and says when the price moved, partner attribution on bookings | ADR-081  |
+| 4    | Prime per country: price entries may name a country, the edge's country picks the entry (else the currency's), console editing, the quote keeps the resolved price                                                                                                      | ADR-082  |
 
 ## Part 1: ads with consent
 
@@ -120,3 +120,37 @@ pages appear as soon as a route has fares.
 | Website e2e                      | 121 of 122: every journey, SEO, hydration and slow-3G test passes                                                                           |
 | Lighthouse (local)               | Total blocking time only, median 253 ms; nothing here touches the homepage and the base fails the same way on this machine. CI is the judge |
 | Tailwind classes, security list  | `check:classes` clean, `security:checklist --check` up to date                                                                              |
+
+## Part 3: metasearch
+
+Metasearch engines (Google Flights, Skyscanner, KAYAK, Wego, Momondo) send a large share of
+flight bookings to online travel agencies. Each one asks the agency's live API for fares on a
+route and dates, shows the price beside the airlines' own, and sends the traveller to the agency
+through a deep link. Google's partner rules set the bar: a deep link to a page showing the chosen
+itinerary (not a search page), at least 95% of links working, and at least 90% of prices matching
+on arrival, checked by crawlers every day.
+
+| Step | Work                                                                                                                                                                                                                                                        | Files                                     |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| 1    | Database: `metasearch_partners` (name, code, key HMAC and prefix, limits, active) and `metasearch_landings` (partner, outcome, shown and landed totals); quotes and bookings carry the landing; data registry entries and a retention rule                  | `apps/api/prisma`, `src/privacy`          |
+| 2    | API: `GET /v1/metasearch/flights` behind the partner's `X-Api-Key`, per-partner limits per minute and per day, all-in prices from the website's pricing, sealed deep links (`METASEARCH_LINK_TTL_HOURS`); no search analytics row for partner traffic       | `apps/api/src/metasearch`, `src/search`   |
+| 3    | API: `POST /v1/metasearch/landings` finds the itinerary again, quotes it with the supplier, compares the total with the partner's price (same, lower, higher, gone, expired), records the landing and ties the quote to it; bookings copy it from the quote | `apps/api/src/metasearch`, `src/bookings` |
+| 4    | Admin API and console: partners (create and rotate show the key once, step-up), limits and deactivation, a 30-day report per partner (landings by outcome, price accuracy, bookings and value per currency)                                                 | `apps/api/src/metasearch`, `apps/admin`   |
+| 5    | Website: `/flights/go/[token]` re-quotes and goes straight to checkout when the price held or fell, says what changed when it rose, and offers the same search when the flight is gone; private, never indexed                                              | `apps/web`, `packages/i18n`               |
+| 6    | Tests: unit tests (keys, sealed links, outcomes), API e2e (keys, limits, prices match the website, landings, attribution, console routes, audit), website e2e (landing outcomes), admin e2e (create, rotate, report)                                        | `apps/*`                                  |
+| 7    | Docs: ADR-081, security docs (authentication, access control, crypto inventory, data classification, business limits), settings in Terraform and Helm, CHANGELOG, CLAUDE.md                                                                                 | `docs`, `infra`                           |
+
+Risks:
+
+- **Price accuracy.** A partner price that does not hold on arrival costs the listing. The API
+  prices partner fares exactly as the website prices a guest's search, and the landing quotes the
+  same itinerary with the supplier before showing anything. Landings record every outcome, so the
+  console shows each partner's accuracy before the partner does.
+- **Supplier search costs.** Partners can ask far more often than people do, and suppliers charge
+  for excessive look-to-book ratios. Partner requests share the search cache, are capped per
+  minute and per day per partner, and invalid keys are limited per address.
+- **Key leaks.** Keys are 256-bit random values stored only as an HMAC, shown once, rotated in
+  one step (the old key stops at once), and every creation and rotation is audited and needs a
+  recent authenticator check.
+- **Tampered links.** Deep links are sealed (AES-256-GCM), so the itinerary, price and partner
+  cannot be changed, and they carry no personal data.
