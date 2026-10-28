@@ -84,6 +84,12 @@ export async function UtilityBar({ site }: { site: SiteContent | null }) {
         >
           {t('header.manageBooking')}
         </AppLink>
+        <AppLink
+          href="/support"
+          className="inline-flex min-h-12 items-center font-body text-body-sm font-medium text-foreground hover:text-primary focus-visible:focus-ring"
+        >
+          {t('support.link')}
+        </AppLink>
         <CurrencySelect />
       </Container>
     </nav>

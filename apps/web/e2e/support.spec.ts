@@ -10,7 +10,13 @@ import { expect, expectNoAxeViolations, t, test } from './fixtures';
 test.use({ allowedConsoleErrors: [/404/] });
 
 test('a visitor starts a conversation, replies and marks it solved', async ({ page }) => {
-  await page.goto('/support');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  await page
+    .getByRole('navigation', { name: t('header.utilityNav') })
+    .getByRole('link', { name: t('support.link') })
+    .click();
+  await page.waitForURL(/\/support$/);
   await expect(page.getByRole('heading', { level: 1, name: t('support.heading') })).toBeVisible();
   await expectNoAxeViolations(page);
 
