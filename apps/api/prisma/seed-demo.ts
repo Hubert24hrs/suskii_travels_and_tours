@@ -378,7 +378,12 @@ async function seedPrime(prisma: PrismaClient): Promise<void> {
     name: 'Suskii Prime (sample)',
     summary: `Member fares and no service fee for a year. ${SAMPLE_NOTE}`,
     period: 'year' as const,
-    prices: [ngn(25_000), { amountMinor: 2_500, currency: 'USD' }],
+    // A country price shows ADR-082 at work: visitors from Ghana paying in dollars see USD 18.
+    prices: [
+      ngn(25_000),
+      { amountMinor: 2_500, currency: 'USD' },
+      { amountMinor: 1_800, currency: 'USD', country: 'GH' },
+    ],
     benefits: { markupShareBps: 5_000, waivedFeeCodes: ['service_fee'], prioritySupport: true },
     status: 'published' as const,
     sample: true,

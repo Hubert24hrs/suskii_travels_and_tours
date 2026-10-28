@@ -226,8 +226,13 @@ export class InhouseQuotesService {
       case 'membership': {
         const plan = await this.prisma.primePlan.findUnique({ where: { slug: input.planSlug } });
         if (!plan) throw new OfferUnavailableError(INHOUSE_SUPPLIER, 'No such Prime plan');
-        const { price } = await this.catalog.primePlan(plan.id, input.currency);
-        return this.catalog.membershipPayload(plan, price, now);
+        // Priced for the edge's country of the request (ADR-082); the payload keeps the entry.
+        const { price, priceCountry } = await this.catalog.primePlan(
+          plan.id,
+          input.currency,
+          client.country ?? null,
+        );
+        return this.catalog.membershipPayload(plan, price, priceCountry, now);
       }
       case 'package': {
         const row = await this.catalog.packageDeparture(input.departureId, now);

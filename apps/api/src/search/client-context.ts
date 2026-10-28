@@ -1,6 +1,7 @@
 import type { PrimeBenefits } from '@suskii/shared';
 
 import type { AuthenticatedRequest } from '../auth/auth-context';
+import { requestContext } from '../common/request-context';
 import type { SalesChannel, UserTier } from '../generated/prisma/client';
 
 export interface ClientContext {
@@ -9,6 +10,8 @@ export interface ClientContext {
   userId: string | null;
   /** Suskii Prime benefits when `userTier` is `prime` (ADR-030). */
   benefits: PrimeBenefits | null;
+  /** The edge's country for the request (`CLIENT_COUNTRY_HEADER`), never a client value. */
+  country?: string | null;
 }
 
 /**
@@ -33,5 +36,6 @@ export function clientContext(request: AuthenticatedRequest): ClientContext {
     userTier: request.auth ? (isPrime ? 'prime' : 'member') : 'guest',
     userId: request.auth?.userId ?? null,
     benefits: isPrime ? prime.benefits : null,
+    country: requestContext(request).country ?? null,
   };
 }
