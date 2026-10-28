@@ -4,17 +4,16 @@ import {
   SUPPORT_REFERENCE_ALPHABET,
   SUPPORT_REFERENCE_PATTERN,
   isWhatsAppStop,
-  parseSupportHours,
   supportDeliveryAdvances,
   supportDueAt,
   supportPriority,
   supportSchedule,
   supportSlaState,
-  supportStaffed,
   type SupportTargets,
   whatsappWindowClosesAt,
   whatsappWindowOpen,
 } from './support';
+import { parseSupportHours, supportStaffed } from './support-hours';
 import { supportStartSchema } from './support-schemas';
 
 const now = new Date('2026-11-02T10:00:00Z');
