@@ -4,8 +4,11 @@
  * web's lite entry can read the consent cookie.
  */
 
-/** Bump when the cookie list or its wording changes in a way that needs a fresh choice. */
-export const COOKIE_POLICY_VERSION = 1;
+/**
+ * Bump when the cookie list or its wording changes in a way that needs a fresh choice. Version 2
+ * added the Meta and TikTok tags (ADR-079).
+ */
+export const COOKIE_POLICY_VERSION = 2;
 
 /** First-party cookie holding the recorded choice (strictly necessary: it stores the choice). */
 export const COOKIE_CONSENT_COOKIE = 'suskii_consent';

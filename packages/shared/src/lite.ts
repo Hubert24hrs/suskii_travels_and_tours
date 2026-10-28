@@ -316,3 +316,10 @@ export {
   type CompanyRole,
   type PolicyFinding,
 } from './companies';
+export {
+  AD_CLICK_COOKIES,
+  AD_EVENTS,
+  TIKTOK_CLICK_PARAM,
+  type AdEvent,
+  type AdNetwork,
+} from './ad-tracking';
