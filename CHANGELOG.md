@@ -6,6 +6,32 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Languages (2026-10-28)
+
+#### Added
+
+- **French, Swahili, Arabic and Portuguese (ADR-076).** The website and the app in `fr`, `sw`,
+  `ar` and `pt`, with complete catalogs. Tests check that each keeps the English placeholders,
+  has the plural forms its language needs (six in Arabic) and has no string left in English. The
+  translations are drafts and need a native speaker's review before production.
+- **Right to left in Arabic.** The website sets `<html dir="rtl">` and uses logical direction
+  utilities only (a lint rule in the website and a guard test in ui-web refuse physical ones);
+  arrows mirror, tabs follow the arrow keys' direction and the calendar runs right to left in the
+  page's language. Inserted values (airport codes, prices, booking codes) are isolated so they
+  never reorder an Arabic sentence. The app mirrors from the device language.
+- **Latin digits in every language,** so prices, times and codes read as they do on tickets.
+- **The visitor's language without asking.** The website uses the footer choice, else the
+  browser's `Accept-Language`, else `en-NG`; the app follows the device's languages. The picker
+  names each language in its own language.
+- Web e2e: French from the browser (axe, every breakpoint, the footer choice wins), Arabic home
+  and flight results (direction, Latin digits, axe, a phone's width) and the hydration check in
+  Arabic.
+
+#### Fixed
+
+- ui-web's class merger read `inset-s-*` as the `inset` shorthand and dropped `inset-x-*` and
+  `top-*` before it; it now knows the inline start and end families as tailwind-merge does.
+
 ### Fast on slow 3G (2026-10-28)
 
 #### Added
