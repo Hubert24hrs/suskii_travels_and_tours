@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Support conversations (2026-10-28)
+
+#### Added
+
+- **Conversations tied to bookings (ADR-083).** Travellers, guests and visitors write to support
+  from the website (`/support`, the header, the footer and every booking page) or the app
+  (Account and every trip). A conversation can be about one booking the caller can open. Guests
+  get a token once (kept in session storage or the phone's secure store), and reply emails carry
+  a 30-day link. Without a session, the website needs Turnstile and the app its device
+  attestation.
+- **Priority and SLA timers.** Trips starting within `SUPPORT_URGENT_HOURS` (48) are urgent,
+  Prime plans with priority support come next, then everyone else. `SUPPORT_SLA` sets a reply
+  and a resolution target per priority. Due times are recomputed on every change and order the
+  inbox.
+- **Console inbox.** Staff with `support:manage` see queues (open, mine, unassigned, solved)
+  with due and overdue marks. They can reply, add internal notes the traveller never sees,
+  assign agents, and change priority, category or status. Every change is audited.
+- **Notifications.** A staff reply notifies account holders by email and push (the new
+  `support` category) and guests by email with an access link. No notice includes the reply
+  itself.
+- **Privacy.** Message bodies and guests' emails are encrypted per row. The data export includes
+  conversations without internal notes or staff names, account deletion removes them, and
+  solved ones are purged two years after their last change. The store forms now list in-app
+  messages (Play) and customer support (App Store).
+
 ### Suskii Prime priced per country (2026-10-28)
 
 #### Added
