@@ -51,28 +51,44 @@ const STATUSES = ['draft', 'published', 'archived'] as const satisfies readonly 
 export const planTone = (status: PlanStatus) =>
   status === 'published' ? 'success' : status === 'archived' ? 'neutral' : 'warning';
 
-/** "NGN 25000" lines from stored prices, one per currency. */
+interface PriceLine {
+  amountMinor: number;
+  currency: string;
+  /** Only for visitors from this country (ADR-082); null for everywhere else. */
+  country: string | null;
+}
+
+/** "NGN 25000" or "USD 18 GH" lines from stored prices. */
 const pricesText = (prices: Plan['prices']): string =>
   prices
-    .map((price) => `${price.currency} ${inputFromMinor(price.amountMinor, price.currency)}`)
+    .map((price) =>
+      [price.currency, inputFromMinor(price.amountMinor, price.currency), price.country]
+        .filter(Boolean)
+        .join(' '),
+    )
     .join('\n');
 
-/** Prices from "NGN 25000" lines; null when any line is not a currency code and a positive amount. */
-export function parsePrices(text: string): { amountMinor: number; currency: string }[] | null {
+/**
+ * Prices from lines of a currency code, a positive amount and, for a country price, a country
+ * code ("USD 18 GH"); null when a line is malformed or repeats a currency and country.
+ */
+export function parsePrices(text: string): PriceLine[] | null {
   const lines = text
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
   if (lines.length === 0) return null;
-  const prices: { amountMinor: number; currency: string }[] = [];
+  const prices: PriceLine[] = [];
   for (const line of lines) {
-    const match = /^([A-Za-z]{3})\s+(\S+)$/.exec(line);
+    const match = /^([A-Za-z]{3})\s+(\S+)(?:\s+([A-Za-z]{2}))?$/.exec(line);
     if (!match?.[1] || !match[2]) return null;
     const currency = match[1].toUpperCase();
+    const country = match[3]?.toUpperCase() ?? null;
     const amountMinor = minorFromInput(match[2], currency);
     if (amountMinor === null || Number.isNaN(amountMinor) || amountMinor <= 0) return null;
-    if (prices.some((price) => price.currency === currency)) return null;
-    prices.push({ amountMinor, currency });
+    if (prices.some((price) => price.currency === currency && price.country === country))
+      return null;
+    prices.push({ amountMinor, currency, country });
   }
   return prices;
 }
@@ -301,7 +317,17 @@ export function PrimePage() {
               {
                 key: 'prices',
                 header: t('prime.prices'),
-                cell: (row) => row.prices.map((price) => format.money(price)).join(' · '),
+                cell: (row) =>
+                  row.prices
+                    .map((price) =>
+                      price.country
+                        ? t('prime.countryPrice', {
+                            price: format.money(price),
+                            country: format.country(price.country),
+                          })
+                        : format.money(price),
+                    )
+                    .join(' · '),
               },
               {
                 key: 'markup',
