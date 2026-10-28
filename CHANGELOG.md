@@ -6,6 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Compliance, part 2: rights requests, breaches and records of processing (2026-10-28)
+
+#### Added
+
+- **Deadlines per law (ADR-089).** `PRIVACY_RULES` in `@suskii/shared`: for Nigeria, Kenya, South
+  Africa, the EU, the UK and elsewhere, the regulator, the breach notice period and the answer
+  period for each kind of request, each marked as set by law or an internal target, with its
+  source. `privacyRequestDueAt()` and `breachNoticeDueAt()` compute every due time.
+- **A register of data rights requests.** Self-service exports and deletions are recorded as they
+  happen under the law of the caller's country; the privacy officer records requests received by
+  email, phone, post or support in the console and completes them or refuses them with a reason.
+  Open requests are listed by due time, overdue ones flagged.
+- **A breach register.** A breach gets one regulator notice per law that applies, due 72 hours
+  after awareness; each is recorded as sent (with the regulator's reference) or not required,
+  and the breach closes only when none is pending. Details are encrypted and shown only on the
+  breach.
+- **A privacy officer role** (`privacy:manage`, with `users:read` and `audit:read`) and the
+  console's Privacy registers page.
+- **Alerts before a deadline passes:** `PrivacyBreachNoticeDue` pages 12 hours before a regulator
+  notice is due (and after); `PrivacyRequestOverdue` opens a ticket. Runbook:
+  `docs/runbooks/data-rights-requests.md`.
+- **Records of processing and transfers**, generated from code (`pnpm --filter @suskii/api
+  privacy:records`): 15 activities with purpose, lawful basis, people, data, tables and
+  retention, and 17 recipients with what they receive, where they process it and the transfer
+  basis (`docs/privacy/records-of-processing.md`). A test fails when a table holding personal
+  data has no activity or the page is stale.
+
+#### Fixed
+
+- The metasearch link tamper test could leave the token unchanged about once in 64 runs.
+
 ### Compliance, part 1: payment pages and privacy obligations (2026-10-28)
 
 #### Security

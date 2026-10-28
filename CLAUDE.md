@@ -88,7 +88,8 @@ and checked in CI (`docs/phases/accessibility.md`, `docs/accessibility/wcag-2.2-
 manual screen reader pass waits for devices and testers. Item 13, compliance, runs in two parts
 (`docs/phases/compliance.md`): part 1, payment pages that run only our scripts (PCI DSS SAQ A),
 the privacy obligations per country and a breach runbook, is built and waits for the owner's
-registrations and filings; part 2, rights request and breach registers with deadlines, comes next.
+registrations and filings; part 2, rights request and breach registers with deadlines, alerts and
+records of processing generated from code, is built and waits for the owner's privacy officer.
 Item 11 is in review.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
@@ -172,6 +173,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api eval:support-assistant` | Support assistant eval: 40 conversations, 90% and no unsafe answer (`--recorded`) |
 | `pnpm --filter @suskii/api sandbox:duffel`         | Duffel flights and Stays test-mode check (ADR-062; test token, `--book`)          |
 | `pnpm --filter @suskii/api test:sandbox`           | Our API's booking journey against Duffel test mode (manual workflow only)         |
+| `pnpm --filter @suskii/api privacy:records`        | Regenerate `docs/privacy/records-of-processing.md` (a unit test checks it)        |
 | `pnpm --filter @suskii/api sandbox:partners`       | Hotelbeds, Expedia, Viator and Travelpayouts check (owner keys, read-only)        |
 | `pnpm --filter @suskii/api rides:demo`             | Sample drivers take local rides; type the rider's PIN (not in prod)               |
 | `pnpm --filter @suskii/api staff:bootstrap`        | First super admin of a new environment (`--email`, `--yes`; once)                 |
@@ -884,6 +886,18 @@ Tooling notes for agents:
 - Country obligations and their sources live in `docs/compliance/privacy-obligations.md`; a
   deadline in code comes only from a row there. A suspected breach follows
   `docs/runbooks/personal-data-breach.md` (regulator clocks start at awareness).
+- Due times come only from `privacyRequestDueAt()` / `breachNoticeDueAt()` over `PRIVACY_RULES`
+  (`@suskii/shared`); a new deadline is a row there with its source and `statutory` flag.
+- Requests and breaches change only through `PrivacyRequestsService` and
+  `PrivacyBreachesService` (`/v1/admin/privacy`, `privacy:manage`): closing claims the row with a
+  conditional update, refusals take a reason from `PRIVACY_REFUSAL_REASONS` (never free text), a
+  breach closes only when no notice is pending, and audit metadata carries ids, laws, outcomes and
+  `late`, never the details or the email. A new self-service data right records itself with
+  `recordSelfService()`.
+- Records of processing are code (`apps/api/src/privacy/processing-records.ts`): a new table
+  holding personal data joins an activity, and a new provider that receives personal data becomes
+  a recipient with its location and transfer basis, in the same change; then run
+  `pnpm --filter @suskii/api privacy:records` (the records test fails otherwise).
 
 ### Hardening (phase 11, ADR-037 to ADR-048)
 
@@ -1208,4 +1222,6 @@ compliance (ADR-089): registration with the NDPC (tier and fee), the ODPC and th
 Regulator; a data protection officer and an Information Officer; the yearly SAQ A with each
 payment provider's attestation; counsel's view on the rows marked "confirm" (registration tiers,
 Kenya's sector list, the transfer basis for London hosting and each supplier); the privacy policy
-and the PAIA manual; and DPIAs for payment risk scoring and the AI features.
+and the PAIA manual; DPIAs for payment risk scoring and the AI features; who holds the
+`privacy_officer` role; and confirmation of each recipient's location and transfer basis in
+`docs/privacy/records-of-processing.md` against the terms the owner signs.

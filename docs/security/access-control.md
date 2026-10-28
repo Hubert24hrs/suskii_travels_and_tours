@@ -20,9 +20,10 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   declare `@AdminRoute(permission)`, which also requires a staff role, an MFA session, an
   allowlisted IP and, for cookies, an allowlisted origin. The riskiest admin mutations add
   `@StepUp()`.
-- **One catalog.** `ROLE_PERMISSIONS` (`packages/shared/src/rbac.ts`) maps the nine roles
+- **One catalog.** `ROLE_PERMISSIONS` (`packages/shared/src/rbac.ts`) maps the ten roles
   (`customer`, `super_admin`, `operations`, `finance`, `support`, `content_manager`,
-  `visa_officer`, and the Cars roles `driver` and `operator_agent`) to 25 permissions. The seed
+  `visa_officer`, `privacy_officer`, and the Cars roles `driver` and `operator_agent`) to 26
+  permissions. The seed
   syncs it to the database for the console. Drivers and operator agents are not staff
   (`NON_STAFF_ROLES`): no console, no MFA requirement, and their routes also check the record
   (the driver assigned to a ride, the agent's operator) (ADR-049, ADR-050).
@@ -80,6 +81,7 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Accounts                                                                                         | The owner; staff with `users:read` (view) or `users:manage` (disable, sign out, reset MFA)                                                                                                                                         |
 | Audit log, dashboards, partner commission summary                                                | Staff with `audit:read` or `reports:read`                                                                                                                                                                                          |
 | Metasearch partners (`/v1/admin/metasearch/partners`)                                            | Staff with `reports:read` see partners and the 30-day report (key hint only); `pricing:manage` adds partners and replaces keys with step-up, and changes limits or access; all audited                                             |
+| Privacy registers (`/v1/admin/privacy`)                                                          | Staff with `privacy:manage` (privacy officers, super admins): rights requests (email shown masked) and breaches (details only on the breach itself); every change audited with ids and outcomes only (ADR-089)                     |
 
 Anything a caller may not access answers **404**, never 403, so ids cannot be probed. Ownership
 is checked in the service that loads the record (`BookingsService.load()` and the like), not in
