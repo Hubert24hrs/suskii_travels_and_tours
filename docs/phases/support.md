@@ -86,3 +86,40 @@ every change, so a new priority moves them. The console sorts by the nearest due
 - **Real-time cost.** Clients poll for new messages after the last id they have, every 4 seconds
   while the conversation is visible and not at all when hidden; a socket can replace this later
   through the rides gateway pattern (ADR-052).
+
+## Part 1 outcome
+
+Built as planned (ADR-083).
+
+- **API** (`apps/api/src/support`): starting a conversation (account; guest with Turnstile or
+  device attestation and an email; about a booking the caller can open), list, read with paging
+  after a message id, mark read, reply and resolve. Guest access is by the token returned at the
+  start or an emailed 30-day link token. The console routes cover queues with keyset paging by due
+  time, replies, internal notes, assignment, and priority, category and status changes, each
+  audited. Reply notices go through `NotificationService` (`support` category) or a guest email.
+- **Database**: `support_conversations` and `support_messages` (expand-only migration
+  `20261105120000_support_conversations`), registry entries, export without notes, deletion with
+  the account, and a two-year purge of solved conversations.
+- **Website**: `/support` (FAQs, start, your conversations), `/support/[id]` (polling every
+  4 s while visible), "Get help with this booking" on booking pages, and Help in the header and
+  footer.
+- **App**: Help and support from Account and every trip, the conversation screen (polling every
+  4 s), guest tokens in the secure store, reply notifications that open the conversation, and a
+  Maestro flow that writes to support as a visitor.
+- **Console**: the Support inbox (queues, filters, SLA marks) and the conversation page (thread,
+  reply, note, assignment, priority, status).
+
+Verification on this branch (local):
+
+| Check                               | Result                                                                                                                                        |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint and typecheck, every workspace | 25 of 25 tasks                                                                                                                                |
+| Unit tests                          | API 611, app 259, ui-native 45, ui-web 148 + 4, and the shared, i18n, worker, design-token and api-client suites all pass                     |
+| API e2e (without the S3 suite)      | 558 of 558 (53 suites), including support 5 of 5, the IDOR matrix and the admin audit cases                                                   |
+| Website e2e                         | 130 of 130 run on their own. A first run alongside other builds missed the slow-3G budget by 50 ms (3,050 ms median); it passed on the re-run |
+| Console e2e                         | 20 of 20, including the support journey and its audit entry                                                                                   |
+| `check:classes`, security list      | Every class generates CSS; `security:checklist --check` up to date                                                                            |
+| Migrations                          | `check:migrations` backwards-compatible                                                                                                       |
+
+Open for the owner: who staffs support and on which hours, the reply and resolution targets per
+priority (`SUPPORT_SLA`), and which Prime plans include priority support.
