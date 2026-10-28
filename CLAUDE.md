@@ -385,7 +385,8 @@ Tooling notes for agents:
   every catalog (the type check fails otherwise; `catalogs.test.ts` checks placeholders, plural
   forms and English left behind). The language is the footer cookie, else `Accept-Language`
   (`negotiateLocale`), else `en-NG`; URLs stay the same. Format through `format`/`t` (Latin
-  digits via `intlLocale`), never `Intl` with the bare locale.
+  digits via `intlLocale`), never `Intl` with the bare locale. The date picker names months and
+  days with Intl outside English; pass its `today` and `selected` label templates from the catalog.
 - Arabic pages are right to left (`<html dir>` from `localeDirection`). Use logical utilities
   only (`ms-`/`me-`, `ps-`/`pe-`, `inset-s-`/`inset-e-`, `border-s-`, `rounded-s-`, `text-start`);
   the website's lint rule and ui-web's guard test refuse `ml-`, `left-`, `text-right` and the like.

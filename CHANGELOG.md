@@ -31,6 +31,15 @@ All notable changes to this project are documented here. The format follows
 
 - ui-web's class merger read `inset-s-*` as the `inset` shorthand and dropped `inset-x-*` and
   `top-*` before it; it now knows the inline start and end families as tailwind-merge does.
+- The footer's data saver select was wider than a phone in French, Swahili and Portuguese (up to
+  113 px of overflow at 360 px); the preference controls now wrap and shrink.
+- The calendar keeps DayPicker's own day labels on English pages and the "today" and "selected"
+  parts of a day's label in every language (catalog templates `search.datePicker.today` and
+  `selected`).
+- The homepage stays within its 170 kB JavaScript budget (173,976 bytes gzip): locale negotiation
+  is no longer shipped to browsers, and the class merger builds its repeated families.
+- The mock checkout counts viewing and paying in separate per-IP buckets, so 15 test checkouts
+  in ten minutes no longer exhaust it (development and test stacks only).
 
 ### Fast on slow 3G (2026-10-28)
 
