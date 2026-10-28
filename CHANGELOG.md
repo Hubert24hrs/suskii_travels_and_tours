@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Expedia Rapid hotels (2026-10-28)
+
+#### Added
+
+- **Expedia Rapid hotel adapter (ADR-086).** `HOTEL_SUPPLIERS=expedia` adds Expedia's and Vrbo's
+  inventory beside Duffel Stays and Hotelbeds, merged by the existing duplicate rule. A polygon
+  around the city finds property ids, Expedia Collect rates are shopped for up to 250 of them
+  and named from the content API (ids and content cached for a day). Prices come from the
+  billable amounts in minor units, with taxes inside the total and property fees paid at the
+  hotel. A price check runs before the quote and another before booking, which refuses a total
+  that moved after payment. The booking call runs in `creating()`, so an unclear answer goes to
+  review instead of a second itinerary.
+- **Checkout IP for Expedia bookings.** Rapid requires the traveller's IP on its booking call,
+  which runs after payment. The checkout IP is kept on Expedia items only, encrypted
+  (`booking-item:{id}:customer-ip`), and cleared once booked, when ticketing gives up, at
+  account deletion, or by the `supplier-customer-ip` retention rule after 7 days. The data
+  export lists it while it is held.
+- **Settings.** `EXPEDIA_RAPID_API_URL` (the sandbox host by default; production refuses it),
+  `EXPEDIA_RAPID_API_KEY`, `EXPEDIA_RAPID_SHARED_SECRET`, `EXPEDIA_POINT_OF_SALE`,
+  `EXPEDIA_REQUEST_CURRENCY`, `EXPEDIA_SEARCH_RADIUS_KM`, `EXPEDIA_MAX_PROPERTIES` and
+  `EXPEDIA_RATES_PER_PROPERTY`.
+- **Sandbox check.** `sandbox:partners --only expedia` and the `partner-sandbox.yml` workflow
+  search and price-check through the adapter on Rapid's test host with the owner's keys.
+
 ### Supplier booking retries (2026-10-28)
 
 #### Fixed

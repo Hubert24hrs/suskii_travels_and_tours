@@ -65,3 +65,27 @@ copy when two suppliers return the same hotel.
   id as `affiliate_reference_id` lets staff find the itinerary.
 - **Cost and latency.** Three calls per search (geography, availability, content); property ids
   and content are cached for a day, and searches stay within the supplier timeout.
+
+## Outcome
+
+Built and tested against a local stand-in; waits for the owner's Expedia Partner Solutions
+account.
+
+- **Adapter** (`src/suppliers/expedia`): signed client with links followed only on the API host,
+  search by polygon, availability and content, mapping to minor units, price checks before the
+  quote and before booking, and the book call inside `creating()` so an unclear answer goes to
+  review (ADR-086). Settings default to Rapid's test host, which production refuses.
+- **Checkout IP**: kept encrypted on Expedia items only, sent on the booking call and cleared once
+  booked, when ticketing gives up, at deletion or after 7 days (`supplier-customer-ip`); listed in
+  the data export while held.
+- **Tests**: 26 adapter unit tests (signature, headers, link host check, error mapping, search
+  mapping and caching, refundability, boards, price checks, booking body, ambiguity) and an e2e
+  test of search, quote, booking, payment and ticketing against a local Rapid stand-in (the IP
+  header, ciphertext at rest, clearing, a refund when the price moved after payment, retention).
+  Disabling the IP storage makes two of its three cases fail.
+- **Sandbox**: `sandbox:partners --only expedia` and `partner-sandbox.yml` search and price-check
+  on the test host with the owner's keys; they refuse any other host and book nothing.
+
+Before production: one sandbox run, Expedia's certification scenarios, and Expedia's
+confirmation of the commercial model and billing contact. The open questions in ADR-086
+(shared occupancies, error types, price-check link lifetime) are answered by that run.
