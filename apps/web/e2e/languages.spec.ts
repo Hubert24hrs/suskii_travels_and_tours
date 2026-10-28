@@ -63,9 +63,9 @@ test.describe('languages', () => {
       'Français',
     );
 
+    // Prices keep Latin digits; Arabic shows the currency code where it has no local symbol (CLDR).
     const deal = page.locator('#deals article').first();
-    await expect(deal).toContainText('₦');
-    await expect(deal).toContainText(/[0-9]/);
+    await expect(deal).toContainText(/[0-9],[0-9]{3}\sNGN/);
     await expect(deal).not.toContainText(/[\u0660-\u0669\u06f0-\u06f9]/);
     await expectNoHorizontalOverflow(page);
     await expectNoAxeViolations(page);
