@@ -3434,7 +3434,7 @@ enum SupportCategory {
   cancellation_refund
   payment
   documents
-  other
+  general
 }
 
 /// `open`: staff owe a reply; `waiting`: staff replied and wait for the traveller.

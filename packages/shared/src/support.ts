@@ -9,7 +9,7 @@ export const SUPPORT_CATEGORIES = [
   'cancellation_refund',
   'payment',
   'documents',
-  'other',
+  'general',
 ] as const;
 export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number];
 
