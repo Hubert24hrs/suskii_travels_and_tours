@@ -543,6 +543,21 @@ export const en = {
       fastest: 'Fastest {duration}',
       note: "Lowest fares we found in the last 90 days, for one adult, return, priced with today's taxes and fees. Fares change.",
     },
+    metasearch: {
+      title: 'Your flight',
+      checking: 'Checking the price with the airline…',
+      higherTitle: 'The price has gone up',
+      higherBody: '{partner} showed {shown}. The airline now asks {current} for this flight.',
+      continue: 'Continue at {price}',
+      otherFlights: 'See other flights',
+      unavailableTitle: 'This flight is no longer available',
+      unavailableBody:
+        'It sold out or the airline changed it. Here are the flights for the same trip.',
+      expiredTitle: 'This price has expired',
+      expiredBody: 'Prices change quickly. Search again to see current fares for the same trip.',
+      error: 'We could not check the price just now.',
+      retry: 'Try again',
+    },
     city: {
       title: 'Hotels in {city}',
       description:
