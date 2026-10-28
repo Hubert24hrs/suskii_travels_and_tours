@@ -77,6 +77,7 @@ model User {
   rides                   Ride[]                   @relation("RideRider")
   emergencyContacts       EmergencyContact[]
   partnerClicks           PartnerClick[]
+  reviews                 Review[]
 
   @@map("users")
 }
@@ -939,6 +940,10 @@ model Booking {
   linkedBookingId   String?       @map("linked_booking_id") @db.Uuid
   /// Set once the check-in reminder went out (ADR-032).
   checkinRemindedAt DateTime?     @map("checkin_reminded_at") @db.Timestamptz(3)
+  /// When to invite a review: the day after the first reviewable item ends (ADR-077).
+  reviewInviteAt    DateTime?     @map("review_invite_at") @db.Timestamptz(3)
+  /// Set once the review invitation was handled (sent, or nothing to review).
+  reviewInvitedAt   DateTime?     @map("review_invited_at") @db.Timestamptz(3)
   /// Contact details and passports wiped after account deletion (ADR-029).
   redactedAt        DateTime?     @map("redacted_at") @db.Timestamptz(3)
   /// Set when the retention sweep cleared the last personal data of a closed booking (ADR-039).
@@ -966,6 +971,7 @@ model Booking {
   riskReviews      PaymentRiskReview[]
   scheduleChanges  FlightScheduleChange[]
   partnerClicks    PartnerClick[]
+  reviews          Review[]
 
   @@index([userId, createdAt])
   /// Admin booking search and the dashboard filter by creation date (ADR-036).
@@ -975,6 +981,8 @@ model Booking {
   @@index([contactEmailHash])
   @@index([linkedBookingId])
   @@index([status, updatedAt])
+  /// The review invitation sweep (ADR-077).
+  @@index([status, reviewInviteAt])
   @@map("bookings")
 }
 
@@ -1022,6 +1030,7 @@ model BookingItem {
   ride             Ride?
   rental           RentalReservation?
   scheduleChanges  FlightScheduleChange[]
+  review           Review?
 
   @@index([bookingId])
   @@index([packageDepartureId])
@@ -1892,6 +1901,7 @@ enum NotificationCategory {
   trip_reminder
   price_alert
   prime
+  review_requests
   marketing
 }
 
@@ -3068,4 +3078,96 @@ model PartnerConversion {
   @@index([programId, createdAt])
   @@index([clickId])
   @@map("partner_conversions")
+}
+
+// ---------------------------------------------------------------------------
+// Verified reviews (ADR-077)
+// ---------------------------------------------------------------------------
+
+enum ReviewSubjectKind {
+  hotel
+  package
+  tour
+  bus_operator
+  rental_vehicle
+}
+
+enum TravellerReviewStatus {
+  pending
+  published
+  rejected
+}
+
+enum ReviewTripType {
+  solo
+  couple
+  family
+  friends
+  business
+}
+
+/// What travellers review: a catalog product by id, or a hotel matched by name and place across
+/// suppliers (ADR-077). Keeps the sum and count of published ratings.
+model ReviewSubject {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  kind        ReviewSubjectKind
+  /// The package, tour, bus operator or rental vehicle; null for hotels.
+  refId       String?           @map("ref_id") @db.Uuid
+  /// Hotels: the normalised name (`hotelNameKey`) and the position they are matched by.
+  nameKey     String?           @map("name_key")
+  latitude    Float?
+  longitude   Float?
+  name        String
+  ratingSum   Int               @default(0) @map("rating_sum")
+  ratingCount Int               @default(0) @map("rating_count")
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reviews Review[]
+
+  @@unique([kind, refId])
+  @@index([kind, nameKey])
+  @@map("review_subjects")
+}
+
+/// A verified review: one per booking item, written after the trip, shown once a moderator
+/// publishes it (ADR-077). Nobody edits a traveller's words.
+model Review {
+  id            String                @id @default(uuid(7)) @db.Uuid
+  subjectId     String                @map("subject_id") @db.Uuid
+  bookingId     String                @map("booking_id") @db.Uuid
+  bookingItemId String                @unique @map("booking_item_id") @db.Uuid
+  /// The account that wrote it; null for guest bookings and after account deletion.
+  userId        String?               @map("user_id") @db.Uuid
+  rating        Int                   @db.SmallInt
+  title         String?
+  liked         String?
+  disliked      String?
+  tripType      ReviewTripType        @map("trip_type")
+  /// "Ada O.", or null to show "Verified traveller".
+  displayName   String?               @map("display_name")
+  locale        String
+  /// The month the trip ended (YYYY-MM).
+  travelledOn   String                @map("travelled_on") @db.Char(7)
+  /// What the automatic check found: contact_details, link.
+  flags         String[]              @default([])
+  status        TravellerReviewStatus @default(pending)
+  /// A reject reason code; never free text.
+  rejectReason  String?               @map("reject_reason")
+  moderatedById String?               @map("moderated_by_id") @db.Uuid
+  moderatedAt   DateTime?             @map("moderated_at") @db.Timestamptz(3)
+  publishedAt   DateTime?             @map("published_at") @db.Timestamptz(3)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  subject     ReviewSubject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingItem BookingItem   @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([subjectId, status, publishedAt])
+  @@index([status, createdAt])
+  @@index([userId])
+  @@index([bookingId])
+  @@map("reviews")
 }

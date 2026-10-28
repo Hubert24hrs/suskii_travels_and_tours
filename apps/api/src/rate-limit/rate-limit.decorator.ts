@@ -142,6 +142,12 @@ export const PARTNER_LIMITS = {
   postbackIp: { name: 'partner-postback-ip', limit: 600, windowSeconds: 60, by: 'ip' },
 } as const satisfies Record<string, RateLimitPolicy>;
 
+/** Verified reviews (ADR-077): public pages are cheap reads; writing is a few times per trip. */
+export const REVIEW_LIMITS = {
+  readIp: { name: 'review-read-ip', limit: 120, windowSeconds: 60, by: 'ip' },
+  writeIp: { name: 'review-write-ip', limit: 20, windowSeconds: 600, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
 /** Cars (ADR-050): holds and quotes are scraping and hoarding targets; safety routes never starve. */
 export const CARS_LIMITS = {
   catalogIp: { name: 'cars-catalog-ip', limit: 60, windowSeconds: 60, by: 'ip' },

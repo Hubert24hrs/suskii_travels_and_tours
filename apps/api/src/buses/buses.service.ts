@@ -218,7 +218,7 @@ export class BusesService {
     const fare = money(trip.fareMinor, trip.currency);
     return {
       id: trip.id,
-      operator: { name: route.operator.name, slug: route.operator.slug },
+      operator: { id: route.operator.id, name: route.operator.name, slug: route.operator.slug },
       sample: trip.sample || route.operator.sample,
       origin: stop(route.origin),
       destination: stop(route.destination),

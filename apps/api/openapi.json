@@ -8052,6 +8052,236 @@
         ]
       }
     },
+    "/v1/admin/reviews": {
+      "get": {
+        "operationId": "adminListReviews",
+        "summary": "Reviews by status (waiting ones first, oldest first)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "type": "string",
+              "enum": [
+                "pending",
+                "published",
+                "rejected"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminReviewPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "reviews:moderate"
+        ]
+      }
+    },
+    "/v1/admin/reviews/{id}/publish": {
+      "post": {
+        "operationId": "adminPublishReview",
+        "summary": "Publish a waiting review as written",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminReview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "reviews:moderate"
+        ],
+        "x-audit": [
+          "review.published"
+        ]
+      }
+    },
+    "/v1/admin/reviews/{id}/reject": {
+      "post": {
+        "operationId": "adminRejectReview",
+        "summary": "Reject a waiting review with a reason",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectReviewRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminReview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "reviews:moderate"
+        ],
+        "x-audit": [
+          "review.rejected"
+        ]
+      }
+    },
     "/v1/admin/rides/{rideId}/cancel": {
       "post": {
         "operationId": "adminCancelRide",
@@ -12395,6 +12625,162 @@
         }
       }
     },
+    "/v1/bookings/{bookingId}/items/{itemId}/review": {
+      "put": {
+        "operationId": "writeReview",
+        "summary": "Write the review of a finished trip, or change it while it waits",
+        "description": "Once per booking item, after the trip has ended and within the review window. The review waits for a moderator before it appears. 409 `review-not-eligible` when the item cannot be reviewed, `review-closed` when the review was already published or rejected (withdraw it instead).",
+        "tags": [
+          "Reviews"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteReviewRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnReview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "withdrawReview",
+        "summary": "Withdraw the review of a trip",
+        "description": "Removes it everywhere, whatever its status.",
+        "tags": [
+          "Reviews"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/bookings/{bookingId}/partner-offers": {
       "get": {
         "operationId": "getBookingPartnerOffers",
@@ -12714,6 +13100,64 @@
         "responses": {
           "204": {
             "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/bookings/{bookingId}/reviews": {
+      "get": {
+        "operationId": "getBookingReviews",
+        "summary": "What can be reviewed in a booking, and the reviews written",
+        "description": "Items that can be reviewed (stays, packages, tours, buses and rentals), whether the trip has ended and the window is open, and the traveller's own review with its moderation status.",
+        "tags": [
+          "Reviews"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingReviews"
+                }
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/Problem400"
@@ -17605,6 +18049,51 @@
         }
       }
     },
+    "/v1/internal/reviews/invitations/run": {
+      "post": {
+        "operationId": "runReviewInvitations",
+        "summary": "Plan and send due review invitations",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewInvitationRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/rides/dispatch": {
       "post": {
         "operationId": "dispatchRides",
@@ -21817,6 +22306,95 @@
           },
           "422": {
             "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/reviews": {
+      "get": {
+        "operationId": "listReviews",
+        "summary": "A subject's published reviews and verified score",
+        "description": "Pass `subject` (hotel results carry it as `verifiedReviews.subjectId`), or `kind` and `ref` for a package, tour, bus operator or rental vehicle. Newest first; `summary` is null until a review is published.",
+        "tags": [
+          "Reviews"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "package",
+                "tour",
+                "bus_operator",
+                "rental_vehicle"
+              ]
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
           },
           "426": {
             "$ref": "#/components/responses/Problem426"
@@ -27486,6 +28064,205 @@
         ],
         "additionalProperties": false
       },
+      "AdminReview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "published",
+              "rejected"
+            ]
+          },
+          "subject": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "hotel",
+                  "package",
+                  "tour",
+                  "bus_operator",
+                  "rental_vehicle"
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bookingReference": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "liked": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disliked": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tripType": {
+            "type": "string",
+            "enum": [
+              "solo",
+              "couple",
+              "family",
+              "friends",
+              "business"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locale": {
+            "type": "string"
+          },
+          "travelledOn": {
+            "type": "string"
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "contact_details",
+                "link"
+              ]
+            }
+          },
+          "rejectReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "personal_data",
+                  "offensive",
+                  "off_topic",
+                  "spam",
+                  "conflict_of_interest",
+                  "unlawful"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "moderatedByUserId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "moderatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "subject",
+          "bookingId",
+          "bookingReference",
+          "rating",
+          "title",
+          "liked",
+          "disliked",
+          "tripType",
+          "displayName",
+          "locale",
+          "travelledOn",
+          "flags",
+          "rejectReason",
+          "moderatedByUserId",
+          "moderatedAt",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminReviewPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminReview"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
       "AdminTaxRule": {
         "type": "object",
         "properties": {
@@ -29378,6 +30155,74 @@
         ],
         "additionalProperties": false
       },
+      "BookingReviewItem": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "hotel",
+              "package",
+              "tour",
+              "bus",
+              "rental"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "canReview": {
+            "type": "boolean"
+          },
+          "windowEndsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnReview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "itemId",
+          "kind",
+          "name",
+          "endsOn",
+          "canReview",
+          "windowEndsOn",
+          "review"
+        ],
+        "additionalProperties": false
+      },
+      "BookingReviews": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingReviewItem"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
       "BookingSummary": {
         "type": "object",
         "properties": {
@@ -30021,6 +30866,10 @@
           "operator": {
             "type": "object",
             "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
               "name": {
                 "type": "string"
               },
@@ -30029,6 +30878,7 @@
               }
             },
             "required": [
+              "id",
               "name",
               "slug"
             ],
@@ -30152,6 +31002,10 @@
           "operator": {
             "type": "object",
             "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
               "name": {
                 "type": "string"
               },
@@ -30160,6 +31014,7 @@
               }
             },
             "required": [
+              "id",
               "name",
               "slug"
             ],
@@ -35301,6 +36156,16 @@
               "type": "string"
             }
           },
+          "verifiedReviews": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "nights": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -35326,6 +36191,7 @@
           "cityName",
           "countryCode",
           "amenities",
+          "verifiedReviews",
           "nights",
           "rates"
         ],
@@ -35865,6 +36731,16 @@
               "type": "string"
             }
           },
+          "verifiedReviews": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cheapestRate": {
             "$ref": "#/components/schemas/HotelRate"
           },
@@ -35885,6 +36761,7 @@
           "cityName",
           "countryCode",
           "amenities",
+          "verifiedReviews",
           "cheapestRate",
           "freeCancellationAvailable"
         ],
@@ -37973,6 +38850,7 @@
               "trip_reminder",
               "price_alert",
               "prime",
+              "review_requests",
               "marketing"
             ]
           },
@@ -38598,6 +39476,87 @@
           "phone",
           "code"
         ]
+      },
+      "OwnReview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "published",
+              "rejected"
+            ]
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "liked": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disliked": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tripType": {
+            "type": "string",
+            "enum": [
+              "solo",
+              "couple",
+              "family",
+              "friends",
+              "business"
+            ]
+          },
+          "showName": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "rating",
+          "title",
+          "liked",
+          "disliked",
+          "tripType",
+          "showName",
+          "createdAt",
+          "publishedAt"
+        ],
+        "additionalProperties": false
       },
       "PackageCard": {
         "type": "object",
@@ -40607,6 +41566,77 @@
         ],
         "additionalProperties": false
       },
+      "PublicReview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "liked": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disliked": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tripType": {
+            "type": "string",
+            "enum": [
+              "solo",
+              "couple",
+              "family",
+              "friends",
+              "business"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locale": {
+            "type": "string"
+          },
+          "travelledOn": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "rating",
+          "title",
+          "liked",
+          "disliked",
+          "tripType",
+          "displayName",
+          "locale",
+          "travelledOn",
+          "publishedAt"
+        ],
+        "additionalProperties": false
+      },
       "PushTokenPruneRun": {
         "type": "object",
         "properties": {
@@ -41383,6 +42413,25 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 300
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "RejectReviewRequestInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "personal_data",
+              "offensive",
+              "off_topic",
+              "spam",
+              "conflict_of_interest",
+              "unlawful"
+            ]
           }
         },
         "required": [
@@ -42606,6 +43655,11 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "rejected-reviews": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -42634,7 +43688,95 @@
           "rental-licences",
           "rental-photos",
           "partner-clicks",
-          "partner-conversions"
+          "partner-conversions",
+          "rejected-reviews"
+        ],
+        "additionalProperties": false
+      },
+      "ReviewInvitationRun": {
+        "type": "object",
+        "properties": {
+          "planned": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sent": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "planned",
+          "sent",
+          "skipped"
+        ],
+        "additionalProperties": false
+      },
+      "ReviewPage": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicReview"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "summary",
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "ReviewSummary": {
+        "type": "object",
+        "properties": {
+          "subjectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "score": {
+            "type": "number"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "subjectId",
+          "score",
+          "count"
         ],
         "additionalProperties": false
       },
@@ -45584,6 +46726,7 @@
                     "trip_reminder",
                     "price_alert",
                     "prime",
+                    "review_requests",
                     "marketing"
                   ]
                 },
@@ -47335,6 +48478,79 @@
           "page",
           "device",
           "metrics"
+        ]
+      },
+      "WriteReviewRequestInput": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "liked": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disliked": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tripType": {
+            "type": "string",
+            "enum": [
+              "solo",
+              "couple",
+              "family",
+              "friends",
+              "business"
+            ]
+          },
+          "showName": {
+            "type": "boolean"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en-NG",
+              "en-GB",
+              "en-US",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
+            ]
+          }
+        },
+        "required": [
+          "rating",
+          "tripType",
+          "showName"
         ]
       }
     },

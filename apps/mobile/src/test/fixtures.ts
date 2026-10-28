@@ -621,7 +621,11 @@ export const busCities: Schemas['BusCities'] = {
 
 export const busTripCard: Schemas['BusSearchResult']['trips'][number] = {
   id: BUS_TRIP_ID,
-  operator: { name: 'Lagoon Express', slug: 'lagoon-express' },
+  operator: {
+    id: '0192f0aa-0000-7000-8000-00000000b001',
+    name: 'Lagoon Express',
+    slug: 'lagoon-express',
+  },
   sample: true,
   origin: lagosTerminal,
   destination: ibadanTerminal,

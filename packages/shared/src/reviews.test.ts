@@ -39,6 +39,7 @@ describe('reviewScore', () => {
 describe('reviewDisplayName', () => {
   it('shows the first given name and the last initial', () => {
     expect(reviewDisplayName('Ada Chioma', 'obi')).toBe('Ada O.');
+    expect(reviewDisplayName('ADEBAYO CHIOMA', 'OKAFOR')).toBe('Adebayo O.');
     expect(reviewDisplayName('  Musa ', '')).toBe('Musa');
   });
 });

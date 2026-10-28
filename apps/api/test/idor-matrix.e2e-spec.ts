@@ -80,6 +80,7 @@ const ACCOUNT_ONLY = /^\/v1\/(me|rides|rentals\/reservations)\//;
 
 interface Fixture {
   flightBookingId: string;
+  flightItemId: string;
   scheduleChangeId: string;
   bookingDocumentId: string;
   visaBookingId: string;
@@ -118,6 +119,14 @@ const CASES: Record<string, Case> = {
   cancelBooking: { path: (f) => `/v1/bookings/${f.flightBookingId}/cancel` },
   quoteFlightCancellation: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/cancellation-quote`,
+  },
+  getBookingReviews: { path: (f) => `/v1/bookings/${f.flightBookingId}/reviews` },
+  writeReview: {
+    path: (f) => `/v1/bookings/${f.flightBookingId}/items/${f.flightItemId}/review`,
+    body: () => ({ rating: 8, tripType: 'solo', showName: false }),
+  },
+  withdrawReview: {
+    path: (f) => `/v1/bookings/${f.flightBookingId}/items/${f.flightItemId}/review`,
   },
   acceptScheduleChange: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/schedule-changes/${f.scheduleChangeId}/accept`,
@@ -525,6 +534,7 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       reservationId,
       busHoldId: hold.body.holdId as string,
       flightBookingId: flight.bookingId,
+      flightItemId: flightItem.id,
       bookingDocumentId: flightBooking.body.documents[0].id as string,
       visaBookingId,
       applicationId,
