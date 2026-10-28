@@ -113,6 +113,9 @@ jobs:
       # The generated gradle.properties gives the daemon 2 GiB and 512 MiB of Metaspace, which
       # runs out on this build and stalls it; the runner has 16 GB. Lint vital checks are skipped
       # for this test APK (they are the memory-heavy part and not what this job verifies).
+      # Maven Central can stall on large artifacts such as the React Native Android library: with
+      # Gradle's 30-second read timeout every try failed the build, so downloads may go quiet for
+      # five minutes and get six tries with backoff.
       - name: Build the release APK (x86_64 for the emulator)
         working-directory: apps/mobile/android
         timeout-minutes: 45
@@ -120,6 +123,10 @@ jobs:
           ./gradlew assembleRelease -x lintVitalRelease -PreactNativeArchitectures=x86_64
           --no-daemon "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC"
           "-Pkotlin.daemon.jvmargs=-Xmx3g"
+          -Dorg.gradle.internal.http.connectionTimeout=60000
+          -Dorg.gradle.internal.http.socketTimeout=300000
+          -Dorg.gradle.internal.repository.max.tentatives=6
+          -Dorg.gradle.internal.repository.initial.backoff=2000
 
       - name: Save Gradle cache
         if: steps.gradle-cache.outputs.cache-hit != 'true'
