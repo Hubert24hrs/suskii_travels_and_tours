@@ -417,6 +417,13 @@ export function BookingView({ bookingId }: { bookingId: string }) {
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
         <div className="flex flex-col gap-6 lg:col-span-2">
           {status === 'CONFIRMED' ? <TripReviews bookingId={booking.id} /> : null}
+          <AppLink
+            href={`/support?booking=${booking.id}`}
+            className="font-body text-body font-bold text-primary underline"
+            data-testid="booking-get-help"
+          >
+            {t('support.getHelp')}
+          </AppLink>
           {booking.scheduleChange ? (
             <ScheduleChange
               bookingId={booking.id}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { forgetBookingTokens } from '../../lib/booking-token';
+import { forgetSupportTokens } from '../../lib/support-token';
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { ensureFreshSession, expireSession, forgetSession, hasSession } from '../../lib/session';
 
@@ -72,6 +73,7 @@ export async function signOut(): Promise<void> {
   } finally {
     forgetSession();
     forgetBookingTokens();
+    forgetSupportTokens();
   }
 }
 
