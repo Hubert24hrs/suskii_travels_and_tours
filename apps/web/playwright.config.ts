@@ -5,7 +5,8 @@ import { defineConfig, devices } from '@playwright/test';
  * one worker refresh and the built web app, unless E2E_BASE_URL names a running stack.
  * Build first: `pnpm turbo run build --filter=@suskii/web --filter=@suskii/api --filter=@suskii/worker`.
  *
- * The Lighthouse project runs last, on its own, so parallel tests cannot skew the scores.
+ * The slow-3G and Lighthouse projects run last, one after the other, so parallel tests cannot
+ * skew their timings.
  */
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const isCI = Boolean(process.env.CI);
@@ -34,13 +35,20 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /lighthouse\.spec\.ts/,
+      testIgnore: /(lighthouse|slow-network)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      // Timed on a throttled phone (ADR-075): alone, after the parallel tests.
+      name: 'slow-3g',
+      testMatch: /slow-network\.spec\.ts/,
+      dependencies: ['chromium'],
+      fullyParallel: false,
     },
     {
       name: 'lighthouse',
       testMatch: /lighthouse\.spec\.ts/,
-      dependencies: ['chromium'],
+      dependencies: ['slow-3g'],
       fullyParallel: false,
     },
   ],
