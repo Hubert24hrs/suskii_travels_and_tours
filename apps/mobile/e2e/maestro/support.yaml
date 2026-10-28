@@ -1,6 +1,8 @@
 # Help and support on the phone (ADR-083): a visitor opens Help from Account, writes to support with
 # an email (the app proves itself with its device attestation) and lands on the conversation, which
-# shows their message waiting for a reply. Runs after the in-house tour in run-android.sh.
+# shows their message waiting for a reply and the after-hours assistant's handover (ADR-085: the
+# test stack has no staffed hours and no FAQ answers a billing question). Runs after the in-house
+# tour in run-android.sh.
 appId: com.suskii.travels.e2e
 name: Write to support
 tags:
@@ -53,3 +55,7 @@ tags:
     id: support-message-customer
 - assertVisible: Was my card charged twice for the Lagos tour?
 - assertVisible: Waiting for our reply
+- extendedWaitUntil:
+    visible:
+      id: support-message-assistant
+    timeout: 20000
