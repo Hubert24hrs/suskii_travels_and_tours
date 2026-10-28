@@ -81,16 +81,22 @@ Built as planned. The company wallet and invoiced credit stay for a later item, 
 
 Verification on this branch (local):
 
-| Check                               | Result                                                                                  |
-| ----------------------------------- | --------------------------------------------------------------------------------------- |
-| Lint and typecheck, every workspace | 14 of 14 and 13 of 13 tasks                                                             |
-| API unit tests with coverage gates  | 585 passed (50 suites)                                                                  |
-| API e2e                             | companies 6 of 6; IDOR matrix, admin matrix, admin audit, accounts, platform 179 of 179 |
-| Shared, i18n, worker                | 239, 33 and 49 passed                                                                   |
-| App (Jest)                          | 250 passed (44 suites)                                                                  |
-| Admin e2e                           | 17 of 17, including the suspend and reinstate journey                                   |
-| Website e2e                         | companies, cookies, SEO and account specs pass                                          |
-| Security checklist, format          | up to date, clean                                                                       |
+| Check                                     | Result                                                                              |
+| ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| Lint and typecheck, every workspace       | 14 of 14 and 13 of 13 tasks                                                         |
+| API unit tests with coverage gates        | 585 passed (50 suites)                                                              |
+| API e2e (full, without the S3 suite)      | 518 of 519; the one failure (the step-up route list) fixed, its suite re-run 6 of 6 |
+| Shared, i18n, worker                      | 239, 33 and 49 passed                                                               |
+| App (Jest)                                | 250 passed (44 suites)                                                              |
+| Admin e2e                                 | 17 of 17, including the suspend and reinstate journey                               |
+| Website e2e (CI settings, fresh database) | 116 of 116: main and slow-3G projects 115, then the Lighthouse homepage gate        |
+| Security checklist, format                | up to date, clean                                                                   |
+
+The Lighthouse gate first missed total blocking time (233 and 249 ms against 200 ms) while this
+container ran slowly: Lighthouse's CPU benchmark read 1,296 then, against 1,529 for a passing run
+of the base branch on the same machine. The homepage ships the same JavaScript as the base
+(182,207 bytes in 11 scripts), and the branch passed once the machine was as fast again (benchmark
+1,582, 154 ms).
 
 What waits for the owner: whether to offer a company wallet and invoiced credit, negotiated
 rates or a corporate fee, and who at Suskii supports company admins.
