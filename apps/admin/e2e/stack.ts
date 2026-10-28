@@ -29,6 +29,8 @@ export const API_PORT = Number(
   new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000').port || 80,
 );
 export const API_URL = `http://localhost:${API_PORT}`;
+/** Signs the WhatsApp webhook deliveries the support journey sends (mock provider, ADR-084). */
+export const WHATSAPP_APP_SECRET = 'admin-e2e-whatsapp-app-secret-0123';
 
 export interface Stack {
   stop: () => Promise<void>;
@@ -235,6 +237,9 @@ export async function startStack(): Promise<Stack> {
       // Only the provisioned "held" booking reports a card, so only it is held (ADR-040).
       CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
       PAYMENT_RISK_REVIEW_SCORE: '30',
+      WHATSAPP_SUPPORT_PROVIDER: 'mock',
+      WHATSAPP_APP_SECRET,
+      WHATSAPP_VERIFY_TOKEN: 'admin-e2e-whatsapp-verify-token',
     });
     children.push(api);
     await waitFor(`${API_URL}/ready`, api, 'api');
