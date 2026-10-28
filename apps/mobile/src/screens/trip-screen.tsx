@@ -21,6 +21,7 @@ import { RentalLicence } from '../components/cars/rental-licence';
 import { TripPlanning } from '../components/cars/trip-planning';
 import { InhouseSummary, inhouseKind } from '../components/inhouse/inhouse-summary';
 import { PartnerOffers } from '../components/partners/partner-offers';
+import { TripReviews } from '../components/reviews/trip-reviews';
 import { VoucherCard } from '../components/inhouse/voucher-card';
 import { Loading, Notice, OfflineBanner } from '../components/states';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
@@ -649,6 +650,7 @@ export function TripScreen() {
           </Card>
         ) : null}
 
+        {!offline && status === 'CONFIRMED' ? <TripReviews bookingId={booking.id} /> : null}
         {!offline ? <TripPlanning booking={booking} /> : null}
         {!offline && PARTNER_STATUSES.includes(booking.status) ? (
           <PartnerOffers
