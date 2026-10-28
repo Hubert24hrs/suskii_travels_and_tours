@@ -103,7 +103,7 @@ export async function SiteFooter({ site }: { site: SiteContent | null }) {
             ))}
           </Column>
         ) : null}
-        <div className="col-span-2 flex flex-col gap-2 md:col-span-1">
+        <div className="col-span-2 flex min-w-0 flex-col gap-2 md:col-span-1">
           <h2 className="font-heading text-body font-bold text-heading">
             {t('footer.preferences')}
           </h2>
