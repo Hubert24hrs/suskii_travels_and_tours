@@ -78,7 +78,8 @@ links, landings that re-quote, partner attribution), is built and waits for part
 part 4, Suskii Prime priced per country, is built and waits for the owner's prices per market.
 Item 9, 24/7 support, runs in three parts (`docs/phases/support.md`): part 1, conversations tied to
 bookings with a console inbox, SLA timers and a Prime queue, is built and waits for people on
-shift; WhatsApp and an after-hours assistant come next.
+shift; part 2, WhatsApp through the Cloud API, is built and waits for the owner's Meta app,
+number and approved template; an after-hours assistant comes next.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -797,6 +798,13 @@ Tooling notes for agents:
 - Clients poll the open conversation every few seconds while it is visible (web 4 s, app 4 s,
   console 10 s). The app keeps guest tokens in `secureStorage` (`lib/support.ts`); website links
   to `/support/{id}` stay in the browser so link tokens never reach the app's router.
+- WhatsApp (ADR-084): `/v1/webhooks/whatsapp` processes nothing before `whatsappSignatureValid()`
+  passes on the raw bytes; vendor payloads stay in `whatsapp-webhook.ts` and the
+  `WhatsAppChannel` adapters (`mock`, `cloud`). Inbound messages go only through `WhatsAppInbox`
+  (dedupe on `support_messages.external_id`, routing by `customerMessageChanges()`), and staff
+  replies only through `WhatsAppReplies` after the commit (text in the window, the template
+  notice outside it, `forwardWaiting` when the traveller writes back). Delivery states move
+  forward only (`supportDeliveryAdvances`). Never link a contact to an account by phone number.
 
 ### AI trip search (phase 13, ADR-061)
 
@@ -1005,6 +1013,7 @@ Tooling notes for agents:
 - [ADR-081: Metasearch partners](docs/decisions/ADR-081-metasearch-partners.md)
 - [ADR-082: Suskii Prime priced per country](docs/decisions/ADR-082-prime-priced-per-country.md)
 - [ADR-083: Support conversations](docs/decisions/ADR-083-support-conversations.md)
+- [ADR-084: WhatsApp as a support channel](docs/decisions/ADR-084-whatsapp-support-channel.md)
 
 ## Open questions for the owner
 
@@ -1113,4 +1122,9 @@ a placeholder). Added with support conversations (ADR-083): who staffs support a
 (the homepage promises 24/7 human support), the reply and resolution targets per priority
 (`SUPPORT_SLA`, defaults 15 minutes and 4 hours urgent, 30 minutes and 8 hours Prime, 2 hours and
 24 hours otherwise), which Prime plans include priority support, and whether support may answer
-by phone or WhatsApp outside the conversation.
+by phone or WhatsApp outside the conversation. Added with WhatsApp support (ADR-084): the Meta
+business portfolio, a WhatsApp Business Account and number, a system user's permanent token, the
+app secret and a verify token (then `WHATSAPP_SUPPORT_PROVIDER=cloud`), the approved
+`support_reply_waiting` template, the privacy policy naming Meta as the Cloud API host,
+confirmation of Meta's per-message prices for the markets served, and one sandbox message from a
+username user to confirm the field for replying to a business-scoped user id.
