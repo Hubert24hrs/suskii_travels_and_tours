@@ -66,8 +66,8 @@ design:
    status webhooks. Statuses only move forward. A timeout is recorded as `failed` with the reason
    `timeout`. There is no idempotency key, so the console offers no blind resend.
 7. **Adapter.** `WhatsAppChannel` (`sendText`, `sendTemplate`) hides the Graph API: `mock` keeps
-   an outbox for tests, and `cloud` calls `{WHATSAPP_API_BASE}/{WHATSAPP_GRAPH_VERSION}/{phone
-   number id}/messages` with the access token in the header, `redirect: 'error'` and a timeout.
+   an outbox for tests, and `cloud` posts to `messages` under `WHATSAPP_GRAPH_API_URL` and the
+   phone number id, with the access token in the header, `redirect: 'error'` and a timeout.
    `WHATSAPP_SUPPORT_PROVIDER` is `none` (default), `mock` or `cloud`. Production refuses `mock`,
    and `none` answers 404 on the webhook. Vendor payloads never leave the adapter or the webhook
    parser.
