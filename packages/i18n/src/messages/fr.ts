@@ -2530,7 +2530,7 @@ export const fr: Messages = {
           "Une entreprise a besoin d'un administrateur. Nommez d'abord un autre membre administrateur.",
       },
       approvals: {
-        heading: 'En attente de validation',
+        heading: 'Voyages à valider',
         empty: "Aucun voyage n'attend de validation.",
         approve: 'Valider',
         reject: 'Refuser',

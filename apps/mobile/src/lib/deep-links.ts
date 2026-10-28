@@ -135,6 +135,8 @@ const NOTIFICATION_SCREENS = new Set([
   '/account',
   '/account/alerts',
   '/account/referrals',
+  // Company trips waiting for an approver (ADR-078).
+  '/account/company',
 ]);
 
 /** Notification data carries an in-app trip path or one of a few fixed screens (ADR-022). */

@@ -137,6 +137,7 @@ function Screens() {
       />
       <Stack.Screen name="account/referrals" options={{ title: t('account.nav.referrals') }} />
       <Stack.Screen name="account/alerts" options={{ title: t('account.nav.alerts') }} />
+      <Stack.Screen name="account/company" options={{ title: t('account.nav.company') }} />
       <Stack.Screen name="account/privacy" options={{ title: t('account.nav.privacy') }} />
       <Stack.Screen
         name="sign-in"

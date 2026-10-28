@@ -2517,7 +2517,7 @@ export const pt: Messages = {
           'Uma empresa precisa de um administrador. Nomeie primeiro outro membro como administrador.',
       },
       approvals: {
-        heading: 'A aguardar aprovação',
+        heading: 'Viagens por aprovar',
         empty: 'Não há viagens a aguardar aprovação.',
         approve: 'Aprovar',
         reject: 'Recusar',

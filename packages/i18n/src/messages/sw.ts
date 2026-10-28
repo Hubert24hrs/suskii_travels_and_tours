@@ -2500,7 +2500,7 @@ export const sw: Messages = {
         lastAdmin: 'Kampuni inahitaji msimamizi. Mfanye mwanachama mwingine kuwa msimamizi kwanza.',
       },
       approvals: {
-        heading: 'Zinasubiri idhini',
+        heading: 'Safari za kuidhinisha',
         empty: 'Hakuna safari zinazosubiri idhini.',
         approve: 'Idhinisha',
         reject: 'Kataa',

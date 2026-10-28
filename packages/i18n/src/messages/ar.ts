@@ -2703,7 +2703,7 @@ export const ar: Messages = {
         lastAdmin: 'تحتاج الشركة إلى مسؤول. عيّن عضوًا آخر مسؤولًا أولًا.',
       },
       approvals: {
-        heading: 'بانتظار الموافقة',
+        heading: 'رحلات تنتظر موافقتك',
         empty: 'لا توجد رحلات بانتظار الموافقة.',
         approve: 'موافقة',
         reject: 'رفض',
