@@ -120,6 +120,8 @@ export const fr: Messages = {
       search: 'Mémorise votre dernière recherche de vol et vos lieux récents.',
       addonsName:
         'Remplit votre nom de famille quand vous cherchez des options pour une réservation.',
+      companyInvite:
+        "Garde une invitation d'entreprise le temps de vous connecter pour l'accepter, dans cet onglet uniquement.",
       socialSignIn:
         'Ramène une connexion Google ou Apple vers ce site, dans cet onglet uniquement.',
       turnstile:
@@ -693,6 +695,10 @@ export const fr: Messages = {
     },
   },
   checkout: {
+    company: {
+      label: 'Réserver pour {company}',
+      help: "La politique de voyage de l'entreprise s'applique. Si le voyage doit être validé, vous payez une fois la validation donnée.",
+    },
     title: 'Paiement',
     heading: 'Finalisez votre réservation',
     trip: 'Votre voyage',
@@ -1784,6 +1790,24 @@ export const fr: Messages = {
     notFound: "Ce lien de paiement n'est pas valide.",
   },
   booking: {
+    company: {
+      pending:
+        "En attente de la validation de votre entreprise. Vous pourrez payer dès qu'un valideur aura accepté, avant l'expiration du prix.",
+      approved: 'Votre entreprise a validé ce voyage.',
+      rejected: "Votre entreprise n'a pas validé ce voyage : il a été annulé. Rien n'a été débité.",
+      outsidePolicy: 'Hors politique de voyage : {findings}',
+      findings: {
+        cabin_above_policy: 'cabine au-dessus de la politique',
+        hotel_above_cap: 'au-dessus du plafond par nuit',
+        too_late: 'réservé plus tard que ne le permet la politique',
+      },
+      status: {
+        not_required: 'Aucune validation nécessaire',
+        pending: 'En attente de validation',
+        approved: 'Validé',
+        rejected: 'Non validé',
+      },
+    },
     manage: {
       title: 'Gérer ma réservation',
       heading: 'Gérez votre réservation',
@@ -2304,6 +2328,7 @@ export const fr: Messages = {
       referrals: 'Inviter des amis',
       alerts: 'Alertes de prix',
       wallet: 'Portefeuille',
+      company: 'Entreprise',
       privacy: 'Vos données',
       signOut: 'Se déconnecter',
     },
@@ -2445,6 +2470,112 @@ export const fr: Messages = {
         rejected: 'Non éligible',
       },
       referredBy: 'Un ami vous a invité : {status}.',
+    },
+    company: {
+      heading: 'Compte entreprise',
+      intro:
+        'Réservez les voyages de votre équipe selon une seule politique de voyage, avec des validations et un seul rapport des dépenses.',
+      none: "Vous n'êtes dans aucune entreprise. Créez-en une, ou demandez à l'administrateur de votre entreprise de vous inviter.",
+      createHeading: 'Créer une entreprise',
+      create: "Créer l'entreprise",
+      name: "Nom de l'entreprise",
+      country: 'Pays',
+      registrationNumber: "Numéro d'immatriculation (facultatif)",
+      taxId: 'Numéro fiscal (facultatif)',
+      billingEmail: 'E-mail de facturation',
+      save: 'Enregistrer',
+      saved: 'Enregistré.',
+      error: "Cela n'a pas fonctionné. Vérifiez les informations et réessayez.",
+      yourRole: 'Votre rôle : {role}',
+      suspended:
+        "Cette entreprise est suspendue : aucun voyage ne peut être réservé pour elle. Contactez l'assistance Suskii.",
+      roles: {
+        admin: 'Administrateur',
+        approver: 'Valideur',
+        booker: 'Réservataire',
+        traveller: 'Voyageur',
+      },
+      policy: {
+        heading: 'Politique de voyage',
+        intro:
+          "Les voyages hors politique peuvent attendre la validation d'un valideur avant le paiement.",
+        hotelCap: 'Prix maximum par nuit pour un séjour',
+        currency: 'Devise',
+        maxCabin: 'Cabine de vol la plus élevée',
+        minAdvanceDays: "Réserver au moins ce nombre de jours à l'avance",
+        noLimit: 'Sans limite',
+        approvalMode: 'Validation',
+        modes: {
+          never: 'Jamais nécessaire',
+          out_of_policy: 'Pour les voyages hors politique',
+          always: 'Pour chaque voyage',
+        },
+      },
+      members: {
+        heading: 'Membres',
+        you: '{name} (vous)',
+        noName: 'Pas encore de nom',
+        role: 'Rôle de {name}',
+        remove: 'Retirer {name}',
+        leave: "Quitter l'entreprise",
+        inviteHeading: 'Inviter quelqu’un',
+        email: 'Adresse e-mail',
+        inviteRole: 'Rôle',
+        invite: "Envoyer l'invitation",
+        invited: 'Invitation envoyée.',
+        pending: 'Invitations en attente',
+        pendingLine: "{email}, {role}, jusqu'au {date}",
+        withdraw: "Retirer l'invitation envoyée à {email}",
+        lastAdmin:
+          "Une entreprise a besoin d'un administrateur. Nommez d'abord un autre membre administrateur.",
+      },
+      approvals: {
+        heading: 'En attente de validation',
+        empty: "Aucun voyage n'attend de validation.",
+        approve: 'Valider',
+        reject: 'Refuser',
+        reason: 'Pourquoi ?',
+        reasons: {
+          over_budget: 'Hors budget',
+          not_needed: "Le voyage n'est pas nécessaire",
+          cheaper_option: 'Une option moins chère existe',
+          wrong_details: 'Les informations sont erronées',
+        },
+        otherReason: 'Une autre raison',
+        approved: 'Validé. La personne qui a réservé peut payer maintenant.',
+        rejected: 'Refusé. La réservation a été annulée.',
+      },
+      trips: {
+        heading: "Voyages de l'entreprise",
+        empty: "Pas encore de voyage d'entreprise.",
+        traveller: 'Voyageur : {name}',
+        bookedBy: 'Réservé par {name}',
+      },
+      report: {
+        heading: 'Dépenses',
+        intro:
+          "Voyages d'entreprise payés et confirmés sur les 12 derniers mois, dans chaque devise.",
+        byMonth: 'Par mois',
+        byTraveller: 'Par voyageur',
+        month: 'Mois',
+        traveller: 'Voyageur',
+        amount: 'Montant',
+        trips: 'Voyages',
+        empty: 'Aucune dépense sur cette période.',
+        download: 'Télécharger tous les voyages (CSV)',
+      },
+      join: {
+        heading: 'Rejoindre une entreprise',
+        intro:
+          "Acceptez l'invitation pour réserver les voyages de votre entreprise. Utilisez le compte dont l'adresse e-mail a reçu l'invitation.",
+        accept: "Accepter l'invitation",
+        missing: "Ouvrez le lien de votre e-mail d'invitation pour rejoindre une entreprise.",
+        invalid:
+          "Cette invitation ne peut pas être utilisée. Elle a peut-être expiré ou été retirée, ou elle a été envoyée à une autre adresse e-mail. Vérifiez d'abord votre adresse e-mail si ce n'est pas fait.",
+        member: "Vous appartenez déjà à une entreprise. Quittez-la d'abord.",
+        joined: 'Vous avez rejoint {company}.',
+        open: 'Aller à votre entreprise',
+      },
     },
     alerts: {
       heading: 'Alertes de prix',

@@ -124,6 +124,8 @@ export const pt: Messages = {
       bookingAccess: 'Abre uma reserva feita como convidado, apenas neste separador.',
       search: 'Memoriza a sua última pesquisa de voo e os locais recentes.',
       addonsName: 'Preenche o seu apelido quando procura extras para uma reserva.',
+      companyInvite:
+        'Guarda um convite de empresa enquanto inicia sessão para o aceitar, apenas neste separador.',
       socialSignIn:
         'Traz de volta a este site um início de sessão Google ou Apple, apenas neste separador.',
       turnstile:
@@ -687,6 +689,10 @@ export const pt: Messages = {
     },
   },
   checkout: {
+    company: {
+      label: 'Reservar para {company}',
+      help: 'Aplica-se a política de viagem da empresa. Se a viagem precisar de aprovação, paga depois de o aprovador aceitar.',
+    },
     title: 'Finalizar compra',
     heading: 'Conclua a sua reserva',
     trip: 'A sua viagem',
@@ -1776,6 +1782,24 @@ export const pt: Messages = {
     notFound: 'Este link de pagamento não é válido.',
   },
   booking: {
+    company: {
+      pending:
+        'A aguardar que a sua empresa aprove esta viagem. Pode pagar assim que um aprovador aceitar, antes de o preço expirar.',
+      approved: 'A sua empresa aprovou esta viagem.',
+      rejected: 'A sua empresa não aprovou esta viagem, por isso foi cancelada. Nada foi cobrado.',
+      outsidePolicy: 'Fora da política de viagem: {findings}',
+      findings: {
+        cabin_above_policy: 'classe acima da política',
+        hotel_above_cap: 'acima do limite por noite',
+        too_late: 'reservada mais tarde do que a política permite',
+      },
+      status: {
+        not_required: 'Sem aprovação necessária',
+        pending: 'A aguardar aprovação',
+        approved: 'Aprovada',
+        rejected: 'Não aprovada',
+      },
+    },
     manage: {
       title: 'Gerir reserva',
       heading: 'Gerir a sua reserva',
@@ -2292,6 +2316,7 @@ export const pt: Messages = {
       referrals: 'Convidar amigos',
       alerts: 'Alertas de preço',
       wallet: 'Carteira',
+      company: 'Empresa',
       privacy: 'Os seus dados',
       signOut: 'Terminar sessão',
     },
@@ -2433,6 +2458,110 @@ export const pt: Messages = {
         rejected: 'Não elegíveis',
       },
       referredBy: 'Um amigo convidou-o: {status}.',
+    },
+    company: {
+      heading: 'Conta de empresa',
+      intro:
+        'Reserve as viagens da sua equipa com uma única política de viagem, com aprovações e um único relatório do que foi gasto.',
+      none: 'Ainda não pertence a nenhuma empresa. Crie uma ou peça ao administrador da sua empresa que o convide.',
+      createHeading: 'Criar uma empresa',
+      create: 'Criar a empresa',
+      name: 'Nome da empresa',
+      country: 'País',
+      registrationNumber: 'Número de registo (opcional)',
+      taxId: 'Número fiscal (opcional)',
+      billingEmail: 'E-mail de faturação',
+      save: 'Guardar',
+      saved: 'Guardado.',
+      error: 'Não funcionou. Verifique os dados e tente novamente.',
+      yourRole: 'A sua função: {role}',
+      suspended:
+        'Esta empresa está suspensa, por isso não é possível reservar viagens para ela. Contacte o apoio da Suskii.',
+      roles: {
+        admin: 'Administrador',
+        approver: 'Aprovador',
+        booker: 'Reservador',
+        traveller: 'Viajante',
+      },
+      policy: {
+        heading: 'Política de viagem',
+        intro: 'As viagens fora da política podem aguardar um aprovador antes de serem pagas.',
+        hotelCap: 'Preço máximo por noite numa estadia',
+        currency: 'Moeda',
+        maxCabin: 'Classe de voo mais alta',
+        minAdvanceDays: 'Reservar com pelo menos estes dias de antecedência',
+        noLimit: 'Sem limite',
+        approvalMode: 'Aprovação',
+        modes: {
+          never: 'Nunca necessária',
+          out_of_policy: 'Para viagens fora da política',
+          always: 'Para todas as viagens',
+        },
+      },
+      members: {
+        heading: 'Membros',
+        you: '{name} (você)',
+        noName: 'Ainda sem nome',
+        role: 'Função de {name}',
+        remove: 'Remover {name}',
+        leave: 'Sair da empresa',
+        inviteHeading: 'Convidar alguém',
+        email: 'Endereço de e-mail',
+        inviteRole: 'Função',
+        invite: 'Enviar convite',
+        invited: 'Convite enviado.',
+        pending: 'Convites pendentes',
+        pendingLine: '{email}, {role}, até {date}',
+        withdraw: 'Retirar o convite enviado a {email}',
+        lastAdmin:
+          'Uma empresa precisa de um administrador. Nomeie primeiro outro membro como administrador.',
+      },
+      approvals: {
+        heading: 'A aguardar aprovação',
+        empty: 'Não há viagens a aguardar aprovação.',
+        approve: 'Aprovar',
+        reject: 'Recusar',
+        reason: 'Porquê?',
+        reasons: {
+          over_budget: 'Acima do orçamento',
+          not_needed: 'A viagem não é necessária',
+          cheaper_option: 'Existe uma opção mais barata',
+          wrong_details: 'Os dados estão errados',
+        },
+        otherReason: 'Outro motivo',
+        approved: 'Aprovada. Quem reservou já pode pagar.',
+        rejected: 'Não aprovada. A reserva foi cancelada.',
+      },
+      trips: {
+        heading: 'Viagens da empresa',
+        empty: 'Ainda não há viagens da empresa.',
+        traveller: 'Viajante: {name}',
+        bookedBy: 'Reservada por {name}',
+      },
+      report: {
+        heading: 'Gastos',
+        intro: 'Viagens da empresa pagas e confirmadas nos últimos 12 meses, em cada moeda.',
+        byMonth: 'Por mês',
+        byTraveller: 'Por viajante',
+        month: 'Mês',
+        traveller: 'Viajante',
+        amount: 'Montante',
+        trips: 'Viagens',
+        empty: 'Nenhum gasto neste período.',
+        download: 'Transferir todas as viagens (CSV)',
+      },
+      join: {
+        heading: 'Juntar-se a uma empresa',
+        intro:
+          'Aceite o convite para reservar viagens da sua empresa. Use a conta com o endereço de e-mail para onde o convite foi enviado.',
+        accept: 'Aceitar o convite',
+        missing: 'Abra a ligação no e-mail do convite para se juntar a uma empresa.',
+        invalid:
+          'Este convite não pode ser usado. Pode ter expirado ou sido retirado, ou foi enviado para outro endereço de e-mail. Confirme primeiro o seu e-mail, se ainda não o fez.',
+        member: 'Já pertence a uma empresa. Saia dela primeiro.',
+        joined: 'Juntou-se a {company}.',
+        open: 'Ir para a sua empresa',
+      },
     },
     alerts: {
       heading: 'Alertas de preço',

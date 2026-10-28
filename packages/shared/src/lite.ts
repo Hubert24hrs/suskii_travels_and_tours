@@ -311,6 +311,7 @@ export {
   canApprove,
   canManageCompany,
   type ApprovalMode,
+  type ApprovalRejectReason,
   type BookingApprovalStatus,
   type CompanyRole,
   type PolicyFinding,

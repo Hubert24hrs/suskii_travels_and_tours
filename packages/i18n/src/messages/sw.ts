@@ -124,6 +124,8 @@ export const sw: Messages = {
       bookingAccess: 'Hufungua uhifadhi uliofanya kama mgeni, katika kichupo hiki pekee.',
       search: 'Hukumbuka utafutaji wako wa mwisho wa safari ya ndege na maeneo ya hivi karibuni.',
       addonsName: 'Hujaza jina lako la ukoo unapotafuta huduma za ziada za uhifadhi.',
+      companyInvite:
+        'Huhifadhi mwaliko wa kampuni unapoingia ili kuukubali, kwenye kichupo hiki tu.',
       socialSignIn:
         'Hurudisha kuingia kwa Google au Apple kwenye tovuti hii, katika kichupo hiki pekee.',
       turnstile:
@@ -686,6 +688,10 @@ export const sw: Messages = {
     },
   },
   checkout: {
+    company: {
+      label: 'Weka kwa niaba ya {company}',
+      help: 'Sera ya usafiri ya kampuni inatumika. Safari ikihitaji idhini, utalipa mara mwidhinishaji akikubali.',
+    },
     title: 'Malipo',
     heading: 'Kamilisha uhifadhi wako',
     trip: 'Safari yako',
@@ -1769,6 +1775,25 @@ export const sw: Messages = {
     notFound: 'Kiungo hiki cha malipo si halali.',
   },
   booking: {
+    company: {
+      pending:
+        'Inasubiri kampuni yako iidhinishe safari hii. Utaweza kulipa mara mwidhinishaji akikubali, kabla bei haijaisha muda.',
+      approved: 'Kampuni yako imeidhinisha safari hii.',
+      rejected:
+        'Kampuni yako haikuidhinisha safari hii, kwa hivyo imeghairiwa. Hakuna kilichotozwa.',
+      outsidePolicy: 'Nje ya sera ya usafiri: {findings}',
+      findings: {
+        cabin_above_policy: 'daraja juu ya sera',
+        hotel_above_cap: 'juu ya kikomo cha usiku',
+        too_late: 'imewekwa baadaye kuliko sera inavyoruhusu',
+      },
+      status: {
+        not_required: 'Haihitaji idhini',
+        pending: 'Inasubiri idhini',
+        approved: 'Imeidhinishwa',
+        rejected: 'Haijaidhinishwa',
+      },
+    },
     manage: {
       title: 'Simamia uhifadhi',
       heading: 'Simamia uhifadhi wako',
@@ -2279,6 +2304,7 @@ export const sw: Messages = {
       referrals: 'Alika marafiki',
       alerts: 'Arifa za bei',
       wallet: 'Pochi',
+      company: 'Kampuni',
       privacy: 'Data yako',
       signOut: 'Toka',
     },
@@ -2416,6 +2442,110 @@ export const sw: Messages = {
         rejected: 'Hawastahili',
       },
       referredBy: 'Rafiki alikualika: {status}.',
+    },
+    company: {
+      heading: 'Akaunti ya kampuni',
+      intro:
+        'Weka safari za timu yako chini ya sera moja ya usafiri, kwa idhini na ripoti moja ya matumizi.',
+      none: 'Bado hauko kwenye kampuni. Unda moja, au mwombe msimamizi wa kampuni yako akualike.',
+      createHeading: 'Unda kampuni',
+      create: 'Unda kampuni hii',
+      name: 'Jina la kampuni',
+      country: 'Nchi',
+      registrationNumber: 'Namba ya usajili (hiari)',
+      taxId: 'Namba ya kodi (hiari)',
+      billingEmail: 'Barua pepe ya malipo',
+      save: 'Hifadhi',
+      saved: 'Imehifadhiwa.',
+      error: 'Haikufanikiwa. Angalia maelezo kisha ujaribu tena.',
+      yourRole: 'Jukumu lako: {role}',
+      suspended:
+        'Kampuni hii imesimamishwa, kwa hivyo safari haziwezi kuwekwa kwa niaba yake. Wasiliana na msaada wa Suskii.',
+      roles: {
+        admin: 'Msimamizi',
+        approver: 'Mwidhinishaji',
+        booker: 'Mweka nafasi',
+        traveller: 'Msafiri',
+      },
+      policy: {
+        heading: 'Sera ya usafiri',
+        intro: 'Safari zilizo nje ya sera zinaweza kusubiri mwidhinishaji kabla ya kulipiwa.',
+        hotelCap: 'Bei ya juu kwa usiku mmoja wa malazi',
+        currency: 'Sarafu',
+        maxCabin: 'Daraja la juu la ndege',
+        minAdvanceDays: 'Weka nafasi angalau siku hizi kabla',
+        noLimit: 'Bila kikomo',
+        approvalMode: 'Idhini',
+        modes: {
+          never: 'Haihitajiki kamwe',
+          out_of_policy: 'Kwa safari zilizo nje ya sera',
+          always: 'Kwa kila safari',
+        },
+      },
+      members: {
+        heading: 'Wanachama',
+        you: '{name} (wewe)',
+        noName: 'Bado hakuna jina',
+        role: 'Jukumu la {name}',
+        remove: 'Ondoa {name}',
+        leave: 'Ondoka kwenye kampuni',
+        inviteHeading: 'Alika mtu',
+        email: 'Anwani ya barua pepe',
+        inviteRole: 'Jukumu',
+        invite: 'Tuma mwaliko',
+        invited: 'Mwaliko umetumwa.',
+        pending: 'Mialiko inayosubiri',
+        pendingLine: '{email}, {role}, hadi {date}',
+        withdraw: 'Futa mwaliko uliotumwa kwa {email}',
+        lastAdmin: 'Kampuni inahitaji msimamizi. Mfanye mwanachama mwingine kuwa msimamizi kwanza.',
+      },
+      approvals: {
+        heading: 'Zinasubiri idhini',
+        empty: 'Hakuna safari zinazosubiri idhini.',
+        approve: 'Idhinisha',
+        reject: 'Kataa',
+        reason: 'Kwa nini?',
+        reasons: {
+          over_budget: 'Juu ya bajeti',
+          not_needed: 'Safari haihitajiki',
+          cheaper_option: 'Kuna chaguo nafuu zaidi',
+          wrong_details: 'Maelezo si sahihi',
+        },
+        otherReason: 'Sababu nyingine',
+        approved: 'Imeidhinishwa. Aliyeweka nafasi anaweza kulipa sasa.',
+        rejected: 'Haijaidhinishwa. Nafasi imeghairiwa.',
+      },
+      trips: {
+        heading: 'Safari za kampuni',
+        empty: 'Bado hakuna safari za kampuni.',
+        traveller: 'Msafiri: {name}',
+        bookedBy: 'Imewekwa na {name}',
+      },
+      report: {
+        heading: 'Matumizi',
+        intro:
+          'Safari za kampuni zilizolipiwa na kuthibitishwa katika miezi 12 iliyopita, kwa kila sarafu.',
+        byMonth: 'Kwa mwezi',
+        byTraveller: 'Kwa msafiri',
+        month: 'Mwezi',
+        traveller: 'Msafiri',
+        amount: 'Kiasi',
+        trips: 'Safari',
+        empty: 'Hakuna matumizi katika kipindi hiki.',
+        download: 'Pakua safari zote (CSV)',
+      },
+      join: {
+        heading: 'Jiunge na kampuni',
+        intro:
+          'Kubali mwaliko ili uweke safari za kampuni yako. Tumia akaunti yenye barua pepe iliyotumiwa mwaliko.',
+        accept: 'Kubali mwaliko',
+        missing: 'Fungua kiungo kwenye barua pepe ya mwaliko ili ujiunge na kampuni.',
+        invalid:
+          'Mwaliko huu hauwezi kutumika. Huenda umeisha muda au umefutwa, au ulitumwa kwa barua pepe nyingine. Thibitisha barua pepe yako kwanza kama bado.',
+        member: 'Tayari uko kwenye kampuni. Ondoka kwanza.',
+        joined: 'Umejiunga na {company}.',
+        open: 'Nenda kwenye kampuni yako',
+      },
     },
     alerts: {
       heading: 'Arifa za bei',

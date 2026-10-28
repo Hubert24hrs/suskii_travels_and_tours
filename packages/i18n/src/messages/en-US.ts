@@ -91,4 +91,11 @@ export const enUS: MessageOverlay<Messages> = {
       },
     },
   },
+  account: {
+    company: {
+      roles: { traveller: 'Traveler' },
+      trips: { traveller: 'Traveler: {name}' },
+      report: { byTraveller: 'By traveler', traveller: 'Traveler' },
+    },
+  },
 };
