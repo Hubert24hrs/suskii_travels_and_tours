@@ -155,6 +155,8 @@ export const fr: Messages = {
       close: 'Fermer le calendrier',
       previousMonth: 'Mois précédent',
       nextMonth: 'Mois suivant',
+      today: 'Aujourd’hui, {date}',
+      selected: '{date}, sélectionné',
     },
     travellers: {
       label: 'Voyageurs',

@@ -154,6 +154,8 @@ export const ar: Messages = {
       close: 'إغلاق التقويم',
       previousMonth: 'الشهر السابق',
       nextMonth: 'الشهر التالي',
+      today: 'اليوم، {date}',
+      selected: '{date}، محدد',
     },
     travellers: {
       label: 'المسافرون',

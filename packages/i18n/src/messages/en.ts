@@ -146,6 +146,8 @@ export const en = {
       close: 'Close calendar',
       previousMonth: 'Previous month',
       nextMonth: 'Next month',
+      today: 'Today, {date}',
+      selected: '{date}, selected',
     },
     travellers: {
       label: 'Travellers',

@@ -159,6 +159,8 @@ export const sw: Messages = {
       close: 'Funga kalenda',
       previousMonth: 'Mwezi uliopita',
       nextMonth: 'Mwezi ujao',
+      today: 'Leo, {date}',
+      selected: '{date}, imechaguliwa',
     },
     travellers: {
       label: 'Wasafiri',

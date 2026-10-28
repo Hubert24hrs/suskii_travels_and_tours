@@ -158,6 +158,8 @@ export const pt: Messages = {
       close: 'Fechar calendário',
       previousMonth: 'Mês anterior',
       nextMonth: 'Mês seguinte',
+      today: 'Hoje, {date}',
+      selected: '{date}, selecionado',
     },
     travellers: {
       label: 'Viajantes',
