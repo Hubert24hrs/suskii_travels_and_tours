@@ -190,3 +190,18 @@ export const supportResponseTime = meter.createHistogram('suskii.support.respons
   description: 'Seconds staff took to reply to a traveller, by priority',
   unit: 's',
 });
+
+/** WhatsApp messages received for support, by kind and outcome (ADR-084). */
+export const supportWhatsAppInbound = meter.createCounter('suskii.support.whatsapp.inbound', {
+  description: 'WhatsApp messages received for support, by kind and outcome',
+});
+
+/** WhatsApp sends for staff replies, by kind (text, template) and outcome. */
+export const supportWhatsAppOutbound = meter.createCounter('suskii.support.whatsapp.outbound', {
+  description: 'WhatsApp sends for support replies, by kind and outcome',
+});
+
+/** WhatsApp webhook deliveries refused, by reason (signature, disabled). */
+export const supportWhatsAppRejected = meter.createCounter('suskii.support.whatsapp.rejected', {
+  description: 'WhatsApp webhook deliveries refused, by reason',
+});

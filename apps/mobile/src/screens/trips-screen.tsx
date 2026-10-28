@@ -76,19 +76,21 @@ export function TripsScreen() {
     queryKey: ['trips', user?.id ?? null],
     queryFn: async (): Promise<TripList> => {
       let offline = false;
-      let account: BookingSummary[] = [];
-      if (user) {
+      // The account's trips and this phone's guest trips load side by side: on a bad network the
+      // screen waits for one timeout, not one after the other.
+      const accountTrips = async (): Promise<BookingSummary[]> => {
+        if (!user) return [];
         try {
           const { data } = await api.GET('/v1/me/bookings', { params: { query: { limit: 50 } } });
-          account = data?.bookings ?? tripStore.accountTrips();
           if (data) tripStore.saveAccountTrips(data.bookings);
+          return data?.bookings ?? tripStore.accountTrips();
         } catch (error) {
           if (!isNetworkError(error)) throw error;
           offline = true;
-          account = tripStore.accountTrips();
+          return tripStore.accountTrips();
         }
-      }
-      const guest = await Promise.all(
+      };
+      const guestTrips = Promise.all(
         tripStore.deviceTripIds().map(async (id): Promise<BookingSummary | null> => {
           try {
             const { data } = await api.GET('/v1/bookings/{bookingId}', {
@@ -106,6 +108,7 @@ export function TripsScreen() {
           return cached ? summaryOf(cached.booking) : null;
         }),
       );
+      const [account, guest] = await Promise.all([accountTrips(), guestTrips]);
       const byId = new Map<string, BookingSummary>();
       for (const trip of [...account, ...guest])
         if (trip && !byId.has(trip.id)) byId.set(trip.id, trip);

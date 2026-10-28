@@ -7,6 +7,7 @@ import {
   SUPPORT_MESSAGES_PER_CONVERSATION,
   supportSchedule,
   supportSlaState,
+  whatsappWindowClosesAt,
   type SupportStatus,
 } from '@suskii/shared';
 
@@ -16,7 +17,11 @@ import { maskEmail } from '../bookings/booking-codes';
 import { ProblemDetailsException } from '../common/problem-details';
 import { uuidv7 } from '../common/uuid';
 import { APP_CONFIG, type AppConfig } from '../config/config';
-import { supportEmailContext, supportMessageContext } from '../crypto/encryption-contexts';
+import {
+  supportEmailContext,
+  supportMessageContext,
+  whatsappPhoneContext,
+} from '../crypto/encryption-contexts';
 import { FieldEncryption } from '../crypto/field-encryption';
 import type { Prisma, RoleKey } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
@@ -35,6 +40,7 @@ import type {
   adminSupportUpdateSchema,
 } from './support.schemas';
 import { supportConversationFull } from './support.service';
+import { WhatsAppReplies } from './whatsapp/whatsapp-replies.service';
 
 type AdminRow = z.infer<typeof adminSupportRowSchema>;
 type AdminConversation = z.infer<typeof adminSupportConversationSchema>;
@@ -49,6 +55,9 @@ const include = {
   booking: { select: { id: true, reference: true } },
   user: person,
   assignee: person,
+  whatsappContact: {
+    select: { id: true, phoneEncrypted: true, lastInboundAt: true, optedOutAt: true },
+  },
 } as const;
 type ConversationRow = Prisma.SupportConversationGetPayload<{ include: typeof include }>;
 
@@ -88,6 +97,7 @@ export class SupportAdminService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationService,
     private readonly email: EmailProvider,
+    private readonly whatsapp: WhatsAppReplies,
   ) {}
 
   async list(
@@ -99,6 +109,7 @@ export class SupportAdminService {
     const where: Prisma.SupportConversationWhereInput = {
       status: { in: statuses },
       ...(query.priority ? { priority: query.priority } : {}),
+      ...(query.channel ? { channel: query.channel } : {}),
       ...(query.assignee === 'me' ? { assigneeId: staffId } : {}),
       ...(query.assignee === 'unassigned' ? { assigneeId: null } : {}),
     };
@@ -169,6 +180,8 @@ export class SupportAdminService {
     const owedSince = row.replyOwedSince;
     // A reply on a resolved conversation opens a new spell with fresh targets.
     const openedAt = row.status === 'resolved' ? now : row.openedAt;
+    // A reply on WhatsApp is sent after the commit; it starts as pending (ADR-084).
+    const viaWhatsApp = row.channel === 'whatsapp' && !body.internal;
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.supportMessage.create({
         data: {
@@ -178,6 +191,7 @@ export class SupportAdminService {
           staffId: staff.userId,
           internal: body.internal,
           bodyEncrypted: this.encryption.encrypt(body.message, supportMessageContext(messageId)),
+          ...(viaWhatsApp ? { deliveryStatus: 'pending' as const } : {}),
           createdAt: now,
         },
       });
@@ -217,7 +231,9 @@ export class SupportAdminService {
           priority: row.priority,
         });
       }
-      await this.tellTraveller(updated);
+      // The WhatsApp reply is the message itself; other channels get a notice to come and read it.
+      if (viaWhatsApp) await this.whatsapp.deliver(messageId);
+      else await this.tellTraveller(updated);
     }
     return this.present(updated);
   }
@@ -354,7 +370,9 @@ export class SupportAdminService {
           ? nameOf(row.user)
           : row.emailEncrypted
             ? maskEmail(this.encryption.decrypt(row.emailEncrypted, supportEmailContext(row.id)))
-            : 'Guest',
+            : row.whatsappContact
+              ? this.whatsappLabel(row.whatsappContact)
+              : 'Guest',
         guest: row.userId === null,
       },
       booking: row.booking,
@@ -364,6 +382,17 @@ export class SupportAdminService {
         responseDueAt: row.responseDueAt?.toISOString() ?? null,
         resolutionDueAt: row.resolutionDueAt?.toISOString() ?? null,
       },
+      whatsapp: row.whatsappContact
+        ? {
+            windowClosesAt:
+              whatsappWindowClosesAt(
+                row.whatsappContact.lastInboundAt,
+                new Date(),
+              )?.toISOString() ?? null,
+            optedOut: row.whatsappContact.optedOutAt !== null,
+            reachable: row.whatsappContact.phoneEncrypted !== null,
+          }
+        : null,
       awaitingReply: row.replyOwedSince !== null,
       messageCount: row.messageCount,
       lastCustomerMessageAt: row.lastCustomerMessageAt.toISOString(),
@@ -371,6 +400,13 @@ export class SupportAdminService {
       firstRespondedAt: row.firstRespondedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
     };
+  }
+
+  /** "WhatsApp •••• 4567", or "WhatsApp user" for someone who shows no number. */
+  private whatsappLabel(contact: { id: string; phoneEncrypted: string | null }): string {
+    if (!contact.phoneEncrypted) return 'WhatsApp user';
+    const phone = this.encryption.decrypt(contact.phoneEncrypted, whatsappPhoneContext(contact.id));
+    return `WhatsApp •••• ${phone.slice(-4)}`;
   }
 
   private async present(row: ConversationRow): Promise<AdminConversation> {
@@ -386,7 +422,15 @@ export class SupportAdminService {
         author: message.author,
         internal: message.internal,
         staff: message.staff ? { id: message.staff.id, name: nameOf(message.staff) } : null,
+        kind: message.kind,
         text: this.encryption.decrypt(message.bodyEncrypted, supportMessageContext(message.id)),
+        delivery: message.deliveryStatus
+          ? {
+              status: message.deliveryStatus,
+              error: message.deliveryError,
+              noticeSentAt: message.noticeSentAt?.toISOString() ?? null,
+            }
+          : null,
         createdAt: message.createdAt.toISOString(),
       })),
     };

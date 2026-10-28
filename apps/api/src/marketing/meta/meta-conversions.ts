@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AdConversionsProvider, type PurchaseEvent } from '../ad-conversions.provider';
 
 export interface MetaConversionsOptions {
-  /** Graph API base with its version, e.g. https://graph.facebook.com/v24.0. */
+  /** Graph API base with its version, e.g. https://graph.facebook.com/v26.0. */
   baseUrl: string;
   pixelId: string;
   accessToken: string;

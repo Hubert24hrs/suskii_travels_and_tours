@@ -9661,6 +9661,19 @@
             }
           },
           {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "web",
+                "app",
+                "whatsapp"
+              ]
+            }
+          },
+          {
             "name": "assignee",
             "in": "query",
             "required": false,
@@ -26448,6 +26461,128 @@
           }
         }
       }
+    },
+    "/v1/webhooks/whatsapp": {
+      "get": {
+        "operationId": "verifyWhatsAppWebhook",
+        "summary": "WhatsApp webhook handshake",
+        "description": "Meta checks the webhook URL with the verify token; the challenge comes back as plain text when the token matches. Called by Meta only.",
+        "tags": [
+          "Support"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "hub.mode",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "subscribe"
+            }
+          },
+          {
+            "name": "hub.verify_token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "hub.challenge",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,200}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "post": {
+        "operationId": "receiveWhatsAppWebhook",
+        "summary": "WhatsApp webhook",
+        "description": "Messages and delivery statuses from the WhatsApp Cloud API, signed with X-Hub-Signature-256 over the raw body. Repeated deliveries are acknowledged without effect. Called by Meta only.",
+        "tags": [
+          "Support"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppWebhookReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -31824,6 +31959,41 @@
             ],
             "additionalProperties": false
           },
+          "whatsapp": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "windowClosesAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "optedOut": {
+                    "type": "boolean"
+                  },
+                  "reachable": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "windowClosesAt",
+                  "optedOut",
+                  "reachable"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "awaitingReply": {
             "type": "boolean"
           },
@@ -31880,6 +32050,7 @@
           "booking",
           "assignee",
           "sla",
+          "whatsapp",
           "awaitingReply",
           "messageCount",
           "lastCustomerMessageAt",
@@ -32075,6 +32246,41 @@
             ],
             "additionalProperties": false
           },
+          "whatsapp": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "windowClosesAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "optedOut": {
+                    "type": "boolean"
+                  },
+                  "reachable": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "windowClosesAt",
+                  "optedOut",
+                  "reachable"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "awaitingReply": {
             "type": "boolean"
           },
@@ -32125,6 +32331,7 @@
           "booking",
           "assignee",
           "sla",
+          "whatsapp",
           "awaitingReply",
           "messageCount",
           "lastCustomerMessageAt",
@@ -32176,8 +32383,60 @@
               }
             ]
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "unsupported"
+            ]
+          },
           "text": {
             "type": "string"
+          },
+          "delivery": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "sent",
+                      "delivered",
+                      "read",
+                      "failed"
+                    ]
+                  },
+                  "error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "noticeSentAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "status",
+                  "error",
+                  "noticeSentAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -32189,7 +32448,9 @@
           "author",
           "internal",
           "staff",
+          "kind",
           "text",
+          "delivery",
           "createdAt"
         ],
         "additionalProperties": false
@@ -49311,6 +49572,11 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "whatsapp-contacts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -49344,7 +49610,8 @@
           "company-invitations",
           "ad-conversions",
           "metasearch-landings",
-          "support-conversations"
+          "support-conversations",
+          "whatsapp-contacts"
         ],
         "additionalProperties": false
       },
@@ -54546,6 +54813,19 @@
           "device",
           "metrics"
         ]
+      },
+      "WhatsAppWebhookReceipt": {
+        "type": "object",
+        "properties": {
+          "received": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "received"
+        ],
+        "additionalProperties": false
       },
       "WriteReviewRequestInput": {
         "type": "object",

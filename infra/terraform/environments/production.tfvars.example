@@ -94,6 +94,11 @@ api_env = {
   # AD_CONVERSIONS  = "meta,tiktok"
   # META_PIXEL_ID   = "REPLACE"
   # TIKTOK_PIXEL_ID = "REPLACE"
+  # WhatsApp support (ADR-084) is off unless set. Add "WHATSAPP_ACCESS_TOKEN",
+  # "WHATSAPP_APP_SECRET" and "WHATSAPP_VERIFY_TOKEN" to extra_secrets, set them in Secret
+  # Manager, register https://<api host>/v1/webhooks/whatsapp in the Meta app, then uncomment:
+  # WHATSAPP_SUPPORT_PROVIDER = "cloud"
+  # WHATSAPP_PHONE_NUMBER_ID  = "REPLACE"
   # AI trip search (ADR-061) is off unless set. To offer it, add "LLM_API_KEY" to extra_secrets,
   # set its value in Secret Manager, run the eval (ai-eval.yml) and uncomment:
   # AI_SEARCH_ENABLED = "true"

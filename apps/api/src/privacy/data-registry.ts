@@ -623,6 +623,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'parent', parent: 'SupportConversation' },
     note: 'Messages of a support conversation (bodies encrypted per message). The export holds what the traveller and staff wrote to each other, never internal notes or staff names.',
   },
+  WhatsAppContact: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'whatsapp-contacts' },
+    note: 'Someone who wrote to support on WhatsApp: sealed phone number and business-scoped user id, their HMACs, last message time and STOP. Never linked to an account (recycled numbers, ADR-084), so outside account export and deletion; purged 30 days after their last message once no conversation is left.',
+  },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 
 export type RegisteredModel = keyof typeof DATA_REGISTRY;

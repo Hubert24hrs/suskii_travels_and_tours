@@ -19,15 +19,40 @@ export class NetworkError extends TypeError {
   }
 }
 
-/** fetch with transport failures normalised to `NetworkError`; aborts stay aborts. */
-function transport(fetchImpl: typeof globalThis.fetch): typeof globalThis.fetch {
+/**
+ * A read with no answer after this long counts as no network, so screens fall back to the copies
+ * saved on the phone instead of loading forever on a network that drops packets. Writes wait:
+ * an upload on slow 3G can take minutes, and their Idempotency-Key covers a retry.
+ */
+export const READ_TIMEOUT_MS = 20_000;
+
+/**
+ * fetch with transport failures normalised to `NetworkError` and reads bounded by
+ * `READ_TIMEOUT_MS` (reported as `NetworkError` too); the caller's own aborts stay aborts.
+ */
+function transport(
+  fetchImpl: typeof globalThis.fetch,
+  readTimeoutMs = READ_TIMEOUT_MS,
+): typeof globalThis.fetch {
   return async (input, init) => {
+    const callerSignal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+    const method = (
+      init?.method ?? (input instanceof Request ? input.method : 'GET')
+    ).toUpperCase();
+    // AbortSignal.any is missing on Hermes: a controller follows the caller's signal by hand.
+    const timeout = method === 'GET' || method === 'HEAD' ? new AbortController() : null;
+    const followCaller = () => timeout?.abort();
+    if (timeout && callerSignal?.aborted) timeout.abort();
+    else if (timeout) callerSignal?.addEventListener('abort', followCaller);
+    const timer = timeout ? setTimeout(() => timeout.abort(), readTimeoutMs) : undefined;
     try {
-      return await fetchImpl(input, init);
+      return await fetchImpl(input, timeout ? { ...init, signal: timeout.signal } : init);
     } catch (error) {
-      const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
-      if (signal?.aborted) throw error;
+      if (callerSignal?.aborted) throw error;
       throw error instanceof NetworkError ? error : new NetworkError(error);
+    } finally {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener('abort', followCaller);
     }
   };
 }

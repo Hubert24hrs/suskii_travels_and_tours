@@ -131,3 +131,67 @@ export function supportSlaState(
 /** Characters of a support reference after the prefix ("S-7KX2Q9"); no 0/O, 1/I/L or U. */
 export const SUPPORT_REFERENCE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
 export const SUPPORT_REFERENCE_PATTERN = /^S-[2-9A-HJKMNP-TV-Z]{6}$/;
+
+/** What a message holds: text, or a WhatsApp attachment we do not accept yet (ADR-084). */
+export const SUPPORT_MESSAGE_KINDS = ['text', 'unsupported'] as const;
+export type SupportMessageKind = (typeof SUPPORT_MESSAGE_KINDS)[number];
+
+/**
+ * Where a staff reply sent over WhatsApp stands. `pending` before the call to Meta; then `sent`,
+ * `delivered` and `read` from the answer and status webhooks, or `failed`.
+ */
+export const SUPPORT_DELIVERY_STATUSES = [
+  'pending',
+  'sent',
+  'delivered',
+  'read',
+  'failed',
+] as const;
+export type SupportDeliveryStatus = (typeof SUPPORT_DELIVERY_STATUSES)[number];
+
+const DELIVERY_ORDER: Record<Exclude<SupportDeliveryStatus, 'failed'>, number> = {
+  pending: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+};
+
+/**
+ * Whether a status webhook may move a message from `current` to `next`. Statuses only move
+ * forward, so a late `sent` never overwrites `read`; `failed` can follow `pending` or `sent`
+ * (Meta reports failures after accepting a message) but never a delivery, and nothing follows it.
+ */
+export function supportDeliveryAdvances(
+  current: SupportDeliveryStatus,
+  next: SupportDeliveryStatus,
+): boolean {
+  if (current === 'failed' || current === next) return false;
+  if (next === 'failed') return current === 'pending' || current === 'sent';
+  return DELIVERY_ORDER[next] > DELIVERY_ORDER[current];
+}
+
+/** Hours after a person's last message during which a business may write freely on WhatsApp. */
+export const WHATSAPP_WINDOW_HOURS = 24;
+
+/** Whether the WhatsApp customer service window is open: free text now, else a template. */
+export const whatsappWindowOpen = (lastInboundAt: Date | null, now: Date): boolean =>
+  lastInboundAt !== null &&
+  now.getTime() - lastInboundAt.getTime() < WHATSAPP_WINDOW_HOURS * 3_600_000;
+
+/** When the window closes, for the console; null when it is closed already. */
+export const whatsappWindowClosesAt = (lastInboundAt: Date | null, now: Date): Date | null =>
+  lastInboundAt && whatsappWindowOpen(lastInboundAt, now)
+    ? new Date(lastInboundAt.getTime() + WHATSAPP_WINDOW_HOURS * 3_600_000)
+    : null;
+
+// Not "cancel" or "end": in a support chat those usually mean a booking, not the messages.
+const STOP_WORDS = new Set(['stop', 'stopall', 'unsubscribe']);
+
+/** A message that asks for no more business-initiated messages (just the word, any case). */
+export const isWhatsAppStop = (text: string): boolean =>
+  STOP_WORDS.has(
+    text
+      .trim()
+      .toLowerCase()
+      .replace(/[.!]+$/u, ''),
+  );

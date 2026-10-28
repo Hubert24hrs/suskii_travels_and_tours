@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   SUPPORT_REFERENCE_ALPHABET,
   SUPPORT_REFERENCE_PATTERN,
+  isWhatsAppStop,
+  supportDeliveryAdvances,
   supportDueAt,
   supportPriority,
   supportSchedule,
   supportSlaState,
   type SupportTargets,
+  whatsappWindowClosesAt,
+  whatsappWindowOpen,
 } from './support';
 import { supportStartSchema } from './support-schemas';
 
@@ -113,5 +117,32 @@ describe('support references and input', () => {
     expect(
       supportStartSchema.safeParse({ category: 'payment', message: 'x'.repeat(2_001) }).success,
     ).toBe(false);
+  });
+});
+
+describe('whatsapp delivery and window (ADR-084)', () => {
+  it('moves delivery forward only, and fails only before delivery', () => {
+    expect(supportDeliveryAdvances('pending', 'sent')).toBe(true);
+    expect(supportDeliveryAdvances('sent', 'read')).toBe(true);
+    expect(supportDeliveryAdvances('read', 'delivered')).toBe(false);
+    expect(supportDeliveryAdvances('delivered', 'delivered')).toBe(false);
+    expect(supportDeliveryAdvances('sent', 'failed')).toBe(true);
+    expect(supportDeliveryAdvances('delivered', 'failed')).toBe(false);
+    expect(supportDeliveryAdvances('failed', 'read')).toBe(false);
+  });
+
+  it('keeps the window open for 24 hours after the last message', () => {
+    expect(whatsappWindowOpen(null, now)).toBe(false);
+    expect(whatsappWindowOpen(inHours(-23.9), now)).toBe(true);
+    expect(whatsappWindowOpen(inHours(-24), now)).toBe(false);
+    expect(whatsappWindowClosesAt(inHours(-1), now)).toEqual(inHours(23));
+    expect(whatsappWindowClosesAt(inHours(-25), now)).toBeNull();
+  });
+
+  it('treats only the stop words on their own as an opt-out', () => {
+    expect(isWhatsAppStop(' STOP ')).toBe(true);
+    expect(isWhatsAppStop('Unsubscribe.')).toBe(true);
+    expect(isWhatsAppStop('cancel')).toBe(false);
+    expect(isWhatsAppStop('please stop my booking')).toBe(false);
   });
 });

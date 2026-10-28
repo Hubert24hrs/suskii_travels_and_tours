@@ -22,6 +22,8 @@ import {
   supportEmailContext,
   supportMessageContext,
   voucherContext,
+  whatsappBsuidContext,
+  whatsappPhoneContext,
 } from './encryption-contexts';
 import type { FieldEncryption } from './field-encryption';
 
@@ -106,6 +108,20 @@ export const ENCRYPTED_FIELDS: readonly EncryptedField[] = [
     contextColumn: 'id',
     context: supportEmailContext,
     purpose: "A guest's email for support reply notices",
+  },
+  {
+    table: 'whatsapp_contacts',
+    column: 'phone_encrypted',
+    contextColumn: 'id',
+    context: whatsappPhoneContext,
+    purpose: 'Phone number of someone who wrote to support on WhatsApp',
+  },
+  {
+    table: 'whatsapp_contacts',
+    column: 'bsuid_encrypted',
+    contextColumn: 'id',
+    context: whatsappBsuidContext,
+    purpose: 'WhatsApp business-scoped user id of someone who wrote to support',
   },
   {
     table: 'push_tokens',

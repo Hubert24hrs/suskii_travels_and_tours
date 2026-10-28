@@ -53,8 +53,9 @@ export const RETENTION_RULES = [
   'ad-conversions',
   // Metasearch landings (ADR-081).
   'metasearch-landings',
-  // Support conversations (ADR-083).
+  // Support conversations (ADR-083) and WhatsApp contacts (ADR-084).
   'support-conversations',
+  'whatsapp-contacts',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -108,6 +109,8 @@ export const RETENTION_DAYS = {
   'metasearch-landings': 400,
   /** After the conversation was resolved and last touched: two years to answer a dispute. */
   'support-conversations': 730,
+  /** After their last WhatsApp message, once none of their conversations is left. */
+  'whatsapp-contacts': 30,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -307,6 +310,15 @@ export class RetentionService {
       'support-conversations': counts(
         await this.prisma.supportConversation.deleteMany({
           where: { status: 'resolved', updatedAt: { lt: before('support-conversations') } },
+        }),
+      ),
+      // After the conversations above: a contact goes only once nothing points at it.
+      'whatsapp-contacts': counts(
+        await this.prisma.whatsAppContact.deleteMany({
+          where: {
+            lastInboundAt: { lt: before('whatsapp-contacts') },
+            conversations: { none: {} },
+          },
         }),
       ),
       // Commission records are revenue: kept for the financial period after their last change.
