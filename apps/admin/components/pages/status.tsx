@@ -360,7 +360,7 @@ export function StatusIncidentsPage() {
         <div className="max-w-popover">
           <SelectField
             label={t('status.filter')}
-            name="filter"
+            name="state"
             value={filter}
             options={(['all', 'open', 'resolved'] as const).map((value) => ({
               value,
