@@ -170,6 +170,9 @@ describe('sessions: limits, staff lifetimes and step-up (e2e)', () => {
         'adminSetUserRoles',
         // Suspending a company stops every member booking for it (ADR-078).
         'adminSuspendCompany',
+        // A metasearch key opens the partner price API (ADR-081).
+        'adminCreateMetasearchPartner',
+        'adminRotateMetasearchKey',
         'adminUpdateFeeRule',
         'adminUpdateMarkupRule',
         'adminUpdatePrimePlan',
