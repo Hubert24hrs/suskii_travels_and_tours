@@ -165,6 +165,32 @@ resource "cloudflare_ruleset" "rate_limit" {
   ]
 }
 
+# The status route is the one API answer the edge keeps (ADR-087). It follows the API's
+# Cache-Control (30 s, stale-if-error for a day), so travellers still see the last status while
+# the origin does not answer. Pages are never cached here: their HTML carries a per-request
+# CSP nonce.
+resource "cloudflare_ruleset" "cache" {
+  zone_id     = var.zone_id
+  name        = "Suskii cache rules"
+  description = "The public status route follows the API's Cache-Control at the edge."
+  kind        = "zone"
+  phase       = "http_request_cache_settings"
+  rules = [
+    {
+      ref         = "suskii_status_cache"
+      description = "Status JSON cached as the API says, served stale while the origin errors"
+      expression  = "(http.host eq \"${var.hosts.api}\" and http.request.uri.path eq \"/v1/status\")"
+      action      = "set_cache_settings"
+      action_parameters = {
+        cache       = true
+        edge_ttl    = { mode = "respect_origin" }
+        browser_ttl = { mode = "respect_origin" }
+        serve_stale = { disable_stale_while_updating = false }
+      }
+    },
+  ]
+}
+
 resource "cloudflare_ruleset" "managed_waf" {
   count       = var.managed_waf ? 1 : 0
   zone_id     = var.zone_id

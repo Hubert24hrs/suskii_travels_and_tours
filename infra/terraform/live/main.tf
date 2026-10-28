@@ -36,6 +36,18 @@ module "platform" {
   labels                    = var.labels
 }
 
+# Uptime checks from outside the platform and their alert policies (ADR-087).
+module "monitoring" {
+  source = "../modules/monitoring"
+
+  project_id            = var.project_id
+  environment           = var.environment
+  hosts                 = var.hosts
+  alert_emails          = var.uptime_alert_emails
+  notification_channels = var.uptime_notification_channels
+  labels                = var.labels
+}
+
 module "edge" {
   source = "../modules/edge"
 
