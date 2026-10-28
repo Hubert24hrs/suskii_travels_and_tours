@@ -2,6 +2,7 @@ import { isIP } from 'node:net';
 
 import { VersioningType } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
@@ -12,6 +13,23 @@ import { RideRealtimeGateway } from './rides/ride-realtime.gateway';
 /** Browser features a JSON API never needs. */
 const PERMISSIONS_POLICY =
   'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()';
+
+/**
+ * Answers compressed at the origin (Brotli or gzip, ADR-075): public search, catalog and content
+ * reads, which carry no token or personal data. Keeping compression away from responses that
+ * hold a secret next to text a caller chose means response sizes cannot leak the secret (BREACH).
+ */
+export const COMPRESSED_PATHS = [
+  /^\/v1\/flights\/searches(?:\/[^/]+\/offers)?$/,
+  /^\/v1\/flights\/offers\/[^/]+$/,
+  /^\/v1\/hotels\/searches(?:\/[^/]+\/hotels)?$/,
+  /^\/v1\/hotels\/results\/[^/]+$/,
+  /^\/v1\/(?:catalog|content)\/.+$/,
+  /^\/v1\/(?:deals|destinations)(?:\/.*)?$/,
+];
+
+export const compressible = (path: string): boolean =>
+  COMPRESSED_PATHS.some((rule) => rule.test(path));
 
 export const CORS_ALLOWED_HEADERS = [
   'Content-Type',
@@ -78,6 +96,13 @@ export function configureApp<T extends NestExpressApplication>(app: T, config: A
     res.setHeader('Cache-Control', 'no-store');
     next();
   });
+  app.use(
+    compression({
+      // Small answers cost more to compress than they save on the wire.
+      threshold: 1024,
+      filter: (req, res) => compressible(req.path) && compression.filter(req, res),
+    }),
+  );
   app.use(cookieParser());
   // Explicit JSON body cap (Nest's default is the same, but it is a security control): larger
   // payloads get 413 before any parsing work. With `rawBody: true` on the application (main.ts,
