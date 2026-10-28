@@ -45,6 +45,7 @@ export const sw: Messages = {
     openMenu: 'Fungua menyu',
     menuTitle: 'Menyu',
     manageBooking: 'Simamia uhifadhi',
+    help: 'Msaada na usaidizi',
     signIn: 'Ingia',
     account: 'Akaunti',
     currency: 'Sarafu',
@@ -129,6 +130,8 @@ export const sw: Messages = {
       consent: 'Hukumbuka machaguo yako ya vidakuzi.',
       sessionExpiry: 'Huiambia tovuti wakati wa kusasisha kuingia kwako.',
       bookingAccess: 'Hufungua uhifadhi uliofanya kama mgeni, katika kichupo hiki pekee.',
+      supportAccess:
+        'Hufungua mazungumzo ya usaidizi uliyoanzisha bila akaunti, katika kichupo hiki pekee.',
       search: 'Hukumbuka utafutaji wako wa mwisho wa safari ya ndege na maeneo ya hivi karibuni.',
       addonsName: 'Hujaza jina lako la ukoo unapotafuta huduma za ziada za uhifadhi.',
       companyInvite:
@@ -2820,6 +2823,63 @@ export const sw: Messages = {
         notEligible: 'Safari hii haiwezi kupewa maoni.',
         exists: 'Tayari umetoa maoni kuhusu safari hii.',
       },
+    },
+  },
+  support: {
+    heading: 'Msaada na usaidizi',
+    intro:
+      'Una swali kabla au baada ya kuhifadhi? Tuandikie na timu yetu itakujibu hapa, kwa barua pepe na kwenye programu.',
+    faqHeading: 'Maswali ya kawaida',
+    link: 'Msaada',
+    getHelp: 'Pata msaada kuhusu uhifadhi huu',
+    start: {
+      heading: 'Tuandikie',
+      category: 'Ni kuhusu nini?',
+      categories: {
+        pre_booking: 'Swali kabla ya kuhifadhi',
+        booking_change: 'Kubadilisha uhifadhi',
+        cancellation_refund: 'Kughairi au kurejeshewa pesa',
+        payment: 'Malipo',
+        documents: 'Tiketi, vocha na nyaraka',
+        general: 'Jambo jingine',
+      },
+      booking: 'Kuhusu uhifadhi {reference}',
+      message: 'Ujumbe wako',
+      messageHint: 'Hadi herufi 2,000. Kamwe usitume nambari za kadi au manenosiri.',
+      email: 'Barua pepe yako',
+      emailHint:
+        'Tutakutumia barua pepe tukijibu. Ingia ili mazungumzo yabaki kwenye akaunti yako.',
+      submit: 'Tuma',
+    },
+    list: {
+      heading: 'Mazungumzo yako',
+      empty: 'Bado hakuna mazungumzo.',
+    },
+    status: {
+      open: 'Inasubiri jibu letu',
+      waiting: 'Tumejibu',
+      resolved: 'Imetatuliwa',
+    },
+    unread: 'Jibu jipya',
+    conversation: {
+      title: 'Mazungumzo {reference}',
+      you: 'Wewe',
+      staff: 'Usaidizi wa Suskii',
+      system: 'Suskii',
+      reply: 'Jibu lako',
+      send: 'Tuma',
+      resolve: 'Weka kama imetatuliwa',
+      resolved: 'Mazungumzo haya yametatuliwa. Andika tena ili kuyafungua upya.',
+      notFound:
+        'Hatukuweza kufungua mazungumzo haya. Tumia kiungo kilicho kwenye barua pepe yetu, au anzisha mazungumzo mapya.',
+      back: 'Mazungumzo yote',
+    },
+    errors: {
+      limit:
+        'Una mazungumzo matano yaliyo wazi. Ongeza kwenye mojawapo, au weka moja kama imetatuliwa.',
+      full: 'Mazungumzo haya yamejaa. Anzisha mapya ili uendelee kutuandikia.',
+      email: 'Weka anwani ya barua pepe ili tukujulishe tukijibu.',
+      generic: 'Hatukuweza kutuma ujumbe wako. Angalia muunganisho wako kisha ujaribu tena.',
     },
   },
   seo: {

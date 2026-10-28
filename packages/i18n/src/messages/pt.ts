@@ -45,6 +45,7 @@ export const pt: Messages = {
     openMenu: 'Abrir menu',
     menuTitle: 'Menu',
     manageBooking: 'Gerir reserva',
+    help: 'Ajuda e apoio',
     signIn: 'Iniciar sessão',
     account: 'Conta',
     currency: 'Moeda',
@@ -129,6 +130,7 @@ export const pt: Messages = {
       consent: 'Memoriza as suas escolhas de cookies.',
       sessionExpiry: 'Indica ao site quando renovar a sua sessão.',
       bookingAccess: 'Abre uma reserva feita como convidado, apenas neste separador.',
+      supportAccess: 'Abre uma conversa com o apoio iniciada sem conta, apenas neste separador.',
       search: 'Memoriza a sua última pesquisa de voo e os locais recentes.',
       addonsName: 'Preenche o seu apelido quando procura extras para uma reserva.',
       companyInvite:
@@ -2838,6 +2840,62 @@ export const pt: Messages = {
         notEligible: 'Esta viagem não pode ser avaliada.',
         exists: 'Já avaliou esta viagem.',
       },
+    },
+  },
+  support: {
+    heading: 'Ajuda e apoio',
+    intro:
+      'Tem uma pergunta antes ou depois de reservar? Escreva-nos e a nossa equipa responde aqui, por e-mail e na aplicação.',
+    faqHeading: 'Perguntas frequentes',
+    link: 'Ajuda',
+    getHelp: 'Obter ajuda com esta reserva',
+    start: {
+      heading: 'Escreva-nos',
+      category: 'Sobre o que é?',
+      categories: {
+        pre_booking: 'Uma pergunta antes de reservar',
+        booking_change: 'Alterar uma reserva',
+        cancellation_refund: 'Cancelamento ou reembolso',
+        payment: 'Um pagamento',
+        documents: 'Bilhetes, vouchers e documentos',
+        general: 'Outra coisa',
+      },
+      booking: 'Sobre a reserva {reference}',
+      message: 'A sua mensagem',
+      messageHint: 'Até 2000 caracteres. Nunca envie números de cartão nem palavras-passe.',
+      email: 'O seu e-mail',
+      emailHint:
+        'Enviamos-lhe um e-mail quando respondermos. Inicie sessão para guardar as conversas na sua conta.',
+      submit: 'Enviar',
+    },
+    list: {
+      heading: 'As suas conversas',
+      empty: 'Ainda não há conversas.',
+    },
+    status: {
+      open: 'À espera da nossa resposta',
+      waiting: 'Respondemos',
+      resolved: 'Resolvida',
+    },
+    unread: 'Nova resposta',
+    conversation: {
+      title: 'Conversa {reference}',
+      you: 'Você',
+      staff: 'Apoio Suskii',
+      system: 'Suskii',
+      reply: 'A sua resposta',
+      send: 'Enviar',
+      resolve: 'Marcar como resolvida',
+      resolved: 'Esta conversa está resolvida. Escreva de novo para a reabrir.',
+      notFound:
+        'Não foi possível abrir esta conversa. Use a ligação do nosso e-mail ou inicie uma nova conversa.',
+      back: 'Todas as conversas',
+    },
+    errors: {
+      limit: 'Tem cinco conversas abertas. Acrescente a uma delas ou marque uma como resolvida.',
+      full: 'Esta conversa está cheia. Inicie uma nova para continuar a escrever-nos.',
+      email: 'Indique um e-mail para o avisarmos quando respondermos.',
+      generic: 'Não foi possível enviar a sua mensagem. Verifique a ligação e tente de novo.',
     },
   },
   seo: {
