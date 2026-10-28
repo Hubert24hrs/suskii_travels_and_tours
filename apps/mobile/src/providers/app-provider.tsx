@@ -34,6 +34,9 @@ interface AppContextValue {
   locale: LocaleCode;
   currency: CurrencyCode;
   setCurrency: (currency: CurrencyCode) => void;
+  /** Fewer results per page, for slow or expensive data (ADR-075). */
+  dataSaver: boolean;
+  setDataSaver: (on: boolean) => void;
   queryClient: QueryClient;
 }
 
@@ -48,6 +51,7 @@ export function deviceLocale(): LocaleCode {
 }
 
 const CURRENCY_KEY = 'preferences.currency';
+const DATA_SAVER_KEY = 'preferences.dataSaver';
 
 function storedCurrency(): CurrencyCode {
   const value = preferences.getString(CURRENCY_KEY);
@@ -87,6 +91,9 @@ export function AppProvider({
 }) {
   const [locale] = useState(deviceLocale);
   const [currency, setCurrencyState] = useState(storedCurrency);
+  const [dataSaver, setDataSaverState] = useState(
+    () => preferences.getBoolean(DATA_SAVER_KEY) === true,
+  );
   const [queryClient] = useState(() => injected ?? createQueryClient());
   const api = useMemo(() => createAppApi(session, () => locale), [session, locale]);
   // Signed out by the API (revoked elsewhere): the account's data goes with the tokens.
@@ -99,10 +106,24 @@ export function AppProvider({
     preferences.set(CURRENCY_KEY, next);
     setCurrencyState(next);
   }, []);
+  const setDataSaver = useCallback((on: boolean) => {
+    preferences.set(DATA_SAVER_KEY, on);
+    setDataSaverState(on);
+  }, []);
   const messages = useMemo(() => getMessages(locale), [locale]);
   const value = useMemo(
-    () => ({ api, session, user, locale, currency, setCurrency, queryClient }),
-    [api, session, user, locale, currency, setCurrency, queryClient],
+    () => ({
+      api,
+      session,
+      user,
+      locale,
+      currency,
+      setCurrency,
+      dataSaver,
+      setDataSaver,
+      queryClient,
+    }),
+    [api, session, user, locale, currency, setCurrency, dataSaver, setDataSaver, queryClient],
   );
   return (
     <AppContext.Provider value={value}>

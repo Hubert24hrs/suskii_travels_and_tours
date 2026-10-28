@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { browserApi, type Schemas } from '../../lib/browser-api';
+import { handedFlightSearch, searchKey as handoffKey } from '../../lib/search-handoff';
 import { NativeSelect } from '../search/native-select';
 
 import {
@@ -18,12 +19,15 @@ import {
   type FlightFilterState,
 } from './flight-filters';
 import { FlightOfferCard, type FlightOfferCardProps } from './flight-offer-card';
+import { AfterPaint } from './after-paint';
 import { ResultsLoading, ResultsMessage } from './result-states';
 import { useResultsT } from './results-messages';
 import { WatchRoute } from './watch-route';
 import { listParam, numberParam, useUrlParams } from './use-url-params';
 
 const SORTS = ['best', 'cheapest', 'fastest', 'earliest'] as const;
+/** Cards in the first paint; the rest follow right after it (ADR-075). */
+const FIRST_CARDS = 4;
 type Sort = (typeof SORTS)[number];
 type Result = Schemas['FlightSearchResult'];
 type SearchRequest = Schemas['FlightSearchRequestInput'];
@@ -49,6 +53,9 @@ function filtersFromParams(params: URLSearchParams): FlightFilterState {
   };
 }
 
+/** Sort and filters of a plain search: the search itself answers with this first page. */
+const DEFAULT_FILTER_KEY = JSON.stringify(['best', filtersFromParams(new URLSearchParams())]);
+
 function filtersToParams(filters: FlightFilterState): Record<string, string | null> {
   return {
     stops: filters.stops.join(',') || null,
@@ -62,12 +69,12 @@ function filtersToParams(filters: FlightFilterState): Record<string, string | nu
 }
 
 /** API query for a sort-and-filter key (see `filterKey`). */
-function listQuery(filterKey: string, currency: CurrencyCode): ListQuery {
+function listQuery(filterKey: string, currency: CurrencyCode, pageSize: number): ListQuery {
   const [sort, filters] = JSON.parse(filterKey) as [Sort, FlightFilterState];
   return {
     currency,
     sort,
-    limit: 20,
+    limit: pageSize,
     ...(filters.stops.length > 0 ? { stops: filters.stops.join(',') } : {}),
     ...(filters.airlines.length > 0 ? { airlines: filters.airlines.join(',') } : {}),
     ...(filters.windows.length > 0 ? { departureWindows: filters.windows.join(',') } : {}),
@@ -80,15 +87,19 @@ function listQuery(filterKey: string, currency: CurrencyCode): ListQuery {
 
 /**
  * Live flight results for the search in the URL: searches every supplier through the API, then
- * pages, sorts and filters on the API (filters and sort stay in the URL). Selecting a fare
- * re-prices it and opens checkout; a price change is shown first.
+ * pages, sorts and filters on the API (filters and sort stay in the URL). The search answers with
+ * its first page, so a plain search costs one round trip (ADR-075). Selecting a fare re-prices it
+ * and opens checkout; a price change is shown first.
  */
 export function FlightResults({
   request,
   currency,
+  pageSize = 20,
 }: {
   request: SearchRequest;
   currency: CurrencyCode;
+  /** Offers per page: fewer in data-saver mode (ADR-075). */
+  pageSize?: number;
 }) {
   const { t } = useResultsT();
   const format = useFormatters();
@@ -100,7 +111,11 @@ export function FlightResults({
   const filterKey = JSON.stringify([sort, filters]);
 
   const [attempt, setAttempt] = useState(0);
-  const [search, setSearch] = useState<{ key: string; searchId: string | null } | null>(null);
+  const [search, setSearch] = useState<{
+    key: string;
+    searchId: string | null;
+    first: Result | null;
+  } | null>(null);
   const [listed, setListed] = useState<{ key: string; phase: Phase } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selecting, setSelecting] = useState<string | null>(null);
@@ -116,39 +131,58 @@ export function FlightResults({
 
   // Fetched state is keyed by its inputs, so a new search or filter shows its own loading state
   // without resetting state inside effects.
-  const searchKey = JSON.stringify([request, currency, attempt]);
+  const searchKey = JSON.stringify([request, currency, pageSize, attempt]);
   const searchId = search?.key === searchKey ? search.searchId : undefined;
-  const listKey = JSON.stringify([searchId, filterKey, currency]);
+  const firstPage =
+    search?.key === searchKey && filterKey === DEFAULT_FILTER_KEY ? search.first : null;
+  const listKey = JSON.stringify([searchId, filterKey, currency, pageSize, firstPage !== null]);
 
   // 1. Search (again when the request changes or the traveller retries).
   useEffect(() => {
     let cancelled = false;
-    const [body, searchCurrency] = JSON.parse(searchKey) as [SearchRequest, CurrencyCode];
-    browserApi()
-      .POST('/v1/flights/searches', { params: { query: { currency: searchCurrency } }, body })
-      .then(({ data }) => {
-        if (!cancelled) setSearch({ key: searchKey, searchId: data?.searchId ?? null });
+    const [body, searchCurrency, limit, tries] = JSON.parse(searchKey) as [
+      SearchRequest,
+      CurrencyCode,
+      number,
+      number,
+    ];
+    // The form may already have started this search while the page loaded (ADR-075).
+    const handed = tries === 0 ? handedFlightSearch(handoffKey(body, searchCurrency, limit)) : null;
+    (
+      handed ??
+      browserApi()
+        .POST('/v1/flights/searches', {
+          params: { query: { currency: searchCurrency, limit } },
+          body,
+        })
+        .then(({ data }) => data ?? null)
+    )
+      .then((data) => {
+        if (!cancelled)
+          setSearch({ key: searchKey, searchId: data?.searchId ?? null, first: data ?? null });
       })
       .catch(() => {
-        if (!cancelled) setSearch({ key: searchKey, searchId: null });
+        if (!cancelled) setSearch({ key: searchKey, searchId: null, first: null });
       });
     return () => {
       cancelled = true;
     };
   }, [searchKey]);
 
-  // 2. The first page for the current sort and filters.
+  // 2. The first page for the current sort and filters, unless the search already answered it.
   useEffect(() => {
-    const [id, filtersKey, listCurrency] = JSON.parse(listKey) as [
+    const [id, filtersKey, listCurrency, limit, answered] = JSON.parse(listKey) as [
       string | null | undefined,
       string,
       CurrencyCode,
+      number,
+      boolean,
     ];
-    if (!id) return;
+    if (!id || answered) return;
     let cancelled = false;
     browserApi()
       .GET('/v1/flights/searches/{searchId}/offers', {
-        params: { path: { searchId: id }, query: listQuery(filtersKey, listCurrency) },
+        params: { path: { searchId: id }, query: listQuery(filtersKey, listCurrency, limit) },
       })
       .then(({ data, response }) => {
         if (cancelled) return;
@@ -170,9 +204,13 @@ export function FlightResults({
   const phase: Phase =
     searchId === null
       ? { kind: 'error' }
-      : searchId === undefined || listed?.key !== listKey
+      : searchId === undefined
         ? { kind: 'searching' }
-        : listed.phase;
+        : listed?.key === listKey
+          ? listed.phase
+          : firstPage
+            ? { kind: 'ready', result: firstPage }
+            : { kind: 'searching' };
 
   const loadMore = async (result: Result) => {
     if (!result.nextCursor || !searchId) return;
@@ -180,7 +218,7 @@ export function FlightResults({
     const { data, response } = await browserApi().GET('/v1/flights/searches/{searchId}/offers', {
       params: {
         path: { searchId },
-        query: { ...listQuery(filterKey, currency), cursor: result.nextCursor },
+        query: { ...listQuery(filterKey, currency, pageSize), cursor: result.nextCursor },
       },
     });
     setLoadingMore(false);
@@ -245,6 +283,21 @@ export function FlightResults({
     );
 
   const { result } = phase;
+  const renderOffer = (offer: Schemas['FlightOffer']) => (
+    <li key={offer.id}>
+      <FlightOfferCard
+        offer={offer}
+        travellers={travellers}
+        selecting={selecting === offer.id}
+        disabled={selecting !== null && selecting !== offer.id}
+        notice={notice?.offerId === offer.id ? notice.value : null}
+        onSelect={() => void select(offer)}
+        onContinue={() => {
+          if (notice?.quoteId) router.push(`/checkout/${notice.quoteId}`);
+        }}
+      />
+    </li>
+  );
   const unfiltered = JSON.stringify(filters) === JSON.stringify(EMPTY_FLIGHT_FILTERS);
   if (result.total === 0 && unfiltered)
     return <ResultsMessage>{t('results.flights.none')}</ResultsMessage>;
@@ -263,12 +316,14 @@ export function FlightResults({
           {showFilters ? t('results.filters.hide') : t('results.filters.show')}
         </Button>
         <div id="flight-filters" className={showFilters ? 'block' : 'hidden lg:block'}>
-          <FlightFilters
-            facets={result.facets}
-            currency={result.currency}
-            value={filters}
-            onChange={changeFilters}
-          />
+          <AfterPaint>
+            <FlightFilters
+              facets={result.facets}
+              currency={result.currency}
+              value={filters}
+              onChange={changeFilters}
+            />
+          </AfterPaint>
         </div>
       </aside>
       <section aria-labelledby="flight-results-count" className="flex flex-col gap-4 lg:col-span-3">
@@ -303,21 +358,8 @@ export function FlightResults({
           </p>
         ) : null}
         <ol className="flex flex-col gap-4">
-          {result.offers.map((offer) => (
-            <li key={offer.id}>
-              <FlightOfferCard
-                offer={offer}
-                travellers={travellers}
-                selecting={selecting === offer.id}
-                disabled={selecting !== null && selecting !== offer.id}
-                notice={notice?.offerId === offer.id ? notice.value : null}
-                onSelect={() => void select(offer)}
-                onContinue={() => {
-                  if (notice?.quoteId) router.push(`/checkout/${notice.quoteId}`);
-                }}
-              />
-            </li>
-          ))}
+          {result.offers.slice(0, FIRST_CARDS).map(renderOffer)}
+          <AfterPaint>{result.offers.slice(FIRST_CARDS).map(renderOffer)}</AfterPaint>
         </ol>
         {result.nextCursor ? (
           <Button variant="secondary" loading={loadingMore} onClick={() => void loadMore(result)}>

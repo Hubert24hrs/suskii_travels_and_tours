@@ -7,6 +7,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { browserApi, type Schemas } from '../../lib/browser-api';
+import { handedHotelSearch, searchKey as handoffKey } from '../../lib/search-handoff';
 import { NativeSelect } from '../search/native-select';
 
 import { HotelCard } from './hotel-card';
@@ -17,11 +18,14 @@ import {
   type Board,
   type HotelFilterState,
 } from './hotel-filters';
+import { AfterPaint } from './after-paint';
 import { ResultsLoading, ResultsMessage } from './result-states';
 import { useResultsT } from './results-messages';
 import { listParam, numberParam, useUrlParams } from './use-url-params';
 
 const SORTS = ['recommended', 'price', 'rating', 'stars'] as const;
+/** Cards in the first paint; the rest follow right after it (ADR-075). */
+const FIRST_CARDS = 4;
 type Sort = (typeof SORTS)[number];
 type Result = Schemas['HotelSearchResult'];
 type SearchRequest = Schemas['HotelSearchRequestInput'];
@@ -49,6 +53,12 @@ function filtersFromParams(params: URLSearchParams): HotelFilterState {
   };
 }
 
+/** Sort and filters of a plain search: the search itself answers with this first page. */
+const DEFAULT_FILTER_KEY = JSON.stringify([
+  'recommended',
+  filtersFromParams(new URLSearchParams()),
+]);
+
 function filtersToParams(filters: HotelFilterState): Record<string, string | null> {
   return {
     stars: filters.stars.join(',') || null,
@@ -62,12 +72,12 @@ function filtersToParams(filters: HotelFilterState): Record<string, string | nul
 }
 
 /** API query for a sort-and-filter key (see `filterKey`). */
-function listQuery(filterKey: string, currency: CurrencyCode): ListQuery {
+function listQuery(filterKey: string, currency: CurrencyCode, pageSize: number): ListQuery {
   const [sort, filters] = JSON.parse(filterKey) as [Sort, HotelFilterState];
   return {
     currency,
     sort,
-    limit: 20,
+    limit: pageSize,
     ...(filters.stars.length > 0 ? { stars: filters.stars.join(',') } : {}),
     ...(filters.minRating !== undefined ? { minRating: filters.minRating } : {}),
     ...(filters.freeCancellation ? { freeCancellation: 'true' as const } : {}),
@@ -78,13 +88,19 @@ function listQuery(filterKey: string, currency: CurrencyCode): ListQuery {
   };
 }
 
-/** Live hotel results for the search in the URL, mirroring flights (filters and sort in the URL). */
+/**
+ * Live hotel results for the search in the URL, mirroring flights (filters and sort in the URL,
+ * and the search's own first page for a plain search, ADR-075).
+ */
 export function HotelResults({
   request,
   currency,
+  pageSize = 20,
 }: {
   request: SearchRequest;
   currency: CurrencyCode;
+  /** Hotels per page: fewer in data-saver mode (ADR-075). */
+  pageSize?: number;
 }) {
   const { t } = useResultsT();
   const [params, updateParams] = useUrlParams();
@@ -94,26 +110,47 @@ export function HotelResults({
   const filterKey = JSON.stringify([sort, filters]);
 
   const [attempt, setAttempt] = useState(0);
-  const [search, setSearch] = useState<{ key: string; searchId: string | null } | null>(null);
+  const [search, setSearch] = useState<{
+    key: string;
+    searchId: string | null;
+    first: Result | null;
+  } | null>(null);
   const [listed, setListed] = useState<{ key: string; phase: Phase } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   // Fetched state is keyed by its inputs (see FlightResults).
-  const searchKey = JSON.stringify([request, currency, attempt]);
+  const searchKey = JSON.stringify([request, currency, pageSize, attempt]);
   const searchId = search?.key === searchKey ? search.searchId : undefined;
-  const listKey = JSON.stringify([searchId, filterKey, currency]);
+  const firstPage =
+    search?.key === searchKey && filterKey === DEFAULT_FILTER_KEY ? search.first : null;
+  const listKey = JSON.stringify([searchId, filterKey, currency, pageSize, firstPage !== null]);
 
   useEffect(() => {
     let cancelled = false;
-    const [body, searchCurrency] = JSON.parse(searchKey) as [SearchRequest, CurrencyCode];
-    browserApi()
-      .POST('/v1/hotels/searches', { params: { query: { currency: searchCurrency } }, body })
-      .then(({ data }) => {
-        if (!cancelled) setSearch({ key: searchKey, searchId: data?.searchId ?? null });
+    const [body, searchCurrency, limit, tries] = JSON.parse(searchKey) as [
+      SearchRequest,
+      CurrencyCode,
+      number,
+      number,
+    ];
+    // The form may already have started this search while the page loaded (ADR-075).
+    const handed = tries === 0 ? handedHotelSearch(handoffKey(body, searchCurrency, limit)) : null;
+    (
+      handed ??
+      browserApi()
+        .POST('/v1/hotels/searches', {
+          params: { query: { currency: searchCurrency, limit } },
+          body,
+        })
+        .then(({ data }) => data ?? null)
+    )
+      .then((data) => {
+        if (!cancelled)
+          setSearch({ key: searchKey, searchId: data?.searchId ?? null, first: data ?? null });
       })
       .catch(() => {
-        if (!cancelled) setSearch({ key: searchKey, searchId: null });
+        if (!cancelled) setSearch({ key: searchKey, searchId: null, first: null });
       });
     return () => {
       cancelled = true;
@@ -121,16 +158,18 @@ export function HotelResults({
   }, [searchKey]);
 
   useEffect(() => {
-    const [id, filtersKey, listCurrency] = JSON.parse(listKey) as [
+    const [id, filtersKey, listCurrency, limit, answered] = JSON.parse(listKey) as [
       string | null | undefined,
       string,
       CurrencyCode,
+      number,
+      boolean,
     ];
-    if (!id) return;
+    if (!id || answered) return;
     let cancelled = false;
     browserApi()
       .GET('/v1/hotels/searches/{searchId}/hotels', {
-        params: { path: { searchId: id }, query: listQuery(filtersKey, listCurrency) },
+        params: { path: { searchId: id }, query: listQuery(filtersKey, listCurrency, limit) },
       })
       .then(({ data, response }) => {
         if (cancelled) return;
@@ -152,9 +191,13 @@ export function HotelResults({
   const phase: Phase =
     searchId === null
       ? { kind: 'error' }
-      : searchId === undefined || listed?.key !== listKey
+      : searchId === undefined
         ? { kind: 'searching' }
-        : listed.phase;
+        : listed?.key === listKey
+          ? listed.phase
+          : firstPage
+            ? { kind: 'ready', result: firstPage }
+            : { kind: 'searching' };
 
   const loadMore = async (result: Result) => {
     if (!result.nextCursor || !searchId) return;
@@ -162,7 +205,7 @@ export function HotelResults({
     const { data, response } = await browserApi().GET('/v1/hotels/searches/{searchId}/hotels', {
       params: {
         path: { searchId },
-        query: { ...listQuery(filterKey, currency), cursor: result.nextCursor },
+        query: { ...listQuery(filterKey, currency, pageSize), cursor: result.nextCursor },
       },
     });
     setLoadingMore(false);
@@ -198,6 +241,15 @@ export function HotelResults({
     return <ResultsMessage>{t('results.hotels.none')}</ResultsMessage>;
   // The hotel page keeps the search (and filters) so "back" and "search again" lose nothing.
   const query = params.toString();
+  const renderHotel = (hotel: Result['hotels'][number]) => (
+    <li key={hotel.id}>
+      <HotelCard
+        hotel={hotel}
+        nights={result.nights}
+        href={`/hotels/stay/${encodeURIComponent(hotel.id)}?${query}`}
+      />
+    </li>
+  );
 
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-4 lg:items-start lg:gap-6">
@@ -213,12 +265,14 @@ export function HotelResults({
           {showFilters ? t('results.filters.hide') : t('results.filters.show')}
         </Button>
         <div id="hotel-filters" className={showFilters ? 'block' : 'hidden lg:block'}>
-          <HotelFilters
-            facets={result.facets}
-            currency={result.currency}
-            value={filters}
-            onChange={(next) => updateParams(filtersToParams(next))}
-          />
+          <AfterPaint>
+            <HotelFilters
+              facets={result.facets}
+              currency={result.currency}
+              value={filters}
+              onChange={(next) => updateParams(filtersToParams(next))}
+            />
+          </AfterPaint>
         </div>
       </aside>
       <section aria-labelledby="hotel-results-count" className="flex flex-col gap-4 lg:col-span-3">
@@ -249,15 +303,8 @@ export function HotelResults({
           <p className="font-body text-body-sm text-foreground">{t('results.partial')}</p>
         ) : null}
         <ol className="flex flex-col gap-4">
-          {result.hotels.map((hotel) => (
-            <li key={hotel.id}>
-              <HotelCard
-                hotel={hotel}
-                nights={result.nights}
-                href={`/hotels/stay/${encodeURIComponent(hotel.id)}?${query}`}
-              />
-            </li>
-          ))}
+          {result.hotels.slice(0, FIRST_CARDS).map(renderHotel)}
+          <AfterPaint>{result.hotels.slice(FIRST_CARDS).map(renderHotel)}</AfterPaint>
         </ol>
         {result.nextCursor ? (
           <Button variant="secondary" loading={loadingMore} onClick={() => void loadMore(result)}>

@@ -71,12 +71,15 @@ const toggle = <T,>(list: T[], value: T): T[] =>
   list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 
 /**
- * Flight results (ADR-020): the search runs on the API, then pages of offers load with the
- * chosen sort and filters. Selecting a fare re-prices it (quote) before checkout.
+ * Flight results (ADR-020): the search runs on the API and answers with its first page, so a plain
+ * search costs one round trip (ADR-075); other sorts, filters and later pages load from the
+ * search. Selecting a fare re-prices it (quote) before checkout.
  */
 export function FlightResultsScreen() {
   const params = useLocalSearchParams<Record<string, string | string[]>>();
-  const { api, currency } = useApp();
+  const { api, currency, dataSaver } = useApp();
+  // Data saver (ADR-075): half the results per page.
+  const pageSize = dataSaver ? 10 : 20;
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
@@ -96,12 +99,12 @@ export function FlightResultsScreen() {
     : 1;
 
   const search = useQuery({
-    queryKey: ['flight-search', request, currency],
+    queryKey: ['flight-search', request, currency, pageSize],
     enabled: request !== null,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await api.POST('/v1/flights/searches', {
-        params: { query: { currency } },
+        params: { query: { currency, limit: pageSize } },
         body: request ?? ({} as never),
       });
       if (!data) throw new Error(JSON.stringify(error));
@@ -109,10 +112,15 @@ export function FlightResultsScreen() {
     },
   });
   const searchId = search.data?.searchId;
+  const plain = JSON.stringify(filters) === JSON.stringify(NO_FILTERS);
 
   const offers = useInfiniteQuery({
-    queryKey: ['flight-offers', searchId, filters, currency],
+    queryKey: ['flight-offers', searchId, filters, currency, pageSize],
     enabled: Boolean(searchId),
+    // A plain search already answered with its first page: show it instead of asking again.
+    initialData: () =>
+      plain && search.data ? { pages: [search.data], pageParams: [undefined] } : undefined,
+    staleTime: 5 * 60_000,
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page: Schemas['FlightSearchResult']) => page.nextCursor ?? undefined,
     queryFn: async ({ pageParam }) => {
@@ -121,6 +129,7 @@ export function FlightResultsScreen() {
           path: { searchId: searchId ?? '' },
           query: {
             currency,
+            limit: pageSize,
             sort: filters.sort,
             ...(filters.stops.length ? { stops: filters.stops.join(',') } : {}),
             ...(filters.airlines.length ? { airlines: filters.airlines.join(',') } : {}),

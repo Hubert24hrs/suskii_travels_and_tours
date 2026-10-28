@@ -61,6 +61,14 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
     duration: 'oneYear',
   },
   {
+    name: '__Host-suskii_data_saver',
+    kind: 'cookie',
+    category: 'necessary',
+    provider: 'suskii',
+    purpose: 'dataSaver',
+    duration: 'oneYear',
+  },
+  {
     name: '__Host-suskii_consent',
     kind: 'cookie',
     category: 'necessary',
