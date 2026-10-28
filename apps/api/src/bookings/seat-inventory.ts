@@ -201,8 +201,18 @@ export const vehicleUnavailable = (): ProblemDetailsException =>
     'Someone booked it first. Choose other dates or another car.',
   );
 
-/** Postgres refused the row because of the rental overlap exclusion constraint (23P01). */
-function overlapViolation(error: unknown): boolean {
+/**
+ * Postgres refused the row because of the rental overlap exclusion constraint (23P01), or broke a
+ * deadlock between two bookings inserting overlapping periods at the same moment (40P01). An
+ * exclusion constraint is checked after the row is inserted, so two such inserts can each wait
+ * for the other; Postgres aborts one and the other commits. Prisma reports that as P2034.
+ */
+export function overlapViolation(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+    const adapterError = (error.meta as { driverAdapterError?: { cause?: unknown } } | undefined)
+      ?.driverAdapterError;
+    return (adapterError?.cause as { originalCode?: string } | undefined)?.originalCode === '40P01';
+  }
   const text = `${(error as { message?: string }).message ?? ''} ${JSON.stringify(
     (error as { meta?: unknown }).meta ?? {},
   )}`;
