@@ -17,6 +17,7 @@ import { SupplierRunner } from '../search/supplier-runner';
 import {
   CircuitOpenError,
   OfferUnavailableError,
+  SupplierAmbiguousError,
   SupplierError,
   SupplierRequestError,
   SupplierTimeoutError,
@@ -63,11 +64,32 @@ const RELEASE_LOCK = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis
 /** Reason codes for the audit log; never supplier messages (they can echo passenger data). */
 function failureReason(error: unknown): string {
   if (error instanceof CircuitOpenError) return 'circuit_open';
+  if (error instanceof SupplierAmbiguousError) return 'unconfirmed';
   if (error instanceof SupplierTimeoutError) return 'timeout';
   if (error instanceof SupplierUnavailableError) return 'supplier_unavailable';
   if (error instanceof OfferUnavailableError) return 'offer_unavailable';
   if (error instanceof SupplierRequestError) return 'supplier_rejected';
   return 'internal_error';
+}
+
+/**
+ * Whether a failed supplier booking may be tried again, and the reason to record. A failure
+ * that may have booked anyway (a timeout, an unconfirmed answer, an internal error) is retried
+ * only for suppliers that dedupe on the idempotency key; otherwise it goes to review.
+ */
+export function ticketingFailure(
+  error: unknown,
+  idempotentBooking: boolean | undefined,
+): { retryable: boolean; reason: string } {
+  const transient = error instanceof SupplierUnavailableError || error instanceof CircuitOpenError;
+  const ambiguous =
+    error instanceof SupplierTimeoutError ||
+    error instanceof SupplierAmbiguousError ||
+    !(error instanceof SupplierError);
+  const retryable = transient || (ambiguous && idempotentBooking === true);
+  const reason =
+    ambiguous && !retryable ? `${failureReason(error)}_needs_review` : failureReason(error);
+  return { retryable, reason };
 }
 
 /**
@@ -352,13 +374,7 @@ export class TicketingService {
         : payload.kind === 'hotel'
           ? this.hotelSuppliers.find((s) => s.name === payload.hotel.supplier)?.idempotentBooking
           : true;
-    const transient =
-      error instanceof SupplierUnavailableError || error instanceof CircuitOpenError;
-    // A timeout or an internal failure may have booked anyway: retry only when that is harmless.
-    const ambiguous = error instanceof SupplierTimeoutError || !(error instanceof SupplierError);
-    const retryable = transient || (ambiguous && idempotent === true);
-    const reason =
-      ambiguous && !retryable ? `${failureReason(error)}_needs_review` : failureReason(error);
+    const { retryable, reason } = ticketingFailure(error, idempotent);
     this.logger.warn({ bookingId: booking.id, attempt, reason }, 'ticketing attempt failed');
 
     if (retryable && attempt < this.config.TICKETING_MAX_ATTEMPTS) {

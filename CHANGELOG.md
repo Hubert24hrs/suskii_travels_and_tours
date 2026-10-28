@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Supplier booking retries (2026-10-28)
+
+#### Fixed
+
+- **No second booking after an unclear supplier answer.** Ticketing used to retry a booking
+  call that failed with a 5xx, a lost connection or an unreadable or unconfirmed answer, even
+  when the supplier may already have booked. Hotelbeds and Duffel take no idempotency key, and
+  Duffel flights search again before ordering, so a retry could buy a second stay or ticket.
+  Those failures are now `SupplierAmbiguousError`: suppliers that dedupe on the idempotency key
+  still retry, the others go to REFUND_PENDING for review (`unconfirmed_needs_review`), as a
+  timeout already did. Failures before the booking call (a quote, a fresh offer) still retry.
+
 ### Support conversations (2026-10-28)
 
 #### Added

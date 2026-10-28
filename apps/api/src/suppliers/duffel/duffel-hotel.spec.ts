@@ -2,6 +2,7 @@ import { money } from '@suskii/shared';
 
 import {
   OfferUnavailableError,
+  SupplierAmbiguousError,
   SupplierRequestError,
   SupplierUnavailableError,
 } from '../supplier.errors';
@@ -432,6 +433,17 @@ describe('DuffelHotelSupplier', () => {
         json(201, { data: { id: 'bok_2', reference: null, status: 'requested' } }),
       );
       await expect(supplierWith(fn).book(request, signal)).rejects.toBeInstanceOf(
+        SupplierAmbiguousError,
+      );
+    });
+
+    it('treats a failed booking call as unclear, and a failed quote as safe to retry', async () => {
+      const failed = fakeFetch(quote('420.00'), json(503, { errors: [] }));
+      await expect(supplierWith(failed.fn).book(request, signal)).rejects.toBeInstanceOf(
+        SupplierAmbiguousError,
+      );
+      const early = fakeFetch(json(503, { errors: [] }));
+      await expect(supplierWith(early.fn).book(request, signal)).rejects.toBeInstanceOf(
         SupplierUnavailableError,
       );
     });

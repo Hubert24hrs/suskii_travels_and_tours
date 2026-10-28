@@ -3,7 +3,12 @@ import { Logger } from '@nestjs/common';
 import { add, money, parseMoney, subtract, type Money } from '@suskii/shared';
 
 import type { SupplierPrice } from '../../pricing/pricing-engine';
-import { OfferUnavailableError, SupplierUnavailableError } from '../supplier.errors';
+import {
+  creating,
+  OfferUnavailableError,
+  SupplierAmbiguousError,
+  SupplierUnavailableError,
+} from '../supplier.errors';
 import {
   HotelSupplier,
   type BoardType,
@@ -176,29 +181,32 @@ export class HotelbedsHotelSupplier extends HotelSupplier {
   async book(request: HotelBookingRequest, signal: AbortSignal): Promise<HotelBookingResult> {
     const [lead] = request.guests;
     if (!lead) throw new SupplierUnavailableError(this.name, 'The booking has no lead guest');
-    const created = await this.client.request('POST', `${API}/bookings`, signal, {
-      holder: { name: lead.givenNames, surname: lead.surname },
-      rooms: [
-        {
-          rateKey: request.rate.supplierRateId,
-          paxes: request.guests.map((guest, index) => ({
-            roomId: index + 1,
-            type: 'AD',
-            name: guest.givenNames,
-            surname: guest.surname,
-          })),
-        },
-      ],
-      clientReference: hotelbedsClientReference(request.idempotencyKey),
-      tolerance: 0,
-    });
+    // Hotelbeds takes no idempotency key: a failure after sending goes to review.
+    const created = await creating(this.name, () =>
+      this.client.request('POST', `${API}/bookings`, signal, {
+        holder: { name: lead.givenNames, surname: lead.surname },
+        rooms: [
+          {
+            rateKey: request.rate.supplierRateId,
+            paxes: request.guests.map((guest, index) => ({
+              roomId: index + 1,
+              type: 'AD',
+              name: guest.givenNames,
+              surname: guest.surname,
+            })),
+          },
+        ],
+        clientReference: hotelbedsClientReference(request.idempotencyKey),
+        tolerance: 0,
+      }),
+    );
     const booking = hotelbedsBookingSchema.safeParse(created);
     if (!booking.success) {
-      throw new SupplierUnavailableError(this.name, 'Hotelbeds returned an invalid booking');
+      throw new SupplierAmbiguousError(this.name, 'Hotelbeds returned an invalid booking');
     }
     // Anything but confirmed leaves the outcome unclear: it goes to review, never to a retry.
     if (booking.data.booking.status !== 'CONFIRMED') {
-      throw new SupplierUnavailableError(
+      throw new SupplierAmbiguousError(
         this.name,
         `Hotelbeds booking is ${booking.data.booking.status ?? 'unconfirmed'}`,
       );
