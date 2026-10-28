@@ -43,6 +43,8 @@ export const PERSONAS = {
   applicant: { roles: [], enrolled: false },
   /** Reviews the applicant's documents and vehicle, then approves the driver. */
   driverReviewer: { roles: ['operations'], enrolled: true },
+  /** Publishes the traveller's review of a finished tour (ADR-077). */
+  reviewModerator: { roles: ['content_manager'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
@@ -67,6 +69,8 @@ export interface StackState {
   tourSlug: string;
   /** The applicant's driver profile, documents scanned and waiting for review. */
   driver: { id: string; name: string };
+  /** A guest's review of a finished tour, waiting for a moderator (ADR-077). */
+  review: { bookingReference: string; subject: string };
   /** The run's own database, for the few states a browser cannot reach (an aged session). */
   databaseUrl: string;
 }

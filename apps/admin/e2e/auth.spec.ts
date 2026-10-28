@@ -28,8 +28,8 @@ test('a staff member without an authenticator enrols on first sign-in', async ({
   await expect(page.getByTestId('recovery-codes').getByRole('listitem')).toHaveCount(10);
   await page.getByRole('button', { name: t('auth.enrol.continue') }).click();
 
-  // A content manager runs the catalog and site content, nothing financial, and has no
-  // dashboard: the console opens their first section.
+  // A content manager runs the catalog, site content and review moderation, nothing financial,
+  // and has no dashboard: the console opens their first section.
   await expect(page.getByRole('navigation', { name: t('nav.label') })).toBeVisible();
   await expect(page).toHaveURL(/\/catalog$/);
   expect(await navLabels(page)).toEqual([
@@ -38,6 +38,7 @@ test('a staff member without an authenticator enrols on first sign-in', async ({
     t('nav.deals'),
     t('nav.content'),
     t('nav.trustSignals'),
+    t('nav.reviews'),
   ]);
   await page.goto('/refunds');
   await expect(alertWith(page, t('common.forbidden'))).toBeVisible();

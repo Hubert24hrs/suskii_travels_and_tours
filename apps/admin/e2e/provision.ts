@@ -59,6 +59,9 @@ interface SignIn {
   user?: { id: string };
 }
 
+/** Statements run on the run's database, for states the API cannot reach (a trip in the past). */
+export type RunSql = (statements: { sql: string; params: unknown[] }[]) => Promise<void>;
+
 /** Registration answers 202 before the account exists in every case, so sign-in is retried. */
 async function signIn(api: Api, email: string, secretPassword: string): Promise<SignIn> {
   for (let attempt = 0; ; attempt += 1) {
@@ -145,6 +148,16 @@ async function bookAndPay(
   email: string,
   risky = false,
 ): Promise<{ id: string; reference: string }> {
+  return (await bookAndPayGuest(api, quote, email, risky)).booking;
+}
+
+/** Books and pays as a guest, keeping the booking's guest token. */
+async function bookAndPayGuest(
+  api: Api,
+  quote: { quoteId: string; termsVersion: string },
+  email: string,
+  risky = false,
+): Promise<{ booking: { id: string; reference: string }; accessToken: string }> {
   const created = await api.call<{
     booking: { id: string; reference: string };
     accessToken: string;
@@ -176,7 +189,56 @@ async function bookAndPay(
   await api.call('POST', `/v1/payments/mock/${reference}/complete`, {
     body: { outcome: 'succeeded', ...(risky ? { card: RISKY.card } : {}) },
   });
-  return created.booking;
+  return created;
+}
+
+/**
+ * A guest's review of a finished tour (ADR-077): the tour is booked and paid, its date moved
+ * into the past (the one thing the API cannot do), then the guest writes the review through the
+ * public route, which checks the booking, the trip's end and the window as for anyone.
+ */
+async function reviewedTour(
+  api: Api,
+  runSql: RunSql,
+  quote: { quoteId: string; termsVersion: string },
+): Promise<{ bookingReference: string }> {
+  const { booking, accessToken } = await bookAndPayGuest(api, quote, 'ada.review@example.com');
+  const token = { 'X-Booking-Token': accessToken };
+  // Fulfilment confirms the booking in the background after the payment.
+  for (let attempt = 0; ; attempt += 1) {
+    const current = await api.call<{ status: string }>('GET', `/v1/bookings/${booking.id}`, {
+      headers: token,
+    });
+    if (current.status === 'CONFIRMED') break;
+    if (attempt >= 60) throw new Error(`The review booking stayed ${current.status}`);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  const listed = await api.call<{ items: { itemId: string }[] }>(
+    'GET',
+    `/v1/bookings/${booking.id}/reviews`,
+    { headers: token },
+  );
+  const itemId = listed.items[0]?.itemId;
+  if (!itemId) throw new Error('The tour booking should list its tour for review');
+  await runSql([
+    {
+      sql: `UPDATE booking_items
+               SET payload = jsonb_set(payload, '{startsAtLocal}', to_jsonb($1::text))
+             WHERE id = $2::uuid`,
+      params: [`${isoDaysFromToday(-3)}T09:00`, itemId],
+    },
+  ]);
+  await api.call('PUT', `/v1/bookings/${booking.id}/items/${itemId}/review`, {
+    headers: token,
+    body: {
+      rating: 9,
+      title: 'Sunset over the dunes',
+      liked: 'A guide who knew every dune. Call me on +234 801 234 5678 for tips.',
+      tripType: 'couple',
+      showName: true,
+    },
+  });
+  return { bookingReference: booking.reference };
 }
 
 async function waitForApplication(api: Api, root: string, reference: string): Promise<string> {
@@ -272,6 +334,7 @@ async function applyToDrive(
 export async function provision(
   apiUrl: string,
   root: { email: string; password: string },
+  runSql: RunSql,
 ): Promise<Omit<StackState, 'databaseUrl'>> {
   const api = new Api(apiUrl);
   const rootToken = await rootSession(api, root.email, root.password);
@@ -284,10 +347,10 @@ export async function provision(
   const tours = await api.call<{ tours: { slug: string }[] }>('GET', '/v1/tours?adults=1');
   const [booked, watched] = tours.tours;
   if (!booked || !watched) throw new Error('The demo seed should publish at least two tours');
-  const detail = await api.call<{ departures: { id: string; bookable: boolean }[] }>(
-    'GET',
-    `/v1/tours/${booked.slug}?adults=1`,
-  );
+  const detail = await api.call<{
+    title: string;
+    departures: { id: string; bookable: boolean }[];
+  }>('GET', `/v1/tours/${booked.slug}?adults=1`);
   const departure = detail.departures.find((candidate) => candidate.bookable);
   if (!departure) throw new Error(`No bookable departure for ${booked.slug}`);
   const tourQuote = await api.call<{ quoteId: string; termsVersion: string }>(
@@ -314,6 +377,18 @@ export async function provision(
     },
   );
   const heldBooking = await bookAndPay(api, heldQuote, 'ada.held@example.com', true);
+  const reviewQuote = await api.call<{ quoteId: string; termsVersion: string }>(
+    'POST',
+    '/v1/inhouse-quotes',
+    {
+      body: {
+        kind: 'tour',
+        departureId: departure.id,
+        travellers: { adults: 1, children: 0, infants: 0 },
+      },
+    },
+  );
+  const review = await reviewedTour(api, runSql, reviewQuote);
 
   const products = await api.call<{ products: { id: string }[] }>(
     'GET',
@@ -346,5 +421,6 @@ export async function provision(
     visa: { bookingId: visaBooking.id, applicationId },
     tourSlug: watched.slug,
     driver,
+    review: { ...review, subject: detail.title },
   };
 }
