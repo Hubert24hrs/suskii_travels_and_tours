@@ -135,3 +135,33 @@ describe('formatters', () => {
     expect(format.country('not-a-code')).toBe('not-a-code');
   });
 });
+
+describe('languages (ADR-076)', () => {
+  it('picks the Arabic plural forms and isolates inserted values', () => {
+    const { t } = createTranslator(getMessages('ar'), 'ar');
+    const isolated = (text: string) => `⁨${text}⁩`;
+    expect(t('common.hotels', { count: 0 })).toBe('لا توجد فنادق');
+    expect(t('common.hotels', { count: 2 })).toBe('فندقان');
+    expect(t('common.hotels', { count: 3 })).toBe(`${isolated('3')} فنادق`);
+    expect(t('common.hotels', { count: 11 })).toBe(`${isolated('11')} فندقًا`);
+    expect(t('common.hotels', { count: 100 })).toBe(`${isolated('100')} فندق`);
+    expect(t('pages.route.title', { origin: 'LOS', destination: 'DXB' })).toBe(
+      `رحلات من ${isolated('LOS')} إلى ${isolated('DXB')}`,
+    );
+  });
+
+  it('writes Latin digits in every language and isolates nothing left to right', () => {
+    expect(createFormatters('ar').number(12_500)).toBe('12,500');
+    expect(createFormatters('ar').money(money(2_500_000n, 'NGN'))).toMatch(/25,000/);
+    expect(createFormatters('fr').money(money(2_500_000n, 'XOF'))).toMatch(
+      /2[\s\u202f]500[\s\u202f]000/,
+    );
+    const { t } = createTranslator(getMessages('fr'), 'fr');
+    expect(t('common.hotels', { count: 2 })).toBe('2 hôtels');
+    expect(t('search.travellers.adultsCount', { count: 1 })).toBe('1 adulte');
+  });
+
+  it('falls back to English for an unsupported language', () => {
+    expect(getMessages('de')).toBe(getMessages('en-NG'));
+  });
+});

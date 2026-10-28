@@ -7,6 +7,8 @@ import {
   type MoneyWire,
 } from '@suskii/shared/lite';
 
+import { intlLocale } from './translator';
+
 export type DateStyle = 'short' | 'medium' | 'long' | 'weekday' | 'month';
 
 const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
@@ -58,30 +60,32 @@ const toMoney = (amount: Money | MoneyWire): Money =>
   'minor' in amount ? amount : fromWire(amount);
 
 export function createFormatters(locale: string): Formatters {
+  // `locale` stays the catalog code; Intl gets the Latin-digit form (ADR-076).
+  const intl = intlLocale(locale);
   const dateFormats = new Map<DateStyle, Intl.DateTimeFormat>();
   const dateFormat = (style: DateStyle): Intl.DateTimeFormat => {
     let format = dateFormats.get(style);
     if (!format) {
-      format = new Intl.DateTimeFormat(locale, { ...DATE_OPTIONS[style], timeZone: 'UTC' });
+      format = new Intl.DateTimeFormat(intl, { ...DATE_OPTIONS[style], timeZone: 'UTC' });
       dateFormats.set(style, format);
     }
     return format;
   };
   const dateTimeFormats = new Map<string, Intl.DateTimeFormat>();
-  const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-  const numbers = new Intl.NumberFormat(locale);
-  const lists = new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' });
+  const relative = new Intl.RelativeTimeFormat(intl, { numeric: 'auto' });
+  const numbers = new Intl.NumberFormat(intl);
+  const lists = new Intl.ListFormat(intl, { style: 'long', type: 'conjunction' });
   // Created on first use: engines without DisplayNames (Hermes before its polyfill) show codes.
   let regions: Intl.DisplayNames | null | undefined;
 
   return {
     locale,
-    money: (amount) => formatMoney(toMoney(amount), locale, { hideZeroDecimals: true }),
+    money: (amount) => formatMoney(toMoney(amount), intl, { hideZeroDecimals: true }),
     moneyFrom(amount) {
       const value = toMoney(amount);
       const unit = 10n ** BigInt(currencyExponent(value.currency));
       const whole = roundDiv(value.minor, unit, 'ceil') * unit;
-      return formatMoney({ minor: whole, currency: value.currency }, locale, {
+      return formatMoney({ minor: whole, currency: value.currency }, intl, {
         hideZeroDecimals: true,
       });
     },
@@ -97,7 +101,7 @@ export function createFormatters(locale: string): Formatters {
       const key = timeZone ?? '';
       let format = dateTimeFormats.get(key);
       if (!format) {
-        format = new Intl.DateTimeFormat(locale, {
+        format = new Intl.DateTimeFormat(intl, {
           weekday: 'short',
           day: 'numeric',
           month: 'short',
@@ -125,7 +129,7 @@ export function createFormatters(locale: string): Formatters {
     country(code) {
       regions ??=
         typeof Intl.DisplayNames === 'function'
-          ? new Intl.DisplayNames([locale], { type: 'region', fallback: 'code' })
+          ? new Intl.DisplayNames([intl], { type: 'region', fallback: 'code' })
           : null;
       try {
         return regions?.of(code.toUpperCase()) ?? code;
