@@ -26,6 +26,30 @@ export class OfferUnavailableError extends SupplierError {}
 export class CircuitOpenError extends SupplierError {}
 
 /**
+ * The supplier may have acted on the request: a call that creates an order or a booking failed
+ * after it may have been sent (5xx, a lost connection, an unreadable or unconfirmed answer).
+ * Ticketing retries it only for suppliers that dedupe on the idempotency key; for the others
+ * the booking goes to review, so a stay or a ticket is never bought twice.
+ */
+export class SupplierAmbiguousError extends SupplierError {}
+
+/**
+ * Runs a call that creates an order or a booking: a failure that may have happened after the
+ * supplier acted becomes `SupplierAmbiguousError`. Refusals (4xx, sold out) and timeouts keep
+ * their own meaning.
+ */
+export async function creating<T>(supplier: string, call: () => Promise<T>): Promise<T> {
+  try {
+    return await call();
+  } catch (error) {
+    if (error instanceof SupplierUnavailableError) {
+      throw new SupplierAmbiguousError(supplier, error.message, { cause: error });
+    }
+    throw error;
+  }
+}
+
+/**
  * Runs `task` with an abort signal that fires after `ms` (or when `parent` aborts) and rejects
  * with `SupplierTimeoutError` even if the task ignores its signal.
  */

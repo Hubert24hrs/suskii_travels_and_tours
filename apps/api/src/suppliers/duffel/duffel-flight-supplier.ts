@@ -17,6 +17,7 @@ import {
 
 import { buildSlice } from '../itinerary';
 import {
+  creating,
   OfferUnavailableError,
   SupplierRequestError,
   SupplierUnavailableError,
@@ -370,23 +371,28 @@ export class DuffelFlightSupplier extends FlightSupplier {
     const offer = await this.freshOffer(request.offer, request.passengers.length, signal, withBags);
     const bags = this.orderBags(offer, request);
     const total = add(amount(offer.total_amount, offer.total_currency), bags.total);
-    const created = await this.client.request('POST', '/air/orders', signal, {
-      data: {
-        type: 'instant',
-        selected_offers: [offer.id],
-        passengers: this.orderPassengers(offer, request.passengers, request.contact),
-        ...(withBags ? { services: bags.services } : {}),
-        payments: [
-          {
-            type: 'balance',
-            currency: offer.total_currency,
-            amount: withBags ? toDecimalString(total) : offer.total_amount,
+    // The order may exist after a failure: a retry would search again and buy a second ticket,
+    // so anything after sending goes to review.
+    const order = await creating(this.name, async () =>
+      this.parseOrder(
+        await this.client.request('POST', '/air/orders', signal, {
+          data: {
+            type: 'instant',
+            selected_offers: [offer.id],
+            passengers: this.orderPassengers(offer, request.passengers, request.contact),
+            ...(withBags ? { services: bags.services } : {}),
+            payments: [
+              {
+                type: 'balance',
+                currency: offer.total_currency,
+                amount: withBags ? toDecimalString(total) : offer.total_amount,
+              },
+            ],
+            metadata: { suskii_booking_item: request.idempotencyKey },
           },
-        ],
-        metadata: { suskii_booking_item: request.idempotencyKey },
-      },
-    });
-    const order = this.parseOrder(created);
+        }),
+      ),
+    );
     return {
       supplierReference: order.booking_reference,
       tickets: this.tickets(order, offer),

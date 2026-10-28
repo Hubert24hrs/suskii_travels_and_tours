@@ -18,6 +18,10 @@ const config = {
   globalSetup: '<rootDir>/test/global-setup.ts',
   globalTeardown: '<rootDir>/test/global-teardown.ts',
   maxWorkers: 1,
+  // Run the files in one worker process that is replaced once it holds more than this after a
+  // file, instead of in Jest's own process: ESM test modules and coverage counters are never
+  // freed between files, and the whole suite outgrew a 4 GB heap in CI.
+  workerIdleMemoryLimit: '1.5GB',
   // Container start-up and argon2 hashing are slow on shared CI runners.
   testTimeout: 60_000,
   // Phase 11 gate, applied when CI runs the suite with --coverage: the app runs in-process, so
