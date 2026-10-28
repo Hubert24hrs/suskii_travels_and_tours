@@ -2438,6 +2438,7 @@ export const pt: Messages = {
         price_alert: 'Alertas de preço',
         prime: 'Suskii Prime',
         review_requests: 'Pedidos de avaliação após a viagem',
+        support: 'Respostas da nossa equipa de apoio',
         marketing: 'Ofertas e novidades',
       },
       channels: { email: 'E-mail', sms: 'SMS', whatsapp: 'WhatsApp', push: 'App' },
