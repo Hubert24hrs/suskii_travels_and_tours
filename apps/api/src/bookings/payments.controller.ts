@@ -48,7 +48,7 @@ export class PaymentsController {
   }
 
   @Get('mock/:reference')
-  @RateLimit(BOOKING_LIMITS.mockPaymentIp)
+  @RateLimit(BOOKING_LIMITS.mockPaymentViewIp)
   @Contract({
     operationId: 'getMockPayment',
     summary: 'Mock hosted checkout: the payment to show',
