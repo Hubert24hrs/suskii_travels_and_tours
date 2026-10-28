@@ -88,7 +88,7 @@ export function NotificationsSection() {
           <tbody>
             {NOTIFICATION_CATEGORIES.map((category) => (
               <tr key={category} className="border-t border-border">
-                <th scope="row" className="p-2 text-left font-medium text-foreground">
+                <th scope="row" className="p-2 text-start font-medium text-foreground">
                   {t(`account.notifications.categories.${category}`)}
                 </th>
                 {NOTIFICATION_CHANNELS.map((channel) => {

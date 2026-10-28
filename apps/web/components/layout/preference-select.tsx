@@ -10,7 +10,8 @@ export interface PreferenceSelectProps {
   name: 'currency' | 'locale' | 'dataSaver';
   label: string;
   value: string;
-  options: readonly { value: string; label: string }[];
+  /** `lang` marks a label written in another language (language names, ADR-076). */
+  options: readonly { value: string; label: string; lang?: string }[];
   /** Label of the submit button shown when JavaScript is unavailable. */
   submitLabel: string;
   className?: string;
@@ -59,7 +60,7 @@ export function PreferenceSelect({
           className="min-h-12 rounded-md border border-border-strong bg-surface px-3 font-body text-body-sm text-foreground focus-visible:focus-ring"
         >
           {options.map((option) => (
-            <option key={option.value} value={option.value}>
+            <option key={option.value} value={option.value} lang={option.lang}>
               {option.label}
             </option>
           ))}

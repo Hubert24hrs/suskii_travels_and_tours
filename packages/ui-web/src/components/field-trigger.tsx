@@ -34,7 +34,7 @@ export function FieldButton({
       type="button"
       aria-labelledby={`${labelId} ${valueId}`}
       className={cn(
-        'flex h-12 w-full items-center gap-3 rounded-md border border-border-strong bg-surface px-4 text-left font-body text-body text-foreground',
+        'flex h-12 w-full items-center gap-3 rounded-md border border-border-strong bg-surface px-4 text-start font-body text-body text-foreground',
         'transition-colors duration-fast ease-standard hover:border-primary focus-visible:focus-ring',
         className,
       )}

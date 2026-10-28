@@ -207,7 +207,7 @@ function Included({ items }: { items: readonly string[] }) {
       <h3 className="font-body text-body-sm font-bold text-foreground">
         {t('booking.inhouse.included')}
       </h3>
-      <ul className="flex list-disc flex-col gap-1 pl-5 font-body text-body-sm text-foreground">
+      <ul className="flex list-disc flex-col gap-1 ps-5 font-body text-body-sm text-foreground">
         {items.map((item) => (
           <li key={item}>{item}</li>
         ))}

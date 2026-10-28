@@ -49,7 +49,7 @@ export default async function PrimePage() {
               return (
                 <li key={plan.id}>
                   <Card
-                    className="flex h-full flex-col gap-4 border-l-4 border-l-accent p-6"
+                    className="flex h-full flex-col gap-4 border-s-4 border-s-accent p-6"
                     data-testid={`plan-${plan.slug}`}
                   >
                     <div className="flex flex-wrap items-center gap-2">

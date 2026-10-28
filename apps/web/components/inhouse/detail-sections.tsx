@@ -27,7 +27,7 @@ export function TextList({
   if (items.length === 0) return null;
   return (
     <Block id={id} title={title}>
-      <ul className="flex list-disc flex-col gap-1 pl-5 font-body text-body text-foreground">
+      <ul className="flex list-disc flex-col gap-1 ps-5 font-body text-body text-foreground">
         {items.map((item) => (
           <li key={item}>{item}</li>
         ))}

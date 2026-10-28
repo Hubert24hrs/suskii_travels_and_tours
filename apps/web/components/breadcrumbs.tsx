@@ -17,7 +17,9 @@ export async function Breadcrumbs({ items }: { items: { name: string; path: stri
         <ol className="flex flex-wrap items-center gap-1 font-body text-body-sm text-muted">
           {trail.map((item, index) => (
             <li key={item.path} className="flex items-center gap-1">
-              {index > 0 ? <ChevronRight aria-hidden="true" className="size-4" /> : null}
+              {index > 0 ? (
+                <ChevronRight aria-hidden="true" className="size-4 rtl:-scale-x-100" />
+              ) : null}
               {index === trail.length - 1 ? (
                 <span aria-current="page" className="text-foreground">
                   {item.name}

@@ -135,7 +135,7 @@ export function Combobox<T>({
         {icon ? (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-muted"
+            className="pointer-events-none absolute inset-y-0 inset-s-0 flex items-center ps-4 text-muted"
           >
             {icon}
           </span>
@@ -164,7 +164,7 @@ export function Combobox<T>({
             setIsOpen(false);
             setHighlightedIndex(-1);
           }}
-          className={cn(inputClasses, icon ? 'pl-12' : undefined)}
+          className={cn(inputClasses, icon ? 'ps-12' : undefined)}
         />
         <div
           id={menuId}
