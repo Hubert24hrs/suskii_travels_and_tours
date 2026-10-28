@@ -125,6 +125,16 @@ function passportMode(
 
 function Checkout({ quote }: { quote: Quote }) {
   const { api, user, locale } = useApp();
+  // Company accounts (ADR-078): members of an active company may book the trip for it.
+  const company = useQuery({
+    queryKey: ['company', user?.id ?? null],
+    enabled: Boolean(user),
+    queryFn: async () => {
+      const { data } = await api.GET('/v1/me/company');
+      return data?.status === 'active' ? { name: data.name } : null;
+    },
+  });
+  const [forCompany, setForCompany] = useState(false);
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
@@ -335,6 +345,7 @@ function Checkout({ quote }: { quote: Quote }) {
           acceptTerms: true,
           locale,
           turnstileToken: null,
+          company: Boolean(company.data) && forCompany,
         },
       });
       if (!data) {
@@ -396,6 +407,11 @@ function Checkout({ quote }: { quote: Quote }) {
       setCreated({ id: booking.id, headers });
       // The permission prompt comes with the booking, never on first launch (ADR-022).
       void followBooking(api, booking.id, headers, true);
+      // A company trip waiting for an approver is paid later, from the trip screen.
+      if (booking.company?.approvalStatus === 'pending') {
+        router.replace(`/trips/${booking.id}` as Href);
+        return;
+      }
       await pay({ id: booking.id, headers });
     } catch {
       setFormError(t('mobile.networkError'));
@@ -696,6 +712,17 @@ function Checkout({ quote }: { quote: Quote }) {
           </Card>
         ) : null}
 
+        {company.data ? (
+          <View className="gap-1">
+            <Checkbox
+              testID="checkout-company"
+              label={t('checkout.company.label', { company: company.data.name })}
+              checked={forCompany}
+              onChange={setForCompany}
+            />
+            <Text className="font-body text-body-sm text-muted">{t('checkout.company.help')}</Text>
+          </View>
+        ) : null}
         <Checkbox
           testID="accept-terms"
           label={t('checkout.terms')}

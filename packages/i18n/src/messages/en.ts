@@ -2437,7 +2437,7 @@ export const en = {
         lastAdmin: 'A company needs an admin. Make another member an admin first.',
       },
       approvals: {
-        heading: 'Waiting for approval',
+        heading: 'Trips to approve',
         empty: 'No trips are waiting for approval.',
         approve: 'Approve',
         reject: 'Reject',

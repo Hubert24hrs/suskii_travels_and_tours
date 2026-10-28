@@ -22,6 +22,7 @@ const SECTIONS = [
   ['sessions', 'account.security.sessions.heading'],
   ['referrals', 'account.nav.referrals'],
   ['alerts', 'account.nav.alerts'],
+  ['company', 'account.nav.company'],
   ['privacy', 'account.nav.privacy'],
 ] as const;
 

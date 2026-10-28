@@ -38,6 +38,34 @@ describe('TripScreen', () => {
     expect(tripStore.cachedBooking(BOOKING_ID)?.booking.reference).toBe('SK7Q2M');
   });
 
+  it('holds a company trip waiting for approval: no pay button until an approver says yes', async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    mockApi({
+      [GET]: () =>
+        json(
+          booking({
+            status: 'PRICED',
+            paymentOptions: null,
+            company: {
+              approvalStatus: 'pending',
+              policyFindings: ['too_late'],
+              approvalRejectReason: null,
+            },
+          }),
+        ),
+    });
+
+    await renderWithApp(<TripScreen />);
+
+    expect(await screen.findByTestId('trip-company')).toHaveTextContent(m.booking.company.pending);
+    expect(
+      screen.getByText(
+        m.booking.company.outsidePolicy.replace('{findings}', m.booking.company.findings.too_late),
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryByTestId('pay-now')).toBeNull();
+  });
+
   it('saves the e-ticket to the device and opens it from there', async () => {
     await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
     mockApi({ [GET]: () => json(booking()) });

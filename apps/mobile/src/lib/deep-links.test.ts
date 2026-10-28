@@ -108,6 +108,7 @@ describe('resolveNotificationPath', () => {
     expect(resolveNotificationPath(`/trips/${ID.toUpperCase()}`)).toBe(`/trips/${ID}`);
     expect(resolveNotificationPath('/account')).toBe('/account');
     expect(resolveNotificationPath('/account/alerts')).toBe('/account/alerts');
+    expect(resolveNotificationPath('/account/company')).toBe('/account/company');
     expect(resolveNotificationPath('/prime')).toBe('/prime');
     expect(resolveNotificationPath('/account/privacy')).toBeNull();
     expect(resolveNotificationPath('/account/alerts?next=https://evil.example')).toBeNull();

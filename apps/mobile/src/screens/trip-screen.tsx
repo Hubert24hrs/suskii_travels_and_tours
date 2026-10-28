@@ -253,6 +253,11 @@ export function TripScreen() {
   const { booking, offline, savedAt } = query.data;
   const status = booking.status;
   const plan = booking.paymentPlan;
+  // Company trips (ADR-078); offline copies saved before this field existed have none.
+  const approval = booking.company?.approvalStatus ?? 'not_required';
+  const findings = (booking.company?.policyFindings ?? []).map((finding) =>
+    t(`booking.company.findings.${finding}`),
+  );
   const guestTrip = tripStore.deviceTripIds().includes(booking.id);
   const help =
     status === 'CONFIRMED'
@@ -446,6 +451,23 @@ export function TripScreen() {
             </Badge>
           </View>
           <Text className="font-body text-body text-foreground">{help}</Text>
+          {approval !== 'not_required' ? (
+            <Text
+              testID="trip-company"
+              className={
+                approval === 'rejected'
+                  ? 'font-body-bold text-body-sm text-danger'
+                  : 'font-body-bold text-body-sm text-foreground'
+              }
+            >
+              {t(`booking.company.${approval}`)}
+            </Text>
+          ) : null}
+          {findings.length > 0 ? (
+            <Text className="font-body text-body-sm text-foreground">
+              {t('booking.company.outsidePolicy', { findings: format.list(findings) })}
+            </Text>
+          ) : null}
           {offline && savedAt ? (
             <Text className="font-body text-caption text-muted">
               {t('mobile.trip.offlineCopy', { time: format.dateTime(savedAt) })}
@@ -471,7 +493,8 @@ export function TripScreen() {
                 {t('booking.completePayment')}
               </Button>
             ) : null}
-            {status === 'PRICED' || (plan?.status === 'active' && booking.pendingPriceChange) ? (
+            {(status === 'PRICED' && approval !== 'pending') ||
+            (plan?.status === 'active' && booking.pendingPriceChange) ? (
               <Button testID="pay-now" loading={busy} onPress={() => void pay()}>
                 {booking.pendingPriceChange
                   ? t('checkout.priceChange.accept')
