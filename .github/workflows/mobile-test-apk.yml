@@ -93,7 +93,8 @@ jobs:
         working-directory: apps/mobile
         run: pnpm exec expo prebuild --platform android --clean --no-install
 
-      # Same memory settings as the CI build (mobile.yml); phone CPUs instead of the emulator's.
+      # Same memory and download settings as the CI build (mobile.yml); phone CPUs instead of the
+      # emulator's.
       - name: Build the release APK (arm64-v8a, armeabi-v7a)
         working-directory: apps/mobile/android
         timeout-minutes: 60
@@ -102,6 +103,10 @@ jobs:
           -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
           --no-daemon "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC"
           "-Pkotlin.daemon.jvmargs=-Xmx3g"
+          -Dorg.gradle.internal.http.connectionTimeout=60000
+          -Dorg.gradle.internal.http.socketTimeout=300000
+          -Dorg.gradle.internal.repository.max.tentatives=6
+          -Dorg.gradle.internal.repository.initial.backoff=2000
 
       - name: Scan the APK for secrets
         run: |
