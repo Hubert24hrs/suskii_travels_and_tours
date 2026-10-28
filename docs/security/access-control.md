@@ -11,7 +11,8 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   webhooks, health probes, web-vitals beacons, AI trip search (`/v1/flights/natural-search`,
   which fills a form and reads nothing private; ADR-061), partner offers for a place, the
   sealed partner redirect (`/v1/go/{token}`) and network postbacks, which need the network's
-  secret (ADR-070), and published reviews (`/v1/reviews`, ADR-077).
+  secret (ADR-070), published reviews (`/v1/reviews`, ADR-077), and route facts, city hubs and
+  airline pages (`/v1/deals/...`, priced fares only, ADR-080).
 - **Permissions, not roles, in code.** Routes declare `@RequirePermissions(...)`. Admin routes
   declare `@AdminRoute(permission)`, which also requires a staff role, an MFA session, an
   allowlisted IP and, for cookies, an allowlisted origin. The riskiest admin mutations add
