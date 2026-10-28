@@ -1,6 +1,6 @@
 -- Support conversations and messages (ADR-083); a new notification category for replies.
 -- CreateEnum
-CREATE TYPE "SupportCategory" AS ENUM ('pre_booking', 'booking_change', 'cancellation_refund', 'payment', 'documents', 'other');
+CREATE TYPE "SupportCategory" AS ENUM ('pre_booking', 'booking_change', 'cancellation_refund', 'payment', 'documents', 'general');
 
 -- CreateEnum
 CREATE TYPE "SupportStatus" AS ENUM ('open', 'waiting', 'resolved');

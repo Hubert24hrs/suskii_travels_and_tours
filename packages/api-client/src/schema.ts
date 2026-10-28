@@ -6093,7 +6093,7 @@ export interface paths {
         put?: never;
         /**
          * Start a support conversation
-         * @description Optionally about one of the caller's bookings (guests add `X-Booking-Token`). Without a session, the website sends a Turnstile token and the app a device attestation, and an email is needed unless the booking gives one; guests receive an access token once. 409 `support-limit` when an account already has 5 open conversations.
+         * @description Optionally about one of the caller's bookings (guests add `X-Booking-Token`). Without a session, the website sends a Turnstile token and the app a device attestation (400 `bot-check-failed` otherwise), and an email is needed unless the booking gives one; guests receive an access token once. 409 `support-limit` when an account already has 5 open conversations.
          */
         post: operations["startSupportConversation"];
         delete?: never;
@@ -7325,7 +7325,7 @@ export interface components {
             id: string;
             reference: string;
             /** @enum {string} */
-            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
             /** @enum {string} */
             priority: "urgent" | "prime" | "normal";
             /** @enum {string} */
@@ -7372,7 +7372,7 @@ export interface components {
             id: string;
             reference: string;
             /** @enum {string} */
-            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
             /** @enum {string} */
             priority: "urgent" | "prime" | "normal";
             /** @enum {string} */
@@ -7435,7 +7435,7 @@ export interface components {
             /** @enum {string} */
             priority?: "urgent" | "prime" | "normal";
             /** @enum {string} */
-            category?: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            category?: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
             assigneeId?: string | null;
         };
         AdminTaxRule: {
@@ -11238,7 +11238,7 @@ export interface components {
         };
         StartSupportConversationRequestInput: {
             /** @enum {string} */
-            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
             message: string;
             bookingId?: string | null;
             email?: string | null;
@@ -11261,7 +11261,7 @@ export interface components {
             id: string;
             reference: string;
             /** @enum {string} */
-            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
             /** @enum {string} */
             status: "open" | "waiting" | "resolved";
             booking: {
@@ -11284,7 +11284,7 @@ export interface components {
             id: string;
             reference: string;
             /** @enum {string} */
-            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "other";
+            category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
             /** @enum {string} */
             status: "open" | "waiting" | "resolved";
             booking: {
@@ -23812,7 +23812,6 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
-            403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             422: components["responses"]["Problem422"];

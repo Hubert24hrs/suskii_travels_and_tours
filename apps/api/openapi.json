@@ -25475,7 +25475,7 @@
       "post": {
         "operationId": "startSupportConversation",
         "summary": "Start a support conversation",
-        "description": "Optionally about one of the caller's bookings (guests add `X-Booking-Token`). Without a session, the website sends a Turnstile token and the app a device attestation, and an email is needed unless the booking gives one; guests receive an access token once. 409 `support-limit` when an account already has 5 open conversations.",
+        "description": "Optionally about one of the caller's bookings (guests add `X-Booking-Token`). Without a session, the website sends a Turnstile token and the app a device attestation (400 `bot-check-failed` otherwise), and an email is needed unless the booking gives one; guests receive an access token once. 409 `support-limit` when an account already has 5 open conversations.",
         "tags": [
           "Support"
         ],
@@ -25532,9 +25532,6 @@
           },
           "400": {
             "$ref": "#/components/responses/Problem400"
-          },
-          "403": {
-            "$ref": "#/components/responses/Problem403"
           },
           "404": {
             "$ref": "#/components/responses/Problem404"
@@ -31682,7 +31679,7 @@
               "cancellation_refund",
               "payment",
               "documents",
-              "other"
+              "general"
             ]
           },
           "priority": {
@@ -31933,7 +31930,7 @@
               "cancellation_refund",
               "payment",
               "documents",
-              "other"
+              "general"
             ]
           },
           "priority": {
@@ -32241,7 +32238,7 @@
               "cancellation_refund",
               "payment",
               "documents",
-              "other"
+              "general"
             ]
           },
           "assigneeId": {
@@ -51264,7 +51261,7 @@
               "cancellation_refund",
               "payment",
               "documents",
-              "other"
+              "general"
             ]
           },
           "message": {
@@ -51373,7 +51370,7 @@
               "cancellation_refund",
               "payment",
               "documents",
-              "other"
+              "general"
             ]
           },
           "status": {
@@ -51472,7 +51469,7 @@
               "cancellation_refund",
               "payment",
               "documents",
-              "other"
+              "general"
             ]
           },
           "status": {
