@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  SUPPORT_REFERENCE_ALPHABET,
+  SUPPORT_REFERENCE_PATTERN,
+  supportDueAt,
+  supportPriority,
+  supportSchedule,
+  supportSlaState,
+  type SupportTargets,
+} from './support';
+import { supportStartSchema } from './support-schemas';
+
+const now = new Date('2026-11-02T10:00:00Z');
+const inHours = (hours: number) => new Date(now.getTime() + hours * 3_600_000);
+const targets: SupportTargets = {
+  urgent: { responseMinutes: 15, resolutionMinutes: 240 },
+  prime: { responseMinutes: 30, resolutionMinutes: 480 },
+  normal: { responseMinutes: 120, resolutionMinutes: 1_440 },
+};
+
+describe('support priority (ADR-083)', () => {
+  const priority = (tripStartsAt: Date | null, prime = false) =>
+    supportPriority({ tripStartsAt, prime, now, urgentHours: 48 });
+
+  it('is urgent for a trip starting within the window or started in the last day', () => {
+    expect(priority(inHours(47))).toBe('urgent');
+    expect(priority(inHours(-23), true)).toBe('urgent');
+  });
+
+  it('puts Prime members in their queue, everyone else in the normal one', () => {
+    expect(priority(inHours(72), true)).toBe('prime');
+    expect(priority(inHours(-30))).toBe('normal');
+    expect(priority(null)).toBe('normal');
+  });
+});
+
+describe('support schedule', () => {
+  it('owes a reply after the first unanswered message and resolution after opening', () => {
+    const opened = supportSchedule(
+      { status: 'open', priority: 'prime', openedAt: now, replyOwedSince: inHours(1) },
+      targets,
+    );
+    expect(opened.responseDueAt).toEqual(supportDueAt(inHours(1), 30));
+    expect(opened.resolutionDueAt).toEqual(supportDueAt(now, 480));
+    expect(opened.dueAt).toEqual(opened.responseDueAt);
+  });
+
+  it('falls back to the resolution while waiting and clears everything once resolved', () => {
+    const waiting = supportSchedule(
+      { status: 'waiting', priority: 'normal', openedAt: now, replyOwedSince: null },
+      targets,
+    );
+    expect(waiting).toEqual({
+      responseDueAt: null,
+      resolutionDueAt: supportDueAt(now, 1_440),
+      dueAt: supportDueAt(now, 1_440),
+    });
+    expect(
+      supportSchedule(
+        { status: 'resolved', priority: 'urgent', openedAt: now, replyOwedSince: now },
+        targets,
+      ),
+    ).toEqual({ responseDueAt: null, resolutionDueAt: null, dueAt: null });
+  });
+});
+
+describe('support SLA state', () => {
+  const conversation = (overrides: Partial<Parameters<typeof supportSlaState>[0]> = {}) => ({
+    status: 'open' as const,
+    priority: 'normal' as const,
+    responseDueAt: supportDueAt(now, 120),
+    resolutionDueAt: supportDueAt(now, 1_440),
+    ...overrides,
+  });
+
+  it('tracks the reply owed, then the resolution', () => {
+    expect(supportSlaState(conversation(), targets, now)).toBe('on_track');
+    // The last fifth of two hours is 24 minutes.
+    expect(supportSlaState(conversation(), targets, supportDueAt(now, 97))).toBe('due_soon');
+    expect(supportSlaState(conversation(), targets, supportDueAt(now, 121))).toBe('breached');
+    const waiting = conversation({ status: 'waiting', responseDueAt: null });
+    expect(supportSlaState(waiting, targets, supportDueAt(now, 121))).toBe('on_track');
+    expect(supportSlaState(waiting, targets, supportDueAt(now, 1_441))).toBe('breached');
+  });
+
+  it('gives short targets at least five minutes of warning and resolved ones nothing to meet', () => {
+    const urgent = conversation({ priority: 'urgent', responseDueAt: supportDueAt(now, 15) });
+    expect(supportSlaState(urgent, targets, supportDueAt(now, 9))).toBe('on_track');
+    expect(supportSlaState(urgent, targets, supportDueAt(now, 11))).toBe('due_soon');
+    expect(supportSlaState(conversation({ status: 'resolved' }), targets, inHours(99))).toBe('met');
+  });
+});
+
+describe('support references and input', () => {
+  it('uses an alphabet without look-alike characters that the pattern accepts', () => {
+    expect(SUPPORT_REFERENCE_ALPHABET).toHaveLength(30);
+    expect(SUPPORT_REFERENCE_ALPHABET).not.toMatch(/[01ILOU]/);
+    expect(`S-${SUPPORT_REFERENCE_ALPHABET.slice(0, 6)}`).toMatch(SUPPORT_REFERENCE_PATTERN);
+    expect('S-OI1L0U').not.toMatch(SUPPORT_REFERENCE_PATTERN);
+  });
+
+  it('trims messages, refuses empty ones and normalises the email', () => {
+    const parsed = supportStartSchema.parse({
+      category: 'payment',
+      message: '  Can I pay in parts?  ',
+      email: ' Ada@Example.COM ',
+    });
+    expect(parsed).toMatchObject({ message: 'Can I pay in parts?', email: 'ada@example.com' });
+    expect(supportStartSchema.safeParse({ category: 'payment', message: '   ' }).success).toBe(
+      false,
+    );
+    expect(
+      supportStartSchema.safeParse({ category: 'payment', message: 'x'.repeat(2_001) }).success,
+    ).toBe(false);
+  });
+});
