@@ -383,6 +383,8 @@ export const envSchema = z
     PARTNER_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(5000),
     /** How long an offer link stays valid after it was shown. */
     PARTNER_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+    /** How long a metasearch deep link keeps its price promise (ADR-081); later, a search. */
+    METASEARCH_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(72).default(24),
     /**
      * Server-side ad conversions (ADR-079): `meta` (Conversions API) and `tiktok` (Events API)
      * send the Purchase events of bookings whose recorded consent allows marketing; `mock` keeps

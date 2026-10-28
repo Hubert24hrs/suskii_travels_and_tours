@@ -188,6 +188,18 @@ export const DATA_REGISTRY = {
     retention: { kind: 'job', job: 'snapshots-prune' },
     note: 'Fare snapshots.',
   },
+  MetasearchPartner: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'reference' },
+    note: 'Metasearch partners (ADR-081): names, limits and the HMAC of their API key.',
+  },
+  MetasearchLanding: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'metasearch-landings' },
+    note: 'Arrivals from metasearch deep links: partner, outcome and totals; no personal data.',
+  },
   RouteFare: {
     section: null,
     deletion: 'none',

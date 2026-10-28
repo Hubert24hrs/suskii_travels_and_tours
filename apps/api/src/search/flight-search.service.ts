@@ -231,6 +231,36 @@ export class FlightSearchService {
     return best?.offer ?? null;
   }
 
+  /**
+   * Priced results for a request without a search analytics row: metasearch partners (ADR-081)
+   * share the cache and pricing with customer searches but are not travellers searching.
+   */
+  async priced(
+    request: FlightSearchRequest,
+    options: FlightListOptions,
+    client: ClientContext,
+  ): Promise<FlightSearchResultDto> {
+    await this.validate(request);
+    const { meta, items } = await this.resolve(request);
+    return this.view(meta, items, options, client);
+  }
+
+  /**
+   * The current result id of an itinerary (`itineraryKey`) for a request, from the cache or a
+   * fresh search; null when it is no longer offered or has expired.
+   */
+  async findItinerary(request: FlightSearchRequest, key: string): Promise<string | null> {
+    await this.validate(request);
+    const { items } = await this.resolve(request);
+    const now = Date.now();
+    for (const { id, offer } of items.values()) {
+      if (Date.parse(offer.expiresAt) <= now) continue;
+      if (itineraryKey(offer.slices, offer.slices[0]?.fareBrand ?? null, offer.cabinClass) === key)
+        return id;
+    }
+    return null;
+  }
+
   async list(
     searchId: string,
     options: FlightListOptions,

@@ -33,3 +33,5 @@ export const rentalLicenceKeyContext = (licenceId: string): string => `rental-li
 export const rentalPhotoKeyContext = (photoId: string): string => `rental-photo:${photoId}`;
 // Partner offer links (ADR-070): not stored, but sealed so they cannot be read or altered.
 export const partnerLinkContext = (): string => 'partner-link';
+// Metasearch deep links (ADR-081): not stored, sealed so the price and partner cannot be altered.
+export const metasearchLinkContext = (): string => 'metasearch-link';
