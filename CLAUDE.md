@@ -75,7 +75,7 @@ come next. Item 8, growth, runs in four parts (`docs/phases/growth.md`): part 1,
 for the owner's pixel ids and tokens; part 2, SEO pages from fare history (route facts, flight
 hubs, airline pages), is built; part 3, metasearch (partner keys, the live price API, sealed deep
 links, landings that re-quote, partner attribution), is built and waits for partner agreements;
-Prime per country follows.
+part 4, Suskii Prime priced per country, is built and waits for the owner's prices per market.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -545,6 +545,10 @@ Tooling notes for agents:
 - Members are tier `prime` only while a paid-up term runs (`currentPrime()`). The access token's
   `prm` claim is for searches; quotes, bookings and the payment re-check re-read the database
   (`withCurrentTier()`). Benefits apply in `priceOffer()` and never price below supplier cost.
+- Plan prices may name a country (ADR-082): resolve them only with `resolvePlanPrice()` from
+  `@suskii/shared`, with the edge's country (`requestContext().country` / `client.country`),
+  never a client-supplied value; the membership payload keeps `priceCountry` for the re-check.
+  The website passes its own edge country (`edgeCountry()`) for displayed prices only.
 - A Prime purchase is the in-house item `membership` on the booking pipeline (owner required,
   one `guests` entry, no PDF, no self-cancellation); `InhouseFulfilment` starts the term.
 - Send user messages through `NotificationService.notify(userId, content)` with a category and
@@ -971,6 +975,7 @@ Tooling notes for agents:
 - [ADR-079: Ads with consent](docs/decisions/ADR-079-ads-with-consent.md)
 - [ADR-080: SEO pages from fare history](docs/decisions/ADR-080-seo-pages-from-fare-history.md)
 - [ADR-081: Metasearch partners](docs/decisions/ADR-081-metasearch-partners.md)
+- [ADR-082: Suskii Prime priced per country](docs/decisions/ADR-082-prime-priced-per-country.md)
 
 ## Open questions for the owner
 
@@ -1073,4 +1078,6 @@ the Meta pixel id and a Conversions API token, the TikTok pixel code and an Even
 campaigns (an SDK or measurement partner and a consent screen in the app). Added with metasearch
 (ADR-081): which engines to join first (Google Flights, Skyscanner, KAYAK, Wego) and their
 agreements and specifications, the limits per partner from the supplier's look-to-book terms, and
-whether metasearch traffic should get its own prices (a sealed sales channel, not built).
+whether metasearch traffic should get its own prices (a sealed sales channel, not built). Added
+with Prime per country (ADR-082): the Prime price for each market (the demo plan's Ghana price is
+a placeholder).
