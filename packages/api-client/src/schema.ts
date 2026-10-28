@@ -3299,6 +3299,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/deals/airlines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Airlines seen on popular routes in the last 90 days (airline pages, ADR-080) */
+        get: operations["listDealAirlines"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deals/airlines/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An airline page: the popular routes it flies with its own cheapest fares */
+        get: operations["getDealAirline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deals/cities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cities with popular routes (hub pages and sitemap, ADR-080) */
+        get: operations["listDealCities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/deals/cities/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A city hub: popular routes from and to the city with their fares */
+        get: operations["getDealCity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/deals/flights": {
         parameters: {
             query?: never;
@@ -4310,7 +4378,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Delete deal and destination snapshots past the retention window */
+        /** Delete deal and destination snapshots and route fare history past retention */
         post: operations["pruneSnapshots"];
         delete?: never;
         options?: never;
@@ -8023,6 +8091,90 @@ export interface components {
             mfaCode?: string;
             recoveryCode?: string;
         };
+        DealAirline: {
+            airline: {
+                code: string;
+                name: string;
+                logoUrl: string | null;
+            };
+            currency: string;
+            routes: {
+                slug: string;
+                origin: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+                destination: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+                cheapest: {
+                    price: components["schemas"]["Money"];
+                    departureDate: string;
+                };
+                direct: boolean;
+                fastestMinutes: number;
+                sample: boolean;
+            }[];
+        };
+        DealAirlines: {
+            airlines: {
+                code: string;
+                name: string;
+                routes: number;
+            }[];
+        };
+        DealCities: {
+            cities: {
+                slug: string;
+                name: string;
+                countryCode: string;
+                departures: number;
+                arrivals: number;
+            }[];
+        };
+        DealCity: {
+            city: {
+                slug: string;
+                name: string;
+                countryCode: string;
+            };
+            currency: string;
+            departures: {
+                slug: string;
+                origin: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+                destination: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+                deal: components["schemas"]["FlightDeal"] | null;
+                typical: components["schemas"]["Money"] | null;
+                direct: boolean | null;
+            }[];
+            arrivals: {
+                slug: string;
+                origin: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+                destination: {
+                    code: string;
+                    cityName: string;
+                    countryCode: string;
+                };
+                deal: components["schemas"]["FlightDeal"] | null;
+                typical: components["schemas"]["Money"] | null;
+                direct: boolean | null;
+            }[];
+        };
         DealRouteDetail: {
             slug: string;
             origin: {
@@ -8040,6 +8192,7 @@ export interface components {
             stayNights: number;
             currency: string;
             deal: components["schemas"]["FlightDeal"] | null;
+            facts: components["schemas"]["RouteFacts"] | null;
             relatedRoutes: {
                 slug: string;
                 origin: {
@@ -9727,6 +9880,7 @@ export interface components {
         PruneResult: {
             deletedDeals: number;
             deletedDestinations: number;
+            deletedFares: number;
         };
         PublicReview: {
             /** Format: uuid */
@@ -10345,6 +10499,28 @@ export interface components {
             token: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        RouteFacts: {
+            cheapest: {
+                price: components["schemas"]["Money"];
+                departureDate: string;
+                carrier: {
+                    code: string;
+                    name: string;
+                };
+            };
+            typical: components["schemas"]["Money"];
+            airlines: {
+                code: string;
+                name: string;
+            }[];
+            direct: boolean;
+            fastestMinutes: number;
+            cheapestMonth: number | null;
+            observedDays: number;
+            sample: boolean;
+            /** Format: date-time */
+            updatedAt: string;
         };
         SafetyIncidents: {
             incidents: {
@@ -17863,6 +18039,112 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listDealAirlines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealAirlines"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getDealAirline: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealAirline"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listDealCities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealCities"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getDealCity: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealCity"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

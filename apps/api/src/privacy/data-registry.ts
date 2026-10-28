@@ -188,6 +188,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'job', job: 'snapshots-prune' },
     note: 'Fare snapshots.',
   },
+  RouteFare: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'job', job: 'snapshots-prune' },
+    note: 'Fare history behind route facts (ADR-080); ROUTE_FARE_RETENTION_DAYS.',
+  },
   DestinationContent: reference('Destination content.'),
   DestinationHotelSnapshot: {
     section: null,

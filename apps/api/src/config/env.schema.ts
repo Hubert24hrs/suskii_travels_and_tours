@@ -235,6 +235,10 @@ export const envSchema = z
     DESTINATIONS_CHECK_IN_OFFSET_DAYS: z.coerce.number().int().min(1).max(330).default(30),
     /** Deal and destination snapshots are kept this long for price history, then pruned. */
     SNAPSHOT_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
+    /** Fare history behind route facts (ADR-080); a year and a month covers every month. */
+    ROUTE_FARE_RETENTION_DAYS: z.coerce.number().int().min(30).max(800).default(400),
+    /** Route facts show only with at least this many days of fares in the last 90. */
+    ROUTE_FACTS_MIN_DAYS: z.coerce.number().int().min(1).max(30).default(3),
     /** Cloudflare Turnstile secret; unset outside production means the mock verifier. */
     TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
 
