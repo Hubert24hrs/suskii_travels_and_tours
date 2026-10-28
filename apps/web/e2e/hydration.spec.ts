@@ -33,10 +33,15 @@ async function divergeBrowserIntl(page: Page): Promise<void> {
   });
 }
 
-/** Resolves once React has hydrated every form and button on the page. */
+/**
+ * Resolves once React has hydrated every form and button in the page's main content, or the
+ * header's on a page with none (the status page is read-only).
+ */
 async function waitForHydration(page: Page): Promise<void> {
   await page.waitForFunction(() => {
-    const elements = [...document.querySelectorAll('main form, main button')];
+    const inMain = [...document.querySelectorAll('main form, main button')];
+    const elements =
+      inMain.length > 0 ? inMain : [...document.querySelectorAll('header form, header button')];
     return (
       elements.length > 0 &&
       elements.every((element) =>
