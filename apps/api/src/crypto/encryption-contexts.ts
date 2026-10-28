@@ -40,3 +40,7 @@ export const supportMessageContext = (messageId: string): string =>
   `support-message:${messageId}:body`;
 export const supportEmailContext = (conversationId: string): string =>
   `support-conversation:${conversationId}:email`;
+export const whatsappPhoneContext = (contactId: string): string =>
+  `whatsapp-contact:${contactId}:phone`;
+export const whatsappBsuidContext = (contactId: string): string =>
+  `whatsapp-contact:${contactId}:bsuid`;

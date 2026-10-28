@@ -499,6 +499,37 @@ export const envSchema = z
       }))
       .default(DEFAULT_SUPPORT_SLA),
     /**
+     * WhatsApp as a support channel (ADR-084): `none` turns the webhook off (404), `mock` keeps
+     * replies in memory (tests), `cloud` calls the WhatsApp Cloud API.
+     */
+    WHATSAPP_SUPPORT_PROVIDER: z.enum(['none', 'mock', 'cloud']).default('none'),
+    /** Graph API base with its version; Meta retires each version about two years after launch. */
+    WHATSAPP_GRAPH_API_URL: z.url().default('https://graph.facebook.com/v26.0'),
+    /** The business phone number's id in WhatsApp Manager (digits, not the number itself). */
+    WHATSAPP_PHONE_NUMBER_ID: z
+      .string()
+      .regex(/^\d{5,20}$/, 'the numeric phone number id from WhatsApp Manager')
+      .optional(),
+    /** A system user's permanent token with whatsapp_business_messaging (a secret). */
+    WHATSAPP_ACCESS_TOKEN: z.string().min(20).optional(),
+    /** The Meta app secret that signs webhook deliveries (X-Hub-Signature-256; a secret). */
+    WHATSAPP_APP_SECRET: z.string().min(16).optional(),
+    /** The token Meta echoes in the webhook handshake (a secret). */
+    WHATSAPP_VERIFY_TOKEN: z.string().min(16).optional(),
+    /** Approved template sent when staff reply outside the 24-hour window; one body parameter. */
+    WHATSAPP_SUPPORT_TEMPLATE: z
+      .string()
+      .regex(/^[a-z0-9_]{1,512}$/, 'lower-case letters, digits and underscores')
+      .default('support_reply_waiting'),
+    WHATSAPP_SUPPORT_TEMPLATE_LANGUAGE: z
+      .string()
+      .regex(/^[a-z]{2,3}(_[A-Z]{2})?$/, 'a WhatsApp language code such as en or en_GB')
+      .default('en'),
+    /** A WhatsApp message to a conversation solved this recently reopens it; else a new one. */
+    SUPPORT_WHATSAPP_REOPEN_DAYS: z.coerce.number().int().min(0).max(90).default(7),
+    /** Messages one WhatsApp contact may send a minute before the rest are dropped. */
+    SUPPORT_WHATSAPP_MESSAGES_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(20),
+    /**
      * Referral rewards (ADR-031), in minor units of REFERRAL_REWARD_CURRENCY; zero pays nothing
      * (referrals are still tracked). A referral qualifies on a completed trip of at least
      * REFERRAL_MIN_SPEND_MINOR; at most REFERRAL_MONTHLY_CAP qualify per referrer per month.
@@ -624,6 +655,19 @@ export const envSchema = z
     ) {
       require('DUFFEL_API_TOKEN', 'is required when FLIGHT_SUPPLIERS or HOTEL_SUPPLIERS includes duffel');
     }
+    if (env.WHATSAPP_SUPPORT_PROVIDER !== 'none') {
+      // Every delivery is checked against the app secret; the handshake needs the verify token.
+      if (!env.WHATSAPP_APP_SECRET)
+        require('WHATSAPP_APP_SECRET', 'is required when WHATSAPP_SUPPORT_PROVIDER is set');
+      if (!env.WHATSAPP_VERIFY_TOKEN)
+        require('WHATSAPP_VERIFY_TOKEN', 'is required when WHATSAPP_SUPPORT_PROVIDER is set');
+    }
+    if (env.WHATSAPP_SUPPORT_PROVIDER === 'cloud') {
+      if (!env.WHATSAPP_PHONE_NUMBER_ID)
+        require('WHATSAPP_PHONE_NUMBER_ID', 'is required when WHATSAPP_SUPPORT_PROVIDER is cloud');
+      if (!env.WHATSAPP_ACCESS_TOKEN)
+        require('WHATSAPP_ACCESS_TOKEN', 'is required when WHATSAPP_SUPPORT_PROVIDER is cloud');
+    }
     if (env.HOTEL_SUPPLIERS.includes('hotelbeds')) {
       if (!env.HOTELBEDS_API_KEY)
         require('HOTELBEDS_API_KEY', 'is required when HOTEL_SUPPLIERS includes hotelbeds');
@@ -735,6 +779,8 @@ export const envSchema = z
       require('PAYMENT_PROVIDERS', 'mock payments are not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.ANTIVIRUS_PROVIDER === 'mock')
       require('ANTIVIRUS_PROVIDER', 'uploaded documents must be scanned by a real scanner');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.WHATSAPP_SUPPORT_PROVIDER === 'mock')
+      require('WHATSAPP_SUPPORT_PROVIDER', 'the mock answers nobody on WhatsApp; it is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.AD_CONVERSIONS.includes('mock'))
       require('AD_CONVERSIONS', 'the mock sends nothing to any network; it is not allowed in production');
     // Real providers must be called over TLS with their production hosts' defaults or overrides.
@@ -747,6 +793,7 @@ export const envSchema = z
       'TRAVELPAYOUTS_API_URL',
       'VIATOR_API_URL',
       'META_GRAPH_API_URL',
+      'WHATSAPP_GRAPH_API_URL',
       'TIKTOK_EVENTS_API_URL',
     ] as const) {
       if (!env[key].startsWith('https://')) require(key, 'must use https in production');

@@ -6310,6 +6310,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/webhooks/whatsapp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * WhatsApp webhook handshake
+         * @description Meta checks the webhook URL with the verify token; the challenge comes back as plain text when the token matches. Called by Meta only.
+         */
+        get: operations["verifyWhatsAppWebhook"];
+        put?: never;
+        /**
+         * WhatsApp webhook
+         * @description Messages and delivery statuses from the WhatsApp Cloud API, signed with X-Hub-Signature-256 over the raw body. Repeated deliveries are acknowledged without effect. Called by Meta only.
+         */
+        post: operations["receiveWhatsAppWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7353,6 +7377,11 @@ export interface components {
                 responseDueAt: string | null;
                 resolutionDueAt: string | null;
             };
+            whatsapp: {
+                windowClosesAt: string | null;
+                optedOut: boolean;
+                reachable: boolean;
+            } | null;
             awaitingReply: boolean;
             messageCount: number;
             /** Format: date-time */
@@ -7400,6 +7429,11 @@ export interface components {
                 responseDueAt: string | null;
                 resolutionDueAt: string | null;
             };
+            whatsapp: {
+                windowClosesAt: string | null;
+                optedOut: boolean;
+                reachable: boolean;
+            } | null;
             awaitingReply: boolean;
             messageCount: number;
             /** Format: date-time */
@@ -7420,7 +7454,15 @@ export interface components {
                 id: string;
                 name: string;
             } | null;
+            /** @enum {string} */
+            kind: "text" | "unsupported";
             text: string;
+            delivery: {
+                /** @enum {string} */
+                status: "pending" | "sent" | "delivered" | "read" | "failed";
+                error: string | null;
+                noticeSentAt: string | null;
+            } | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -10845,6 +10887,7 @@ export interface components {
             "ad-conversions": number;
             "metasearch-landings": number;
             "support-conversations": number;
+            "whatsapp-contacts": number;
         };
         ReviewInvitationRun: {
             planned: number;
@@ -11878,6 +11921,10 @@ export interface components {
                 name: "TTFB";
                 value: number;
             })[];
+        };
+        WhatsAppWebhookReceipt: {
+            /** @constant */
+            received: true;
         };
         WriteReviewRequestInput: {
             rating: number;
@@ -16163,6 +16210,7 @@ export interface operations {
             query?: {
                 queue?: "active" | "open" | "waiting" | "resolved";
                 priority?: "urgent" | "prime" | "normal";
+                channel?: "web" | "app" | "whatsapp";
                 assignee?: "any" | "me" | "unassigned";
                 cursor?: string;
                 limit?: number;
@@ -24159,6 +24207,65 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    verifyWhatsAppWebhook: {
+        parameters: {
+            query: {
+                "hub.mode": "subscribe";
+                "hub.verify_token": string;
+                "hub.challenge": string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    receiveWhatsAppWebhook: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatsAppWebhookReceipt"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];

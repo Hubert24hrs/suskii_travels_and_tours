@@ -4,6 +4,8 @@ import {
   SUPPORT_AUTHORS,
   SUPPORT_CATEGORIES,
   SUPPORT_CHANNELS,
+  SUPPORT_DELIVERY_STATUSES,
+  SUPPORT_MESSAGE_KINDS,
   SUPPORT_PRIORITIES,
   SUPPORT_STATUSES,
   supportMessageTextSchema,
@@ -132,6 +134,17 @@ const adminConversationFields = {
   booking: bookingRefSchema,
   assignee: z.object({ id: z.uuid(), name: z.string() }).nullable(),
   sla: slaSchema,
+  whatsapp: z
+    .object({
+      /** When free-form replies stop (24 hours after their last message); null when closed. */
+      windowClosesAt: timestamp.nullable(),
+      /** They wrote STOP: replies outside the window are not sent. */
+      optedOut: z.boolean(),
+      /** False for a username user without a phone number (replies cannot be sent yet). */
+      reachable: z.boolean(),
+    })
+    .nullable()
+    .meta({ description: 'WhatsApp conversations only (ADR-084).' }),
   awaitingReply: z.boolean().meta({ description: 'The traveller wrote last.' }),
   messageCount: z.number().int(),
   lastCustomerMessageAt: timestamp,
@@ -157,7 +170,18 @@ export const adminSupportMessageSchema = named(
     author: z.enum(SUPPORT_AUTHORS),
     internal: z.boolean(),
     staff: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+    kind: z.enum(SUPPORT_MESSAGE_KINDS).meta({
+      description: '`unsupported`: a WhatsApp attachment; `text` holds its type ("image").',
+    }),
     text: z.string(),
+    delivery: z
+      .object({
+        status: z.enum(SUPPORT_DELIVERY_STATUSES),
+        error: z.string().nullable(),
+        noticeSentAt: timestamp.nullable(),
+      })
+      .nullable()
+      .meta({ description: 'Staff replies sent over WhatsApp only.' }),
     createdAt: timestamp,
   }),
 );
@@ -173,6 +197,7 @@ export const adminSupportQuerySchema = z.object({
       '`active` is open and waiting conversations, nearest due first; `resolved` is newest first.',
   }),
   priority: z.enum(SUPPORT_PRIORITIES).optional(),
+  channel: z.enum(SUPPORT_CHANNELS).optional(),
   assignee: z.enum(SUPPORT_ASSIGNEE_FILTERS).default('any'),
   cursor: z.string().max(80).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -204,4 +229,16 @@ export const adminSupportUpdateSchema = named(
     .refine((body) => Object.values(body).some((value) => value !== undefined), {
       message: 'nothing_to_change',
     }),
+);
+
+/** Meta's webhook handshake (ADR-084); the challenge is echoed only when the token matches. */
+export const whatsappHandshakeQuerySchema = z.object({
+  'hub.mode': z.literal('subscribe'),
+  'hub.verify_token': z.string().min(1).max(200),
+  'hub.challenge': z.string().regex(/^[A-Za-z0-9_-]{1,200}$/),
+});
+
+export const whatsappReceiptSchema = named(
+  'WhatsAppWebhookReceipt',
+  z.object({ received: z.literal(true) }),
 );

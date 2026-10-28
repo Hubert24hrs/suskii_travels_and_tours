@@ -280,6 +280,38 @@ describe('parseEnv', () => {
     expect(plaintext).toContain('TIKTOK_EVENTS_API_URL: must use https');
   });
 
+  it('needs the webhook secrets for whatsapp support, the token for cloud, and no mock in production (ADR-084)', () => {
+    expect(parseEnv(base).WHATSAPP_SUPPORT_PROVIDER).toBe('none');
+    expect(() => parseEnv({ ...base, WHATSAPP_SUPPORT_PROVIDER: 'mock' })).toThrow(
+      /WHATSAPP_APP_SECRET.*WHATSAPP_VERIFY_TOKEN/s,
+    );
+    const secrets = {
+      WHATSAPP_APP_SECRET: 'app-secret-0123456789',
+      WHATSAPP_VERIFY_TOKEN: 'verify-token-0123456789',
+    };
+    expect(
+      parseEnv({ ...base, WHATSAPP_SUPPORT_PROVIDER: 'mock', ...secrets })
+        .WHATSAPP_SUPPORT_TEMPLATE,
+    ).toBe('support_reply_waiting');
+    expect(() => parseEnv({ ...base, WHATSAPP_SUPPORT_PROVIDER: 'cloud', ...secrets })).toThrow(
+      /WHATSAPP_PHONE_NUMBER_ID.*WHATSAPP_ACCESS_TOKEN/s,
+    );
+    let message = '';
+    try {
+      parseEnv({
+        ...base,
+        NODE_ENV: 'production',
+        WHATSAPP_SUPPORT_PROVIDER: 'mock',
+        WHATSAPP_GRAPH_API_URL: 'http://graph.facebook.com/v26.0',
+        ...secrets,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain('WHATSAPP_SUPPORT_PROVIDER: the mock answers nobody');
+    expect(message).toContain('WHATSAPP_GRAPH_API_URL: must use https');
+  });
+
   it('defaults push and attestation to mocks outside production, off by default', () => {
     const env = parseEnv(base);
     expect(env.PUSH_PROVIDER).toBe('mock');
