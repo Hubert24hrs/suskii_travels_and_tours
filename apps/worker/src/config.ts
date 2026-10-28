@@ -68,6 +68,8 @@ const envSchema = z
     REFERRAL_SWEEP_MINUTES: minutes(60),
     /** Review invitations the morning after a trip ends (ADR-077). */
     REVIEW_INVITATION_SWEEP_MINUTES: minutes(60),
+    /** Server-side ad conversions of paid, consented bookings (ADR-079). */
+    AD_CONVERSION_SWEEP_MINUTES: minutes(5),
     /** How often records past their retention period are purged (ADR-039). */
     RETENTION_SWEEP_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
 

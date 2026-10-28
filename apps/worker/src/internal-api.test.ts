@@ -135,6 +135,7 @@ describe('internal API client', () => {
       reminders: { checkin: 1, prime: 0 },
       referrals: { qualified: 1, review: 0, rewarded: 1 },
       invitations: { planned: 2, sent: 1, skipped: 0 },
+      'ad-conversions': { sent: 1, retried: 0, failed: 0, withdrawn: 0 },
     };
     const fetch = vi.fn((request: Request) =>
       Promise.resolve(reply(200, replies[request.url.split('/').at(-2) ?? ''] ?? {})),
@@ -148,11 +149,13 @@ describe('internal API client', () => {
     await expect(api.runReminders()).resolves.toEqual({ checkin: 1, prime: 0 });
     await expect(api.runReferrals()).resolves.toMatchObject({ rewarded: 1 });
     await expect(api.runReviewInvitations()).resolves.toEqual({ planned: 2, sent: 1, skipped: 0 });
+    await expect(api.runAdConversions()).resolves.toMatchObject({ sent: 1 });
     expect(fetch.mock.calls.map(([request]) => request.url)).toEqual([
       'http://api.internal:4000/v1/internal/price-alerts/run',
       'http://api.internal:4000/v1/internal/reminders/run',
       'http://api.internal:4000/v1/internal/referrals/run',
       'http://api.internal:4000/v1/internal/reviews/invitations/run',
+      'http://api.internal:4000/v1/internal/ad-conversions/run',
     ]);
   });
 

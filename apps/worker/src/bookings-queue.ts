@@ -85,6 +85,11 @@ export function createBookingsQueue(
         { name: ACCOUNT_JOB.reviewInvitations, opts },
       );
       await activeQueue.upsertJobScheduler(
+        ACCOUNT_JOB.adConversions,
+        { every: config.AD_CONVERSION_SWEEP_MINUTES * 60_000, immediately: true },
+        { name: ACCOUNT_JOB.adConversions, opts },
+      );
+      await activeQueue.upsertJobScheduler(
         FINANCE_JOB.reconcileLedger,
         { every: config.LEDGER_RECONCILE_INTERVAL_MINUTES * 60_000, immediately: true },
         { name: FINANCE_JOB.reconcileLedger, opts },
