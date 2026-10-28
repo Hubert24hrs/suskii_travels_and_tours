@@ -22,6 +22,7 @@ import { clientContext } from './client-context';
 import { FlightSearchService } from './flight-search.service';
 import {
   currencyQuerySchema,
+  searchQuerySchema,
   flightOfferSchema,
   flightOffersQuerySchema,
   flightQuoteSchema,
@@ -48,16 +49,16 @@ export class FlightsController {
       'Calls every enabled supplier in parallel (12 s budget, per-supplier timeouts and circuit breakers). Identical searches are served from cache for a few minutes. When a supplier fails, the others are still returned with status `partial`.',
     tags: TAGS,
     body: requestSchema,
-    query: currencyQuerySchema,
+    query: searchQuerySchema,
     responses: { 200: flightSearchResultSchema },
     errors: [503],
   })
   search(
     @Body() body: FlightSearchRequest,
-    @Query() query: z.infer<typeof currencyQuerySchema>,
+    @Query() query: z.infer<typeof searchQuerySchema>,
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof flightSearchResultSchema>> {
-    return this.flights.search(body, query.currency, clientContext(request));
+    return this.flights.search(body, query.currency, clientContext(request), query.limit);
   }
 
   @Get('searches/:searchId/offers')

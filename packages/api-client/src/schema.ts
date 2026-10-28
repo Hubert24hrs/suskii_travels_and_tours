@@ -17658,6 +17658,7 @@ export interface operations {
         parameters: {
             query?: {
                 currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                limit?: number;
             };
             header?: {
                 /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
@@ -17821,6 +17822,7 @@ export interface operations {
         parameters: {
             query?: {
                 currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                limit?: number;
             };
             header?: {
                 /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */

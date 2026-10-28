@@ -185,16 +185,12 @@ export class FlightSearchService {
     request: FlightSearchRequest,
     currency: string,
     client: ClientContext,
+    limit = FIRST_PAGE,
   ): Promise<FlightSearchResultDto> {
     const started = performance.now();
     await this.validate(request);
     const { meta, items, cacheHit } = await this.resolve(request);
-    const result = await this.view(
-      meta,
-      items,
-      { sort: 'best', currency, limit: FIRST_PAGE },
-      client,
-    );
+    const result = await this.view(meta, items, { sort: 'best', currency, limit }, client);
     const [first] = request.slices;
     const last = request.slices[request.slices.length - 1];
     this.searchLog.record({
