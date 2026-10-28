@@ -1,24 +1,12 @@
+import { META_CLICK_ID, TIKTOK_CLICK_ID, type MarketingAttribution } from './ad-tracking';
 import { z } from './zod-setup';
 
-/**
- * Meta's `_fbp` and `_fbc` values: `fb.<subdomain index>.<creation time in ms>.<random or fbclid>`
- * (newer tags may append a short suffix to the last part).
- */
-const metaClickId = z
-  .string()
-  .max(600)
-  .regex(/^fb\.\d\.\d{10,16}\.[A-Za-z0-9_.-]{1,500}$/);
-
-/** TikTok's `_ttp` cookie and `ttclid` parameter: opaque URL-safe tokens. */
-const tiktokClickId = z
-  .string()
-  .max(500)
-  .regex(/^[A-Za-z0-9_.-]{8,500}$/);
+const metaClickId = z.string().max(600).regex(META_CLICK_ID);
+const tiktokClickId = z.string().max(500).regex(TIKTOK_CLICK_ID);
 
 /**
- * What the website sends with a booking when its consent cookie allows marketing (ADR-079). The
- * API keeps it only when the recorded choice for `consentId` says so; the browser's word alone is
- * never enough.
+ * The booking's `marketing` field (ADR-079). The API keeps it only when the recorded choice for
+ * `consentId` says so; the browser's word alone is never enough.
  */
 export const marketingAttributionSchema = z
   .object({
@@ -28,5 +16,4 @@ export const marketingAttributionSchema = z
     ttp: tiktokClickId.optional(),
     ttclid: tiktokClickId.optional(),
   })
-  .strict();
-export type MarketingAttribution = z.infer<typeof marketingAttributionSchema>;
+  .strict() satisfies z.ZodType<MarketingAttribution>;
