@@ -172,6 +172,11 @@ export interface MembershipItemPayload extends InhouseBase {
   summary: string;
   period: PrimePeriod;
   unitPrice: Money;
+  /**
+   * The country whose price entry applied (ADR-082); null for the currency's price for
+   * everywhere. Absent on quotes made before country prices.
+   */
+  priceCountry?: string | null;
   benefits: PrimeBenefits;
   /**
    * The term if it started on the quote date. The real term starts when the booking is

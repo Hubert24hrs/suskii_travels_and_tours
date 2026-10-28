@@ -39,8 +39,11 @@ export class PrimeController {
   })
   async plans(
     @Query() query: z.output<typeof primePlansQuerySchema>,
+    @Req() request: Request,
   ): Promise<z.infer<typeof primePlanListSchema>> {
-    return { plans: await this.prime.published(query.currency) };
+    // Display only: what a quote charges follows the edge's country of the quote request.
+    const country = query.country ?? requestContext(request).country ?? null;
+    return { plans: await this.prime.published(query.currency, country) };
   }
 
   @Get('me/prime')

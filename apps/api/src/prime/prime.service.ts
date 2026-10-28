@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
-import { toWire } from '@suskii/shared';
+import { plansPricesFor, resolvePlanPrice, type PrimePrice } from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
 import { storedPlanPrices } from '../bookings/inhouse-catalog';
@@ -38,22 +38,25 @@ export class PrimeService {
     private readonly audit: AuditService,
   ) {}
 
-  async published(currency: string | undefined): Promise<PlanDto[]> {
+  /** Published plans priced for `country` (ADR-082): its own entries, else each currency's. */
+  async published(currency: string | undefined, country: string | null): Promise<PlanDto[]> {
     const plans = await this.prisma.primePlan.findMany({
       where: { status: 'published' },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
+    const wire = ({ amountMinor, currency: code }: PrimePrice) => ({ amountMinor, currency: code });
     return plans.map((plan) => {
-      const prices = storedPlanPrices(plan.prices);
-      const price = currency ? prices.find((entry) => entry.currency === currency) : prices[0];
+      const entries = storedPlanPrices(plan.prices);
+      const prices = plansPricesFor(entries, country);
+      const price = currency ? resolvePlanPrice(entries, currency, country) : prices[0];
       return {
         id: plan.id,
         slug: plan.slug,
         name: plan.name,
         summary: plan.summary,
         period: plan.period,
-        price: price ? toWire(price) : null,
-        prices: prices.map(toWire),
+        price: price ? wire(price) : null,
+        prices: prices.map(wire),
         benefits: benefitsView(storedBenefits(plan.benefits)),
         sample: plan.sample,
       };
@@ -193,7 +196,7 @@ export class PrimeService {
       name: plan.name,
       summary: plan.summary,
       period: plan.period,
-      prices: storedPlanPrices(plan.prices).map(toWire),
+      prices: storedPlanPrices(plan.prices),
       benefits: storedBenefits(plan.benefits),
       status: plan.status,
       sample: plan.sample,

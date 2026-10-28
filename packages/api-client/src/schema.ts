@@ -6874,7 +6874,7 @@ export interface components {
             summary: string;
             /** @enum {string} */
             period: "month" | "year";
-            prices: components["schemas"]["Money"][];
+            prices: components["schemas"]["PrimePrice"][];
             benefits: {
                 markupShareBps: number;
                 waivedFeeCodes: string[];
@@ -8126,6 +8126,8 @@ export interface components {
             prices: {
                 amountMinor: number;
                 currency: string;
+                /** @default null */
+                country?: string | null;
             }[];
             benefits: {
                 markupShareBps: number;
@@ -10049,6 +10051,11 @@ export interface components {
         PrimePlanList: {
             plans: components["schemas"]["PrimePlan"][];
         };
+        PrimePrice: {
+            amountMinor: number;
+            currency: string;
+            country: string | null;
+        };
         /** @description RFC 9457 problem details (application/problem+json). */
         ProblemDetails: {
             /** @description Problem type URN, e.g. urn:suskii:problem:validation-failed */
@@ -11211,6 +11218,8 @@ export interface components {
             prices?: {
                 amountMinor: number;
                 currency: string;
+                /** @default null */
+                country?: string | null;
             }[];
             benefits?: {
                 markupShareBps: number;
@@ -22626,6 +22635,7 @@ export interface operations {
         parameters: {
             query?: {
                 currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                country?: string;
             };
             header?: never;
             path?: never;

@@ -23845,6 +23845,15 @@
                 "ZAR"
               ]
             }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
           }
         ],
         "responses": {
@@ -29475,7 +29484,7 @@
           "prices": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Money"
+              "$ref": "#/components/schemas/PrimePrice"
             }
           },
           "benefits": {
@@ -35771,7 +35780,7 @@
           },
           "prices": {
             "minItems": 1,
-            "maxItems": 10,
+            "maxItems": 40,
             "type": "array",
             "items": {
               "type": "object",
@@ -35784,6 +35793,18 @@
                 "currency": {
                   "type": "string",
                   "pattern": "^[A-Z]{3}$"
+                },
+                "country": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
@@ -45336,6 +45357,39 @@
         ],
         "additionalProperties": false
       },
+      "PrimePrice": {
+        "type": "object",
+        "properties": {
+          "amountMinor": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "amountMinor",
+          "currency",
+          "country"
+        ],
+        "additionalProperties": false
+      },
       "ProblemDetails": {
         "type": "object",
         "description": "RFC 9457 problem details (application/problem+json).",
@@ -51264,7 +51318,7 @@
           },
           "prices": {
             "minItems": 1,
-            "maxItems": 10,
+            "maxItems": 40,
             "type": "array",
             "items": {
               "type": "object",
@@ -51277,6 +51331,18 @@
                 "currency": {
                   "type": "string",
                   "pattern": "^[A-Z]{3}$"
+                },
+                "country": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
