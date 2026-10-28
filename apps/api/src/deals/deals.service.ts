@@ -3,6 +3,7 @@ import type { z } from 'zod';
 
 import {
   addDays,
+  citySlug,
   compare,
   localDate,
   money,
@@ -33,7 +34,7 @@ import type {
   RefreshResult,
   routeFactsSchema,
 } from './deals.schemas';
-import { citySlug, daysBefore, TYPICAL_DAYS } from './route-facts';
+import { daysBefore, TYPICAL_DAYS } from './route-facts';
 import { RouteFactsService } from './route-facts.service';
 
 type FlightDealDto = z.infer<typeof flightDealSchema>;
