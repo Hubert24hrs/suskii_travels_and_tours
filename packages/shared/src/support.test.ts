@@ -4,11 +4,13 @@ import {
   SUPPORT_REFERENCE_ALPHABET,
   SUPPORT_REFERENCE_PATTERN,
   isWhatsAppStop,
+  parseSupportHours,
   supportDeliveryAdvances,
   supportDueAt,
   supportPriority,
   supportSchedule,
   supportSlaState,
+  supportStaffed,
   type SupportTargets,
   whatsappWindowClosesAt,
   whatsappWindowOpen,
@@ -144,5 +146,50 @@ describe('whatsapp delivery and window (ADR-084)', () => {
     expect(isWhatsAppStop('Unsubscribe.')).toBe(true);
     expect(isWhatsAppStop('cancel')).toBe(false);
     expect(isWhatsAppStop('please stop my booking')).toBe(false);
+  });
+});
+
+describe('staffed hours (ADR-085)', () => {
+  it('reads day ranges, single days and wrapping ranges', () => {
+    expect(parseSupportHours('')).toEqual([]);
+    expect(parseSupportHours(' Mon-Fri 08:00-20:00 ,  sat 09:00-14:00')).toEqual([
+      { days: ['mon', 'tue', 'wed', 'thu', 'fri'], fromMinute: 480, toMinute: 1200 },
+      { days: ['sat'], fromMinute: 540, toMinute: 840 },
+    ]);
+    expect(parseSupportHours('fri-mon 00:00-24:00')?.[0]?.days).toEqual([
+      'fri',
+      'sat',
+      'sun',
+      'mon',
+    ]);
+    expect(parseSupportHours('mon-sun 00:00-24:00')?.[0]?.days).toHaveLength(7);
+  });
+
+  it('refuses what it cannot read', () => {
+    for (const text of [
+      'weekdays 9-5',
+      'mon 8:00-20:00',
+      'mon 20:00-08:00',
+      'mon 08:60-20:00',
+      'xyz 08:00-20:00',
+      'mon 00:00-24:01',
+    ]) {
+      expect(parseSupportHours(text)).toBeNull();
+    }
+  });
+
+  it('is staffed only inside a span, in the support time zone', () => {
+    const hours = parseSupportHours('mon-fri 08:00-20:00') ?? [];
+    // Monday 2026-11-02: 07:00 UTC is 08:00 in Lagos (UTC+1).
+    expect(supportStaffed(hours, 'Africa/Lagos', new Date('2026-11-02T07:00:00Z'))).toBe(true);
+    expect(supportStaffed(hours, 'Africa/Lagos', new Date('2026-11-02T06:59:00Z'))).toBe(false);
+    expect(supportStaffed(hours, 'Africa/Lagos', new Date('2026-11-02T19:00:00Z'))).toBe(false);
+    // Saturday.
+    expect(supportStaffed(hours, 'Africa/Lagos', new Date('2026-11-07T12:00:00Z'))).toBe(false);
+    // Friday 23:30 UTC is already Saturday in Nairobi (UTC+3).
+    const friday = parseSupportHours('fri 00:00-24:00') ?? [];
+    expect(supportStaffed(friday, 'Africa/Nairobi', new Date('2026-11-06T23:30:00Z'))).toBe(false);
+    expect(supportStaffed(friday, 'Africa/Lagos', new Date('2026-11-06T22:30:00Z'))).toBe(true);
+    expect(supportStaffed([], 'Africa/Lagos', new Date('2026-11-02T10:00:00Z'))).toBe(false);
   });
 });
