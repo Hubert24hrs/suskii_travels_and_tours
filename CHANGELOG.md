@@ -6,6 +6,32 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### WhatsApp support (2026-10-28)
+
+#### Added
+
+- **WhatsApp as a support channel (ADR-084).** Travellers write to the business number and the
+  message lands in the same support inbox, with the same SLA timers, queues and audit. A signed
+  Cloud API webhook (`/v1/webhooks/whatsapp`, checked against the app secret before anything is
+  read) adds messages to the contact's open conversation, reopens one solved in the last
+  `SUPPORT_WHATSAPP_REOPEN_DAYS` (7), or starts a new one. Repeated deliveries change nothing.
+- **Replies.** Inside the 24-hour window, staff replies go out as WhatsApp messages. Outside it,
+  the approved template (`WHATSAPP_SUPPORT_TEMPLATE`) goes as a notice, and the reply follows as
+  soon as the traveller writes back. STOP turns templates off until they write again. Each reply
+  shows Sending, Sent, Delivered, Read or Not delivered (with Meta's error code). Internal notes
+  are never sent.
+- **Console.** A channel filter, the contact's masked number, whether the window is open or why
+  a reply cannot go (STOP, a username without a number), and a marker for photos and other
+  attachments, which are recorded by type and never downloaded.
+- **Privacy.** Numbers and business-scoped user ids are sealed and found by HMAC. Contacts are
+  never linked to accounts automatically, because numbers get recycled. They are purged 30 days
+  after their last message once no conversation is left.
+
+#### Fixed
+
+- **Meta Graph API version.** The Conversions API default moves from v24.0, which expired on
+  6 October 2026, to v26.0.
+
 ### Support conversations (2026-10-28)
 
 #### Added

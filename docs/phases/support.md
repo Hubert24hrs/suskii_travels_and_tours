@@ -128,16 +128,16 @@ priority (`SUPPORT_SLA`), and which Prime plans include priority support.
 
 | Step | Work                                                                                                                                                                                           | Files                                         |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| 1    | Settings: `WHATSAPP_SUPPORT_PROVIDER` (`none`, `mock`, `cloud`), phone number id, access token, app secret, verify token, Graph version, template name and language, reopen days, flood limit | `src/config`, `.env.example`, Terraform, Helm |
+| 1    | Settings: `WHATSAPP_SUPPORT_PROVIDER` (`none`, `mock`, `cloud`), phone number id, access token, app secret, verify token, Graph version, template name and language, reopen days, flood limit  | `src/config`, `.env.example`, Terraform, Helm |
 | 2    | Database: `whatsapp_contacts` (sealed phone and BSUID, HMACs, last inbound time, STOP), conversation contact link, message `external_id`, `kind` and `delivery_status`; registry and retention | `prisma`, `src/privacy`                       |
-| 3    | Adapter: `WhatsAppChannel` with `MockWhatsAppChannel` and `CloudWhatsAppChannel` (text, template), unit tests against recorded request shapes                                                 | `src/support/whatsapp`                        |
-| 4    | Webhook: GET handshake, signed POST, Zod parsing, dedupe by `wamid`, routing to a conversation (open, reopen, new), statuses moving forward, per-contact flood limit, metrics                   | `src/support/whatsapp`                        |
+| 3    | Adapter: `WhatsAppChannel` with `MockWhatsAppChannel` and `CloudWhatsAppChannel` (text, template), unit tests against recorded request shapes                                                  | `src/support/whatsapp`                        |
+| 4    | Webhook: GET handshake, signed POST, Zod parsing, dedupe by `wamid`, routing to a conversation (open, reopen, new), statuses moving forward, per-contact flood limit, metrics                  | `src/support/whatsapp`                        |
 | 5    | Replies: send after commit inside the window as text, outside as the template, undeliverable without a phone, STOP respected; delivery state on each message                                   | `support-admin.service.ts`                    |
 | 6    | Console: channel badge and filter, the contact's masked number, window state, delivery state per message, unsupported media marker                                                             | `apps/admin`                                  |
-| 7    | Tests: unit (signature, parsing, routing, window), API e2e (handshake, signed delivery, duplicates, reply in and out of the window, statuses, bad signature, BSUID only), console e2e           | everywhere                                    |
-| 8    | Docs: security docs, setup steps for the owner (Meta app, number, permanent token, webhook, template), CHANGELOG, CLAUDE.md                                                                     | `docs`                                        |
+| 7    | Tests: unit (signature, parsing, routing, window), API e2e (handshake, signed delivery, duplicates, reply in and out of the window, statuses, bad signature, BSUID only), console e2e          | everywhere                                    |
+| 8    | Docs: security docs, setup steps for the owner (Meta app, number, permanent token, webhook, template), CHANGELOG, CLAUDE.md                                                                    | `docs`                                        |
 
-### Risks
+### Part 2 risks
 
 - **Forged deliveries.** Only a valid `X-Hub-Signature-256` over the raw bytes is processed, so
   nobody can inject messages or statuses. The verify token only answers the handshake.
@@ -148,3 +148,39 @@ priority (`SUPPORT_SLA`), and which Prime plans include priority support.
 - **Identity.** No automatic link between a phone number and an account (recycled numbers).
 - **Unconfirmed BSUID sending.** Replies to BSUID-only contacts are recorded as undelivered with
   the reason shown in the console until a sandbox run confirms the send field.
+
+## Part 2 outcome
+
+Built as planned (ADR-084). WhatsApp is off (`WHATSAPP_SUPPORT_PROVIDER=none`) until the owner
+connects a number.
+
+- **API** (`apps/api/src/support/whatsapp`): the signed webhook (handshake and deliveries),
+  routing into conversations (open, reopened within 7 days, new; full conversations start a new
+  one), contacts sealed and found by HMAC, STOP, a per-contact flood limit, forward-only
+  delivery states, replies after the commit (text, template notice, forwarding once the window
+  reopens) and the `mock` and `cloud` adapters. Migration `20261106120000_support_whatsapp`
+  (expand-only), registry and retention entries, metrics `suskii.support.whatsapp.*`.
+- **Console**: channel filter, masked number, window state, delivery state per reply and the
+  attachment marker.
+- **Fix on the way**: the Meta Graph API default for the Conversions API moved from v24.0
+  (expired 6 October 2026) to v26.0.
+
+### Setting it up (owner)
+
+1. In Meta Business Manager, create a business portfolio (verified business details), a WhatsApp
+   Business Account and a phone number. Note the phone number id in WhatsApp Manager.
+2. Create a Meta app with the WhatsApp product. Add a system user with
+   `whatsapp_business_messaging` and generate a permanent token. Copy the app secret.
+3. Put `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET` and a new random `WHATSAPP_VERIFY_TOKEN`
+   (at least 16 characters) in Secret Manager. Set `WHATSAPP_PHONE_NUMBER_ID` and
+   `WHATSAPP_SUPPORT_PROVIDER=cloud` (see `production.tfvars.example`).
+4. In the app's WhatsApp configuration, set the callback URL to
+   `https://<api host>/v1/webhooks/whatsapp` with the verify token, and subscribe to the
+   `messages` field.
+5. Submit a utility template named `support_reply_waiting` in English with one body variable,
+   for example: "We have replied to your Suskii request {{1}}. Reply to this message to read it."
+   Add translations under the same name if travellers write in other languages, and set
+   `WHATSAPP_SUPPORT_TEMPLATE_LANGUAGE` to match.
+6. Send a test message from a phone to the number. It should appear in the console under
+   Support with the WhatsApp channel filter. Then send one from an account that uses a WhatsApp
+   username, to confirm how replies reach a business-scoped user id.
