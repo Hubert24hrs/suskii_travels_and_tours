@@ -4,7 +4,7 @@ import { publicEnv } from '../lib/env';
 
 /**
  * Search result pages stay crawlable but carry noindex; email-link pages, checkout, payment and
- * booking pages, the account area, live rides, shared live trips and the app's payment return are
+ * booking pages, the account area, company invitations, live rides, shared live trips and the app's payment return are
  * private (they also carry noindex, as do the sign-in pages).
  */
 export default function robots(): MetadataRoute.Robots {
@@ -20,6 +20,7 @@ export default function robots(): MetadataRoute.Robots {
           '/bookings/',
           '/mobile/',
           '/account',
+          '/company/',
           '/rides/',
           '/trip/',
         ],

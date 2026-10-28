@@ -304,6 +304,11 @@ export function BookingView({ bookingId }: { bookingId: string }) {
   const wallet = booking.paymentOptions?.wallet ?? null;
   const walletCovers =
     due !== null && wallet?.currency === due.currency && wallet.amountMinor >= due.amountMinor;
+  // A company trip waiting for an approver cannot be paid yet (ADR-078).
+  const approval = booking.company?.approvalStatus ?? 'not_required';
+  const findings = (booking.company?.policyFindings ?? []).map((finding) =>
+    t(`booking.company.findings.${finding}`),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -316,6 +321,23 @@ export function BookingView({ bookingId }: { bookingId: string }) {
             {t(`booking.status.${status}`)}
           </Badge>
           <p className="font-body text-body text-foreground">{help}</p>
+          {approval !== 'not_required' ? (
+            <p
+              data-testid="booking-company"
+              className={
+                approval === 'rejected'
+                  ? 'font-body text-body-sm font-bold text-danger'
+                  : 'font-body text-body-sm font-bold text-foreground'
+              }
+            >
+              {t(`booking.company.${approval}`)}
+            </p>
+          ) : null}
+          {findings.length > 0 ? (
+            <p className="font-body text-body-sm text-foreground">
+              {t('booking.company.outsidePolicy', { findings: format.list(findings) })}
+            </p>
+          ) : null}
         </div>
         {actionError ? (
           <p role="alert" className="font-body text-body-sm text-danger">
@@ -328,7 +350,8 @@ export function BookingView({ bookingId }: { bookingId: string }) {
               <a href={booking.payment.checkoutUrl}>{t('booking.completePayment')}</a>
             </Button>
           ) : null}
-          {status === 'PRICED' || (planActive && booking.pendingPriceChange) ? (
+          {(status === 'PRICED' && approval !== 'pending') ||
+          (planActive && booking.pendingPriceChange) ? (
             <Button loading={busy} onClick={() => void pay(booking)}>
               {booking.pendingPriceChange
                 ? t('checkout.priceChange.accept')

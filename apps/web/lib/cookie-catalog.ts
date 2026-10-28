@@ -117,6 +117,14 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
     duration: 'tab',
   },
   {
+    name: 'suskii:company-invite',
+    kind: 'sessionStorage',
+    category: 'necessary',
+    provider: 'suskii',
+    purpose: 'companyInvite',
+    duration: 'tab',
+  },
+  {
     name: 'Turnstile',
     kind: 'third-party',
     category: 'necessary',
