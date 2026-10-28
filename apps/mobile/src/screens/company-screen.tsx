@@ -150,10 +150,9 @@ function Company() {
   const company = useQuery({
     queryKey: ['company'],
     queryFn: async () => {
-      const { data, response } = await api.GET('/v1/me/company');
-      if (data) return data;
-      if (response.status === 404) return null;
-      throw new Error('company');
+      const { data } = await api.GET('/v1/me/company');
+      if (!data) throw new Error('company');
+      return data.company;
     },
   });
   const trips = useQuery({

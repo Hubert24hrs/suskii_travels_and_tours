@@ -193,7 +193,9 @@ export function Checkout({
     browserApi()
       .GET('/v1/me/company')
       .then(({ data }) => {
-        if (!cancelled && data?.status === 'active') setCompany({ name: data.name });
+        if (!cancelled && data?.company?.status === 'active') {
+          setCompany({ name: data.company.name });
+        }
       })
       .catch(() => undefined);
     return () => {
@@ -488,7 +490,7 @@ export function Checkout({
         acceptTerms: true as const,
         locale,
         turnstileToken: token.current,
-        company: company !== null && forCompany,
+        ...(company !== null && forCompany ? { company: true } : {}),
       };
       const serialised = JSON.stringify(body);
       if (createKey.current?.body !== serialised)
@@ -750,7 +752,7 @@ export function Checkout({
           <Card asChild className="flex flex-col gap-2 p-4">
             <section aria-label={t('checkout.company.label', { company: company.name })}>
               <CheckboxField
-                name="company"
+                name="bookForCompany"
                 data-testid="checkout-company"
                 label={t('checkout.company.label', { company: company.name })}
                 checked={forCompany}

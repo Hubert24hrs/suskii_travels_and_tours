@@ -52,7 +52,7 @@ const trip = (patch: Partial<Schemas['CompanyBooking']> = {}): Schemas['CompanyB
 
 describe('CompanyScreen', () => {
   it('says how to get a company when the account has none', async () => {
-    mockApi({ 'GET /v1/me/company': () => json({ type: 'not-found', status: 404 }, 404) });
+    mockApi({ 'GET /v1/me/company': () => json({ company: null }) });
     await renderWithApp(<CompanyScreen />, await signedInSession());
 
     expect(await screen.findByTestId('company-none')).toBeOnTheScreen();
@@ -62,7 +62,7 @@ describe('CompanyScreen', () => {
   it('lets an approver approve a waiting trip', async () => {
     let decided = false;
     const { calls } = mockApi({
-      'GET /v1/me/company': () => json(company()),
+      'GET /v1/me/company': () => json({ company: company() }),
       'GET /v1/me/company/bookings': () =>
         json({
           items: [decided ? trip({ approvalStatus: 'approved', canDecide: false }) : trip()],
@@ -94,7 +94,7 @@ describe('CompanyScreen', () => {
 
   it('rejects with the reason the approver chose', async () => {
     const { calls } = mockApi({
-      'GET /v1/me/company': () => json(company()),
+      'GET /v1/me/company': () => json({ company: company() }),
       'GET /v1/me/company/bookings': () => json({ items: [trip()], nextCursor: null }),
       [`POST /v1/me/company/bookings/${TRIP_ID}/reject`]: () =>
         json(trip({ status: 'CANCELLED', approvalStatus: 'rejected', canDecide: false })),
@@ -113,7 +113,7 @@ describe('CompanyScreen', () => {
 
   it('shows travellers their company trips without approval controls', async () => {
     mockApi({
-      'GET /v1/me/company': () => json(company({ myRole: 'traveller' })),
+      'GET /v1/me/company': () => json({ company: company({ myRole: 'traveller' }) }),
       'GET /v1/me/company/bookings': () =>
         json({ items: [trip({ canDecide: false, bookedByMe: true })], nextCursor: null }),
     });

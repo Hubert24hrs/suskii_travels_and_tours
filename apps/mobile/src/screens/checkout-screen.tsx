@@ -131,7 +131,7 @@ function Checkout({ quote }: { quote: Quote }) {
     enabled: Boolean(user),
     queryFn: async () => {
       const { data } = await api.GET('/v1/me/company');
-      return data?.status === 'active' ? { name: data.name } : null;
+      return data?.company?.status === 'active' ? { name: data.company.name } : null;
     },
   });
   const [forCompany, setForCompany] = useState(false);
@@ -345,7 +345,7 @@ function Checkout({ quote }: { quote: Quote }) {
           acceptTerms: true,
           locale,
           turnstileToken: null,
-          company: Boolean(company.data) && forCompany,
+          ...(company.data && forCompany ? { company: true } : {}),
         },
       });
       if (!data) {
