@@ -89,6 +89,23 @@ describe('cn', () => {
     expect(differences.slice(0, 40)).toEqual([]);
   });
 
+  it('merges the logical sides used for right-to-left pages', () => {
+    for (const [input, expected] of [
+      ['inset-s-0 inset-0', 'inset-0'],
+      ['inset-x-4 inset-s-0', 'inset-x-4 inset-s-0'],
+      ['inset-s-0 inset-x-4', 'inset-x-4'],
+      ['start-2 inset-s-4', 'inset-s-4'],
+      ['ps-2 pe-2 px-4', 'px-4'],
+      ['ms-2 mx-auto', 'mx-auto'],
+      ['rounded-e-none rounded-lg', 'rounded-lg'],
+      ['border-s-2 border', 'border'],
+      ['border-e-primary border-x-border', 'border-x-border'],
+    ] as const) {
+      expect(cn(input)).toBe(expected);
+      expect(reference(input)).toBe(expected);
+    }
+  });
+
   it('keeps unknown classes and resolves variants separately', () => {
     expect(cn('p-2 hover:p-4', 'p-3', 'custom-class')).toBe('hover:p-4 p-3 custom-class');
     expect(cn('px-2 py-1', 'p-4')).toBe('p-4');
