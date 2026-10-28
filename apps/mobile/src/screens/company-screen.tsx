@@ -113,7 +113,7 @@ function TripCard({
                 key={value}
                 testID={`reject-reason-${trip.id}-${value}`}
                 accessibilityRole="radio"
-                accessibilityState={{ selected: reason === value }}
+                accessibilityState={{ checked: reason === value }}
                 onPress={() => setReason(value)}
                 className={
                   reason === value
