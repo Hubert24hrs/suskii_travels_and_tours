@@ -78,9 +78,12 @@ await write(
 );
 await write(logo, join(ROOT, 'apps/mobile/assets/splash-icon.png'), 512);
 await write(logo, join(ROOT, 'apps/mobile/assets/logo.png'), 192);
-// The website and the console (Next.js metadata files).
+// The website and the console (Next.js metadata files). The tab icon stays small: browsers fetch
+// it beside every search, so a 512 px icon would compete with results on a slow network
+// (ADR-075). The install manifest gets its own 512 px icon.
 for (const app of ['web', 'admin']) {
-  await write(logo, join(ROOT, `apps/${app}/app/icon.png`), 512);
+  await write(logo, join(ROOT, `apps/${app}/app/icon.png`), 48);
   await write(logo, join(ROOT, `apps/${app}/app/apple-icon.png`), 180, { opaque: true });
 }
+await write(logo, join(ROOT, 'apps/web/public/brand/icon-512.png'), 512);
 await write(logo, join(ROOT, 'apps/web/public/brand/logo-mark.png'), 96);
