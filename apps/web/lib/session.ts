@@ -1,5 +1,7 @@
 import { publicEnv } from './env';
-import { readCookie } from './read-cookie';
+import { csrfToken, hasSession } from './session-cookie';
+
+export { csrfToken, hasSession } from './session-cookie';
 
 /**
  * Web sessions (ADR-007, phase 9). The API keeps tokens in httpOnly cookies on its own origin
@@ -10,25 +12,10 @@ import { readCookie } from './read-cookie';
  * Client only: nothing here runs during server rendering.
  */
 
-const CSRF_COOKIES = ['__Secure-suskii_csrf', 'suskii_csrf'] as const;
 const EXPIRY_KEY = 'suskii.session.accessExpiresAt';
 const REFRESH_LOCK = 'suskii-session-refresh';
 /** Refresh this long before the access token expires. */
 const MARGIN_MS = 60_000;
-
-/** The CSRF token of the current session, or null when signed out. */
-export function csrfToken(): string | null {
-  for (const name of CSRF_COOKIES) {
-    const value = readCookie(name);
-    if (value) return value;
-  }
-  return null;
-}
-
-/** Whether a session cookie exists (it may still need a refresh). */
-export function hasSession(): boolean {
-  return csrfToken() !== null;
-}
 
 function storedExpiry(): number {
   try {

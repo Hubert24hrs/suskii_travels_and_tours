@@ -36,6 +36,6 @@ export async function saveCookieConsent(choices: CookieChoices): Promise<CookieC
   document.cookie = `${CONSENT_COOKIE}=${formatCookieConsent(consent)}; Path=/; Max-Age=${
     COOKIE_CONSENT_MAX_AGE_DAYS * 86_400
   }; SameSite=Lax${secure}`;
-  window.dispatchEvent(new Event(CONSENT_EVENT));
+  window.dispatchEvent(new CustomEvent<CookieChoices>(CONSENT_EVENT, { detail: choices }));
   return consent;
 }
