@@ -779,6 +779,15 @@ export function TripScreen() {
           </Button>
         ) : null}
         {!offline ? (
+          <Button
+            testID="trip-get-help"
+            variant="secondary"
+            onPress={() => router.push(`/support?booking=${booking.id}` as Href)}
+          >
+            {t('support.getHelp')}
+          </Button>
+        ) : null}
+        {!offline ? (
           <Button variant="ghost" onPress={() => void follow()}>
             {t('mobile.trip.notify')}
           </Button>

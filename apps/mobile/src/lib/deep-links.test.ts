@@ -92,6 +92,23 @@ describe('resolveIncomingUrl', () => {
   });
 });
 
+describe('support links (ADR-083)', () => {
+  it('opens Help and support or one conversation from the app scheme', () => {
+    expect(resolveIncomingUrl('suskii://support', WEB)).toEqual({ path: '/support' });
+    expect(resolveIncomingUrl(`suskii://support/${ID.toUpperCase()}`, WEB)).toEqual({
+      path: `/support/${ID}`,
+    });
+    expect(resolveIncomingUrl('suskii://support/not-a-uuid', WEB)).toEqual({ path: '/' });
+    expect(resolveIncomingUrl(`suskii://support/${ID}/messages`, WEB)).toEqual({ path: '/' });
+  });
+
+  it('leaves emailed website support links to the browser', () => {
+    expect(resolveIncomingUrl(`https://${WEB}/support/${ID}#access=${TOKEN}`, WEB)).toEqual({
+      path: '/',
+    });
+  });
+});
+
 describe('queryInput', () => {
   it('decodes repeated keys, plus signs and bad escapes', () => {
     const input = queryInput('?leg=LOS-ABV&leg=ABV-LOS&q=Port+Harcourt&bad=%E0%A4%A&flag');
@@ -110,6 +127,9 @@ describe('resolveNotificationPath', () => {
     expect(resolveNotificationPath('/account/alerts')).toBe('/account/alerts');
     expect(resolveNotificationPath('/account/company')).toBe('/account/company');
     expect(resolveNotificationPath('/prime')).toBe('/prime');
+    expect(resolveNotificationPath(`/support/${ID.toUpperCase()}`)).toBe(`/support/${ID}`);
+    expect(resolveNotificationPath('/support/not-a-uuid')).toBeNull();
+    expect(resolveNotificationPath(`/support/${ID}/messages`)).toBeNull();
     expect(resolveNotificationPath('/account/privacy')).toBeNull();
     expect(resolveNotificationPath('/account/alerts?next=https://evil.example')).toBeNull();
     expect(resolveNotificationPath('/alerts')).toBeNull();

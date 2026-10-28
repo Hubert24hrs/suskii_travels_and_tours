@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs the e2e APK on the booted emulator and runs the Maestro critical path (ADR-024), the
-# Cars bus journey, the offline trip, an in-house tour (route restored), then Google sign-up and
-# sign-in again (mock provider).
+# Cars bus journey, the offline trip, an in-house tour (route restored), a message to support,
+# then Google sign-up and sign-in again (mock provider).
 # The app and the Custom Tab reach the stack on the host through `adb reverse` (localhost is a
 # secure context for the web pages); the route is removed before the offline flow.
 # Usage: run-android.sh <app-release.apk> <report-dir>
@@ -58,6 +58,10 @@ if [ "$status" -eq 0 ]; then
   adb reverse tcp:3000 tcp:3000
   "$maestro" test "$flows/inhouse-tour.yaml" --format junit --output "$report/inhouse-tour.xml" \
     --debug-output "$report/inhouse-tour" || status=$?
+fi
+if [ "$status" -eq 0 ]; then
+  "$maestro" test "$flows/support.yaml" --format junit --output "$report/support.xml" \
+    --debug-output "$report/support" || status=$?
 fi
 if [ "$status" -eq 0 ]; then
   "$maestro" test "$flows/sign-in.yaml" --format junit --output "$report/sign-in.xml" \

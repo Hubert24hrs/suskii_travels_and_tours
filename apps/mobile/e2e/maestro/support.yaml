@@ -1,0 +1,55 @@
+# Help and support on the phone (ADR-083): a visitor opens Help from Account, writes to support with
+# an email (the app proves itself with its device attestation) and lands on the conversation, which
+# shows their message waiting for a reply. Runs after the in-house tour in run-android.sh.
+appId: com.suskii.travels.e2e
+name: Write to support
+tags:
+  - support
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/dismiss-system-dialogs.yaml
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 60000
+
+- tapOn:
+    id: tab-account
+- scrollUntilVisible:
+    element:
+      id: account-support
+- tapOn:
+    id: account-support
+- extendedWaitUntil:
+    visible:
+      id: support-start
+    timeout: 15000
+
+- tapOn:
+    id: support-category-payment
+- tapOn:
+    id: support-message
+- inputText: Was my card charged twice for the Lagos tour?
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: support-email
+- tapOn:
+    id: support-email
+- inputText: maestro.support@example.com
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: support-submit
+- tapOn:
+    id: support-submit
+
+- extendedWaitUntil:
+    visible:
+      id: support-conversation
+    timeout: 30000
+- assertVisible:
+    id: support-message-customer
+- assertVisible: Was my card charged twice for the Lagos tour?
+- assertVisible: Waiting for our reply
