@@ -81,6 +81,9 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
     'rental search',
     (_, depart, back) => `/rentals?city=Lagos&pickupAt=${depart}T10%3A00&returnAt=${back}T10%3A00`,
   ],
+  // SEO pages from fare history (ADR-080): server-formatted fares and dates around the search
+  // form. City hubs and airline pages have no client widgets, so there is nothing to wait on.
+  ['route page with facts', () => '/flights/lagos-to-london'],
   ['sign in', () => '/sign-in'],
   ['register', () => '/register?ref=ABCDEFGH'],
   ['manage booking', () => '/manage-booking'],

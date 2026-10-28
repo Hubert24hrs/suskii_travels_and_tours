@@ -1,3 +1,4 @@
+import { citySlug } from '@suskii/shared/lite';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -7,6 +8,7 @@ import { DealCards } from '../../../components/home/fresh-flight-offers';
 import { Container } from '../../../components/layout/container';
 import { EMPTY_FLIGHT_STATE } from '../../../components/search/form-state';
 import { SearchPanel } from '../../../components/search/search-panel';
+import { RouteFactsSection } from '../../../components/seo/route-facts';
 import { api } from '../../../lib/api';
 import { getI18n } from '../../../lib/i18n';
 import { pageMetadata } from '../../../lib/seo';
@@ -28,7 +30,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
-/** Programmatic SEO page for a popular route, with the latest cached fare (ADR-011). */
+/**
+ * Programmatic SEO page for a popular route, with the latest cached fare (ADR-011) and what the
+ * fare history says about it (ADR-080).
+ */
 export default async function RoutePage({ params }: Props) {
   const { t, currency } = await getI18n();
   const { route } = await params;
@@ -80,6 +85,11 @@ export default async function RoutePage({ params }: Props) {
           }}
         />
       </section>
+      {data.facts ? (
+        <Container className="mt-12">
+          <RouteFactsSection facts={data.facts} />
+        </Container>
+      ) : null}
       <Container className="mt-12 grid gap-8 lg:grid-cols-3">
         <section aria-labelledby="latest-fare" className="flex min-w-0 flex-col gap-4">
           <h2 id="latest-fare" className="font-heading text-h3 font-bold text-heading">
@@ -112,6 +122,26 @@ export default async function RoutePage({ params }: Props) {
             </ul>
           </section>
         ) : null}
+      </Container>
+      <Container className="mt-8 mb-4">
+        <ul className="flex flex-wrap gap-x-6" data-testid="route-hub-links">
+          <li>
+            <AppLink
+              href={`/flights/from/${citySlug(data.origin.cityName)}`}
+              className="inline-flex min-h-12 items-center font-body text-body-sm text-primary hover:underline focus-visible:focus-ring"
+            >
+              {t('pages.route.fromCity', { city: data.origin.cityName })}
+            </AppLink>
+          </li>
+          <li>
+            <AppLink
+              href={`/flights/to/${citySlug(data.destination.cityName)}`}
+              className="inline-flex min-h-12 items-center font-body text-body-sm text-primary hover:underline focus-visible:focus-ring"
+            >
+              {t('pages.route.toCity', { city: data.destination.cityName })}
+            </AppLink>
+          </li>
+        </ul>
       </Container>
     </>
   );

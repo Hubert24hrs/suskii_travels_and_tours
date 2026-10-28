@@ -75,6 +75,25 @@ export const api = {
       tags: ['deals'],
       query: { currency },
     }),
+  dealCities: () =>
+    apiGet<Schemas['DealCities']>('/v1/deals/cities', { revalidate: ONE_HOUR, tags: ['deals'] }),
+  dealCity: (slug: string, currency: string) =>
+    apiGet<Schemas['DealCity']>(`/v1/deals/cities/${encodeURIComponent(slug)}`, {
+      revalidate: FIVE_MINUTES,
+      tags: ['deals'],
+      query: { currency },
+    }),
+  dealAirlines: () =>
+    apiGet<Schemas['DealAirlines']>('/v1/deals/airlines', {
+      revalidate: ONE_HOUR,
+      tags: ['deals'],
+    }),
+  dealAirline: (code: string, currency: string) =>
+    apiGet<Schemas['DealAirline']>(`/v1/deals/airlines/${encodeURIComponent(code)}`, {
+      revalidate: FIVE_MINUTES,
+      tags: ['deals'],
+      query: { currency },
+    }),
   hotelDestinations: (currency: string) =>
     apiGet<Schemas['HotelDestinations']>('/v1/destinations/hotels', {
       revalidate: FIVE_MINUTES,

@@ -260,6 +260,8 @@ export async function startStack(options: { adTags?: boolean } = {}): Promise<St
       HIBP_ENABLED: 'false',
       // Google and Apple buttons work on test stacks through the mock provider (ADR-067).
       SOCIAL_MOCK_ENABLED: 'true',
+      // The stack refreshes deals once, so route facts show from a single day of fares (ADR-080).
+      ROUTE_FACTS_MIN_DAYS: '1',
       // Lagos-Dubai fares rise 5% at the re-check before payment (price-change consent test).
       MOCK_REPRICE_RULES: PRICE_CHANGE_ROUTE_RULE,
       // Mock suppliers unless a tester opts in to Duffel's test mode (phone and browser testing).
