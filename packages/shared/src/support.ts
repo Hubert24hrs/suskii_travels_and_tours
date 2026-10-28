@@ -24,7 +24,8 @@ export type SupportPriority = (typeof SUPPORT_PRIORITIES)[number];
 export const SUPPORT_CHANNELS = ['web', 'app', 'whatsapp'] as const;
 export type SupportChannel = (typeof SUPPORT_CHANNELS)[number];
 
-export const SUPPORT_AUTHORS = ['customer', 'staff', 'system'] as const;
+/** `assistant`: the after-hours assistant (ADR-085), never a person. */
+export const SUPPORT_AUTHORS = ['customer', 'staff', 'system', 'assistant'] as const;
 export type SupportAuthor = (typeof SUPPORT_AUTHORS)[number];
 
 /** Longest message a traveller or staff member can send, in characters. */
@@ -132,8 +133,11 @@ export function supportSlaState(
 export const SUPPORT_REFERENCE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
 export const SUPPORT_REFERENCE_PATTERN = /^S-[2-9A-HJKMNP-TV-Z]{6}$/;
 
-/** What a message holds: text, or a WhatsApp attachment we do not accept yet (ADR-084). */
-export const SUPPORT_MESSAGE_KINDS = ['text', 'unsupported'] as const;
+/**
+ * What a message holds: text, a WhatsApp attachment we do not accept yet (ADR-084), or the
+ * assistant's handover to people (ADR-085), which clients show in the traveller's language.
+ */
+export const SUPPORT_MESSAGE_KINDS = ['text', 'unsupported', 'handover'] as const;
 export type SupportMessageKind = (typeof SUPPORT_MESSAGE_KINDS)[number];
 
 /**
@@ -195,3 +199,6 @@ export const isWhatsAppStop = (text: string): boolean =>
       .toLowerCase()
       .replace(/[.!]+$/u, ''),
   );
+
+/** Longest answer the after-hours assistant may send, in characters (ADR-085). */
+export const SUPPORT_ASSISTANT_ANSWER_MAX = 1_200;

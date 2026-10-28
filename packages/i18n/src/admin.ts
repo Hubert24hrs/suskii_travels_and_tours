@@ -469,7 +469,7 @@ export const adminMessages = {
     lastMessage: 'Last message',
     empty: 'No conversations in this queue.',
     openFor: 'Open conversation {reference}',
-    from: { customer: 'Traveller', staff: 'Staff', system: 'System' },
+    from: { customer: 'Traveller', staff: 'Staff', system: 'System', assistant: 'Assistant' },
     internal: 'Internal note',
     message: 'Message',
     internalToggle: 'Internal note: only staff see it',
@@ -500,6 +500,13 @@ export const adminMessages = {
     },
     waitingForWindow: 'Notice sent {time}; this reply goes when the traveller writes back.',
     deliveryError: 'Reason: {code}',
+    assistant: {
+      answered: 'Automated answer (the traveller sees it labelled as one)',
+      handover: 'The assistant handed over: the traveller was told the team is offline.',
+      sources: 'Based on',
+      faq: 'FAQ: {question}',
+      fact: 'Booking fact: {key}',
+    },
   },
   reviews: {
     title: 'Reviews',

@@ -2802,6 +2802,11 @@ export const en = {
       you: 'You',
       staff: 'Suskii support',
       system: 'Suskii',
+      assistant: 'Automated answer',
+      assistantNote:
+        'Our assistant answered from our help articles and your booking. A person will also read your message.',
+      handover:
+        'Our team is offline right now. We have your message, and a person will reply here when they are back.',
       reply: 'Your reply',
       send: 'Send',
       resolve: 'Mark as solved',

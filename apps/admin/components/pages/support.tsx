@@ -360,6 +360,37 @@ function WhatsAppState({ whatsapp }: { whatsapp: NonNullable<Conversation['whats
   );
 }
 
+/** What an assistant answer rested on, or that it handed over (ADR-085). */
+function AssistantNote({ message }: { message: Conversation['messages'][number] }) {
+  if (message.kind === 'handover') {
+    return (
+      <p
+        className="pt-2 font-body text-body-sm text-muted"
+        data-testid="support-assistant-handover"
+      >
+        {t('support.assistant.handover')}
+      </p>
+    );
+  }
+  return (
+    <div className="pt-2 font-body text-body-sm text-muted" data-testid="support-assistant-sources">
+      <p>{t('support.assistant.answered')}</p>
+      {message.sources && message.sources.length > 0 ? (
+        <p>
+          {t('support.assistant.sources')}:{' '}
+          {message.sources
+            .map((source) =>
+              source.kind === 'faq'
+                ? t('support.assistant.faq', { question: source.question })
+                : t('support.assistant.fact', { key: source.key }),
+            )
+            .join('; ')}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function DeliveryState({ delivery }: { delivery: Delivery }) {
   return (
     <p className="flex flex-wrap items-center gap-2 pt-2 font-body text-body-sm text-muted">
@@ -464,6 +495,7 @@ export function SupportConversationPage({ conversationId }: { conversationId: st
                       ? t('support.unsupported', { type: message.text })
                       : message.text}
                   </p>
+                  {message.author === 'assistant' ? <AssistantNote message={message} /> : null}
                   {message.delivery ? <DeliveryState delivery={message.delivery} /> : null}
                 </li>
               ))}
