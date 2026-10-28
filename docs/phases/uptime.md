@@ -73,3 +73,30 @@ Probes (`/health`, `/ready`) are left out of the request SLIs: they are not trav
   risk, and only with enough traffic to judge; the ticket-level alert catches slow burns.
 - **No real traffic yet.** Thresholds start from the SRE workbook defaults and are tuned after
   launch.
+
+## Outcome
+
+Built as planned (ADR-087):
+
+- **Objectives and alerts:** `suskii.slo.rules.yml` with 13 recording rules and 6 burn-rate alerts
+  (API and booking path); promtool checks 19 rules and passes five tests (a fast outage pages;
+  errors inside the budget, a quiet night with one failed request and staff routes never page; a
+  slow burn opens a ticket). CI checks and tests every rule file, and the observability spec
+  requires a runbook for every paging alert (`docs/runbooks/slo-burn.md`).
+- **Uptime checks:** `infra/terraform/modules/monitoring` (three checks, three regions, an alert
+  policy each, email or existing channels) and an edge cache rule for `/v1/status`. `terraform
+fmt` passes locally; `validate` and TFLint run in `infra.yml` (the registry is not reachable
+  from the build container).
+- **API:** `GET /v1/status` and the incident routes, a migration (`status_incidents`,
+  `status_incident_updates`), `status:manage` for operations and support, the retention rule
+  `status-incidents` (a year after resolution), breaker marks in Redis. Unit tests cover the state
+  rules, incidents, the cache and a database outage; the API e2e (6 tests) covers the public
+  answer and headers, a breaker from another instance, the incident lifecycle with its audit
+  entries, refusals (400, 403, 404, 409), the console list and a database outage; the admin
+  matrix and audit suites cover the new routes.
+- **Console:** Status page (open, update, resolve), with an e2e journey and the axe sweep.
+- **Website:** `/status` (footer, sitemap, hydration and axe e2e) and the banner on every page.
+- **App:** the Status screen (Account), the banner on Home and Trips, Jest tests.
+
+Waiting for the owner: the on-call channel for pages, the availability figure to promise
+partners, and whether to add a third-party status host.
