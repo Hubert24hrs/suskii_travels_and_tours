@@ -45,6 +45,7 @@ export const fr: Messages = {
     openMenu: 'Ouvrir le menu',
     menuTitle: 'Menu',
     manageBooking: 'Gérer ma réservation',
+    help: 'Aide et assistance',
     signIn: 'Se connecter',
     account: 'Compte',
     currency: 'Devise',
@@ -124,6 +125,8 @@ export const fr: Messages = {
       consent: 'Mémorise vos choix de cookies.',
       sessionExpiry: 'Indique au site quand renouveler votre connexion.',
       bookingAccess: 'Ouvre une réservation faite sans compte, dans cet onglet uniquement.',
+      supportAccess:
+        'Ouvre une conversation avec l’assistance commencée sans compte, dans cet onglet uniquement.',
       search: 'Mémorise votre dernière recherche de vol et vos lieux récents.',
       addonsName:
         'Remplit votre nom de famille quand vous cherchez des options pour une réservation.',
@@ -2856,6 +2859,64 @@ export const fr: Messages = {
         notEligible: 'Ce voyage ne peut pas être évalué.',
         exists: 'Vous avez déjà donné votre avis sur ce voyage.',
       },
+    },
+  },
+  support: {
+    heading: 'Aide et assistance',
+    intro:
+      'Une question avant ou après votre réservation ? Écrivez-nous : notre équipe vous répond ici, par e-mail et dans l’application.',
+    faqHeading: 'Questions fréquentes',
+    link: 'Aide',
+    getHelp: 'Obtenir de l’aide pour cette réservation',
+    start: {
+      heading: 'Écrivez-nous',
+      category: 'De quoi s’agit-il ?',
+      categories: {
+        pre_booking: 'Une question avant de réserver',
+        booking_change: 'Modifier une réservation',
+        cancellation_refund: 'Annulation ou remboursement',
+        payment: 'Un paiement',
+        documents: 'Billets, bons et documents',
+        general: 'Autre chose',
+      },
+      booking: 'À propos de la réservation {reference}',
+      message: 'Votre message',
+      messageHint:
+        'Jusqu’à 2 000 caractères. N’envoyez jamais de numéro de carte ni de mot de passe.',
+      email: 'Votre adresse e-mail',
+      emailHint:
+        'Nous vous écrivons quand nous répondons. Connectez-vous pour garder vos conversations dans votre compte.',
+      submit: 'Envoyer',
+    },
+    list: {
+      heading: 'Vos conversations',
+      empty: 'Aucune conversation pour le moment.',
+    },
+    status: {
+      open: 'En attente de notre réponse',
+      waiting: 'Nous avons répondu',
+      resolved: 'Résolue',
+    },
+    unread: 'Nouvelle réponse',
+    conversation: {
+      title: 'Conversation {reference}',
+      you: 'Vous',
+      staff: 'Assistance Suskii',
+      system: 'Suskii',
+      reply: 'Votre réponse',
+      send: 'Envoyer',
+      resolve: 'Marquer comme résolue',
+      resolved: 'Cette conversation est résolue. Écrivez de nouveau pour la rouvrir.',
+      notFound:
+        'Impossible d’ouvrir cette conversation. Utilisez le lien de notre e-mail ou commencez une nouvelle conversation.',
+      back: 'Toutes les conversations',
+    },
+    errors: {
+      limit:
+        'Vous avez cinq conversations ouvertes. Écrivez dans l’une d’elles ou marquez-en une comme résolue.',
+      full: 'Cette conversation est pleine. Commencez-en une nouvelle pour continuer à nous écrire.',
+      email: 'Indiquez une adresse e-mail pour que nous puissions vous prévenir de notre réponse.',
+      generic: 'Votre message n’a pas pu être envoyé. Vérifiez votre connexion et réessayez.',
     },
   },
   seo: {

@@ -42,6 +42,7 @@ const REQUIRED_FORMS: Record<string, readonly string[]> = {
 const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
   fr: new Set([
     'Visa',
+    'Conversation {reference}',
     'Menu',
     'Marketing',
     '15 minutes',
