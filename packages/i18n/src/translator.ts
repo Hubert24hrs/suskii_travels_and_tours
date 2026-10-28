@@ -1,3 +1,5 @@
+import { localeDirection } from '@suskii/shared/lite';
+
 /**
  * A small, typed translator. Catalog leaves are strings with `{name}` placeholders or plural
  * forms (`{ one: '{count} hotel', other: '{count} hotels' }`, optional `zero`), selected with
@@ -41,18 +43,33 @@ function lookup(messages: MessageTree, key: string): unknown {
   return node;
 }
 
+/**
+ * The locale to hand to `Intl`: Latin digits in every language (ADR-076), so prices, times and
+ * booking codes read as on tickets and text messages even where CLDR defaults to other digits.
+ */
+export const intlLocale = (locale: string): string =>
+  locale.includes('-u-') ? locale : `${locale}-u-nu-latn`;
+
+// First strong isolate and pop directional isolate: a Latin value inside right-to-left text
+// (an airport code, a price, a booking code) keeps its own direction and does not reorder the
+// sentence around it.
+const ISOLATE_START = '\u2068';
+const ISOLATE_END = '\u2069';
+
 export function createTranslator<T extends MessageTree>(
   messages: T,
   locale: string,
 ): Translator<T> {
-  const plurals = new Intl.PluralRules(locale);
-  const numbers = new Intl.NumberFormat(locale);
+  const plurals = new Intl.PluralRules(intlLocale(locale));
+  const numbers = new Intl.NumberFormat(intlLocale(locale));
+  const isolate = localeDirection(locale) === 'rtl';
   const interpolate = (template: string, values: MessageValues | undefined): string =>
     values
       ? template.replace(/\{(\w+)\}/g, (placeholder, name: string) => {
           const value = values[name];
           if (value === undefined) return placeholder;
-          return typeof value === 'number' ? numbers.format(value) : value;
+          const text = typeof value === 'number' ? numbers.format(value) : value;
+          return isolate ? `${ISOLATE_START}${text}${ISOLATE_END}` : text;
         })
       : template;
 

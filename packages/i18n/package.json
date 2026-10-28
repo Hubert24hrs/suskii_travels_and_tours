@@ -2,7 +2,7 @@
   "name": "@suskii/i18n",
   "version": "0.0.0",
   "private": true,
-  "description": "Suskii message catalogs (en-NG, en-GB, en-US), a typed translator and Intl formatters for web and mobile",
+  "description": "Suskii message catalogs (English, French, Swahili, Arabic, Portuguese), a typed translator and Intl formatters for web and mobile",
   "license": "UNLICENSED",
   "type": "module",
   "sideEffects": false,

@@ -68,7 +68,6 @@ export const en = {
     manageBooking: 'Manage booking',
     emailUs: 'Email {email}',
     copyright: '© {year} {name}',
-    locales: { 'en-NG': 'English (Nigeria)', 'en-GB': 'English (UK)', 'en-US': 'English (US)' },
     cookieSettings: 'Cookie settings',
   },
   cookies: {
