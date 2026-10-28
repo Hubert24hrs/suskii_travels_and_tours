@@ -34,6 +34,10 @@ forms must match the shipped build.
   partner only a random click id. Partners report bookings against that click id for commission;
   conversions are counted per partner and never joined to people for advertising. Off in
   production unless the owner turns it on.
+- **Ads (ADR-079) are website-only.** The website runs Meta and TikTok tags only after a visitor
+  allows marketing cookies, and only website bookings made with that consent are reported to
+  them. The app has no ad or attribution SDK and its bookings carry no ad attribution, so these
+  forms do not change.
 - **Encrypted in transit:** everything goes over HTTPS.
 - **Deletion:** users can delete their account in the app (Account, Privacy) and on the website
   (`/account/privacy`). Financial records are kept without contact details for the legal period
@@ -144,3 +148,4 @@ attestation.
 | A new upload or document type                                       | Photos or Files rows, and `data-classification.md`                                                                                      |
 | Marketing push notifications                                        | Purposes: Developer's Advertising or Marketing; consent stays required                                                                  |
 | Joining partner conversions to people (targeting, per-user reports) | Likely tracking on iOS (App Tracking Transparency) and Shared data on Play; ADR-070                                                     |
+| Reporting app bookings or app events to ad networks (ADR-079)       | Tracking on iOS (App Tracking Transparency prompt first) and Shared data on Play; a consent step in the app                             |

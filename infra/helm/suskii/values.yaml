@@ -25,7 +25,8 @@ secrets:
   # HMAC_SECRET, INTERNAL_API_TOKEN, TURNSTILE_SECRET_KEY, CARS_TICKET_SIGNING_KEY,
   # OBJECT_STORAGE_ACCESS_KEY_ID, OBJECT_STORAGE_SECRET_ACCESS_KEY and provider keys
   # (LLM_API_KEY when AI trip search uses a real model, ADR-061; TRAVELPAYOUTS_TOKEN,
-  # TRAVELPAYOUTS_POSTBACK_SECRET and VIATOR_API_KEY for partner offers, ADR-070).
+  # TRAVELPAYOUTS_POSTBACK_SECRET and VIATOR_API_KEY for partner offers, ADR-070;
+  # META_CAPI_ACCESS_TOKEN and TIKTOK_EVENTS_ACCESS_TOKEN for ad conversions, ADR-079).
   api: suskii-api
   # DATABASE_URL (the schema owner) and DATABASE_APP_URL (the app role).
   migrate: suskii-migrate
@@ -36,6 +37,7 @@ api:
   replicas: 2
   # Plain settings only (providers, CARS_*_ENABLED, AI_SEARCH_ENABLED, LLM_PROVIDER,
   # PARTNER_OFFERS_ENABLED, AFFILIATE_NETWORK, TRAVELPAYOUTS_MARKER, ACTIVITY_PARTNER,
+  # AD_CONVERSIONS, META_PIXEL_ID, TIKTOK_PIXEL_ID,
   # ADMIN_IP_ALLOWLIST, ...); secrets go in the Secret above. NODE_ENV, the port, origins and client address header are set by the chart.
   env:
     LOG_LEVEL: info
@@ -62,6 +64,8 @@ worker:
 
 web:
   replicas: 2
+  # Plain settings read at request time, e.g. META_PIXEL_ID and TIKTOK_PIXEL_ID (the ad tags run
+  # only after marketing consent, ADR-079).
   env: {}
   resources:
     requests: { cpu: 250m, memory: 384Mi }

@@ -62,6 +62,8 @@ There is no analytics or marketing tag. `POSTHOG_KEY` in `.env.example` is unuse
      - a version bump;
      - a `hasCookieConsent(category)` check before the tool loads, with a listener for
        `suskii:consent` so it can start after a choice.
+   - ADR-079 added the first optional cookies (the Meta and TikTok tags, `marketing`) with
+     exactly these: the prompt, version 2 and the consent check with its listener.
 7. **Mobile.** The app sets no cookies and has no analytics or advertising SDK, so it needs no
    consent screen. An SDK added later goes through the same review.
 

@@ -70,7 +70,9 @@ Arabic (right to left) and Portuguese on the website and in the app, is built
 verified reviews of finished trips with moderation, is built (`docs/phases/verified-reviews.md`).
 Item 7, company accounts (members in roles, a travel policy, approval before payment and spend
 reports), is built (`docs/phases/company-accounts.md`); the company wallet and invoiced credit
-come next.
+come next. Item 8, growth, runs in four parts (`docs/phases/growth.md`): part 1, ads with consent
+(Meta and TikTok tags after marketing consent, server-side Purchase events), is built and waits
+for the owner's pixel ids and tokens; SEO pages, metasearch and Prime per country follow.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -706,6 +708,30 @@ Tooling notes for agents:
 - Console: `/v1/admin/companies` for `users:read`; suspend (`users:manage`, `@StepUp()`) and
   reinstate are audited. A suspended company cannot book for itself (409 `company-suspended`).
 
+### Ads with consent (apps/web, apps/api/src/marketing, ADR-079)
+
+- The website's Meta and TikTok tags start only through `AdTags` after
+  `hasCookieConsent('marketing')` (or the `suskii:consent` event); their code is a dynamic
+  import, so pages without consent ship none of it. Ids come from `META_PIXEL_ID` /
+  `TIKTOK_PIXEL_ID` at request time (`adTagConfig()`); unset means no tag, no prompt and no CSP
+  hosts (`adTagOrigins`).
+- Pages report through `trackAd(event, params)` or `<TrackAd>` with trip facts only: the booking
+  vertical as content id, airport codes for a flight search, value and currency from an API
+  `Money` (`adValue`), the booking id as Purchase event id. Never a name, email, phone or
+  booking reference; never call the networks' globals directly.
+- `ConsentPrompt` shows while a tag is configured and no choice exists under the current policy;
+  "Accept all" and "Reject all" keep the same style. A new optional cookie or storage key goes
+  in `cookie-catalog.ts` and every catalog, with a `COOKIE_POLICY_VERSION` bump when visitors
+  should choose again.
+- Checkout sends `marketing` (`marketingAttribution()`: consent id and validated click ids) only
+  with marketing consent. The API keeps it only through `AdAttribution.keep()`, which re-reads
+  the recorded choice (`marketingAllowed`); the browser's word is never enough.
+- Purchase events leave only through `AdConversionsService` (worker sweep, internal route) and
+  `AdConversionsProvider` adapters (mock, Meta, TikTok): consent re-checked before each send,
+  SHA-256 of the normalised email and phone, tokens never in a URL, click ids cleared once
+  settled. Production refuses the mock. The app has no ad SDK: adding one changes the store
+  forms (`docs/release/data-safety.md`).
+
 ### AI trip search (phase 13, ADR-061)
 
 - The model only fills the flight form; it never searches, books or reads private data. Clients
@@ -908,6 +934,7 @@ Tooling notes for agents:
 - [ADR-076: Languages and right to left](docs/decisions/ADR-076-languages-and-right-to-left.md)
 - [ADR-077: Verified reviews](docs/decisions/ADR-077-verified-reviews.md)
 - [ADR-078: Company accounts](docs/decisions/ADR-078-company-accounts.md)
+- [ADR-079: Ads with consent](docs/decisions/ADR-079-ads-with-consent.md)
 
 ## Open questions for the owner
 
@@ -1004,4 +1031,7 @@ traffic in these languages matters. Added with verified reviews (ADR-077): who m
 whether Suskii may answer reviews publicly, and whether invitations should also go by WhatsApp
 once a provider is chosen. Added with company accounts (ADR-078): whether to offer a company wallet
 (prepaid funds) and invoiced credit with limits, negotiated rates or a corporate fee for
-companies, and who at Suskii supports company admins.
+companies, and who at Suskii supports company admins. Added with ads with consent (ADR-079):
+the Meta pixel id and a Conversions API token, the TikTok pixel code and an Events API token
+(then `AD_CONVERSIONS=meta,tiktok`), the cookie policy text, and whether to run app install
+campaigns (an SDK or measurement partner and a consent screen in the app).
