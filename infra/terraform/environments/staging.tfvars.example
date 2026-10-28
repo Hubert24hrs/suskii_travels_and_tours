@@ -48,6 +48,9 @@ scaling = {
 allow_mock_providers = true
 managed_waf          = false # the Free plan has no Managed or OWASP ruleset; set true on Pro
 admin_allowed_ips    = []    # office or VPN egress, also ADMIN_IP_ALLOWLIST below
+# Uptime alerts (ADR-087); staging usually tells nobody.
+uptime_alert_emails          = []
+uptime_notification_channels = []
 
 # AI trip search runs on the mock model here (ADR-061); a real model needs LLM_API_KEY in
 # extra_secrets and LLM_PROVIDER = "anthropic".
