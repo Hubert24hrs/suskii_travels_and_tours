@@ -80,6 +80,7 @@ needs them. Optional ones are marked.
 | Location                 | Precise location             | Yes       | Yes      | App functionality                                                                              | Pick-up and drop-off points the user picks for a ride, and a driver's chosen position while online. Not device location                            |
 | Photos and videos        | Photos                       | Yes       | Yes      | App functionality, Fraud prevention and security                                               | Images the user uploads: visa documents, a driver's documents and selfie, a renter's licence                                                       |
 | Files and docs           | Files and docs               | Yes       | Yes      | App functionality                                                                              | PDFs the user uploads for a visa application or driver approval                                                                                    |
+| Messages                 | Other in-app messages        | Yes       | Yes      | App functionality                                                                              | Messages to Suskii support and the replies (ADR-083); bodies encrypted, kept two years after the conversation is solved                            |
 | App activity             | Other user-generated content | Yes       | Yes      | App functionality                                                                              | Ride and trip ratings with comments; verified reviews of finished trips (rating, texts, trip type), published after moderation (ADR-077)           |
 | App activity             | In-app search history        | Yes       | No       | App functionality, Analytics                                                                   | Searches run on the server; search logs keep routes, dates and counts without the user. Described trips (AI trip search) are processed, not stored |
 | App activity             | App interactions             | Yes       | Yes      | App functionality, Analytics                                                                   | Partner offers the user opens (programme and trip ids), for partner commission                                                                     |
@@ -93,7 +94,7 @@ needs them. Optional ones are marked.
 - contacts (the device's address book is never read);
 - calendar;
 - health and fitness;
-- messages;
+- emails and text messages (support conversations are in-app messages, above);
 - audio;
 - user payment info (card numbers);
 - credit info;
@@ -118,6 +119,7 @@ websites, so it does not need App Tracking Transparency.
 | Location       | Precise Location        | App Functionality                                       | Chosen pick-up and drop-off points; not device location                              |
 | User Content   | Photos or Videos        | App Functionality                                       | Uploaded documents and selfies                                                       |
 | User Content   | Other User Content      | App Functionality                                       | Visa and driver documents (PDF), ratings comments, trip reviews                      |
+| User Content   | Customer Support        | App Functionality                                       | Conversations with Suskii support (ADR-083)                                          |
 | Identifiers    | User ID                 | App Functionality                                       |                                                                                      |
 | Identifiers    | Device ID               | App Functionality                                       | Push token                                                                           |
 | Purchases      | Purchase History        | App Functionality                                       | Bookings, Prime, wallet, company trips                                               |
@@ -146,6 +148,7 @@ attestation.
 | Sign in with Google or Apple in the app                             | Identifiers and the third-party sign-in data; Apple then also requires Sign in with Apple                                               |
 | Storing described trips, or sending them with a user id             | In-app search history becomes linked to the user on both forms; `data-classification.md`                                                |
 | A new upload or document type                                       | Photos or Files rows, and `data-classification.md`                                                                                      |
+| Attachments, WhatsApp or an outside helpdesk for support            | Support rows on both forms; an outside helpdesk shares data (Play: Shared); ADR-083                                                     |
 | Marketing push notifications                                        | Purposes: Developer's Advertising or Marketing; consent stays required                                                                  |
 | Joining partner conversions to people (targeting, per-user reports) | Likely tracking on iOS (App Tracking Transparency) and Shared data on Play; ADR-070                                                     |
 | Reporting app bookings or app events to ad networks (ADR-079)       | Tracking on iOS (App Tracking Transparency prompt first) and Shared data on Play; a consent step in the app                             |

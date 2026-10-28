@@ -76,6 +76,9 @@ for the owner's pixel ids and tokens; part 2, SEO pages from fare history (route
 hubs, airline pages), is built; part 3, metasearch (partner keys, the live price API, sealed deep
 links, landings that re-quote, partner attribution), is built and waits for partner agreements;
 part 4, Suskii Prime priced per country, is built and waits for the owner's prices per market.
+Item 9, 24/7 support, runs in three parts (`docs/phases/support.md`): part 1, conversations tied to
+bookings with a console inbox, SLA timers and a Prime queue, is built and waits for people on
+shift; WhatsApp and an after-hours assistant come next.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -463,8 +466,8 @@ Tooling notes for agents:
   `attestationHeader()`. The API client feeds `X-Suskii-Attestation-Result` back to
   `noteAttestationResult()`; the iOS key counts as attested only after `valid` (ADR-023).
 - Maestro flows live in `e2e/maestro` and run in order from `e2e/run-android.sh` (critical path,
-  bus, offline trip, an in-house tour with the route restored, then Google sign-up and sign-in
-  again); add new journeys there.
+  bus, offline trip, an in-house tour with the route restored, a message to support, then Google
+  sign-up and sign-in again); add new journeys there.
 - Wrap checkout, payment and document screens in `useSensitiveScreen()`.
 - Flight checkout offers the quote's first extra (a checked bag) per traveller with a seat, as the
   website does; bags send `extras` and switch reserving and installments off (ADR-063).
@@ -770,6 +773,31 @@ Tooling notes for agents:
   checkout on `same` or `lower`. Its e2e answers the landing call in the browser; the API e2e
   covers keys, limits, prices and attribution.
 
+### Support conversations (apps/api/src/support, ADR-083)
+
+- A conversation is the ticket and the chat: `support_conversations` plus `support_messages`
+  (customer, staff or system; staff messages may be internal notes). WhatsApp and the assistant
+  add channels and authors to these tables, never another flow.
+- Travellers reach theirs only through `SupportService` (`load`: the account's own, or a guest's
+  `X-Support-Token`, the access token from the start or an emailed link token checked by
+  `SupportAccess`); everyone else gets 404. A booking is attached only after
+  `BookingsService.load()` succeeds for the caller.
+- Starting without a session needs Turnstile (website) or the device attestation (app) and an
+  email unless the booking has one; `SUPPORT_LIMITS`, five open conversations per account, 500
+  messages each and `SUPPORT_MESSAGE_MAX` characters apply.
+- Due times come only from `supportSchedule()` in `@suskii/shared` (priority from
+  `supportPriority()`: urgent trips within `SUPPORT_URGENT_HOURS`, Prime plans with
+  `prioritySupport`, else normal; targets from `SUPPORT_SLA`). Recompute them on every change;
+  `due_at` orders the inbox and its keyset cursor.
+- Message bodies are encrypted per message (`support-message:{id}:body`), a guest's email per
+  conversation. Reply notices (`supportReplyMessage`, category `support`) never carry the reply;
+  guests get an email link with the token in the fragment (`#access=`).
+- Internal notes never reach a traveller route, the export or a notification. Staff routes
+  (`/v1/admin/support`, `support:manage`) audit replies, notes and changes (`fieldChanges()`).
+- Clients poll the open conversation every few seconds while it is visible (web 4 s, app 4 s,
+  console 10 s). The app keeps guest tokens in `secureStorage` (`lib/support.ts`); website links
+  to `/support/{id}` stay in the browser so link tokens never reach the app's router.
+
 ### AI trip search (phase 13, ADR-061)
 
 - The model only fills the flight form; it never searches, books or reads private data. Clients
@@ -976,6 +1004,7 @@ Tooling notes for agents:
 - [ADR-080: SEO pages from fare history](docs/decisions/ADR-080-seo-pages-from-fare-history.md)
 - [ADR-081: Metasearch partners](docs/decisions/ADR-081-metasearch-partners.md)
 - [ADR-082: Suskii Prime priced per country](docs/decisions/ADR-082-prime-priced-per-country.md)
+- [ADR-083: Support conversations](docs/decisions/ADR-083-support-conversations.md)
 
 ## Open questions for the owner
 
@@ -1080,4 +1109,8 @@ campaigns (an SDK or measurement partner and a consent screen in the app). Added
 agreements and specifications, the limits per partner from the supplier's look-to-book terms, and
 whether metasearch traffic should get its own prices (a sealed sales channel, not built). Added
 with Prime per country (ADR-082): the Prime price for each market (the demo plan's Ghana price is
-a placeholder).
+a placeholder). Added with support conversations (ADR-083): who staffs support and on which hours
+(the homepage promises 24/7 human support), the reply and resolution targets per priority
+(`SUPPORT_SLA`, defaults 15 minutes and 4 hours urgent, 30 minutes and 8 hours Prime, 2 hours and
+24 hours otherwise), which Prime plans include priority support, and whether support may answer
+by phone or WhatsApp outside the conversation.

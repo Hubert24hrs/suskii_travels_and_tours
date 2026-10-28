@@ -13,8 +13,9 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   sealed partner redirect (`/v1/go/{token}`) and network postbacks, which need the network's
   secret (ADR-070), published reviews (`/v1/reviews`, ADR-077), route facts, city hubs and
   airline pages (`/v1/deals/...`, priced fares only, ADR-080), the metasearch price API, which
-  needs a partner key instead of a session, and metasearch landings, which need a sealed deep
-  link (`/v1/metasearch/...`, ADR-081).
+  needs a partner key instead of a session, metasearch landings, which need a sealed deep
+  link (`/v1/metasearch/...`, ADR-081), and starting a support conversation, which needs
+  Turnstile or a device attestation without a session (`/v1/support/conversations`, ADR-083).
 - **Permissions, not roles, in code.** Routes declare `@RequirePermissions(...)`. Admin routes
   declare `@AdminRoute(permission)`, which also requires a staff role, an MFA session, an
   allowlisted IP and, for cookies, an allowlisted origin. The riskiest admin mutations add
@@ -60,6 +61,8 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Review moderation (`/v1/admin/reviews`)                                                          | Staff with `reviews:moderate` (content managers, support, super admins); publish and reject audited; nobody edits a traveller's words                                                                                              |
 | Company account (`/v1/me/company/*`)                                                             | The caller's own company only (no company id in the path; member, invitation and booking ids answer 404 outside it). Admins: details, policy, members; admins and approvers: approvals and reports; never one's own trip (ADR-078) |
 | Companies in the console (`/v1/admin/companies`)                                                 | Staff with `users:read` view; `users:manage` (super admins) suspends with step-up and reinstates; both audited                                                                                                                     |
+| Support conversations (`/v1/support/conversations/*`)                                            | The account's own, or a guest's with its access token or emailed link token (`X-Support-Token`); 404 for anyone else. A conversation about a booking needs access to that booking (owner session or booking token) (ADR-083)       |
+| Support inbox (`/v1/admin/support`)                                                              | Staff with `support:manage` (support staff, super admins); replies, notes and changes audited; internal notes never reach the traveller; only active staff holding `support:manage` can be assigned                                |
 | Bus seat holds                                                                                   | The account that made it, or a guest with its hold token (an HMAC lookup); 404 for anyone else                                                                                                                                     |
 | Bus manifests and ticket scans                                                                   | Operator agents (`tickets:scan`) of the departure's own operator; other agents get 404 or `not_found`                                                                                                                              |
 | Bus inventory (operators, terminals, routes, layouts, departures, agents)                        | Staff with `ground:manage`                                                                                                                                                                                                         |
