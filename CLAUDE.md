@@ -66,7 +66,8 @@ built (`docs/phases/payment-methods.md`); the channel names wait for one sandbox
 Item 4, search results in under 3 seconds on slow 3G and a mid-range Android with a data saver, is
 built and tested in CI (`docs/phases/fast-on-slow-3g.md`, 2.1 s median). Item 5, French, Swahili,
 Arabic (right to left) and Portuguese on the website and in the app, is built
-(`docs/phases/languages.md`); the translations wait for a native speaker's review.
+(`docs/phases/languages.md`); the translations wait for a native speaker's review. Item 6,
+verified reviews of finished trips with moderation, is built (`docs/phases/verified-reviews.md`).
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -651,6 +652,31 @@ Tooling notes for agents:
   shows `partners.disclosure`, and nothing renders while offers are off or empty. Fetch them in the
   browser or the app, never on the server, so the link seals the signed-in traveller.
 
+### Verified reviews (apps/api/src/reviews, ADR-077)
+
+- Only a confirmed booking item whose trip has ended (the day after `tripFacts` `endDate`, within
+  `REVIEW_WINDOW_DAYS`) can be reviewed, once, through `ReviewsService` with the booking loaded by
+  `BookingsService.load()` (owner or guest token; 404 for anyone else). Kinds: hotel, package,
+  tour, bus (the operator) and rental (the car). Never add another way to create a review.
+- Reviews wait for a moderator (`reviews:moderate`); `ReviewModerationService` claims the
+  decision with a conditional update and changes the subject's `rating_sum`/`rating_count` in the
+  same transaction. Nobody edits a traveller's words; withdrawing deletes and takes the rating
+  off the totals. Only published reviews are shown or counted (JSON-LD included).
+- Subjects come from `findOrCreateSubject`: catalog products by kind and id, bus operators via
+  the trip, hotels by `hotelNameKey` within `SAME_HOTEL_METRES` under an advisory lock (search's
+  duplicate rule), so a hotel's score follows it across suppliers (`HotelReviewLookup`, one query
+  per results page; a failure never fails a search).
+- The shown name is "Ada O." (`reviewDisplayName`) or none; text is flagged by `reviewFlags`
+  (contact details, links) for the moderator. Audit metadata carries ids only, never the text.
+- Invitations: `ReviewInvitationsService` plans `review_invite_at` (08:00 UTC the morning after
+  the first reviewable item ends) and sends once (`review_invited_at` claim): account holders via
+  `NotificationService` (`review_requests`), guests via `BookingNotifications.reviewInvitation`
+  with an access link. The worker runs it every `REVIEW_INVITATION_SWEEP_MINUTES`.
+- Clients: the website's `ProductReviews` (server-rendered, JSON-LD only with published reviews
+  on indexed, non-sample pages) and `TripReviews` on the booking page; the app's
+  `ProductReviews` and `TripReviews` (trip screen, online only). Every review section shows
+  `reviews.verifiedNote` (how reviews are checked).
+
 ### AI trip search (phase 13, ADR-061)
 
 - The model only fills the flight form; it never searches, books or reads private data. Clients
@@ -851,6 +877,7 @@ Tooling notes for agents:
 - [ADR-074: Payment methods at checkout](docs/decisions/ADR-074-payment-methods-at-checkout.md)
 - [ADR-075: Fast on slow 3G](docs/decisions/ADR-075-fast-on-slow-3g.md)
 - [ADR-076: Languages and right to left](docs/decisions/ADR-076-languages-and-right-to-left.md)
+- [ADR-077: Verified reviews](docs/decisions/ADR-077-verified-reviews.md)
 
 ## Open questions for the owner
 
@@ -942,4 +969,7 @@ on slow mobile data, through the hosted test server, to compare with the emulate
 with languages (ADR-076): a native speaker's review of each catalog (French, Swahili, Arabic,
 Portuguese), booking, payment and refund wording first; whether emails, texts and PDFs should
 follow the traveller's language next; and language-prefixed URLs with `hreflang` if search
-traffic in these languages matters.
+traffic in these languages matters. Added with verified reviews (ADR-077): who moderates reviews
+(content managers and support hold `reviews:moderate`), the review window (default 90 days),
+whether Suskii may answer reviews publicly, and whether invitations should also go by WhatsApp
+once a provider is chosen.

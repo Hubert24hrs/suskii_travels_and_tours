@@ -6,6 +6,41 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Verified reviews (2026-10-28)
+
+#### Added
+
+- **Reviews only from travellers who took the trip (ADR-077).** Each stay, package, tour, bus
+  ride or rental of a confirmed booking can be reviewed once, from the day after the trip ends
+  until `REVIEW_WINDOW_DAYS` (default 90) later, by the account that booked it or the holder of
+  the guest link: a rating out of 10, an optional title, what was liked and what could be
+  better, who the traveller went with, and their first name and last initial or "Verified
+  traveller". Anyone else gets 404.
+- **Moderation.** Every review waits for a moderator (`reviews:moderate`: content managers,
+  support, super admins) who publishes it as written or rejects it with a reason; nobody edits a
+  traveller's words. Contact details and links in the text are flagged. Publishing, rejecting,
+  writing and withdrawing are audited; scores change in the same transaction.
+- **Invitations.** A worker sweep (hourly, `REVIEW_INVITATION_SWEEP_MINUTES`) asks the morning
+  after the trip ends, once: account holders through their notification preferences (new
+  category "review requests"), guests by one email with a link to their booking.
+- **Where reviews show.** Package, tour, rental and bus pages on the website (with JSON-LD
+  ratings on indexed pages once a review is published), package and tour screens in the app,
+  and a verified score on hotel results and the hotel page. Hotels match across suppliers by
+  normalised name within 250 m, so a review follows the hotel whichever supplier lists it.
+- **Writing a review** on the website's booking page and the app's trip screen, with the
+  moderation status and a way to change it while it waits or withdraw it.
+- **Console:** a Reviews page with the queue, the flags and the decisions.
+- `GET /v1/reviews`, `GET /v1/bookings/{id}/reviews`, `PUT`/`DELETE
+  /v1/bookings/{id}/items/{itemId}/review`, `/v1/admin/reviews` (list, publish, reject),
+  `POST /v1/internal/reviews/invitations/run`; bus trips now carry the operator's id and hotel
+  results `verifiedReviews` (both additive).
+- Privacy: reviews are in the data export; account deletion removes unpublished reviews and
+  keeps published ones without the account or name; rejected reviews are purged after 90 days
+  and names go when a booking is anonymised.
+- Tests: unit (eligibility, subjects, hotel matching), API e2e (who may review, moderation,
+  invitations, the hotel score, the IDOR matrix and audit coverage), worker, web e2e (product
+  page and the booking page form), app Jest (trip screen form, withdrawal, product reviews).
+
 ### Languages (2026-10-28)
 
 #### Added
