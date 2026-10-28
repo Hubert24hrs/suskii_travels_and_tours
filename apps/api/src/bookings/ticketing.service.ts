@@ -5,6 +5,7 @@ import { money, type ContactDetails, type Gender, type PassengerTitle } from '@s
 
 import { AuditService } from '../audit/audit.service';
 import { APP_CONFIG, type AppConfig } from '../config/config';
+import { customerIpContext } from '../crypto/encryption-contexts';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { randomToken } from '../crypto/random';
 import { documentDateTime, documentMoney } from '../documents/booking-pdf';
@@ -207,6 +208,8 @@ export class TicketingService {
             supplierReference: result.reference,
             ticketNumbers: result.tickets ?? Prisma.DbNull,
             bookedAt: new Date(),
+            // Booked: the checkout IP a supplier needed for this call has served its purpose.
+            customerIpEncrypted: null,
             // The supplier's order, for cancellation later (ADR-064); held orders already have it.
             ...(result.orderId && !item.supplierOrderId ? { supplierOrderId: result.orderId } : {}),
             // Ticketed orders are then watched for airline schedule changes (ADR-065).
@@ -311,6 +314,9 @@ export class TicketingService {
             guests: booking.passengers.map(({ givenNames, surname }) => ({ givenNames, surname })),
             contact,
             idempotencyKey: item.id,
+            customerIp: item.customerIpEncrypted
+              ? this.encryption.decrypt(item.customerIpEncrypted, customerIpContext(item.id))
+              : null,
           },
           signal,
         ),
@@ -406,6 +412,11 @@ export class TicketingService {
         SYSTEM_ACTOR,
         { reason, data: { nextTicketingAt: null } },
       );
+      // No more booking calls: the checkout IP kept for them goes now (ADR-086).
+      await tx.bookingItem.updateMany({
+        where: { bookingId: booking.id, customerIpEncrypted: { not: null } },
+        data: { customerIpEncrypted: null },
+      });
       await this.audit.record(
         {
           action: 'booking.ticketing_failed',

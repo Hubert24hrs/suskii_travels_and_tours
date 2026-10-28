@@ -8,6 +8,8 @@ import { CircuitBreakerRegistry } from './circuit-breaker';
 import { DuffelFlightSupplier } from './duffel/duffel-flight-supplier';
 import { DuffelHotelSupplier } from './duffel/duffel-hotel-supplier';
 import { DuffelClient } from './duffel/duffel.client';
+import { ExpediaHotelSupplier } from './expedia/expedia-hotel-supplier';
+import { ExpediaClient } from './expedia/expedia.client';
 import { HotelbedsHotelSupplier } from './hotelbeds/hotelbeds-hotel-supplier';
 import { HotelbedsClient } from './hotelbeds/hotelbeds.client';
 import { MockFlightSupplier } from './mock/mock-flight-supplier';
@@ -65,6 +67,23 @@ export const HOTEL_SUPPLIERS = Symbol('HOTEL_SUPPLIERS');
                 secret: config.HOTELBEDS_API_SECRET ?? '',
               }),
               config.HOTELBEDS_SEARCH_RADIUS_KM,
+            );
+          }
+          if (name === 'expedia') {
+            // The env schema guarantees a key and shared secret when expedia is enabled.
+            return new ExpediaHotelSupplier(
+              new ExpediaClient({
+                baseUrl: config.EXPEDIA_RAPID_API_URL,
+                apiKey: config.EXPEDIA_RAPID_API_KEY ?? '',
+                sharedSecret: config.EXPEDIA_RAPID_SHARED_SECRET ?? '',
+              }),
+              {
+                pointOfSale: config.EXPEDIA_POINT_OF_SALE,
+                requestCurrency: config.EXPEDIA_REQUEST_CURRENCY,
+                radiusKm: config.EXPEDIA_SEARCH_RADIUS_KM,
+                maxProperties: config.EXPEDIA_MAX_PROPERTIES,
+                ratesPerProperty: config.EXPEDIA_RATES_PER_PROPERTY,
+              },
             );
           }
           // The env schema guarantees a token when duffel is enabled.

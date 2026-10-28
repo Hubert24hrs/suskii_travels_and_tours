@@ -56,6 +56,7 @@ export const RETENTION_RULES = [
   // Support conversations (ADR-083) and WhatsApp contacts (ADR-084).
   'support-conversations',
   'whatsapp-contacts',
+  'supplier-customer-ip',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -111,6 +112,11 @@ export const RETENTION_DAYS = {
   'support-conversations': 730,
   /** After their last WhatsApp message, once none of their conversations is left. */
   'whatsapp-contacts': 30,
+  /**
+   * The checkout IP a hotel supplier needs to book (ADR-086), when no booking call cleared it:
+   * a week covers payment and every ticketing retry.
+   */
+  'supplier-customer-ip': 7,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -319,6 +325,15 @@ export class RetentionService {
             lastInboundAt: { lt: before('whatsapp-contacts') },
             conversations: { none: {} },
           },
+        }),
+      ),
+      'supplier-customer-ip': counts(
+        await this.prisma.bookingItem.updateMany({
+          where: {
+            customerIpEncrypted: { not: null },
+            createdAt: { lt: before('supplier-customer-ip') },
+          },
+          data: { customerIpEncrypted: null },
         }),
       ),
       // Commission records are revenue: kept for the financial period after their last change.

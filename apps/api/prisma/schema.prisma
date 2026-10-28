@@ -1072,6 +1072,9 @@ model BookingItem {
   /// A ticketed flight is next asked for airline changes at this instant; null once it has
   /// departed or its supplier does not report changes (ADR-065).
   nextChangeCheckAt    DateTime?       @map("next_change_check_at") @db.Timestamptz(3)
+  /// The traveller's IP from checkout, encrypted (`booking-item:{id}:customer-ip`), for a supplier
+  /// that requires it on its booking call (Expedia, ADR-086); cleared once booked or after 7 days.
+  customerIpEncrypted  String?         @map("customer_ip_encrypted")
   createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
 
   booking          Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)

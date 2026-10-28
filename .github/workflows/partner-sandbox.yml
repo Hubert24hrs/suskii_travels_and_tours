@@ -1,7 +1,8 @@
 name: Partner sandbox check
 
-# Calls Hotelbeds' evaluation host, Viator's Partner API and the Travelpayouts Partner Links API
-# through our adapters and prints real prices and tracked links (ADR-069 to ADR-071). Read-only:
+# Calls Hotelbeds' evaluation host, Expedia Rapid's test host, Viator's Partner API and the
+# Travelpayouts Partner Links API through our adapters and prints real prices and tracked links
+# (ADR-069 to ADR-071, ADR-086). Read-only:
 # it books nothing. Manual only, with the owner's repository secrets; a partner whose secrets are
 # missing is named and skipped, and the run fails when none is set. CI never calls a partner.
 on:
@@ -10,7 +11,7 @@ on:
       only:
         description: Partners to check
         type: choice
-        options: [all, hotelbeds, viator, travelpayouts]
+        options: [all, hotelbeds, expedia, viator, travelpayouts]
         default: all
 
 permissions:
@@ -34,16 +35,19 @@ jobs:
           ONLY: ${{ inputs.only }}
           HOTELBEDS_API_KEY: ${{ secrets.HOTELBEDS_API_KEY }}
           HOTELBEDS_API_SECRET: ${{ secrets.HOTELBEDS_API_SECRET }}
+          EXPEDIA_RAPID_API_KEY: ${{ secrets.EXPEDIA_RAPID_API_KEY }}
+          EXPEDIA_RAPID_SHARED_SECRET: ${{ secrets.EXPEDIA_RAPID_SHARED_SECRET }}
           VIATOR_API_KEY: ${{ secrets.VIATOR_API_KEY }}
           TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
           TRAVELPAYOUTS_MARKER: ${{ secrets.TRAVELPAYOUTS_MARKER || vars.TRAVELPAYOUTS_MARKER }}
         run: |
           declare -A needs=(
             [hotelbeds]="HOTELBEDS_API_KEY HOTELBEDS_API_SECRET"
+            [expedia]="EXPEDIA_RAPID_API_KEY EXPEDIA_RAPID_SHARED_SECRET"
             [viator]="VIATOR_API_KEY"
             [travelpayouts]="TRAVELPAYOUTS_TOKEN TRAVELPAYOUTS_MARKER"
           )
-          if [ "$ONLY" = "all" ]; then partners="hotelbeds viator travelpayouts"; else partners="$ONLY"; fi
+          if [ "$ONLY" = "all" ]; then partners="hotelbeds expedia viator travelpayouts"; else partners="$ONLY"; fi
           ready=0
           for partner in $partners; do
             missing=""
@@ -57,7 +61,7 @@ jobs:
             fi
           done
           if [ "$ready" -eq 0 ]; then
-            echo "::error::No partner has its secrets set. Add them under Settings, Secrets and variables, Actions (HOTELBEDS_API_KEY and HOTELBEDS_API_SECRET; VIATOR_API_KEY; TRAVELPAYOUTS_TOKEN and TRAVELPAYOUTS_MARKER), then run this workflow again."
+            echo "::error::No partner has its secrets set. Add them under Settings, Secrets and variables, Actions (HOTELBEDS_API_KEY and HOTELBEDS_API_SECRET; EXPEDIA_RAPID_API_KEY and EXPEDIA_RAPID_SHARED_SECRET; VIATOR_API_KEY; TRAVELPAYOUTS_TOKEN and TRAVELPAYOUTS_MARKER), then run this workflow again."
             exit 1
           fi
 
@@ -86,6 +90,9 @@ jobs:
           ONLY: ${{ inputs.only }}
           HOTELBEDS_API_KEY: ${{ secrets.HOTELBEDS_API_KEY }}
           HOTELBEDS_API_SECRET: ${{ secrets.HOTELBEDS_API_SECRET }}
+          EXPEDIA_RAPID_API_KEY: ${{ secrets.EXPEDIA_RAPID_API_KEY }}
+          EXPEDIA_RAPID_SHARED_SECRET: ${{ secrets.EXPEDIA_RAPID_SHARED_SECRET }}
+          EXPEDIA_POINT_OF_SALE: ${{ vars.EXPEDIA_POINT_OF_SALE }}
           VIATOR_API_KEY: ${{ secrets.VIATOR_API_KEY }}
           VIATOR_CAMPAIGN: ${{ vars.VIATOR_CAMPAIGN }}
           TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
