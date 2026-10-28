@@ -5723,7 +5723,7 @@ export interface components {
         AdminCmsBlock: {
             key: string;
             /** @enum {string} */
-            locale: "en-NG" | "en-GB" | "en-US";
+            locale: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             content: {
                 [key: string]: unknown;
             };
@@ -5959,7 +5959,7 @@ export interface components {
         };
         AdminFaq: {
             /** @enum {string} */
-            locale: "en-NG" | "en-GB" | "en-US";
+            locale: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             question: string;
             answer: string;
             sortOrder: number;
@@ -7104,7 +7104,7 @@ export interface components {
              * @default en-NG
              * @enum {string}
              */
-            locale?: "en-NG" | "en-GB" | "en-US";
+            locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             /** @default null */
             turnstileToken?: string | null;
         };
@@ -7597,7 +7597,7 @@ export interface components {
         };
         FaqInputInput: {
             /** @enum {string} */
-            locale: "en-NG" | "en-GB" | "en-US";
+            locale: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             question: string;
             answer: string;
             sortOrder: number;
@@ -7605,7 +7605,7 @@ export interface components {
         };
         FaqPatchInput: {
             /** @enum {string} */
-            locale?: "en-NG" | "en-GB" | "en-US";
+            locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             question?: string;
             answer?: string;
             sortOrder?: number;
@@ -8471,7 +8471,7 @@ export interface components {
              * @default en-NG
              * @enum {string}
              */
-            locale?: "en-NG" | "en-GB" | "en-US";
+            locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             turnstileToken: string;
         };
         NewsletterSubscribeResponse: {
@@ -10006,7 +10006,7 @@ export interface components {
             status?: "draft" | "published" | "archived";
         };
         UpdatePreferencesRequestInput: {
-            locale?: ("en-NG" | "en-GB" | "en-US") | null;
+            locale?: ("en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt") | null;
             currency?: ("NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR") | null;
             homeAirport?: string | null;
             marketingConsent?: boolean;
@@ -10950,7 +10950,7 @@ export interface operations {
     adminListCmsBlocks: {
         parameters: {
             query?: {
-                locale?: "en-NG" | "en-GB" | "en-US";
+                locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             };
             header?: never;
             path?: never;
@@ -10983,7 +10983,7 @@ export interface operations {
                 "X-CSRF-Token"?: string;
             };
             path: {
-                locale: "en-NG" | "en-GB" | "en-US";
+                locale: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
                 key: string;
             };
             cookie?: never;
@@ -11014,7 +11014,7 @@ export interface operations {
     adminListFaqs: {
         parameters: {
             query?: {
-                locale?: "en-NG" | "en-GB" | "en-US";
+                locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             };
             header?: never;
             path?: never;
@@ -16672,7 +16672,7 @@ export interface operations {
     getHomeContent: {
         parameters: {
             query?: {
-                locale?: "en-NG" | "en-GB" | "en-US";
+                locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             };
             header?: never;
             path?: never;
@@ -16698,7 +16698,7 @@ export interface operations {
     getContentPage: {
         parameters: {
             query?: {
-                locale?: "en-NG" | "en-GB" | "en-US";
+                locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             };
             header?: never;
             path: {
@@ -16727,7 +16727,7 @@ export interface operations {
     getSiteContent: {
         parameters: {
             query?: {
-                locale?: "en-NG" | "en-GB" | "en-US";
+                locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
             };
             header?: never;
             path?: never;

@@ -1156,7 +1156,11 @@
               "enum": [
                 "en-NG",
                 "en-GB",
-                "en-US"
+                "en-US",
+                "fr",
+                "sw",
+                "ar",
+                "pt"
               ]
             }
           }
@@ -1214,7 +1218,11 @@
               "enum": [
                 "en-NG",
                 "en-GB",
-                "en-US"
+                "en-US",
+                "fr",
+                "sw",
+                "ar",
+                "pt"
               ]
             }
           },
@@ -1302,7 +1310,11 @@
               "enum": [
                 "en-NG",
                 "en-GB",
-                "en-US"
+                "en-US",
+                "fr",
+                "sw",
+                "ar",
+                "pt"
               ]
             }
           }
@@ -13999,7 +14011,11 @@
               "enum": [
                 "en-NG",
                 "en-GB",
-                "en-US"
+                "en-US",
+                "fr",
+                "sw",
+                "ar",
+                "pt"
               ]
             }
           }
@@ -14059,7 +14075,11 @@
               "enum": [
                 "en-NG",
                 "en-GB",
-                "en-US"
+                "en-US",
+                "fr",
+                "sw",
+                "ar",
+                "pt"
               ]
             }
           }
@@ -14113,7 +14133,11 @@
               "enum": [
                 "en-NG",
                 "en-GB",
-                "en-US"
+                "en-US",
+                "fr",
+                "sw",
+                "ar",
+                "pt"
               ]
             }
           }
@@ -24120,7 +24144,11 @@
             "enum": [
               "en-NG",
               "en-GB",
-              "en-US"
+              "en-US",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
             ]
           },
           "content": {
@@ -25294,7 +25322,11 @@
             "enum": [
               "en-NG",
               "en-GB",
-              "en-US"
+              "en-US",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
             ]
           },
           "question": {
@@ -31180,7 +31212,11 @@
             "enum": [
               "en-NG",
               "en-GB",
-              "en-US"
+              "en-US",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
             ]
           },
           "turnstileToken": {
@@ -33500,7 +33536,11 @@
             "enum": [
               "en-NG",
               "en-GB",
-              "en-US"
+              "en-US",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
             ]
           },
           "question": {
@@ -33538,7 +33578,11 @@
             "enum": [
               "en-NG",
               "en-GB",
-              "en-US"
+              "en-US",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
             ]
           },
           "question": {
@@ -37860,7 +37904,11 @@
             "enum": [
               "en-NG",
               "en-GB",
-              "en-US"
+              "en-US",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
             ]
           },
           "turnstileToken": {
@@ -45699,7 +45747,11 @@
                 "enum": [
                   "en-NG",
                   "en-GB",
-                  "en-US"
+                  "en-US",
+                  "fr",
+                  "sw",
+                  "ar",
+                  "pt"
                 ]
               },
               {
