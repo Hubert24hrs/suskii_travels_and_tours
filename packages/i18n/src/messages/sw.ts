@@ -99,10 +99,15 @@ export const sw: Messages = {
       },
       marketing: {
         title: 'Masoko',
-        body: 'Kupima matangazo na kukuonyesha ofa zinazokufaa kwenye tovuti nyingine.',
+        body: 'Huruhusu Meta (Facebook, Instagram) na TikTok kupima matangazo yetu: hutambua kivinjari hiki, na unapohifadhi tunawatumia nakala iliyofichwa (hashed) ya barua pepe na simu yako ili kuunganisha uhifadhi na matangazo yao.',
       },
     },
-    providers: { suskii: 'Suskii', cloudflare: 'Cloudflare' },
+    providers: {
+      suskii: 'Suskii',
+      cloudflare: 'Cloudflare',
+      meta: 'Meta (Facebook, Instagram)',
+      tiktok: 'TikTok',
+    },
     durations: {
       accessToken: 'Dakika 15',
       refreshToken: 'Hadi siku 30',
@@ -111,6 +116,8 @@ export const sw: Messages = {
       untilCleared: 'Hadi utakapokifuta',
       untilSignOut: 'Hadi utakapotoka',
       challenge: 'Kwa ukaguzi tu',
+      ninetyDays: 'Siku 90',
+      thirteenMonths: 'Miezi 13',
     },
     items: {
       access: 'Hukuweka ukiwa umeingia.',
@@ -130,6 +137,19 @@ export const sw: Messages = {
         'Hurudisha kuingia kwa Google au Apple kwenye tovuti hii, katika kichupo hiki pekee.',
       turnstile:
         'Hukagua kwamba fomu za kujisajili, malipo ya mgeni na arifa za ofa zinatumwa na mtu.',
+      fbp: 'Huruhusu Meta kutambua kivinjari hiki ili kupima matangazo yetu.',
+      fbc: 'Hukumbuka tangazo la Meta ulilotoka.',
+      ttp: 'Huruhusu TikTok kutambua kivinjari hiki ili kupima matangazo yetu.',
+      ttEnable: 'Hukagua kama TikTok inaweza kuhifadhi vidakuzi vyake.',
+      ttSession: 'Hupanga ziara yako kwa vipimo vya TikTok.',
+      ttclid: 'Hukumbuka tangazo la TikTok ulilotoka, katika kichupo hiki tu.',
+    },
+    prompt: {
+      title: 'Vidakuzi kwenye tovuti hii',
+      body: 'Tunatumia vidakuzi vya lazima kabisa kuendesha tovuti. Ukiruhusu, Meta na TikTok pia hupima matangazo yetu. Hakuna kisicho cha lazima kinachofanya kazi hadi uchague.',
+      accept: 'Kubali vyote',
+      reject: 'Kataa vyote',
+      choose: 'Chagua',
     },
     save: 'Hifadhi machaguo',
     saved: 'Machaguo yako yamehifadhiwa.',

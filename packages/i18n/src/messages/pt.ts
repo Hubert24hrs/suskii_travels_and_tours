@@ -99,10 +99,15 @@ export const pt: Messages = {
       },
       marketing: {
         title: 'Marketing',
-        body: 'Medir anúncios e mostrar-lhe ofertas relevantes noutros sites.',
+        body: 'Permite que a Meta (Facebook, Instagram) e o TikTok meçam os nossos anúncios: reconhecem este navegador e, quando reserva, enviamos-lhes uma cópia codificada (hash) do seu email e telefone para associar a reserva aos anúncios deles.',
       },
     },
-    providers: { suskii: 'Suskii', cloudflare: 'Cloudflare' },
+    providers: {
+      suskii: 'Suskii',
+      cloudflare: 'Cloudflare',
+      meta: 'Meta (Facebook, Instagram)',
+      tiktok: 'TikTok',
+    },
     durations: {
       accessToken: '15 minutos',
       refreshToken: 'Até 30 dias',
@@ -111,6 +116,8 @@ export const pt: Messages = {
       untilCleared: 'Até o apagar',
       untilSignOut: 'Até terminar a sessão',
       challenge: 'Apenas durante a verificação',
+      ninetyDays: '90 dias',
+      thirteenMonths: '13 meses',
     },
     items: {
       access: 'Mantém a sua sessão iniciada.',
@@ -130,6 +137,19 @@ export const pt: Messages = {
         'Traz de volta a este site um início de sessão Google ou Apple, apenas neste separador.',
       turnstile:
         'Verifica se os formulários de registo, de compra como convidado e de alertas de ofertas são enviados por uma pessoa.',
+      fbp: 'Permite que a Meta reconheça este navegador para medir os nossos anúncios.',
+      fbc: 'Lembra o anúncio da Meta de onde veio.',
+      ttp: 'Permite que o TikTok reconheça este navegador para medir os nossos anúncios.',
+      ttEnable: 'Verifica se o TikTok pode guardar os seus cookies.',
+      ttSession: 'Agrupa a sua visita para as medições do TikTok.',
+      ttclid: 'Lembra o anúncio do TikTok de onde veio, só neste separador.',
+    },
+    prompt: {
+      title: 'Cookies neste site',
+      body: 'Usamos cookies estritamente necessários para o site funcionar. Com a sua autorização, a Meta e o TikTok também medem os nossos anúncios. Nada opcional funciona antes de escolher.',
+      accept: 'Aceitar todos',
+      reject: 'Recusar todos',
+      choose: 'Escolher',
     },
     save: 'Guardar escolhas',
     saved: 'As suas escolhas foram guardadas.',

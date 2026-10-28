@@ -94,10 +94,15 @@ export const fr: Messages = {
       },
       marketing: {
         title: 'Marketing',
-        body: 'Mesurer les publicités et vous montrer des offres pertinentes sur d’autres sites.',
+        body: 'Permet à Meta (Facebook, Instagram) et TikTok de mesurer nos publicités : ils reconnaissent ce navigateur et, quand vous réservez, nous leur envoyons une copie brouillée (hachée) de votre e-mail et de votre téléphone pour relier la réservation à leurs publicités.',
       },
     },
-    providers: { suskii: 'Suskii', cloudflare: 'Cloudflare' },
+    providers: {
+      suskii: 'Suskii',
+      cloudflare: 'Cloudflare',
+      meta: 'Meta (Facebook, Instagram)',
+      tiktok: 'TikTok',
+    },
     durations: {
       accessToken: '15 minutes',
       refreshToken: "Jusqu'à 30 jours",
@@ -106,6 +111,8 @@ export const fr: Messages = {
       untilCleared: "Jusqu'à ce que vous l'effaciez",
       untilSignOut: "Jusqu'à la déconnexion",
       challenge: 'Le temps de la vérification',
+      ninetyDays: '90 jours',
+      thirteenMonths: '13 mois',
     },
     items: {
       access: 'Vous garde connecté.',
@@ -126,6 +133,19 @@ export const fr: Messages = {
         'Ramène une connexion Google ou Apple vers ce site, dans cet onglet uniquement.',
       turnstile:
         "Vérifie que les formulaires d'inscription, de commande sans compte et d'alertes d'offres sont envoyés par une personne.",
+      fbp: 'Permet à Meta de reconnaître ce navigateur pour mesurer nos publicités.',
+      fbc: 'Retient la publicité Meta d’où vous venez.',
+      ttp: 'Permet à TikTok de reconnaître ce navigateur pour mesurer nos publicités.',
+      ttEnable: 'Vérifie que TikTok peut enregistrer ses cookies.',
+      ttSession: 'Regroupe votre visite pour les mesures de TikTok.',
+      ttclid: 'Retient la publicité TikTok d’où vous venez, dans cet onglet seulement.',
+    },
+    prompt: {
+      title: 'Cookies sur ce site',
+      body: 'Les cookies strictement nécessaires font fonctionner le site. Avec votre accord, Meta et TikTok mesurent aussi nos publicités. Rien de facultatif ne fonctionne avant votre choix.',
+      accept: 'Tout accepter',
+      reject: 'Tout refuser',
+      choose: 'Choisir',
     },
     save: 'Enregistrer mes choix',
     saved: 'Vos choix sont enregistrés.',
