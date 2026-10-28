@@ -16,4 +16,8 @@ regexes = [
   # `VIATOR_API_KEY=` with no value in .env.example: generic-api-key reads the next line
   # (`VIATOR_CAMPAIGN=suskii`) as its value. Only an empty assignment matches.
   '''\A[A-Z][A-Z0-9_]*=\r?\n''',
+  # The Sentry SDK's DSN query template (`sentry_version=7&sentry_key=`) in the app's Hermes
+  # bytecode: the string table packs unrelated strings after it (locale tags, SVG paths), which
+  # generic-api-key reads as a key. A DSN's public key is public by design (ADR-046).
+  '''\Asentry_key=''',
 ]

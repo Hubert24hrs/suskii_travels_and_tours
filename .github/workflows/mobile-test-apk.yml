@@ -113,7 +113,7 @@ jobs:
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum --check --strict
           tar -xzf gitleaks.tar.gz gitleaks
-          ./gitleaks dir apk-contents --redact --no-banner
+          ./gitleaks dir apk-contents --config .gitleaks.toml --redact --no-banner
           cp "$apk" "$APK_NAME"
           sha256sum "$APK_NAME" | tee "$APK_NAME.sha256"
 
