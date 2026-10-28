@@ -123,3 +123,28 @@ Verification on this branch (local):
 
 Open for the owner: who staffs support and on which hours, the reply and resolution targets per
 priority (`SUPPORT_SLA`), and which Prime plans include priority support.
+
+## Part 2 plan: WhatsApp (ADR-084)
+
+| Step | Work                                                                                                                                                                                           | Files                                         |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| 1    | Settings: `WHATSAPP_SUPPORT_PROVIDER` (`none`, `mock`, `cloud`), phone number id, access token, app secret, verify token, Graph version, template name and language, reopen days, flood limit | `src/config`, `.env.example`, Terraform, Helm |
+| 2    | Database: `whatsapp_contacts` (sealed phone and BSUID, HMACs, last inbound time, STOP), conversation contact link, message `external_id`, `kind` and `delivery_status`; registry and retention | `prisma`, `src/privacy`                       |
+| 3    | Adapter: `WhatsAppChannel` with `MockWhatsAppChannel` and `CloudWhatsAppChannel` (text, template), unit tests against recorded request shapes                                                 | `src/support/whatsapp`                        |
+| 4    | Webhook: GET handshake, signed POST, Zod parsing, dedupe by `wamid`, routing to a conversation (open, reopen, new), statuses moving forward, per-contact flood limit, metrics                   | `src/support/whatsapp`                        |
+| 5    | Replies: send after commit inside the window as text, outside as the template, undeliverable without a phone, STOP respected; delivery state on each message                                   | `support-admin.service.ts`                    |
+| 6    | Console: channel badge and filter, the contact's masked number, window state, delivery state per message, unsupported media marker                                                             | `apps/admin`                                  |
+| 7    | Tests: unit (signature, parsing, routing, window), API e2e (handshake, signed delivery, duplicates, reply in and out of the window, statuses, bad signature, BSUID only), console e2e           | everywhere                                    |
+| 8    | Docs: security docs, setup steps for the owner (Meta app, number, permanent token, webhook, template), CHANGELOG, CLAUDE.md                                                                     | `docs`                                        |
+
+### Risks
+
+- **Forged deliveries.** Only a valid `X-Hub-Signature-256` over the raw bytes is processed, so
+  nobody can inject messages or statuses. The verify token only answers the handshake.
+- **Replays and duplicates.** Meta retries deliveries; the unique `external_id` makes a repeat a
+  no-op, and statuses never move backwards.
+- **Cost.** Templates are billed per message. One template per staff reply outside the window,
+  never for notes, and none after STOP.
+- **Identity.** No automatic link between a phone number and an account (recycled numbers).
+- **Unconfirmed BSUID sending.** Replies to BSUID-only contacts are recorded as undelivered with
+  the reason shown in the console until a sandbox run confirms the send field.
