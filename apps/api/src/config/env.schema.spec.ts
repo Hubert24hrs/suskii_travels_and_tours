@@ -196,6 +196,50 @@ describe('parseEnv', () => {
     );
   });
 
+  it('requires the Expedia key and secret, and refuses its sandbox host in production', () => {
+    const expedia = { ...base, HOTEL_SUPPLIERS: 'expedia' };
+    expect(() => parseEnv(expedia)).toThrow(/EXPEDIA_RAPID_API_KEY.*EXPEDIA_RAPID_SHARED_SECRET/s);
+    const env = parseEnv({
+      ...expedia,
+      EXPEDIA_RAPID_API_KEY: 'k',
+      EXPEDIA_RAPID_SHARED_SECRET: 's',
+    });
+    expect(env.HOTEL_SUPPLIERS).toEqual(['expedia']);
+    expect(env.EXPEDIA_RAPID_API_URL).toBe('https://test.ean.com');
+    expect(env.EXPEDIA_POINT_OF_SALE).toBe('NG');
+    expect(env.EXPEDIA_REQUEST_CURRENCY).toBe('USD');
+    expect(env.EXPEDIA_MAX_PROPERTIES).toBe(250);
+    expect(() => parseEnv({ ...base, EXPEDIA_MAX_PROPERTIES: '251' })).toThrow(
+      /EXPEDIA_MAX_PROPERTIES/,
+    );
+    expect(() => parseEnv({ ...base, EXPEDIA_POINT_OF_SALE: 'ng' })).toThrow(
+      /EXPEDIA_POINT_OF_SALE/,
+    );
+
+    const production = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({ ...base, NODE_ENV: 'production', ...overrides });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    const credentials = {
+      HOTEL_SUPPLIERS: 'expedia',
+      EXPEDIA_RAPID_API_KEY: 'k',
+      EXPEDIA_RAPID_SHARED_SECRET: 's',
+    };
+    expect(production(credentials)).toMatch(
+      /EXPEDIA_RAPID_API_URL: the sandbox host books nothing/,
+    );
+    expect(
+      production({ ...credentials, EXPEDIA_RAPID_API_URL: 'https://api.ean.com' }),
+    ).not.toContain('EXPEDIA_RAPID_API_URL');
+    expect(production({ EXPEDIA_RAPID_API_URL: 'http://api.ean.com' })).toContain(
+      'EXPEDIA_RAPID_API_URL: must use https',
+    );
+  });
+
   it('requires partner credentials and refuses mock partners in production (ADR-070)', () => {
     expect(() => parseEnv({ ...base, AFFILIATE_NETWORK: 'travelpayouts' })).toThrow(
       /TRAVELPAYOUTS_TOKEN.*TRAVELPAYOUTS_MARKER/s,
