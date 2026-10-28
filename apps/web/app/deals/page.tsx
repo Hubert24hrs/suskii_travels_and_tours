@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function DealsPage() {
   const { t, currency } = await getI18n();
   const deals = await api.deals(currency);
-  const items = await DealCards({ deals: deals?.deals ?? [] });
+  const items = await DealCards({ deals: deals?.deals ?? [], headingLevel: 'h2' });
   return (
     <Container className="flex flex-col gap-6 py-8">
       <Breadcrumbs items={[{ name: t('pages.deals.title'), path: '/deals' }]} />

@@ -86,7 +86,9 @@ the owner's Expedia Partner Solutions account, one sandbox run and certification
 (`docs/phases/expedia-rapid.md`). Item 11, 99.9% uptime and a status page, is built
 (`docs/phases/uptime.md`): objectives with burn-rate alerts, uptime checks from three regions,
 `GET /v1/status` and incidents in the console, on the website and in the app; it waits for the
-owner's on-call channel. Items 12 and 13 come next.
+owner's on-call channel. Item 12, an accessibility audit against WCAG 2.2 AA, is built
+and checked in CI (`docs/phases/accessibility.md`, `docs/accessibility/wcag-2.2-aa.md`); the
+manual screen reader pass waits for devices and testers. Item 13 comes next.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -872,6 +874,25 @@ Tooling notes for agents:
   then (homepage budget). The button shows while `GET /v1/flights/natural-search` says the feature
   is on, and hides when the API cannot say.
 
+### Accessibility (WCAG 2.2 AA, ADR-088)
+
+- The target is WCAG 2.2 AA on the website, the console and the app; the conformance table
+  (`docs/accessibility/wcag-2.2-aa.md`) changes with the code it describes.
+- A new public page goes in `PAGES` in `apps/web/e2e/a11y.spec.ts` (axe, 24 px targets, reflow at
+  320 px). Targets are at least 24 by 24 px except links inside a sentence; search and checkout
+  controls are 44 px or more (`min-h-12`). A short link outside a sentence gets
+  `inline-flex min-h-6 items-center`.
+- Headings follow the outline: cards listed straight under a page's `h1` are `h2` (pass
+  `headingLevel`), under a section heading `h3`.
+- Every interactive element shows `focus-visible:focus-ring`; nothing may sit above the sticky
+  header's scroll padding (`scroll-pt-20` on `html`) without being modal.
+- App touchables take `accessibilityRole` and a name (text inside or `accessibilityLabel`);
+  radios, checkboxes and switches report `accessibilityState.checked`, tabs `selected`; text
+  inputs carry `accessibilityLabel`; never set `allowFontScaling={false}`. `accessibility.test.ts`
+  fails otherwise. The app follows the device's orientation.
+- Run the screen reader checklist (`docs/runbooks/screen-reader-checklist.md`) before each store
+  release and any release that changes search, checkout or sign-in.
+
 ### Hardening (phase 11, ADR-037 to ADR-048)
 
 - Security documents live in `docs/security/` and must change with the code they describe:
@@ -1063,6 +1084,7 @@ Tooling notes for agents:
 - [ADR-085: After-hours support assistant](docs/decisions/ADR-085-after-hours-support-assistant.md)
 - [ADR-086: Expedia Rapid hotel adapter](docs/decisions/ADR-086-expedia-rapid-hotel-adapter.md)
 - [ADR-087: Availability objectives and the status page](docs/decisions/ADR-087-availability-objectives-and-status-page.md)
+- [ADR-088: WCAG 2.2 AA as the accessibility target](docs/decisions/ADR-088-wcag-2-2-aa-accessibility.md)
 
 ## Open questions for the owner
 
@@ -1189,4 +1211,8 @@ per market, and Expedia's certification before `expedia` is enabled in productio
 status page (ADR-087): who receives uptime and burn-rate pages (`uptime_alert_emails` or the
 on-call tool's channel ids), the availability figure to promise partners and companies (99.9%
 suggested), whether to move the status page to a third-party host for independence from our
-platform, and who writes incident updates out of hours.
+platform, and who writes incident updates out of hours. Added with
+the accessibility audit (ADR-088): someone with iOS and Android devices to run the screen reader
+checklist (including landscape and the largest text size), the support contact and legal text for
+an accessibility statement page, and whether to commission an external audit before launch in
+the EU.

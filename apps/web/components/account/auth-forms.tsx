@@ -217,7 +217,7 @@ export function SignInForm({
           </Button>
           <AppLink
             href="/forgot-password"
-            className="font-body text-body-sm text-primary underline focus-visible:focus-ring"
+            className="inline-flex min-h-6 items-center font-body text-body-sm text-primary underline focus-visible:focus-ring"
           >
             {t('auth.signIn.forgot')}
           </AppLink>
@@ -271,7 +271,7 @@ export function SignInForm({
       />
       <AppLink
         href={next ? `/register?next=${encodeURIComponent(next)}` : '/register'}
-        className="font-body text-body-sm text-primary underline focus-visible:focus-ring"
+        className="inline-flex min-h-6 items-center font-body text-body-sm text-primary underline focus-visible:focus-ring"
       >
         {t('auth.signIn.toRegister')}
       </AppLink>
@@ -423,7 +423,10 @@ export function RegisterForm({
         </Button>
       </form>
       <SocialSignIn next={next ?? '/account'} referralCode={code.trim() || null} />
-      <AppLink href="/sign-in" className="font-body text-body-sm text-primary underline">
+      <AppLink
+        href="/sign-in"
+        className="inline-flex min-h-6 items-center font-body text-body-sm text-primary underline focus-visible:focus-ring"
+      >
         {t('auth.register.toSignIn')}
       </AppLink>
     </Card>

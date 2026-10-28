@@ -117,7 +117,7 @@ function StartForm({ bookingId }: { bookingId: string | null }) {
             key={value}
             testID={`support-category-${value}`}
             accessibilityRole="radio"
-            accessibilityState={{ selected: category === value }}
+            accessibilityState={{ checked: category === value }}
             onPress={() => setCategory(value)}
             className={
               category === value
