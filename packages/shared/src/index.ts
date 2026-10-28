@@ -566,3 +566,36 @@ export {
   type ReviewTripType,
 } from './reviews';
 export { reviewInputSchema, type ReviewInput } from './reviews-schemas';
+export {
+  APPROVAL_MODES,
+  APPROVAL_REJECT_REASONS,
+  BOOKING_APPROVAL_STATUSES,
+  COMPANY_INVITATION_DAYS,
+  COMPANY_MAX_ADVANCE_DAYS,
+  COMPANY_NAME_MAX,
+  COMPANY_ROLES,
+  COMPANY_STATUSES,
+  POLICY_FINDINGS,
+  canApprove,
+  canManageCompany,
+  evaluatePolicy,
+  needsApproval,
+  seesAllCompanyBookings,
+  type ApprovalMode,
+  type ApprovalRejectReason,
+  type BookingApprovalStatus,
+  type CompanyRole,
+  type CompanyStatus,
+  type PolicyFinding,
+  type TravelPolicy,
+  type TripPolicyFacts,
+} from './companies';
+export {
+  approvalRejectSchema,
+  companyInputSchema,
+  companyInvitationInputSchema,
+  travelPolicySchema,
+  type CompanyInput,
+  type CompanyInvitationInput,
+  type TravelPolicyInput,
+} from './companies-schemas';
