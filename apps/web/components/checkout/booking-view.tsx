@@ -28,6 +28,7 @@ import { chosenMethod, MethodChoice, type PaymentMethodName } from './payment-ch
 import { PlanPanel, RefundList } from './plan-panel';
 import { ScheduleChange } from './schedule-change';
 import { TripPlanning } from './trip-planning';
+import { TripReviews } from './trip-reviews';
 
 type Booking = Schemas['Booking'];
 type Phase =
@@ -377,6 +378,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
 
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
         <div className="flex flex-col gap-6 lg:col-span-2">
+          {status === 'CONFIRMED' ? <TripReviews bookingId={booking.id} /> : null}
           {booking.scheduleChange ? (
             <ScheduleChange
               bookingId={booking.id}

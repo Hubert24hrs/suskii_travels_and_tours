@@ -2626,6 +2626,7 @@ export const fr: Messages = {
       saved: 'Merci. Votre avis apparaîtra une fois vérifié.',
       window: 'Vous pouvez donner votre avis jusqu’au {date}.',
       edit: 'Modifier mon avis',
+      cancel: 'Annuler',
       withdraw: 'Retirer mon avis',
       withdrawConfirm: 'Retirer votre avis ? Il n’apparaîtra plus nulle part.',
       withdrawn: 'Votre avis a été retiré.',

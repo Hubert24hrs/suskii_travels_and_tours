@@ -7,6 +7,7 @@ import { BookRental } from '../../../components/cars/book-rental';
 import { pickCarsMessages } from '../../../components/cars/cars-messages';
 import { CarsHeader } from '../../../components/cars/cars-header';
 import { Container } from '../../../components/layout/container';
+import { ProductReviews } from '../../../components/reviews/product-reviews';
 import { api } from '../../../lib/api';
 import { getI18n } from '../../../lib/i18n';
 import type { SearchParams } from '../../../lib/search-initial';
@@ -155,6 +156,14 @@ export default async function RentalVehiclePage({ params, searchParams }: Props)
           <p className="font-body text-caption text-muted">
             {t('cars.rentals.detail.licenceNote')}
           </p>
+          <ProductReviews
+            kind="rental_vehicle"
+            id={car.id}
+            name={`${car.make} ${car.model} (${car.year})`}
+            description={t('cars.rentals.description')}
+            path={`/rentals/${car.slug}`}
+            sample={car.sample}
+          />
         </div>
         <I18nProvider locale={locale} messages={pickCarsMessages(messages)}>
           <BookRental

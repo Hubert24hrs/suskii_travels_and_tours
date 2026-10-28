@@ -70,3 +70,43 @@ export const breadcrumbJsonLd = (items: readonly { name: string; path: string }[
     item: absoluteUrl(item.path),
   })),
 });
+
+/**
+ * A product's verified score (ADR-077), only when it has published reviews. The values are the
+ * ones the page shows: search engines penalise ratings that differ from the visible ones.
+ */
+export const productRatingJsonLd = (options: {
+  name: string;
+  description: string;
+  path: string;
+  summary: { score: number; count: number };
+  reviews: readonly {
+    rating: number;
+    title: string | null;
+    liked: string | null;
+    displayName: string | null;
+    publishedAt: string;
+  }[];
+  anonymous: string;
+}): JsonLd => ({
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: options.name,
+  description: options.description,
+  url: absoluteUrl(options.path),
+  aggregateRating: {
+    '@type': 'AggregateRating',
+    ratingValue: options.summary.score,
+    ratingCount: options.summary.count,
+    bestRating: 10,
+    worstRating: 1,
+  },
+  review: options.reviews.slice(0, 5).map((review) => ({
+    '@type': 'Review',
+    author: { '@type': 'Person', name: review.displayName ?? options.anonymous },
+    datePublished: review.publishedAt.slice(0, 10),
+    reviewRating: { '@type': 'Rating', ratingValue: review.rating, bestRating: 10, worstRating: 1 },
+    ...(review.title ? { name: review.title } : {}),
+    ...(review.liked ? { reviewBody: review.liked } : {}),
+  })),
+});

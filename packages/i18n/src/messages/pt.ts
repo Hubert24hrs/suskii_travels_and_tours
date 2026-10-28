@@ -2610,6 +2610,7 @@ export const pt: Messages = {
       saved: 'Obrigado. A sua avaliação aparecerá depois de verificada.',
       window: 'Pode avaliar esta viagem até {date}.',
       edit: 'Editar avaliação',
+      cancel: 'Cancelar',
       withdraw: 'Retirar avaliação',
       withdrawConfirm: 'Retirar a sua avaliação? Deixará de aparecer em qualquer lado.',
       withdrawn: 'A sua avaliação foi retirada.',

@@ -2592,6 +2592,7 @@ export const sw: Messages = {
       saved: 'Asante. Maoni yako yataonekana baada ya kukaguliwa.',
       window: 'Unaweza kutoa maoni kuhusu safari hii hadi {date}.',
       edit: 'Hariri maoni',
+      cancel: 'Ghairi',
       withdraw: 'Ondoa maoni',
       withdrawConfirm: 'Ungependa kuondoa maoni yako? Hayataonekana tena popote.',
       withdrawn: 'Maoni yako yameondolewa.',
