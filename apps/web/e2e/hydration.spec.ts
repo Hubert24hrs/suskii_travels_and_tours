@@ -86,7 +86,7 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
   ['manage booking', () => '/manage-booking'],
 ];
 
-test.describe('hydration with different Intl data in the browser', () => {
+function hydrationTests(): void {
   for (const [name, path] of PAGES) {
     test(`${name} hydrates without a mismatch`, async ({ page, request }) => {
       const airport = (await (await request.get(`${API}/v1/catalog/airports/DXB`)).json()) as {
@@ -97,4 +97,14 @@ test.describe('hydration with different Intl data in the browser', () => {
       await waitForHydration(page);
     });
   }
+}
+
+test.describe('hydration with different Intl data in the browser', hydrationTests);
+
+// An Arabic browser gets Arabic pages (ADR-076): right to left, isolated values and a browser
+// whose default Intl locale uses Arabic-Indic digits, so a value formatted without the page's
+// locale would differ from the server's.
+test.describe('hydration in Arabic', () => {
+  test.use({ locale: 'ar' });
+  hydrationTests();
 });
