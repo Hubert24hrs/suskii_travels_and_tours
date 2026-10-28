@@ -154,3 +154,25 @@ Risks:
   recent authenticator check.
 - **Tampered links.** Deep links are sealed (AES-256-GCM), so the itinerary, price and partner
   cannot be changed, and they carry no personal data.
+
+## Part 3 outcome
+
+Built. Metasearch stays dormant until staff add a partner; each engine needs an agreement first.
+
+- Partner prices come from the same priced search a guest sees on the website; the API e2e
+  compares the two itinerary by itinerary, fare brand included.
+- Keys open only the price route. Creating and replacing one needs a fresh authenticator check
+  and is audited; operations staff see the report but cannot add partners or keys.
+- The website's landing test answers the landing call in the browser (the stack has no staff
+  login to create a partner); the API e2e covers keys, limits, prices, landings and attribution.
+
+| Check                            | Result                                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint and typecheck               | 25 of 25 tasks                                                                                                                              |
+| API unit tests with coverage     | 607 passed (53 suites), coverage gates met                                                                                                  |
+| API e2e                          | 544 of 544 outside the S3 suite (no container runtime locally; CI runs it); the metasearch suite 9 of 9                                     |
+| Shared, i18n, worker, app (Jest) | 249, 33, 50 and 250 passed                                                                                                                  |
+| Website e2e                      | 126 of 127: every journey, SEO, hydration, slow-3G and metasearch landing test passes                                                       |
+| Console e2e                      | 18 of 18, including the partner journey (key shown once, works at once, replaced key stops) and the audit log                               |
+| Lighthouse (local)               | Total blocking time only, median 258 ms; nothing here touches the homepage and the base fails the same way on this machine. CI is the judge |
+| Migrations, security list        | `check:migrations` backwards-compatible, `security:checklist --check` up to date                                                            |
