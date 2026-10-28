@@ -44,3 +44,27 @@ French, Swahili, Arabic (right to left) and Portuguese, on the website and in th
   Arabic sentences. They are isolated so they do not reorder.
 - **App bundle size.** Polyfill data for four languages adds to the app bundle; only plural rules,
   relative times, lists and display names need it.
+
+## Outcome
+
+Built on 2026-10-28 (ADR-076).
+
+| Area     | Result                                                                                                                                                                |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Catalogs | `fr`, `sw`, `ar` and `pt` complete by type; tests check placeholders, plural forms (six in Arabic) and strings left in English                                        |
+| Website  | `<html lang dir>`, logical utilities only (lint rule and guard test), mirrored arrows, `Accept-Language` when nothing is chosen, language names in their own language |
+| ui-web   | Tabs follow the arrow keys' direction; the calendar runs right to left with Intl names outside English; `cn` merges the logical families as tailwind-merge does       |
+| App      | Device language by language, right to left from the device, polyfill data for the four languages                                                                      |
+| Digits   | Latin in every language; Arabic shows the currency code (`1,581,000 NGN`) where CLDR has no local symbol                                                              |
+| Homepage | 173,976 bytes of JavaScript (budget 174,080): locale negotiation left the browser bundle and `cn` builds its repeated families                                        |
+
+Tests: web e2e 110/110 (French from the browser with axe and every breakpoint, Arabic home and
+results, hydration in Arabic for every page); ui-web 150 (right-to-left tabs and calendar); i18n
+33; shared 225; mobile Jest 241. Lint, typecheck and `check:classes` are clean.
+
+Found and fixed on the way: the footer's data saver select overflowed a phone in French, Swahili
+and Portuguese (113 px at 360 px); the mock checkout's shared view-and-pay limit ran out after 15
+test checkouts in ten minutes.
+
+Open: a native speaker's review of each catalog before production (booking, payment and refund
+wording first). Emails, texts, push and PDFs stay English until the account has a language.
