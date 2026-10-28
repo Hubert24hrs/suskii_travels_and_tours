@@ -49577,6 +49577,11 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "supplier-customer-ip": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -49611,7 +49616,8 @@
           "ad-conversions",
           "metasearch-landings",
           "support-conversations",
-          "whatsapp-contacts"
+          "whatsapp-contacts",
+          "supplier-customer-ip"
         ],
         "additionalProperties": false
       },

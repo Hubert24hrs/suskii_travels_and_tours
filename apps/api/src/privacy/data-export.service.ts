@@ -6,6 +6,7 @@ import { BookingNotesService } from '../bookings/booking-notes.service';
 import { BookingsService, passportContext } from '../bookings/bookings.service';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import {
+  customerIpContext,
   driverLicenceContext,
   driverNinContext,
   driverPayoutContext,
@@ -139,6 +140,17 @@ export class DataExportService {
       presented.push({
         ...(await this.bookings.present(booking)),
         contact: this.bookings.contact(booking),
+        // The checkout IP a hotel supplier needs to book (ADR-086), while it is still kept.
+        checkoutIps: booking.items.flatMap((item) =>
+          item.customerIpEncrypted
+            ? [
+                {
+                  itemId: item.id,
+                  ip: this.encryption.decrypt(item.customerIpEncrypted, customerIpContext(item.id)),
+                },
+              ]
+            : [],
+        ),
         // Notes staff kept about the booking are personal data too (ADR-029).
         internalNotes: (await this.notes.list(booking.id)).map((note) => ({
           createdAt: note.createdAt,
@@ -385,6 +397,7 @@ export class DataExportService {
         'Amounts are in minor units of their currency (kobo for NGN).',
         'Passenger passport numbers on bookings show their last three characters; saved travellers include the full number.',
         'Visa documents and e-tickets are listed as metadata; download them from the booking while it is available.',
+        'The checkout IP a hotel booking needs (checkoutIps) is kept only until the hotel is booked, at most 7 days.',
         'Ride pickup and drop-off points are rounded to about 1 km after 90 days, and driver positions during a ride are deleted then.',
         `Financial records are kept for ${this.config.FINANCIAL_RECORDS_RETENTION_YEARS} years after account deletion, with contact details removed.`,
       ],

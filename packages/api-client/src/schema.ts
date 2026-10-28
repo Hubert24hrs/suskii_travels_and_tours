@@ -10888,6 +10888,7 @@ export interface components {
             "metasearch-landings": number;
             "support-conversations": number;
             "whatsapp-contacts": number;
+            "supplier-customer-ip": number;
         };
         ReviewInvitationRun: {
             planned: number;
