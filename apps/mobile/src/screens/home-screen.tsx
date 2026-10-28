@@ -10,6 +10,7 @@ import { DealList, useDeals } from '../components/deal-list';
 import { FlightSearchForm } from '../components/search/flight-search-form';
 import { HotelSearchForm } from '../components/search/hotel-search-form';
 import { ServerUnreachable } from '../components/server-unreachable';
+import { StatusBanner } from '../components/status-banner';
 import { anyCarsProduct, useCarsFeaturesQuery, type CarsFeatures } from '../lib/cars';
 import { useT } from '../providers/app-provider';
 
@@ -107,6 +108,7 @@ export function HomeScreen() {
           </Text>
           <Text className="font-body text-body text-foreground">{t('hero.subheadline')}</Text>
         </View>
+        <StatusBanner />
         {unreachable ? <ServerUnreachable onRetry={retry} /> : null}
         <Card className="gap-4 p-4">
           <Tabs
