@@ -53,7 +53,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'suskii-travels',
   scheme: 'suskii',
   version: '0.1.0',
-  orientation: 'portrait',
+  // Follows the device: a phone mounted in landscape (wheelchair, car) must still work (WCAG 1.3.4).
+  orientation: 'default',
   // Design tokens define a light theme only.
   userInterfaceStyle: 'light',
   // Built from brand/suskii-tt-logo.webp by scripts/brand-assets.mjs (ADR-068).
