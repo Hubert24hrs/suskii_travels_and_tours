@@ -88,6 +88,12 @@ api_env = {
   # TRAVELPAYOUTS_MARKER   = "REPLACE"
   # TRAVELPAYOUTS_TRS      = "REPLACE"
   # ACTIVITY_PARTNER       = "viator"
+  # Server-side ad conversions (ADR-079) are off unless set. Add "META_CAPI_ACCESS_TOKEN" and
+  # "TIKTOK_EVENTS_ACCESS_TOKEN" to extra_secrets, set them in Secret Manager, set the same pixel
+  # ids in web_env, then uncomment:
+  # AD_CONVERSIONS  = "meta,tiktok"
+  # META_PIXEL_ID   = "REPLACE"
+  # TIKTOK_PIXEL_ID = "REPLACE"
   # AI trip search (ADR-061) is off unless set. To offer it, add "LLM_API_KEY" to extra_secrets,
   # set its value in Secret Manager, run the eval (ai-eval.yml) and uncomment:
   # AI_SEARCH_ENABLED = "true"
@@ -102,4 +108,7 @@ web_env = {
   MOBILE_APP_SCHEME      = "suskii"
   MOBILE_ANDROID_PACKAGE = "REPLACE"
   MOBILE_IOS_APP_IDS     = "REPLACE"
+  # Meta and TikTok tags after marketing consent (ADR-079); without them no tag or prompt.
+  # META_PIXEL_ID   = "REPLACE"
+  # TIKTOK_PIXEL_ID = "REPLACE"
 }

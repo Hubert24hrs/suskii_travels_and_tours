@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Ads with consent (2026-10-28)
+
+#### Added
+
+- **Meta and TikTok tags after consent (ADR-079).** With `META_PIXEL_ID` or `TIKTOK_PIXEL_ID` set,
+  the website loads the networks' tags only after a visitor allows marketing cookies, now or later
+  in the visit. Pages report PageView, Search (the vertical and airport codes), ViewContent,
+  InitiateCheckout, Purchase (event id = booking id) and CompleteRegistration with trip facts
+  only; automatic matching stays off. The CSP gains the networks' hosts only when configured.
+- **First-visit prompt.** While a tag is configured, a fixed bottom bar asks once, with "Accept
+  all" and "Reject all" of equal weight and "Choose" for the full list. A refusal loads and
+  queues nothing. `COOKIE_POLICY_VERSION` is 2, so earlier choices are asked again. The cookie
+  list names every cookie and storage key the tags set, in every language.
+- **Server-side Purchase events.** A booking from a consented visit carries the consent id and
+  the networks' click ids; the API keeps them only when the recorded choice for that consent id,
+  under the current policy, allows marketing. A worker sweep (`AD_CONVERSION_SWEEP_MINUTES`)
+  re-checks the consent, sends each paid booking's Purchase to the Meta Conversions API and the
+  TikTok Events API (`AD_CONVERSIONS`) with SHA-256 of the contact email and phone, retries
+  twice, and clears the click ids once settled. Rows go after 30 days and with the account, and
+  appear in the data export.
+- Settings in `.env.example`, Terraform and Helm (tokens as secrets); security documents and
+  store forms (website only: the app has no ad SDK).
+
 ### Company accounts (2026-10-28)
 
 #### Added

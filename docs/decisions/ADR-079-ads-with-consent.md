@@ -32,7 +32,8 @@ what the first marketing tag must bring.
    networks' `connect-src` and `img-src` hosts only when that network is configured.
 4. **Browser events** are standard names with trip facts only: `PageView`, `Search` (vertical and
    IATA codes), `ViewContent`, `InitiateCheckout` and `Purchase` (value and currency from the API's
-   `Money`, event id = booking id), `CompleteRegistration`. No name, email, phone or booking
+   `Money`, event id = booking id), `CompleteRegistration`. Content ids are booking verticals
+   (`flights`, `hotels`, ...), the same values the server sends. No name, email, phone or booking
    reference in the browser; the networks' automatic advanced matching stays off.
 5. **Server events** (`Purchase` only) go through `AdConversionsProvider` (mock, Meta, TikTok;
    `AD_CONVERSIONS`), never from request code:
@@ -41,8 +42,9 @@ what the first marketing tag must bring.
      that consent id, under the current policy, says marketing is on; otherwise it drops them
      silently. The browser's word is never enough.
    - A worker sweep sends paid bookings' conversions (event id = booking id, value and currency,
-     SHA-256 of the normalised contact email and phone, the click ids), retries three times, then
-     gives up, and clears the click ids and consent id once sent or after 30 days.
+     SHA-256 of the normalised contact email and phone, the click ids). It re-reads the consent
+     first (withdrawn: nothing is sent), tries three times per network (15 minutes, then an
+     hour), clears the click ids once the event is settled, and the rows go after 30 days.
    - Tokens are secrets in Secret Manager; production refuses the mock unless
      `ALLOW_MOCK_PROVIDERS=true` while a network is configured.
 6. **Privacy records.** The click ids are personal data (pseudonymous identifiers): the data
