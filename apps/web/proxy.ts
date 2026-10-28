@@ -1,6 +1,7 @@
 import { parseDsn } from '@suskii/shared/lite';
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { adTagConfig, adTagOrigins } from './lib/ad-tags';
 import { buildCsp } from './lib/csp';
 import { publicEnv } from './lib/env';
 
@@ -9,6 +10,9 @@ const imageOrigins = (process.env.IMAGE_REMOTE_HOSTS ?? '')
   .map((host) => host.trim())
   .filter(Boolean)
   .map((host) => `https://${host}`);
+
+// Ad tags are configured at runtime; their hosts join the CSP only when set (ADR-079).
+const adOrigins = adTagOrigins(adTagConfig());
 
 const reportDsn = parseDsn(publicEnv.sentryDsn);
 const errorReportOrigin = reportDsn ? new URL(reportDsn.url).origin : undefined;
@@ -29,6 +33,7 @@ export function proxy(request: NextRequest): NextResponse {
     development: process.env.NODE_ENV === 'development',
     upgradeInsecureRequests: publicEnv.siteUrl.startsWith('https://'),
     errorReportOrigin,
+    adOrigins,
   });
   const upstreamId = request.headers.get('x-request-id');
   const requestId =

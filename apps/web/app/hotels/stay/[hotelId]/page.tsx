@@ -7,6 +7,7 @@ import { AppLink } from '../../../../components/app-link';
 import { Container } from '../../../../components/layout/container';
 import { HotelRooms } from '../../../../components/results/hotel-rooms';
 import { pickResultsMessages } from '../../../../components/results/pick-results-messages';
+import { TrackAd } from '../../../../components/marketing/ad-tags';
 import { getI18n } from '../../../../lib/i18n';
 import type { SearchParams } from '../../../../lib/search-initial';
 import { pageMetadata } from '../../../../lib/seo';
@@ -51,6 +52,7 @@ export default async function HotelStayPage({
         <ArrowLeft aria-hidden="true" className="size-4 rtl:-scale-x-100" />
         {t('results.hotels.backToResults')}
       </AppLink>
+      <TrackAd event="ViewContent" params={{ contentIds: ['hotels'] }} />
       <I18nProvider locale={locale} messages={pickResultsMessages(messages)}>
         <Suspense>
           <HotelRooms

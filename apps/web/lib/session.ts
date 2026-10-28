@@ -1,4 +1,5 @@
 import { publicEnv } from './env';
+import { readCookie } from './read-cookie';
 
 /**
  * Web sessions (ADR-007, phase 9). The API keeps tokens in httpOnly cookies on its own origin
@@ -14,15 +15,6 @@ const EXPIRY_KEY = 'suskii.session.accessExpiresAt';
 const REFRESH_LOCK = 'suskii-session-refresh';
 /** Refresh this long before the access token expires. */
 const MARGIN_MS = 60_000;
-
-export function readCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-  for (const part of document.cookie.split(';')) {
-    const [key, ...value] = part.trim().split('=');
-    if (key === name) return decodeURIComponent(value.join('='));
-  }
-  return null;
-}
 
 /** The CSRF token of the current session, or null when signed out. */
 export function csrfToken(): string | null {

@@ -6,6 +6,7 @@ import { Button } from '@suskii/ui-web';
 import { SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { trackAd } from '../../lib/ad-events';
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { handedHotelSearch, searchKey as handoffKey } from '../../lib/search-handoff';
 import { NativeSelect } from '../search/native-select';
@@ -108,6 +109,12 @@ export function HotelResults({
   const sort: Sort = SORTS.includes(sortParam as Sort) ? (sortParam as Sort) : 'recommended';
   const filters = filtersFromParams(params);
   const filterKey = JSON.stringify([sort, filters]);
+  const searched = JSON.stringify(request);
+
+  // The vertical only: a city id or dates say nothing a network needs (ADR-079).
+  useEffect(() => {
+    trackAd('Search', { contentIds: ['hotels'] });
+  }, [searched]);
 
   const [attempt, setAttempt] = useState(0);
   const [search, setSearch] = useState<{
