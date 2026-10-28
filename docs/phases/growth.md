@@ -176,3 +176,26 @@ Built. Metasearch stays dormant until staff add a partner; each engine needs an 
 | Console e2e                      | 18 of 18, including the partner journey (key shown once, works at once, replaced key stops) and the audit log                               |
 | Lighthouse (local)               | Total blocking time only, median 258 ms; nothing here touches the homepage and the base fails the same way on this machine. CI is the judge |
 | Migrations, security list        | `check:migrations` backwards-compatible, `security:checklist --check` up to date                                                            |
+
+## Part 4: Suskii Prime priced per country
+
+The owner asked for Prime "yearly, priced per country". Plans carry one price per currency today,
+so a member in Lagos and one in Accra paying in US dollars see the same price, and a plan cannot
+cost less in one market than another in the same currency.
+
+| Step | Work                                                                                                                                                                                                             | Files                                |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 1    | Shared: a plan price may name a country (`{ amountMinor, currency, country }`); one entry per currency and country; `resolvePlanPrice(prices, currency, country)` picks the country's entry, else the currency's | `packages/shared`                    |
+| 2    | API: plans list and quotes resolve the price with the edge's country (`CLIENT_COUNTRY_HEADER`); the membership payload keeps the country it was priced for, so the re-check before payment uses the same entry   | `apps/api/src/prime`, `src/bookings` |
+| 3    | Website: the Prime page passes the visitor's edge country with its plans request; the app needs nothing (its requests pass the edge)                                                                             | `apps/web`                           |
+| 4    | Console: price lines take an optional country (`USD 20 GH`); the table shows which entries are country prices                                                                                                    | `apps/admin`, `packages/i18n`        |
+| 5    | Tests: shared rules, API e2e (country entry, fallback, not sold, quote keeps its entry, re-check), website and console e2e                                                                                       | `packages/shared`, `apps/*`          |
+| 6    | Docs: ADR-082, CHANGELOG, CLAUDE.md                                                                                                                                                                              | `docs`                               |
+
+Risks:
+
+- **Country spoofing.** A traveller could try to buy in a cheaper country. The quote uses the edge's
+  country of the purchase request, never a client value; the display parameter only changes what a
+  page shows, and checkout shows the quoted price before payment.
+- **No header.** Without `CLIENT_COUNTRY_HEADER`, every request resolves to the currency's entry,
+  exactly as today.

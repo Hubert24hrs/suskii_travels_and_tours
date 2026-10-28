@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Suskii Prime priced per country (2026-10-28)
+
+#### Added
+
+- **Country prices (ADR-082).** A Prime plan price may name a country (`USD 18 GH`); visitors
+  from that country see and pay it, everyone else the currency's price for everywhere. The
+  country is the edge's (`CLIENT_COUNTRY_HEADER`), never a value the client sends.
+- **Quotes keep their price.** The membership quote records the country it was priced for, so
+  the re-check before payment uses the same entry even if payment arrives through another edge
+  location.
+- **Website and console.** The Prime page and the homepage promo pass the visitor's edge country
+  for displayed prices; the app needs no change. Console price lines take an optional country,
+  and the plans table names country prices. The demo plan carries a Ghana price.
+
 ### Metasearch partners (2026-10-28)
 
 #### Added
