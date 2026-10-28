@@ -23,6 +23,7 @@ const params = useLocalSearchParams as jest.Mock;
 const message = (patch: Partial<Schemas['SupportMessage']> = {}): Schemas['SupportMessage'] => ({
   id: '0192d3a0-7c1e-7b2a-9f00-00000000e201',
   author: 'customer',
+  kind: 'text',
   text: 'Can I change the date of my tour?',
   createdAt: '2026-10-28T09:00:00.000Z',
   ...patch,
@@ -182,6 +183,36 @@ describe('SupportConversationScreen', () => {
     const sent = calls.find((call) => call.method === 'POST');
     expect(await sent?.json()).toEqual({ message: 'The 14th, please.' });
     expect(screen.getByTestId('support-reply')).toHaveProp('value', '');
+  });
+
+  it("labels automated answers and shows the handover in the traveller's language", async () => {
+    params.mockReturnValue({ id: ID });
+    const answer = message({
+      id: '0192d3a0-7c1e-7b2a-9f00-00000000e204',
+      author: 'assistant',
+      text: 'Tours can be cancelled from the booking page.',
+      createdAt: '2026-10-28T09:00:05.000Z',
+    });
+    const handover = message({
+      id: '0192d3a0-7c1e-7b2a-9f00-00000000e205',
+      author: 'assistant',
+      kind: 'handover',
+      text: 'Our team is offline right now (English).',
+      createdAt: '2026-10-28T09:01:00.000Z',
+    });
+    mockApi({
+      [`GET /v1/support/conversations/${ID}`]: () =>
+        json(conversation({ messages: [message(), answer, handover] })),
+    });
+    await renderWithApp(<SupportConversationScreen />, await signedInSession());
+
+    expect(
+      await screen.findByText('Tours can be cancelled from the booking page.'),
+    ).toBeOnTheScreen();
+    expect(screen.getAllByText(new RegExp(m.support.conversation.assistant))).toHaveLength(2);
+    expect(screen.getByText(m.support.conversation.assistantNote)).toBeOnTheScreen();
+    expect(screen.getByText(m.support.conversation.handover)).toBeOnTheScreen();
+    expect(screen.queryByText('Our team is offline right now (English).')).toBeNull();
   });
 
   it('marks a conversation as solved', async () => {
