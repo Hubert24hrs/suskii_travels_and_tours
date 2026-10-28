@@ -246,17 +246,17 @@ describe('support conversations (e2e)', () => {
   });
 
   it('serves visitors with a token and emailed links, and nobody else', async () => {
-    const unverified = await start({ category: 'other', message: 'Hello' }).expect(400);
+    const unverified = await start({ category: 'general', message: 'Hello' }).expect(400);
     expect(unverified.body.type).toContain('bot-check-failed');
     const noEmail = await start({
-      category: 'other',
+      category: 'general',
       message: 'Hello',
       turnstileToken: E2E_TURNSTILE,
     }).expect(422);
     expect(noEmail.body.type).toContain('support-email-required');
 
     const started = await start({
-      category: 'other',
+      category: 'general',
       message: 'Do you sell trips to Zanzibar?',
       email: 'visitor@example.com',
       turnstileToken: E2E_TURNSTILE,
@@ -284,7 +284,7 @@ describe('support conversations (e2e)', () => {
       404,
     );
     const other = await start({
-      category: 'other',
+      category: 'general',
       message: 'Another question',
       email: 'visitor@example.com',
       turnstileToken: E2E_TURNSTILE,
@@ -303,7 +303,7 @@ describe('support conversations (e2e)', () => {
   it('puts a guest booking that starts tomorrow in the urgent queue, first', async () => {
     const member = await signUp(ctx, 'later@example.com');
     await start(
-      { category: 'other', message: 'Whenever you can.' },
+      { category: 'general', message: 'Whenever you can.' },
       bearer(member.accessToken),
     ).expect(201);
     const { bookingId, token } = await guestTour(inDays(1));
@@ -388,9 +388,9 @@ describe('support conversations (e2e)', () => {
       .expect(403);
 
     for (let index = 0; index < 4; index += 1) {
-      await start({ category: 'other', message: `Question ${index}` }, auth).expect(201);
+      await start({ category: 'general', message: `Question ${index}` }, auth).expect(201);
     }
-    const limited = await start({ category: 'other', message: 'Sixth' }, auth).expect(409);
+    const limited = await start({ category: 'general', message: 'Sixth' }, auth).expect(409);
     expect(limited.body.type).toContain('support-limit');
   });
 
