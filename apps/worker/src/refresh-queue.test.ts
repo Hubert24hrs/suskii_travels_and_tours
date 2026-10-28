@@ -47,7 +47,9 @@ describe.skipIf(!redisUrl)('refresh queue (Redis)', () => {
       runPriceAlerts: vi.fn(() =>
         Promise.resolve({ checked: 0, notified: 0, retired: 0, failed: 0 }),
       ),
-      pruneSnapshots: vi.fn(() => Promise.resolve({ deletedDeals: 0, deletedDestinations: 0 })),
+      pruneSnapshots: vi.fn(() =>
+        Promise.resolve({ deletedDeals: 0, deletedDestinations: 0, deletedFares: 0 }),
+      ),
       prunePushTokens: vi.fn(() => Promise.resolve({ deleted: 0 })),
     };
     const config = loadConfig({ REDIS_URL: redisUrl, REFRESH_CONCURRENCY: '3' });

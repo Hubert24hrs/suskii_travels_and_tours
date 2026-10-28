@@ -20,7 +20,9 @@ const fakeApi = (overrides: Partial<InternalApi> = {}): InternalApi => ({
   refreshTargets: vi.fn(() => Promise.resolve({ dealRoutes: ROUTES, hotelDestinations: CITIES })),
   refreshDealRoute: vi.fn(() => Promise.resolve(REFRESHED)),
   refreshDestination: vi.fn(() => Promise.resolve(REFRESHED)),
-  pruneSnapshots: vi.fn(() => Promise.resolve({ deletedDeals: 3, deletedDestinations: 1 })),
+  pruneSnapshots: vi.fn(() =>
+    Promise.resolve({ deletedDeals: 3, deletedDestinations: 1, deletedFares: 4 }),
+  ),
   prunePushTokens: vi.fn(() => Promise.resolve({ deleted: 2 })),
   runPriceAlerts: vi.fn(() => Promise.resolve({ checked: 3, notified: 1, retired: 0, failed: 0 })),
   ...overrides,
@@ -81,6 +83,7 @@ describe('refresh jobs', () => {
     await expect(processRefreshJob({ name: JOB.prune, data: {} }, deps(api))).resolves.toEqual({
       deletedDeals: 3,
       deletedDestinations: 1,
+      deletedFares: 4,
     });
     await expect(
       processRefreshJob({ name: JOB.prunePushTokens, data: {} }, deps(api)),
