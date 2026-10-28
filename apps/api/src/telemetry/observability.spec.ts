@@ -94,12 +94,13 @@ describe('observability configuration', () => {
   });
 
   it('gives every paging alert a runbook, and every runbook exists', () => {
-    const rules = readFileSync(
-      join(ROOT, 'infra', 'observability', 'alerts', 'suskii.rules.yml'),
-      'utf8',
-    );
-    const alerts = rules.split(/^\s*- alert: /m).slice(1);
-    expect(alerts.length).toBeGreaterThan(10);
+    const directory = join(ROOT, 'infra', 'observability', 'alerts');
+    const ruleFiles = readdirSync(directory).filter((name) => name.endsWith('.rules.yml'));
+    expect(ruleFiles).toEqual(['suskii.rules.yml', 'suskii.slo.rules.yml']);
+    const alerts = ruleFiles
+      .map((name) => readFileSync(join(directory, name), 'utf8'))
+      .flatMap((rules) => rules.split(/^\s*- alert: /m).slice(1));
+    expect(alerts.length).toBeGreaterThan(16);
     const problems: string[] = [];
     for (const block of alerts) {
       const name = block.split('\n')[0]?.trim() ?? '';

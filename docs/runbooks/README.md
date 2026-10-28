@@ -1,8 +1,8 @@
 # Runbooks
 
 Step-by-step responses to the incidents most likely to cost money, tickets or trust. Each alert
-in `infra/observability/alerts/suskii.rules.yml` names its runbook, and a unit test fails if
-the file does not exist.
+in `infra/observability/alerts` names its runbook, and a unit test fails if the file does not
+exist.
 
 | Runbook                                               | Use when                                                               |
 | ----------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -18,6 +18,7 @@ the file does not exist.
 | [Bus scanner offline](bus-scanner-offline.md)         | Departures leave with nobody scanned, or many passes fail to verify    |
 | [Failed webhook replay](failed-webhook-replay.md)     | Ledger discrepancies, or webhooks that failed and must be applied      |
 | [Deploy and roll back](deploy-and-rollback.md)        | Shipping a release, watching it, rolling back, operator commands       |
+| [Error budget burn](slo-burn.md)                      | The API or booking path spends its availability budget too fast        |
 | [Screen reader checklist](screen-reader-checklist.md) | Before each release: manual VoiceOver and TalkBack checks              |
 
 ## Every incident
@@ -29,8 +30,8 @@ the file does not exist.
    request ids and booking references. Never copy personal data, tokens or card details into
    the record, a chat or a ticket.
 4. **Stabilise first, then find the cause.** Each runbook lists the safe levers in order.
-5. **Tell support** what travellers will see and what to say. Contact details and the status
-   channel are open owner questions.
+5. **Tell support** what travellers will see and what to say, and open an incident on the status
+   page (console, Status) when travellers notice.
 6. **Close:** confirm the alert has cleared and the checks in the runbook pass. Write a short
    review within five working days: cause, impact, what worked, and follow-up issues.
 

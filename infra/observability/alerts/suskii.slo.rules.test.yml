@@ -1,0 +1,119 @@
+# Unit tests for the SLO rules: promtool test rules infra/observability/alerts/suskii.slo.rules.test.yml
+rule_files:
+  - suskii.slo.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: an API outage pages within minutes; health probes and 4xx never count
+    interval: 1m
+    input_series:
+      # 10 requests a second, healthy, then 5% of them fail from minute 30.
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/flights/searches", http_response_status_code="200"}'
+        values: '0+600x29 17400+570x30'
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/flights/searches", http_response_status_code="503"}'
+        values: '0x29 0+30x30'
+      # Refusals are the API doing its job.
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/bookings", http_response_status_code="409"}'
+        values: '0+60x59'
+      # A failing probe is not traveller traffic.
+      - series: 'http_server_request_duration_seconds_count{http_route="/ready", http_response_status_code="503"}'
+        values: '0+600x59'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ApiErrorBudgetBurnFast
+        exp_alerts: []
+      - eval_time: 50m
+        alertname: ApiErrorBudgetBurnFast
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              slo: api
+            exp_annotations:
+              summary: 'The API is spending its monthly error budget 14 times too fast'
+              description: >-
+                At this rate the 30-day budget (43 minutes) is gone in about two days. Open an
+                incident on the status page if travellers notice.
+              runbook: docs/runbooks/slo-burn.md
+
+  - name: errors inside the budget never page
+    interval: 1m
+    input_series:
+      # 0.05% of requests fail: half the budget.
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/hotels/searches", http_response_status_code="200"}'
+        values: '0+1999x120'
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/hotels/searches", http_response_status_code="500"}'
+        values: '0+1x120'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: ApiErrorBudgetBurnFast
+        exp_alerts: []
+      - eval_time: 2h
+        alertname: ApiErrorBudgetBurnSlow
+        exp_alerts: []
+
+  - name: a quiet night with one failed request does not page
+    interval: 1m
+    input_series:
+      # One request a minute; one of them fails.
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/content/site", http_response_status_code="200"}'
+        values: '0+1x60'
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/content/site", http_response_status_code="500"}'
+        values: '0x55 1x5'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: ApiErrorBudgetBurnFast
+        exp_alerts: []
+
+  - name: failing payments page on the booking path budget
+    interval: 1m
+    input_series:
+      # 2 payment calls a second, 20% failing from minute 20, against a busy, healthy API.
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/bookings/:bookingId/payments", http_response_status_code="201"}'
+        values: '0+120x19 2280+96x40'
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/bookings/:bookingId/payments", http_response_status_code="502"}'
+        values: '0x19 0+24x40'
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/flights/searches", http_response_status_code="200"}'
+        values: '0+60000x59'
+      # Staff routes are not the traveller's booking path.
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/admin/bookings", http_response_status_code="500"}'
+        values: '0+600x59'
+    alert_rule_test:
+      - eval_time: 55m
+        alertname: BookingErrorBudgetBurnFast
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              slo: booking
+            exp_annotations:
+              summary: 'Quotes, bookings or payments fail 14 times faster than the budget allows'
+              description: >-
+                Travellers cannot book or pay. Check payment providers and suppliers first, then
+                open an incident on the status page.
+              runbook: docs/runbooks/slo-burn.md
+      - eval_time: 55m
+        alertname: ApiErrorBudgetBurnFast
+        exp_alerts: []
+
+  - name: a slow burn over days opens a ticket, not a page
+    interval: 1h
+    input_series:
+      # 0.2% failing for four days: twice the budget, far below the paging rates.
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/deals", http_response_status_code="200"}'
+        values: '0+35928x100'
+      - series: 'http_server_request_duration_seconds_count{http_route="/v1/deals", http_response_status_code="500"}'
+        values: '0+72x100'
+    alert_rule_test:
+      - eval_time: 4d
+        alertname: ApiErrorBudgetBurnSteady
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+              slo: api
+            exp_annotations:
+              summary: 'The API is failing more often than its 99.9% objective allows'
+              description: "A slow burn; plan the fix before the month's budget runs out."
+              runbook: docs/runbooks/slo-burn.md
+      - eval_time: 4d
+        alertname: ApiErrorBudgetBurnSlow
+        exp_alerts: []
