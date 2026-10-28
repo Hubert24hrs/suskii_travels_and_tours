@@ -4879,6 +4879,267 @@
         ]
       }
     },
+    "/v1/admin/metasearch/partners": {
+      "get": {
+        "operationId": "adminGetMetasearchReport",
+        "summary": "Metasearch partners with 30 days of landings, price accuracy and bookings",
+        "description": "Price accuracy: same or lower among landings that found the flight. Link success: landings that found the flight among all. Booking values are per currency and never converted.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMetasearchReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "reports:read"
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateMetasearchPartner",
+        "summary": "Add a metasearch partner and issue its key",
+        "description": "The key is in this answer only; the API keeps an HMAC of it.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetasearchPartnerInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMetasearchPartnerKey"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "metasearch_partner.created"
+        ],
+        "x-step-up": true
+      }
+    },
+    "/v1/admin/metasearch/partners/{partnerId}": {
+      "patch": {
+        "operationId": "adminUpdateMetasearchPartner",
+        "summary": "Change a partner's name or limits, or switch its access off or on",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "partnerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetasearchPartnerPatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMetasearchPartner"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "metasearch_partner.updated"
+        ]
+      }
+    },
+    "/v1/admin/metasearch/partners/{partnerId}/key": {
+      "post": {
+        "operationId": "adminRotateMetasearchKey",
+        "summary": "Replace a partner's key",
+        "description": "The old key stops working at once. The new key is in this answer only.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "partnerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMetasearchPartnerKey"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "pricing:manage"
+        ],
+        "x-audit": [
+          "metasearch_partner.key_rotated"
+        ],
+        "x-step-up": true
+      }
+    },
     "/v1/admin/package-departures/{id}": {
       "patch": {
         "operationId": "adminUpdatePackageDeparture",
@@ -22017,6 +22278,242 @@
         }
       }
     },
+    "/v1/metasearch/flights": {
+      "get": {
+        "operationId": "getMetasearchFlights",
+        "summary": "Live flight prices for a metasearch partner",
+        "description": "Cheapest first, up to the partner's maximum. Totals are all-in for every traveller and match the website's price for a guest; each `deepLink` opens the itinerary at that price. 401 without a valid key, 429 above the partner's limits (see Retry-After).",
+        "tags": [
+          "Metasearch"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "origin",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            }
+          },
+          {
+            "name": "destination",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            }
+          },
+          {
+            "name": "departureDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "returnDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "adults",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "children",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "infants",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            }
+          },
+          {
+            "name": "cabin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "economy",
+              "type": "string",
+              "enum": [
+                "economy",
+                "premium_economy",
+                "business",
+                "first"
+              ]
+            }
+          },
+          {
+            "name": "directOnly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "X-Api-Key",
+            "in": "header",
+            "required": true,
+            "description": "The partner key from the console (`smk_…`). Never send it in a URL.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetasearchFlights"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/metasearch/landings": {
+      "post": {
+        "operationId": "createMetasearchLanding",
+        "summary": "Open a metasearch deep link: check the price again and quote the itinerary",
+        "description": "Finds the partner's itinerary in the current results, quotes it with the supplier and compares the total with the one the partner showed. Records the landing; a booking from `quoteId` is attributed to the partner. 404 for an altered or unknown link.",
+        "tags": [
+          "Metasearch"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetasearchLandingInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetasearchLanding"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
     "/v1/newsletter/confirm": {
       "post": {
         "operationId": "confirmNewsletter",
@@ -28458,6 +28955,202 @@
         },
         "required": [
           "rules"
+        ],
+        "additionalProperties": false
+      },
+      "AdminMetasearchPartner": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "keyHint": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "requestsPerMinute": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6000
+          },
+          "requestsPerDay": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000000
+          },
+          "maxResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "keyRotatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "code",
+          "keyHint",
+          "active",
+          "requestsPerMinute",
+          "requestsPerDay",
+          "maxResults",
+          "keyRotatedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminMetasearchPartnerKey": {
+        "type": "object",
+        "properties": {
+          "partner": {
+            "$ref": "#/components/schemas/AdminMetasearchPartner"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "partner",
+          "key"
+        ],
+        "additionalProperties": false
+      },
+      "AdminMetasearchReport": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "partners": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "partner": {
+                  "$ref": "#/components/schemas/AdminMetasearchPartner"
+                },
+                "landings": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "outcomes": {
+                  "type": "object",
+                  "properties": {
+                    "same": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "lower": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "higher": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "unavailable": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "expired": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "same",
+                    "lower",
+                    "higher",
+                    "unavailable",
+                    "expired"
+                  ],
+                  "additionalProperties": false
+                },
+                "priceAccuracyBps": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "linkSuccessBps": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "bookings": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "value": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Money"
+                  }
+                }
+              },
+              "required": [
+                "partner",
+                "landings",
+                "outcomes",
+                "priceAccuracyBps",
+                "linkSuccessBps",
+                "bookings",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "partners"
         ],
         "additionalProperties": false
       },
@@ -40989,6 +41682,444 @@
         ],
         "additionalProperties": false
       },
+      "MetasearchFlights": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "searchedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "itineraries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetasearchItinerary"
+            }
+          }
+        },
+        "required": [
+          "currency",
+          "searchedAt",
+          "complete",
+          "itineraries"
+        ],
+        "additionalProperties": false
+      },
+      "MetasearchItinerary": {
+        "type": "object",
+        "properties": {
+          "slices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "origin": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 3
+                },
+                "destination": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 3
+                },
+                "departureLocal": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+                },
+                "arrivalLocal": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+                },
+                "durationMinutes": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "stops": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "segments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "marketingCarrier": {
+                        "$ref": "#/components/schemas/Carrier"
+                      },
+                      "operatingCarrier": {
+                        "$ref": "#/components/schemas/Carrier"
+                      },
+                      "flightNumber": {
+                        "type": "string"
+                      },
+                      "origin": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 3
+                      },
+                      "destination": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 3
+                      },
+                      "departureLocal": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+                      },
+                      "departureUtc": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "arrivalLocal": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+                      },
+                      "arrivalUtc": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "durationMinutes": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "aircraft": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "marketingCarrier",
+                      "operatingCarrier",
+                      "flightNumber",
+                      "origin",
+                      "destination",
+                      "departureLocal",
+                      "departureUtc",
+                      "arrivalLocal",
+                      "arrivalUtc",
+                      "durationMinutes",
+                      "aircraft"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "origin",
+                "destination",
+                "departureLocal",
+                "arrivalLocal",
+                "durationMinutes",
+                "stops",
+                "segments"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cabinClass": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "fareBrand": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baggage": {
+            "type": "object",
+            "properties": {
+              "carryOn": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "checked": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "carryOn",
+              "checked"
+            ],
+            "additionalProperties": false
+          },
+          "refundable": {
+            "type": "boolean"
+          },
+          "changeable": {
+            "type": "boolean"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deepLink": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "slices",
+          "cabinClass",
+          "fareBrand",
+          "baggage",
+          "refundable",
+          "changeable",
+          "total",
+          "validUntil",
+          "deepLink"
+        ],
+        "additionalProperties": false
+      },
+      "MetasearchLanding": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "same",
+              "lower",
+              "higher",
+              "unavailable",
+              "expired"
+            ]
+          },
+          "partner": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "quoteId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shown": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlightOffer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "slices": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "origin": {
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 3
+                    },
+                    "destination": {
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 3
+                    },
+                    "departureDate": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "origin",
+                    "destination",
+                    "departureDate"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "passengers": {
+                "type": "object",
+                "properties": {
+                  "adults": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "children": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "infants": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "adults",
+                  "children",
+                  "infants"
+                ],
+                "additionalProperties": false
+              },
+              "cabinClass": {
+                "type": "string",
+                "enum": [
+                  "economy",
+                  "premium_economy",
+                  "business",
+                  "first"
+                ]
+              },
+              "directOnly": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "slices",
+              "passengers",
+              "cabinClass",
+              "directOnly"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "outcome",
+          "partner",
+          "quoteId",
+          "shown",
+          "current",
+          "offer",
+          "request"
+        ],
+        "additionalProperties": false
+      },
+      "MetasearchLandingInputInput": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "MetasearchPartnerInputInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,31}$"
+          },
+          "requestsPerMinute": {
+            "default": 60,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6000
+          },
+          "requestsPerDay": {
+            "default": 20000,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000000
+          },
+          "maxResults": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "name",
+          "code"
+        ]
+      },
+      "MetasearchPartnerPatchInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "requestsPerMinute": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6000
+          },
+          "requestsPerDay": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000000
+          },
+          "maxResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        }
+      },
       "MfaChallenge": {
         "type": "object",
         "properties": {
@@ -46728,6 +47859,11 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "metasearch-landings": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -46759,7 +47895,8 @@
           "partner-conversions",
           "rejected-reviews",
           "company-invitations",
-          "ad-conversions"
+          "ad-conversions",
+          "metasearch-landings"
         ],
         "additionalProperties": false
       },

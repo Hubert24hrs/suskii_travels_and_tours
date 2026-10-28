@@ -1029,6 +1029,17 @@ describe('admin audit coverage (e2e)', () => {
     );
   });
 
+  it('metasearch partners: create, change and rotate the key', async () => {
+    const created = await audited('adminCreateMetasearchPartner', {}, (request) =>
+      request.send({ name: 'Audit Meta', code: 'audit-meta' }),
+    );
+    const id = (created.body.partner as { id: string }).id;
+    await audited('adminUpdateMetasearchPartner', { partnerId: id }, (request) =>
+      request.send({ requestsPerMinute: 30, active: false }),
+    );
+    await audited('adminRotateMetasearchKey', { partnerId: id }, none);
+  });
+
   it('covered every admin mutation', () => {
     const missing = MUTATIONS.map((op) => op.operationId).filter((id) => !covered.has(id));
     expect(missing).toEqual([]);

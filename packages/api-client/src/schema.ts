@@ -970,6 +970,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/metasearch/partners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metasearch partners with 30 days of landings, price accuracy and bookings
+         * @description Price accuracy: same or lower among landings that found the flight. Link success: landings that found the flight among all. Booking values are per currency and never converted.
+         */
+        get: operations["adminGetMetasearchReport"];
+        put?: never;
+        /**
+         * Add a metasearch partner and issue its key
+         * @description The key is in this answer only; the API keeps an HMAC of it.
+         */
+        post: operations["adminCreateMetasearchPartner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/metasearch/partners/{partnerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a partner's name or limits, or switch its access off or on */
+        patch: operations["adminUpdateMetasearchPartner"];
+        trace?: never;
+    };
+    "/v1/admin/metasearch/partners/{partnerId}/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace a partner's key
+         * @description The old key stops working at once. The new key is in this answer only.
+         */
+        post: operations["adminRotateMetasearchKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/package-departures/{id}": {
         parameters: {
             query?: never;
@@ -5270,6 +5331,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/metasearch/flights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live flight prices for a metasearch partner
+         * @description Cheapest first, up to the partner's maximum. Totals are all-in for every traveller and match the website's price for a guest; each `deepLink` opens the itinerary at that price. 401 without a valid key, 429 above the partner's limits (see Retry-After).
+         */
+        get: operations["getMetasearchFlights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/metasearch/landings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a metasearch deep link: check the price again and quote the itinerary
+         * @description Finds the partner's itinerary in the current results, quotes it with the supplier and compares the total with the one the partner showed. Records the landing; a booking from `quoteId` is attributed to the partner. 404 for an altered or unknown link.
+         */
+        post: operations["createMetasearchLanding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/newsletter/confirm": {
         parameters: {
             query?: never;
@@ -6666,6 +6767,48 @@ export interface components {
         };
         AdminMarkupRuleList: {
             rules: components["schemas"]["AdminMarkupRule"][];
+        };
+        AdminMetasearchPartner: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            code: string;
+            keyHint: string;
+            active: boolean;
+            requestsPerMinute: number;
+            requestsPerDay: number;
+            maxResults: number;
+            /** Format: date-time */
+            keyRotatedAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminMetasearchPartnerKey: {
+            partner: components["schemas"]["AdminMetasearchPartner"];
+            key: string;
+        };
+        AdminMetasearchReport: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            partners: {
+                partner: components["schemas"]["AdminMetasearchPartner"];
+                landings: number;
+                outcomes: {
+                    same: number;
+                    lower: number;
+                    higher: number;
+                    unavailable: number;
+                    expired: number;
+                };
+                priceAccuracyBps: number | null;
+                linkSuccessBps: number | null;
+                bookings: number;
+                value: components["schemas"]["Money"][];
+            }[];
         };
         AdminPartnerSummary: {
             range: {
@@ -9177,6 +9320,98 @@ export interface components {
                 endsAt: string;
             } | null;
         };
+        MetasearchFlights: {
+            currency: string;
+            /** Format: date-time */
+            searchedAt: string;
+            complete: boolean;
+            itineraries: components["schemas"]["MetasearchItinerary"][];
+        };
+        MetasearchItinerary: {
+            slices: {
+                origin: string;
+                destination: string;
+                departureLocal: string;
+                arrivalLocal: string;
+                durationMinutes: number;
+                stops: number;
+                segments: {
+                    marketingCarrier: components["schemas"]["Carrier"];
+                    operatingCarrier: components["schemas"]["Carrier"];
+                    flightNumber: string;
+                    origin: string;
+                    destination: string;
+                    departureLocal: string;
+                    /** Format: date-time */
+                    departureUtc: string;
+                    arrivalLocal: string;
+                    /** Format: date-time */
+                    arrivalUtc: string;
+                    durationMinutes: number;
+                    aircraft: string | null;
+                }[];
+            }[];
+            /** @enum {string} */
+            cabinClass: "economy" | "premium_economy" | "business" | "first";
+            fareBrand: string | null;
+            baggage: {
+                carryOn: number;
+                checked: number;
+            };
+            refundable: boolean;
+            changeable: boolean;
+            total: components["schemas"]["Money"];
+            /** Format: date-time */
+            validUntil: string;
+            /** Format: uri */
+            deepLink: string;
+        };
+        MetasearchLanding: {
+            /** @enum {string} */
+            outcome: "same" | "lower" | "higher" | "unavailable" | "expired";
+            partner: {
+                name: string;
+            };
+            quoteId: string | null;
+            shown: components["schemas"]["Money"];
+            current: components["schemas"]["Money"] | null;
+            offer: components["schemas"]["FlightOffer"] | null;
+            request: {
+                slices: {
+                    origin: string;
+                    destination: string;
+                    departureDate: string;
+                }[];
+                passengers: {
+                    adults: number;
+                    children: number;
+                    infants: number;
+                };
+                /** @enum {string} */
+                cabinClass: "economy" | "premium_economy" | "business" | "first";
+                directOnly: boolean;
+            };
+        };
+        MetasearchLandingInputInput: {
+            token: string;
+        };
+        MetasearchPartnerInputInput: {
+            name: string;
+            code: string;
+            /** @default 60 */
+            requestsPerMinute?: number;
+            /** @default 20000 */
+            requestsPerDay?: number;
+            /** @default 50 */
+            maxResults?: number;
+        };
+        MetasearchPartnerPatchInput: {
+            name?: string;
+            active?: boolean;
+            requestsPerMinute?: number;
+            requestsPerDay?: number;
+            maxResults?: number;
+        };
         MfaChallenge: {
             /** @constant */
             status: "mfa_required";
@@ -10300,6 +10535,7 @@ export interface components {
             "rejected-reviews": number;
             "company-invitations": number;
             "ad-conversions": number;
+            "metasearch-landings": number;
         };
         ReviewInvitationRun: {
             planned: number;
@@ -13538,6 +13774,134 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetMetasearchReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMetasearchReport"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreateMetasearchPartner: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetasearchPartnerInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMetasearchPartnerKey"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateMetasearchPartner: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                partnerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetasearchPartnerPatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMetasearchPartner"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRotateMetasearchKey: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                partnerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMetasearchPartnerKey"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -21646,6 +22010,80 @@ export interface operations {
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+        };
+    };
+    getMetasearchFlights: {
+        parameters: {
+            query: {
+                origin: string;
+                destination: string;
+                departureDate: string;
+                returnDate?: string;
+                adults?: number;
+                children?: number;
+                infants?: number;
+                cabin?: "economy" | "premium_economy" | "business" | "first";
+                directOnly?: "true" | "false";
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+                limit?: number;
+            };
+            header: {
+                /** @description The partner key from the console (`smk_…`). Never send it in a URL. */
+                "X-Api-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetasearchFlights"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    createMetasearchLanding: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetasearchLandingInputInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetasearchLanding"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     confirmNewsletter: {
