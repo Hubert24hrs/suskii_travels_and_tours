@@ -55,6 +55,8 @@ export const PERSONAS = {
   prime: { roles: ['finance'], enrolled: true },
   /** Answers a traveller's support conversation with a note and a reply (ADR-083). */
   supportAgent: { roles: ['support'], enrolled: true },
+  /** Opens, updates and resolves a status page incident (ADR-087). */
+  statusAgent: { roles: ['operations'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
