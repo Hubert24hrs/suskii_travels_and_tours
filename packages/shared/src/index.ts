@@ -599,3 +599,13 @@ export {
   type CompanyInvitationInput,
   type TravelPolicyInput,
 } from './companies-schemas';
+export {
+  AD_CLICK_COOKIES,
+  AD_CONVERSION_MAX_ATTEMPTS,
+  AD_EVENTS,
+  AD_NETWORKS,
+  TIKTOK_CLICK_PARAM,
+  type AdEvent,
+  type AdNetwork,
+} from './ad-tracking';
+export { marketingAttributionSchema, type MarketingAttribution } from './ad-tracking-schemas';
