@@ -5,10 +5,13 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { preconnect } from 'react-dom';
 
+import { ConsentGate } from '../components/cookies/consent-gate';
 import { ErrorReporting } from '../components/error-reporting';
 import { SiteFooter } from '../components/layout/site-footer';
 import { SiteHeader, UtilityBar } from '../components/layout/site-header';
+import { AdTags } from '../components/marketing/ad-tags';
 import { WebVitalsReporter } from '../components/web-vitals-reporter';
+import { adTagConfig, adTagsOn } from '../lib/ad-tags';
 import { api } from '../lib/api';
 import { publicEnv } from '../lib/env';
 import { getI18n, type ErrorMessages } from '../lib/i18n';
@@ -45,6 +48,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   preconnect(new URL(publicEnv.apiBaseUrl).origin, { crossOrigin: 'use-credentials' });
   const site = await api.site(locale);
   const errorMessages: ErrorMessages = { pages: { error: messages.pages.error } };
+  const adTags = adTagConfig();
   return (
     <html
       lang={locale}
@@ -69,6 +73,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <SiteFooter site={site} />
         <WebVitalsReporter />
         <ErrorReporting />
+        {adTagsOn(adTags) ? (
+          <>
+            <AdTags config={adTags} />
+            <ConsentGate labels={messages.cookies} />
+          </>
+        ) : null}
       </body>
     </html>
   );

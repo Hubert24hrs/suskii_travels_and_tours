@@ -21,6 +21,9 @@ import { Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
+import { marketingAttribution } from '../../lib/ad-attribution';
+import { trackAd } from '../../lib/ad-events';
+import { adValue } from '../../lib/ad-value';
 import { bookingHeaders, saveBookingToken } from '../../lib/booking-token';
 import { browserApi, idempotencyKey, problemSlug, type Schemas } from '../../lib/browser-api';
 import { searchAgainHref } from '../../lib/search-links';
@@ -114,6 +117,12 @@ const DETAIL_FIELDS: Record<string, DetailField> = {
 };
 
 const normaliseFlightNumber = (value: string): string => value.trim().toUpperCase();
+
+/** The booking's ad attribution, when the visitor allowed marketing (ADR-079). */
+function withMarketing(): { marketing?: NonNullable<ReturnType<typeof marketingAttribution>> } {
+  const marketing = marketingAttribution();
+  return marketing ? { marketing } : {};
+}
 
 function checkAddonDetails(
   fields: readonly DetailField[],
@@ -212,6 +221,11 @@ export function Checkout({
         if (data) {
           setPhase({ kind: 'ready', quote: data });
           setDraft(draftFor(data));
+          const price = data.flight?.offer.price ?? data.hotel?.rate.price ?? data.price;
+          trackAd('InitiateCheckout', {
+            ...(price ? adValue(price.total) : {}),
+            contentIds: [data.vertical],
+          });
         } else if (response.status === 410) {
           const request = (error as { request?: unknown } | undefined)?.request;
           setPhase({ kind: 'expired', searchHref: searchAgainHref(request) });
@@ -491,6 +505,8 @@ export function Checkout({
         locale,
         turnstileToken: token.current,
         ...(company !== null && forCompany ? { company: true } : {}),
+        // Only with marketing consent; the API re-checks the recorded choice (ADR-079).
+        ...withMarketing(),
       };
       const serialised = JSON.stringify(body);
       if (createKey.current?.body !== serialised)

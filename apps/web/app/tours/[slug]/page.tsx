@@ -11,6 +11,7 @@ import { Container } from '../../../components/layout/container';
 import { ProductReviews } from '../../../components/reviews/product-reviews';
 import { api } from '../../../lib/api';
 import { getI18n } from '../../../lib/i18n';
+import { TrackAd } from '../../../components/marketing/ad-tags';
 import { travellerQuery, travellersFrom } from '../../../lib/inhouse-query';
 import type { SearchParams } from '../../../lib/search-initial';
 import { pageMetadata } from '../../../lib/seo';
@@ -93,6 +94,7 @@ export default async function TourPage({ params, searchParams }: Props) {
             items={item.exclusions}
           />
           <PolicyTiers tiers={item.cancellationPolicy} />
+          <TrackAd event="ViewContent" params={{ contentIds: ['tours'] }} />
           <ProductReviews
             kind="tour"
             id={item.id}

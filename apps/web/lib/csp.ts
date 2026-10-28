@@ -10,6 +10,8 @@ export interface CspOptions {
   upgradeInsecureRequests: boolean;
   /** Where error reports go (the Sentry DSN's origin), when reporting is on (ADR-046). */
   errorReportOrigin?: string | undefined;
+  /** The ad networks' event and pixel hosts, only for configured networks (ADR-079). */
+  adOrigins?: { connect: readonly string[]; img: readonly string[] };
 }
 
 /**
@@ -28,7 +30,14 @@ export function buildCsp(options: CspOptions): string {
       ...(options.development ? ["'unsafe-eval'"] : []),
     ],
     ['style-src', "'self'", "'unsafe-inline'"],
-    ['img-src', "'self'", 'data:', 'blob:', ...(options.imageOrigins ?? [])],
+    [
+      'img-src',
+      "'self'",
+      'data:',
+      'blob:',
+      ...(options.imageOrigins ?? []),
+      ...(options.adOrigins?.img ?? []),
+    ],
     ['font-src', "'self'"],
     [
       'connect-src',
@@ -36,6 +45,7 @@ export function buildCsp(options: CspOptions): string {
       options.apiOrigin,
       TURNSTILE_ORIGIN,
       ...(options.errorReportOrigin ? [options.errorReportOrigin] : []),
+      ...(options.adOrigins?.connect ?? []),
     ],
     ['frame-src', TURNSTILE_ORIGIN],
     ['object-src', "'none'"],

@@ -4,6 +4,7 @@ import { Button, Card, Input } from '@suskii/ui-web';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { trackAd } from '../../lib/ad-events';
 import { browserApi, isRejectedPassword, problemSlug, type Schemas } from '../../lib/browser-api';
 import { rememberSession } from '../../lib/session';
 import { AppLink } from '../app-link';
@@ -327,6 +328,7 @@ export function RegisterForm({
         },
       });
       if (response.ok) {
+        trackAd('CompleteRegistration');
         // Signing in needs no confirmed email, so a new account goes straight in. An address
         // that already had an account keeps its own password: say so instead.
         const signedIn = await browserApi().POST('/v1/auth/login', {

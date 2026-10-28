@@ -11,6 +11,8 @@ import { Badge, Button, Card, type BadgeProps } from '@suskii/ui-web';
 import { Download } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { trackAd } from '../../lib/ad-events';
+import { adValue } from '../../lib/ad-value';
 import { adoptAccessLink, bookingHeaders } from '../../lib/booking-token';
 import { browserApi, idempotencyKey, problemSlug, type Schemas } from '../../lib/browser-api';
 import { searchAgainHref } from '../../lib/search-links';
@@ -67,6 +69,8 @@ const helpKey = (status: BookingStatus): HelpKey =>
 const inProgress = (status: BookingStatus): boolean =>
   BOOKING_IN_PROGRESS_STATUSES.includes(status);
 const ON_PLAN: readonly BookingStatus[] = ['HELD', 'PARTIALLY_PAID'];
+/** Paid in full: what counts as a purchase for the ad networks (ADR-079). */
+const PURCHASED: readonly BookingStatus[] = ['PAID', 'TICKETING', 'CONFIRMED'];
 /** Trips that are going ahead get partner offers (transfers, a car, an eSIM, insurance, tours). */
 const PARTNER_STATUSES: readonly BookingStatus[] = [
   'PAID',
@@ -133,6 +137,8 @@ export function BookingView({ bookingId }: { bookingId: string }) {
   const [downloadError, setDownloadError] = useState(false);
   const [method, setMethod] = useState<PaymentMethodName | null>(null);
   const started = useRef<number | null>(null);
+  // The Purchase is reported once per booking and page, when the booking is first seen paid.
+  const purchaseReported = useRef<string | null>(null);
 
   /** Reloads after an action; polling restarts its clock because the action may start work. */
   const reload = () => {
@@ -160,6 +166,15 @@ export function BookingView({ bookingId }: { bookingId: string }) {
           return;
         }
         setPhase({ kind: 'ready', booking: data });
+        if (PURCHASED.includes(data.status) && purchaseReported.current !== data.id) {
+          purchaseReported.current = data.id;
+          // Same event id as the server-side copy, so each network keeps one (ADR-079).
+          trackAd('Purchase', {
+            ...adValue(data.price.total),
+            contentIds: [data.vertical],
+            eventId: data.id,
+          });
+        }
         const elapsed = Date.now() - (started.current ?? Date.now());
         setSlow(inProgress(data.status) && elapsed > SLOW_AFTER_MS);
         if (shouldPoll(data) && elapsed < STOP_AFTER_MS)

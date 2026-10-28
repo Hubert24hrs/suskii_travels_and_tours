@@ -8,6 +8,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { trackAd } from '../../lib/ad-events';
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { handedFlightSearch, searchKey as handoffKey } from '../../lib/search-handoff';
 import { NativeSelect } from '../search/native-select';
@@ -128,6 +129,12 @@ export function FlightResults({
   const [showFilters, setShowFilters] = useState(false);
   const travellers =
     request.passengers.adults + request.passengers.children + request.passengers.infants;
+  // Airport codes only: the ad networks learn the route, never who searched (ADR-079).
+  const route = request.slices.map((slice) => `${slice.origin}-${slice.destination}`).join(',');
+
+  useEffect(() => {
+    trackAd('Search', { contentIds: ['flights'], search: route });
+  }, [route]);
 
   // Fetched state is keyed by its inputs, so a new search or filter shows its own loading state
   // without resetting state inside effects.

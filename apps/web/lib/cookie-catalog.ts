@@ -17,7 +17,8 @@ export interface CookieEntry {
 /**
  * Every cookie and storage key the website sets (ADR-042). The cookie settings dialog renders
  * this list and `e2e/cookies.spec.ts` fails when the site stores something missing from it.
- * Adding an optional entry also needs a new COOKIE_POLICY_VERSION and the first-visit prompt.
+ * A new optional entry needs a new COOKIE_POLICY_VERSION (the first-visit prompt shows while an
+ * ad tag is configured, ADR-079).
  */
 export const COOKIE_CATALOG: readonly CookieEntry[] = [
   {
@@ -122,6 +123,63 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
     category: 'necessary',
     provider: 'suskii',
     purpose: 'companyInvite',
+    duration: 'tab',
+  },
+  // Marketing (ADR-079): set only after the visitor allows it, by the networks' tags.
+  {
+    name: '_fbp',
+    kind: 'cookie',
+    category: 'marketing',
+    provider: 'meta',
+    purpose: 'fbp',
+    duration: 'ninetyDays',
+  },
+  {
+    name: '_fbc',
+    kind: 'cookie',
+    category: 'marketing',
+    provider: 'meta',
+    purpose: 'fbc',
+    duration: 'ninetyDays',
+  },
+  {
+    name: '_ttp',
+    kind: 'cookie',
+    category: 'marketing',
+    provider: 'tiktok',
+    purpose: 'ttp',
+    duration: 'thirteenMonths',
+  },
+  {
+    name: '_tt_enable_cookie',
+    kind: 'cookie',
+    category: 'marketing',
+    provider: 'tiktok',
+    purpose: 'ttEnable',
+    duration: 'thirteenMonths',
+  },
+  {
+    name: 'ttcsid*',
+    kind: 'cookie',
+    category: 'marketing',
+    provider: 'tiktok',
+    purpose: 'ttSession',
+    duration: 'thirteenMonths',
+  },
+  {
+    name: 'tt_*',
+    kind: 'sessionStorage',
+    category: 'marketing',
+    provider: 'tiktok',
+    purpose: 'ttSession',
+    duration: 'tab',
+  },
+  {
+    name: 'suskii:ttclid',
+    kind: 'sessionStorage',
+    category: 'marketing',
+    provider: 'suskii',
+    purpose: 'ttclid',
     duration: 'tab',
   },
   {
