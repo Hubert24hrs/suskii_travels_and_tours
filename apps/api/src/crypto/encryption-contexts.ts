@@ -35,3 +35,8 @@ export const rentalPhotoKeyContext = (photoId: string): string => `rental-photo:
 export const partnerLinkContext = (): string => 'partner-link';
 // Metasearch deep links (ADR-081): not stored, sealed so the price and partner cannot be altered.
 export const metasearchLinkContext = (): string => 'metasearch-link';
+// Support conversations (ADR-083): message bodies and a guest's email for reply notices.
+export const supportMessageContext = (messageId: string): string =>
+  `support-message:${messageId}:body`;
+export const supportEmailContext = (conversationId: string): string =>
+  `support-conversation:${conversationId}:email`;

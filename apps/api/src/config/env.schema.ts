@@ -1,4 +1,4 @@
-import { parseDsn } from '@suskii/shared';
+import { parseDsn, type SupportTargets } from '@suskii/shared';
 import { z } from 'zod';
 
 const booleanish = z
@@ -31,6 +31,13 @@ const csv = <T extends z.ZodType<unknown, string>>(item: T) =>
     .pipe(z.array(item));
 
 const originOf = (url: string): string => new URL(url).origin;
+
+/** Support targets per priority in minutes (ADR-083), until SUPPORT_SLA says otherwise. */
+export const DEFAULT_SUPPORT_SLA: SupportTargets = {
+  urgent: { responseMinutes: 15, resolutionMinutes: 240 },
+  prime: { responseMinutes: 30, resolutionMinutes: 480 },
+  normal: { responseMinutes: 120, resolutionMinutes: 1_440 },
+};
 
 /** Prefix of the local development internal token in .env.example; refused in production. */
 export const LOCAL_INTERNAL_TOKEN_PREFIX = 'local-dev-only-';
@@ -464,6 +471,33 @@ export const envSchema = z
     PRIME_REMINDER_DAYS: z.coerce.number().int().min(1).max(60).default(7),
     /** A finished trip can be reviewed for this many days after it ends (ADR-077). */
     REVIEW_WINDOW_DAYS: z.coerce.number().int().min(7).max(365).default(90),
+    /** A support conversation about a trip starting within this many hours is urgent (ADR-083). */
+    SUPPORT_URGENT_HOURS: z.coerce.number().int().min(1).max(168).default(48),
+    /**
+     * Support targets per priority (ADR-083): `priority=reply/resolution` in minutes, e.g.
+     * `urgent=15/240`. Priorities left out keep their defaults.
+     */
+    SUPPORT_SLA: csv(
+      z
+        .string()
+        .regex(
+          /^(urgent|prime|normal)=\d{1,5}\/\d{1,6}$/,
+          'use priority=replyMinutes/resolutionMinutes',
+        )
+        .transform((rule) => {
+          const [priority = '', minutes = ''] = rule.split('=');
+          const [reply = '0', resolution = '0'] = minutes.split('/');
+          return [
+            priority,
+            { responseMinutes: Number(reply), resolutionMinutes: Number(resolution) },
+          ] as const;
+        }),
+    )
+      .transform((rules): SupportTargets => ({
+        ...DEFAULT_SUPPORT_SLA,
+        ...Object.fromEntries(rules),
+      }))
+      .default(DEFAULT_SUPPORT_SLA),
     /**
      * Referral rewards (ADR-031), in minor units of REFERRAL_REWARD_CURRENCY; zero pays nothing
      * (referrals are still tracked). A referral qualifies on a completed trip of at least

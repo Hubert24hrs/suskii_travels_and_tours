@@ -42,6 +42,7 @@ export const EXPORT_SECTIONS = [
   'rentals',
   'reviews',
   'company',
+  'support',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -62,7 +63,7 @@ export type Retention =
   | { kind: 'reference' }
   | { kind: 'rule'; rule: RetentionRule }
   | { kind: 'job'; job: 'visa-documents-prune' | 'snapshots-prune' | 'push-tokens-prune' }
-  | { kind: 'parent'; parent: 'Session' | 'Booking' }
+  | { kind: 'parent'; parent: 'Session' | 'Booking' | 'SupportConversation' }
   | { kind: 'append-only' };
 
 export interface DataTreatment {
@@ -608,6 +609,19 @@ export const DATA_REGISTRY = {
     deletion: 'delete',
     retention: { kind: 'rule', rule: 'ad-conversions' },
     note: "A consented booking's server-side Purchase event (ADR-079): the consent id, the ad networks' click ids until it is sent or given up, and its status. Deleted with the account; purged 30 days after the booking.",
+  },
+  // --- Support conversations (ADR-083) -------------------------------------------------------
+  SupportConversation: {
+    section: 'support',
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'support-conversations' },
+    note: "A traveller's support conversation: category, priority, status, SLA times, the booking it is about, and a guest's email (encrypted) or token HMAC. Deleted with the account; resolved ones purged two years after their last change.",
+  },
+  SupportMessage: {
+    section: 'support',
+    deletion: 'delete',
+    retention: { kind: 'parent', parent: 'SupportConversation' },
+    note: 'Messages of a support conversation (bodies encrypted per message). The export holds what the traveller and staff wrote to each other, never internal notes or staff names.',
   },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 

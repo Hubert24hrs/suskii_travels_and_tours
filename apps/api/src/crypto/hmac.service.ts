@@ -35,7 +35,10 @@ export type HmacPurpose =
   // Company invitations (ADR-078): the single-use token and the invited address.
   | 'company-invitation'
   | 'company-invitation-email'
-  | 'metasearch-key';
+  | 'metasearch-key'
+  // Support conversations (ADR-083): a guest's access token and emailed link tokens.
+  | 'support-access'
+  | 'support-link';
 
 const PURPOSES: readonly HmacPurpose[] = [
   'ip',
@@ -63,6 +66,8 @@ const PURPOSES: readonly HmacPurpose[] = [
   'company-invitation',
   'company-invitation-email',
   'metasearch-key',
+  'support-access',
+  'support-link',
 ];
 const HKDF_SALT = 'suskii-api:hmac:v1';
 

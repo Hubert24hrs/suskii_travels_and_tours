@@ -19,6 +19,8 @@ import {
   rentalLicenceNumberContext,
   rentalPhotoKeyContext,
   ridePinContext,
+  supportEmailContext,
+  supportMessageContext,
   voucherContext,
 } from './encryption-contexts';
 import type { FieldEncryption } from './field-encryption';
@@ -90,6 +92,20 @@ export const ENCRYPTED_FIELDS: readonly EncryptedField[] = [
     contextColumn: 'id',
     context: noteContext,
     purpose: 'Staff note on a booking',
+  },
+  {
+    table: 'support_messages',
+    column: 'body_encrypted',
+    contextColumn: 'id',
+    context: supportMessageContext,
+    purpose: 'Support message (traveller, staff or internal note)',
+  },
+  {
+    table: 'support_conversations',
+    column: 'email_encrypted',
+    contextColumn: 'id',
+    context: supportEmailContext,
+    purpose: "A guest's email for support reply notices",
   },
   {
     table: 'push_tokens',

@@ -9,8 +9,9 @@ import {
   driverLicenceContext,
   driverNinContext,
   driverPayoutContext,
-  rentalLicenceNumberContext,
   emergencyContactContext,
+  rentalLicenceNumberContext,
+  supportMessageContext,
 } from '../crypto/encryption-contexts';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { PrismaService } from '../infra/prisma.service';
@@ -372,6 +373,7 @@ export class DataExportService {
       rentals: await this.rentals(userId),
       reviews: await this.reviews(userId),
       company: await this.company(userId),
+      support: await this.support(userId),
     };
 
     return {
@@ -519,6 +521,32 @@ export class DataExportService {
     return member
       ? { company: member.company, role: member.role, joinedAt: iso(member.createdAt) }
       : null;
+  }
+
+  /**
+   * Support conversations (ADR-083): what the traveller and staff wrote to each other. Internal
+   * notes and which staff member answered stay out.
+   */
+  private async support(userId: string): Promise<unknown> {
+    const rows = await this.prisma.supportConversation.findMany({
+      where: { userId },
+      include: { messages: { where: { internal: false }, orderBy: { id: 'asc' } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      reference: row.reference,
+      bookingId: row.bookingId,
+      category: row.category,
+      status: row.status,
+      channel: row.channel,
+      createdAt: iso(row.createdAt),
+      resolvedAt: iso(row.resolvedAt),
+      messages: row.messages.map((message) => ({
+        from: message.author,
+        sentAt: iso(message.createdAt),
+        text: this.encryption.decrypt(message.bodyEncrypted, supportMessageContext(message.id)),
+      })),
+    }));
   }
 
   /** Verified reviews (ADR-077): what was written, about what, and where moderation stands. */
