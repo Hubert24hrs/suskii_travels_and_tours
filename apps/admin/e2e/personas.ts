@@ -49,6 +49,8 @@ export const PERSONAS = {
   companyOwner: { roles: [], enrolled: false },
   /** Suspends and reinstates the company (step-up). */
   companyStaff: { roles: ['super_admin'], enrolled: true },
+  /** Adds a metasearch partner and replaces its key (step-up, ADR-081). */
+  metasearch: { roles: ['finance'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
