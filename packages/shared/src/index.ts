@@ -612,3 +612,5 @@ export {
   type MarketingAttribution,
 } from './ad-tracking';
 export { marketingAttributionSchema } from './ad-tracking-schemas';
+
+export { citySlug } from './slug';

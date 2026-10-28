@@ -1,4 +1,4 @@
-import { citySlug, daysBefore, summariseFares, type FareRow } from './route-facts';
+import { daysBefore, summariseFares, type FareRow } from './route-facts';
 
 const TODAY = new Date('2026-10-28T09:00:00Z');
 
@@ -87,14 +87,5 @@ describe('summariseFares', () => {
   it('marks facts built from sample fares', () => {
     const rows = [fare(0, 1), fare(1, 1), fare(2, 1, { supplier: 'mock' })];
     expect(summariseFares(rows, TODAY, 3)?.sample).toBe(true);
-  });
-});
-
-describe('citySlug', () => {
-  it('makes URL slugs from city names', () => {
-    expect(citySlug('Lagos')).toBe('lagos');
-    expect(citySlug('Port Harcourt')).toBe('port-harcourt');
-    expect(citySlug('São Tomé')).toBe('sao-tome');
-    expect(citySlug("  N'Djamena ")).toBe('n-djamena');
   });
 });

@@ -9,7 +9,7 @@ import {
 
 import { intlLocale } from './translator';
 
-export type DateStyle = 'short' | 'medium' | 'long' | 'weekday' | 'month';
+export type DateStyle = 'short' | 'medium' | 'long' | 'weekday' | 'month' | 'monthName';
 
 const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   short: { day: 'numeric', month: 'short' },
@@ -18,6 +18,8 @@ const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   weekday: { weekday: 'short', day: 'numeric', month: 'short' },
   /** A month on its own ("December 2026"); pass any day of it. */
   month: { month: 'long', year: 'numeric' },
+  /** A month's name alone ("December"); pass any day of it. */
+  monthName: { month: 'long' },
 };
 
 const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [

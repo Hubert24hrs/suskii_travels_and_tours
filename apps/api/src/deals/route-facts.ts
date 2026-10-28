@@ -130,13 +130,3 @@ export function summariseFares<Row extends FareRow>(
     updatedAt: new Date(Math.max(...window.map((row) => row.updatedAt.getTime()))),
   };
 }
-
-/** A city's URL slug: `Port Harcourt` → `port-harcourt`, accents dropped. */
-export function citySlug(name: string): string {
-  return name
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}

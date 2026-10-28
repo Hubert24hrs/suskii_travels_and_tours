@@ -327,3 +327,5 @@ export {
   type AdNetwork,
   type MarketingAttribution,
 } from './ad-tracking';
+
+export { citySlug } from './slug';
