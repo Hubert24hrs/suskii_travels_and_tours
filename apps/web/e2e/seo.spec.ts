@@ -1,4 +1,4 @@
-import { expect, t, test } from './fixtures';
+import { expect, expectNoAxeViolations, t, test } from './fixtures';
 
 test.describe('crawling and sharing', () => {
   test('publishes a sitemap with the landing, route and city pages', async ({ request }) => {
@@ -12,6 +12,8 @@ test.describe('crawling and sharing', () => {
       '/hotels',
       '/deals',
       '/flights/lagos-to-london',
+      '/flights/from/lagos',
+      '/flights/to/london',
       '/hotels/dubai',
     ])
       expect(xml).toMatch(new RegExp(`<loc>https?://[^<]+${path === '/' ? '/?' : path}</loc>`));
@@ -68,6 +70,60 @@ test.describe('crawling and sharing', () => {
   });
 });
 
+test.describe('SEO pages from fare history (ADR-080)', () => {
+  test('route pages say what the fare history shows and link to hubs and airlines', async ({
+    page,
+  }) => {
+    await page.goto('/flights/lagos-to-london');
+    const facts = page.getByTestId('route-facts');
+    await expect(facts.getByRole('heading', { name: t('pages.route.factsHeading') })).toBeVisible();
+    await expect(facts.getByTestId('fact-typical')).toContainText(t('pages.route.typical'));
+    await expect(facts.getByTestId('fact-cheapest')).toContainText(t('pages.route.cheapest'));
+    await expect(facts.getByTestId('fact-direct')).toBeVisible();
+    await expect(facts.getByTestId('fact-fastest')).toBeVisible();
+    // The stack runs the mock supplier: the facts are labelled as samples.
+    await expect(facts).toContainText(t('pages.route.sampleFacts'));
+    await expect(facts).toContainText(t('pages.route.factsNote'));
+
+    // Each airline has its own page with the routes it was seen on.
+    const airline = facts.getByRole('link').first();
+    const airlineName = ((await airline.textContent()) ?? '').trim();
+    await airline.click();
+    await page.waitForURL(/\/airlines\/[a-z0-9]{2}$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(airlineName);
+    await expect(
+      page
+        .getByTestId('airline-routes')
+        .getByRole('link', { name: 'Flights from Lagos to London' }),
+    ).toBeVisible();
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      /\/airlines\/[a-z0-9]{2}$/,
+    );
+
+    // Hubs both ways, linked from the route page and to each other.
+    await page.goto('/flights/lagos-to-london');
+    await page
+      .getByTestId('route-hub-links')
+      .getByRole('link', { name: t('pages.route.fromCity', { city: 'Lagos' }) })
+      .click();
+    await page.waitForURL(/\/flights\/from\/lagos$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      t('pages.hub.fromTitle', { city: 'Lagos' }),
+    );
+    const london = page
+      .getByTestId('hub-routes')
+      .getByRole('link', { name: 'Flights from Lagos to London' });
+    await expect(london).toBeVisible();
+    await page.getByRole('link', { name: t('pages.route.toCity', { city: 'Lagos' }) }).click();
+    await page.waitForURL(/\/flights\/to\/lagos$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      t('pages.hub.toTitle', { city: 'Lagos' }),
+    );
+    await expectNoAxeViolations(page);
+  });
+});
+
 test.describe('errors', () => {
   test.use({ allowedConsoleErrors: [/404/] });
 
@@ -82,6 +138,18 @@ test.describe('errors', () => {
     }
     await expect(page.getByRole('heading', { name: t('pages.notFound.heading') })).toBeVisible();
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  });
+
+  test('flight hubs and airline pages without routes answer 404', async ({ page }) => {
+    for (const path of [
+      '/flights/from/atlantis',
+      '/flights/to/atlantis',
+      '/airlines/zz',
+      '/airlines/k',
+    ]) {
+      const response = await page.goto(path);
+      expect(response?.status(), path).toBe(404);
+    }
   });
 });
 
