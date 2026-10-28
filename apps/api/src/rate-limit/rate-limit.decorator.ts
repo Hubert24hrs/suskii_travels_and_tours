@@ -93,6 +93,8 @@ export const BOOKING_LIMITS = {
   createIp: { name: 'booking-create-ip', limit: 20, windowSeconds: 600, by: 'ip' },
   createUser: { name: 'booking-create-user', limit: 20, windowSeconds: 600, by: 'user' },
   paymentIp: { name: 'booking-payment-ip', limit: 30, windowSeconds: 600, by: 'ip' },
+  /** The mock checkout page (never in production): viewing and paying are counted apart. */
+  mockPaymentViewIp: { name: 'mock-payment-view-ip', limit: 30, windowSeconds: 600, by: 'ip' },
   mockPaymentIp: { name: 'mock-payment-ip', limit: 30, windowSeconds: 600, by: 'ip' },
   /** Holds tie up airline inventory: a tighter budget against seat spinning (ADR-018). */
   holdIp: { name: 'booking-hold-ip', limit: 6, windowSeconds: 3600, by: 'ip' },
