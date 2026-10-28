@@ -83,14 +83,16 @@ number and approved template; part 3, an after-hours assistant that answers from
 traveller's booking (ADR-085), is built and waits for the owner's staffed hours, `LLM_API_KEY`
 and one run of the assistant eval. Item 10, Expedia Rapid hotels (ADR-086), is built and waits for
 the owner's Expedia Partner Solutions account, one sandbox run and certification
-(`docs/phases/expedia-rapid.md`). Item 12, an accessibility audit against WCAG 2.2 AA, is built
+(`docs/phases/expedia-rapid.md`). Item 11, 99.9% uptime and a status page, is built
+(`docs/phases/uptime.md`): objectives with burn-rate alerts, uptime checks from three regions,
+`GET /v1/status` and incidents in the console, on the website and in the app; it waits for the
+owner's on-call channel. Item 12, an accessibility audit against WCAG 2.2 AA, is built
 and checked in CI (`docs/phases/accessibility.md`, `docs/accessibility/wcag-2.2-aa.md`); the
 manual screen reader pass waits for devices and testers. Item 13, compliance, runs in two parts
 (`docs/phases/compliance.md`): part 1, payment pages that run only our scripts (PCI DSS SAQ A),
 the privacy obligations per country and a breach runbook, is built and waits for the owner's
 registrations and filings; part 2, rights request and breach registers with deadlines, alerts and
 records of processing generated from code, is built and waits for the owner's privacy officer.
-Item 11 is in review.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -837,6 +839,28 @@ Tooling notes for agents:
   change keeps the recorded eval at 40/40 and is re-run against the model
   (`eval:support-assistant`, `ai-eval.yml` suite `support-assistant`) before it ships.
 
+### Status page and availability (apps/api/src/status, ADR-087)
+
+- `GET /v1/status` is the only status source: `StatusService` measures every
+  `STATUS_CACHE_SECONDS` (30) and shares one answer through Redis; never compute component states
+  in a client. Components are `STATUS_COMPONENTS` (what a traveller does); never name a supplier
+  or payment provider on the page.
+- Each component is the worse of what is measured and what open incidents declare
+  (`impactState`, `worstState` in `@suskii/shared`). A new measured signal goes in
+  `measuredStates()` with a unit test; the answer must still come when Postgres or Redis cannot.
+- Circuit breakers mark an opened supplier in Redis (`markBreakerOpen`, two minutes) so every
+  instance agrees; a mark never fails a search.
+- Incidents change only through `StatusAdminService` (`status:manage`, audited with names only,
+  a conditional update claims the change, resolved ones take no updates) and clear the cache after
+  the commit. Incident text is public: no personal data, no author.
+- The website reads the status on the server (`api.status()`, revalidate 30) and renders
+  `/status` per request; never cache its HTML at the edge (CSP nonce). The banner adds no client
+  JavaScript and renders nothing when the API cannot answer. The app polls it while shown
+  (`useStatusQuery`) and shows nothing on a failed read.
+- Objectives and burn-rate alerts live in `infra/observability/alerts/suskii.slo.rules.yml` with
+  promtool tests; uptime checks in `infra/terraform/modules/monitoring`. A new paging alert names
+  a runbook (`observability.spec.ts` reads every rule file).
+
 ### AI trip search (phase 13, ADR-061)
 
 - The model only fills the flight form; it never searches, books or reads private data. Clients
@@ -1089,6 +1113,7 @@ Tooling notes for agents:
 - [ADR-084: WhatsApp as a support channel](docs/decisions/ADR-084-whatsapp-support-channel.md)
 - [ADR-085: After-hours support assistant](docs/decisions/ADR-085-after-hours-support-assistant.md)
 - [ADR-086: Expedia Rapid hotel adapter](docs/decisions/ADR-086-expedia-rapid-hotel-adapter.md)
+- [ADR-087: Availability objectives and the status page](docs/decisions/ADR-087-availability-objectives-and-status-page.md)
 - [ADR-088: WCAG 2.2 AA as the accessibility target](docs/decisions/ADR-088-wcag-2-2-aa-accessibility.md)
 - [ADR-089: Payment pages without third-party scripts, and privacy obligations per country](docs/decisions/ADR-089-payment-pages-and-privacy-obligations.md)
 
@@ -1213,7 +1238,11 @@ Expedia Rapid (ADR-086): an Expedia Partner Solutions account with sandbox crede
 (`EXPEDIA_RAPID_API_KEY` and `EXPEDIA_RAPID_SHARED_SECRET` as repository secrets, then one run of
 `partner-sandbox.yml`), confirmation of the commercial model (Expedia Collect rates resold under
 `affiliate_collect`, invoiced to Suskii) and the billing contact Expedia expects, the point of sale
-per market, and Expedia's certification before `expedia` is enabled in production. Added with
+per market, and Expedia's certification before `expedia` is enabled in production. Added with the
+status page (ADR-087): who receives uptime and burn-rate pages (`uptime_alert_emails` or the
+on-call tool's channel ids), the availability figure to promise partners and companies (99.9%
+suggested), whether to move the status page to a third-party host for independence from our
+platform, and who writes incident updates out of hours. Added with
 the accessibility audit (ADR-088): someone with iOS and Android devices to run the screen reader
 checklist (including landscape and the largest text size), the support contact and legal text for
 an accessibility statement page, and whether to commission an external audit before launch in

@@ -22,11 +22,10 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   `@StepUp()`.
 - **One catalog.** `ROLE_PERMISSIONS` (`packages/shared/src/rbac.ts`) maps the ten roles
   (`customer`, `super_admin`, `operations`, `finance`, `support`, `content_manager`,
-  `visa_officer`, `privacy_officer`, and the Cars roles `driver` and `operator_agent`) to 26
-  permissions. The seed
-  syncs it to the database for the console. Drivers and operator agents are not staff
-  (`NON_STAFF_ROLES`): no console, no MFA requirement, and their routes also check the record
-  (the driver assigned to a ride, the agent's operator) (ADR-049, ADR-050).
+  `visa_officer`, `privacy_officer`, and the Cars roles `driver` and `operator_agent`) to 27
+  permissions. The seed syncs it to the database for the console. Drivers and operator agents
+  are not staff (`NON_STAFF_ROLES`): no console, no MFA requirement, and their routes also check
+  the record (the driver assigned to a ride, the agent's operator) (ADR-049, ADR-050).
 - **Switched-off products.** A disabled Cars product (`CARS_*_ENABLED`) answers 404 on all its
   routes, before authentication (`CarsFeatureGuard`).
   AI trip search with `AI_SEARCH_ENABLED` off answers 404 on its parse route; its status route
@@ -64,6 +63,7 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Companies in the console (`/v1/admin/companies`)                                                 | Staff with `users:read` view; `users:manage` (super admins) suspends with step-up and reinstates; both audited                                                                                                                     |
 | Support conversations (`/v1/support/conversations/*`)                                            | The account's own, or a guest's with its access token or emailed link token (`X-Support-Token`); 404 for anyone else. A conversation about a booking needs access to that booking (owner session or booking token) (ADR-083)       |
 | Support inbox (`/v1/admin/support`)                                                              | Staff with `support:manage` (support staff, super admins); replies, notes and changes audited; internal notes never reach the traveller; only active staff holding `support:manage` can be assigned                                |
+| Status page incidents (`/v1/admin/status/incidents`)                                             | Staff with `status:manage` (operations, support, super admins); open, update and resolve are audited with names only; resolved incidents take no updates. `GET /v1/status` is public and carries no personal data                  |
 | WhatsApp webhook (`/v1/webhooks/whatsapp`)                                                       | Meta only: the verify token for the handshake, the app secret's signature on every delivery; replies to WhatsApp conversations go out only from the console (`support:manage`), never internal notes (ADR-084)                     |
 | Bus seat holds                                                                                   | The account that made it, or a guest with its hold token (an HMAC lookup); 404 for anyone else                                                                                                                                     |
 | Bus manifests and ticket scans                                                                   | Operator agents (`tickets:scan`) of the departure's own operator; other agents get 404 or `not_found`                                                                                                                              |

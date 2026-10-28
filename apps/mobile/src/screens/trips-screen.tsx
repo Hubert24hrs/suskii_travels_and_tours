@@ -6,6 +6,7 @@ import { useCallback } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { Loading, Notice, OfflineBanner } from '../components/states';
+import { StatusBanner } from '../components/status-banner';
 import { isNetworkError } from '../lib/api';
 import { todayIso } from '../lib/dates';
 import { summaryOf, tripStore, type BookingSummary } from '../lib/trips';
@@ -149,6 +150,7 @@ export function TripsScreen() {
     <View className="flex-1 bg-background">
       {trips.data.offline ? <OfflineBanner label={t('mobile.offline')} /> : null}
       <ScrollView testID="trips" contentContainerClassName="gap-4 p-4 pb-12">
+        <StatusBanner />
         {trips.data.trips.length === 0 ? (
           <Card className="gap-2 p-4">
             <Text accessibilityRole="header" className="font-heading text-h4 text-heading">

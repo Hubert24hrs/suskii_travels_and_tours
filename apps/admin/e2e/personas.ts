@@ -56,6 +56,8 @@ export const PERSONAS = {
   /** Answers a traveller's support conversation with a note and a reply (ADR-083). */
   supportAgent: { roles: ['support'], enrolled: true },
   whatsappAgent: { roles: ['support'], enrolled: true },
+  /** Opens, updates and resolves a status page incident (ADR-087). */
+  statusAgent: { roles: ['operations'], enrolled: true },
   /** Records a data rights request and a breach with its regulator notices (ADR-089). */
   privacyOfficer: { roles: ['privacy_officer'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;

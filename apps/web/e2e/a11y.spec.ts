@@ -44,6 +44,7 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
   ['buses', () => '/buses'],
   ['rentals', () => '/rentals'],
   ['help and support', () => '/support'],
+  ['service status', () => '/status'],
   ['sign in', () => '/sign-in'],
   ['register', () => '/register'],
   ['forgot password', () => '/forgot-password'],

@@ -57,6 +57,8 @@ export const RETENTION_RULES = [
   'support-conversations',
   'whatsapp-contacts',
   'supplier-customer-ip',
+  // Status page incidents (ADR-087).
+  'status-incidents',
   // The data rights request and breach registers (ADR-089).
   'privacy-requests',
   'privacy-breaches',
@@ -120,6 +122,8 @@ export const RETENTION_DAYS = {
    * a week covers payment and every ticketing retry.
    */
   'supplier-customer-ip': 7,
+  /** After the incident was resolved: a year of history for availability reports. */
+  'status-incidents': 365,
   /** After a request was closed: three years of evidence that it was answered, and when. */
   'privacy-requests': 1095,
   /** After a breach was closed: six years of the record regulators expect to see. */
@@ -341,6 +345,12 @@ export class RetentionService {
             createdAt: { lt: before('supplier-customer-ip') },
           },
           data: { customerIpEncrypted: null },
+        }),
+      ),
+      // Resolved incidents only (their updates go with them); open ones are still on the page.
+      'status-incidents': counts(
+        await this.prisma.statusIncident.deleteMany({
+          where: { resolvedAt: { lt: before('status-incidents') } },
         }),
       ),
       // Closed requests and breaches only (a breach's notices go with it); open ones stay.

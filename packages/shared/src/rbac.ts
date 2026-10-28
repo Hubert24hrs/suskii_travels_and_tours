@@ -46,6 +46,7 @@ export const PERMISSIONS = {
   'trust-signals:verify': 'Mark regulated trust claims as verified with evidence',
   'visa:process': 'Review visa applications and documents',
   'support:manage': 'Handle support tickets',
+  'status:manage': 'Open, update and resolve incidents on the public status page',
   'reports:read': 'View dashboards and reports',
   'audit:read': 'View the audit log',
   'privacy:manage': 'Record data rights requests and personal data breaches, and their notices',
@@ -75,6 +76,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'ground:manage',
     'drivers:review',
     'safety:manage',
+    'status:manage',
   ],
   finance: [
     'profile:manage',
@@ -95,6 +97,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'support:manage',
     'safety:manage',
     'reviews:moderate',
+    'status:manage',
   ],
   // Regulated claims (IATA, traveller counts) are verified by super admins only.
   content_manager: [

@@ -171,6 +171,9 @@ export function AccountScreen() {
         >
           {t('support.link')}
         </Button>
+        <Button testID="account-status" variant="ghost" onPress={() => router.push('/status')}>
+          {t('status.link')}
+        </Button>
       </Card>
 
       <Card className="gap-3 p-4">

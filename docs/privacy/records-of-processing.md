@@ -297,4 +297,4 @@ Who receives personal data, where it processes it and the basis for sending it a
 ## Coverage
 
 All 73 tables that hold personal data belong to an activity above;
-the other 47 hold reference or operational data only.
+the other 49 hold reference or operational data only.

@@ -209,6 +209,10 @@ export type AuditAction =
   | 'support.replied'
   | 'support.note_added'
   | 'support.updated'
+  // Status page incidents (ADR-087)
+  | 'status.incident_opened'
+  | 'status.incident_updated'
+  | 'status.incident_resolved'
   // Data rights requests and personal data breaches (ADR-089)
   | 'privacy.request_opened'
   | 'privacy.request_closed'

@@ -43,6 +43,8 @@ const ONE_HOUR = 3600;
 const ONE_DAY = 86_400;
 
 export const api = {
+  /** The status page (ADR-087): measured every 30 s by the API, so no longer here. */
+  status: () => apiGet<Schemas['StatusPage']>('/v1/status', { revalidate: 30, tags: ['status'] }),
   site: (locale: string) =>
     apiGet<Schemas['SiteContent']>('/v1/content/site', {
       revalidate: FIVE_MINUTES,

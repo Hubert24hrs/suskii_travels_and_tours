@@ -147,3 +147,15 @@ variable "registry_readers" {
   type    = list(string)
   default = []
 }
+
+variable "uptime_alert_emails" {
+  description = "Addresses told when an uptime check fails from two regions (ADR-087)."
+  type        = list(string)
+  default     = []
+}
+
+variable "uptime_notification_channels" {
+  description = "Existing Cloud Monitoring notification channel ids for uptime alerts (on-call tool)."
+  type        = list(string)
+  default     = []
+}

@@ -1057,6 +1057,22 @@ describe('admin audit coverage (e2e)', () => {
     );
   });
 
+  it('status page: open, update and resolve an incident', async () => {
+    const opened = await audited('adminOpenStatusIncident', {}, (request) =>
+      request.send({
+        title: 'Audit incident',
+        impact: 'minor',
+        components: ['search'],
+        status: 'investigating',
+        message: 'Looking into slow searches.',
+      }),
+    );
+    const id = (opened.body as { id: string }).id;
+    await audited('adminUpdateStatusIncident', { id }, (request) =>
+      request.send({ status: 'resolved', message: 'Searches are fast again.' }),
+    );
+  });
+
   it('privacy registers: requests and breaches with their notices', async () => {
     const request = await audited('adminOpenPrivacyRequest', {}, (r) =>
       r.send({
