@@ -62,6 +62,8 @@ async function payWithMock(page: Page): Promise<string> {
 async function selectFare(page: Page, brand: string): Promise<void> {
   const offers = page.getByTestId('flight-offer');
   await expect(offers.first()).toBeVisible({ timeout: 30_000 });
+  // The first cards paint first and the rest right after (ADR-075): wait for the whole page.
+  await expect.poll(() => offers.count()).toBeGreaterThan(4);
   for (const card of await offers.all()) {
     await card.getByRole('button', { name: t('results.flights.details') }).click();
     if (await card.getByText(t('results.flights.fareBrand', { brand })).first().isVisible()) {

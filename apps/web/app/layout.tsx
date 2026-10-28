@@ -3,6 +3,7 @@ import { I18nProvider } from '@suskii/i18n/react';
 import { BRAND } from '@suskii/shared';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { preconnect } from 'react-dom';
 
 import { ErrorReporting } from '../components/error-reporting';
 import { SiteFooter } from '../components/layout/site-footer';
@@ -38,6 +39,10 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const { locale, t, messages } = await getI18n();
+  // Searches, sign-in and checkout call the API from the browser: open the connection (DNS, TCP
+  // and TLS, three round trips on a slow network) while the page loads (ADR-075). Credentialed
+  // CORS requests use their own connection pool, hence `use-credentials`.
+  preconnect(new URL(publicEnv.apiBaseUrl).origin, { crossOrigin: 'use-credentials' });
   const site = await api.site(locale);
   const errorMessages: ErrorMessages = { pages: { error: messages.pages.error } };
   return (

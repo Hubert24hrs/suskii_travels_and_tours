@@ -6,6 +6,7 @@ import {
   hotelDraftToInput,
   hotelFormToParams,
 } from '@suskii/shared';
+import type { CurrencyCode } from '@suskii/shared/lite';
 import { Button, DateRangePicker } from '@suskii/ui-web';
 import { Search } from 'lucide-react';
 import type { Route } from 'next';
@@ -20,14 +21,26 @@ import { CheckboxField } from './native-select';
 import { RoomsPicker } from './rooms-picker';
 import { useSearchT } from './use-search-t';
 
+import { startHotelSearch, warmSearch } from '../../lib/search-handoff';
+
 export interface HotelsFormProps {
   apiBaseUrl: string;
   locale: string;
+  /** Display currency and page size of the results page, to start its search early (ADR-075). */
+  currency: CurrencyCode;
+  pageSize: number;
   suggestions: readonly CityOption[];
   initial?: HotelFormState | undefined;
 }
 
-export default function HotelsForm({ apiBaseUrl, locale, suggestions, initial }: HotelsFormProps) {
+export default function HotelsForm({
+  apiBaseUrl,
+  locale,
+  currency,
+  pageSize,
+  suggestions,
+  initial,
+}: HotelsFormProps) {
   const { t } = useSearchT();
   const router = useRouter();
   const format = useMemo(() => createFormatters(locale), [locale]);
@@ -57,6 +70,8 @@ export default function HotelsForm({ apiBaseUrl, locale, suggestions, initial }:
     }
     setErrors({});
     setSubmitting(true);
+    // The search starts now and runs while the results page loads (ADR-075).
+    startHotelSearch(result.data, currency, pageSize);
     router.push(`/hotels/search?${hotelFormToParams(result.data).toString()}` as Route);
   };
 
@@ -65,6 +80,8 @@ export default function HotelsForm({ apiBaseUrl, locale, suggestions, initial }:
       method="get"
       noValidate
       onSubmit={submit}
+      onFocusCapture={warmSearch}
+      onPointerDownCapture={warmSearch}
       className="flex flex-col gap-4"
       aria-label={t('search.tabs.hotels')}
     >

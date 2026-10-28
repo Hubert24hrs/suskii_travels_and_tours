@@ -7,6 +7,7 @@ import { HotelResults } from '../../../components/results/hotel-results';
 import { pickResultsMessages } from '../../../components/results/pick-results-messages';
 import { SearchEntry } from '../../../components/search-entry';
 import { getI18n } from '../../../lib/i18n';
+import { getDataSaver } from '../../../lib/preferences';
 import { hotelInitial, type SearchParams } from '../../../lib/search-initial';
 import { pageMetadata } from '../../../lib/seo';
 
@@ -26,6 +27,7 @@ export default async function HotelSearchPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { t, locale, currency, messages } = await getI18n();
+  const dataSaver = await getDataSaver();
   const query = await searchParams;
   const { state, valid } = await hotelInitial(query);
   const { form } = parseHotelSearchParams(query);
@@ -39,7 +41,7 @@ export default async function HotelSearchPage({
       {form ? (
         <I18nProvider locale={locale} messages={pickResultsMessages(messages)}>
           <Suspense>
-            <HotelResults request={form} currency={currency} />
+            <HotelResults request={form} currency={currency} pageSize={dataSaver ? 10 : 20} />
           </Suspense>
         </I18nProvider>
       ) : null}

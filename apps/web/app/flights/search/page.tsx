@@ -7,6 +7,7 @@ import { FlightResults } from '../../../components/results/flight-results';
 import { pickResultsMessages } from '../../../components/results/pick-results-messages';
 import { SearchEntry } from '../../../components/search-entry';
 import { getI18n } from '../../../lib/i18n';
+import { getDataSaver } from '../../../lib/preferences';
 import { flightInitial, type SearchParams } from '../../../lib/search-initial';
 import { pageMetadata } from '../../../lib/seo';
 
@@ -26,6 +27,7 @@ export default async function FlightSearchPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { t, locale, currency, messages } = await getI18n();
+  const dataSaver = await getDataSaver();
   const query = await searchParams;
   const { state, valid } = await flightInitial(query);
   const { form } = parseFlightSearchParams(query);
@@ -39,7 +41,11 @@ export default async function FlightSearchPage({
       {form ? (
         <I18nProvider locale={locale} messages={pickResultsMessages(messages)}>
           <Suspense>
-            <FlightResults request={toFlightSearchRequest(form)} currency={currency} />
+            <FlightResults
+              request={toFlightSearchRequest(form)}
+              currency={currency}
+              pageSize={dataSaver ? 10 : 20}
+            />
           </Suspense>
         </I18nProvider>
       ) : null}

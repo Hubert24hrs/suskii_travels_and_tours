@@ -2,6 +2,7 @@ import { BRAND, SUPPORTED_LOCALES } from '@suskii/shared';
 
 import { api, type SiteContent } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
+import { getDataSaver } from '../../lib/preferences';
 import { AppLink } from '../app-link';
 import { CookieSettings } from '../cookies/cookie-settings';
 
@@ -37,6 +38,7 @@ function Column({ title, children }: { title: string; children: React.ReactNode 
 export async function SiteFooter({ site }: { site: SiteContent | null }) {
   const { t, locale, messages } = await getI18n();
   const cars = await api.carsFeatures();
+  const dataSaver = await getDataSaver();
   const pages = (group: string) => site?.pages.filter((page) => page.group === group) ?? [];
   const pageLinks = (group: string) =>
     pages(group).map((page) => (
@@ -113,6 +115,17 @@ export async function SiteFooter({ site }: { site: SiteContent | null }) {
             options={SUPPORTED_LOCALES.map((code) => ({
               value: code,
               label: t(`footer.locales.${code}`),
+            }))}
+          />
+          <PreferenceSelect
+            action="/preferences/dataSaver"
+            name="dataSaver"
+            label={t('footer.dataSaver')}
+            value={dataSaver ? 'on' : 'off'}
+            submitLabel={t('footer.save')}
+            options={(['off', 'on'] as const).map((value) => ({
+              value,
+              label: t(`footer.dataSaverOptions.${value}`),
             }))}
           />
         </div>

@@ -73,7 +73,9 @@ function HotelCard({
 
 export function HotelResultsScreen() {
   const params = useLocalSearchParams<Record<string, string | string[]>>();
-  const { api, currency } = useApp();
+  const { api, currency, dataSaver } = useApp();
+  // Data saver (ADR-075): half the results per page.
+  const pageSize = dataSaver ? 10 : 20;
   const { t } = useT();
   const router = useRouter();
   const [sort, setSort] = useState<Sort>('recommended');
@@ -82,12 +84,12 @@ export function HotelResultsScreen() {
   const request = useMemo(() => parseHotelSearchParams(params).form, [params]);
 
   const search = useQuery({
-    queryKey: ['hotel-search', request, currency],
+    queryKey: ['hotel-search', request, currency, pageSize],
     enabled: request !== null,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data } = await api.POST('/v1/hotels/searches', {
-        params: { query: { currency } },
+        params: { query: { currency, limit: pageSize } },
         body: request ?? ({} as never),
       });
       if (!data) throw new Error('hotel search');
@@ -97,8 +99,14 @@ export function HotelResultsScreen() {
   const searchId = search.data?.searchId;
 
   const hotels = useInfiniteQuery({
-    queryKey: ['hotels', searchId, sort, freeCancellation, currency],
+    queryKey: ['hotels', searchId, sort, freeCancellation, currency, pageSize],
     enabled: Boolean(searchId),
+    // A plain search already answered with its first page (ADR-075): show it instead of asking again.
+    initialData: () =>
+      sort === 'recommended' && !freeCancellation && search.data
+        ? { pages: [search.data], pageParams: [undefined] }
+        : undefined,
+    staleTime: 5 * 60_000,
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page: Schemas['HotelSearchResult']) => page.nextCursor ?? undefined,
     queryFn: async ({ pageParam }) => {
@@ -107,6 +115,7 @@ export function HotelResultsScreen() {
           path: { searchId: searchId ?? '' },
           query: {
             currency,
+            limit: pageSize,
             sort,
             ...(freeCancellation ? { freeCancellation: 'true' as const } : {}),
             ...(pageParam ? { cursor: pageParam } : {}),

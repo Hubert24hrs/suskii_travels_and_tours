@@ -44,6 +44,8 @@ export interface SearchModuleProps {
   apiBaseUrl: string;
   locale: string;
   currency: CurrencyCode;
+  /** Results per page the results page will ask for (fewer in data-saver mode, ADR-075). */
+  pageSize: number;
   citySuggestions: CityOption[];
   initial?: SearchInitialState | undefined;
   /** Shows the AI trip search box on the flight tab while the API has it on (ADR-061). */
@@ -65,6 +67,7 @@ export function SearchModule({
   apiBaseUrl,
   locale,
   currency,
+  pageSize,
   citySuggestions,
   initial,
   describe,
@@ -85,6 +88,8 @@ export function SearchModule({
           <FlightsForm
             apiBaseUrl={apiBaseUrl}
             locale={locale}
+            currency={currency}
+            pageSize={pageSize}
             initial={initial?.flights}
             describe={describe}
           />
@@ -93,6 +98,8 @@ export function SearchModule({
           <HotelsForm
             apiBaseUrl={apiBaseUrl}
             locale={locale}
+            currency={currency}
+            pageSize={pageSize}
             suggestions={citySuggestions}
             initial={initial?.hotels}
           />

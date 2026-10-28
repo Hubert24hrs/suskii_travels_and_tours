@@ -53,7 +53,7 @@ function SectionRow({
  * devices, invitations, price alerts, your data), push notifications, currency and sign-out.
  */
 export function AccountScreen() {
-  const { api, currency, setCurrency } = useApp();
+  const { api, currency, setCurrency, dataSaver, setDataSaver } = useApp();
   const { user, signOut } = useAuth();
   const { t } = useT();
   const format = useFormatters();
@@ -170,6 +170,24 @@ export function AccountScreen() {
             onValueChange={setCurrency}
           />
         </ScrollView>
+      </Card>
+
+      <Card className="gap-3 p-4">
+        <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+          {t('mobile.account.dataSaver')}
+        </Text>
+        <Text className="font-body text-body-sm text-foreground">
+          {t('mobile.account.dataSaverHint')}
+        </Text>
+        <SegmentedControl
+          label={t('mobile.account.dataSaver')}
+          options={(['off', 'on'] as const).map((value) => ({
+            value,
+            label: t(`mobile.account.dataSaverOptions.${value}`),
+          }))}
+          value={dataSaver ? 'on' : 'off'}
+          onValueChange={(value) => setDataSaver(value === 'on')}
+        />
       </Card>
 
       <TestServerCard />

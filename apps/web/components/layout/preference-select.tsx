@@ -7,7 +7,7 @@ import { useTransition } from 'react';
 export interface PreferenceSelectProps {
   /** The route that stores the preference cookie (`/preferences/<name>`). */
   action: string;
-  name: 'currency' | 'locale';
+  name: 'currency' | 'locale' | 'dataSaver';
   label: string;
   value: string;
   options: readonly { value: string; label: string }[];
@@ -17,7 +17,7 @@ export interface PreferenceSelectProps {
 }
 
 /**
- * Currency or locale selector. Changing it posts the form to its route and refreshes the page so
+ * Currency, locale or data-saver selector. Changing it posts the form to its route and refreshes the page so
  * server-rendered prices and dates update; without JavaScript the form still works via the button
  * (the route sends the browser back to the page).
  */
