@@ -2,10 +2,11 @@ import { z } from 'zod';
 
 import {
   CATALOG_STATUSES,
+  countryCodeSchema,
   currencyCodeSchema,
-  moneyWireSchema,
   primeBenefitsSchema,
   primePeriodSchema,
+  primePricesSchema,
   slugSchema,
 } from '@suskii/shared';
 
@@ -15,15 +16,19 @@ import { moneySchema } from '../pricing/pricing.schemas';
 
 const timestamp = z.iso.datetime();
 
-const positiveMoney = moneyWireSchema.refine((value) => value.amountMinor > 0, 'must_be_positive');
-const planPrices = z
-  .array(positiveMoney)
-  .min(1)
-  .max(10)
-  .refine(
-    (prices) => new Set(prices.map((price) => price.currency)).size === prices.length,
-    'one_price_per_currency',
-  );
+/** Positive amounts, one per currency and country (ADR-082); a null country is everywhere else. */
+const planPrices = primePricesSchema;
+
+const primePriceSchema = named(
+  'PrimePrice',
+  z.object({
+    amountMinor: z.number().int(),
+    currency: z.string().length(3),
+    country: z.string().length(2).nullable().meta({
+      description: 'Only for visitors from this country; null for everywhere else.',
+    }),
+  }),
+);
 
 export const primePlanSchema = named(
   'PrimePlan',
@@ -33,10 +38,13 @@ export const primePlanSchema = named(
     name: z.string(),
     summary: z.string(),
     period: primePeriodSchema,
-    price: moneySchema
-      .nullable()
-      .meta({ description: 'In the requested currency; null when the plan is not sold in it.' }),
-    prices: z.array(moneySchema),
+    price: moneySchema.nullable().meta({
+      description:
+        "In the requested currency for the visitor's country; null when the plan is not sold in it there.",
+    }),
+    prices: z
+      .array(moneySchema)
+      .meta({ description: "One per currency, as priced for the visitor's country." }),
     benefits: primeBenefitsDtoSchema,
     sample: z.boolean().meta({ description: 'Demo plan (`db:seed:demo`): show a "Sample" badge.' }),
   }),
@@ -49,6 +57,10 @@ export const primePlanListSchema = named(
 
 export const primePlansQuerySchema = z.object({
   currency: currencyCodeSchema.optional(),
+  country: countryCodeSchema.optional().meta({
+    description:
+      "The visitor's country for the displayed prices (the website's server passes its edge country); defaults to the edge's country of this request. A quote is always priced for the edge's country of the quote request.",
+  }),
 });
 
 export const myPrimeSchema = named(
@@ -86,7 +98,7 @@ export const adminPrimePlanSchema = named(
     name: z.string(),
     summary: z.string(),
     period: primePeriodSchema,
-    prices: z.array(moneySchema),
+    prices: z.array(primePriceSchema),
     benefits: primeBenefitsSchema,
     status: z.enum(CATALOG_STATUSES),
     sample: z.boolean(),

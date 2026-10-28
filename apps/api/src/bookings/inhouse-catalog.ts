@@ -13,8 +13,11 @@ import {
   multiply,
   rentalCharge,
   moneyWireSchema,
+  primePriceSchema,
   primeTermEnd,
+  resolvePlanPrice,
   type CancellationTier,
+  type PrimePrice,
   type Money,
   type PerPersonPrices,
 } from '@suskii/shared';
@@ -63,12 +66,22 @@ export const storedTexts = (value: unknown): string[] => textListSchema.parse(va
 export const storedItinerary = (value: unknown) => itinerarySchema.parse(value);
 export const storedMeetingPoint = (value: unknown) => meetingPointSchema.parse(value);
 export const storedDetails = (value: unknown) => addonDetailFieldsSchema.parse(value);
-export const storedPlanPrices = (value: unknown): Money[] =>
-  moneyWireSchema.array().parse(value).map(fromWire);
+/** A plan's price entries; entries saved before ADR-082 have no country. */
+export const storedPlanPrices = (value: unknown): PrimePrice[] =>
+  primePriceSchema.array().parse(value);
 
-/** A plan's price in one currency, or null when it is not sold in that currency. */
-export const planPrice = (plan: Pick<PrimePlan, 'prices'>, currency: string): Money | null =>
-  storedPlanPrices(plan.prices).find((price) => price.currency === currency) ?? null;
+/**
+ * A plan's price for a currency in a country (ADR-082), with the country of the entry that
+ * applied (null: the currency's price for everywhere); null when it is not sold there.
+ */
+export function planPrice(
+  plan: Pick<PrimePlan, 'prices'>,
+  currency: string,
+  country: string | null,
+): { price: Money; country: string | null } | null {
+  const entry = resolvePlanPrice(storedPlanPrices(plan.prices), currency, country);
+  return entry ? { price: money(entry.amountMinor, entry.currency), country: entry.country } : null;
+}
 
 const isoDate = (date: Date): string => date.toISOString().slice(0, 10);
 
@@ -122,13 +135,20 @@ export class InhouseCatalog {
     return row;
   }
 
-  /** A published Prime plan sold in `currency`, with its price there (ADR-030). */
-  async primePlan(planId: string, currency: string): Promise<{ plan: PrimePlan; price: Money }> {
+  /**
+   * A published Prime plan sold in `currency`, with its price for `country` (ADR-030, ADR-082)
+   * and the country of the entry that applied.
+   */
+  async primePlan(
+    planId: string,
+    currency: string,
+    country: string | null,
+  ): Promise<{ plan: PrimePlan; price: Money; priceCountry: string | null }> {
     const plan = await this.prisma.primePlan.findUnique({ where: { id: planId } });
     if (plan?.status !== 'published') throw unavailable('Prime plan is not on sale');
-    const price = planPrice(plan, currency);
-    if (!price) throw unavailable('Prime plan is not sold in this currency');
-    return { plan, price };
+    const resolved = planPrice(plan, currency, country);
+    if (!resolved) throw unavailable('Prime plan is not sold in this currency');
+    return { plan, price: resolved.price, priceCountry: resolved.country };
   }
 
   // -------------------------------------------------------------------------
@@ -256,7 +276,12 @@ export class InhouseCatalog {
     };
   }
 
-  membershipPayload(plan: PrimePlan, price: Money, now = new Date()): MembershipItemPayload {
+  membershipPayload(
+    plan: PrimePlan,
+    price: Money,
+    priceCountry: string | null,
+    now = new Date(),
+  ): MembershipItemPayload {
     const startDate = isoDate(now);
     return {
       kind: 'membership',
@@ -269,6 +294,7 @@ export class InhouseCatalog {
       summary: plan.summary,
       period: plan.period,
       unitPrice: price,
+      priceCountry,
       benefits: storedBenefits(plan.benefits),
       startDate,
       endDate: isoDate(primeTermEnd(now, plan.period)),
@@ -301,9 +327,19 @@ export class InhouseCatalog {
         return { ...payload, unitPrice: storedMoney(addon.price) };
       }
       case 'membership': {
-        // Price and benefits as the plan stands now; the term is fixed at confirmation.
-        const { plan, price } = await this.primePlan(payload.productId, payload.unitPrice.currency);
-        return { ...payload, unitPrice: price, benefits: storedBenefits(plan.benefits) };
+        // Price and benefits as the plan stands now, for the country the quote was priced for
+        // (ADR-082); the term is fixed at confirmation.
+        const { plan, price, priceCountry } = await this.primePlan(
+          payload.productId,
+          payload.unitPrice.currency,
+          payload.priceCountry ?? null,
+        );
+        return {
+          ...payload,
+          unitPrice: price,
+          priceCountry,
+          benefits: storedBenefits(plan.benefits),
+        };
       }
       case 'bus': {
         // The seats are already the booking's (ADR-051); only the trip and its fare can change.
