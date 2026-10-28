@@ -17,6 +17,8 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           '/newsletter/',
           '/checkout/',
+          // Metasearch landings quote with the supplier on every visit (ADR-081).
+          '/flights/go/',
           '/bookings/',
           '/mobile/',
           '/account',
