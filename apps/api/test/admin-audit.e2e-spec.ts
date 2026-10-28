@@ -1040,6 +1040,23 @@ describe('admin audit coverage (e2e)', () => {
     await audited('adminRotateMetasearchKey', { partnerId: id }, none);
   });
 
+  it('support: reply, internal note and update', async () => {
+    const member = await signUp(ctx, 'audit-support@example.com');
+    const started = await ctx
+      .http()
+      .post('/v1/support/conversations')
+      .set(bearer(member.accessToken))
+      .send({ category: 'payment', message: 'Was my payment received?' })
+      .expect(201);
+    const id = (started.body.conversation as { id: string }).id;
+    await audited('adminReplySupportConversation', { id }, (request) =>
+      request.send({ message: 'Yes, it arrived this morning.' }),
+    );
+    await audited('adminUpdateSupportConversation', { id }, (request) =>
+      request.send({ status: 'resolved', priority: 'urgent' }),
+    );
+  });
+
   it('covered every admin mutation', () => {
     const missing = MUTATIONS.map((op) => op.operationId).filter((id) => !covered.has(id));
     expect(missing).toEqual([]);

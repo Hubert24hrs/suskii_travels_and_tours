@@ -204,7 +204,11 @@ export type AuditAction =
   // Metasearch partners (ADR-081)
   | 'metasearch_partner.created'
   | 'metasearch_partner.updated'
-  | 'metasearch_partner.key_rotated';
+  | 'metasearch_partner.key_rotated'
+  // Support conversations (ADR-083)
+  | 'support.replied'
+  | 'support.note_added'
+  | 'support.updated';
 
 export interface AuditEvent {
   action: AuditAction;

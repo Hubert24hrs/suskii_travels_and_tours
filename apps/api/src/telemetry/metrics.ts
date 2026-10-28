@@ -179,3 +179,14 @@ export const metasearchRequests = meter.createCounter('suskii.metasearch.request
 export const metasearchLandings = meter.createCounter('suskii.metasearch.landings', {
   description: 'Metasearch landings by partner and outcome',
 });
+
+/** Support conversations started, by channel and category (ADR-083). */
+export const supportConversations = meter.createCounter('suskii.support.conversations', {
+  description: 'Support conversations started by channel and category',
+});
+
+/** Seconds from a traveller's unanswered message to the staff reply, by priority (ADR-083). */
+export const supportResponseTime = meter.createHistogram('suskii.support.response_time', {
+  description: 'Seconds staff took to reply to a traveller, by priority',
+  unit: 's',
+});

@@ -148,6 +148,17 @@ export const REVIEW_LIMITS = {
   writeIp: { name: 'review-write-ip', limit: 20, windowSeconds: 600, by: 'ip' },
 } as const satisfies Record<string, RateLimitPolicy>;
 
+/**
+ * Support conversations (ADR-083): starting one can email staff and the traveller, so it is
+ * capped per address; messages are capped so a script cannot flood a conversation; reading is
+ * polled every few seconds while a conversation is open.
+ */
+export const SUPPORT_LIMITS = {
+  startIp: { name: 'support-start-ip', limit: 10, windowSeconds: 3600, by: 'ip' },
+  messageIp: { name: 'support-message-ip', limit: 30, windowSeconds: 300, by: 'ip' },
+  readIp: { name: 'support-read-ip', limit: 120, windowSeconds: 60, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
 /** Company accounts (ADR-078): invitations send email, so they are capped per account. */
 export const COMPANY_LIMITS = {
   createUser: { name: 'company-create-user', limit: 5, windowSeconds: 3600, by: 'user' },

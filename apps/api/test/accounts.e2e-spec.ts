@@ -166,8 +166,9 @@ describe('accounts (e2e): preferences, data export and deletion', () => {
         .get('/v1/me/notification-preferences')
         .set(auth)
         .expect(200);
-      // Seven categories (review requests since ADR-077), four channels each.
-      expect(channels.body.preferences).toHaveLength(28);
+      // Eight categories (review requests since ADR-077, support replies since ADR-083), four
+      // channels each.
+      expect(channels.body.preferences).toHaveLength(32);
       const enabled = (category: string, channel: string): boolean =>
         (
           channels.body.preferences as { category: string; channel: string; enabled: boolean }[]
@@ -177,6 +178,9 @@ describe('accounts (e2e): preferences, data export and deletion', () => {
       expect(enabled('booking', 'sms')).toBe(false);
       expect(enabled('review_requests', 'email')).toBe(true);
       expect(enabled('review_requests', 'sms')).toBe(false);
+      expect(enabled('support', 'email')).toBe(true);
+      expect(enabled('support', 'push')).toBe(true);
+      expect(enabled('support', 'sms')).toBe(false);
       expect(channels.body.phoneVerified).toBe(false);
 
       // Withdrawing consent switches every marketing channel off.
