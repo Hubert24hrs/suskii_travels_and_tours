@@ -25,7 +25,7 @@ export function MobileMenu({ labels, links, footer }: MobileMenuProps) {
         type="button"
         aria-label={labels.open}
         {...overlay.triggerProps}
-        className="-ml-2 inline-flex size-12 items-center justify-center rounded-pill text-foreground hover:bg-background focus-visible:focus-ring lg:hidden"
+        className="-ms-2 inline-flex size-12 items-center justify-center rounded-pill text-foreground hover:bg-background focus-visible:focus-ring lg:hidden"
       >
         <Menu aria-hidden="true" className="size-6" />
       </button>

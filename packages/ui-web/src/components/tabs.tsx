@@ -85,9 +85,11 @@ function moveFocus(event: KeyboardEvent<HTMLButtonElement>, select: (value: stri
     (button) => button.getAttribute('role') === 'tab' && !button.disabled,
   );
   const current = tabs.indexOf(event.currentTarget);
+  // In a right-to-left page the next tab is on the left (ADR-076).
+  const step = getComputedStyle(list).direction === 'rtl' ? -1 : 1;
   const target = {
-    ArrowRight: tabs[(current + 1) % tabs.length],
-    ArrowLeft: tabs[(current - 1 + tabs.length) % tabs.length],
+    ArrowRight: tabs[(current + step + tabs.length) % tabs.length],
+    ArrowLeft: tabs[(current - step + tabs.length) % tabs.length],
     Home: tabs[0],
     End: tabs[tabs.length - 1],
   }[event.key];

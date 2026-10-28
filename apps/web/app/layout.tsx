@@ -1,6 +1,6 @@
 import { color } from '@suskii/design-tokens';
 import { I18nProvider } from '@suskii/i18n/react';
-import { BRAND } from '@suskii/shared';
+import { BRAND, localeDirection } from '@suskii/shared';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { preconnect } from 'react-dom';
@@ -46,11 +46,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const site = await api.site(locale);
   const errorMessages: ErrorMessages = { pages: { error: messages.pages.error } };
   return (
-    <html lang={locale} className={`${headingFont.variable} ${bodyFont.variable}`}>
+    <html
+      lang={locale}
+      dir={localeDirection(locale)}
+      className={`${headingFont.variable} ${bodyFont.variable}`}
+    >
       <body className="flex min-h-dvh flex-col">
         <a
           href="#main"
-          className="sr-only z-50 bg-surface px-4 py-3 font-body font-bold text-primary focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus-visible:focus-ring"
+          className="sr-only z-50 bg-surface px-4 py-3 font-body font-bold text-primary focus:not-sr-only focus:fixed focus:top-2 focus:inset-s-2 focus-visible:focus-ring"
         >
           {t('common.skipToContent')}
         </a>

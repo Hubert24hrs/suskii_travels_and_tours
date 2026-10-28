@@ -33,7 +33,7 @@ function ProductCard({
       <div className="relative aspect-4/3 bg-skeleton">
         <CityArt city={city} />
         {sampleLabel ? (
-          <Badge variant="neutral" className="absolute top-3 left-3">
+          <Badge variant="neutral" className="absolute top-3 inset-s-3">
             {sampleLabel}
           </Badge>
         ) : null}
