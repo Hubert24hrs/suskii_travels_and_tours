@@ -46,3 +46,8 @@ export const whatsappPhoneContext = (contactId: string): string =>
   `whatsapp-contact:${contactId}:phone`;
 export const whatsappBsuidContext = (contactId: string): string =>
   `whatsapp-contact:${contactId}:bsuid`;
+// The data rights request and breach registers (ADR-089).
+export const privacyRequestEmailContext = (requestId: string): string =>
+  `privacy-request:${requestId}:email`;
+export const privacyBreachDetailsContext = (breachId: string): string =>
+  `privacy-breach:${breachId}:details`;

@@ -1334,6 +1334,125 @@ export interface paths {
         patch: operations["adminUpdatePrimePlan"];
         trace?: never;
     };
+    "/v1/admin/privacy/breaches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Personal data breaches with their regulator notices (newest first) */
+        get: operations["adminListPrivacyBreaches"];
+        put?: never;
+        /**
+         * Open a personal data breach
+         * @description Creates one notice per jurisdiction, due `breachNoticeDueAt` after awareness (72 hours). Details are stored encrypted.
+         */
+        post: operations["adminOpenPrivacyBreach"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/privacy/breaches/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One breach with its details */
+        get: operations["adminGetPrivacyBreach"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/privacy/breaches/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a breach
+         * @description Refused while a regulator notice is pending (409 `notices-pending`) or when already closed (409 `breach-closed`).
+         */
+        post: operations["adminClosePrivacyBreach"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/privacy/breaches/{id}/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a regulator's notice, or that none is required
+         * @description For a jurisdiction the breach was opened for (404 otherwise); a closed breach takes no changes (409 `breach-closed`).
+         */
+        post: operations["adminRecordPrivacyBreachNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/privacy/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Data rights requests (open ones by due time) */
+        get: operations["adminListPrivacyRequests"];
+        put?: never;
+        /**
+         * Record a data rights request received by email, phone, post or support
+         * @description The due time follows the jurisdiction (`PRIVACY_RULES`). The person is an account or an email address, which is stored encrypted and shown masked.
+         */
+        post: operations["adminOpenPrivacyRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/privacy/requests/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a request as completed, or refused with a reason
+         * @description A closed request cannot be closed again (409 `request-closed`).
+         */
+        post: operations["adminClosePrivacyRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/promos": {
         parameters: {
             query?: never;
@@ -7602,7 +7721,7 @@ export interface components {
             displayName: string | null;
             /** @enum {string} */
             status: "active" | "disabled" | "deleted";
-            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "driver" | "operator_agent")[];
+            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "privacy_officer" | "driver" | "operator_agent")[];
             mfaEnabled: boolean;
             /** Format: date-time */
             createdAt: string;
@@ -7690,7 +7809,7 @@ export interface components {
             phone: string | null;
             phoneVerified: boolean;
             displayName: string | null;
-            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "driver" | "operator_agent")[];
+            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "privacy_officer" | "driver" | "operator_agent")[];
             mfaEnabled: boolean;
             hasPassword: boolean;
         };
@@ -10475,6 +10594,127 @@ export interface components {
             currency: string;
             country: string | null;
         };
+        PrivacyBreach: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date-time */
+            awareAt: string;
+            highRisk: boolean;
+            categories: ("contact" | "identity_documents" | "booking" | "payment_references" | "location" | "credentials" | "other_personal_data")[];
+            subjectsAffected: number | null;
+            /** @enum {string} */
+            status: "open" | "closed";
+            closedAt: string | null;
+            notices: components["schemas"]["PrivacyBreachNotice"][];
+        };
+        PrivacyBreachCreateInput: {
+            title: string;
+            details: string;
+            /** Format: date-time */
+            awareAt: string;
+            highRisk: boolean;
+            categories: ("contact" | "identity_documents" | "booking" | "payment_references" | "location" | "credentials" | "other_personal_data")[];
+            jurisdictions: ("NG" | "KE" | "ZA" | "EU" | "GB" | "OTHER")[];
+            subjectsAffected?: number | null;
+        };
+        PrivacyBreachDetail: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date-time */
+            awareAt: string;
+            highRisk: boolean;
+            categories: ("contact" | "identity_documents" | "booking" | "payment_references" | "location" | "credentials" | "other_personal_data")[];
+            subjectsAffected: number | null;
+            /** @enum {string} */
+            status: "open" | "closed";
+            closedAt: string | null;
+            notices: components["schemas"]["PrivacyBreachNotice"][];
+            details: string;
+        };
+        PrivacyBreachNotice: {
+            /** @enum {string} */
+            jurisdiction: "NG" | "KE" | "ZA" | "EU" | "GB" | "OTHER";
+            regulator: string;
+            /** Format: date-time */
+            regulatorDueAt: string;
+            statutory: boolean;
+            source: string;
+            /** @enum {string} */
+            decision: "pending" | "notified" | "not_required";
+            regulatorNotifiedAt: string | null;
+            regulatorReference: string | null;
+            subjectsNotifiedAt: string | null;
+            overdue: boolean;
+        };
+        PrivacyBreachNoticeInputInput: {
+            /** @constant */
+            decision: "notified";
+            /** @enum {string} */
+            jurisdiction: "NG" | "KE" | "ZA" | "EU" | "GB" | "OTHER";
+            /** Format: date-time */
+            regulatorNotifiedAt: string;
+            regulatorReference?: string | null;
+            subjectsNotifiedAt?: string | null;
+        } | {
+            /** @constant */
+            decision: "not_required";
+            /** @enum {string} */
+            jurisdiction: "NG" | "KE" | "ZA" | "EU" | "GB" | "OTHER";
+        };
+        PrivacyBreachPage: {
+            items: components["schemas"]["PrivacyBreach"][];
+            nextCursor: string | null;
+        };
+        PrivacyRequest: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "access" | "rectification" | "erasure" | "objection" | "restriction" | "portability";
+            /** @enum {string} */
+            jurisdiction: "NG" | "KE" | "ZA" | "EU" | "GB" | "OTHER";
+            /** @enum {string} */
+            channel: "self_service" | "email" | "support" | "phone" | "post";
+            /** @enum {string} */
+            status: "open" | "completed" | "refused";
+            userId: string | null;
+            subjectEmail: string | null;
+            /** Format: date-time */
+            receivedAt: string;
+            /** Format: date-time */
+            dueAt: string;
+            statutory: boolean;
+            source: string;
+            overdue: boolean;
+            closedAt: string | null;
+            refusalReason: ("identity_not_verified" | "manifestly_unfounded" | "legal_obligation" | "no_data") | null;
+        };
+        PrivacyRequestCloseInput: {
+            /** @constant */
+            outcome: "completed";
+        } | {
+            /** @constant */
+            outcome: "refused";
+            /** @enum {string} */
+            reason: "identity_not_verified" | "manifestly_unfounded" | "legal_obligation" | "no_data";
+        };
+        PrivacyRequestCreateInput: {
+            /** @enum {string} */
+            kind: "access" | "rectification" | "erasure" | "objection" | "restriction" | "portability";
+            /** @enum {string} */
+            jurisdiction: "NG" | "KE" | "ZA" | "EU" | "GB" | "OTHER";
+            /** @enum {string} */
+            channel: "email" | "support" | "phone" | "post";
+            /** Format: date-time */
+            receivedAt: string;
+            userId?: string | null;
+            subjectEmail?: string | null;
+        };
+        PrivacyRequestPage: {
+            items: components["schemas"]["PrivacyRequest"][];
+            nextCursor: string | null;
+        };
         /** @description RFC 9457 problem details (application/problem+json). */
         ProblemDetails: {
             /** @description Problem type URN, e.g. urn:suskii:problem:validation-failed */
@@ -10966,6 +11206,8 @@ export interface components {
             "whatsapp-contacts": number;
             "supplier-customer-ip": number;
             "status-incidents": number;
+            "privacy-requests": number;
+            "privacy-breaches": number;
         };
         ReviewInvitationRun: {
             planned: number;
@@ -11255,7 +11497,7 @@ export interface components {
             current: boolean;
         };
         SetRolesRequestInput: {
-            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "driver" | "operator_agent")[];
+            roles: ("customer" | "super_admin" | "operations" | "finance" | "support" | "content_manager" | "visa_officer" | "privacy_officer" | "driver" | "operator_agent")[];
         };
         SharedRide: {
             /** @enum {string} */
@@ -15116,6 +15358,269 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListPrivacyBreaches: {
+        parameters: {
+            query?: {
+                status?: "open" | "closed";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyBreachPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminOpenPrivacyBreach: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivacyBreachCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyBreachDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetPrivacyBreach: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyBreachDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminClosePrivacyBreach: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyBreachDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRecordPrivacyBreachNotice: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivacyBreachNoticeInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyBreachDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListPrivacyRequests: {
+        parameters: {
+            query?: {
+                status?: "open" | "closed";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyRequestPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminOpenPrivacyRequest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivacyRequestCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyRequest"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminClosePrivacyRequest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivacyRequestCloseInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyRequest"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

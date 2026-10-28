@@ -32,6 +32,8 @@ enum RoleKey {
   support
   content_manager
   visa_officer
+  /// The data protection officer or Information Officer (ADR-089).
+  privacy_officer
   /// Cars (ADR-049): approved drivers and bus operators' boarding agents; not staff.
   driver
   operator_agent
@@ -82,6 +84,7 @@ model User {
   supportConversations    SupportConversation[]    @relation("SupportOwner")
   assignedSupport         SupportConversation[]    @relation("SupportAssignee")
   supportMessages         SupportMessage[]         @relation("SupportStaffAuthor")
+  privacyRequests         PrivacyRequest[]
 
   @@map("users")
 }
@@ -3642,4 +3645,122 @@ model StatusIncidentUpdate {
 
   @@index([incidentId, createdAt])
   @@map("status_incident_updates")
+}
+
+// --- Data rights requests and personal data breaches (ADR-089) ------------------------------
+
+enum PrivacyRequestKind {
+  access
+  rectification
+  erasure
+  objection
+  restriction
+  portability
+}
+
+enum PrivacyRequestChannel {
+  self_service
+  email
+  support
+  phone
+  post
+}
+
+enum PrivacyRequestStatus {
+  open
+  completed
+  refused
+}
+
+enum PrivacyRefusalReason {
+  identity_not_verified
+  manifestly_unfounded
+  legal_obligation
+  no_data
+}
+
+enum PrivacyJurisdiction {
+  NG
+  KE
+  ZA
+  EU
+  GB
+  OTHER
+}
+
+enum PrivacyBreachStatus {
+  open
+  closed
+}
+
+enum BreachNoticeDecision {
+  pending
+  notified
+  not_required
+}
+
+/// A data rights request and when the law wants it answered (`PRIVACY_RULES`). Self-service
+/// exports and deletions are recorded closed; staff record the rest. The person is an account or
+/// an email address to answer (encrypted with `privacy-request:{id}:email`).
+model PrivacyRequest {
+  id                     String                @id @default(uuid(7)) @db.Uuid
+  kind                   PrivacyRequestKind
+  jurisdiction           PrivacyJurisdiction
+  channel                PrivacyRequestChannel
+  status                 PrivacyRequestStatus  @default(open)
+  userId                 String?               @map("user_id") @db.Uuid
+  subjectEmailCiphertext String?               @map("subject_email_ciphertext")
+  receivedAt             DateTime              @map("received_at") @db.Timestamptz(3)
+  dueAt                  DateTime              @map("due_at") @db.Timestamptz(3)
+  closedAt               DateTime?             @map("closed_at") @db.Timestamptz(3)
+  refusalReason          PrivacyRefusalReason? @map("refusal_reason")
+  createdAt              DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, dueAt])
+  @@index([userId])
+  @@map("privacy_requests")
+}
+
+/// A personal data breach, from awareness to closing. `details` is encrypted
+/// (`privacy-breach:{id}:details`); `categories` are `BREACH_DATA_CATEGORIES` values.
+model PrivacyBreach {
+  id                String              @id @default(uuid(7)) @db.Uuid
+  title             String              @db.VarChar(120)
+  detailsCiphertext String              @map("details_ciphertext")
+  awareAt           DateTime            @map("aware_at") @db.Timestamptz(3)
+  highRisk          Boolean             @map("high_risk")
+  categories        String[]
+  subjectsAffected  Int?                @map("subjects_affected")
+  status            PrivacyBreachStatus @default(open)
+  closedAt          DateTime?           @map("closed_at") @db.Timestamptz(3)
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  notices PrivacyBreachNotice[]
+
+  @@index([status, awareAt])
+  @@map("privacy_breaches")
+}
+
+/// What one regulator was told about a breach, and when it was due (`breachNoticeDueAt`).
+model PrivacyBreachNotice {
+  id                  String               @id @default(uuid(7)) @db.Uuid
+  breachId            String               @map("breach_id") @db.Uuid
+  jurisdiction        PrivacyJurisdiction
+  regulatorDueAt      DateTime             @map("regulator_due_at") @db.Timestamptz(3)
+  decision            BreachNoticeDecision @default(pending)
+  regulatorNotifiedAt DateTime?            @map("regulator_notified_at") @db.Timestamptz(3)
+  regulatorReference  String?              @map("regulator_reference") @db.VarChar(100)
+  subjectsNotifiedAt  DateTime?            @map("subjects_notified_at") @db.Timestamptz(3)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  breach PrivacyBreach @relation(fields: [breachId], references: [id], onDelete: Cascade)
+
+  @@unique([breachId, jurisdiction])
+  @@index([decision, regulatorDueAt])
+  @@map("privacy_breach_notices")
 }

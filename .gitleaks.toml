@@ -20,4 +20,8 @@ regexes = [
   # bytecode: the string table packs unrelated strings after it (locale tags, SVG paths), which
   # generic-api-key reads as a key. A DSN's public key is public by design (ADR-046).
   '''\Asentry_key=''',
+  # Zod's `Unrecognized key: "` template in the app's Hermes bytecode, when the string table
+  # places the Intl polyfill's packed likely-subtags data after it (base-36 runs ending in a
+  # script and region, such as `1xvqjpr-Hebr-IL`). Data, not a key; only that shape matches.
+  '''\Akey: "[0-9a-z]{6,}-[A-Z][a-z]{3}-[A-Z]{2}''',
 ]
