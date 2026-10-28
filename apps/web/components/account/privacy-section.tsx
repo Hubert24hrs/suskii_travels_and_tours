@@ -176,7 +176,7 @@ function DeleteCard({ requirements }: { requirements: Requirements }) {
       ) : (
         <div className="flex flex-col gap-2" data-testid="delete-blockers">
           <p className="font-body text-body text-foreground">{t('account.privacy.blockedIntro')}</p>
-          <ul className="list-disc pl-6 font-body text-body-sm text-foreground">
+          <ul className="list-disc ps-6 font-body text-body-sm text-foreground">
             {check.blockers.map((blocker) => (
               <li key={blocker}>{t(`account.privacy.blockers.${blocker}`)}</li>
             ))}

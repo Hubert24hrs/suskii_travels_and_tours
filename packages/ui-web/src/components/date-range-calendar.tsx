@@ -25,8 +25,8 @@ const classNames: Partial<ClassNames> = {
   ].join(' '),
   selected: 'rounded-pill bg-primary text-on-primary',
   // `!` so range shapes never depend on stylesheet order against `selected`.
-  range_start: 'rounded-r-none!',
-  range_end: 'rounded-l-none!',
+  range_start: 'rounded-e-none!',
+  range_end: 'rounded-s-none!',
   range_middle: 'rounded-none! bg-primary-subtle! text-foreground!',
   today: 'font-bold',
   disabled: 'text-muted',
@@ -47,6 +47,22 @@ export interface DateRangeCalendarProps {
 }
 
 /**
+ * The page's language and direction (`<html lang dir>`). The calendar only renders in the browser,
+ * after a picker opens, so the document is there; Latin digits match the rest of the page.
+ */
+function pageLanguage() {
+  const root = typeof document === 'undefined' ? null : document.documentElement;
+  const declared = root?.lang ?? '';
+  const lang = `${declared === '' ? 'en' : declared}-u-nu-latn`;
+  return {
+    dir: root?.dir === 'rtl' ? ('rtl' as const) : ('ltr' as const),
+    month: new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }),
+    weekday: new Intl.DateTimeFormat(lang, { weekday: 'narrow' }),
+    fullDate: new Intl.DateTimeFormat(lang, { dateStyle: 'full' }),
+  };
+}
+
+/**
  * The DayPicker calendar inside DateRangePicker, in its own module so the date library loads only
  * when a picker is about to open (it is not needed to render the form).
  */
@@ -61,13 +77,27 @@ export default function DateRangeCalendar({
   previousMonthLabel,
   nextMonthLabel,
 }: DateRangeCalendarProps) {
+  const page = pageLanguage();
   const shared = {
     numberOfMonths,
     classNames,
     autoFocus: true,
-    labels: { labelPrevious: () => previousMonthLabel, labelNext: () => nextMonthLabel },
+    dir: page.dir,
+    labels: {
+      labelPrevious: () => previousMonthLabel,
+      labelNext: () => nextMonthLabel,
+      ...(locale ? {} : { labelDayButton: (date: Date) => page.fullDate.format(date) }),
+    },
+    // Without a date-fns locale, month and weekday names come from Intl in the page's language.
+    ...(locale
+      ? { locale }
+      : {
+          formatters: {
+            formatCaption: (month: Date) => page.month.format(month),
+            formatWeekdayName: (day: Date) => page.weekday.format(day),
+          },
+        }),
     ...(minDate ? { disabled: { before: minDate }, startMonth: minDate } : {}),
-    ...(locale ? { locale } : {}),
     ...(weekStartsOn === undefined ? {} : { weekStartsOn }),
   };
   return mode === 'range' ? (

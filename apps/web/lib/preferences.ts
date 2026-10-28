@@ -4,8 +4,10 @@ import { cache } from 'react';
 import {
   DEFAULT_CURRENCY,
   DEFAULT_LOCALE,
+  acceptedLanguages,
   isSupportedCurrency,
   isSupportedLocale,
+  negotiateLocale,
   type CurrencyCode,
   type LocaleCode,
 } from '@suskii/shared';
@@ -23,12 +25,19 @@ export interface Preferences {
   currency: CurrencyCode;
 }
 
+/**
+ * The language: the footer choice wins; without one, the first language in the browser's
+ * `Accept-Language` that we have (ADR-076); else the default.
+ */
 export const getPreferences = cache(async (): Promise<Preferences> => {
   const store = await cookies();
   const locale = store.get(LOCALE_COOKIE)?.value ?? '';
   const currency = store.get(CURRENCY_COOKIE)?.value ?? '';
   return {
-    locale: isSupportedLocale(locale) ? locale : DEFAULT_LOCALE,
+    locale: isSupportedLocale(locale)
+      ? locale
+      : (negotiateLocale(acceptedLanguages((await headers()).get('accept-language'))) ??
+        DEFAULT_LOCALE),
     currency: isSupportedCurrency(currency) ? currency : DEFAULT_CURRENCY,
   };
 });

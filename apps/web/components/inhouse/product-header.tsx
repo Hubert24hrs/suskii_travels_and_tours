@@ -23,7 +23,7 @@ export async function ProductHeader({
       <div className="relative aspect-video overflow-hidden rounded-xl bg-skeleton">
         <CityArt city={city} priority />
         {sample ? (
-          <Badge variant="neutral" className="absolute top-3 left-3">
+          <Badge variant="neutral" className="absolute top-3 inset-s-3">
             {t('inhouse.sample')}
           </Badge>
         ) : null}

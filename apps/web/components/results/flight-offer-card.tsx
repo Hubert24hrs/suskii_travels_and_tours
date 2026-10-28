@@ -55,7 +55,7 @@ function SliceRow({ slice, label }: { slice: Slice; label: string }) {
             {time(slice.arrivalLocal)}
             {slice.arrivalDayOffset > 0 ? (
               <sup
-                className="ml-1 font-body text-caption text-foreground"
+                className="ms-1 font-body text-caption text-foreground"
                 title={t('results.flights.arrivesLater', { count: slice.arrivalDayOffset })}
               >
                 +{slice.arrivalDayOffset}

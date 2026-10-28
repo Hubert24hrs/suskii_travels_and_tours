@@ -48,7 +48,7 @@ export default async function HotelStayPage({
         href={backHref}
         className="inline-flex items-center gap-2 self-start font-body text-body-sm font-bold text-primary focus-visible:focus-ring"
       >
-        <ArrowLeft aria-hidden="true" className="size-4" />
+        <ArrowLeft aria-hidden="true" className="size-4 rtl:-scale-x-100" />
         {t('results.hotels.backToResults')}
       </AppLink>
       <I18nProvider locale={locale} messages={pickResultsMessages(messages)}>

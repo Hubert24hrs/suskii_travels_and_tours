@@ -45,7 +45,7 @@ export async function PrimePromo({ prime }: { prime: HomeContent['prime'] | unde
   return (
     <section aria-labelledby="prime-heading" className="py-10 md:py-16">
       <Container>
-        <div className="flex flex-col gap-6 rounded-xl border border-l-4 border-border border-l-accent bg-surface p-6 md:flex-row md:items-center md:justify-between md:p-10">
+        <div className="flex flex-col gap-6 rounded-xl border border-s-4 border-border border-s-accent bg-surface p-6 md:flex-row md:items-center md:justify-between md:p-10">
           <div className="flex flex-col gap-3">
             <p className="font-body text-caption font-bold tracking-wide text-muted uppercase">
               {t('sections.prime.eyebrow')}

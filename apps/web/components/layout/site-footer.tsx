@@ -1,3 +1,4 @@
+import { LOCALE_NAMES } from '@suskii/i18n';
 import { BRAND, SUPPORTED_LOCALES } from '@suskii/shared';
 
 import { api, type SiteContent } from '../../lib/api';
@@ -114,7 +115,8 @@ export async function SiteFooter({ site }: { site: SiteContent | null }) {
             submitLabel={t('footer.save')}
             options={SUPPORTED_LOCALES.map((code) => ({
               value: code,
-              label: t(`footer.locales.${code}`),
+              label: LOCALE_NAMES[code],
+              lang: code,
             }))}
           />
           <PreferenceSelect

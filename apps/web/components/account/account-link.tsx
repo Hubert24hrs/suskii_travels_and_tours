@@ -21,7 +21,7 @@ export function AccountLink({
   return (
     <AppLink
       href={signedIn ? '/account' : '/sign-in'}
-      className={cn(buttonVariants({ variant: 'ghost' }), 'ml-auto px-4')}
+      className={cn(buttonVariants({ variant: 'ghost' }), 'ms-auto px-4')}
       data-testid="header-account"
     >
       {signedIn ? accountLabel : signInLabel}

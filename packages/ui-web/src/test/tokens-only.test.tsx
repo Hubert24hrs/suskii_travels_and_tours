@@ -24,11 +24,32 @@ const stringLiterals = (line: string): string[] =>
 const hasArbitraryValue = (token: string): boolean =>
   token.replace(/\[[^\]]*\]:/g, '').includes('[');
 
+/**
+ * A left or right utility that would not mirror in a right-to-left page (ADR-076): use `ms-`,
+ * `pe-`, `inset-s-`, `border-s-`, `rounded-e-`, `text-start`. `left-1/2` centres an element the
+ * same way in both directions and is allowed.
+ */
+const physicalDirection = (token: string): boolean => {
+  const utility = token.split(':').pop()?.replace(/^-/, '').replace(/!$/, '') ?? '';
+  return (
+    /^(m|p|scroll-m|scroll-p)[lr]-/.test(utility) ||
+    (/^(left|right)-/.test(utility) && utility !== 'left-1/2') ||
+    /^text-(left|right)$/.test(utility) ||
+    /^rounded-(l|r|tl|tr|bl|br)(-|$)/.test(utility) ||
+    /^border-[lr](-|$)/.test(utility)
+  );
+};
+
 const RULES: { name: string; test: (line: string) => boolean }[] = [
   { name: 'hex colour literal', test: (line) => /#[0-9a-f]{3,8}\b/i.test(line) },
   { name: 'rgb()/hsl() colour literal', test: (line) => /\b(?:rgba?|hsla?)\(/i.test(line) },
   { name: 'px/rem/em length literal', test: (line) => /\b\d+(?:\.\d+)?(?:px|rem|em)\b/.test(line) },
   { name: 'inline style prop', test: (line) => /\bstyle=\{/.test(line) },
+  {
+    name: 'left or right utility (use a logical one)',
+    test: (line) =>
+      stringLiterals(line).some((literal) => literal.split(/\s+/).some(physicalDirection)),
+  },
   {
     name: 'arbitrary Tailwind value',
     test: (line) =>
@@ -48,6 +69,9 @@ describe('components use design tokens only', () => {
       "cn('text-[#fff]')",
       'style={{ color: "red" }}',
       "'#004BBE'",
+      "cn('pl-4 md:mr-2')",
+      "'absolute left-3 top-3'",
+      "'text-right rounded-l-none! border-l-4'",
     ];
     for (const line of offending) {
       expect(
@@ -57,6 +81,11 @@ describe('components use design tokens only', () => {
     }
     expect(
       RULES.some((rule) => rule.test("cn('data-[state=open]:bg-primary [&>svg]:size-4')")),
+    ).toBe(false);
+    expect(
+      RULES.some((rule) =>
+        rule.test("cn('ps-4 ms-auto inset-s-3 md:left-1/2 text-start rounded-e-none border-s-4')"),
+      ),
     ).toBe(false);
   });
 
