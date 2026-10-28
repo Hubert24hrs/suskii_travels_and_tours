@@ -239,11 +239,11 @@ function AddFunds({ options }: { options: Wallet['topUpOptions'] }) {
     setBusy(false);
     const slug = problemSlug(problem);
     setError(
-      slug === 'top-up-limit'
+      slug === 'company-top-up-limit'
         ? t('account.company.wallet.errors.limit')
-        : slug === 'top-up-amount-out-of-range'
+        : slug === 'company-top-up-amount'
           ? t('account.company.wallet.errors.amount', limits)
-          : slug === 'payment-provider-unavailable' || slug === 'top-up-currency-unavailable'
+          : slug === 'payment-provider-unavailable' || slug === 'company-top-up-currency'
             ? t('account.company.wallet.errors.provider')
             : t('account.company.error'),
     );

@@ -21581,7 +21581,7 @@
       "post": {
         "operationId": "startCompanyTopUp",
         "summary": "Add funds to the company wallet",
-        "description": "Admins of an active company (403 `company-admin-required`, 409 `company-suspended`). Opens a hosted checkout; the wallet is credited only when the provider confirms the payment. 422 `top-up-currency-unavailable` or `top-up-amount-out-of-range` outside `topUpOptions`; 409 `top-up-limit` after `topUpsPerDay` top-ups in 24 hours.",
+        "description": "Admins of an active company (403 `company-admin-required`, 409 `company-suspended`). Opens a hosted checkout; the wallet is credited only when the provider confirms the payment. 422 `company-top-up-currency` or `company-top-up-amount` outside `topUpOptions`; 409 `company-top-up-limit` after `topUpsPerDay` top-ups in 24 hours.",
         "tags": [
           "Companies"
         ],

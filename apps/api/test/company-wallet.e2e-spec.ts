@@ -287,12 +287,12 @@ describe('company wallet (e2e)', () => {
       .expect(400);
     const small = await startTopUp(admin, ngn(9_999));
     expect(small.status).toBe(422);
-    expect(small.body.type).toContain('top-up-amount-out-of-range');
+    expect(small.body.type).toContain('company-top-up-amount');
     const large = await startTopUp(admin, ngn(5_000_001));
-    expect(large.body.type).toContain('top-up-amount-out-of-range');
+    expect(large.body.type).toContain('company-top-up-amount');
     const currency = await startTopUp(admin, { amountMinor: 5_000_000, currency: 'KES' });
     expect(currency.status).toBe(422);
-    expect(currency.body.type).toContain('top-up-currency-unavailable');
+    expect(currency.body.type).toContain('company-top-up-currency');
 
     const started = await startTopUp(admin, ngn(100_000)).expect(201);
     expect(started.body).toMatchObject({
@@ -466,7 +466,7 @@ describe('company wallet (e2e)', () => {
     for (let index = 0; index < 3; index += 1) await startTopUp(admin, ngn(10_000)).expect(201);
     const capped = await startTopUp(admin, ngn(10_000));
     expect(capped.status).toBe(409);
-    expect(capped.body.type).toContain('top-up-limit');
+    expect(capped.body.type).toContain('company-top-up-limit');
 
     // A suspended company adds no funds and cannot spend them.
     await ctx.prisma.company.update({ where: { id: companyId }, data: { status: 'suspended' } });

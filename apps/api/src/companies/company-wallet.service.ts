@@ -48,21 +48,21 @@ export const walletNotVisible = () =>
 export const topUpCurrencyUnavailable = () =>
   new ProblemDetailsException(
     HttpStatus.UNPROCESSABLE_ENTITY,
-    'top-up-currency-unavailable',
+    'company-top-up-currency',
     'Funds cannot be added in this currency',
     'Choose one of the currencies offered for top-ups.',
   );
 export const topUpAmountOutOfRange = () =>
   new ProblemDetailsException(
     HttpStatus.UNPROCESSABLE_ENTITY,
-    'top-up-amount-out-of-range',
+    'company-top-up-amount',
     'This amount is outside the top-up limits',
     'Choose an amount between the smallest and largest top-up shown.',
   );
 export const topUpDailyLimit = () =>
   new ProblemDetailsException(
     HttpStatus.CONFLICT,
-    'top-up-limit',
+    'company-top-up-limit',
     'Too many top-ups today',
     'Your company has started the most top-ups allowed in a day. Try again tomorrow.',
   );
