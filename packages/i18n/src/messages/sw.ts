@@ -2425,6 +2425,7 @@ export const sw: Messages = {
         price_alert: 'Arifa za bei',
         prime: 'Suskii Prime',
         review_requests: 'Maombi ya maoni baada ya safari',
+        support: 'Majibu kutoka kwa timu yetu ya usaidizi',
         marketing: 'Ofa na habari',
       },
       channels: { email: 'Barua pepe', sms: 'SMS', whatsapp: 'WhatsApp', push: 'Programu' },

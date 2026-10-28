@@ -2362,6 +2362,7 @@ export const en = {
         price_alert: 'Price alerts',
         prime: 'Suskii Prime',
         review_requests: 'Review requests after a trip',
+        support: 'Replies from our support team',
         marketing: 'Offers and news',
       },
       channels: { email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp', push: 'App' },
