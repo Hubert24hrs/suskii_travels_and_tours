@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
@@ -86,11 +88,12 @@ import { claimBusSeats, claimRental, reserveSeats, syncRentalDeposit } from './s
 import {
   addonDetailsContext,
   contactContext,
+  customerIpContext,
   passportContext,
   rentalLicenceNumberContext,
 } from '../crypto/encryption-contexts';
-import { FLIGHT_SUPPLIERS } from '../suppliers/suppliers.module';
-import type { FlightSupplier } from '../suppliers/supplier.types';
+import { FLIGHT_SUPPLIERS, HOTEL_SUPPLIERS } from '../suppliers/suppliers.module';
+import type { FlightSupplier, HotelSupplier } from '../suppliers/supplier.types';
 import { bookingsCreated } from '../telemetry/metrics';
 
 /** Prices are held for at most this long after pricing (ADR-014). */
@@ -158,6 +161,7 @@ export class BookingsService {
     private readonly approvalNotices: CompanyApprovalNotices,
     private readonly adAttribution: AdAttribution,
     @Inject(FLIGHT_SUPPLIERS) private readonly flightSuppliers: FlightSupplier[],
+    @Inject(HOTEL_SUPPLIERS) private readonly hotelSuppliers: HotelSupplier[],
   ) {}
 
   // -------------------------------------------------------------------------
@@ -525,6 +529,7 @@ export class BookingsService {
             services: extras as unknown as Prisma.InputJsonValue,
             totalMinor: priced.total.minor,
             currency: priced.total.currency,
+            customerIpEncrypted: this.customerIp(payload, itemId, caller.context.ip),
             ...(seats
               ? {
                   [seats.kind === 'package' ? 'packageDepartureId' : 'tourDepartureId']:
@@ -756,6 +761,20 @@ export class BookingsService {
    * Add-ons: checks the details the product needs and stores them encrypted with the item's id
    * (a pickup address is personal data). Other products take no add-on details.
    */
+  /**
+   * The checkout IP, encrypted, for a hotel whose supplier must send it when it books after
+   * payment (ADR-086); IPv4-mapped addresses are kept as plain IPv4. Null for everything else.
+   */
+  private customerIp(payload: ItemPayload, itemId: string, ip: string): string | null {
+    if (payload.kind !== 'hotel') return null;
+    const supplier = this.hotelSuppliers.find((s) => s.name === payload.hotel.supplier);
+    if (!supplier?.needsCustomerIp) return null;
+    const mapped = ip.startsWith('::ffff:') ? ip.slice('::ffff:'.length) : null;
+    const address = mapped && isIP(mapped) === 4 ? mapped : ip;
+    if (isIP(address) === 0) return null;
+    return this.encryption.encrypt(address, customerIpContext(itemId));
+  }
+
   private withAddonDetails(
     input: CreateBookingRequest,
     payload: ItemPayload,

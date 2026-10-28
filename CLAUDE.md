@@ -81,9 +81,12 @@ bookings with a console inbox, SLA timers and a Prime queue, is built and waits 
 shift; part 2, WhatsApp through the Cloud API, is built and waits for the owner's Meta app,
 number and approved template; part 3, an after-hours assistant that answers from the FAQs and the
 traveller's booking (ADR-085), is built and waits for the owner's staffed hours, `LLM_API_KEY`
-and one run of the assistant eval. Item 11, 99.9% uptime and a status page, is built (`docs/phases/uptime.md`): objectives with burn-rate alerts, uptime checks
-from three regions, `GET /v1/status` and incidents in the console, on the website and in the app;
-it waits for the owner's on-call channel.
+and one run of the assistant eval. Item 10, Expedia Rapid hotels (ADR-086), is built and waits for
+the owner's Expedia Partner Solutions account, one sandbox run and certification
+(`docs/phases/expedia-rapid.md`). Item 11, 99.9% uptime and a status page, is built
+(`docs/phases/uptime.md`): objectives with burn-rate alerts, uptime checks from three regions,
+`GET /v1/status` and incidents in the console, on the website and in the app; it waits for the
+owner's on-call channel. Items 12 and 13 come next.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -166,7 +169,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api eval:support-assistant` | Support assistant eval: 40 conversations, 90% and no unsafe answer (`--recorded`) |
 | `pnpm --filter @suskii/api sandbox:duffel`         | Duffel flights and Stays test-mode check (ADR-062; test token, `--book`)          |
 | `pnpm --filter @suskii/api test:sandbox`           | Our API's booking journey against Duffel test mode (manual workflow only)         |
-| `pnpm --filter @suskii/api sandbox:partners`       | Hotelbeds, Viator and Travelpayouts live check (owner keys, read-only)            |
+| `pnpm --filter @suskii/api sandbox:partners`       | Hotelbeds, Expedia, Viator and Travelpayouts check (owner keys, read-only)        |
 | `pnpm --filter @suskii/api rides:demo`             | Sample drivers take local rides; type the rider's PIN (not in prod)               |
 | `pnpm --filter @suskii/api staff:bootstrap`        | First super admin of a new environment (`--email`, `--yes`; once)                 |
 | `pnpm release:rehearse`                            | Compose deploy, ops command, broken release, rollback (`:local` images)           |
@@ -300,10 +303,11 @@ Tooling notes for agents:
   on a single offer, per passenger and segment: its adapter fetches them on quote and re-check,
   bundles one weight across every segment, sells it only at one price for every seated
   passenger (id `<offer>.bag<kg>`), and `book()` refuses a bag that is gone or repriced (ADR-063).
-- Hotel suppliers: `mock`, `duffel` (Stays) and `hotelbeds` (ADR-071; signed APItude calls,
-  rate checks before payment, no idempotency key so ambiguous bookings go to review). When more
-  than one returns results, `mergeDuplicateHotels` keeps the cheaper copy of a hotel (same
-  normalised name within 250 m, different suppliers only).
+- Hotel suppliers: `mock`, `duffel` (Stays), `hotelbeds` (ADR-071; signed APItude calls,
+  rate checks before payment, no idempotency key so ambiguous bookings go to review) and
+  `expedia` (ADR-086; Rapid, property ids by polygon, price checks before quote and booking,
+  Expedia Collect only). When more than one returns results, `mergeDuplicateHotels` keeps the
+  cheaper copy of a hotel (same normalised name within 250 m, different suppliers only).
 - A hotel supplier whose search returns only the cheapest price (Duffel Stays) sets
   `ratesComplete: false` and implements `rates()`; the hotel page loads the full list once per
   search (`SearchStore.completeItem`, rate ids `.f<n>`; search rates are `.r<n>`) and falls back to
@@ -1057,6 +1061,7 @@ Tooling notes for agents:
 - [ADR-083: Support conversations](docs/decisions/ADR-083-support-conversations.md)
 - [ADR-084: WhatsApp as a support channel](docs/decisions/ADR-084-whatsapp-support-channel.md)
 - [ADR-085: After-hours support assistant](docs/decisions/ADR-085-after-hours-support-assistant.md)
+- [ADR-086: Expedia Rapid hotel adapter](docs/decisions/ADR-086-expedia-rapid-hotel-adapter.md)
 - [ADR-087: Availability objectives and the status page](docs/decisions/ADR-087-availability-objectives-and-status-page.md)
 
 ## Open questions for the owner
@@ -1175,7 +1180,12 @@ username user to confirm the field for replying to a business-scoped user id. Ad
 after-hours assistant (ADR-085): the staffed hours (`SUPPORT_HOURS`, `SUPPORT_TIME_ZONE`), whether
 the assistant should answer in production (`SUPPORT_ASSISTANT_ENABLED`), one run of the
 assistant eval against the model with `LLM_API_KEY`, its spend caps (defaults $5 a day and 2 cents
-per conversation), and the help-centre FAQs it answers from (three are seeded today). Added with the
+per conversation), and the help-centre FAQs it answers from (three are seeded today). Added with
+Expedia Rapid (ADR-086): an Expedia Partner Solutions account with sandbox credentials
+(`EXPEDIA_RAPID_API_KEY` and `EXPEDIA_RAPID_SHARED_SECRET` as repository secrets, then one run of
+`partner-sandbox.yml`), confirmation of the commercial model (Expedia Collect rates resold under
+`affiliate_collect`, invoiced to Suskii) and the billing contact Expedia expects, the point of sale
+per market, and Expedia's certification before `expedia` is enabled in production. Added with the
 status page (ADR-087): who receives uptime and burn-rate pages (`uptime_alert_emails` or the
 on-call tool's channel ids), the availability figure to promise partners and companies (99.9%
 suggested), whether to move the status page to a third-party host for independence from our

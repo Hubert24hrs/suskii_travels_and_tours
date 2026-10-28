@@ -64,6 +64,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
       'metasearch-landings': 0,
       'support-conversations': 0,
       'whatsapp-contacts': 0,
+      'supplier-customer-ip': 0,
       'status-incidents': 0,
     }),
   ),
