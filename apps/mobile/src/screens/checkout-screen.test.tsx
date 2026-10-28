@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 
 import { openHostedCheckout } from '../lib/payment';
 import { tripStore } from '../lib/trips';
-import { json, mockApi, renderWithApp } from '../test/app';
+import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
 import {
   BOOKING_ID,
   QUOTE_ID,
@@ -375,5 +375,45 @@ describe('CheckoutScreen', () => {
     const body = (await create?.json()) as { passengers: unknown[]; addonDetails?: unknown };
     expect(body.passengers).toHaveLength(1);
     expect(body).not.toHaveProperty('addonDetails');
+  });
+
+  it('pays a company trip from the company wallet, or another way when it falls short (ADR-090)', async () => {
+    let answer: Response = json(
+      { type: 'urn:suskii:problem:company-wallet-insufficient', title: 'Short', status: 409 },
+      409,
+    );
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(inhouseQuote('tour')),
+      'GET /v1/catalog/countries': () => json(countries),
+      'GET /v1/me/company': () =>
+        json({ company: { name: 'Acme Logistics', status: 'active', myRole: 'booker' } }),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }) }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/payments`]: () => answer,
+    });
+    await renderWithApp(<CheckoutScreen />, await signedInSession());
+    await fillTraveller();
+    // The wallet choice appears only for a company trip, and replaces the plan and method.
+    expect(screen.queryByTestId('checkout-company-wallet')).toBeNull();
+    await fireEvent.press(await screen.findByTestId('checkout-company'));
+    await fireEvent.press(screen.getByTestId('checkout-company-wallet'));
+    expect(screen.getByText(m.checkout.company.walletHelp)).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+
+    expect(await screen.findByText(m.checkout.errors.companyWalletInsufficient)).toBeOnTheScreen();
+    const first = calls.filter((request) => request.url.endsWith('/payments'));
+    expect(await first[0]?.json()).toEqual({ useCompanyWallet: true });
+    expect(router.replace).not.toHaveBeenCalled();
+
+    // The box is cleared: submitting again pays the booking with a provider.
+    answer = json(paymentSession, 201);
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/trips/${BOOKING_ID}`));
+    expect(openHostedCheckout).toHaveBeenCalledWith(CHECKOUT_URL);
+    const second = calls.filter((request) => request.url.endsWith('/payments'))[1];
+    expect(await second?.json()).not.toHaveProperty('useCompanyWallet');
+    const create = calls.filter((request) => request.url.endsWith('/v1/bookings'));
+    expect(create).toHaveLength(1);
+    expect(await create[0]?.json()).toMatchObject({ company: true });
   });
 });

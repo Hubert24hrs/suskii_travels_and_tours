@@ -70,6 +70,51 @@ describe('TripScreen', () => {
     expect(screen.queryByTestId('pay-now')).toBeNull();
   });
 
+  it('pays an approved company trip from the company wallet when it covers the amount (ADR-090)', async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    const due = { amountMinor: 3_000_000, currency: 'NGN' };
+    const priced = booking({
+      status: 'PRICED',
+      amountDue: due,
+      paymentOptions: {
+        providers: [{ name: 'mock', methods: ['card'] }],
+        methods: [{ method: 'card', providers: ['mock'] }],
+        hold: null,
+        installments: null,
+        wallet: null,
+        companyWallet: { covers: true },
+      },
+      company: { approvalStatus: 'approved', policyFindings: [], approvalRejectReason: null },
+    });
+    let paid = false;
+    const { calls } = mockApi({
+      [GET]: () => json(paid ? booking() : priced),
+      [`POST /v1/bookings/${BOOKING_ID}/payments`]: () => {
+        paid = true;
+        return json(
+          {
+            paymentId: '0192d3a0-7c1e-7b2a-9f00-0000000000a2',
+            status: 'succeeded',
+            checkoutUrl: null,
+            amount: due,
+            expiresAt: '2026-10-01T10:00:00.000Z',
+          },
+          201,
+        );
+      },
+    });
+
+    await renderWithApp(<TripScreen />);
+    const button = await screen.findByTestId('pay-from-company-wallet');
+    expect(button).toHaveTextContent(/30,000/);
+    await fireEvent.press(button);
+
+    expect(await screen.findByTestId('trip-status')).toHaveTextContent(m.booking.status.CONFIRMED);
+    const payment = calls.find((request) => request.url.endsWith('/payments'));
+    expect(await payment?.json()).toMatchObject({ useCompanyWallet: true });
+    expect(screen.queryByTestId('pay-from-company-wallet')).toBeNull();
+  });
+
   it('saves the e-ticket to the device and opens it from there', async () => {
     await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
     mockApi({ [GET]: () => json(booking()) });
