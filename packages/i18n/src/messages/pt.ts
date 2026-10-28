@@ -2898,6 +2898,49 @@ export const pt: Messages = {
       generic: 'Não foi possível enviar a sua mensagem. Verifique a ligação e tente de novo.',
     },
   },
+  status: {
+    heading: 'Estado do serviço',
+    intro:
+      'Como estão a funcionar agora a pesquisa, as reservas, os pagamentos, o início de sessão e o apoio. Verificado a cada 30 segundos.',
+    link: 'Estado do serviço',
+    overall: {
+      operational: 'Está tudo a funcionar',
+      degraded: 'Alguns serviços estão lentos ou a falhar',
+      outage: 'Um serviço não está a funcionar',
+    },
+    components: {
+      search: 'Pesquisa de voos e hotéis',
+      bookings: 'Reservas e bilhetes',
+      payments: 'Pagamentos',
+      accounts: 'Início de sessão e contas',
+      support: 'Ajuda e apoio',
+    },
+    states: {
+      operational: 'A funcionar',
+      degraded: 'Degradado',
+      outage: 'Interrompido',
+    },
+    impacts: {
+      minor: 'Menor',
+      major: 'Grave',
+    },
+    stages: {
+      investigating: 'Em investigação',
+      identified: 'Causa identificada',
+      monitoring: 'Correção aplicada, em observação',
+      resolved: 'Resolvido',
+    },
+    openHeading: 'Incidentes em curso',
+    recentHeading: 'Últimos 7 dias',
+    noIncidents: 'Sem incidentes nos últimos 7 dias.',
+    affects: 'Afeta: {components}',
+    started: 'Início: {time}',
+    resolvedAt: 'Resolvido: {time}',
+    updated: 'Última verificação: {time}',
+    unavailable:
+      'Não conseguimos carregar o estado do serviço neste momento. Se algo não estiver a funcionar, contacte o apoio.',
+    bannerLink: 'Ver o estado do serviço',
+  },
   seo: {
     homeTitle: '{brand}: voos baratos, hotéis, férias e apoio com vistos',
     homeDescription:

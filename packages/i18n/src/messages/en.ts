@@ -2817,6 +2817,49 @@ export const en = {
       generic: 'We could not send your message. Check your connection and try again.',
     },
   },
+  status: {
+    heading: 'Service status',
+    intro:
+      'How searching, booking, paying, signing in and getting help work right now. Checked every 30 seconds.',
+    link: 'Service status',
+    overall: {
+      operational: 'Everything is working',
+      degraded: 'Some things are slow or failing',
+      outage: 'Something is not working',
+    },
+    components: {
+      search: 'Searching flights and hotels',
+      bookings: 'Bookings and tickets',
+      payments: 'Payments',
+      accounts: 'Signing in and accounts',
+      support: 'Help and support',
+    },
+    states: {
+      operational: 'Working',
+      degraded: 'Degraded',
+      outage: 'Outage',
+    },
+    impacts: {
+      minor: 'Minor',
+      major: 'Major',
+    },
+    stages: {
+      investigating: 'Investigating',
+      identified: 'Cause found',
+      monitoring: 'Fix in place, watching',
+      resolved: 'Resolved',
+    },
+    openHeading: 'Current incidents',
+    recentHeading: 'Past 7 days',
+    noIncidents: 'No incidents in the past 7 days.',
+    affects: 'Affects: {components}',
+    started: 'Started {time}',
+    resolvedAt: 'Resolved {time}',
+    updated: 'Last checked {time}',
+    unavailable:
+      'We cannot load the status right now. If something is not working, contact support.',
+    bannerLink: 'See service status',
+  },
   seo: {
     homeTitle: '{brand}: cheap flights, hotels, holidays and visa help',
     homeDescription:
