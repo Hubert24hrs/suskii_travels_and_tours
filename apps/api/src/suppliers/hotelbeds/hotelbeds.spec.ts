@@ -4,6 +4,7 @@ import { money } from '@suskii/shared';
 
 import {
   OfferUnavailableError,
+  SupplierAmbiguousError,
   SupplierRequestError,
   SupplierTimeoutError,
   SupplierUnavailableError,
@@ -407,7 +408,22 @@ describe('HotelbedsHotelSupplier', () => {
         json(200, { booking: { reference: '102-3087551', status: 'PRECONFIRMED' } }),
       );
       await expect(supplierWith(fn).book(request, signal)).rejects.toBeInstanceOf(
-        SupplierUnavailableError,
+        SupplierAmbiguousError,
+      );
+    });
+
+    it('treats a failed booking call as unclear, but keeps a refusal a refusal', async () => {
+      const failed = fakeFetch(new Response('<html>bad gateway</html>', { status: 502 }));
+      await expect(supplierWith(failed.fn).book(request, signal)).rejects.toBeInstanceOf(
+        SupplierAmbiguousError,
+      );
+      const lost = fakeFetch(new TypeError('fetch failed'));
+      await expect(supplierWith(lost.fn).book(request, signal)).rejects.toBeInstanceOf(
+        SupplierAmbiguousError,
+      );
+      const refused = fakeFetch(json(400, { error: { code: 'INVALID_DATA', message: 'Bad' } }));
+      await expect(supplierWith(refused.fn).book(request, signal)).rejects.toBeInstanceOf(
+        SupplierRequestError,
       );
     });
   });
