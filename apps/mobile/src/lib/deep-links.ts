@@ -98,8 +98,13 @@ function appPath({ path, query }: Parts): IncomingLink {
   if (first === 'trips' && segments.length === 1) return { path: '/trips' };
   if (first === 'trips' && second && UUID.test(second) && segments.length === 2)
     return tripLink(second, '', false);
-  if ((first === 'deals' || first === 'account' || first === 'prime') && !second)
+  if (
+    (first === 'deals' || first === 'account' || first === 'prime' || first === 'support') &&
+    !second
+  )
     return { path: `/${first}` };
+  if (first === 'support' && second && UUID.test(second) && segments.length === 2)
+    return { path: `/support/${second.toLowerCase()}` };
   if (first === 'search' && (second === 'flights' || second === 'hotels') && !third)
     return searchLink(second, query);
   return HOME;
@@ -139,10 +144,15 @@ const NOTIFICATION_SCREENS = new Set([
   '/account/company',
 ]);
 
-/** Notification data carries an in-app trip path or one of a few fixed screens (ADR-022). */
+/**
+ * Notification data carries an in-app trip path, a support conversation (ADR-083) or one of a
+ * few fixed screens (ADR-022).
+ */
 export function resolveNotificationPath(path: unknown): string | null {
   if (typeof path !== 'string') return null;
   if (NOTIFICATION_SCREENS.has(path)) return path;
-  const match = /^\/trips\/([0-9a-f-]{36})$/i.exec(path);
-  return match?.[1] && UUID.test(match[1]) ? `/trips/${match[1].toLowerCase()}` : null;
+  const match = /^\/(trips|support)\/([0-9a-f-]{36})$/i.exec(path);
+  return match?.[1] && match[2] && UUID.test(match[2])
+    ? `/${match[1].toLowerCase()}/${match[2].toLowerCase()}`
+    : null;
 }

@@ -110,6 +110,13 @@ describe('AccountScreen', () => {
     ]);
   });
 
+  it('offers help and support to visitors too', async () => {
+    mockApi({});
+    await renderWithApp(<AccountScreen />);
+    await fireEvent.press(await screen.findByTestId('account-support'));
+    expect(router.push).toHaveBeenCalledWith('/support');
+  });
+
   it('asks visitors to sign in on account screens', async () => {
     mockApi({});
     await renderWithApp(<NotificationSettingsScreen />);
