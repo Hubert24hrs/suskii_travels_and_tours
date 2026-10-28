@@ -72,7 +72,7 @@ describe('hashing for ad networks (ADR-079)', () => {
 describe('MetaConversions', () => {
   const meta = (fetchImpl: typeof fetch, testEventCode?: string) =>
     new MetaConversions({
-      baseUrl: 'https://graph.facebook.com/v24.0',
+      baseUrl: 'https://graph.facebook.com/v26.0',
       pixelId: '1234567890',
       accessToken: TOKEN,
       testEventCode,
@@ -83,7 +83,7 @@ describe('MetaConversions', () => {
     const { fetch, calls } = fakeFetch(200, { events_received: 1 });
     await meta(fetch, 'TEST123').sendPurchase(event, AbortSignal.timeout(1000));
     const [call] = calls;
-    expect(call?.url).toBe('https://graph.facebook.com/v24.0/1234567890/events');
+    expect(call?.url).toBe('https://graph.facebook.com/v26.0/1234567890/events');
     expect(call?.url).not.toContain(TOKEN);
     expect(call?.init).toMatchObject({ method: 'POST', redirect: 'error' });
     expect(bodyOf(call)).toEqual({
