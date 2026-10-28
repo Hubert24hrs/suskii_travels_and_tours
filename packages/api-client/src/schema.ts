@@ -1854,6 +1854,47 @@ export interface paths {
         patch: operations["adminUpdateRidePlace"];
         trace?: never;
     };
+    "/v1/admin/status/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status page incidents (newest first) */
+        get: operations["adminListStatusIncidents"];
+        put?: never;
+        /**
+         * Open an incident on the status page
+         * @description Shown at once on the status page and in the website and app banners; the affected components show at least the state the impact implies.
+         */
+        post: operations["adminOpenStatusIncident"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/status/incidents/{id}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post an update on an incident (resolving it with `resolved`)
+         * @description A resolved incident accepts no further updates (409 `incident-resolved`).
+         */
+        post: operations["adminUpdateStatusIncident"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/support/agents": {
         parameters: {
             query?: never;
@@ -6078,6 +6119,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service status and incidents
+         * @description How search, bookings, payments, accounts and support work right now (measured by the API and declared by open incidents), open incidents and those resolved in the last 7 days. Measured every 30 seconds.
+         */
+        get: operations["getStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/support/conversations": {
         parameters: {
             query?: never;
@@ -7335,6 +7396,10 @@ export interface components {
         };
         AdminReviewPage: {
             items: components["schemas"]["AdminReview"][];
+            nextCursor: string | null;
+        };
+        AdminStatusIncidentPage: {
+            items: components["schemas"]["StatusIncident"][];
             nextCursor: string | null;
         };
         AdminSupportAgents: {
@@ -10888,6 +10953,7 @@ export interface components {
             "metasearch-landings": number;
             "support-conversations": number;
             "whatsapp-contacts": number;
+            "status-incidents": number;
         };
         ReviewInvitationRun: {
             planned: number;
@@ -11287,6 +11353,57 @@ export interface components {
             email?: string | null;
             /** @default null */
             turnstileToken?: string | null;
+        };
+        StatusIncident: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** @enum {string} */
+            impact: "minor" | "major";
+            /** @enum {string} */
+            status: "investigating" | "identified" | "monitoring" | "resolved";
+            components: ("search" | "bookings" | "payments" | "accounts" | "support")[];
+            /** Format: date-time */
+            startedAt: string;
+            resolvedAt: string | null;
+            updates: components["schemas"]["StatusIncidentUpdate"][];
+        };
+        StatusIncidentCreateInput: {
+            title: string;
+            /** @enum {string} */
+            impact: "minor" | "major";
+            components: ("search" | "bookings" | "payments" | "accounts" | "support")[];
+            /** @enum {string} */
+            status: "investigating" | "identified" | "monitoring";
+            message: string;
+        };
+        StatusIncidentUpdate: {
+            /** @enum {string} */
+            status: "investigating" | "identified" | "monitoring" | "resolved";
+            message: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        StatusIncidentUpdateInputInput: {
+            /** @enum {string} */
+            status: "investigating" | "identified" | "monitoring" | "resolved";
+            message: string;
+            /** @enum {string} */
+            impact?: "minor" | "major";
+            components?: ("search" | "bookings" | "payments" | "accounts" | "support")[];
+        };
+        StatusPage: {
+            /** @enum {string} */
+            state: "operational" | "degraded" | "outage";
+            components: {
+                /** @enum {string} */
+                id: "search" | "bookings" | "payments" | "accounts" | "support";
+                /** @enum {string} */
+                state: "operational" | "degraded" | "outage";
+            }[];
+            incidents: components["schemas"]["StatusIncident"][];
+            /** Format: date-time */
+            updatedAt: string;
         };
         StepUp: {
             /** Format: date-time */
@@ -16174,6 +16291,106 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListStatusIncidents: {
+        parameters: {
+            query?: {
+                state?: "open" | "resolved";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStatusIncidentPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminOpenStatusIncident: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusIncidentCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusIncident"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdateStatusIncident: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusIncidentUpdateInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusIncident"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -23798,6 +24015,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RidePlaces"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusPage"];
                 };
             };
             400: components["responses"]["Problem400"];
