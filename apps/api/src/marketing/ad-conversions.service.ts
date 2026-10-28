@@ -94,7 +94,7 @@ export class AdConversionsService {
             totalMinor: true,
             currency: true,
             contactEncrypted: true,
-            items: { select: { type: true } },
+            vertical: true,
           },
         },
       },
@@ -178,7 +178,7 @@ export class AdConversionsService {
       totalMinor: bigint;
       currency: string;
       contactEncrypted: string;
-      items: { type: string }[];
+      vertical: string;
     },
     clickIds: ClickIds,
     now: Date,
@@ -192,7 +192,8 @@ export class AdConversionsService {
       value: toDecimalString(money(booking.totalMinor, booking.currency)),
       currency: booking.currency,
       sourceUrl: bookingUrl(this.config, booking.id),
-      contentIds: [...new Set(booking.items.map((item) => item.type))],
+      // The booking's vertical, as the website's tags report it.
+      contentIds: [booking.vertical],
       hashedEmail: redacted ? null : hashEmail(contact.email),
       hashedPhone: redacted || !contact.phone ? null : hashPhone(contact.phone),
       clickIds,

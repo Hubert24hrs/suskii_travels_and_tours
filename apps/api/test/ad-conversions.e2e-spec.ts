@@ -205,7 +205,7 @@ describe('ads with consent (e2e)', () => {
         value: (booking.total.amountMinor / 100).toFixed(2),
         currency: 'NGN',
         sourceUrl: `${WEB_ORIGIN}/bookings/${booking.id}`,
-        contentIds: ['flight'],
+        contentIds: ['flights'],
         hashedEmail: sha256('chioma@example.com'),
         hashedPhone: sha256('2348012345678'),
         clickIds: CLICK_IDS,
