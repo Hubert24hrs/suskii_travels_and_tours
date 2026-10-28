@@ -567,6 +567,23 @@ export const fr: Messages = {
       fastest: 'Le plus rapide : {duration}',
       note: "Tarifs les plus bas trouvés ces 90 derniers jours, pour un adulte, aller-retour, avec les taxes et frais d'aujourd'hui. Les tarifs changent.",
     },
+    metasearch: {
+      title: 'Votre vol',
+      checking: 'Vérification du prix auprès de la compagnie…',
+      higherTitle: 'Le prix a augmenté',
+      higherBody:
+        '{partner} affichait {shown}. La compagnie demande maintenant {current} pour ce vol.',
+      continue: 'Continuer à {price}',
+      otherFlights: "Voir d'autres vols",
+      unavailableTitle: "Ce vol n'est plus disponible",
+      unavailableBody:
+        "Il est complet ou la compagnie l'a modifié. Voici les vols pour le même voyage.",
+      expiredTitle: 'Ce prix a expiré',
+      expiredBody:
+        'Les prix changent vite. Relancez la recherche pour voir les tarifs actuels du même voyage.',
+      error: "Nous n'avons pas pu vérifier le prix pour le moment.",
+      retry: 'Réessayer',
+    },
     city: {
       title: 'Hôtels à {city}',
       description:

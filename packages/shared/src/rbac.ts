@@ -37,7 +37,7 @@ export const PERMISSIONS = {
   'roles:manage': 'Grant and revoke roles',
   'catalog:manage': 'Manage packages, tours, visa products and add-ons',
   'deals:manage': 'Manage deals and promo codes',
-  'pricing:manage': 'Manage markup rules, fees and Suskii Prime plans',
+  'pricing:manage': 'Manage markup rules, fees, Suskii Prime plans and metasearch partners',
   'referrals:review': 'Approve or reject referrals held for fraud review',
   'cms:manage': 'Edit banners, destination content and FAQs',
   'reviews:moderate': "Publish or reject travellers' reviews",
