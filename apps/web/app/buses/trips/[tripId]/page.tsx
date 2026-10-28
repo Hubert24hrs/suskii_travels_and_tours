@@ -7,6 +7,7 @@ import { pickCarsMessages } from '../../../../components/cars/cars-messages';
 import { CarsHeader } from '../../../../components/cars/cars-header';
 import { SeatPicker } from '../../../../components/cars/seat-picker';
 import { Container } from '../../../../components/layout/container';
+import { ReviewsSection } from '../../../../components/reviews/reviews-section';
 import { api } from '../../../../lib/api';
 import { amenityLabel, wallTime } from '../../../../lib/cars-query';
 import { getI18n } from '../../../../lib/i18n';
@@ -37,6 +38,8 @@ export default async function BusTripPage({ params }: Props) {
   if (!UUID.test(tripId)) notFound();
   const trip = await api.busTrip(tripId, currency);
   if (!trip) notFound();
+  // The operator's verified reviews; the page is not indexed, so no rating markup.
+  const reviews = await api.reviews({ kind: 'bus_operator', ref: trip.operator.id });
   const open = trip.status === 'scheduled';
   const facts = [
     format.date(trip.departsAtLocal.slice(0, 10), 'weekday'),
@@ -86,6 +89,7 @@ export default async function BusTripPage({ params }: Props) {
               open={open}
             />
           </I18nProvider>
+          <ReviewsSection page={reviews} />
         </div>
         <Card asChild className="flex flex-col gap-3 p-4">
           <aside aria-label={t('cars.buses.trip.title')}>

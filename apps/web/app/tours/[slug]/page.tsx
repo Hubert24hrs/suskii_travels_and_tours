@@ -8,6 +8,7 @@ import { pickBookDepartureMessages } from '../../../components/inhouse/book-depa
 import { PolicyTiers, TextList } from '../../../components/inhouse/detail-sections';
 import { ProductHeader } from '../../../components/inhouse/product-header';
 import { Container } from '../../../components/layout/container';
+import { ProductReviews } from '../../../components/reviews/product-reviews';
 import { api } from '../../../lib/api';
 import { getI18n } from '../../../lib/i18n';
 import { travellerQuery, travellersFrom } from '../../../lib/inhouse-query';
@@ -92,6 +93,14 @@ export default async function TourPage({ params, searchParams }: Props) {
             items={item.exclusions}
           />
           <PolicyTiers tiers={item.cancellationPolicy} />
+          <ProductReviews
+            kind="tour"
+            id={item.id}
+            name={item.title}
+            description={item.summary}
+            path={`/tours/${item.slug}`}
+            sample={item.sample}
+          />
         </div>
         <aside className="flex flex-col gap-3 lg:sticky lg:top-4">
           <I18nProvider locale={locale} messages={pickBookDepartureMessages(messages)}>

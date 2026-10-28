@@ -7,4 +7,5 @@ export const pickResultsMessages = (messages: Messages): ResultsMessages => ({
   cabins: messages.cabins,
   common: messages.common,
   alerts: messages.alerts,
+  reviews: { hotelScore: messages.reviews.hotelScore, count: messages.reviews.count },
 });

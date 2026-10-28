@@ -2533,6 +2533,7 @@ export const en = {
       saved: 'Thank you. Your review will appear once it has been checked.',
       window: 'You can review this trip until {date}.',
       edit: 'Edit review',
+      cancel: 'Cancel',
       withdraw: 'Withdraw review',
       withdrawConfirm: 'Withdraw your review? It will no longer appear anywhere.',
       withdrawn: 'Your review was withdrawn.',

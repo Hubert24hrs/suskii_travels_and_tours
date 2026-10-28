@@ -39,6 +39,24 @@ export function ReviewScore({ score, count }: { score: number | null; count: num
   );
 }
 
+/** Suskii's own score from travellers who stayed through us (ADR-077); nothing until one exists. */
+export function VerifiedScore({ summary }: { summary: Hotel['verifiedReviews'] }) {
+  const { t } = useResultsT();
+  const format = useFormatters();
+  if (!summary) return null;
+  return (
+    <span
+      className="inline-flex flex-wrap items-baseline gap-1 font-body text-body-sm text-foreground"
+      data-testid="verified-score"
+    >
+      <span className="font-bold text-heading">
+        {t('reviews.hotelScore', { score: format.number(summary.score) })}
+      </span>
+      <span>({t('reviews.count', { count: summary.count })})</span>
+    </span>
+  );
+}
+
 export function HotelCard({ hotel, nights, href }: { hotel: Hotel; nights: number; href: string }) {
   const { t } = useResultsT();
   const format = useFormatters();
@@ -66,6 +84,7 @@ export function HotelCard({ hotel, nights, href }: { hotel: Hotel; nights: numbe
             {[hotel.area, hotel.cityName].filter(Boolean).join(', ')}
           </p>
           <ReviewScore score={hotel.reviewScore} count={hotel.reviewCount} />
+          <VerifiedScore summary={hotel.verifiedReviews} />
           <p className="font-body text-body-sm text-foreground">
             {rate.roomName} · {t(`results.boards.${rate.board}`)}
           </p>

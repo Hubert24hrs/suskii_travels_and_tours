@@ -10,4 +10,5 @@ export const pickBookingMessages = (messages: Messages): BookingFlowMessages => 
   cabins: messages.cabins,
   common: messages.common,
   partners: messages.partners,
+  reviews: messages.reviews,
 });

@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { AppLink } from '../app-link';
 
-import { ReviewScore, Stars } from './hotel-card';
+import { ReviewScore, Stars, VerifiedScore } from './hotel-card';
 import { ResultsLoading, ResultsMessage } from './result-states';
 import { useResultsT } from './results-messages';
 
@@ -149,6 +149,7 @@ export function HotelRooms({
           {[hotel.area, hotel.cityName].filter(Boolean).join(', ')}
         </p>
         <ReviewScore score={hotel.reviewScore} count={hotel.reviewCount} />
+        <VerifiedScore summary={hotel.verifiedReviews} />
       </header>
       {hotel.amenities.length > 0 ? (
         <section aria-labelledby="hotel-amenities" className="flex flex-col gap-2">

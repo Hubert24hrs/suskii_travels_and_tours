@@ -193,6 +193,13 @@ export const api = {
       revalidate: FIVE_MINUTES,
       tags: ['cars'],
     }),
+  // Verified reviews (ADR-077): a product's published reviews, newest first, and its score.
+  reviews: (query: { kind: 'package' | 'tour' | 'bus_operator' | 'rental_vehicle'; ref: string }) =>
+    apiGet<Schemas['ReviewPage']>('/v1/reviews', {
+      revalidate: FIVE_MINUTES,
+      tags: ['reviews'],
+      query,
+    }),
   // AI trip search (ADR-061): whether the flight tab shows the "Describe your trip" box.
   naturalSearchStatus: () =>
     apiGet<Schemas['NaturalSearchStatus']>('/v1/flights/natural-search', {
