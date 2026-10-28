@@ -303,3 +303,15 @@ export {
   type ReviewSubjectKind,
   type ReviewTripType,
 } from './reviews';
+export {
+  APPROVAL_MODES,
+  APPROVAL_REJECT_REASONS,
+  COMPANY_ROLES,
+  POLICY_FINDINGS,
+  canApprove,
+  canManageCompany,
+  type ApprovalMode,
+  type BookingApprovalStatus,
+  type CompanyRole,
+  type PolicyFinding,
+} from './companies';
