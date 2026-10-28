@@ -34,6 +34,7 @@ const SECTIONS = [
   ['/account/referrals', 'referrals'],
   ['/account/alerts', 'alerts'],
   ['/account/wallet', 'wallet'],
+  ['/account/company', 'company'],
   ['/account/privacy', 'privacy'],
 ] as const;
 

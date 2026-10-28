@@ -24,9 +24,11 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { bookingHeaders, saveBookingToken } from '../../lib/booking-token';
 import { browserApi, idempotencyKey, problemSlug, type Schemas } from '../../lib/browser-api';
 import { searchAgainHref } from '../../lib/search-links';
+import { hasSession } from '../../lib/session';
 import { AppLink } from '../app-link';
 import { loadTurnstile } from '../home/turnstile';
 import { ResultsLoading } from '../results/result-states';
+import { CheckboxField } from '../search/native-select';
 
 import { useBookingT } from './checkout-messages';
 import { GuestFields, PassengerFields, type CountryOption } from './passenger-fields';
@@ -175,12 +177,29 @@ export function Checkout({
   const [plan, setPlan] = useState<PaymentPlanChoice>('full');
   const [method, setMethod] = useState<PaymentMethodName | null>(null);
   const [details, setDetails] = useState<AddonDetailsDraft>(NO_DETAILS);
+  // Company accounts (ADR-078): members of an active company may book the trip for it.
+  const [company, setCompany] = useState<{ name: string } | null>(null);
+  const [forCompany, setForCompany] = useState(false);
   const booking = useRef<{ id: string } | null>(null);
   const createKey = useRef<{ body: string; key: string } | null>(null);
   const token = useRef<string | null>(turnstileSiteKey ? null : DEVELOPMENT_TOKEN);
   const widget = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!hasSession()) return;
+    let cancelled = false;
+    browserApi()
+      .GET('/v1/me/company')
+      .then(({ data }) => {
+        if (!cancelled && data?.status === 'active') setCompany({ name: data.name });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -469,6 +488,7 @@ export function Checkout({
         acceptTerms: true as const,
         locale,
         turnstileToken: token.current,
+        company: company !== null && forCompany,
       };
       const serialised = JSON.stringify(body);
       if (createKey.current?.body !== serialised)
@@ -480,6 +500,11 @@ export function Checkout({
       if (data) {
         booking.current = { id: data.booking.id };
         if (data.accessToken) saveBookingToken(data.booking.id, data.accessToken);
+        // A company trip waiting for an approver is paid later, from the booking page.
+        if (data.booking.company?.approvalStatus === 'pending') {
+          router.push(`/bookings/${data.booking.id}`);
+          return;
+        }
         await proceed(data.booking.id);
         return;
       }
@@ -720,6 +745,21 @@ export function Checkout({
             </div>
           </section>
         </Card>
+
+        {company ? (
+          <Card asChild className="flex flex-col gap-2 p-4">
+            <section aria-label={t('checkout.company.label', { company: company.name })}>
+              <CheckboxField
+                name="company"
+                data-testid="checkout-company"
+                label={t('checkout.company.label', { company: company.name })}
+                checked={forCompany}
+                onChange={(event) => setForCompany(event.target.checked)}
+              />
+              <p className="font-body text-body-sm text-muted">{t('checkout.company.help')}</p>
+            </section>
+          </Card>
+        ) : null}
 
         <Card asChild className="flex flex-col gap-3 p-4">
           <section aria-labelledby="checkout-promo">

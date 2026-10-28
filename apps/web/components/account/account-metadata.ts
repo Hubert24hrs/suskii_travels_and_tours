@@ -13,6 +13,7 @@ type Section =
   | 'referrals'
   | 'alerts'
   | 'wallet'
+  | 'company'
   | 'privacy';
 
 /** Account pages are personal: never indexed. */

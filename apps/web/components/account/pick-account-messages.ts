@@ -10,4 +10,5 @@ export const pickAccountMessages = (messages: Messages): AccountMessages => ({
   alerts: messages.alerts,
   common: messages.common,
   booking: messages.booking,
+  cabins: messages.cabins,
 });

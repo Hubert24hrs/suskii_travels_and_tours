@@ -314,7 +314,7 @@ export class CompaniesService {
       );
       return row;
     });
-    const url = `${this.config.WEB_APP_URL.replace(/\/$/, '')}/account/company/join#invite=${token}`;
+    const url = `${this.config.WEB_APP_URL.replace(/\/$/, '')}/company/join#invite=${token}`;
     await this.email.send({
       to: input.email,
       template: 'company-invitation',
