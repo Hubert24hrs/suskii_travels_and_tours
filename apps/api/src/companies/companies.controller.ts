@@ -36,6 +36,7 @@ import {
   invitationParamsSchema,
   inviteMemberSchema,
   memberParamsSchema,
+  myCompanySchema,
   rejectApprovalSchema,
   updateCompanySchema,
   updatePolicySchema,
@@ -61,13 +62,14 @@ export class CompaniesController {
   @Contract({
     operationId: 'getMyCompany',
     summary: 'The company the caller belongs to',
-    description: '404 when the caller belongs to no company.',
+    description:
+      '`company` is null when the caller belongs to no company (the other company routes answer 404 then).',
     tags: TAGS,
-    responses: { 200: companySchema },
-    errors: [404],
+    responses: { 200: myCompanySchema },
   })
-  mine(@CurrentAuth() auth: AuthContext): Promise<CompanyView> {
-    return this.companies.mine(auth.userId);
+  async mine(@CurrentAuth() auth: AuthContext): Promise<z.infer<typeof myCompanySchema>> {
+    const membership = await this.companies.membership(auth.userId);
+    return { company: membership ? this.companies.present(membership) : null };
   }
 
   @Post()

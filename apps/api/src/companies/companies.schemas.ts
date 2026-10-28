@@ -46,6 +46,15 @@ export const companySchema = named(
   }),
 );
 
+export const myCompanySchema = named(
+  'MyCompany',
+  z.object({
+    company: companySchema
+      .nullable()
+      .meta({ description: 'Null when the caller is in no company.' }),
+  }),
+);
+
 export const companyMemberSchema = named(
   'CompanyMember',
   z.object({

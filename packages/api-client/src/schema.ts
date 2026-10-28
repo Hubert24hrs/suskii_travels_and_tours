@@ -4382,7 +4382,7 @@ export interface paths {
         };
         /**
          * The company the caller belongs to
-         * @description 404 when the caller belongs to no company.
+         * @description `company` is null when the caller belongs to no company (the other company routes answer 404 then).
          */
         get: operations["getMyCompany"];
         /**
@@ -9056,6 +9056,9 @@ export interface components {
         MoneyInput: {
             amountMinor: number;
             currency: string;
+        };
+        MyCompany: {
+            company: components["schemas"]["Company"] | null;
         };
         MyPrime: {
             member: boolean;
@@ -19687,12 +19690,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Company"];
+                    "application/json": components["schemas"]["MyCompany"];
                 };
             };
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
-            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

@@ -67,10 +67,8 @@ export function CompanySection({ countries }: { countries: readonly Country[] })
     let cancelled = false;
     void browserApi()
       .GET('/v1/me/company')
-      .then(({ data, response }) => {
-        if (cancelled) return;
-        if (data) setCompany(data);
-        else if (response.status === 404) setCompany(null);
+      .then(({ data }) => {
+        if (!cancelled && data) setCompany(data.company);
       });
     return () => {
       cancelled = true;

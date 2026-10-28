@@ -210,7 +210,8 @@ describe('company accounts (e2e)', () => {
 
   it('creates a company, invites only the invited address and keeps an admin', async () => {
     const admin = await account('ada@acme.test');
-    await ctx.http().get('/v1/me/company').set(admin.auth).expect(404);
+    const none = await ctx.http().get('/v1/me/company').set(admin.auth).expect(200);
+    expect(none.body).toEqual({ company: null });
     const created = await ctx
       .http()
       .post('/v1/me/company')
@@ -287,16 +288,12 @@ describe('company accounts (e2e)', () => {
     const seen = await ctx.http().get('/v1/me/company/members').set(approver.auth).expect(200);
     expect(seen.body.invitations).toEqual([]);
     expect(seen.body.members.every((m: { email: unknown }) => m.email === null)).toBe(true);
-    const denied = await ctx
-      .http()
-      .put('/v1/me/company/policy')
-      .set(approver.auth)
-      .send({
-        hotelNightlyCap: null,
-        maxCabin: null,
-        minAdvanceDays: null,
-        approvalMode: 'always',
-      });
+    const denied = await ctx.http().put('/v1/me/company/policy').set(approver.auth).send({
+      hotelNightlyCap: null,
+      maxCabin: null,
+      minAdvanceDays: null,
+      approvalMode: 'always',
+    });
     expect(denied.status).toBe(403);
     expect(denied.body.type).toContain('company-admin-required');
 
@@ -522,7 +519,8 @@ describe('company accounts (e2e)', () => {
       .delete(`/v1/me/company/members/${travellerMember.id}`)
       .set(traveller.auth)
       .expect(204);
-    await ctx.http().get('/v1/me/company').set(traveller.auth).expect(404);
+    const left = await ctx.http().get('/v1/me/company').set(traveller.auth).expect(200);
+    expect(left.body.company).toBeNull();
     const kept = await ctx.http().get('/v1/me/company/bookings').set(admin.auth).expect(200);
     expect(kept.body.items.map((item: { id: string }) => item.id)).toEqual([tripId]);
   });
