@@ -1,17 +1,20 @@
 import type { Page } from '@playwright/test';
+import { COOKIE_POLICY_VERSION } from '@suskii/shared/lite';
 
 import { catalogEntryFor, COOKIE_CATALOG } from '../lib/cookie-catalog';
 
-import { expect, expectNoAxeViolations, t, test } from './fixtures';
+import { CONSENT_COOKIE_NAME, expect, expectNoAxeViolations, t, test } from './fixtures';
 
 /**
  * ADR-042: the cookie settings dialog lists everything the site stores, and an optional category
- * is only stored as chosen once the API has recorded the choice.
+ * is only stored as chosen once the API has recorded the choice. ADR-079: marketing entries come
+ * from the ad tags, which store nothing for a visitor who said no.
  */
 
 const PASSWORD = 'a perfectly long passphrase';
-const CONSENT =
-  /^1\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(\d)(\d)$/;
+const CONSENT = new RegExp(
+  `^${COOKIE_POLICY_VERSION}\\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.(\\d)(\\d)$`,
+);
 
 async function openCookieSettings(page: Page) {
   await page
@@ -24,7 +27,7 @@ async function openCookieSettings(page: Page) {
 }
 
 const consentCookie = async (page: Page) =>
-  (await page.context().cookies()).find((cookie) => cookie.name === '__Host-suskii_consent')?.value;
+  (await page.context().cookies()).find((cookie) => cookie.name === CONSENT_COOKIE_NAME)?.value;
 
 test.describe('cookies', () => {
   test('lists every cookie and storage key the site sets', async ({ page }) => {
@@ -66,17 +69,26 @@ test.describe('cookies', () => {
       ...storage.session.filter((name) => !catalogEntryFor(name, 'sessionStorage')),
     ];
     expect(missing, 'stored but not listed in lib/cookie-catalog.ts').toEqual([]);
-    // Nothing optional is in use yet; the first optional entry needs the first-visit prompt.
-    expect(COOKIE_CATALOG.filter((entry) => entry.category !== 'necessary')).toEqual([]);
+    // This visitor said no to marketing: the tags stored nothing. No analytics tool exists yet.
+    const optional = [
+      ...cookies.map((name) => catalogEntryFor(name, 'cookie')),
+      ...storage.local.map((name) => catalogEntryFor(name, 'localStorage')),
+      ...storage.session.map((name) => catalogEntryFor(name, 'sessionStorage')),
+    ].filter((entry) => entry !== undefined && entry.category !== 'necessary');
+    expect(optional).toEqual([]);
+    expect(COOKIE_CATALOG.filter((entry) => entry.category === 'analytics')).toEqual([]);
   });
 
   test.describe('choices', () => {
-    // The refused save below is logged by the browser.
-    test.use({ allowedConsoleErrors: [/status of 503/] });
+    // A first visit; the refused save below is logged by the browser.
+    test.use({ startingConsent: null, allowedConsoleErrors: [/status of 503/] });
 
     test('stores a choice only after the API recorded it', async ({ page }) => {
       await page.goto('/');
-      let dialog = await openCookieSettings(page);
+      // A first visit offers the list from the prompt ("Choose") as well as from the footer.
+      await page.getByTestId('consent-choose').click();
+      let dialog = page.getByRole('dialog', { name: t('cookies.title') });
+      await expect(dialog.getByTestId('cookie-save')).toBeVisible();
       await expect(dialog.getByTestId('cookie-choice-analytics')).not.toBeChecked();
       await expect(dialog.getByTestId('cookie-choice-marketing')).not.toBeChecked();
 

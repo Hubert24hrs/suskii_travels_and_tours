@@ -8,6 +8,6 @@ import { startStack } from './stack';
  */
 export default async function globalSetup(_config: FullConfig): Promise<() => Promise<void>> {
   if (process.env.E2E_BASE_URL) return () => Promise.resolve();
-  const stack = await startStack();
+  const stack = await startStack({ adTags: true });
   return stack.stop;
 }
