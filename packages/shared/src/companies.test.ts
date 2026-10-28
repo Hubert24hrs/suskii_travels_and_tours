@@ -3,12 +3,18 @@ import { describe, expect, it } from 'vitest';
 import {
   canApprove,
   canManageCompany,
+  canTopUpCompanyWallet,
   evaluatePolicy,
   needsApproval,
   seesAllCompanyBookings,
+  seesCompanyWallet,
   type TravelPolicy,
 } from './companies';
-import { companyInputSchema, travelPolicySchema } from './companies-schemas';
+import {
+  companyInputSchema,
+  companyTopUpInputSchema,
+  travelPolicySchema,
+} from './companies-schemas';
 
 const policy = (overrides: Partial<TravelPolicy> = {}): TravelPolicy => ({
   hotelNightlyCapMinor: null,
@@ -72,6 +78,28 @@ describe('company travel policy (ADR-078)', () => {
     expect(canApprove('booker')).toBe(false);
     expect(seesAllCompanyBookings('admin')).toBe(true);
     expect(seesAllCompanyBookings('traveller')).toBe(false);
+  });
+
+  it('lets admins fund the wallet and admins and approvers see it (ADR-090)', () => {
+    expect(canTopUpCompanyWallet('admin')).toBe(true);
+    expect(canTopUpCompanyWallet('approver')).toBe(false);
+    expect(seesCompanyWallet('approver')).toBe(true);
+    expect(seesCompanyWallet('booker')).toBe(false);
+    expect(seesCompanyWallet('traveller')).toBe(false);
+  });
+
+  it('takes a top-up in whole minor units of a currency', () => {
+    const ok = { amount: { amountMinor: 50_000_00, currency: 'NGN' } };
+    expect(companyTopUpInputSchema.parse(ok)).toEqual(ok);
+    for (const amountMinor of [0, -5, 10.5, Number.MAX_SAFE_INTEGER + 2]) {
+      expect(
+        companyTopUpInputSchema.safeParse({ amount: { amountMinor, currency: 'NGN' } }).success,
+      ).toBe(false);
+    }
+    expect(
+      companyTopUpInputSchema.safeParse({ amount: { amountMinor: 100, currency: 'naira' } })
+        .success,
+    ).toBe(false);
   });
 
   it('validates what an admin sends', () => {
