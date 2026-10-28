@@ -45,6 +45,10 @@ export const PERSONAS = {
   driverReviewer: { roles: ['operations'], enrolled: true },
   /** Publishes the traveller's review of a finished tour (ADR-077). */
   reviewModerator: { roles: ['content_manager'], enrolled: true },
+  /** A customer who created a company through the API (ADR-078). */
+  companyOwner: { roles: [], enrolled: false },
+  /** Suspends and reinstates the company (step-up). */
+  companyStaff: { roles: ['super_admin'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
@@ -71,6 +75,8 @@ export interface StackState {
   driver: { id: string; name: string };
   /** A guest's review of a finished tour, waiting for a moderator (ADR-077). */
   review: { bookingReference: string; subject: string };
+  /** A company the company owner created (ADR-078). */
+  company: { name: string };
   /** The run's own database, for the few states a browser cannot reach (an aged session). */
   databaseUrl: string;
 }
