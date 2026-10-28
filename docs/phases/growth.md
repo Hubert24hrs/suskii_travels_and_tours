@@ -101,3 +101,22 @@ Risks:
 - **Thin pages.** Hub and airline pages render only with at least one route; empty ones answer
   404 and stay out of the sitemap.
 - **Homepage budget.** Nothing here touches the homepage.
+
+## Part 2 outcome
+
+Built. Facts start appearing three days after the first deployed refreshes; hubs and airline
+pages appear as soon as a route has fares.
+
+- The new pages are server-rendered and add no JavaScript to the homepage.
+- The IDOR matrix classifies the new hub and airline routes as public reads of published
+  routes.
+
+| Check                            | Result                                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint and typecheck               | 25 of 25 tasks                                                                                                                              |
+| API unit tests with coverage     | 601 passed (52 suites), coverage gates met                                                                                                  |
+| API e2e                          | 530 of 530 outside the S3 suite (no container runtime locally; CI runs it); the route facts suite 6 of 6                                    |
+| Shared, i18n, worker, app (Jest) | 249, 33, 50 and 250 passed                                                                                                                  |
+| Website e2e                      | 121 of 122: every journey, SEO, hydration and slow-3G test passes                                                                           |
+| Lighthouse (local)               | Total blocking time only, median 253 ms; nothing here touches the homepage and the base fails the same way on this machine. CI is the judge |
+| Tailwind classes, security list  | `check:classes` clean, `security:checklist --check` up to date                                                                              |
