@@ -65,7 +65,8 @@ worker:
 web:
   replicas: 2
   # Plain settings read at request time, e.g. META_PIXEL_ID and TIKTOK_PIXEL_ID (the ad tags run
-  # only after marketing consent, ADR-079).
+  # only after marketing consent, ADR-079), and CLIENT_COUNTRY_HEADER when the ingress edge sets a
+  # country header on every request (displayed Suskii Prime prices, ADR-082).
   env: {}
   resources:
     requests: { cpu: 250m, memory: 384Mi }

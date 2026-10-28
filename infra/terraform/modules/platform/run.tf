@@ -126,6 +126,8 @@ module "web" {
   env = merge(var.web_env, {
     HOSTNAME         = "0.0.0.0"
     API_INTERNAL_URL = module.api[0].uri
+    # The visitor's country for displayed Suskii Prime prices (ADR-082), as the API reads it.
+    CLIENT_COUNTRY_HEADER = "cf-ipcountry"
   })
   min_instances       = var.scaling.web.min
   max_instances       = var.scaling.web.max
