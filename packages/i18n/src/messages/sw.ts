@@ -564,6 +564,22 @@ export const sw: Messages = {
       fastest: 'Haraka zaidi {duration}',
       note: 'Nauli za chini zaidi tulizopata katika siku 90 zilizopita, kwa mtu mzima mmoja, kwenda na kurudi, pamoja na kodi na ada za leo. Nauli hubadilika.',
     },
+    metasearch: {
+      title: 'Safari yako ya ndege',
+      checking: 'Tunathibitisha bei na shirika la ndege…',
+      higherTitle: 'Bei imepanda',
+      higherBody:
+        '{partner} ilionyesha {shown}. Shirika la ndege sasa linataka {current} kwa safari hii.',
+      continue: 'Endelea kwa {price}',
+      otherFlights: 'Angalia safari nyingine',
+      unavailableTitle: 'Safari hii haipatikani tena',
+      unavailableBody:
+        'Imejaa au shirika la ndege limeibadilisha. Hizi ni safari za ndege kwa safari hiyo hiyo.',
+      expiredTitle: 'Bei hii imeisha muda wake',
+      expiredBody: 'Bei hubadilika haraka. Tafuta tena uone nauli za sasa kwa safari hiyo hiyo.',
+      error: 'Hatukuweza kuthibitisha bei kwa sasa.',
+      retry: 'Jaribu tena',
+    },
     city: {
       title: 'Hoteli mjini {city}',
       description:

@@ -564,6 +564,23 @@ export const pt: Messages = {
       fastest: 'Mais rápido: {duration}',
       note: 'Tarifas mais baixas que encontrámos nos últimos 90 dias, para um adulto, ida e volta, com as taxas e encargos de hoje. As tarifas mudam.',
     },
+    metasearch: {
+      title: 'O seu voo',
+      checking: 'A confirmar o preço com a companhia aérea…',
+      higherTitle: 'O preço subiu',
+      higherBody:
+        '{partner} mostrava {shown}. A companhia aérea pede agora {current} por este voo.',
+      continue: 'Continuar por {price}',
+      otherFlights: 'Ver outros voos',
+      unavailableTitle: 'Este voo já não está disponível',
+      unavailableBody:
+        'Esgotou ou a companhia aérea alterou-o. Estes são os voos para a mesma viagem.',
+      expiredTitle: 'Este preço expirou',
+      expiredBody:
+        'Os preços mudam depressa. Pesquise de novo para ver as tarifas atuais da mesma viagem.',
+      error: 'Não foi possível confirmar o preço agora.',
+      retry: 'Tentar de novo',
+    },
     city: {
       title: 'Hotéis em {city}',
       description:
