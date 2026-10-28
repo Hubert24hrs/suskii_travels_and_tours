@@ -4,6 +4,8 @@ import {
   ADDON_DETAIL_FIELDS,
   ADDON_PRICING_BASES,
   ADDON_PRODUCT_TYPES,
+  APPROVAL_REJECT_REASONS,
+  BOOKING_APPROVAL_STATUSES,
   BOOKING_STATUSES,
   BUS_TICKET_STATUSES,
   CABIN_CLASSES,
@@ -27,6 +29,7 @@ import {
   PASSENGER_TITLES,
   PASSENGER_TYPES,
   PAYMENT_PLAN_KINDS,
+  POLICY_FINDINGS,
   PAYMENT_PROVIDER_NAMES,
   REFUND_DESTINATIONS,
   REFUND_REASONS,
@@ -583,6 +586,10 @@ export const createBookingRequestSchema = named(
     turnstileToken: z.string().min(1).max(2048).nullable().default(null).meta({
       description: 'Cloudflare Turnstile token (action `checkout`); required for guests.',
     }),
+    company: z.boolean().default(false).meta({
+      description:
+        "Book for the caller's company (ADR-078): the travel policy is checked and the trip may wait for an approver before it can be paid. Needs an account in an active company; not for memberships or rides (422 `company-booking-unavailable`, 409 `company-suspended`, 404 outside a company).",
+    }),
   }),
 );
 export type CreateBookingRequest = z.output<typeof createBookingRequestSchema>;
@@ -861,6 +868,17 @@ export const bookingSchema = named(
       .nullable()
       .meta({ description: 'How the booking can be paid now; null when nothing is payable.' }),
     refunds: z.array(bookingRefundSchema),
+    company: z
+      .object({
+        approvalStatus: z.enum(BOOKING_APPROVAL_STATUSES),
+        policyFindings: z.array(z.enum(POLICY_FINDINGS)),
+        approvalRejectReason: z.enum(APPROVAL_REJECT_REASONS).nullable(),
+      })
+      .nullable()
+      .meta({
+        description:
+          'A company trip (ADR-078): whether it waits for an approver (`pending`: payment answers 409 `approval-required`) and what the travel policy found.',
+      }),
   }),
 );
 export type BookingDto = z.infer<typeof bookingSchema>;

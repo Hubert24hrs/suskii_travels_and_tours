@@ -31,7 +31,10 @@ export type HmacPurpose =
   | 'bus-hold'
   // Fingerprint sign-in on a device (ADR-067), and the test stacks' mock sign-in key.
   | 'device-credential'
-  | 'social-mock-key';
+  | 'social-mock-key'
+  // Company invitations (ADR-078): the single-use token and the invited address.
+  | 'company-invitation'
+  | 'company-invitation-email';
 
 const PURPOSES: readonly HmacPurpose[] = [
   'ip',
@@ -56,6 +59,8 @@ const PURPOSES: readonly HmacPurpose[] = [
   'bus-hold',
   'device-credential',
   'social-mock-key',
+  'company-invitation',
+  'company-invitation-email',
 ];
 const HKDF_SALT = 'suskii-api:hmac:v1';
 

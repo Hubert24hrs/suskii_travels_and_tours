@@ -507,6 +507,15 @@ describe('admin audit coverage (e2e)', () => {
       await ctx.prisma.review.delete({ where: { id: second.id } });
     });
 
+    it('companies: suspend and reinstate', async () => {
+      // Written straight to the table: the customer side is covered by companies.e2e-spec.ts.
+      const company = await ctx.prisma.company.create({
+        data: { name: 'Audit Ltd', countryCode: 'NG', billingEmail: 'ap@audit.test' },
+      });
+      await audited('adminSuspendCompany', { id: company.id }, none);
+      await audited('adminReinstateCompany', { id: company.id }, none);
+    });
+
     it('refunds: create, reject, approve and resolve (maker-checker)', async () => {
       const request = () => ({
         paymentId,

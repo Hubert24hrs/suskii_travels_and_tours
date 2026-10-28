@@ -2475,6 +2475,8 @@ export const sw: Messages = {
         visa_in_progress: 'Ombi la viza bado liko wazi.',
         refund_in_progress: 'Marejesho bado yako njiani.',
         wallet_balance: 'Pochi yako ina pesa. Wasiliana na msaada ili ulipwe.',
+        company_admin:
+          'Wewe ndiye msimamizi pekee wa kampuni yenye wanachama wengine. Mfanye mtu mwingine kuwa msimamizi, au ondoa wanachama, kwanza.',
       },
       confirmLabel: 'Andika DELETE ili kuthibitisha',
       deleteButton: 'Futa akaunti yangu',

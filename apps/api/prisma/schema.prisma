@@ -78,6 +78,7 @@ model User {
   emergencyContacts       EmergencyContact[]
   partnerClicks           PartnerClick[]
   reviews                 Review[]
+  companyMembership       CompanyMember?
 
   @@map("users")
 }
@@ -908,48 +909,57 @@ enum BookingDocumentType {
 
 /// One purchase: a flight or a hotel stay now, several items later (packages, add-ons).
 model Booking {
-  id                String        @id @default(uuid(7)) @db.Uuid
+  id                   String                @id @default(uuid(7)) @db.Uuid
   /// Short public reference: 6 characters without look-alike letters.
-  reference         String        @unique
-  status            BookingStatus @default(DRAFT)
-  vertical          Vertical
-  userId            String?       @map("user_id") @db.Uuid
+  reference            String                @unique
+  status               BookingStatus         @default(DRAFT)
+  vertical             Vertical
+  userId               String?               @map("user_id") @db.Uuid
   /// HMAC of the guest access token (ADR-015); null for account bookings.
-  accessTokenHash   String?       @unique @map("access_token_hash")
+  accessTokenHash      String?               @unique @map("access_token_hash")
   /// JSON { email, phone } encrypted with the context `booking:{id}:contact`.
-  contactEncrypted  String        @map("contact_encrypted")
+  contactEncrypted     String                @map("contact_encrypted")
   /// HMAC of the contact email, for lookup without decrypting.
-  contactEmailHash  String        @map("contact_email_hash")
-  currency          String        @db.Char(3)
-  totalMinor        BigInt        @map("total_minor")
+  contactEmailHash     String                @map("contact_email_hash")
+  currency             String                @db.Char(3)
+  totalMinor           BigInt                @map("total_minor")
   /// Customer price breakdown at the agreed price (fare, extras, discount, total).
-  price             Json
+  price                Json
   /// Re-priced breakdown waiting for the traveller's consent.
-  pendingPrice      Json?         @map("pending_price")
-  promoCodeId       String?       @map("promo_code_id") @db.Uuid
-  channel           SalesChannel
-  locale            String        @default("en-NG")
-  termsVersion      String        @map("terms_version")
-  termsAcceptedAt   DateTime      @map("terms_accepted_at") @db.Timestamptz(3)
+  pendingPrice         Json?                 @map("pending_price")
+  promoCodeId          String?               @map("promo_code_id") @db.Uuid
+  channel              SalesChannel
+  locale               String                @default("en-NG")
+  termsVersion         String                @map("terms_version")
+  termsAcceptedAt      DateTime              @map("terms_accepted_at") @db.Timestamptz(3)
   /// Unpaid bookings expire at this instant.
-  paymentDeadline   DateTime?     @map("payment_deadline") @db.Timestamptz(3)
-  ticketingAttempts Int           @default(0) @map("ticketing_attempts")
-  nextTicketingAt   DateTime?     @map("next_ticketing_at") @db.Timestamptz(3)
-  confirmedAt       DateTime?     @map("confirmed_at") @db.Timestamptz(3)
+  paymentDeadline      DateTime?             @map("payment_deadline") @db.Timestamptz(3)
+  ticketingAttempts    Int                   @default(0) @map("ticketing_attempts")
+  nextTicketingAt      DateTime?             @map("next_ticketing_at") @db.Timestamptz(3)
+  confirmedAt          DateTime?             @map("confirmed_at") @db.Timestamptz(3)
   /// The booking an add-on belongs to (ADR-027); add-ons are their own bookings.
-  linkedBookingId   String?       @map("linked_booking_id") @db.Uuid
+  linkedBookingId      String?               @map("linked_booking_id") @db.Uuid
   /// Set once the check-in reminder went out (ADR-032).
-  checkinRemindedAt DateTime?     @map("checkin_reminded_at") @db.Timestamptz(3)
+  checkinRemindedAt    DateTime?             @map("checkin_reminded_at") @db.Timestamptz(3)
   /// When to invite a review: the day after the first reviewable item ends (ADR-077).
-  reviewInviteAt    DateTime?     @map("review_invite_at") @db.Timestamptz(3)
+  reviewInviteAt       DateTime?             @map("review_invite_at") @db.Timestamptz(3)
   /// Set once the review invitation was handled (sent, or nothing to review).
-  reviewInvitedAt   DateTime?     @map("review_invited_at") @db.Timestamptz(3)
+  reviewInvitedAt      DateTime?             @map("review_invited_at") @db.Timestamptz(3)
+  /// The company this trip was booked for (ADR-078); the booker is `user_id`.
+  companyId            String?               @map("company_id") @db.Uuid
+  /// What the company's travel policy found on the trip (codes from `POLICY_FINDINGS`).
+  policyFindings       String[]              @default([]) @map("policy_findings")
+  approvalStatus       BookingApprovalStatus @default(not_required) @map("approval_status")
+  approvalDecidedById  String?               @map("approval_decided_by_id") @db.Uuid
+  approvalDecidedAt    DateTime?             @map("approval_decided_at") @db.Timestamptz(3)
+  /// Code from `APPROVAL_REJECT_REASONS` when an approver said no.
+  approvalRejectReason String?               @map("approval_reject_reason")
   /// Contact details and passports wiped after account deletion (ADR-029).
-  redactedAt        DateTime?     @map("redacted_at") @db.Timestamptz(3)
+  redactedAt           DateTime?             @map("redacted_at") @db.Timestamptz(3)
   /// Set when the retention sweep cleared the last personal data of a closed booking (ADR-039).
-  anonymisedAt      DateTime?     @map("anonymised_at") @db.Timestamptz(3)
-  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  anonymisedAt         DateTime?             @map("anonymised_at") @db.Timestamptz(3)
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user             User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   linkedBooking    Booking?               @relation("LinkedAddons", fields: [linkedBookingId], references: [id], onDelete: SetNull)
@@ -972,6 +982,7 @@ model Booking {
   scheduleChanges  FlightScheduleChange[]
   partnerClicks    PartnerClick[]
   reviews          Review[]
+  company          Company?               @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt])
   /// Admin booking search and the dashboard filter by creation date (ADR-036).
@@ -983,6 +994,8 @@ model Booking {
   @@index([status, updatedAt])
   /// The review invitation sweep (ADR-077).
   @@index([status, reviewInviteAt])
+  /// Company reports and approvals (ADR-078).
+  @@index([companyId, createdAt])
   @@map("bookings")
 }
 
@@ -3170,4 +3183,110 @@ model Review {
   @@index([userId])
   @@index([bookingId])
   @@map("reviews")
+}
+
+// ---------------------------------------------------------------------------
+// Company accounts (ADR-078)
+// ---------------------------------------------------------------------------
+
+enum CompanyStatus {
+  active
+  suspended
+}
+
+enum CompanyRole {
+  admin
+  approver
+  booker
+  traveller
+}
+
+enum ApprovalMode {
+  never
+  out_of_policy
+  always
+}
+
+enum BookingApprovalStatus {
+  not_required
+  pending
+  approved
+  rejected
+}
+
+/// A company that books travel for its people.
+model Company {
+  id                 String        @id @default(uuid(7)) @db.Uuid
+  name               String
+  countryCode        String        @map("country_code") @db.Char(2)
+  registrationNumber String?       @map("registration_number")
+  taxId              String?       @map("tax_id")
+  billingEmail       String        @map("billing_email")
+  status             CompanyStatus @default(active)
+  createdById        String?       @map("created_by_id") @db.Uuid
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  members     CompanyMember[]
+  invitations CompanyInvitation[]
+  policy      CompanyPolicy?
+  bookings    Booking[]
+
+  @@index([status, createdAt])
+  @@map("companies")
+}
+
+/// A person's role in their company; one company per person.
+model CompanyMember {
+  id        String      @id @default(uuid(7)) @db.Uuid
+  companyId String      @map("company_id") @db.Uuid
+  userId    String      @unique @map("user_id") @db.Uuid
+  role      CompanyRole
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, role])
+  @@map("company_members")
+}
+
+/// An emailed invitation to join a company: single use, stored as hashes.
+model CompanyInvitation {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  companyId   String      @map("company_id") @db.Uuid
+  /// HMAC (`company-invitation-email`) of the invited email, lower case.
+  emailHash   String      @map("email_hash")
+  /// The invited email with most of it hidden, for the admins' list ("fi***@acme.ng").
+  emailHint   String      @map("email_hint")
+  role        CompanyRole
+  /// HMAC (`company-invitation`) of the emailed token.
+  tokenHash   String      @unique @map("token_hash")
+  invitedById String?     @map("invited_by_id") @db.Uuid
+  expiresAt   DateTime    @map("expires_at") @db.Timestamptz(3)
+  acceptedAt  DateTime?   @map("accepted_at") @db.Timestamptz(3)
+  revokedAt   DateTime?   @map("revoked_at") @db.Timestamptz(3)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([expiresAt])
+  @@map("company_invitations")
+}
+
+/// A company's travel policy; a null field does not apply.
+model CompanyPolicy {
+  companyId            String       @id @map("company_id") @db.Uuid
+  hotelNightlyCapMinor BigInt?      @map("hotel_nightly_cap_minor")
+  hotelNightlyCurrency String?      @map("hotel_nightly_currency") @db.Char(3)
+  maxCabin             CabinClass?  @map("max_cabin")
+  minAdvanceDays       Int?         @map("min_advance_days")
+  approvalMode         ApprovalMode @default(never) @map("approval_mode")
+  updatedAt            DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("company_policies")
 }

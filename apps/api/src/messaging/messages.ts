@@ -161,3 +161,63 @@ export function reviewInvitationMessage(details: {
     },
   };
 }
+
+/** To a company's approvers: a colleague's trip waits for them (ADR-078). */
+export function companyApprovalRequestMessage(details: {
+  reference: string;
+  companyName: string;
+  approvalsUrl: string;
+  bookingId: string;
+}): NotificationContent {
+  const lead = `Trip ${details.reference} for ${details.companyName} is waiting for your approval. It cannot be paid until an approver decides, and it expires with its price.`;
+  return {
+    category: 'booking',
+    template: 'company-approval-request',
+    bookingId: details.bookingId,
+    email: simpleEmail(
+      `Approve trip ${details.reference}`,
+      'A trip is waiting for approval',
+      [lead],
+      { label: 'Review the trip', url: details.approvalsUrl },
+    ),
+    text: `${BRAND.name}: trip ${details.reference} is waiting for your approval.`,
+    push: {
+      title: `Approve trip ${details.reference}`,
+      body: 'A company trip is waiting for your decision.',
+      path: '/account/company',
+    },
+  };
+}
+
+/** To the member who booked: the approver's decision (ADR-078). */
+export function companyApprovalDecisionMessage(details: {
+  reference: string;
+  approved: boolean;
+  bookingUrl: string;
+  bookingId: string;
+}): NotificationContent {
+  const lead = details.approved
+    ? `Your trip ${details.reference} was approved. Pay for it before the price expires to confirm it.`
+    : `Your trip ${details.reference} was not approved, so it has been cancelled. Nothing was charged.`;
+  return {
+    category: 'booking',
+    template: details.approved ? 'company-trip-approved' : 'company-trip-rejected',
+    bookingId: details.bookingId,
+    email: simpleEmail(
+      details.approved
+        ? `Trip ${details.reference} approved`
+        : `Trip ${details.reference} not approved`,
+      details.approved ? 'Your trip was approved' : 'Your trip was not approved',
+      [lead],
+      { label: 'Open booking', url: details.bookingUrl },
+    ),
+    text: `${BRAND.name}: ${lead}`,
+    push: {
+      title: details.approved
+        ? `Trip ${details.reference} approved`
+        : `Trip ${details.reference} not approved`,
+      body: details.approved ? 'Pay now to confirm it.' : 'The booking was cancelled.',
+      path: `/trips/${details.bookingId}`,
+    },
+  };
+}

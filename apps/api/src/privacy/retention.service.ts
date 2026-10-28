@@ -47,6 +47,8 @@ export const RETENTION_RULES = [
   'partner-conversions',
   // Verified reviews (ADR-077).
   'rejected-reviews',
+  // Company invitations (ADR-078).
+  'company-invitations',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -92,6 +94,8 @@ export const RETENTION_DAYS = {
   'partner-clicks': 400,
   /** After a moderator rejected the review: long enough to answer the traveller about it. */
   'rejected-reviews': 90,
+  /** After the invitation expired (7 days after it was sent), used or not. */
+  'company-invitations': 30,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -269,6 +273,11 @@ export class RetentionService {
       'rejected-reviews': counts(
         await this.prisma.review.deleteMany({
           where: { status: 'rejected', moderatedAt: { lt: before('rejected-reviews') } },
+        }),
+      ),
+      'company-invitations': counts(
+        await this.prisma.companyInvitation.deleteMany({
+          where: { expiresAt: { lt: before('company-invitations') } },
         }),
       ),
       // Commission records are revenue: kept for the financial period after their last change.

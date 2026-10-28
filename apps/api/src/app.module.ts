@@ -57,6 +57,7 @@ import { RbacModule } from './rbac/rbac.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { CompaniesModule } from './companies/companies.module';
 import { SearchModule } from './search/search.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 
@@ -111,6 +112,7 @@ export class AppModule implements NestModule {
         ReferralsModule,
         RemindersModule,
         ReviewsModule,
+        CompaniesModule,
         HealthModule,
         TelemetryModule,
       ],

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { CompanyApprovalNotices, CompanyPolicyEvaluator } from '../companies/company-policy';
 import { DocumentsModule } from '../documents/documents.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { SearchModule } from '../search/search.module';
@@ -78,6 +79,8 @@ import { TravellersService } from './travellers.service';
     BookingNotesService,
     PaymentRiskService,
     PaymentReviewsService,
+    CompanyPolicyEvaluator,
+    CompanyApprovalNotices,
   ],
   exports: [
     BookingNotifications,

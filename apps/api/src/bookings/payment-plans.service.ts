@@ -19,7 +19,7 @@ import { BookingFundsService } from './booking-funds.service';
 import { BookingNotifications } from './booking-notifications';
 import { itemPayload, itemServices } from './booking-presenter';
 import { BookingTransitions, SYSTEM_ACTOR, type BookingActor } from './booking-transitions';
-import { bookingConflict, holdLimit, holdUnavailable } from './booking.errors';
+import { approvalRequired, bookingConflict, holdLimit, holdUnavailable } from './booking.errors';
 import type { BookingDto } from './bookings.schemas';
 import { BookingsService, customerActor, type BookingCaller } from './bookings.service';
 import { CheckoutService } from './checkout.service';
@@ -78,6 +78,7 @@ export class PaymentPlansService {
       throw bookingConflict('This booking already has a payment plan.');
     }
     if (booking.status !== 'PRICED') throw bookingConflict('Only unpaid bookings can be reserved.');
+    if (booking.approvalStatus === 'pending') throw approvalRequired();
     const item = booking.items[0];
     const itemKind = item ? itemPayload(item).kind : null;
     if (

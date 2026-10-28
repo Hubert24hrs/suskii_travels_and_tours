@@ -95,6 +95,10 @@ interface Fixture {
   /** A Lagos ride place, where the flight leaves from (departure planner). */
   ridePlaceId: string;
   reservationId: string;
+  /** Company accounts (ADR-078): the owner is the company's admin. */
+  companyBookingId: string;
+  companyMemberId: string;
+  companyInvitationId: string;
 }
 
 interface Case {
@@ -198,6 +202,23 @@ const CASES: Record<string, Case> = {
     path: (f) => `/v1/rentals/reservations/${f.reservationId}/licence`,
     body: () => ({ number: 'LAGINTRUDER1', expiresOn: '2031-01-31' }),
   },
+  approveCompanyTrip: {
+    path: (f) => `/v1/me/company/bookings/${f.companyBookingId}/approve`,
+  },
+  rejectCompanyTrip: {
+    path: (f) => `/v1/me/company/bookings/${f.companyBookingId}/reject`,
+    body: () => ({ reason: 'other' }),
+  },
+  revokeCompanyInvitation: {
+    path: (f) => `/v1/me/company/invitations/${f.companyInvitationId}`,
+  },
+  changeCompanyMemberRole: {
+    path: (f) => `/v1/me/company/members/${f.companyMemberId}/role`,
+    body: () => ({ role: 'traveller' }),
+  },
+  removeCompanyMember: {
+    path: (f) => `/v1/me/company/members/${f.companyMemberId}`,
+  },
   uploadRentalLicence: {
     path: (f) => `/v1/rentals/reservations/${f.reservationId}/licence/document`,
     raw: { contentType: 'image/png', bytes: PNG },
@@ -272,6 +293,7 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
   /** A flight booking for the account (or a guest when `session` is null). */
   async function createFlightBooking(
     session: TokenSession | null,
+    extra: Record<string, unknown> = {},
   ): Promise<{ bookingId: string; token: string }> {
     const quoteId = await flightQuote();
     const request = ctx.http().post('/v1/bookings').set('Idempotency-Key', idempotencyKey());
@@ -295,6 +317,7 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
         termsVersion: BOOKING_TERMS_VERSION,
         acceptTerms: true,
         turnstileToken: 'e2e-turnstile',
+        ...extra,
       })
       .expect(201);
     return {
@@ -527,7 +550,32 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       },
     });
 
+    // A company with the owner as admin, an open invitation and a trip waiting for approval.
+    await ctx
+      .http()
+      .post('/v1/me/company')
+      .set(auth)
+      .send({ name: 'Owner Ltd', countryCode: 'NG', billingEmail: 'ap@owner.test' })
+      .expect(201);
+    await ctx
+      .http()
+      .put('/v1/me/company/policy')
+      .set(auth)
+      .send({ hotelNightlyCap: null, maxCabin: null, minAdvanceDays: null, approvalMode: 'always' })
+      .expect(200);
+    const invitation = await ctx
+      .http()
+      .post('/v1/me/company/invitations')
+      .set(auth)
+      .send({ email: 'colleague@owner.test', role: 'booker' })
+      .expect(201);
+    const members = await ctx.http().get('/v1/me/company/members').set(auth).expect(200);
+    const companyTrip = await createFlightBooking(owner, { company: true });
+
     return {
+      companyBookingId: companyTrip.bookingId,
+      companyMemberId: members.body.members[0].id as string,
+      companyInvitationId: invitation.body.id as string,
       rideId,
       ridePlaceId: ridePlace?.id ?? '',
       scheduleChangeId: scheduleChange.id,

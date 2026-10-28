@@ -24,6 +24,7 @@ import { fromJsonValue, toJsonValue } from '../common/json';
 import type { RequestContext } from '../common/request-context';
 import { uuidv7 } from '../common/uuid';
 import { APP_CONFIG, type AppConfig } from '../config/config';
+import { CompanyApprovalNotices, CompanyPolicyEvaluator } from '../companies/company-policy';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { HmacService } from '../crypto/hmac.service';
 import { randomToken } from '../crypto/random';
@@ -64,6 +65,7 @@ import {
   addonDetailsInvalid,
   botCheckFailed,
   bookingConflict,
+  companyBookingUnavailable,
   extrasInvalid,
   passengersInvalid,
   priceConsentMismatch,
@@ -151,6 +153,8 @@ export class BookingsService {
     private readonly fulfilment: InhouseFulfilment,
     private readonly ticketSigner: TicketSigner,
     private readonly flags: CarsFlags,
+    private readonly companyPolicy: CompanyPolicyEvaluator,
+    private readonly approvalNotices: CompanyApprovalNotices,
     @Inject(FLIGHT_SUPPLIERS) private readonly flightSuppliers: FlightSupplier[],
   ) {}
 
@@ -442,6 +446,10 @@ export class BookingsService {
     ) {
       throw new NotFoundException();
     }
+    // Company trips (ADR-078) need an account; memberships and on-demand rides are personal.
+    if (input.company && (!userId || payload.kind === 'membership' || payload.kind === 'ride')) {
+      throw companyBookingUnavailable();
+    }
 
     const passengers = await this.preparePassengers(input, payload, userId);
     const extras = this.prepareExtras(input, payload, passengers);
@@ -461,6 +469,11 @@ export class BookingsService {
     ]);
     const priced = priceBookingItem(pricer, fx, payload, client, extras, promo, now);
     if (promo && priced.promo?.status !== 'applied') throw promoInvalid();
+    // The policy is checked here, from the quote and its priced total, never from the client.
+    const company =
+      input.company && userId
+        ? await this.companyPolicy.forBooking(userId, payload, priced.total, fx, now)
+        : null;
 
     const bookingId = uuidv7();
     const accessToken = userId ? null : randomToken(32);
@@ -495,6 +508,7 @@ export class BookingsService {
         new Date(now.getTime() + PRICE_HOLD_MS),
       ),
       linkedBookingId: payload.kind === 'addon' ? payload.linkedBookingId : null,
+      ...(company ?? {}),
       items: {
         create: [
           {
@@ -563,6 +577,17 @@ export class BookingsService {
     bookingsCreated.add(1, { vertical: data.vertical, channel: data.channel });
 
     const booking = await this.reload(bookingId);
+    if (company?.approvalStatus === 'pending' && userId) {
+      const notice = {
+        id: booking.id,
+        reference: booking.reference,
+        companyId: company.companyId,
+        userId,
+      };
+      this.background.run('company-approval-request', () =>
+        this.approvalNotices.requestApproval(notice),
+      );
+    }
     return { booking: await this.present(booking), accessToken };
   }
 

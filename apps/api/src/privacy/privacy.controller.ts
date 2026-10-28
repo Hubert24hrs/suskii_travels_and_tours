@@ -136,7 +136,7 @@ export class PrivacyController {
     operationId: 'deleteMyAccount',
     summary: 'Delete my account',
     description:
-      'Signs out every device and anonymises the account at once. Refused (409 with `blockers`) while a booking, payment, trip, visa application or refund is in progress or the wallet holds money. Bookings, payments and refunds are kept for the retention period without contact details.',
+      'Signs out every device and anonymises the account at once. Refused (409 with `blockers`) while a booking, payment, trip, visa application or refund is in progress, the wallet holds money, or the account is the last admin of a company with other members. Bookings, payments and refunds are kept for the retention period without contact details.',
     tags: TAGS,
     body: deleteAccountBodySchema,
     responses: { 200: accountDeletedSchema },
