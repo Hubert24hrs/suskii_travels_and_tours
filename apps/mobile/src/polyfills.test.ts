@@ -47,5 +47,18 @@ describe('Intl polyfills', () => {
     );
     expect(format.country('NG')).toBe('Nigeria');
     expect(format.country('AE')).toBe('United Arab Emirates');
+
+    // The other languages (ADR-076): Arabic plural forms, French and Portuguese lists and names.
+    const arabic = createTranslator(getMessages('ar'), 'ar');
+    expect(arabic.t('results.flights.count', { count: 2 })).toBe('رحلتان');
+    expect(arabic.t('results.flights.count', { count: 5 })).toBe('\u20685\u2069 رحلات');
+    expect(createFormatters('fr').list(['Dakar', 'Abidjan', 'Lomé'])).toBe(
+      'Dakar, Abidjan et Lomé',
+    );
+    expect(createFormatters('pt').country('AO')).toBe('Angola');
+    expect(createFormatters('sw').country('KE')).toBe('Kenya');
+    expect(
+      createFormatters('fr').relativeTime('2026-09-30T10:00:00Z', new Date('2026-09-30T12:00:00Z')),
+    ).toBe('il y a 2 heures');
   });
 });
