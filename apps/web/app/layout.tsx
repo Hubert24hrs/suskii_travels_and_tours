@@ -5,16 +5,16 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { preconnect } from 'react-dom';
 
-import { ConsentGate } from '../components/cookies/consent-gate';
 import { ErrorReporting } from '../components/error-reporting';
 import { SiteFooter } from '../components/layout/site-footer';
 import { SiteHeader, UtilityBar } from '../components/layout/site-header';
-import { AdTags } from '../components/marketing/ad-tags';
+import { Marketing } from '../components/marketing/marketing';
 import { WebVitalsReporter } from '../components/web-vitals-reporter';
 import { adTagConfig, adTagsOn } from '../lib/ad-tags';
 import { api } from '../lib/api';
 import { publicEnv } from '../lib/env';
 import { getI18n, type ErrorMessages } from '../lib/i18n';
+import { getMarketingState } from '../lib/marketing-state';
 
 import { bodyFont, headingFont } from './fonts';
 import './globals.css';
@@ -74,10 +74,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <WebVitalsReporter />
         <ErrorReporting />
         {adTagsOn(adTags) ? (
-          <>
-            <AdTags config={adTags} />
-            <ConsentGate labels={messages.cookies} />
-          </>
+          <Marketing
+            config={adTags}
+            labels={messages.cookies}
+            initial={await getMarketingState()}
+          />
         ) : null}
       </body>
     </html>

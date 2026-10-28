@@ -30,11 +30,10 @@ let sink: ((call: AdCall) => void) | null = null;
  * the tags loaded. Cheap to call from any page: it never loads the tags itself.
  */
 export function trackAd(event: AdEvent, params: AdEventParams = {}): void {
-  if (sink) {
-    sink({ event, params });
-    return;
-  }
-  if (queue.length < MAX_QUEUED && hasCookieConsent('marketing')) queue.push({ event, params });
+  // Checked on every call: a withdrawal stops events at once, even with the tags loaded.
+  if (!hasCookieConsent('marketing')) return;
+  if (sink) sink({ event, params });
+  else if (queue.length < MAX_QUEUED) queue.push({ event, params });
 }
 
 /** The loader hands over its sender once the tags are in place, and gets what waited. */

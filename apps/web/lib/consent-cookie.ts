@@ -14,8 +14,7 @@ import { readCookie } from './read-cookie';
  */
 export const CONSENT_COOKIE = hostCookie(COOKIE_CONSENT_COOKIE);
 
-/** Fired on `window` after a new choice is recorded and stored. */
-export const CONSENT_EVENT = 'suskii:consent';
+export { CONSENT_EVENT } from './consent-event';
 
 /** The visitor's recorded choice under the current policy, or null. Client only. */
 export function readCookieConsent(): CookieConsent | null {

@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-import { hasSession } from '../../lib/session';
+import { hasSession } from '../../lib/session-cookie';
 
 const subscribe = (notify: () => void) => {
   window.addEventListener('suskii:session', notify);

@@ -4,32 +4,26 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
 import { trackAd, type AdEventParams } from '../../lib/ad-events';
-import { adTagsOn, type AdTagConfig } from '../../lib/ad-tags';
-import { CONSENT_EVENT, hasCookieConsent } from '../../lib/consent-cookie';
+import type { AdTagConfig } from '../../lib/ad-tags';
+
+// Once per page load, even if the visitor withdraws and allows marketing again.
+let started = false;
 
 /**
- * Starts the configured ad tags once the visitor allows marketing, now or later in the visit
- * (ADR-079). Their code loads only then, so pages without consent ship none of it. Reports a
- * PageView when they start and on every later navigation; nothing leaves before the tags run.
+ * Starts the configured ad tags (ADR-079). Mounted by `Marketing` only while the visitor allows
+ * marketing, so their code loads only then. The tags report the page they start on; this reports
+ * each later navigation.
  */
 export function AdTags({ config }: { config: AdTagConfig }): null {
   const pathname = usePathname();
-  const started = useRef(false);
   const firstPath = useRef(true);
 
   useEffect(() => {
-    if (!adTagsOn(config)) return;
-    const start = (): void => {
-      if (started.current || !hasCookieConsent('marketing')) return;
-      started.current = true;
-      void import('../../lib/ad-tags-loader').then(({ startAdTags }) => startAdTags(config));
-    };
-    start();
-    window.addEventListener(CONSENT_EVENT, start);
-    return () => window.removeEventListener(CONSENT_EVENT, start);
+    if (started) return;
+    started = true;
+    void import('../../lib/ad-tags-loader').then(({ startAdTags }) => startAdTags(config));
   }, [config]);
 
-  // The tags report the page they start on; this covers each later navigation.
   useEffect(() => {
     if (firstPath.current) {
       firstPath.current = false;
