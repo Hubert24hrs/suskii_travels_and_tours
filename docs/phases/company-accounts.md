@@ -54,3 +54,43 @@ credit decisions the owner has not made (ADR-078).
   carry ids, names and amounts, never passport or contact details of travellers.
 - **Leaving a company.** A removed member keeps their own bookings; company bookings stay with
   the company for its reports.
+
+## Outcome
+
+Built as planned. The company wallet and invoiced credit stay for a later item, as the plan said.
+
+- **API** (`apps/api/src/companies`): companies, members in four roles, emailed single-use
+  invitations (HMAC-stored, 7 days, matched to the verified email), the travel policy, the
+  check at booking (`CompanyPolicyEvaluator`, from the quote), approval before payment and
+  payment plans, decisions claimed once with notifications both ways, reports (committed spend
+  by month and traveller per currency, CSV), console routes to list, inspect, suspend (step-up)
+  and reinstate. Decisions taken while building are recorded in ADR-078: nobody decides their
+  own trip, memberships and rides are never company trips, and `GET /v1/me/company` answers
+  `{ company: null }` instead of 404 so a signed-in checkout logs no error.
+- **Database**: `companies`, `company_members`, `company_invitations`, `company_policies` and
+  booking columns for the company, the findings and the approval (expand-only migration
+  `20261101120000_company_accounts`).
+- **Privacy**: data registry entries, memberships in the export and deleted with the account,
+  invitations purged 30 days after expiry, the `company_admin` deletion blocker, security docs
+  and store forms updated.
+- **Website**: Account > Company, `/company/join`, "Book for {company}" at checkout and the
+  approval state on the booking page.
+- **App**: Account > Company (trips to approve, company trips), "Book for {company}" at checkout,
+  the approval state on the trip screen, push notifications that open the company screen.
+- **Console**: the Companies page.
+
+Verification on this branch (local):
+
+| Check                               | Result                                                                                  |
+| ----------------------------------- | --------------------------------------------------------------------------------------- |
+| Lint and typecheck, every workspace | 14 of 14 and 13 of 13 tasks                                                             |
+| API unit tests with coverage gates  | 585 passed (50 suites)                                                                  |
+| API e2e                             | companies 6 of 6; IDOR matrix, admin matrix, admin audit, accounts, platform 179 of 179 |
+| Shared, i18n, worker                | 239, 33 and 49 passed                                                                   |
+| App (Jest)                          | 250 passed (44 suites)                                                                  |
+| Admin e2e                           | 17 of 17, including the suspend and reinstate journey                                   |
+| Website e2e                         | companies, cookies, SEO and account specs pass                                          |
+| Security checklist, format          | up to date, clean                                                                       |
+
+What waits for the owner: whether to offer a company wallet and invoiced credit, negotiated
+rates or a corporate fee, and who at Suskii supports company admins.
