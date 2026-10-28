@@ -3,8 +3,8 @@ import { expect, expectNoAxeViolations, t, test } from './fixtures';
 /**
  * Support conversations on the website (ADR-083). Who can open what, staff replies and the
  * SLA rules are covered against the API (`apps/api/test/support.e2e-spec.ts`) and in the
- * console; here a visitor writes to us, keeps writing on the conversation page and marks it
- * solved.
+ * console; here a visitor writes to us, gets the after-hours assistant's answer from an FAQ
+ * (ADR-085; the stack has no staffed hours), keeps writing and marks it solved.
  */
 // A tab without the guest's token gets 404 from the API on purpose.
 test.use({ allowedConsoleErrors: [/404/] });
@@ -22,15 +22,22 @@ test('a visitor starts a conversation, replies and marks it solved', async ({ pa
 
   const form = page.getByTestId('support-start');
   await form.getByLabel(t('support.start.category')).selectOption('payment');
-  await form.getByLabel(t('support.start.message')).fill('Can I pay for my flight in parts?');
+  await form.getByLabel(t('support.start.message')).fill('Can I pay for my flight in instalments?');
   await form.getByLabel(t('support.start.email')).fill('visitor.support@example.com');
   await form.getByRole('button', { name: t('support.start.submit') }).click();
 
   await expect(page).toHaveURL(/\/support\/[0-9a-f-]{36}$/);
   const conversation = page.getByTestId('support-conversation');
   await expect(conversation.getByTestId('support-message-customer')).toContainText(
-    'Can I pay for my flight in parts?',
+    'Can I pay for my flight in instalments?',
   );
+  // The assistant answers from the seeded FAQ, labelled as automated; a person still owes a reply.
+  const answer = conversation.getByTestId('support-message-assistant');
+  await expect(answer).toContainText('Eligible bookings show the available payment plans', {
+    timeout: 10_000,
+  });
+  await expect(answer).toContainText(t('support.conversation.assistant'));
+  await expect(answer).toContainText(t('support.conversation.assistantNote'));
   await expect(conversation.getByTestId('support-status')).toHaveText(t('support.status.open'));
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   await expectNoAxeViolations(page);

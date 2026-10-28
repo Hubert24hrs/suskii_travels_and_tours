@@ -262,6 +262,8 @@ export async function startStack(options: { adTags?: boolean } = {}): Promise<St
       SOCIAL_MOCK_ENABLED: 'true',
       // The stack refreshes deals once, so route facts show from a single day of fares (ADR-080).
       ROUTE_FACTS_MIN_DAYS: '1',
+      // The after-hours assistant answers at any hour here (no staffed hours), with the mock model.
+      SUPPORT_ASSISTANT_ENABLED: 'true',
       // Cloudflare's country header, as deployed (Prime country prices, ADR-082). Behind the
       // hosted test server's tunnel Cloudflare sets it; tests send it themselves.
       CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
