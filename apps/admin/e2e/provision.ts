@@ -331,6 +331,18 @@ async function applyToDrive(
   throw new Error('The driver documents were not scanned');
 }
 
+/** A company created by a customer through the API, as the website does (ADR-078). */
+async function companyAccount(api: Api, owner: Persona): Promise<{ name: string }> {
+  const session = await signIn(api, owner.email, owner.password);
+  if (!session.accessToken) throw new Error('The company owner should not have MFA');
+  const name = 'Acme Logistics';
+  await api.call('POST', '/v1/me/company', {
+    headers: bearer(session.accessToken),
+    body: { name, countryCode: 'NG', billingEmail: 'accounts@acme.example' },
+  });
+  return { name };
+}
+
 export async function provision(
   apiUrl: string,
   root: { email: string; password: string },
@@ -413,6 +425,7 @@ export async function provision(
   const visaBooking = await bookAndPay(api, visaQuote, 'ada.visa@example.com');
   const applicationId = await waitForApplication(api, rootToken, visaBooking.reference);
   const driver = await applyToDrive(api, rootToken, personas.applicant);
+  const company = await companyAccount(api, personas.companyOwner);
 
   return {
     personas,
@@ -422,5 +435,6 @@ export async function provision(
     tourSlug: watched.slug,
     driver,
     review: { ...review, subject: detail.title },
+    company,
   };
 }
