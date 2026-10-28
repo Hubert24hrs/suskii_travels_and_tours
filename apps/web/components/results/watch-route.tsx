@@ -39,7 +39,7 @@ export function WatchRoute({
     return (
       <AppLink
         href={`/sign-in?next=${encodeURIComponent(next)}`}
-        className="inline-flex items-center gap-2 self-start font-body text-body-sm font-bold text-primary underline focus-visible:focus-ring"
+        className="inline-flex min-h-6 items-center gap-2 self-start font-body text-body-sm font-bold text-primary underline focus-visible:focus-ring"
       >
         <BellPlus aria-hidden="true" className="size-4" />
         {t('alerts.signIn')}

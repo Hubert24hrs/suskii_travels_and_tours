@@ -9,8 +9,17 @@ import { RouteArt } from '../art/route-art';
 import { DealsFilter } from './deals-filter';
 import { Section } from './section';
 
-/** Deal cards for a list of deals, labelled per the pricing guardrails. */
-export async function DealCards({ deals }: { deals: FlightDeal[] }) {
+/**
+ * Deal cards for a list of deals, labelled per the pricing guardrails. Card titles are `h3` under
+ * a section heading; a page that lists them straight under its `h1` passes `h2`.
+ */
+export async function DealCards({
+  deals,
+  headingLevel = 'h3',
+}: {
+  deals: FlightDeal[];
+  headingLevel?: 'h2' | 'h3';
+}) {
   const { t, format } = await getI18n();
   const now = new Date();
   return deals.map((deal) => ({
@@ -19,6 +28,7 @@ export async function DealCards({ deals }: { deals: FlightDeal[] }) {
     card: (
       <DealCard
         className="w-full"
+        headingLevel={headingLevel}
         href={dealSearchHref(deal)}
         linkComponent={AppLink}
         media={<RouteArt origin={deal.origin.code} destination={deal.destination.code} />}
