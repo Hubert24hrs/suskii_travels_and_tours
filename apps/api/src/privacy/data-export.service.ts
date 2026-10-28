@@ -82,6 +82,7 @@ export class DataExportService {
       newsletter,
       activity,
       partnerClicks,
+      adConversions,
     ] = await Promise.all([
       this.preferences.get(userId),
       this.preferences.notifications(userId),
@@ -126,6 +127,10 @@ export class DataExportService {
         orderBy: { occurredAt: 'asc' },
       }),
       this.prisma.partnerClick.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.adConversion.findMany({
+        where: { booking: { userId } },
+        orderBy: { createdAt: 'asc' },
+      }),
     ]);
 
     const presented = [];
@@ -343,6 +348,21 @@ export class DataExportService {
             category: click.category,
             bookingId: click.bookingId,
             channel: click.channel,
+          },
+        })),
+        // Bookings whose Purchase was, or may be, sent to ad networks after consent (ADR-079).
+        ...adConversions.map((conversion) => ({
+          occurredAt: iso(conversion.createdAt),
+          action: 'ads.purchase_conversion',
+          targetType: 'booking',
+          targetId: conversion.bookingId,
+          userAgent: null,
+          metadata: {
+            consentId: conversion.consentId,
+            clickIds: conversion.clickIds,
+            status: conversion.status,
+            sentTo: conversion.sentTo,
+            sentAt: iso(conversion.sentAt),
           },
         })),
       ].sort((a, b) => (a.occurredAt ?? '').localeCompare(b.occurredAt ?? '')),

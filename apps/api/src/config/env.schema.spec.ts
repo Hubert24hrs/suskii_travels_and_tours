@@ -259,6 +259,27 @@ describe('parseEnv', () => {
     );
   });
 
+  it('refuses mock ad conversions in production and requires https to the networks (ADR-079)', () => {
+    const production = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({ ...base, NODE_ENV: 'production', ...overrides });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    expect(parseEnv(base).AD_CONVERSIONS).toEqual([]);
+    expect(production({ AD_CONVERSIONS: 'mock' })).toContain(
+      'AD_CONVERSIONS: the mock sends nothing',
+    );
+    const plaintext = production({
+      META_GRAPH_API_URL: 'http://graph.facebook.com/v24.0',
+      TIKTOK_EVENTS_API_URL: 'http://business-api.tiktok.com/open_api/v1.3',
+    });
+    expect(plaintext).toContain('META_GRAPH_API_URL: must use https');
+    expect(plaintext).toContain('TIKTOK_EVENTS_API_URL: must use https');
+  });
+
   it('defaults push and attestation to mocks outside production, off by default', () => {
     const env = parseEnv(base);
     expect(env.PUSH_PROVIDER).toBe('mock');

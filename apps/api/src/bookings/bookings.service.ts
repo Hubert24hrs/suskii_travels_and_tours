@@ -25,6 +25,7 @@ import type { RequestContext } from '../common/request-context';
 import { uuidv7 } from '../common/uuid';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { CompanyApprovalNotices, CompanyPolicyEvaluator } from '../companies/company-policy';
+import { AdAttribution } from '../marketing/ad-attribution';
 import { FieldEncryption } from '../crypto/field-encryption';
 import { HmacService } from '../crypto/hmac.service';
 import { randomToken } from '../crypto/random';
@@ -155,6 +156,7 @@ export class BookingsService {
     private readonly flags: CarsFlags,
     private readonly companyPolicy: CompanyPolicyEvaluator,
     private readonly approvalNotices: CompanyApprovalNotices,
+    private readonly adAttribution: AdAttribution,
     @Inject(FLIGHT_SUPPLIERS) private readonly flightSuppliers: FlightSupplier[],
   ) {}
 
@@ -576,6 +578,8 @@ export class BookingsService {
     });
     bookingsCreated.add(1, { vertical: data.vertical, channel: data.channel });
 
+    // After the commit and never failing the booking: the attribution waits for payment (ADR-079).
+    await this.adAttribution.keep(bookingId, input.marketing);
     const booking = await this.reload(bookingId);
     if (company?.approvalStatus === 'pending' && userId) {
       const notice = {
