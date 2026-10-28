@@ -939,8 +939,11 @@ export const adminMessages = {
     period: 'Billing period',
     periods: { month: 'Monthly', year: 'Yearly' },
     prices: 'Prices',
-    pricesHint: 'One price per line: currency and amount, for example "NGN 25000".',
-    pricesInvalid: 'Each line needs a currency code and an amount, e.g. "NGN 25000".',
+    pricesHint:
+      'One price per line: currency and amount, for example "NGN 25000". Add a country code for a price only that country sees, for example "USD 18 GH"; visitors elsewhere pay the line without a country.',
+    pricesInvalid:
+      'Each line needs a currency code and an amount, and at most one country code, e.g. "NGN 25000" or "USD 18 GH". Each currency and country once.',
+    countryPrice: '{price} in {country}',
     markupShare: 'Markup returned to members (%)',
     waivedFees: 'Fee codes waived (comma separated)',
     prioritySupport: 'Priority support',
