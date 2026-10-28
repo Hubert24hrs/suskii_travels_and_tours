@@ -3530,3 +3530,52 @@ model SupportMessage {
   @@index([conversationId, id])
   @@map("support_messages")
 }
+
+// ---------------------------------------------------------------------------------------------
+// Status page (ADR-087): incidents staff write for travellers. Public text only: no personal
+// data, and authors are in the audit log, not here.
+// ---------------------------------------------------------------------------------------------
+
+enum StatusIncidentImpact {
+  minor
+  major
+}
+
+enum StatusIncidentStage {
+  investigating
+  identified
+  monitoring
+  resolved
+}
+
+/// An incident on the public status page. `components` are `STATUS_COMPONENTS` values.
+model StatusIncident {
+  id         String               @id @default(uuid(7)) @db.Uuid
+  title      String               @db.VarChar(120)
+  impact     StatusIncidentImpact
+  status     StatusIncidentStage
+  components String[]
+  startedAt  DateTime             @default(now()) @map("started_at") @db.Timestamptz(3)
+  resolvedAt DateTime?            @map("resolved_at") @db.Timestamptz(3)
+  createdAt  DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  updates StatusIncidentUpdate[]
+
+  @@index([resolvedAt, startedAt])
+  @@map("status_incidents")
+}
+
+/// One public update on an incident: its stage at the time and what travellers should know.
+model StatusIncidentUpdate {
+  id         String              @id @default(uuid(7)) @db.Uuid
+  incidentId String              @map("incident_id") @db.Uuid
+  status     StatusIncidentStage
+  message    String
+  createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  incident StatusIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt])
+  @@map("status_incident_updates")
+}

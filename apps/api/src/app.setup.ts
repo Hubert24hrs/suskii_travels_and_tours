@@ -26,6 +26,7 @@ export const COMPRESSED_PATHS = [
   /^\/v1\/hotels\/results\/[^/]+$/,
   /^\/v1\/(?:catalog|content)\/.+$/,
   /^\/v1\/(?:deals|destinations)(?:\/.*)?$/,
+  /^\/v1\/status$/,
 ];
 
 export const compressible = (path: string): boolean =>

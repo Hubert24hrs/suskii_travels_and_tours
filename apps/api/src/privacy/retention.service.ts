@@ -55,6 +55,8 @@ export const RETENTION_RULES = [
   'metasearch-landings',
   // Support conversations (ADR-083).
   'support-conversations',
+  // Status page incidents (ADR-087).
+  'status-incidents',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -108,6 +110,8 @@ export const RETENTION_DAYS = {
   'metasearch-landings': 400,
   /** After the conversation was resolved and last touched: two years to answer a dispute. */
   'support-conversations': 730,
+  /** After the incident was resolved: a year of history for availability reports. */
+  'status-incidents': 365,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -307,6 +311,12 @@ export class RetentionService {
       'support-conversations': counts(
         await this.prisma.supportConversation.deleteMany({
           where: { status: 'resolved', updatedAt: { lt: before('support-conversations') } },
+        }),
+      ),
+      // Resolved incidents only (their updates go with them); open ones are still on the page.
+      'status-incidents': counts(
+        await this.prisma.statusIncident.deleteMany({
+          where: { resolvedAt: { lt: before('status-incidents') } },
         }),
       ),
       // Commission records are revenue: kept for the financial period after their last change.

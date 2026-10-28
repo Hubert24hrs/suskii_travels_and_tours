@@ -36,6 +36,8 @@ export class CircuitBreaker {
   constructor(
     readonly name: string,
     private readonly options: BreakerOptions = DEFAULT_BREAKER_OPTIONS,
+    /** Told each time the breaker opens (the status page marks the supplier, ADR-087). */
+    private readonly onOpen?: (name: string) => void,
   ) {
     this.now = options.now ?? Date.now;
   }
@@ -91,6 +93,7 @@ export class CircuitBreaker {
     this.current = 'open';
     this.openedAt = now;
     this.outcomes = [];
+    this.onOpen?.(this.name);
   }
 }
 
@@ -98,12 +101,15 @@ export class CircuitBreaker {
 export class CircuitBreakerRegistry {
   private readonly breakers = new Map<string, CircuitBreaker>();
 
-  constructor(private readonly options: BreakerOptions = DEFAULT_BREAKER_OPTIONS) {}
+  constructor(
+    private readonly options: BreakerOptions = DEFAULT_BREAKER_OPTIONS,
+    private readonly onOpen?: (name: string) => void,
+  ) {}
 
   get(name: string): CircuitBreaker {
     let breaker = this.breakers.get(name);
     if (!breaker) {
-      breaker = new CircuitBreaker(name, this.options);
+      breaker = new CircuitBreaker(name, this.options, this.onOpen);
       this.breakers.set(name, breaker);
     }
     return breaker;

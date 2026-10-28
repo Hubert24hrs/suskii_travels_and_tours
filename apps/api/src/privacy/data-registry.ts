@@ -63,7 +63,7 @@ export type Retention =
   | { kind: 'reference' }
   | { kind: 'rule'; rule: RetentionRule }
   | { kind: 'job'; job: 'visa-documents-prune' | 'snapshots-prune' | 'push-tokens-prune' }
-  | { kind: 'parent'; parent: 'Session' | 'Booking' | 'SupportConversation' }
+  | { kind: 'parent'; parent: 'Session' | 'Booking' | 'SupportConversation' | 'StatusIncident' }
   | { kind: 'append-only' };
 
 export interface DataTreatment {
@@ -622,6 +622,18 @@ export const DATA_REGISTRY = {
     deletion: 'delete',
     retention: { kind: 'parent', parent: 'SupportConversation' },
     note: 'Messages of a support conversation (bodies encrypted per message). The export holds what the traveller and staff wrote to each other, never internal notes or staff names.',
+  },
+  StatusIncident: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'status-incidents' },
+    note: 'Incidents on the public status page (ADR-087): public text staff wrote, no personal data (authors are in the audit log). Purged a year after they were resolved.',
+  },
+  StatusIncidentUpdate: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'parent', parent: 'StatusIncident' },
+    note: 'Public updates on a status page incident.',
   },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 
