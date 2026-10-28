@@ -56,6 +56,8 @@ export const RETENTION_RULES = [
   // Support conversations (ADR-083) and WhatsApp contacts (ADR-084).
   'support-conversations',
   'whatsapp-contacts',
+  // Status page incidents (ADR-087).
+  'status-incidents',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -111,6 +113,8 @@ export const RETENTION_DAYS = {
   'support-conversations': 730,
   /** After their last WhatsApp message, once none of their conversations is left. */
   'whatsapp-contacts': 30,
+  /** After the incident was resolved: a year of history for availability reports. */
+  'status-incidents': 365,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -319,6 +323,12 @@ export class RetentionService {
             lastInboundAt: { lt: before('whatsapp-contacts') },
             conversations: { none: {} },
           },
+        }),
+      ),
+      // Resolved incidents only (their updates go with them); open ones are still on the page.
+      'status-incidents': counts(
+        await this.prisma.statusIncident.deleteMany({
+          where: { resolvedAt: { lt: before('status-incidents') } },
         }),
       ),
       // Commission records are revenue: kept for the financial period after their last change.
