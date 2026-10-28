@@ -74,3 +74,30 @@ event codes).
 | Shared, i18n, worker, app (Jest) | 248, 33, 50 and 250 passed                                                                                                                     |
 | Website e2e                      | 117 of 118 (main and slow-3G projects all pass)                                                                                                |
 | Lighthouse (local)               | Total blocking time only, median 248 ms at CPU benchmark 1,252; the base fails the same way on this machine (262 ms at 1,238). CI is the judge |
+
+## Part 2: SEO pages from fare history
+
+Route pages today show the search form, the latest fare and other routes from the same city.
+Search engines rank pages that answer the questions travellers ask ("how much is a flight from
+Lagos to London", "which airlines fly it", "is there a direct flight", "when is it cheapest").
+The deal refresh already finds those answers every few hours and throws most of them away.
+
+| Step | Work                                                                                                                                                                                                                           | Files                                            |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| 1    | Database: `route_fares`, the cheapest fare a refresh found per route, day and departure date (supplier cost, carrier, stops, duration), kept `ROUTE_FARE_RETENTION_DAYS` (400); data registry entry, no personal data          | `apps/api/prisma`, `src/privacy`                 |
+| 2    | API: the refresh records every departure date it searched; `RouteFactsService` turns 30, 90 and 365 days of fares into facts priced at read time (markup, tax, currency) and only once enough days exist                       | `apps/api/src/deals`                             |
+| 3    | API: `facts` on the route detail (additive); city hubs `GET /v1/deals/cities` and `/cities/{slug}` (routes from and to a city); airline pages `GET /v1/deals/airlines` and `/airlines/{code}` (routes the airline was seen on) | `apps/api/src/deals`, `openapi.json`, api-client |
+| 4    | Website: facts on route pages; `/flights/from/[city]`, `/flights/to/[city]`, `/airlines/[code]`; links between them; metadata, canonical paths, breadcrumbs, sitemap; copy in every catalog                                    | `apps/web`, `packages/i18n`                      |
+| 5    | Tests: unit tests for the fact rules, API e2e (recording, facts, hubs, airlines, thresholds, pruning), website e2e (pages, links, sitemap, hydration, axe)                                                                     | `apps/api`, `apps/web/e2e`                       |
+| 6    | Docs: ADR-080, CHANGELOG, CLAUDE.md, data classification (internal), business limits                                                                                                                                           | `docs`                                           |
+
+Risks:
+
+- **Misleading prices.** A "typical fare" must say what it is: one adult, return, the route's
+  cabin, priced today with today's rules from fares found in the last 90 days. Facts appear only
+  with enough observation days (`ROUTE_FACTS_MIN_DAYS`, 3), and sample (mock) fares stay badged.
+- **Supplier cost leaking.** `route_fares` holds supplier cost; only priced values leave the API,
+  as everywhere else.
+- **Thin pages.** Hub and airline pages render only with at least one route; empty ones answer
+  404 and stay out of the sitemap.
+- **Homepage budget.** Nothing here touches the homepage.
