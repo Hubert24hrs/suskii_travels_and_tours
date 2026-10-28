@@ -97,7 +97,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-secure-store',
-    'expo-localization',
+    // Arabic mirrors the layout; the system lists the app's languages (ADR-076).
+    ['expo-localization', { supportsRTL: true, supportedLocales: ['en', 'fr', 'sw', 'ar', 'pt'] }],
     'expo-web-browser',
     [
       'expo-splash-screen',

@@ -4,7 +4,7 @@ import {
   DEFAULT_CURRENCY,
   DEFAULT_LOCALE,
   isSupportedCurrency,
-  isSupportedLocale,
+  negotiateLocale,
   type CurrencyCode,
   type LocaleCode,
 } from '@suskii/shared';
@@ -42,12 +42,12 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-/** The device language when we support it (en-NG, en-GB, en-US), else en-NG. */
+/**
+ * The first device language we have (ADR-076): English regions exactly or en-NG, other languages
+ * by language (`fr-CI` is `fr`); else en-NG.
+ */
 export function deviceLocale(): LocaleCode {
-  for (const locale of getLocales()) {
-    if (locale.languageTag && isSupportedLocale(locale.languageTag)) return locale.languageTag;
-  }
-  return DEFAULT_LOCALE;
+  return negotiateLocale(getLocales().map((locale) => locale.languageTag)) ?? DEFAULT_LOCALE;
 }
 
 const CURRENCY_KEY = 'preferences.currency';
