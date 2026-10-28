@@ -37,11 +37,24 @@ export const supportMessageSchema = named(
   'SupportMessage',
   z.object({
     id: z.uuid(),
-    author: z.enum(SUPPORT_AUTHORS),
+    author: z.enum(SUPPORT_AUTHORS).meta({
+      description: '`assistant`: an automated answer from the after-hours assistant (ADR-085).',
+    }),
+    kind: z.enum(SUPPORT_MESSAGE_KINDS).meta({
+      description:
+        "`handover`: the assistant says the team is offline and a person will reply; show it in the traveller's language (`text` is the English).",
+    }),
     text: z.string(),
     createdAt: timestamp,
   }),
 );
+
+/** What an assistant answer cited, for staff (ADR-085). */
+const assistantSourceSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('faq'), id: z.uuid(), question: z.string() }),
+  z.object({ kind: z.literal('fact'), key: z.string() }),
+]);
+export const assistantSourcesSchema = z.array(assistantSourceSchema);
 
 const conversationFields = {
   id: z.uuid(),
@@ -171,9 +184,14 @@ export const adminSupportMessageSchema = named(
     internal: z.boolean(),
     staff: z.object({ id: z.uuid(), name: z.string() }).nullable(),
     kind: z.enum(SUPPORT_MESSAGE_KINDS).meta({
-      description: '`unsupported`: a WhatsApp attachment; `text` holds its type ("image").',
+      description:
+        '`unsupported`: a WhatsApp attachment; `text` holds its type ("image"). `handover`: the assistant left the conversation to people.',
     }),
     text: z.string(),
+    sources: assistantSourcesSchema.nullable().meta({
+      description:
+        'Assistant answers: the FAQs and booking fact keys the answer rested on (ADR-085).',
+    }),
     delivery: z
       .object({
         status: z.enum(SUPPORT_DELIVERY_STATUSES),

@@ -144,7 +144,9 @@ export function SupportConversation({ conversationId }: { conversationId: string
       ? t('support.conversation.you')
       : message.author === 'staff'
         ? t('support.conversation.staff')
-        : t('support.conversation.system');
+        : message.author === 'assistant'
+          ? t('support.conversation.assistant')
+          : t('support.conversation.system');
 
   return (
     <section className="flex flex-col gap-4" data-testid="support-conversation">
@@ -174,8 +176,13 @@ export function SupportConversation({ conversationId }: { conversationId: string
               </span>
             </p>
             <p className="font-body text-body whitespace-pre-wrap text-foreground">
-              {message.text}
+              {message.kind === 'handover' ? t('support.conversation.handover') : message.text}
             </p>
+            {message.author === 'assistant' && message.kind !== 'handover' ? (
+              <p className="pt-2 font-body text-body-sm text-muted">
+                {t('support.conversation.assistantNote')}
+              </p>
+            ) : null}
           </li>
         ))}
       </ol>

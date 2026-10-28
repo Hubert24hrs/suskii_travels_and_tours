@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
 
+import { AiSearchModule } from '../ai-search/ai-search.module';
+import { AuthModule } from '../auth/auth.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 
 import { AdminSupportController } from './admin-support.controller';
+import { SupportAnswerer } from './assistant/support-answerer';
+import { SupportAssistant } from './assistant/support-assistant.service';
 import { SupportAccess } from './support-access';
 import { SupportAdminService } from './support-admin.service';
 import { SupportController } from './support.controller';
@@ -18,16 +22,18 @@ import { WhatsAppReplies } from './whatsapp/whatsapp-replies.service';
 import { WhatsAppController } from './whatsapp/whatsapp.controller';
 
 /**
- * Support conversations: travellers, guests and visitors, the console inbox (ADR-083) and
- * WhatsApp as a channel (ADR-084).
+ * Support conversations: travellers, guests and visitors, the console inbox (ADR-083), WhatsApp
+ * as a channel (ADR-084) and the after-hours assistant (ADR-085).
  */
 @Module({
-  imports: [BookingsModule],
+  imports: [AuthModule, BookingsModule, AiSearchModule],
   controllers: [SupportController, AdminSupportController, WhatsAppController],
   providers: [
     SupportService,
     SupportAdminService,
     SupportAccess,
+    SupportAnswerer,
+    SupportAssistant,
     WhatsAppInbox,
     WhatsAppReplies,
     MockWhatsAppChannel,

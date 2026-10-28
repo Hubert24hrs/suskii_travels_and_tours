@@ -32640,7 +32640,8 @@
             "enum": [
               "customer",
               "staff",
-              "system"
+              "system",
+              "assistant"
             ]
           },
           "internal": {
@@ -32674,11 +32675,65 @@
             "type": "string",
             "enum": [
               "text",
-              "unsupported"
+              "unsupported",
+              "handover"
             ]
           },
           "text": {
             "type": "string"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "faq"
+                        },
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "question": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "id",
+                        "question"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "fact"
+                        },
+                        "key": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "key"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "delivery": {
             "anyOf": [
@@ -32737,6 +32792,7 @@
           "staff",
           "kind",
           "text",
+          "sources",
           "delivery",
           "createdAt"
         ],
@@ -52358,7 +52414,16 @@
             "enum": [
               "customer",
               "staff",
-              "system"
+              "system",
+              "assistant"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "unsupported",
+              "handover"
             ]
           },
           "text": {
@@ -52372,6 +52437,7 @@
         "required": [
           "id",
           "author",
+          "kind",
           "text",
           "createdAt"
         ],

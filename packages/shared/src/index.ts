@@ -608,6 +608,7 @@ export {
   type TravelPolicyInput,
 } from './companies-schemas';
 export {
+  SUPPORT_ASSISTANT_ANSWER_MAX,
   SUPPORT_AUTHORS,
   SUPPORT_CATEGORIES,
   SUPPORT_CHANNELS,
@@ -641,6 +642,13 @@ export {
   type SupportTarget,
   type SupportTargets,
 } from './support';
+export {
+  SUPPORT_WEEKDAYS,
+  parseSupportHours,
+  supportStaffed,
+  type SupportHoursSpan,
+  type SupportWeekday,
+} from './support-hours';
 export {
   supportMessageTextSchema,
   supportReplySchema,

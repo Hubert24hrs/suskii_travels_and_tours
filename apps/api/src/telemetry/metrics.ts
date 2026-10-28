@@ -205,3 +205,23 @@ export const supportWhatsAppOutbound = meter.createCounter('suskii.support.whats
 export const supportWhatsAppRejected = meter.createCounter('suskii.support.whatsapp.rejected', {
   description: 'WhatsApp webhook deliveries refused, by reason',
 });
+
+/** After-hours assistant (ADR-085): runs by outcome (answer, handover with its reason, busy, superseded). */
+export const supportAssistantRuns = meter.createCounter('suskii.support.assistant.runs', {
+  description: 'After-hours assistant runs by outcome and handover reason',
+});
+
+export const supportAssistantDuration = meter.createHistogram('suskii.support.assistant.duration', {
+  unit: 'ms',
+  description: 'After-hours assistant latency (model call and checks) by outcome',
+});
+
+/** Spend in micro-dollars, from the provider's reported usage at the configured prices. */
+export const supportAssistantCost = meter.createCounter('suskii.support.assistant.cost', {
+  unit: 'usd_micros',
+  description: 'After-hours assistant spend in micro-dollars',
+});
+
+export const supportAssistantTokens = meter.createCounter('suskii.support.assistant.tokens', {
+  description: 'After-hours assistant tokens by kind (input, output, cache_read, cache_write)',
+});

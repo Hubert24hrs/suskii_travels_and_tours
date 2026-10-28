@@ -70,6 +70,9 @@ api_env = {
   LLM_PROVIDER         = "mock"
   ADMIN_IP_ALLOWLIST   = ""
   OPS_ALERT_EMAIL      = ""
+
+  # The after-hours assistant (ADR-085) answers at any hour on staging (no staffed hours).
+  SUPPORT_ASSISTANT_ENABLED = "true"
 }
 
 web_env = {

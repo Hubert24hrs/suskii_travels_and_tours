@@ -7512,7 +7512,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            author: "customer" | "staff" | "system";
+            author: "customer" | "staff" | "system" | "assistant";
             internal: boolean;
             staff: {
                 /** Format: uuid */
@@ -7520,8 +7520,19 @@ export interface components {
                 name: string;
             } | null;
             /** @enum {string} */
-            kind: "text" | "unsupported";
+            kind: "text" | "unsupported" | "handover";
             text: string;
+            sources: ({
+                /** @constant */
+                kind: "faq";
+                /** Format: uuid */
+                id: string;
+                question: string;
+            } | {
+                /** @constant */
+                kind: "fact";
+                key: string;
+            })[] | null;
             delivery: {
                 /** @enum {string} */
                 status: "pending" | "sent" | "delivered" | "read" | "failed";
@@ -11462,7 +11473,9 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            author: "customer" | "staff" | "system";
+            author: "customer" | "staff" | "system" | "assistant";
+            /** @enum {string} */
+            kind: "text" | "unsupported" | "handover";
             text: string;
             /** Format: date-time */
             createdAt: string;

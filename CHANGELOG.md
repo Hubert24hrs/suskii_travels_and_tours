@@ -29,6 +29,34 @@ All notable changes to this project are documented here. The format follows
   sitemap) and a strip above the header on every page while one is open; the app shows the same
   banner on Home and Trips and a Status screen. Copy in all five languages.
 
+### After-hours support assistant (2026-10-28)
+
+#### Added
+
+- **An instant answer when nobody is on shift (ADR-085).** Outside `SUPPORT_HOURS` (in
+  `SUPPORT_TIME_ZONE`), a traveller who writes to support on the website, in the app or on
+  WhatsApp gets an answer in seconds, drawn only from the published FAQs and, when the
+  conversation is about one of their bookings, that booking's facts (status, places, local
+  times, amounts, refundability, documents). Answers are labelled "Automated answer" and say a
+  person will also read the message. Off unless `SUPPORT_ASSISTANT_ENABLED`.
+- **It never acts and cannot make things up.** The model has no tools and returns a JSON
+  object that is checked in code: it must cite the FAQs or facts it used, and every figure,
+  link, email address or phone number in the answer must appear in what it cites. Anything
+  else becomes a handover ("our team is offline; a person will reply here"), shown in the
+  traveller's language. It never changes the conversation's status, priority, assignee or SLA
+  times, stops after a handover, after three answers or once a person has replied, and runs
+  under daily spend caps per conversation and overall.
+- **Privacy.** The model sees the FAQs, the traveller's scrubbed words and a booking's facts
+  without names, contact details, passport data, ticket numbers, codes or references, and no
+  user, conversation or booking id. Nothing it receives or answers is logged.
+- **Console.** Assistant answers show the FAQs and booking facts they cited, and a handover is
+  marked.
+- **Eval.** 40 conversations over 12 FAQs and 5 bookings (answers, handovers, prompt
+  injection, requests for actions, private-data fishing, four languages), graded by rule: at
+  least 90% must pass and no case where only a person may answer may be answered. CI runs it
+  with recorded answers (including wrong ones the checks must stop); `ai-eval.yml` (suite
+  `support-assistant`) runs it against the model.
+
 ### App requests on bad networks (2026-10-28)
 
 #### Fixed

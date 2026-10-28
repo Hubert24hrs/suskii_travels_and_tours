@@ -2866,6 +2866,11 @@ export const sw: Messages = {
       you: 'Wewe',
       staff: 'Usaidizi wa Suskii',
       system: 'Suskii',
+      assistant: 'Jibu la kiotomatiki',
+      assistantNote:
+        'Msaidizi wetu amejibu kutokana na makala zetu za msaada na nafasi uliyohifadhi. Mtu pia atasoma ujumbe wako.',
+      handover:
+        'Timu yetu haipatikani kwa sasa. Tumepokea ujumbe wako, na mtu atakujibu hapa atakaporudi.',
       reply: 'Jibu lako',
       send: 'Tuma',
       resolve: 'Weka kama imetatuliwa',

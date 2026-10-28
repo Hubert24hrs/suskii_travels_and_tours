@@ -31,13 +31,14 @@ import { EmailProvider } from '../notifications/email';
 import { supportResponseTime } from '../telemetry/metrics';
 
 import { SupportAccess } from './support-access';
-import type {
-  adminSupportConversationSchema,
-  adminSupportPageSchema,
-  adminSupportQuerySchema,
-  adminSupportReplySchema,
-  adminSupportRowSchema,
-  adminSupportUpdateSchema,
+import {
+  assistantSourcesSchema,
+  type adminSupportConversationSchema,
+  type adminSupportPageSchema,
+  type adminSupportQuerySchema,
+  type adminSupportReplySchema,
+  type adminSupportRowSchema,
+  type adminSupportUpdateSchema,
 } from './support.schemas';
 import { supportConversationFull } from './support.service';
 import { WhatsAppReplies } from './whatsapp/whatsapp-replies.service';
@@ -424,6 +425,8 @@ export class SupportAdminService {
         staff: message.staff ? { id: message.staff.id, name: nameOf(message.staff) } : null,
         kind: message.kind,
         text: this.encryption.decrypt(message.bodyEncrypted, supportMessageContext(message.id)),
+        // Written only by the assistant; parsed so a malformed row shows nothing, not a 500.
+        sources: assistantSourcesSchema.safeParse(message.assistantSources).data ?? null,
         delivery: message.deliveryStatus
           ? {
               status: message.deliveryStatus,
