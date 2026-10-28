@@ -79,7 +79,9 @@ part 4, Suskii Prime priced per country, is built and waits for the owner's pric
 Item 9, 24/7 support, runs in three parts (`docs/phases/support.md`): part 1, conversations tied to
 bookings with a console inbox, SLA timers and a Prime queue, is built and waits for people on
 shift; part 2, WhatsApp through the Cloud API, is built and waits for the owner's Meta app,
-number and approved template; an after-hours assistant comes next.
+number and approved template; part 3, an after-hours assistant that answers from the FAQs and the
+traveller's booking (ADR-085), is built and waits for the owner's staffed hours, `LLM_API_KEY`
+and one run of the assistant eval. Items 10 to 13 come next.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -119,57 +121,58 @@ docs/         decisions/ (ADRs), phases/ (plans), security/ (threat model, check
 
 Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 
-| Command                                           | What it does                                                               |
-| ------------------------------------------------- | -------------------------------------------------------------------------- |
-| `pnpm install`                                    | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)          |
-| `pnpm infra:up`                                   | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)              |
-| `pnpm infra:down`                                 | Stop local infra (data kept in named volumes)                              |
-| `pnpm dev`                                        | Run every app in watch mode through Turborepo                              |
-| `pnpm build`                                      | Build every workspace (dependencies first)                                 |
-| `pnpm lint`                                       | ESLint (type-aware) in every workspace                                     |
-| `pnpm typecheck`                                  | `tsc --noEmit` in every workspace                                          |
-| `pnpm test`                                       | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native)        |
-| `pnpm build:storybook`                            | Static Storybook for ui-web                                                |
-| `pnpm --filter @suskii/ui-web dev`                | Storybook dev server on port 6006                                          |
-| `pnpm test:e2e`                                   | API, web and admin e2e suites, one after the other (Docker or URLs)        |
-| `pnpm --filter @suskii/web test:e2e`              | Web e2e + Lighthouse against built web, API and worker (see notes)         |
-| `pnpm --filter @suskii/admin test:e2e`            | Admin e2e: staff journeys, audit log, axe (built admin and API)            |
-| `pnpm --filter @suskii/web lighthouse [url]`      | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)            |
-| `pnpm --filter @suskii/web check:classes`         | Fail if a Tailwind class used in web/ui-web generates no CSS               |
-| `pnpm --filter @suskii/worker refresh:once`       | Refresh every deal route and destination once (API must run)               |
-| `pnpm generate:api`                               | Rebuild `apps/api/openapi.json` and the api-client schema                  |
-| `pnpm --filter @suskii/api db:deploy` / `db:seed` | Apply migrations / seed reference data (idempotent)                        |
-| `pnpm --filter @suskii/api db:migrate`            | Create a migration after editing `prisma/schema.prisma`                    |
-| `pnpm --filter @suskii/api db:seed:demo`          | Sample packages, tours, add-ons and visa data (refused in prod)            |
-| `docker compose --profile av up -d clamav`        | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)            |
-| `pnpm --filter @suskii/api keys:generate`         | Print fresh JWT keys, encryption key and HMAC secret                       |
-| `pnpm --filter @suskii/api data:build`            | Refresh `prisma/data` from OurAirports (review the diff)                   |
-| `pnpm --filter @suskii/api airlines:sync`         | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)                     |
-| `pnpm --filter @suskii/mobile android`            | Build and run the development build on an Android emulator                 |
-| `pnpm --filter @suskii/mobile scan:bundle dist`   | Secret scan of the mobile export (`--self-test` checks the scanner)        |
-| `pnpm --filter @suskii/web e2e:stack`             | Run the e2e stack (API, worker refresh, web) for Maestro flows             |
-| Actions, Test server, Run workflow                | Hosted test server for phones (`test-server.yml`, up to 5.5 hours)         |
-| `node scripts/brand-assets.mjs`                   | Rebuild app and web icons, splash and header mark from `brand/` (ADR-068)  |
-| `pnpm format` / `format:check`                    | Prettier write / check                                                     |
-| `pnpm security:checklist` (`--check` in CI)       | Regenerate `docs/security/checklist.md` from the reviewed mapping          |
-| `pnpm --filter @suskii/api test:cov`              | API unit tests with the 80% gates (also `@suskii/shared`)                  |
-| `pnpm --filter @suskii/ui-web test:visual`        | Screenshot tests (baselines from the `visual-baselines` workflow)          |
-| `k6 run load/k6/api.js`                           | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`)       |
-| `promtool check rules` / `test rules`             | Validate `infra/observability/alerts` (CI pins promtool)                   |
-| `pnpm --filter @suskii/api keys:reencrypt`        | Rewrite field encryption under the current key (dry run first)             |
-| `pnpm --filter @suskii/api sessions:revoke`       | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)          |
-| `pnpm --filter @suskii/api eval:natural-search`   | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model) |
-| `pnpm --filter @suskii/api sandbox:duffel`        | Duffel flights and Stays test-mode check (ADR-062; test token, `--book`)   |
-| `pnpm --filter @suskii/api test:sandbox`          | Our API's booking journey against Duffel test mode (manual workflow only)  |
-| `pnpm --filter @suskii/api sandbox:partners`      | Hotelbeds, Viator and Travelpayouts live check (owner keys, read-only)     |
-| `pnpm --filter @suskii/api rides:demo`            | Sample drivers take local rides; type the rider's PIN (not in prod)        |
-| `pnpm --filter @suskii/api staff:bootstrap`       | First super admin of a new environment (`--email`, `--yes`; once)          |
-| `pnpm release:rehearse`                           | Compose deploy, ops command, broken release, rollback (`:local` images)    |
-| `node scripts/helm-rehearsal.mjs`                 | Same on kind with the Helm chart (needs kind and Helm; runs in CI)         |
-| `pnpm smoke --api URL [--web URL] [--admin URL]`  | Post-deploy smoke tests (public routes only, safe on production)           |
-| `pnpm check:migrations` / `pnpm test:scripts`     | Expand/contract guard on new migrations / node:test script suites          |
-| `docker compose --profile s3 up -d s3`            | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)              |
-| `pnpm --filter @suskii/api dev`                   | Run a single workspace                                                     |
+| Command                                            | What it does                                                                      |
+| -------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `pnpm install`                                     | Install all workspaces (pnpm 10.33, Node 24 LTS >= 24.9 enforced)                 |
+| `pnpm infra:up`                                    | `docker compose up -d --wait` (Postgres 16, Redis 7, Mailpit)                     |
+| `pnpm infra:down`                                  | Stop local infra (data kept in named volumes)                                     |
+| `pnpm dev`                                         | Run every app in watch mode through Turborepo                                     |
+| `pnpm build`                                       | Build every workspace (dependencies first)                                        |
+| `pnpm lint`                                        | ESLint (type-aware) in every workspace                                            |
+| `pnpm typecheck`                                   | `tsc --noEmit` in every workspace                                                 |
+| `pnpm test`                                        | Unit tests (Vitest; Vitest browser for ui-web; Jest for API/native)               |
+| `pnpm build:storybook`                             | Static Storybook for ui-web                                                       |
+| `pnpm --filter @suskii/ui-web dev`                 | Storybook dev server on port 6006                                                 |
+| `pnpm test:e2e`                                    | API, web and admin e2e suites, one after the other (Docker or URLs)               |
+| `pnpm --filter @suskii/web test:e2e`               | Web e2e + Lighthouse against built web, API and worker (see notes)                |
+| `pnpm --filter @suskii/admin test:e2e`             | Admin e2e: staff journeys, audit log, axe (built admin and API)                   |
+| `pnpm --filter @suskii/web lighthouse [url]`       | Lighthouse gate on a running site (median of `LIGHTHOUSE_RUNS`)                   |
+| `pnpm --filter @suskii/web check:classes`          | Fail if a Tailwind class used in web/ui-web generates no CSS                      |
+| `pnpm --filter @suskii/worker refresh:once`        | Refresh every deal route and destination once (API must run)                      |
+| `pnpm generate:api`                                | Rebuild `apps/api/openapi.json` and the api-client schema                         |
+| `pnpm --filter @suskii/api db:deploy` / `db:seed`  | Apply migrations / seed reference data (idempotent)                               |
+| `pnpm --filter @suskii/api db:migrate`             | Create a migration after editing `prisma/schema.prisma`                           |
+| `pnpm --filter @suskii/api db:seed:demo`           | Sample packages, tours, add-ons and visa data (refused in prod)                   |
+| `docker compose --profile av up -d clamav`         | ClamAV for real scans (`ANTIVIRUS_PROVIDER=clamav`, about 1 GB)                   |
+| `pnpm --filter @suskii/api keys:generate`          | Print fresh JWT keys, encryption key and HMAC secret                              |
+| `pnpm --filter @suskii/api data:build`             | Refresh `prisma/data` from OurAirports (review the diff)                          |
+| `pnpm --filter @suskii/api airlines:sync`          | Upsert airlines from Duffel (needs `DUFFEL_API_TOKEN`)                            |
+| `pnpm --filter @suskii/mobile android`             | Build and run the development build on an Android emulator                        |
+| `pnpm --filter @suskii/mobile scan:bundle dist`    | Secret scan of the mobile export (`--self-test` checks the scanner)               |
+| `pnpm --filter @suskii/web e2e:stack`              | Run the e2e stack (API, worker refresh, web) for Maestro flows                    |
+| Actions, Test server, Run workflow                 | Hosted test server for phones (`test-server.yml`, up to 5.5 hours)                |
+| `node scripts/brand-assets.mjs`                    | Rebuild app and web icons, splash and header mark from `brand/` (ADR-068)         |
+| `pnpm format` / `format:check`                     | Prettier write / check                                                            |
+| `pnpm security:checklist` (`--check` in CI)        | Regenerate `docs/security/checklist.md` from the reviewed mapping                 |
+| `pnpm --filter @suskii/api test:cov`               | API unit tests with the 80% gates (also `@suskii/shared`)                         |
+| `pnpm --filter @suskii/ui-web test:visual`         | Screenshot tests (baselines from the `visual-baselines` workflow)                 |
+| `k6 run load/k6/api.js`                            | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`)              |
+| `promtool check rules` / `test rules`              | Validate `infra/observability/alerts` (CI pins promtool)                          |
+| `pnpm --filter @suskii/api keys:reencrypt`         | Rewrite field encryption under the current key (dry run first)                    |
+| `pnpm --filter @suskii/api sessions:revoke`        | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)                 |
+| `pnpm --filter @suskii/api eval:natural-search`    | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model)        |
+| `pnpm --filter @suskii/api eval:support-assistant` | Support assistant eval: 40 conversations, 90% and no unsafe answer (`--recorded`) |
+| `pnpm --filter @suskii/api sandbox:duffel`         | Duffel flights and Stays test-mode check (ADR-062; test token, `--book`)          |
+| `pnpm --filter @suskii/api test:sandbox`           | Our API's booking journey against Duffel test mode (manual workflow only)         |
+| `pnpm --filter @suskii/api sandbox:partners`       | Hotelbeds, Viator and Travelpayouts live check (owner keys, read-only)            |
+| `pnpm --filter @suskii/api rides:demo`             | Sample drivers take local rides; type the rider's PIN (not in prod)               |
+| `pnpm --filter @suskii/api staff:bootstrap`        | First super admin of a new environment (`--email`, `--yes`; once)                 |
+| `pnpm release:rehearse`                            | Compose deploy, ops command, broken release, rollback (`:local` images)           |
+| `node scripts/helm-rehearsal.mjs`                  | Same on kind with the Helm chart (needs kind and Helm; runs in CI)                |
+| `pnpm smoke --api URL [--web URL] [--admin URL]`   | Post-deploy smoke tests (public routes only, safe on production)                  |
+| `pnpm check:migrations` / `pnpm test:scripts`      | Expand/contract guard on new migrations / node:test script suites                 |
+| `docker compose --profile s3 up -d s3`             | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)                     |
+| `pnpm --filter @suskii/api dev`                    | Run a single workspace                                                            |
 
 Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, Expo Metro `8081`,
 Postgres `5432`, Redis `6379`, Mailpit SMTP `1025` and UI `8025`. Docker ports bind to `127.0.0.1` only.
@@ -810,6 +813,16 @@ Tooling notes for agents:
   replies only through `WhatsAppReplies` after the commit (text in the window, the template
   notice outside it, `forwardWaiting` when the traveller writes back). Delivery states move
   forward only (`supportDeliveryAdvances`). Never link a contact to an account by phone number.
+- The after-hours assistant (ADR-085) writes only through `SupportAssistant` (called with
+  `consider()` after a traveller's message commits): outside `SUPPORT_HOURS`, before any staff
+  reply, at most `SUPPORT_ASSISTANT_MAX_REPLIES` answers and one handover, under its spend caps
+  (`AiSearchBudget` with its own scope). It never touches status, priority, assignee or SLA
+  fields; its messages have author `assistant` and kind `text` or `handover`. The model sees
+  only FAQs, the scrubbed messages and `assistantBookingFacts()` (no names, contacts, documents,
+  codes or references); `checkAnswer()` must pass (known sources, every figure and contact from
+  the cited sources) or the traveller gets the handover. A prompt, schema, facts or model
+  change keeps the recorded eval at 40/40 and is re-run against the model
+  (`eval:support-assistant`, `ai-eval.yml` suite `support-assistant`) before it ships.
 
 ### AI trip search (phase 13, ADR-061)
 
@@ -1019,6 +1032,7 @@ Tooling notes for agents:
 - [ADR-082: Suskii Prime priced per country](docs/decisions/ADR-082-prime-priced-per-country.md)
 - [ADR-083: Support conversations](docs/decisions/ADR-083-support-conversations.md)
 - [ADR-084: WhatsApp as a support channel](docs/decisions/ADR-084-whatsapp-support-channel.md)
+- [ADR-085: After-hours support assistant](docs/decisions/ADR-085-after-hours-support-assistant.md)
 
 ## Open questions for the owner
 
@@ -1132,4 +1146,8 @@ business portfolio, a WhatsApp Business Account and number, a system user's perm
 app secret and a verify token (then `WHATSAPP_SUPPORT_PROVIDER=cloud`), the approved
 `support_reply_waiting` template, the privacy policy naming Meta as the Cloud API host,
 confirmation of Meta's per-message prices for the markets served, and one sandbox message from a
-username user to confirm the field for replying to a business-scoped user id.
+username user to confirm the field for replying to a business-scoped user id. Added with the
+after-hours assistant (ADR-085): the staffed hours (`SUPPORT_HOURS`, `SUPPORT_TIME_ZONE`), whether
+the assistant should answer in production (`SUPPORT_ASSISTANT_ENABLED`), one run of the
+assistant eval against the model with `LLM_API_KEY`, its spend caps (defaults $5 a day and 2 cents
+per conversation), and the help-centre FAQs it answers from (three are seeded today).
