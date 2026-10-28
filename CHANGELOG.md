@@ -28,6 +28,29 @@ All notable changes to this project are documented here. The format follows
   (72 hours for the NDPC, the ODPC and GDPR authorities; the Information Regulator's portal as
   soon as reasonably possible).
 
+### Availability objectives and the status page (2026-10-28)
+
+#### Added
+
+- **Objectives and error budgets (ADR-087).** The API at 99.9% and the booking path (quotes,
+  bookings, payments) at 99.5% of requests without a server error over 30 days. Recording rules
+  keep the error ratio over five windows; multi-window burn-rate alerts page at 14.4x and 6x and
+  open a ticket at 1x, only with enough traffic to judge. Promtool tests cover each case, and the
+  new runbook (`slo-burn.md`) covers telling travellers.
+- **Checks from outside.** Cloud Monitoring checks the website, `/ready` and `/v1/status` through
+  Cloudflare every minute from three continents and alerts when one fails from two regions for
+  two minutes (`uptime_alert_emails`, `uptime_notification_channels`). They still fire when the
+  whole platform, and so every metric, is down.
+- **Status page.** `GET /v1/status` reports search, bookings, payments, accounts and support,
+  measured every 30 seconds (readiness, supplier circuit breakers across instances, paused
+  payment providers, the ticketing wait) and made worse by what open incidents declare. It still
+  answers when the database is down, and Cloudflare keeps the last good copy while the API does
+  not answer. Never a supplier's name.
+- **Incidents.** Operations and support staff (`status:manage`) open, update and resolve
+  incidents in the console; every change is audited. The website shows `/status` (footer,
+  sitemap) and a strip above the header on every page while one is open; the app shows the same
+  banner on Home and Trips and a Status screen. Copy in all five languages.
+
 ### Accessibility audit, WCAG 2.2 AA (2026-10-28)
 
 #### Added

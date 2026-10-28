@@ -30,6 +30,10 @@ gain `_total`, and units become suffixes. For example, `suskii.ticketing.oldest_
 - `alerts/suskii.rules.yml`: Prometheus alert rules. `severity: page` means money or tickets are at
   risk now; `severity: ticket` can wait for working hours. Each alert names its runbook.
 - `alerts/suskii.rules.test.yml`: unit tests for the rules.
+- `alerts/suskii.slo.rules.yml`: availability objectives (ADR-087): the API at 99.9% and the
+  booking path at 99.5% of requests without a 5xx over 30 days, recorded as error ratios over
+  5 minutes to 3 days, with multi-window burn-rate alerts (page at 14.4x and 6x, ticket at 1x).
+  `alerts/suskii.slo.rules.test.yml` tests them.
 
 Import a dashboard in Grafana (Dashboards, New, Import) and pick the Prometheus data source.
 Load the rules into Prometheus (`rule_files`) or Grafana-managed alerting, and route on the
@@ -42,9 +46,13 @@ Load the rules into Prometheus (`rule_files`) or Grafana-managed alerting, and r
   code does not define.
 
 ```bash
-promtool check rules infra/observability/alerts/suskii.rules.yml
-promtool test rules infra/observability/alerts/suskii.rules.test.yml
+promtool check rules infra/observability/alerts/suskii.rules.yml infra/observability/alerts/suskii.slo.rules.yml
+promtool test rules infra/observability/alerts/suskii.rules.test.yml infra/observability/alerts/suskii.slo.rules.test.yml
 ```
+
+Checks from outside the platform (uptime checks on the website, `/ready` and `/v1/status` from
+three regions) are Cloud Monitoring resources in `infra/terraform/modules/monitoring`: they still
+alert when the whole platform, and so every metric above, is down.
 
 ## Open for the owner
 

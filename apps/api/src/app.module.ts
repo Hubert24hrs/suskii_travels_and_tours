@@ -41,6 +41,7 @@ import { CarsFeatureGuard } from './ground/cars-flags';
 import { GroundModule } from './ground/ground.module';
 import { HealthModule } from './health/health.module';
 import { InhouseModule } from './inhouse/inhouse.module';
+import { StatusModule } from './status/status.module';
 import { SupportModule } from './support/support.module';
 import { VisaModule } from './visa/visa.module';
 import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor';
@@ -119,6 +120,7 @@ export class AppModule implements NestModule {
         MarketingModule,
         MetasearchModule,
         SupportModule,
+        StatusModule,
         HealthModule,
         TelemetryModule,
       ],

@@ -1,4 +1,4 @@
-import { CircuitBreaker, type BreakerOptions } from './circuit-breaker';
+import { CircuitBreaker, CircuitBreakerRegistry, type BreakerOptions } from './circuit-breaker';
 import { buildSlice, layoversFor } from './itinerary';
 import { CircuitOpenError, SupplierTimeoutError, withTimeout } from './supplier.errors';
 import type { AirportPoint, FlightSegment } from './supplier.types';
@@ -58,6 +58,20 @@ describe('CircuitBreaker', () => {
     release();
     await expect(slowFailure).rejects.toThrow('still down');
     expect(breaker.state).toBe('open');
+  });
+
+  it('tells its listener each time it opens, including after a failed probe', async () => {
+    const opened: string[] = [];
+    const registry = new CircuitBreakerRegistry(options, (name) => opened.push(name));
+    const breaker = registry.get('flights:duffel');
+    for (let i = 0; i < 4; i += 1) await expect(breaker.execute(fail)).rejects.toThrow();
+    expect(opened).toEqual(['flights:duffel']);
+    clock += 30_000;
+    await expect(breaker.execute(fail)).rejects.toThrow('boom');
+    expect(opened).toEqual(['flights:duffel', 'flights:duffel']);
+    clock += 30_000;
+    await breaker.execute(ok);
+    expect(opened).toHaveLength(2);
   });
 
   it('forgets failures outside the rolling window', async () => {

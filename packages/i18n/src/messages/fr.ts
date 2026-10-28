@@ -2924,6 +2924,49 @@ export const fr: Messages = {
       generic: 'Votre message n’a pas pu être envoyé. Vérifiez votre connexion et réessayez.',
     },
   },
+  status: {
+    heading: 'État du service',
+    intro:
+      "Le fonctionnement actuel de la recherche, des réservations, des paiements, de la connexion et de l'assistance. Vérifié toutes les 30 secondes.",
+    link: 'État du service',
+    overall: {
+      operational: 'Tout fonctionne',
+      degraded: 'Certains services sont lents ou en échec',
+      outage: 'Un service ne fonctionne pas',
+    },
+    components: {
+      search: "Recherche de vols et d'hôtels",
+      bookings: 'Réservations et billets',
+      payments: 'Paiements',
+      accounts: 'Connexion et comptes',
+      support: 'Aide et assistance',
+    },
+    states: {
+      operational: 'Opérationnel',
+      degraded: 'Dégradé',
+      outage: 'Panne',
+    },
+    impacts: {
+      minor: 'Mineur',
+      major: 'Majeur',
+    },
+    stages: {
+      investigating: 'Analyse en cours',
+      identified: 'Cause identifiée',
+      monitoring: 'Correctif appliqué, sous surveillance',
+      resolved: 'Résolu',
+    },
+    openHeading: 'Incidents en cours',
+    recentHeading: '7 derniers jours',
+    noIncidents: 'Aucun incident au cours des 7 derniers jours.',
+    affects: 'Concerne : {components}',
+    started: 'Début : {time}',
+    resolvedAt: 'Résolu : {time}',
+    updated: 'Dernière vérification : {time}',
+    unavailable:
+      "Impossible de charger l'état du service pour le moment. Si quelque chose ne fonctionne pas, contactez l'assistance.",
+    bannerLink: "Voir l'état du service",
+  },
   seo: {
     homeTitle: '{brand} : vols pas chers, hôtels, vacances et aide au visa',
     homeDescription:

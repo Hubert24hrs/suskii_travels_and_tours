@@ -208,7 +208,11 @@ export type AuditAction =
   // Support conversations (ADR-083)
   | 'support.replied'
   | 'support.note_added'
-  | 'support.updated';
+  | 'support.updated'
+  // Status page incidents (ADR-087)
+  | 'status.incident_opened'
+  | 'status.incident_updated'
+  | 'status.incident_resolved';
 
 export interface AuditEvent {
   action: AuditAction;

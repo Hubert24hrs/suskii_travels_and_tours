@@ -9,6 +9,7 @@ import { ErrorReporting } from '../components/error-reporting';
 import { SiteFooter } from '../components/layout/site-footer';
 import { SiteHeader, UtilityBar } from '../components/layout/site-header';
 import { Marketing } from '../components/marketing/marketing';
+import { StatusBanner } from '../components/status/status-banner';
 import { WebVitalsReporter } from '../components/web-vitals-reporter';
 import { adTagConfig, adTagsOn } from '../lib/ad-tags';
 import { api } from '../lib/api';
@@ -62,6 +63,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         >
           {t('common.skipToContent')}
         </a>
+        <StatusBanner />
         <UtilityBar site={site} />
         <SiteHeader site={site} />
         <main id="main" className="flex-1">
