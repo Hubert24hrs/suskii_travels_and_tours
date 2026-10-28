@@ -3952,6 +3952,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/ad-conversions/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send paid bookings' Purchase events to the configured ad networks */
+        post: operations["runAdConversions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/bookings/expire-due": {
         parameters: {
             query?: never;
@@ -5974,6 +5991,12 @@ export interface components {
             marketingConsent: boolean;
             marketingConsentAt: string | null;
         };
+        AdConversionRun: {
+            sent: number;
+            retried: number;
+            failed: number;
+            withdrawn: number;
+        };
         AddBookingNoteRequestInput: {
             text: string;
         };
@@ -7799,6 +7822,14 @@ export interface components {
             turnstileToken?: string | null;
             /** @default false */
             company?: boolean;
+            marketing?: {
+                /** Format: uuid */
+                consentId: string;
+                fbp?: string;
+                fbc?: string;
+                ttp?: string;
+                ttclid?: string;
+            };
         };
         CreatedBooking: {
             booking: components["schemas"]["Booking"];
@@ -10114,6 +10145,7 @@ export interface components {
             "partner-conversions": number;
             "rejected-reviews": number;
             "company-invitations": number;
+            "ad-conversions": number;
         };
         ReviewInvitationRun: {
             planned: number;
@@ -19010,6 +19042,32 @@ export interface operations {
             409: components["responses"]["Problem409"];
             410: components["responses"]["Problem410"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    runAdConversions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdConversionRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

@@ -982,6 +982,7 @@ model Booking {
   scheduleChanges  FlightScheduleChange[]
   partnerClicks    PartnerClick[]
   reviews          Review[]
+  adConversion     AdConversion?
   company          Company?               @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt])
@@ -3289,4 +3290,44 @@ model CompanyPolicy {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("company_policies")
+}
+
+// ---------------------------------------------------------------------------
+// Ads with consent (ADR-079)
+// ---------------------------------------------------------------------------
+
+enum AdConversionStatus {
+  /// Kept at booking time; waits for the booking to be paid.
+  waiting
+  /// Every configured network accepted the Purchase event.
+  sent
+  /// Given up after AD_CONVERSION_MAX_ATTEMPTS sends.
+  failed
+  /// The visitor turned marketing off before it was sent: nothing goes out.
+  withdrawn
+}
+
+/// The server-side Purchase event of a booking whose recorded cookie consent allowed marketing
+/// when it was made. The click ids are cleared once sent or given up; retention purges the row.
+model AdConversion {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  bookingId     String             @unique @map("booking_id") @db.Uuid
+  /// The cookie consent record (`cookie_consents.consent_id`) that allowed it.
+  consentId     String             @map("consent_id") @db.Uuid
+  /// { fbp?, fbc?, ttp?, ttclid? }: the networks' own identifiers; null once sent or given up.
+  clickIds      Json?              @map("click_ids")
+  status        AdConversionStatus @default(waiting)
+  /// Networks that accepted the event, so a retry sends only to the others.
+  sentTo        String[]           @default([]) @map("sent_to") @db.VarChar(16)
+  attempts      Int                @default(0)
+  nextAttemptAt DateTime           @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  sentAt        DateTime?          @map("sent_at") @db.Timestamptz(3)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
+  @@map("ad_conversions")
 }

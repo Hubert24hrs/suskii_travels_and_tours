@@ -164,3 +164,8 @@ export const webVitals = {
     },
   }),
 } as const;
+
+/** Server-side ad conversions by network and outcome (sent, retry, failed, withdrawn; ADR-079). */
+export const adConversions = meter.createCounter('suskii.ad_conversions', {
+  description: 'Server-side ad conversions by network and outcome',
+});

@@ -222,6 +222,8 @@ export class AccountDeletionService {
 
         // Partner clicks stay for commission reports, no longer linked to the person.
         await tx.partnerClick.updateMany({ where: { userId }, data: { userId: null } });
+        // Nothing more goes to ad networks for this person's bookings (ADR-079).
+        await tx.adConversion.deleteMany({ where: { booking: { userId } } });
 
         // Unpublished reviews go; published ones stay in the scores, signed "Verified traveller"
         // and no longer linked to the person (ADR-077).

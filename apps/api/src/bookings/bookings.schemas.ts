@@ -36,6 +36,7 @@ import {
   REFUND_STATUSES,
   passengerInputSchema,
   travellerInputSchema,
+  marketingAttributionSchema,
 } from '@suskii/shared';
 
 import { named } from '../contract/contract';
@@ -589,6 +590,10 @@ export const createBookingRequestSchema = named(
     company: z.boolean().default(false).meta({
       description:
         "Book for the caller's company (ADR-078): the travel policy is checked and the trip may wait for an approver before it can be paid. Needs an account in an active company; not for memberships or rides (422 `company-booking-unavailable`, 409 `company-suspended`, 404 outside a company).",
+    }),
+    marketing: marketingAttributionSchema.optional().meta({
+      description:
+        "The website's ad attribution (ADR-079), sent only when its consent cookie allows marketing. Kept only when the recorded consent for `consentId` allows it; otherwise ignored without an error.",
     }),
   }),
 );
