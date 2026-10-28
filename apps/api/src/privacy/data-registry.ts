@@ -585,6 +585,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'rule', rule: 'company-invitations' },
     note: 'Emailed invitations: HMACs of the token and the address, a masked address and the role. Purged 30 days after they expire.',
   },
+  AdConversion: {
+    section: 'activity',
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'ad-conversions' },
+    note: "A consented booking's server-side Purchase event (ADR-079): the consent id, the ad networks' click ids until it is sent or given up, and its status. Deleted with the account; purged 30 days after the booking.",
+  },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 
 export type RegisteredModel = keyof typeof DATA_REGISTRY;

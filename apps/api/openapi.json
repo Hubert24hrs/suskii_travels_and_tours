@@ -17551,6 +17551,51 @@
         }
       }
     },
+    "/v1/internal/ad-conversions/run": {
+      "post": {
+        "operationId": "runAdConversions",
+        "summary": "Send paid bookings' Purchase events to the configured ad networks",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdConversionRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/bookings/expire-due": {
       "post": {
         "operationId": "expireDueBookings",
@@ -25060,6 +25105,38 @@
           "homeAirport",
           "marketingConsent",
           "marketingConsentAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdConversionRun": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "retried": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "withdrawn": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "sent",
+          "retried",
+          "failed",
+          "withdrawn"
         ],
         "additionalProperties": false
       },
@@ -33939,7 +34016,7 @@
           "policyVersion": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 1
+            "maximum": 2
           },
           "choices": {
             "type": "object",
@@ -34384,6 +34461,39 @@
           "company": {
             "default": false,
             "type": "boolean"
+          },
+          "marketing": {
+            "type": "object",
+            "properties": {
+              "consentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "fbp": {
+                "type": "string",
+                "maxLength": 600,
+                "pattern": "^fb\\.\\d\\.\\d{10,16}\\.[A-Za-z0-9_.-]{1,500}$"
+              },
+              "fbc": {
+                "type": "string",
+                "maxLength": 600,
+                "pattern": "^fb\\.\\d\\.\\d{10,16}\\.[A-Za-z0-9_.-]{1,500}$"
+              },
+              "ttp": {
+                "type": "string",
+                "maxLength": 500,
+                "pattern": "^[A-Za-z0-9_.-]{8,500}$"
+              },
+              "ttclid": {
+                "type": "string",
+                "maxLength": 500,
+                "pattern": "^[A-Za-z0-9_.-]{8,500}$"
+              }
+            },
+            "required": [
+              "consentId"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -45982,6 +46092,11 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "ad-conversions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -46012,7 +46127,8 @@
           "partner-clicks",
           "partner-conversions",
           "rejected-reviews",
-          "company-invitations"
+          "company-invitations",
+          "ad-conversions"
         ],
         "additionalProperties": false
       },

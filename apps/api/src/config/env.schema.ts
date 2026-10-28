@@ -379,6 +379,37 @@ export const envSchema = z
     PARTNER_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(5000),
     /** How long an offer link stays valid after it was shown. */
     PARTNER_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+    /**
+     * Server-side ad conversions (ADR-079): `meta` (Conversions API) and `tiktok` (Events API)
+     * send the Purchase events of bookings whose recorded consent allows marketing; `mock` keeps
+     * them in memory (tests and local runs; production refuses it unless ALLOW_MOCK_PROVIDERS).
+     * Empty keeps no attribution and sends nothing.
+     */
+    AD_CONVERSIONS: csv(z.enum(['mock', 'meta', 'tiktok'])).default([]),
+    /** Meta pixel (dataset) id and a Conversions API access token from Events Manager. */
+    META_PIXEL_ID: z
+      .string()
+      .regex(/^\d{6,20}$/)
+      .optional(),
+    META_CAPI_ACCESS_TOKEN: z.string().min(20).optional(),
+    META_GRAPH_API_URL: z.url().default('https://graph.facebook.com/v24.0'),
+    /** Sends to Events Manager's Test Events tab instead of the live data set, when set. */
+    META_TEST_EVENT_CODE: z
+      .string()
+      .regex(/^[A-Za-z0-9]{3,32}$/)
+      .optional(),
+    /** TikTok pixel code and an Events API access token from Events Manager. */
+    TIKTOK_PIXEL_ID: z
+      .string()
+      .regex(/^[A-Z0-9]{8,32}$/)
+      .optional(),
+    TIKTOK_EVENTS_ACCESS_TOKEN: z.string().min(20).optional(),
+    TIKTOK_EVENTS_API_URL: z.url().default('https://business-api.tiktok.com/open_api/v1.3'),
+    TIKTOK_TEST_EVENT_CODE: z
+      .string()
+      .regex(/^[A-Za-z0-9]{3,32}$/)
+      .optional(),
+    AD_CONVERSIONS_TIMEOUT_MS: z.coerce.number().int().min(500).max(20_000).default(5000),
     /** Driver identity checks and payouts: mock adapters until the owner picks providers. */
     KYC_PROVIDER: z.enum(['mock']).default('mock'),
     PAYOUT_PROVIDER: z.enum(['mock']).default('mock'),
@@ -599,6 +630,16 @@ export const envSchema = z
     }
     if (env.ACTIVITY_PARTNER === 'viator' && !env.VIATOR_API_KEY)
       require('VIATOR_API_KEY', 'is required when ACTIVITY_PARTNER is viator');
+    if (env.AD_CONVERSIONS.includes('meta')) {
+      for (const key of ['META_PIXEL_ID', 'META_CAPI_ACCESS_TOKEN'] as const) {
+        if (!env[key]) require(key, 'is required when AD_CONVERSIONS includes meta');
+      }
+    }
+    if (env.AD_CONVERSIONS.includes('tiktok')) {
+      for (const key of ['TIKTOK_PIXEL_ID', 'TIKTOK_EVENTS_ACCESS_TOKEN'] as const) {
+        if (!env[key]) require(key, 'is required when AD_CONVERSIONS includes tiktok');
+      }
+    }
     if (env.OBJECT_STORAGE === 's3') {
       for (const key of [
         'OBJECT_STORAGE_ENDPOINT',
@@ -654,6 +695,8 @@ export const envSchema = z
       require('PAYMENT_PROVIDERS', 'mock payments are not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.ANTIVIRUS_PROVIDER === 'mock')
       require('ANTIVIRUS_PROVIDER', 'uploaded documents must be scanned by a real scanner');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.AD_CONVERSIONS.includes('mock'))
+      require('AD_CONVERSIONS', 'the mock sends nothing to any network; it is not allowed in production');
     // Real providers must be called over TLS with their production hosts' defaults or overrides.
     for (const key of [
       'PAYSTACK_API_URL',
@@ -663,6 +706,8 @@ export const envSchema = z
       'HOTELBEDS_API_URL',
       'TRAVELPAYOUTS_API_URL',
       'VIATOR_API_URL',
+      'META_GRAPH_API_URL',
+      'TIKTOK_EVENTS_API_URL',
     ] as const) {
       if (!env[key].startsWith('https://')) require(key, 'must use https in production');
     }
