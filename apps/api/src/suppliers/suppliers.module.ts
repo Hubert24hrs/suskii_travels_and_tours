@@ -1,10 +1,14 @@
 import { Module } from '@nestjs/common';
 
+import type { Redis } from 'ioredis';
+
 import { CatalogModule } from '../catalog/catalog.module';
 import { CatalogService } from '../catalog/catalog.service';
 import { APP_CONFIG, type AppConfig } from '../config/config';
+import { REDIS } from '../infra/redis';
 
-import { CircuitBreakerRegistry } from './circuit-breaker';
+import { markBreakerOpen } from './breaker-marks';
+import { CircuitBreakerRegistry, DEFAULT_BREAKER_OPTIONS } from './circuit-breaker';
 import { DuffelFlightSupplier } from './duffel/duffel-flight-supplier';
 import { DuffelHotelSupplier } from './duffel/duffel-hotel-supplier';
 import { DuffelClient } from './duffel/duffel.client';
@@ -24,8 +28,14 @@ export const HOTEL_SUPPLIERS = Symbol('HOTEL_SUPPLIERS');
 @Module({
   imports: [CatalogModule],
   providers: [
-    // A factory, not a value: each application instance gets its own breakers.
-    { provide: CircuitBreakerRegistry, useFactory: () => new CircuitBreakerRegistry() },
+    // A factory, not a value: each application instance gets its own breakers. Openings are
+    // marked in Redis so the status page sees every instance's (ADR-087).
+    {
+      provide: CircuitBreakerRegistry,
+      inject: [REDIS],
+      useFactory: (redis: Redis) =>
+        new CircuitBreakerRegistry(DEFAULT_BREAKER_OPTIONS, (name) => markBreakerOpen(redis, name)),
+    },
     {
       provide: MockFlightSupplier,
       inject: [CatalogService, APP_CONFIG],

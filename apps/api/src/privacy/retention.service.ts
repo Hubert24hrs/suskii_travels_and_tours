@@ -57,6 +57,8 @@ export const RETENTION_RULES = [
   'support-conversations',
   'whatsapp-contacts',
   'supplier-customer-ip',
+  // Status page incidents (ADR-087).
+  'status-incidents',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -117,6 +119,8 @@ export const RETENTION_DAYS = {
    * a week covers payment and every ticketing retry.
    */
   'supplier-customer-ip': 7,
+  /** After the incident was resolved: a year of history for availability reports. */
+  'status-incidents': 365,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -334,6 +338,12 @@ export class RetentionService {
             createdAt: { lt: before('supplier-customer-ip') },
           },
           data: { customerIpEncrypted: null },
+        }),
+      ),
+      // Resolved incidents only (their updates go with them); open ones are still on the page.
+      'status-incidents': counts(
+        await this.prisma.statusIncident.deleteMany({
+          where: { resolvedAt: { lt: before('status-incidents') } },
         }),
       ),
       // Commission records are revenue: kept for the financial period after their last change.

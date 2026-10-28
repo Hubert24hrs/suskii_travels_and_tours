@@ -9,7 +9,8 @@ ADR-059 explains the topology; ADR-060 explains how the pipelines deploy onto it
 | `live/`                | The root module, applied once per environment                                |
 | `modules/platform/`    | GCP: network, database, cache, bucket, registry, secrets, IAM, Cloud Run, LB |
 | `modules/run-service/` | One Cloud Run service with the platform's defaults                           |
-| `modules/edge/`        | Cloudflare: DNS, TLS, origin secret header, WAF and rate limit rules         |
+| `modules/edge/`        | Cloudflare: DNS, TLS, origin secret header, WAF, rate limit and cache rules  |
+| `modules/monitoring/`  | Cloud Monitoring uptime checks from three regions and their alert policies   |
 | `environments/`        | `<environment>.tfvars.example` and `<environment>.gcs.tfbackend.example`     |
 
 Operators apply Terraform from a workstation. CI checks formatting, validates and lints it, but
@@ -21,7 +22,9 @@ holds no rights to apply it. The GitHub deployer identity can only deploy new re
 - **Two Cloudflare zones**, one per environment (for example `suskii.com` and
   `suskii-staging.com`; ADR-059). Production on Pro or above for the managed WAF.
 - **A Cloudflare API token per zone** with Edit on DNS, Zone Settings, Zone WAF (custom, managed
-  and rate limiting rules), Transform Rules and Single Redirect, for that zone only.
+  and rate limiting rules), Transform Rules, Single Redirect and Cache Rules, for that zone only.
+- **Who is told when the site is down** (ADR-087): addresses for `uptime_alert_emails`, or the
+  on-call tool's Cloud Monitoring channel ids for `uptime_notification_channels`.
 - **Provider accounts and keys** for production (payments, flights, email, push and the rest).
   Staging runs on mocks.
 
@@ -141,6 +144,11 @@ In the repository settings, create the environments `staging` and `production`:
 - Fetching `https://<load balancer ip>/` directly, or any `run.app` URL, answers 403 or 404.
 - Your own sign-in appears in the console's audit log under your address (a hash), not a
   Cloudflare or Google one.
+- The three uptime checks (Monitoring, Uptime checks: website, api, status) pass from every
+  region. If Cloudflare challenges the checkers (Security, Events shows them), the security level
+  or a Bot Fight setting is too strict for them; never skip the WAF by user agent, which anyone
+  can send.
+- `curl -sI https://<api host>/v1/status` twice: the second answer carries `cf-cache-status: HIT`.
 
 ## Day two
 
