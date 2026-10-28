@@ -1,5 +1,27 @@
 # CLAUDE.md
 
+### Status page and availability (apps/api/src/status, ADR-087)
+
+- `GET /v1/status` is the only status source: `StatusService` measures every
+  `STATUS_CACHE_SECONDS` (30) and shares one answer through Redis; never compute component states
+  in a client. Components are `STATUS_COMPONENTS` (what a traveller does); never name a supplier
+  or payment provider on the page.
+- Each component is the worse of what is measured and what open incidents declare
+  (`impactState`, `worstState` in `@suskii/shared`). A new measured signal goes in
+  `measuredStates()` with a unit test; the answer must still come when Postgres or Redis cannot.
+- Circuit breakers mark an opened supplier in Redis (`markBreakerOpen`, two minutes) so every
+  instance agrees; a mark never fails a search.
+- Incidents change only through `StatusAdminService` (`status:manage`, audited with names only,
+  a conditional update claims the change, resolved ones take no updates) and clear the cache after
+  the commit. Incident text is public: no personal data, no author.
+- The website reads the status on the server (`api.status()`, revalidate 30) and renders
+  `/status` per request; never cache its HTML at the edge (CSP nonce). The banner adds no client
+  JavaScript and renders nothing when the API cannot answer. The app polls it while shown
+  (`useStatusQuery`) and shows nothing on a failed read.
+- Objectives and burn-rate alerts live in `infra/observability/alerts/suskii.slo.rules.yml` with
+  promtool tests; uptime checks in `infra/terraform/modules/monitoring`. A new paging alert names
+  a runbook (`observability.spec.ts` reads every rule file).
+
 Guidance for Claude Code (and humans) working in this repository. The full product and engineering
 spec is in [`PROJECT_SPEC.json`](./PROJECT_SPEC.json). Read it before starting a phase. This file is
 the working summary and is updated at the end of every phase.
@@ -79,7 +101,10 @@ part 4, Suskii Prime priced per country, is built and waits for the owner's pric
 Item 9, 24/7 support, runs in three parts (`docs/phases/support.md`): part 1, conversations tied to
 bookings with a console inbox, SLA timers and a Prime queue, is built and waits for people on
 shift; part 2, WhatsApp through the Cloud API, is built and waits for the owner's Meta app,
-number and approved template; an after-hours assistant comes next.
+number and approved template; an after-hours assistant comes next. Item 11, 99.9% uptime and a
+status page, is built (`docs/phases/uptime.md`): objectives with burn-rate alerts, uptime checks
+from three regions, `GET /v1/status` and incidents in the console, on the website and in the app;
+it waits for the owner's on-call channel.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -1018,6 +1043,7 @@ Tooling notes for agents:
 - [ADR-081: Metasearch partners](docs/decisions/ADR-081-metasearch-partners.md)
 - [ADR-082: Suskii Prime priced per country](docs/decisions/ADR-082-prime-priced-per-country.md)
 - [ADR-083: Support conversations](docs/decisions/ADR-083-support-conversations.md)
+- [ADR-087: Availability objectives and the status page](docs/decisions/ADR-087-availability-objectives-and-status-page.md)
 - [ADR-084: WhatsApp as a support channel](docs/decisions/ADR-084-whatsapp-support-channel.md)
 
 ## Open questions for the owner
@@ -1132,4 +1158,8 @@ business portfolio, a WhatsApp Business Account and number, a system user's perm
 app secret and a verify token (then `WHATSAPP_SUPPORT_PROVIDER=cloud`), the approved
 `support_reply_waiting` template, the privacy policy naming Meta as the Cloud API host,
 confirmation of Meta's per-message prices for the markets served, and one sandbox message from a
-username user to confirm the field for replying to a business-scoped user id.
+username user to confirm the field for replying to a business-scoped user id. Added with the
+status page (ADR-087): who receives uptime and burn-rate pages (`uptime_alert_emails` or the
+on-call tool's channel ids), the availability figure to promise partners and companies (99.9%
+suggested), whether to move the status page to a third-party host for independence from our
+platform, and who writes incident updates out of hours.
