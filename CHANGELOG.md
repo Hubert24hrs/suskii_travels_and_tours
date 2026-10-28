@@ -29,6 +29,14 @@ All notable changes to this project are documented here. The format follows
 - Settings in `.env.example`, Terraform and Helm (tokens as secrets); security documents and
   store forms (website only: the app has no ad SDK).
 
+#### Changed
+
+- **Homepage JavaScript.** The server reads the consent cookie per request, so the prompt and the
+  tags load only when needed (nothing for a visitor who said no), and the header's signed-in
+  check no longer pulls in the session refresh code. The homepage ships 173,815 bytes in 11
+  scripts, 164 fewer than before, under the 170 kB budget.
+- A cookie choice now stops ad events at once, even with the tags already loaded.
+
 ### Company accounts (2026-10-28)
 
 #### Added

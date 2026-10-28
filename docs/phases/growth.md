@@ -50,6 +50,6 @@ Risks:
   the recorded consent and never trusts the browser's flag. E2e tests prove that nothing reaches a
   network host before consent.
 - **Homepage speed.** The prompt and the loader must not move the 170 kB budget or the Lighthouse
-  gate. Both load after the page is interactive; the prompt is fixed-position.
+  gate. Both load only when needed; the prompt is fixed-position.
 - **No real provider in tests.** The networks' hosts are stubbed in every website test and the API
   uses the mock adapter.
