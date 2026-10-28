@@ -3083,6 +3083,47 @@ export const ar: Messages = {
       generic: 'تعذّر إرسال رسالتك. تحقق من اتصالك وحاول مرة أخرى.',
     },
   },
+  status: {
+    heading: 'حالة الخدمة',
+    intro: 'كيف تعمل خدمات البحث والحجز والدفع وتسجيل الدخول والدعم الآن. يتم التحقق كل 30 ثانية.',
+    link: 'حالة الخدمة',
+    overall: {
+      operational: 'كل شيء يعمل',
+      degraded: 'بعض الخدمات بطيئة أو متعثرة',
+      outage: 'إحدى الخدمات لا تعمل',
+    },
+    components: {
+      search: 'البحث عن الرحلات والفنادق',
+      bookings: 'الحجوزات والتذاكر',
+      payments: 'المدفوعات',
+      accounts: 'تسجيل الدخول والحسابات',
+      support: 'المساعدة والدعم',
+    },
+    states: {
+      operational: 'تعمل',
+      degraded: 'متدهورة',
+      outage: 'متوقفة',
+    },
+    impacts: {
+      minor: 'طفيف',
+      major: 'كبير',
+    },
+    stages: {
+      investigating: 'قيد التحقيق',
+      identified: 'تم تحديد السبب',
+      monitoring: 'تم تطبيق الإصلاح وتجري المراقبة',
+      resolved: 'تم الحل',
+    },
+    openHeading: 'الأعطال الحالية',
+    recentHeading: 'آخر 7 أيام',
+    noIncidents: 'لا توجد أعطال خلال آخر 7 أيام.',
+    affects: 'يؤثر على: {components}',
+    started: 'بدأ {time}',
+    resolvedAt: 'تم الحل {time}',
+    updated: 'آخر تحقق {time}',
+    unavailable: 'لا يمكننا تحميل حالة الخدمة الآن. إذا كان هناك شيء لا يعمل، تواصل مع الدعم.',
+    bannerLink: 'عرض حالة الخدمة',
+  },
   seo: {
     homeTitle: '{brand}: رحلات طيران رخيصة وفنادق وعطلات ومساعدة في التأشيرات',
     homeDescription:

@@ -2882,6 +2882,49 @@ export const sw: Messages = {
       generic: 'Hatukuweza kutuma ujumbe wako. Angalia muunganisho wako kisha ujaribu tena.',
     },
   },
+  status: {
+    heading: 'Hali ya huduma',
+    intro:
+      'Jinsi utafutaji, uhifadhi, malipo, kuingia na msaada vinavyofanya kazi sasa hivi. Huangaliwa kila sekunde 30.',
+    link: 'Hali ya huduma',
+    overall: {
+      operational: 'Kila kitu kinafanya kazi',
+      degraded: 'Baadhi ya huduma ni za polepole au zinashindwa',
+      outage: 'Huduma fulani haifanyi kazi',
+    },
+    components: {
+      search: 'Kutafuta safari za ndege na hoteli',
+      bookings: 'Uhifadhi na tiketi',
+      payments: 'Malipo',
+      accounts: 'Kuingia na akaunti',
+      support: 'Msaada',
+    },
+    states: {
+      operational: 'Inafanya kazi',
+      degraded: 'Imepungua',
+      outage: 'Haifanyi kazi',
+    },
+    impacts: {
+      minor: 'Ndogo',
+      major: 'Kubwa',
+    },
+    stages: {
+      investigating: 'Tunachunguza',
+      identified: 'Chanzo kimepatikana',
+      monitoring: 'Marekebisho yamewekwa, tunafuatilia',
+      resolved: 'Imetatuliwa',
+    },
+    openHeading: 'Matatizo ya sasa',
+    recentHeading: 'Siku 7 zilizopita',
+    noIncidents: 'Hakuna matatizo katika siku 7 zilizopita.',
+    affects: 'Inaathiri: {components}',
+    started: 'Ilianza {time}',
+    resolvedAt: 'Ilitatuliwa {time}',
+    updated: 'Iliangaliwa mwisho {time}',
+    unavailable:
+      'Hatuwezi kupakia hali ya huduma sasa hivi. Kama kitu hakifanyi kazi, wasiliana na msaada.',
+    bannerLink: 'Angalia hali ya huduma',
+  },
   seo: {
     homeTitle: '{brand}: safari za ndege nafuu, hoteli, likizo na msaada wa viza',
     homeDescription:
