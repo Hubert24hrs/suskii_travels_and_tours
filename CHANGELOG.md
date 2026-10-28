@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### App requests on bad networks (2026-10-28)
+
+#### Fixed
+
+- **Reads no longer load forever.** The app's API transport had no timeout, so on a network
+  that drops packets instead of refusing them a read could hang and leave a screen loading
+  (the CI emulator's offline trip flow failed this way). Reads now give up after 20 s
+  (`READ_TIMEOUT_MS`) and count as no network, so Trips and the trip screen fall back to the
+  copies saved on the phone. Writes and uploads still wait as long as they need. Trips also loads
+  the account's trips and the phone's guest trips side by side, so a bad network costs one
+  timeout, not two in a row.
+
 ### Support conversations (2026-10-28)
 
 #### Added
