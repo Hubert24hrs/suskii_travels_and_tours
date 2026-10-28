@@ -80,7 +80,10 @@ describe('MetasearchLinks', () => {
 
   it('opens nothing altered, truncated, forged or sealed for another purpose', () => {
     const token = links.seal(claims, NOW);
-    const flipped = `${token.slice(0, -2)}${token.endsWith('A') ? 'B' : 'A'}${token.slice(-1)}`;
+    // Change the second-to-last character (the last may only carry padding bits) to a different one.
+    const at = token.length - 2;
+    const flipped = `${token.slice(0, at)}${token[at] === 'A' ? 'B' : 'A'}${token.slice(at + 1)}`;
+    expect(flipped).not.toBe(token);
     expect(links.open(flipped, NOW)).toBeNull();
     expect(links.open(token.slice(0, -4), NOW)).toBeNull();
     expect(links.open('not-a-token', NOW)).toBeNull();
