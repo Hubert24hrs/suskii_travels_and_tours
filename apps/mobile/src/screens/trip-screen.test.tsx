@@ -1,7 +1,7 @@
 import { getMessages } from '@suskii/i18n';
 import { fireEvent, screen } from '@testing-library/react-native';
 import { File } from 'expo-file-system';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { shareAsync } from 'expo-sharing';
 
 import { openSecureCache, secureCache } from '../lib/cache';
@@ -36,6 +36,10 @@ describe('TripScreen', () => {
     expect(screen.getByTestId('ticket-number')).toHaveTextContent(/0001234567890/);
     expect(calls[0]?.headers.get('X-Booking-Token')).toBe(TOKEN);
     expect(tripStore.cachedBooking(BOOKING_ID)?.booking.reference).toBe('SK7Q2M');
+
+    // Help about this booking opens support with the booking attached (ADR-083).
+    await fireEvent.press(screen.getByTestId('trip-get-help'));
+    expect(router.push).toHaveBeenCalledWith(`/support?booking=${BOOKING_ID}`);
   });
 
   it('holds a company trip waiting for approval: no pay button until an approver says yes', async () => {
@@ -100,6 +104,7 @@ describe('TripScreen', () => {
     expect(screen.getByRole('header', { name: heading })).toBeOnTheScreen();
     // No actions that need the network while offline.
     expect(screen.queryByRole('button', { name: m.mobile.trip.notify })).toBeNull();
+    expect(screen.queryByTestId('trip-get-help')).toBeNull();
   });
 
   it('cancels a ticketed flight after showing the airline refund it confirms', async () => {

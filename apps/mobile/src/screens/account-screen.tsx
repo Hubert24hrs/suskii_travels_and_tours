@@ -161,6 +161,20 @@ export function AccountScreen() {
 
       <Card className="gap-3 p-4">
         <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+          {t('support.heading')}
+        </Text>
+        <Text className="font-body text-body-sm text-foreground">{t('support.intro')}</Text>
+        <Button
+          testID="account-support"
+          variant="secondary"
+          onPress={() => router.push('/support')}
+        >
+          {t('support.link')}
+        </Button>
+      </Card>
+
+      <Card className="gap-3 p-4">
+        <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
           {t('mobile.account.currency')}
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
