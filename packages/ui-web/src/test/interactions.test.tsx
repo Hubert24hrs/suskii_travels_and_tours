@@ -89,6 +89,25 @@ describe('DateRangePicker', () => {
       .element(screen.getByRole('button', { name: /12 Oct - 19 Oct/ }))
       .toBeInTheDocument();
   });
+
+  it('follows the page language and direction without a date-fns locale', async () => {
+    await page.viewport(1280, 900);
+    const root = document.documentElement;
+    const previous = { lang: root.lang, dir: root.dir };
+    root.lang = 'ar';
+    root.dir = 'rtl';
+    try {
+      const screen = await render(<RoundTrip />);
+      await userEvent.click(screen.getByRole('button', { name: /Depart - Return/ }));
+      // Arabic month names with Latin digits (ADR-076), laid out right to left.
+      const caption = page.getByText('أكتوبر 2026').first();
+      await expect.element(caption).toBeInTheDocument();
+      expect(caption.element().closest('[dir="rtl"]')).not.toBeNull();
+    } finally {
+      root.lang = previous.lang;
+      root.dir = previous.dir;
+    }
+  });
 });
 
 describe('SegmentedControl', () => {
@@ -110,6 +129,19 @@ describe('Tabs', () => {
       .element(screen.getByRole('tab', { name: 'Hotels' }))
       .toHaveAttribute('aria-selected', 'true');
     await expect.element(screen.getByRole('tabpanel')).toHaveTextContent('Hotels search form');
+  });
+
+  it('activates the next tab with the left arrow on a right-to-left page', async () => {
+    const screen = await render(
+      <div dir="rtl">
+        <SearchCategories />
+      </div>,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: 'Flights' }));
+    await userEvent.keyboard('{ArrowLeft}');
+    await expect
+      .element(screen.getByRole('tab', { name: 'Hotels' }))
+      .toHaveAttribute('aria-selected', 'true');
   });
 });
 
