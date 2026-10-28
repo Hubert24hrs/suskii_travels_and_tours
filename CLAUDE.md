@@ -330,6 +330,9 @@ Tooling notes for agents:
   `requiresRefund`, audited and refunded automatically, never silently applied.
 - Supplier `book()` calls use the booking item id as idempotency key; `idempotentBooking` decides
   whether an ambiguous failure (timeout) may be retried or goes to REFUND_PENDING for review.
+  Wrap the call that creates an order or a booking in `creating()` and throw
+  `SupplierAmbiguousError` for an unreadable or unconfirmed answer: a 5xx or lost connection
+  after sending may have booked, and only suppliers that dedupe on the key retry it.
 - Ticketed flights cancel online only through `FlightCancellationService` (ADR-064): a refund
   quote held in Redis, the supplier's confirmation first, then the ledger fee and
   `refundBookingBalance` in one transaction. The traveller's refund is `travellerRefund()`
