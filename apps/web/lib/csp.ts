@@ -12,32 +12,33 @@ export interface CspOptions {
   errorReportOrigin?: string | undefined;
   /** The ad networks' event and pixel hosts, only for configured networks (ADR-079). */
   adOrigins?: { connect: readonly string[]; img: readonly string[] };
+  /**
+   * A page that starts a payment (`isPaymentPage`, ADR-089): scripts only from our origin, with
+   * the nonce, and Turnstile; no `strict-dynamic` (it would trust whatever our scripts insert) and
+   * no ad hosts.
+   */
+  paymentPage?: boolean;
 }
 
 /**
  * Strict nonce-based Content Security Policy (ADR-010). Scripts run only with the per-request
- * nonce (`strict-dynamic` lets them load their own chunks); styles allow inline attributes, which
- * React and next/image emit and nonces cannot cover.
+ * nonce (`strict-dynamic` lets them load their own chunks; payment pages list the origins
+ * instead); styles allow inline attributes, which React and next/image emit and nonces cannot
+ * cover.
  */
 export function buildCsp(options: CspOptions): string {
+  const ads = options.paymentPage ? undefined : options.adOrigins;
   const directives: [string, ...string[]][] = [
     ['default-src', "'self'"],
     [
       'script-src',
       "'self'",
       `'nonce-${options.nonce}'`,
-      "'strict-dynamic'",
+      ...(options.paymentPage ? [TURNSTILE_ORIGIN] : ["'strict-dynamic'"]),
       ...(options.development ? ["'unsafe-eval'"] : []),
     ],
     ['style-src', "'self'", "'unsafe-inline'"],
-    [
-      'img-src',
-      "'self'",
-      'data:',
-      'blob:',
-      ...(options.imageOrigins ?? []),
-      ...(options.adOrigins?.img ?? []),
-    ],
+    ['img-src', "'self'", 'data:', 'blob:', ...(options.imageOrigins ?? []), ...(ads?.img ?? [])],
     ['font-src', "'self'"],
     [
       'connect-src',
@@ -45,7 +46,7 @@ export function buildCsp(options: CspOptions): string {
       options.apiOrigin,
       TURNSTILE_ORIGIN,
       ...(options.errorReportOrigin ? [options.errorReportOrigin] : []),
-      ...(options.adOrigins?.connect ?? []),
+      ...(ads?.connect ?? []),
     ],
     ['frame-src', TURNSTILE_ORIGIN],
     ['object-src', "'none'"],

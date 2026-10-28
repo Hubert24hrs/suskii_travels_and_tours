@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Compliance, part 1: payment pages and privacy obligations (2026-10-28)
+
+#### Security
+
+- **Payment pages run only our scripts (ADR-089, PCI DSS SAQ A).** Checkout and the booking page
+  (`isPaymentPage()`) get `script-src 'self' 'nonce-…' https://challenges.cloudflare.com`
+  without `strict-dynamic` or ad hosts, so the browser refuses any other script. The Meta and
+  TikTok tags never start there, and a document that already ran them reloads once on entering
+  checkout. Browser checkout events wait for the next page with the tags; the Purchase still goes
+  server-side.
+
+#### Added
+
+- `docs/compliance/pci-saq-a.md`: SAQ A eligibility, the script inventory of each payment page,
+  what the owner files every year, and the changes that would end eligibility.
+- `docs/compliance/privacy-obligations.md`: Nigeria (NDPA and GAID 2025), Kenya (DPA 2019 and its
+  2021 regulations: access in 7 days, rectification and erasure in 14), South Africa (POPIA and
+  its amended regulations) and GDPR for comparison, with sources and owner actions.
+- `docs/runbooks/personal-data-breach.md`: contain, assess, and notify each regulator in time
+  (72 hours for the NDPC, the ODPC and GDPR authorities; the Information Regulator's portal as
+  soon as reasonably possible).
+
 ### Availability objectives and the status page (2026-10-28)
 
 #### Added

@@ -15,6 +15,8 @@ import { TEST_AD_TAGS } from './stack';
  * ADR-079: the Meta and TikTok tags run only after the visitor allows marketing. A first visit
  * asks once, with equal choices; a refusal loads nothing; after Accept the tags report trip facts
  * only, and a booking carries the consent id and click ids for the server-side Purchase.
+ * ADR-089: pages that start a payment never run them, so checkout and the booking page hold only
+ * our own scripts (PCI DSS SAQ A).
  *
  * The networks are never contacted: their scripts are stubbed here. The stubs do nothing, so the
  * queues our loader sets up keep every call for the test to read.
@@ -119,7 +121,8 @@ test.describe('ads with consent', () => {
       search_string: 'LOS-ABV',
     });
 
-    // Checkout reports its value; the booking carries the consent id and the click ids.
+    // Checkout starts a payment: the document reloads without the tags, under a policy that
+    // refuses any script but ours (ADR-089). The booking still carries the attribution.
     await offers
       .first()
       .getByRole('button', { name: t('results.flights.details') })
@@ -129,12 +132,12 @@ test.describe('ads with consent', () => {
       .getByRole('button', { name: /^Select/ })
       .click();
     await page.waitForURL(/\/checkout\//);
-    await expect.poll(async () => tracked(await metaCalls(page), 'InitiateCheckout')).toBeTruthy();
-    expect(tracked(await metaCalls(page), 'InitiateCheckout')?.[2]).toMatchObject({
-      currency: 'NGN',
-      value: expect.any(Number),
-      content_ids: ['flights'],
-    });
+    // The reload replaces the document under the check, which then just tries again.
+    await expect
+      .poll(() => page.evaluate(() => 'fbq' in window || 'ttq' in window).catch(() => true))
+      .toBe(false);
+    await expectOnlyOurScripts(page);
+    const before = hits.length;
     await page.locator('#passenger-0-title').selectOption('ms');
     await page.locator('#passenger-0-gender').selectOption('f');
     await page.locator('#passenger-0-givenNames').fill('Chioma');
@@ -157,22 +160,53 @@ test.describe('ads with consent', () => {
       ttclid: TTCLID,
     });
 
-    // Paid: the Purchase carries the booking id, the same event id as the server's copy.
+    // Paid: the booking page takes balances too, so it runs no tags either; the Purchase goes
+    // server-side with the attribution above (ADR-079).
     await page.waitForURL(/\/checkout\/mock-payment\//);
     await page.getByRole('button', { name: /^Pay / }).click();
     await page.waitForURL(/\/bookings\//);
-    const bookingId = new URL(page.url()).pathname.split('/').at(-1) ?? '';
-    await expect.poll(async () => tracked(await metaCalls(page), 'Purchase')).toBeTruthy();
-    const purchase = tracked(await metaCalls(page), 'Purchase');
-    expect(purchase?.[2]).toMatchObject({ currency: 'NGN', content_ids: ['flights'] });
-    expect(purchase?.[3]).toEqual({ eventID: bookingId });
-    expect(
-      (await tiktokCalls(page)).find((call) => call[0] === 'track' && call[1] === 'Purchase')?.[3],
-    ).toEqual({ event_id: bookingId });
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    expect(await page.evaluate(() => 'fbq' in window || 'ttq' in window)).toBe(false);
+    await expectOnlyOurScripts(page);
+    expect(hits.slice(before)).toEqual([]);
+  });
 
-    // Trip facts only: nothing the traveller typed reaches either network from the browser.
-    const everything = JSON.stringify([await metaCalls(page), await tiktokCalls(page)]);
-    for (const personal of ['Chioma', 'Okafor', 'chioma.ads@example.com', '8012345678'])
-      expect(everything).not.toContain(personal);
+  test('pages that start a payment refuse every script but ours (PCI DSS SAQ A)', async ({
+    page,
+  }) => {
+    const policy = async (path: string): Promise<string> =>
+      (await page.request.get(path)).headers()['content-security-policy'] ?? '';
+    const scripts = (csp: string): string =>
+      csp.split(';').find((directive) => directive.trim().startsWith('script-src')) ?? '';
+
+    // Elsewhere the tags' hosts are allowed and our scripts may load what they trust.
+    const home = await policy('/');
+    expect(scripts(home)).toContain("'strict-dynamic'");
+    expect(home).toContain('https://connect.facebook.net');
+
+    for (const path of ['/checkout/0190f6a2-0000-7000-8000-000000000001', '/bookings/unknown']) {
+      const csp = await policy(path);
+      expect(scripts(csp), path).not.toContain("'strict-dynamic'");
+      expect(scripts(csp), path).toMatch(
+        /script-src 'self' 'nonce-[^']+' https:\/\/challenges\.cloudflare\.com/,
+      );
+      for (const host of ['facebook', 'tiktok']) expect(csp, path).not.toContain(host);
+    }
   });
 });
+
+/** Every script on the page comes from our origin or Turnstile (ADR-089's inventory). */
+async function expectOnlyOurScripts(page: Page): Promise<void> {
+  const foreign = await page.evaluate(() => {
+    const allowed = new Set([location.origin, 'https://challenges.cloudflare.com']);
+    const sources = [
+      ...Array.from(document.scripts, (script) => script.src).filter(Boolean),
+      ...performance
+        .getEntriesByType('resource')
+        .filter((entry) => entry.initiatorType === 'script')
+        .map((entry) => entry.name),
+    ];
+    return sources.filter((source) => !allowed.has(new URL(source).origin));
+  });
+  expect(foreign).toEqual([]);
+}

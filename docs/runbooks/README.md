@@ -20,6 +20,7 @@ exist.
 | [Deploy and roll back](deploy-and-rollback.md)        | Shipping a release, watching it, rolling back, operator commands       |
 | [Error budget burn](slo-burn.md)                      | The API or booking path spends its availability budget too fast        |
 | [Screen reader checklist](screen-reader-checklist.md) | Before each release: manual VoiceOver and TalkBack checks              |
+| [Personal data breach](personal-data-breach.md)       | Personal data may have leaked, been changed or lost; regulator clocks  |
 
 ## Every incident
 

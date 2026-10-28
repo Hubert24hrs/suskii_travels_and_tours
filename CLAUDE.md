@@ -88,7 +88,10 @@ the owner's Expedia Partner Solutions account, one sandbox run and certification
 `GET /v1/status` and incidents in the console, on the website and in the app; it waits for the
 owner's on-call channel. Item 12, an accessibility audit against WCAG 2.2 AA, is built
 and checked in CI (`docs/phases/accessibility.md`, `docs/accessibility/wcag-2.2-aa.md`); the
-manual screen reader pass waits for devices and testers. Item 13 comes next.
+manual screen reader pass waits for devices and testers. Item 13, compliance, runs in two parts
+(`docs/phases/compliance.md`): part 1, payment pages that run only our scripts (PCI DSS SAQ A),
+the privacy obligations per country and a breach runbook, is built and waits for the owner's
+registrations and filings; part 2, rights request and breach registers with deadlines, comes next.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -752,6 +755,8 @@ Tooling notes for agents:
   "Accept all" and "Reject all" keep the same style. A new optional cookie or storage key goes
   in `cookie-catalog.ts` and every catalog, with a `COOKIE_POLICY_VERSION` bump when visitors
   should choose again.
+- Pages that start a payment (`isPaymentPage()`: `/checkout/*`, `/bookings/*`) never run the
+  tags and get a policy without `strict-dynamic` (ADR-089); a new payment page must match it.
 - Checkout sends `marketing` (`marketingAttribution()`: consent id and validated click ids) only
   with marketing consent. The API keeps it only through `AdAttribution.keep()`, which re-reads
   the recorded choice (`marketingAllowed`); the browser's word is never enough.
@@ -892,6 +897,17 @@ Tooling notes for agents:
   fails otherwise. The app follows the device's orientation.
 - Run the screen reader checklist (`docs/runbooks/screen-reader-checklist.md`) before each store
   release and any release that changes search, checkout or sign-in.
+
+### Compliance (PCI DSS SAQ A and privacy laws, ADR-089)
+
+- Card data never touches Suskii: hosted checkout only, by redirect or the system browser. Never
+  embed a provider's card fields, take card details by phone, chat or WhatsApp, or keep a raw
+  provider payload; each ends SAQ A eligibility (`docs/compliance/pci-saq-a.md`).
+- Payment pages allow only our scripts and Turnstile (`buildCsp({ paymentPage })`); a new script
+  there needs the inventory in `pci-saq-a.md` updated and the ads e2e still passing.
+- Country obligations and their sources live in `docs/compliance/privacy-obligations.md`; a
+  deadline in code comes only from a row there. A suspected breach follows
+  `docs/runbooks/personal-data-breach.md` (regulator clocks start at awareness).
 
 ### Hardening (phase 11, ADR-037 to ADR-048)
 
@@ -1085,6 +1101,7 @@ Tooling notes for agents:
 - [ADR-086: Expedia Rapid hotel adapter](docs/decisions/ADR-086-expedia-rapid-hotel-adapter.md)
 - [ADR-087: Availability objectives and the status page](docs/decisions/ADR-087-availability-objectives-and-status-page.md)
 - [ADR-088: WCAG 2.2 AA as the accessibility target](docs/decisions/ADR-088-wcag-2-2-aa-accessibility.md)
+- [ADR-089: Payment pages without third-party scripts, and privacy obligations per country](docs/decisions/ADR-089-payment-pages-and-privacy-obligations.md)
 
 ## Open questions for the owner
 
@@ -1215,4 +1232,9 @@ platform, and who writes incident updates out of hours. Added with
 the accessibility audit (ADR-088): someone with iOS and Android devices to run the screen reader
 checklist (including landscape and the largest text size), the support contact and legal text for
 an accessibility statement page, and whether to commission an external audit before launch in
-the EU.
+the EU. Added with
+compliance (ADR-089): registration with the NDPC (tier and fee), the ODPC and the Information
+Regulator; a data protection officer and an Information Officer; the yearly SAQ A with each
+payment provider's attestation; counsel's view on the rows marked "confirm" (registration tiers,
+Kenya's sector list, the transfer basis for London hosting and each supplier); the privacy policy
+and the PAIA manual; and DPIAs for payment risk scoring and the AI features.
