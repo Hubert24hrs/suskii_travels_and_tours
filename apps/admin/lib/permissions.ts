@@ -27,6 +27,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/visa', label: 'nav.visa', anyOf: ['visa:process'] },
   { href: '/prime', label: 'nav.prime', anyOf: ['pricing:manage'] },
   { href: '/referrals', label: 'nav.referrals', anyOf: ['referrals:review'] },
+  { href: '/reviews', label: 'nav.reviews', anyOf: ['reviews:moderate'] },
   // Cars (ADR-049 to ADR-051).
   { href: '/ground', label: 'nav.ground', anyOf: ['ground:manage'] },
   { href: '/drivers', label: 'nav.drivers', anyOf: ['drivers:review'] },
