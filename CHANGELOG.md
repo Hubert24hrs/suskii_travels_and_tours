@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Metasearch partners (2026-10-28)
+
+#### Added
+
+- **Partner price API (ADR-081).** `GET /v1/metasearch/flights` lets engines such as Google
+  Flights, Skyscanner, KAYAK and Wego price our flights with a key in `X-Api-Key`. Answers list
+  the cheapest itineraries first with every segment, baggage and fare conditions, the all-in
+  total the website shows a guest, and a sealed deep link. Partner traffic shares the search
+  cache and writes no search analytics row.
+- **Keys and limits.** Staff with `pricing:manage` add partners in the console after a fresh
+  authenticator check; the key (`smk_…`) is shown once and stored only as an HMAC, and replacing
+  it stops the old one at once. Each partner has requests per minute and per day and a result
+  cap; wrong keys are limited per address.
+- **Landings.** `/flights/go/[token]` quotes the partner's itinerary again with the supplier. The
+  same or a lower price goes straight to checkout; a higher one shows both totals first; a gone
+  flight or a link older than `METASEARCH_LINK_TTL_HOURS` (24) offers the same search. Every
+  landing is recorded with its outcome, and bookings made from its quote carry the partner.
+- **Console report.** `Metasearch` lists partners with 30 days of landings by outcome, price
+  accuracy, how often the flight was still there, and committed bookings with their value per
+  currency.
+
 ### SEO pages from fare history (2026-10-28)
 
 #### Added

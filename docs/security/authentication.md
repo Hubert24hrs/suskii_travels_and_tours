@@ -23,6 +23,12 @@ Texted codes are weaker than an authenticator because numbers can be ported or i
 Phone sign-in (web and app) and the phone number on the profile say so and point to an
 authenticator, which every traveller can turn on. Staff must use one.
 
+Metasearch partners (ADR-081) are services, not people: they call one read-only route,
+`GET /v1/metasearch/flights`, with a key in `X-Api-Key`. Keys are 256-bit random values shown
+once in the console, stored only as an HMAC (`metasearch-key`), and replaced in one step (the
+old key stops at once). They create no session and open nothing else; wrong keys are limited
+per address and each partner has its own limits per minute and per day.
+
 Bot checks sit in front of the costly or abusable entry points: Turnstile on the web, and device
 attestation in the app (ADR-012, ADR-023). The full request limits are in `business-limits.md`.
 
