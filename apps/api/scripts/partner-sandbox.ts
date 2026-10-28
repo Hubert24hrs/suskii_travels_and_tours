@@ -1,13 +1,14 @@
 /**
- * Partner sandbox check (ADR-069 to ADR-071): calls Hotelbeds' evaluation host, Viator's Partner
- * API and the Travelpayouts Partner Links API through our own adapters, and prints what came back:
- * hotels and their cheapest stays with a rate check, tours with their prices, and whether each
+ * Partner sandbox check (ADR-069 to ADR-071, ADR-086): calls Hotelbeds' evaluation host, Expedia
+ * Rapid's test host, Viator's Partner API and the Travelpayouts Partner Links API through our own
+ * adapters, and prints what came back: hotels and their cheapest stays with a rate or price
+ * check, tours with their prices, and whether each
  * affiliate programme gets a tracked link. Read-only: it books nothing, prints no key and sends
  * no personal data. CI never runs it; the manual `partner-sandbox.yml` workflow does, with the
  * owner's secrets. A partner whose keys are not set is skipped and named.
  *
  *   pnpm --filter @suskii/api sandbox:partners                   # every partner with keys
- *   pnpm --filter @suskii/api sandbox:partners --only hotelbeds  # or viator, travelpayouts
+ *   pnpm --filter @suskii/api sandbox:partners --only hotelbeds  # or expedia, viator, travelpayouts
  */
 import { appendFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
@@ -18,15 +19,23 @@ import type { LinkStore } from '../src/partners/travelpayouts/travelpayouts-link
 import { TravelpayoutsLinker } from '../src/partners/travelpayouts/travelpayouts-linker';
 import { ViatorActivityPartner } from '../src/partners/viator/viator-activity-partner';
 import { PARTNER_PROGRAMS, type OfferTrip } from '../src/partners/partner-programs';
+import { ExpediaHotelSupplier } from '../src/suppliers/expedia/expedia-hotel-supplier';
+import { ExpediaClient } from '../src/suppliers/expedia/expedia.client';
 import { HotelbedsHotelSupplier } from '../src/suppliers/hotelbeds/hotelbeds-hotel-supplier';
 import { HotelbedsClient } from '../src/suppliers/hotelbeds/hotelbeds.client';
-import type { HotelSearchQuery, SupplierHotelRate } from '../src/suppliers/supplier.types';
+import type {
+  HotelSearchQuery,
+  HotelSupplier,
+  SupplierHotelRate,
+} from '../src/suppliers/supplier.types';
 
-const PARTNERS = ['hotelbeds', 'viator', 'travelpayouts'] as const;
+const PARTNERS = ['hotelbeds', 'expedia', 'viator', 'travelpayouts'] as const;
 type Partner = (typeof PARTNERS)[number];
 
 /** The only Hotelbeds host this check calls: the evaluation environment books nothing. */
 const HOTELBEDS_TEST_URL = 'https://api.test.hotelbeds.com';
+/** The only Rapid host this check calls: the test environment books nothing. */
+const EXPEDIA_TEST_URL = 'https://test.ean.com';
 const TIMEOUT_MS = 30_000;
 const CLICK_ID = 'sandbox-check';
 
@@ -92,25 +101,13 @@ const checkOut = addDays(checkIn, 2);
 /** The settings each partner needs, so a missing one is named rather than guessed at. */
 const REQUIRED: Record<Partner, string[]> = {
   hotelbeds: ['HOTELBEDS_API_KEY', 'HOTELBEDS_API_SECRET'],
+  expedia: ['EXPEDIA_RAPID_API_KEY', 'EXPEDIA_RAPID_SHARED_SECRET'],
   viator: ['VIATOR_API_KEY'],
   travelpayouts: ['TRAVELPAYOUTS_TOKEN', 'TRAVELPAYOUTS_MARKER'],
 };
 
-async function hotelbeds(): Promise<boolean> {
-  say('## Hotelbeds (evaluation host)');
-  const baseUrl = env('HOTELBEDS_API_URL') ?? HOTELBEDS_TEST_URL;
-  if (new URL(baseUrl).origin !== HOTELBEDS_TEST_URL) {
-    say(`- Refused: this check only calls ${HOTELBEDS_TEST_URL}.`);
-    return false;
-  }
-  const supplier = new HotelbedsHotelSupplier(
-    new HotelbedsClient({
-      baseUrl,
-      apiKey: env('HOTELBEDS_API_KEY') ?? '',
-      secret: env('HOTELBEDS_API_SECRET') ?? '',
-    }),
-    Number(env('HOTELBEDS_SEARCH_RADIUS_KM') ?? 20),
-  );
+/** Searches each place, then checks the price of the cheapest rate found once. */
+async function hotelChecks(supplier: HotelSupplier, checkName: string): Promise<boolean> {
   let ok = true;
   let checked = false;
   for (const city of PLACES) {
@@ -144,10 +141,10 @@ async function hotelbeds(): Promise<boolean> {
             query,
             AbortSignal.timeout(TIMEOUT_MS),
           );
-          say(`  - Rate check: ${total(fresh)} (search said ${total(cheapest.rate)})`);
+          say(`  - ${checkName}: ${total(fresh)} (search said ${total(cheapest.rate)})`);
         } catch (error) {
           ok = false;
-          say(`  - Rate check failed: ${reason(error)}`);
+          say(`  - ${checkName} failed: ${reason(error)}`);
         }
       }
     } catch (error) {
@@ -156,6 +153,48 @@ async function hotelbeds(): Promise<boolean> {
     }
   }
   return ok;
+}
+
+async function hotelbeds(): Promise<boolean> {
+  say('## Hotelbeds (evaluation host)');
+  const baseUrl = env('HOTELBEDS_API_URL') ?? HOTELBEDS_TEST_URL;
+  if (new URL(baseUrl).origin !== HOTELBEDS_TEST_URL) {
+    say(`- Refused: this check only calls ${HOTELBEDS_TEST_URL}.`);
+    return false;
+  }
+  const supplier = new HotelbedsHotelSupplier(
+    new HotelbedsClient({
+      baseUrl,
+      apiKey: env('HOTELBEDS_API_KEY') ?? '',
+      secret: env('HOTELBEDS_API_SECRET') ?? '',
+    }),
+    Number(env('HOTELBEDS_SEARCH_RADIUS_KM') ?? 20),
+  );
+  return hotelChecks(supplier, 'Rate check');
+}
+
+async function expedia(): Promise<boolean> {
+  say('## Expedia Rapid (test host)');
+  const baseUrl = env('EXPEDIA_RAPID_API_URL') ?? EXPEDIA_TEST_URL;
+  if (new URL(baseUrl).origin !== EXPEDIA_TEST_URL) {
+    say(`- Refused: this check only calls ${EXPEDIA_TEST_URL}.`);
+    return false;
+  }
+  const supplier = new ExpediaHotelSupplier(
+    new ExpediaClient({
+      baseUrl,
+      apiKey: env('EXPEDIA_RAPID_API_KEY') ?? '',
+      sharedSecret: env('EXPEDIA_RAPID_SHARED_SECRET') ?? '',
+    }),
+    {
+      pointOfSale: env('EXPEDIA_POINT_OF_SALE') ?? 'NG',
+      requestCurrency: env('EXPEDIA_REQUEST_CURRENCY') ?? 'USD',
+      radiusKm: Number(env('EXPEDIA_SEARCH_RADIUS_KM') ?? 20),
+      maxProperties: Number(env('EXPEDIA_MAX_PROPERTIES') ?? 250),
+      ratesPerProperty: Number(env('EXPEDIA_RATES_PER_PROPERTY') ?? 4),
+    },
+  );
+  return hotelChecks(supplier, 'Price check');
 }
 
 async function viator(): Promise<boolean> {
@@ -236,7 +275,12 @@ async function travelpayouts(): Promise<boolean> {
   return tracked > 0;
 }
 
-const CHECKS: Record<Partner, () => Promise<boolean>> = { hotelbeds, viator, travelpayouts };
+const CHECKS: Record<Partner, () => Promise<boolean>> = {
+  hotelbeds,
+  expedia,
+  viator,
+  travelpayouts,
+};
 
 async function main(): Promise<void> {
   const { values } = parseArgs({ options: { only: { type: 'string', default: 'all' } } });

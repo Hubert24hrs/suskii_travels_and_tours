@@ -3,6 +3,7 @@ import type { PrismaService } from '../infra/prisma.service';
 import {
   addonDetailsContext,
   contactContext,
+  customerIpContext,
   documentKeyContext,
   documentNameContext,
   driverDocumentKeyContext,
@@ -80,6 +81,13 @@ export const ENCRYPTED_FIELDS: readonly EncryptedField[] = [
     contextColumn: 'id',
     context: addonDetailsContext,
     purpose: 'Add-on details (insurance and transfer particulars)',
+  },
+  {
+    table: 'booking_items',
+    column: 'customer_ip_encrypted',
+    contextColumn: 'id',
+    context: customerIpContext,
+    purpose: "Traveller's checkout IP for a supplier booking call (Expedia), held until booked",
   },
   {
     table: 'booking_vouchers',

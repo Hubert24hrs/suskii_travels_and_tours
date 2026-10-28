@@ -43,8 +43,10 @@ forms must match the shipped build.
   (`/account/privacy`). Financial records are kept without contact details for the legal period
   (`FINANCIAL_RECORDS_RETENTION_YEARS`, default 7).
 - **Who receives data:**
-  - suppliers, to fulfil what the user books: Duffel and airlines for flights, Duffel and
-    hotels for stays, bus operators, tour operators;
+  - suppliers, to fulfil what the user books: Duffel and airlines for flights, Duffel,
+    Hotelbeds, Expedia and hotels for stays, bus operators, tour operators. Expedia also
+    receives the IP address the booking was made from, which it requires on its booking call
+    (ADR-086); the server keeps it encrypted only until that call, at most 7 days;
   - payment providers;
   - an email relay and Expo's push service;
   - Sentry for crashes;
@@ -140,16 +142,17 @@ attestation.
 
 ## Keeping this page true
 
-| Change                                                                                                  | Update                                                                                                                                  |
-| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Device location for drivers or riders                                                                   | Precise (and possibly Approximate) location from the device; the location permission text; background location needs Play's declaration |
-| A new SDK (analytics, attribution, ads, chat)                                                           | Both forms, and probably "tracking" on iOS (then App Tracking Transparency)                                                             |
-| Native crash reporting (Sentry native SDK)                                                              | Crash Data stays not linked if no user id is set                                                                                        |
-| Sign in with Google or Apple in the app                                                                 | Identifiers and the third-party sign-in data; Apple then also requires Sign in with Apple                                               |
-| Storing described trips, or sending them with a user id                                                 | In-app search history becomes linked to the user on both forms; `data-classification.md`                                                |
-| A new upload or document type                                                                           | Photos or Files rows, and `data-classification.md`                                                                                      |
-| Attachments, WhatsApp or an outside helpdesk for support                                                | Support rows on both forms; an outside helpdesk shares data (Play: Shared); ADR-083                                                     |
-| Sending support messages to the assistant's model with a user id, or letting the provider train on them | Support rows on both forms (Play: Shared); ADR-085                                                                                      |
-| Marketing push notifications                                                                            | Purposes: Developer's Advertising or Marketing; consent stays required                                                                  |
-| Joining partner conversions to people (targeting, per-user reports)                                     | Likely tracking on iOS (App Tracking Transparency) and Shared data on Play; ADR-070                                                     |
-| Reporting app bookings or app events to ad networks (ADR-079)                                           | Tracking on iOS (App Tracking Transparency prompt first) and Shared data on Play; a consent step in the app                             |
+| Change                                                                                                                   | Update                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Device location for drivers or riders                                                                                    | Precise (and possibly Approximate) location from the device; the location permission text; background location needs Play's declaration |
+| A new SDK (analytics, attribution, ads, chat)                                                                            | Both forms, and probably "tracking" on iOS (then App Tracking Transparency)                                                             |
+| Native crash reporting (Sentry native SDK)                                                                               | Crash Data stays not linked if no user id is set                                                                                        |
+| Sign in with Google or Apple in the app                                                                                  | Identifiers and the third-party sign-in data; Apple then also requires Sign in with Apple                                               |
+| Storing described trips, or sending them with a user id                                                                  | In-app search history becomes linked to the user on both forms; `data-classification.md`                                                |
+| A new upload or document type                                                                                            | Photos or Files rows, and `data-classification.md`                                                                                      |
+| Attachments, WhatsApp or an outside helpdesk for support                                                                 | Support rows on both forms; an outside helpdesk shares data (Play: Shared); ADR-083                                                     |
+| Sending support messages to the assistant's model with a user id, or letting the provider train on them                  | Support rows on both forms (Play: Shared); ADR-085                                                                                      |
+| Marketing push notifications                                                                                             | Purposes: Developer's Advertising or Marketing; consent stays required                                                                  |
+| Using the checkout IP for anything but the supplier's booking call (location, fraud scores), or keeping it after booking | Approximate location on both forms when it locates the user; `data-classification.md`; ADR-086                                          |
+| Joining partner conversions to people (targeting, per-user reports)                                                      | Likely tracking on iOS (App Tracking Transparency) and Shared data on Play; ADR-070                                                     |
+| Reporting app bookings or app events to ad networks (ADR-079)                                                            | Tracking on iOS (App Tracking Transparency prompt first) and Shared data on Play; a consent step in the app                             |

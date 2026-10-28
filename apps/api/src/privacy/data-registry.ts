@@ -237,8 +237,8 @@ export const DATA_REGISTRY = {
   BookingItem: {
     section: 'bookings',
     deletion: 'retain',
-    retention: { kind: 'parent', parent: 'Booking' },
-    note: 'What was bought and the supplier references; exported through the customer booking view (no costs).',
+    retention: { kind: 'rule', rule: 'supplier-customer-ip' },
+    note: 'What was bought and the supplier references, kept with the booking; exported through the customer booking view (no costs). The checkout IP an Expedia booking needs is cleared once booked, at deletion, or after 7 days.',
   },
   BookingPassenger: {
     section: 'bookings',
