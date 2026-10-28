@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { CancellationTiers } from '../components/inhouse/inhouse-summary';
+import { ProductReviews } from '../components/reviews/product-reviews';
 import { passengerLabels, travellerSummary } from '../components/search/traveller-labels';
 import { Loading, Notice } from '../components/states';
 import { problemSlug } from '../lib/api';
@@ -272,6 +273,7 @@ function Product({ kind, slug }: { kind: Kind; slug: string }) {
         <List title={t('inhouse.detail.excluded')} items={item.exclusions} />
         <CancellationTiers tiers={item.cancellationPolicy} />
       </Card>
+      <ProductReviews kind={kind} id={item.id} />
     </ScrollView>
   );
 }
