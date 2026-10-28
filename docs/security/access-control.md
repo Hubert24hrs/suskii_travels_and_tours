@@ -11,8 +11,10 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   webhooks, health probes, web-vitals beacons, AI trip search (`/v1/flights/natural-search`,
   which fills a form and reads nothing private; ADR-061), partner offers for a place, the
   sealed partner redirect (`/v1/go/{token}`) and network postbacks, which need the network's
-  secret (ADR-070), published reviews (`/v1/reviews`, ADR-077), and route facts, city hubs and
-  airline pages (`/v1/deals/...`, priced fares only, ADR-080).
+  secret (ADR-070), published reviews (`/v1/reviews`, ADR-077), route facts, city hubs and
+  airline pages (`/v1/deals/...`, priced fares only, ADR-080), the metasearch price API, which
+  needs a partner key instead of a session, and metasearch landings, which need a sealed deep
+  link (`/v1/metasearch/...`, ADR-081).
 - **Permissions, not roles, in code.** Routes declare `@RequirePermissions(...)`. Admin routes
   declare `@AdminRoute(permission)`, which also requires a staff role, an MFA session, an
   allowlisted IP and, for cookies, an allowlisted origin. The riskiest admin mutations add
@@ -73,6 +75,7 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Ledger reconciliation discrepancies, driver payout list                                          | Staff with `finance:reconcile` (finance, super admins); resolutions audited; payouts listed without bank details                                                                                                                   |
 | Accounts                                                                                         | The owner; staff with `users:read` (view) or `users:manage` (disable, sign out, reset MFA)                                                                                                                                         |
 | Audit log, dashboards, partner commission summary                                                | Staff with `audit:read` or `reports:read`                                                                                                                                                                                          |
+| Metasearch partners (`/v1/admin/metasearch/partners`)                                            | Staff with `reports:read` see partners and the 30-day report (key hint only); `pricing:manage` adds partners and replaces keys with step-up, and changes limits or access; all audited                                             |
 
 Anything a caller may not access answers **404**, never 403, so ids cannot be probed. Ownership
 is checked in the service that loads the record (`BookingsService.load()` and the like), not in

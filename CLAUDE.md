@@ -73,7 +73,9 @@ reports), is built (`docs/phases/company-accounts.md`); the company wallet and i
 come next. Item 8, growth, runs in four parts (`docs/phases/growth.md`): part 1, ads with consent
 (Meta and TikTok tags after marketing consent, server-side Purchase events), is built and waits
 for the owner's pixel ids and tokens; part 2, SEO pages from fare history (route facts, flight
-hubs, airline pages), is built; metasearch and Prime per country follow.
+hubs, airline pages), is built; part 3, metasearch (partner keys, the live price API, sealed deep
+links, landings that re-quote, partner attribution), is built and waits for partner agreements;
+Prime per country follows.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -746,6 +748,24 @@ Tooling notes for agents:
 - Every figure on these pages says what it is (one adult, return, recent fares, today's rules);
   sample (mock) fares stay badged. The web e2e stack sets `ROUTE_FACTS_MIN_DAYS=1`.
 
+### Metasearch partners (apps/api/src/metasearch, apps/web, apps/admin, ADR-081)
+
+- Partners call only `GET /v1/metasearch/flights` with `X-Api-Key`; `MetasearchService.authenticate()`
+  finds the key by HMAC (`metasearch-key`) and applies the partner's minute and day windows. The
+  route skips the per-address limits; never give partner keys any other route or a session.
+- Keys are created and replaced only through `MetasearchAdminService` (shown once, stored as an
+  HMAC, audited, step-up). Never store, log or return a key after that answer.
+- Partner prices come from `FlightSearchService.priced()` with the website's guest context, so they
+  match what a guest sees; that path writes no search log row. Never price partners another way
+  without a sealed sales channel (ADR-081).
+- Deep links are `MetasearchLinks` envelopes (context `metasearch-link`): partner, request,
+  `itineraryKey()`, shown total and issue time, no personal data. Landings re-find the itinerary
+  (`findItinerary()`), quote it with the supplier, record a `metasearch_landings` row and tie the
+  quote to it in one transaction; bookings copy `metasearch_landing_id` from the quote.
+- The website's `/flights/go/[token]` is private (noindex, disallowed in robots.txt) and goes to
+  checkout on `same` or `lower`. Its e2e answers the landing call in the browser; the API e2e
+  covers keys, limits, prices and attribution.
+
 ### AI trip search (phase 13, ADR-061)
 
 - The model only fills the flight form; it never searches, books or reads private data. Clients
@@ -950,6 +970,7 @@ Tooling notes for agents:
 - [ADR-078: Company accounts](docs/decisions/ADR-078-company-accounts.md)
 - [ADR-079: Ads with consent](docs/decisions/ADR-079-ads-with-consent.md)
 - [ADR-080: SEO pages from fare history](docs/decisions/ADR-080-seo-pages-from-fare-history.md)
+- [ADR-081: Metasearch partners](docs/decisions/ADR-081-metasearch-partners.md)
 
 ## Open questions for the owner
 
@@ -1049,4 +1070,7 @@ once a provider is chosen. Added with company accounts (ADR-078): whether to off
 companies, and who at Suskii supports company admins. Added with ads with consent (ADR-079):
 the Meta pixel id and a Conversions API token, the TikTok pixel code and an Events API token
 (then `AD_CONVERSIONS=meta,tiktok`), the cookie policy text, and whether to run app install
-campaigns (an SDK or measurement partner and a consent screen in the app).
+campaigns (an SDK or measurement partner and a consent screen in the app). Added with metasearch
+(ADR-081): which engines to join first (Google Flights, Skyscanner, KAYAK, Wego) and their
+agreements and specifications, the limits per partner from the supplier's look-to-book terms, and
+whether metasearch traffic should get its own prices (a sealed sales channel, not built).
