@@ -3,14 +3,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { isSupportedCurrency, isSupportedLocale } from '@suskii/shared';
 
 import { SECURE_COOKIES } from '../../../lib/cookie-names';
-import { CURRENCY_COOKIE, LOCALE_COOKIE } from '../../../lib/preferences';
+import { CURRENCY_COOKIE, DATA_SAVER_COOKIE, LOCALE_COOKIE } from '../../../lib/preferences';
 
 const ONE_YEAR = 365 * 24 * 60 * 60;
 
-/** Each preference: its form field's validator and cookie (ADR-010). */
+const isOnOff = (value: string): boolean => value === 'on' || value === 'off';
+
+/** Each preference: its form field's validator and cookie (ADR-010, ADR-075). */
 const PREFERENCES = {
   currency: { valid: isSupportedCurrency, cookie: CURRENCY_COOKIE },
   locale: { valid: isSupportedLocale, cookie: LOCALE_COOKIE },
+  dataSaver: { valid: isOnOff, cookie: DATA_SAVER_COOKIE },
 } as const;
 
 const isPreference = (name: string): name is keyof typeof PREFERENCES => name in PREFERENCES;

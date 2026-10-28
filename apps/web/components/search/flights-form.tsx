@@ -8,6 +8,7 @@ import {
   MIN_MULTI_CITY_LEGS,
   type CabinClass,
   type TripType,
+  type CurrencyCode,
 } from '@suskii/shared/lite';
 import {
   Button,
@@ -43,6 +44,7 @@ import {
   type Leg,
 } from './form-state';
 import { loadShared, prefetchShared } from '../../lib/load-shared';
+import { startFlightSearch, warmSearch } from '../../lib/search-handoff';
 import type { PlaceOption } from './places';
 import { readStored, STORAGE_KEYS, writeStored } from './storage';
 import { useTravellerLabels } from './traveller-labels';
@@ -86,14 +88,29 @@ export interface DescribeSettings {
 export interface FlightsFormProps {
   apiBaseUrl: string;
   locale: string;
+  /** Display currency and page size of the results page, to start its search early (ADR-075). */
+  currency: CurrencyCode;
+  pageSize: number;
   /** Pre-filled state (from a search URL); otherwise the last search on this device is restored. */
   initial?: FlightFormState | undefined;
   describe?: DescribeSettings | undefined;
 }
 
-export function FlightsForm({ apiBaseUrl, locale, initial, describe }: FlightsFormProps) {
+export function FlightsForm({
+  apiBaseUrl,
+  locale,
+  currency,
+  pageSize,
+  initial,
+  describe,
+}: FlightsFormProps) {
   const { t } = useSearchT();
   const router = useRouter();
+  // First touch: the schemas, the API client and the results code start loading (ADR-075).
+  const prepare = () => {
+    prefetchShared();
+    warmSearch();
+  };
   const travellerLabels = useTravellerLabels();
   const format = useMemo(() => createFormatters(locale), [locale]);
   const [state, setState] = useState<FlightFormState>(initial ?? EMPTY_FLIGHT_STATE);
@@ -173,6 +190,8 @@ export function FlightsForm({ apiBaseUrl, locale, initial, describe }: FlightsFo
         )
         .slice(0, MAX_RECENT),
     );
+    // The search starts now and runs while the results page loads (ADR-075).
+    startFlightSearch(shared.toFlightSearchRequest(result.data), currency, pageSize);
     router.push(`/flights/search?${shared.flightFormToParams(result.data).toString()}` as Route);
   };
 
@@ -197,8 +216,8 @@ export function FlightsForm({ apiBaseUrl, locale, initial, describe }: FlightsFo
       method="get"
       noValidate
       onSubmit={(event) => void submit(event)}
-      onFocusCapture={prefetchShared}
-      onPointerDownCapture={prefetchShared}
+      onFocusCapture={prepare}
+      onPointerDownCapture={prepare}
       className="flex flex-col gap-4"
       aria-label={t('search.tabs.flights')}
     >

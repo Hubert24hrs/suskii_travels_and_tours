@@ -3,6 +3,7 @@ import Image from 'next/image';
 
 import type { HotelDestination } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
+import { getDataSaver } from '../../lib/preferences';
 import { AppLink } from '../app-link';
 import { CityArt } from '../art/city-art';
 
@@ -14,6 +15,8 @@ export async function DestinationCards({
   headingLevel?: 'h2' | 'h3';
 }) {
   const { t, format } = await getI18n();
+  // Data saver (ADR-075): the drawn city art, a few hundred bytes, instead of a photo.
+  const photos = !(await getDataSaver());
   return (
     <ul className="grid grid-cols-2 gap-4 md:grid-cols-3">
       {destinations.map((destination) => (
@@ -23,7 +26,7 @@ export async function DestinationCards({
             linkComponent={AppLink}
             headingLevel={headingLevel}
             media={
-              destination.imageUrl ? (
+              photos && destination.imageUrl ? (
                 <Image
                   src={destination.imageUrl}
                   alt=""
