@@ -22,6 +22,7 @@ import { clientContext } from './client-context';
 import { HotelSearchService } from './hotel-search.service';
 import {
   currencyQuerySchema,
+  searchQuerySchema,
   hotelDetailSchema,
   hotelQuoteSchema,
   hotelResultParamsSchema,
@@ -47,16 +48,16 @@ export class HotelsController {
     summary: 'Search hotels in a city',
     tags: TAGS,
     body: requestSchema,
-    query: currencyQuerySchema,
+    query: searchQuerySchema,
     responses: { 200: hotelSearchResultSchema },
     errors: [503],
   })
   search(
     @Body() body: HotelSearchRequest,
-    @Query() query: z.infer<typeof currencyQuerySchema>,
+    @Query() query: z.infer<typeof searchQuerySchema>,
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof hotelSearchResultSchema>> {
-    return this.hotels.search(body, query.currency, clientContext(request));
+    return this.hotels.search(body, query.currency, clientContext(request), query.limit);
   }
 
   @Get('searches/:searchId/hotels')

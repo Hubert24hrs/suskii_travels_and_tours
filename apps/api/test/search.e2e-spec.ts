@@ -191,6 +191,58 @@ describe('search (e2e): mock suppliers end to end', () => {
       await ctx.http().get('/v1/flights/searches/fs_0000000000000000/offers').expect(404);
     });
 
+    it('answers a search with a first page of the asked size, compressed on the wire (ADR-075)', async () => {
+      // The search's own first page saves clients a second round trip; data saver asks for fewer.
+      const small = await ctx
+        .http()
+        .post('/v1/flights/searches')
+        .query({ limit: 5 })
+        .set('Accept-Encoding', 'gzip')
+        .send(roundTrip(43, 53))
+        .expect(200);
+      expect(small.headers['content-encoding']).toBe('gzip');
+      expect(small.headers.vary).toMatch(/Accept-Encoding/i);
+      expect(small.body.offers).toHaveLength(5);
+      expect(small.body.nextCursor).not.toBeNull();
+      const next = await ctx
+        .http()
+        .get(`/v1/flights/searches/${small.body.searchId as string}/offers`)
+        .query({ limit: 5, cursor: small.body.nextCursor })
+        .expect(200);
+      const firstIds = (small.body.offers as { id: string }[]).map((offer) => offer.id);
+      for (const offer of next.body.offers as { id: string }[])
+        expect(firstIds).not.toContain(offer.id);
+      await ctx
+        .http()
+        .post('/v1/flights/searches')
+        .query({ limit: 51 })
+        .send(roundTrip())
+        .expect(400);
+
+      // Brotli when the client takes it (phones and browsers do).
+      const brotli = await ctx
+        .http()
+        .get(`/v1/flights/searches/${small.body.searchId as string}/offers`)
+        .set('Accept-Encoding', 'br')
+        .buffer(true)
+        .parse((response, done) => {
+          response.on('data', () => undefined);
+          response.on('end', () => done(null, null));
+        })
+        .expect(200);
+      expect(brotli.headers['content-encoding']).toBe('br');
+
+      // Answers that may hold a token or personal data are never compressed at the origin.
+      const session = await signUp(ctx, 'compression@example.com');
+      const me = await ctx
+        .http()
+        .get('/v1/me')
+        .set(bearer(session.accessToken))
+        .set('Accept-Encoding', 'gzip, br')
+        .expect(200);
+      expect(me.headers['content-encoding']).toBeUndefined();
+    });
+
     it('validates airports and origin-local dates', async () => {
       const unknown = await ctx
         .http()

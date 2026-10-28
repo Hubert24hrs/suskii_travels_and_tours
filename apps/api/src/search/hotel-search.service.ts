@@ -184,15 +184,11 @@ export class HotelSearchService {
     request: HotelSearchRequest,
     currency: string,
     client: ClientContext,
+    limit = FIRST_PAGE,
   ): Promise<HotelSearchResultDto> {
     const started = performance.now();
     const { meta, items, cacheHit } = await this.resolve(request);
-    const result = await this.view(
-      meta,
-      items,
-      { sort: 'recommended', currency, limit: FIRST_PAGE },
-      client,
-    );
+    const result = await this.view(meta, items, { sort: 'recommended', currency, limit }, client);
     this.searchLog.record({
       vertical: 'hotels',
       origin: null,

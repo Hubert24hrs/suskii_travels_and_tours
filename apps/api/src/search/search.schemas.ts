@@ -32,6 +32,13 @@ export const currencyQuerySchema = z.object({
   currency: currencyCodeSchema.default(DEFAULT_CURRENCY).meta({ description: 'Display currency.' }),
 });
 
+/** A new search: display currency and the size of the first page it answers with (ADR-075). */
+export const searchQuerySchema = currencyQuerySchema.extend({
+  limit: z.coerce.number().int().min(1).max(50).default(20).meta({
+    description: 'Results on the first page, which the search returns; fewer in data-saver mode.',
+  }),
+});
+
 export const supplierOutcomeSchema = named(
   'SupplierOutcome',
   z.object({
