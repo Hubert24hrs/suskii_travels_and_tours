@@ -6,6 +6,43 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Company accounts (2026-10-28)
+
+#### Added
+
+- **Companies and their people (ADR-078).** A signed-in traveller creates a company (name,
+  country, optional registration and tax numbers, billing email) and becomes its admin. Admins
+  invite people by email as admins, approvers, bookers or travellers; the link is single use,
+  lasts 7 days and works only for an account whose verified email is the invited one. One
+  company per person; the last admin cannot leave, step down or delete their account while
+  others depend on them.
+- **Travel policy.** A nightly hotel cap (in any supported currency), the highest flight cabin,
+  a minimum number of days ahead, and when trips need an approver: never, outside the policy,
+  or always. The API checks the policy from the quote when a member books with
+  `company: true` and stores what it found on the booking.
+- **Approval before payment.** A trip that needs an approver cannot be paid or put on a payment
+  plan (409 `approval-required`) until an approver or admin approves it; rejecting (with a reason
+  code) cancels the unpaid booking. Nobody decides their own trip. Approvers are told when a trip
+  waits for them and the booker when it is decided.
+- **Reports.** Company trips for admins and approvers (each booker sees their own), committed
+  spend by month and by traveller in each currency, and a CSV of every trip without contact or
+  passport details.
+- **Website:** Account > Company (details, policy, members and invitations, approvals, trips,
+  spend and the CSV), `/company/join` for invitation links, "Book for {company}" at checkout and
+  the approval state on the booking page.
+- **App:** Account > Company with trips to approve and company trips, "Book for {company}" at
+  checkout and the approval state on the trip screen.
+- **Console:** a Companies page (find, members, policy) where super admins suspend a company
+  (step-up) and reinstate it; a suspended company cannot book for itself.
+- API: `/v1/me/company` (create, read, update, policy, members, invitations, accept, roles,
+  removal, bookings, approve, reject, spend, export) and `/v1/admin/companies` (list, detail,
+  suspend, reinstate). Bookings carry an additive `company` section; `createBooking` takes an
+  optional `company` flag.
+- Privacy: memberships in the data export and deleted with the account; invitations stored as
+  HMACs and purged 30 days after expiry; a `company_admin` deletion blocker.
+- Tests: unit (policy facts, CSV), API e2e (roles, invitations, approvals, reports,
+  suspension, IDOR matrix, admin audit), web e2e, admin e2e, app Jest.
+
 ### Verified reviews (2026-10-28)
 
 #### Added

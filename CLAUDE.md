@@ -68,6 +68,9 @@ built and tested in CI (`docs/phases/fast-on-slow-3g.md`, 2.1 s median). Item 5,
 Arabic (right to left) and Portuguese on the website and in the app, is built
 (`docs/phases/languages.md`); the translations wait for a native speaker's review. Item 6,
 verified reviews of finished trips with moderation, is built (`docs/phases/verified-reviews.md`).
+Item 7, company accounts (members in roles, a travel policy, approval before payment and spend
+reports), is built (`docs/phases/company-accounts.md`); the company wallet and invoiced credit
+come next.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -677,6 +680,32 @@ Tooling notes for agents:
   `ProductReviews` and `TripReviews` (trip screen, online only). Every review section shows
   `reviews.verifiedNote` (how reviews are checked).
 
+### Company accounts (apps/api/src/companies, ADR-078)
+
+- Every `/v1/me/company` route resolves the caller's own membership first (`CompaniesService`);
+  there is no company id in the path, and member, invitation and booking ids are looked up inside
+  that company (404 otherwise). One company per person (unique `company_members.user_id`).
+- Roles: `admin` (details, policy, members), `approver` (approvals and reports), `booker` and
+  `traveller` (their own company trips). Use `canManageCompany` / `canApprove` /
+  `seesAllCompanyBookings` from `@suskii/shared`, never role string checks. Role changes lock the
+  company row; the last admin cannot leave, step down or delete their account (`company_admin`).
+- Invitations: a random token emailed as `/company/join#invite=…`, stored only as an HMAC
+  (`company-invitation`, with the address as `company-invitation-email`), single use, 7 days, and
+  accepted only by an account whose verified email is the invited one.
+- Booking for the company: `createBooking` with `company: true` calls
+  `CompanyPolicyEvaluator.forBooking()` (provided by `BookingsModule`, no module cycle) after
+  pricing; findings come from the quote and the priced total, never from the client. Payment and
+  payment plans refuse `approvalStatus = pending` (409 `approval-required`); the booking DTO's
+  `company` section and null `paymentOptions` tell clients to wait.
+- Decisions go through `CompanyTripsService` only: a conditional update claims the decision,
+  rejecting cancels through `BookingTransitions.apply('cancel')`, nobody decides their own trip,
+  and the booker is notified. Never set `approval_status` elsewhere.
+- Reports read committed bookings (partly paid, paid, ticketing, confirmed) per currency; amounts
+  stay minor units and are never converted across currencies. CSV cells go through `csvCell()`
+  (no leading formula characters) and carry no contact or passport details.
+- Console: `/v1/admin/companies` for `users:read`; suspend (`users:manage`, `@StepUp()`) and
+  reinstate are audited. A suspended company cannot book for itself (409 `company-suspended`).
+
 ### AI trip search (phase 13, ADR-061)
 
 - The model only fills the flight form; it never searches, books or reads private data. Clients
@@ -878,6 +907,7 @@ Tooling notes for agents:
 - [ADR-075: Fast on slow 3G](docs/decisions/ADR-075-fast-on-slow-3g.md)
 - [ADR-076: Languages and right to left](docs/decisions/ADR-076-languages-and-right-to-left.md)
 - [ADR-077: Verified reviews](docs/decisions/ADR-077-verified-reviews.md)
+- [ADR-078: Company accounts](docs/decisions/ADR-078-company-accounts.md)
 
 ## Open questions for the owner
 
@@ -972,4 +1002,6 @@ follow the traveller's language next; and language-prefixed URLs with `hreflang`
 traffic in these languages matters. Added with verified reviews (ADR-077): who moderates reviews
 (content managers and support hold `reviews:moderate`), the review window (default 90 days),
 whether Suskii may answer reviews publicly, and whether invitations should also go by WhatsApp
-once a provider is chosen.
+once a provider is chosen. Added with company accounts (ADR-078): whether to offer a company wallet
+(prepaid funds) and invoiced credit with limits, negotiated rates or a corporate fee for
+companies, and who at Suskii supports company admins.
