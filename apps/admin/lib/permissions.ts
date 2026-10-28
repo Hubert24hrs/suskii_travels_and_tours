@@ -28,6 +28,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/prime', label: 'nav.prime', anyOf: ['pricing:manage'] },
   { href: '/referrals', label: 'nav.referrals', anyOf: ['referrals:review'] },
   { href: '/reviews', label: 'nav.reviews', anyOf: ['reviews:moderate'] },
+  { href: '/support', label: 'nav.support', anyOf: ['support:manage'] },
   { href: '/companies', label: 'nav.companies', anyOf: ['users:read'] },
   // Metasearch partners (ADR-081): the report needs reports:read; changes need pricing:manage.
   { href: '/metasearch', label: 'nav.metasearch', anyOf: ['reports:read'] },

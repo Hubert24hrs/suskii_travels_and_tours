@@ -53,6 +53,8 @@ export const PERSONAS = {
   metasearch: { roles: ['finance'], enrolled: true },
   /** Adds a Suskii Prime plan with a country price (step-up, ADR-082). */
   prime: { roles: ['finance'], enrolled: true },
+  /** Answers a traveller's support conversation with a note and a reply (ADR-083). */
+  supportAgent: { roles: ['support'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
