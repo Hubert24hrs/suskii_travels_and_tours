@@ -36,6 +36,24 @@ return 0
 
 export type BudgetRefusal = 'caller' | 'global';
 
+/** Whose spend a reservation counts against: AI trip search's keys and caps unless given. */
+export interface BudgetLimits {
+  /** Key prefix, so features keep separate counters. */
+  scope: string;
+  callerCap: number;
+  globalCap: number;
+}
+
+/** The cost of a call from its usage at the configured prices, rounded up to a micro-dollar. */
+export function llmCost(usage: LlmUsage, config: AppConfig): number {
+  const total =
+    usage.inputTokens * config.LLM_INPUT_MICROUSD_PER_MTOK +
+    usage.outputTokens * config.LLM_OUTPUT_MICROUSD_PER_MTOK +
+    usage.cacheReadTokens * config.LLM_CACHE_READ_MICROUSD_PER_MTOK +
+    usage.cacheWriteTokens * config.LLM_CACHE_WRITE_MICROUSD_PER_MTOK;
+  return Math.ceil(total / MICROS_PER_MILLION_TOKENS);
+}
+
 export interface BudgetReservation {
   keys: [string, string];
   reserved: number;
@@ -45,6 +63,7 @@ export interface BudgetReservation {
  * The per-user cost cap for AI trip search (ADR-061): spend per UTC day, in integer
  * micro-dollars, per signed-in user or per guest address (an HMAC), plus a global cap. Each
  * request reserves its worst case before calling the model and settles to the actual cost after.
+ * The support assistant (ADR-085) reserves the same way under its own scope and caps.
  */
 @Injectable()
 export class AiSearchBudget {
@@ -55,13 +74,7 @@ export class AiSearchBudget {
 
   /** The cost of a call from its usage, rounded up to a whole micro-dollar. */
   cost(usage: LlmUsage): number {
-    const c = this.config;
-    const total =
-      usage.inputTokens * c.LLM_INPUT_MICROUSD_PER_MTOK +
-      usage.outputTokens * c.LLM_OUTPUT_MICROUSD_PER_MTOK +
-      usage.cacheReadTokens * c.LLM_CACHE_READ_MICROUSD_PER_MTOK +
-      usage.cacheWriteTokens * c.LLM_CACHE_WRITE_MICROUSD_PER_MTOK;
-    return Math.ceil(total / MICROS_PER_MILLION_TOKENS);
+    return llmCost(usage, this.config);
   }
 
   /**
@@ -84,19 +97,24 @@ export class AiSearchBudget {
     caller: string,
     amount: number,
     now: Date = new Date(),
+    limits: BudgetLimits = {
+      scope: 'ai-search',
+      callerCap: this.config.AI_SEARCH_USER_DAILY_MICROUSD,
+      globalCap: this.config.AI_SEARCH_GLOBAL_DAILY_MICROUSD,
+    },
   ): Promise<BudgetReservation | BudgetRefusal> {
     const day = now.toISOString().slice(0, 10);
     const keys: [string, string] = [
-      `ai-search:spend:${day}:${caller}`,
-      `ai-search:spend:${day}:all`,
+      `${limits.scope}:spend:${day}:${caller}`,
+      `${limits.scope}:spend:${day}:all`,
     ];
     const result = await this.redis.eval(
       RESERVE,
       2,
       ...keys,
       amount,
-      this.config.AI_SEARCH_USER_DAILY_MICROUSD,
-      this.config.AI_SEARCH_GLOBAL_DAILY_MICROUSD,
+      limits.callerCap,
+      limits.globalCap,
       KEY_TTL_SECONDS,
     );
     if (result === 1) return 'caller';

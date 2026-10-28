@@ -16,7 +16,8 @@ const CABINS: Record<string, TripQueryOutput['cabinClass']> = {
 /**
  * Development and test stand-in for a language model (ADR-061; refused in production unless
  * ALLOW_MOCK_PROVIDERS). Deterministic and offline: recorded answers for known messages, else a
- * small pattern reader ("Lagos to Abuja on 2026-12-01, 2 adults, business, one way").
+ * small pattern reader ("Lagos to Abuja on 2026-12-01, 2 adults, business, one way") or, for the
+ * support assistant (ADR-085), the FAQ whose question shares the most words with the message.
  */
 @Injectable()
 export class MockLlmProvider extends LlmProvider {
@@ -31,7 +32,11 @@ export class MockLlmProvider extends LlmProvider {
   extract(request: LlmExtraction): Promise<LlmResult> {
     const message = /\nMessage: ([\s\S]*)$/.exec(request.input)?.[1] ?? '';
     if (message.includes(MOCK_LLM_UNAVAILABLE)) return Promise.reject(new LlmError('unavailable'));
-    const output = this.recorded.get(key(message)) ?? read(message);
+    const output =
+      this.recorded.get(key(message)) ??
+      (request.purpose === 'support-answer'
+        ? answerFromFaqs(request.system, message)
+        : read(message));
     return Promise.resolve({
       output,
       // A plausible, deterministic bill: about four characters per token.
@@ -94,4 +99,70 @@ function read(message: string): TripQueryOutput {
     directOnly: /\b(direct|non-?stop)\b/.test(lower),
     flexibleDates: /\bflexible\b/.test(lower),
   };
+}
+
+/** Words that say nothing about which FAQ a message is about. */
+const COMMON = new Set([
+  'about',
+  'after',
+  'again',
+  'also',
+  'been',
+  'before',
+  'booking',
+  'could',
+  'from',
+  'have',
+  'here',
+  'just',
+  'like',
+  'much',
+  'please',
+  'should',
+  'some',
+  'suskii',
+  'that',
+  'their',
+  'there',
+  'they',
+  'this',
+  'what',
+  'when',
+  'where',
+  'which',
+  'with',
+  'would',
+  'your',
+]);
+
+const words = (text: string): Set<string> =>
+  new Set(
+    (text.toLowerCase().match(/[a-z]{4,}/g) ?? [])
+      .map((word) => word.replace(/(ments|ment|ings|ing|es|s)$/, ''))
+      .filter((word) => word.length >= 4 && !COMMON.has(word)),
+  );
+
+/**
+ * The support assistant's stand-in: answers with the FAQ whose question shares the most
+ * meaningful words with the message (two, or all of a shorter question's), citing it; anything
+ * else is not answerable.
+ */
+function answerFromFaqs(
+  system: string,
+  message: string,
+): { answerable: boolean; answer: string; sources: string[] } {
+  const asked = words(message);
+  let best: { id: string; answer: string; score: number } | null = null;
+  for (const [, id = '', question = '', answer = ''] of system.matchAll(
+    /^\[(faq-\d+)\] Q: (.*)\nA: (.*)$/gm,
+  )) {
+    const needed = words(question);
+    const score = [...needed].filter((word) => asked.has(word)).length;
+    if (score > 0 && score >= Math.min(2, needed.size) && (!best || score > best.score)) {
+      best = { id, answer, score };
+    }
+  }
+  return best
+    ? { answerable: true, answer: best.answer, sources: [best.id] }
+    : { answerable: false, answer: '', sources: [] };
 }

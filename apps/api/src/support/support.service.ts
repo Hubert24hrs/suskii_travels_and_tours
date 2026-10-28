@@ -33,6 +33,7 @@ import { currentPrime } from '../prime/prime-status';
 import type { ClientContext } from '../search/client-context';
 import { supportConversations } from '../telemetry/metrics';
 
+import { SupportAssistant } from './assistant/support-assistant.service';
 import { SupportAccess } from './support-access';
 import {
   SUPPORT_PAGE_MESSAGES,
@@ -141,6 +142,7 @@ export class SupportService {
     private readonly access: SupportAccess,
     private readonly turnstile: TurnstileVerifier,
     private readonly attestation: AttestationService,
+    private readonly assistant: SupportAssistant,
   ) {}
 
   async start(
@@ -225,6 +227,7 @@ export class SupportService {
       return created;
     });
     supportConversations.add(1, { channel, category: input.category });
+    this.assistant.consider(id);
     return { conversation: await this.present(row, undefined), accessToken: guest?.token ?? null };
   }
 
@@ -294,6 +297,7 @@ export class SupportService {
         include,
       });
     });
+    this.assistant.consider(row.id);
     return this.present(updated, undefined);
   }
 
@@ -373,6 +377,7 @@ export class SupportService {
       messages: messages.map((message) => ({
         id: message.id,
         author: message.author,
+        kind: message.kind,
         text: this.encryption.decrypt(message.bodyEncrypted, supportMessageContext(message.id)),
         createdAt: message.createdAt.toISOString(),
       })),

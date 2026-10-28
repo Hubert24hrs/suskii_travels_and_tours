@@ -1,6 +1,7 @@
 /**
- * The one thing AI trip search asks of a language model (ADR-061): turn text into a JSON object
- * that matches a schema. Adapters live beside this file; domain code never sees a vendor type.
+ * The one thing AI features ask of a language model (ADR-061, ADR-085): turn text into a JSON
+ * object that matches a schema. Adapters live beside this file; domain code never sees a vendor
+ * type.
  */
 
 /** Token usage of one call, as the provider billed it. */
@@ -20,6 +21,8 @@ export const NO_USAGE: LlmUsage = {
 };
 
 export interface LlmExtraction {
+  /** Which feature asks: AI trip search (the default) or the support assistant. */
+  purpose?: 'trip-query' | 'support-answer';
   /** Fixed instructions; providers that cache prompts cache this part. */
   system: string;
   /** The per-request text, already scrubbed of personal data. */

@@ -33,6 +33,7 @@
     "rides:demo": "tsx scripts/demo-drivers.ts",
     "keys:reencrypt": "tsx scripts/reencrypt-fields.ts",
     "eval:natural-search": "tsx scripts/eval-natural-search.ts",
+    "eval:support-assistant": "tsx scripts/eval-support-assistant.ts",
     "sandbox:duffel": "tsx scripts/duffel-sandbox.ts",
     "sandbox:partners": "tsx scripts/partner-sandbox.ts"
   },
