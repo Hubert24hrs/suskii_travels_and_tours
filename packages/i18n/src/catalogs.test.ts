@@ -95,7 +95,7 @@ const wordless = (text: string): boolean =>
   text
     .replace(/\{\w+\}|%s/g, '')
     .replace(
-      /\b(Suskii Prime|Suskii|Prime|SMS|SUSKII T&T|WhatsApp|Google Play|App Store|Apple Pay|Google Pay|Google|Apple|Cloudflare|iOS|Android|eSIM|USSD|PDF|JPEG|JPG|PNG|NIN|PIN|SOS|SUV|XL|USB|Wi-Fi|QR|LOS|DELETE)\b/g,
+      /\b(Suskii Prime|Suskii|Prime|SMS|SUSKII T&T|WhatsApp|Google Play|App Store|Apple Pay|Google Pay|Google|Apple|Cloudflare|Meta|Facebook|Instagram|TikTok|iOS|Android|eSIM|USSD|PDF|JPEG|JPG|PNG|NIN|PIN|SOS|SUV|XL|USB|Wi-Fi|QR|LOS|DELETE)\b/g,
       '',
     )
     .replace(/[\s\p{P}\p{S}\d]/gu, '') === '';

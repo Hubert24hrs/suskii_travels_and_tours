@@ -4,6 +4,22 @@ import type { Messages } from './index';
 
 /** American spelling on top of the base catalog. */
 export const enUS: MessageOverlay<Messages> = {
+  cookies: {
+    categories: {
+      marketing: {
+        body: 'Lets Meta (Facebook, Instagram) and TikTok measure our ads: they recognize this browser, and when you book we send them a scrambled (hashed) copy of your email and phone so they can match the booking to their ads.',
+      },
+    },
+    items: {
+      fbp: 'Lets Meta recognize this browser to measure our ads.',
+      fbc: 'Remembers the Meta ad you came from.',
+      ttp: 'Lets TikTok recognize this browser to measure our ads.',
+      ttclid: 'Remembers the TikTok ad you came from, in this tab only.',
+    },
+    prompt: {
+      body: 'We use strictly necessary cookies to run the site. With your permission, Meta and TikTok also measure our ads. Nothing optional runs until you choose.',
+    },
+  },
   hero: {
     trustLabel: 'Why travelers book with us',
   },
