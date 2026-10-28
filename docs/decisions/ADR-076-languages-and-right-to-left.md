@@ -25,7 +25,8 @@ language.
    text messages, as on the large travel sites in Arabic.
 3. **Right to left.** `localeDirection()` in `@suskii/shared` says `rtl` for Arabic. The website
    sets `<html lang dir>`; the website and ui-web use logical direction utilities only (`ms-`,
-   `pe-`, `start-`, `text-start`, ...), and a guard test fails on physical ones. Arrows and chevrons
+   `pe-`, `inset-s-`, `text-start`, ...); a lint rule (website) and a guard test (ui-web) fail on
+   physical ones, and ui-web's `cn` merges the logical families as tailwind-merge does. Arrows and chevrons
    mirror with the `rtl:` variant. In a right-to-left language the translator isolates every
    value it inserts (Unicode FSI and PDI), so a Latin airport code, price or booking code never
    reorders the sentence around it. The app follows the device: `expo-localization`'s

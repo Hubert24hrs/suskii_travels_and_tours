@@ -64,7 +64,9 @@ significantly changes a flight, is built (`docs/phases/refund-offer.md`). Item 3
 (mobile money, transfers, USSD, Apple Pay and Google Pay, cash at an agent, Stripe 3D Secure), is
 built (`docs/phases/payment-methods.md`); the channel names wait for one sandbox payment per method.
 Item 4, search results in under 3 seconds on slow 3G and a mid-range Android with a data saver, is
-built and tested in CI (`docs/phases/fast-on-slow-3g.md`, 2.1 s median).
+built and tested in CI (`docs/phases/fast-on-slow-3g.md`, 2.1 s median). Item 5, French, Swahili,
+Arabic (right to left) and Portuguese on the website and in the app, is built
+(`docs/phases/languages.md`); the translations wait for a native speaker's review.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -379,6 +381,15 @@ Tooling notes for agents:
   after `useHydrated()`. `e2e/hydration.spec.ts` alters the browser's `Intl`: add new pages there.
 - Copy comes from `@suskii/i18n`: server components use `getI18n()`; client components get a
   message subset through `I18nProvider` or labels as props. E2E tests use the catalog too.
+- Languages (ADR-076): `en-NG`, `en-GB`, `en-US`, `fr`, `sw`, `ar`, `pt`. A new string goes in
+  every catalog (the type check fails otherwise; `catalogs.test.ts` checks placeholders, plural
+  forms and English left behind). The language is the footer cookie, else `Accept-Language`
+  (`negotiateLocale`), else `en-NG`; URLs stay the same. Format through `format`/`t` (Latin
+  digits via `intlLocale`), never `Intl` with the bare locale.
+- Arabic pages are right to left (`<html dir>` from `localeDirection`). Use logical utilities
+  only (`ms-`/`me-`, `ps-`/`pe-`, `inset-s-`/`inset-e-`, `border-s-`, `rounded-s-`, `text-start`);
+  the website's lint rule and ui-web's guard test refuse `ml-`, `left-`, `text-right` and the like.
+  Mirror arrows with `rtl:-scale-x-100`; keyboard handlers read the computed `direction`.
 - Only the spacing scale exists (0-6, 8, 10, 12, 16, 20) plus named sizes (`max-w-page`,
   `max-w-dialog`, `max-w-popover`, `max-h-menu`). Unknown classes produce no CSS silently: run
   `check:classes` after a build.
@@ -451,6 +462,10 @@ Tooling notes for agents:
   `PluralRules`, `RelativeTimeFormat`, `ListFormat`, `DisplayNames` and `Locale`; `@suskii/i18n` joins date
   ranges itself where `formatRange` is missing. Shared code that starts using another `Intl` API
   needs a polyfill there and a case in `polyfills.test.ts` (Jest runs on Node's full `Intl`).
+  A new language needs its polyfill data there too (ADR-076).
+- The app's language comes from the device (`negotiateLocale` over `getLocales()`), and React
+  Native mirrors the layout in Arabic (`supportsRTL`), so NativeWind's left and right styles
+  flip by themselves; mirror direction-bearing icons explicitly.
 - Push permission is requested only after a booking or from Account (`followBooking`,
   `followAccount`), never on launch.
 - Results screens show the page the search answers with (`initialData` while the filters are
@@ -834,6 +849,7 @@ Tooling notes for agents:
 - [ADR-073: Refund offer for airline changes](docs/decisions/ADR-073-refund-offer-for-airline-changes.md)
 - [ADR-074: Payment methods at checkout](docs/decisions/ADR-074-payment-methods-at-checkout.md)
 - [ADR-075: Fast on slow 3G](docs/decisions/ADR-075-fast-on-slow-3g.md)
+- [ADR-076: Languages and right to left](docs/decisions/ADR-076-languages-and-right-to-left.md)
 
 ## Open questions for the owner
 
@@ -921,4 +937,8 @@ airline change, to confirm Duffel quotes the full involuntary refund. Added with
 channel names), whether Apple Pay is enabled on the Paystack account, Flutterwave's "Enable
 Dashboard Payment Options" turned off, and whether to apply for long-lived transfer accounts for
 agent payments. Added with fast on slow 3G (ADR-075): one check on a real mid-range Android phone
-on slow mobile data, through the hosted test server, to compare with the emulated numbers.
+on slow mobile data, through the hosted test server, to compare with the emulated numbers. Added
+with languages (ADR-076): a native speaker's review of each catalog (French, Swahili, Arabic,
+Portuguese), booking, payment and refund wording first; whether emails, texts and PDFs should
+follow the traveller's language next; and language-prefixed URLs with `hreflang` if search
+traffic in these languages matters.
