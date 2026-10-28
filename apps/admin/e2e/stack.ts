@@ -239,7 +239,9 @@ export async function startStack(): Promise<Stack> {
     children.push(api);
     await waitFor(`${API_URL}/ready`, api, 'api');
 
-    const state = await provision(API_URL, root);
+    const state = await provision(API_URL, root, (statements) =>
+      onDatabase(databaseUrl, statements),
+    );
     writeFileSync(STATE_FILE, JSON.stringify({ ...state, databaseUrl }, null, 2));
 
     const admin = start(
