@@ -79,6 +79,11 @@ export async function SiteFooter({ site }: { site: SiteContent | null }) {
               {t('footer.manageBooking')}
             </AppLink>
           </li>
+          <li>
+            <AppLink href="/status" className={linkClass}>
+              {t('status.link')}
+            </AppLink>
+          </li>
           {email ? (
             <li>
               <a href={`mailto:${email}`} className={linkClass}>

@@ -89,6 +89,8 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
   ['manage booking', () => '/manage-booking'],
   // Support (ADR-083): the start form, which hides the email for signed-in travellers.
   ['help and support', () => '/support'],
+  // Status page (ADR-087): server-formatted check and incident times.
+  ['service status', () => '/status'],
 ];
 
 function hydrationTests(): void {
