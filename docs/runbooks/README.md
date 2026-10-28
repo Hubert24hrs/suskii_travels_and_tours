@@ -19,6 +19,7 @@ the file does not exist.
 | [Failed webhook replay](failed-webhook-replay.md)     | Ledger discrepancies, or webhooks that failed and must be applied      |
 | [Deploy and roll back](deploy-and-rollback.md)        | Shipping a release, watching it, rolling back, operator commands       |
 | [Screen reader checklist](screen-reader-checklist.md) | Before each release: manual VoiceOver and TalkBack checks              |
+| [Personal data breach](personal-data-breach.md)       | Personal data may have leaked, been changed or lost; regulator clocks  |
 
 ## Every incident
 

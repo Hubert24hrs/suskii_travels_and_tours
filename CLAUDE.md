@@ -81,7 +81,11 @@ bookings with a console inbox, SLA timers and a Prime queue, is built and waits 
 shift; part 2, WhatsApp through the Cloud API, is built and waits for the owner's Meta app,
 number and approved template; part 3, an after-hours assistant that answers from the FAQs and the
 traveller's booking (ADR-085), is built and waits for the owner's staffed hours, `LLM_API_KEY`
-and one run of the assistant eval. Items 10 to 13 come next.
+and one run of the assistant eval. Item 13, compliance, runs in two parts
+(`docs/phases/compliance.md`): part 1, payment pages that run only our scripts (PCI DSS SAQ A),
+the privacy obligations per country and a breach runbook, is built and waits for the owner's
+registrations and filings; part 2, rights request and breach registers with deadlines, comes next.
+Items 10 to 12 are in review.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -744,6 +748,8 @@ Tooling notes for agents:
   "Accept all" and "Reject all" keep the same style. A new optional cookie or storage key goes
   in `cookie-catalog.ts` and every catalog, with a `COOKIE_POLICY_VERSION` bump when visitors
   should choose again.
+- Pages that start a payment (`isPaymentPage()`: `/checkout/*`, `/bookings/*`) never run the
+  tags and get a policy without `strict-dynamic` (ADR-089); a new payment page must match it.
 - Checkout sends `marketing` (`marketingAttribution()`: consent id and validated click ids) only
   with marketing consent. The API keeps it only through `AdAttribution.keep()`, which re-reads
   the recorded choice (`marketingAllowed`); the browser's word is never enough.
@@ -843,6 +849,17 @@ Tooling notes for agents:
 - Both clients open the box from a button above the flight form; the website loads its code only
   then (homepage budget). The button shows while `GET /v1/flights/natural-search` says the feature
   is on, and hides when the API cannot say.
+
+### Compliance (PCI DSS SAQ A and privacy laws, ADR-089)
+
+- Card data never touches Suskii: hosted checkout only, by redirect or the system browser. Never
+  embed a provider's card fields, take card details by phone, chat or WhatsApp, or keep a raw
+  provider payload; each ends SAQ A eligibility (`docs/compliance/pci-saq-a.md`).
+- Payment pages allow only our scripts and Turnstile (`buildCsp({ paymentPage })`); a new script
+  there needs the inventory in `pci-saq-a.md` updated and the ads e2e still passing.
+- Country obligations and their sources live in `docs/compliance/privacy-obligations.md`; a
+  deadline in code comes only from a row there. A suspected breach follows
+  `docs/runbooks/personal-data-breach.md` (regulator clocks start at awareness).
 
 ### Hardening (phase 11, ADR-037 to ADR-048)
 
@@ -1033,6 +1050,7 @@ Tooling notes for agents:
 - [ADR-083: Support conversations](docs/decisions/ADR-083-support-conversations.md)
 - [ADR-084: WhatsApp as a support channel](docs/decisions/ADR-084-whatsapp-support-channel.md)
 - [ADR-085: After-hours support assistant](docs/decisions/ADR-085-after-hours-support-assistant.md)
+- [ADR-089: Payment pages without third-party scripts, and privacy obligations per country](docs/decisions/ADR-089-payment-pages-and-privacy-obligations.md)
 
 ## Open questions for the owner
 
@@ -1150,4 +1168,9 @@ username user to confirm the field for replying to a business-scoped user id. Ad
 after-hours assistant (ADR-085): the staffed hours (`SUPPORT_HOURS`, `SUPPORT_TIME_ZONE`), whether
 the assistant should answer in production (`SUPPORT_ASSISTANT_ENABLED`), one run of the
 assistant eval against the model with `LLM_API_KEY`, its spend caps (defaults $5 a day and 2 cents
-per conversation), and the help-centre FAQs it answers from (three are seeded today).
+per conversation), and the help-centre FAQs it answers from (three are seeded today). Added with
+compliance (ADR-089): registration with the NDPC (tier and fee), the ODPC and the Information
+Regulator; a data protection officer and an Information Officer; the yearly SAQ A with each
+payment provider's attestation; counsel's view on the rows marked "confirm" (registration tiers,
+Kenya's sector list, the transfer basis for London hosting and each supplier); the privacy policy
+and the PAIA manual; and DPIAs for payment risk scoring and the AI features.
