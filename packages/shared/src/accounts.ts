@@ -63,6 +63,7 @@ export const NOTIFICATION_CATEGORIES = [
   'price_alert',
   'prime',
   'review_requests',
+  'support',
   'marketing',
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];

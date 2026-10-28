@@ -608,6 +608,38 @@ export {
   type TravelPolicyInput,
 } from './companies-schemas';
 export {
+  SUPPORT_AUTHORS,
+  SUPPORT_CATEGORIES,
+  SUPPORT_CHANNELS,
+  SUPPORT_MESSAGES_PER_CONVERSATION,
+  SUPPORT_MESSAGE_MAX,
+  SUPPORT_OPEN_CONVERSATIONS_MAX,
+  SUPPORT_PRIORITIES,
+  SUPPORT_REFERENCE_ALPHABET,
+  SUPPORT_REFERENCE_PATTERN,
+  SUPPORT_STATUSES,
+  supportDueAt,
+  supportPriority,
+  supportSchedule,
+  supportSlaState,
+  type SupportAuthor,
+  type SupportCategory,
+  type SupportChannel,
+  type SupportPriority,
+  type SupportSchedule,
+  type SupportSlaState,
+  type SupportStatus,
+  type SupportTarget,
+  type SupportTargets,
+} from './support';
+export {
+  supportMessageTextSchema,
+  supportReplySchema,
+  supportStartSchema,
+  type SupportReplyInput,
+  type SupportStartInput,
+} from './support-schemas';
+export {
   AD_CLICK_COOKIES,
   AD_CONVERSION_MAX_ATTEMPTS,
   AD_EVENTS,
