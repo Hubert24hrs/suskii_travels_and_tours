@@ -273,7 +273,7 @@ describe('parseEnv', () => {
       'AD_CONVERSIONS: the mock sends nothing',
     );
     const plaintext = production({
-      META_GRAPH_API_URL: 'http://graph.facebook.com/v24.0',
+      META_GRAPH_API_URL: 'http://graph.facebook.com/v26.0',
       TIKTOK_EVENTS_API_URL: 'http://business-api.tiktok.com/open_api/v1.3',
     });
     expect(plaintext).toContain('META_GRAPH_API_URL: must use https');

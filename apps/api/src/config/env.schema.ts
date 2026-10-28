@@ -405,7 +405,7 @@ export const envSchema = z
       .regex(/^\d{6,20}$/)
       .optional(),
     META_CAPI_ACCESS_TOKEN: z.string().min(20).optional(),
-    META_GRAPH_API_URL: z.url().default('https://graph.facebook.com/v24.0'),
+    META_GRAPH_API_URL: z.url().default('https://graph.facebook.com/v26.0'),
     /** Sends to Events Manager's Test Events tab instead of the live data set, when set. */
     META_TEST_EVENT_CODE: z
       .string()
