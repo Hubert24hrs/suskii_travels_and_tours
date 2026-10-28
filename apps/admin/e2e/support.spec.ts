@@ -1,4 +1,6 @@
-import { API_URL } from './stack';
+import { createHmac } from 'node:crypto';
+
+import { API_URL, WHATSAPP_APP_SECRET } from './stack';
 import { expect, expectNoAxeViolations, expectToast, signIn, t, test } from './fixtures';
 
 interface Started {
@@ -66,4 +68,71 @@ test('an agent answers a visitor from the support inbox', async ({ page, stack }
   const body = (await seen.json()) as { messages: { author: string; text: string }[] };
   expect(body.messages.map((entry) => entry.author)).toEqual(['customer', 'staff']);
   expect(JSON.stringify(body)).not.toContain('one is a hold');
+});
+
+/** A WhatsApp message as Meta would deliver it, signed with the app secret (ADR-084). */
+async function whatsappMessage(text: string): Promise<void> {
+  const body = JSON.stringify({
+    object: 'whatsapp_business_account',
+    entry: [
+      {
+        id: '1',
+        changes: [
+          {
+            field: 'messages',
+            value: {
+              contacts: [{ wa_id: '2348099990000', profile: { name: 'Chidi' } }],
+              messages: [
+                {
+                  from: '2348099990000',
+                  id: `wamid.admin-e2e-${Date.now()}`,
+                  timestamp: String(Math.floor(Date.now() / 1000)),
+                  type: 'text',
+                  text: { body: text },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  });
+  const response = await fetch(`${API_URL}/v1/webhooks/whatsapp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Hub-Signature-256': `sha256=${createHmac('sha256', WHATSAPP_APP_SECRET).update(body).digest('hex')}`,
+    },
+    body,
+  });
+  expect(response.status).toBe(200);
+}
+
+/**
+ * WhatsApp in the inbox (ADR-084): a message arrives through the signed webhook, the agent finds
+ * it with the channel filter, sees the 24-hour window and replies; the reply shows it was sent.
+ */
+test('an agent answers a WhatsApp message inside the 24-hour window', async ({ page, stack }) => {
+  await whatsappMessage('Hello, is there a direct flight to Accra on Friday?');
+
+  await signIn(page, stack, 'whatsappAgent');
+  await page.goto('/support');
+  await page.getByLabel(t('support.channel')).selectOption('whatsapp');
+  const row = page.getByRole('row', { name: /WhatsApp •••• 0000/ });
+  await expect(row).toContainText(t('support.channels.whatsapp'));
+  await row.getByRole('link').click();
+
+  await expect(page.getByTestId('support-customer')).toContainText('direct flight to Accra');
+  await expect(page.getByTestId('support-whatsapp-state')).toContainText(
+    'WhatsApp window open until',
+  );
+  await page
+    .getByLabel(t('support.message'))
+    .fill('Yes, Africa World Airlines flies direct on Fridays.');
+  await page.getByRole('button', { name: t('support.send') }).click();
+  await expectToast(page, t('support.replied'));
+  const reply = page.getByTestId('support-staff');
+  await expect(reply).toContainText('flies direct on Fridays');
+  await expect(reply).toContainText(t('support.delivery.sent'));
+  await expectNoAxeViolations(page);
 });

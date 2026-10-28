@@ -1,6 +1,6 @@
 'use client';
 
-import { SUPPORT_PRIORITIES, SUPPORT_STATUSES } from '@suskii/shared';
+import { SUPPORT_CHANNELS, SUPPORT_PRIORITIES, SUPPORT_STATUSES } from '@suskii/shared';
 import { Button, useToast } from '@suskii/ui-web';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Route } from 'next';
@@ -29,6 +29,8 @@ type Conversation = Schemas['AdminSupportConversation'];
 type Queue = 'active' | 'open' | 'waiting' | 'resolved';
 type Assignee = 'any' | 'me' | 'unassigned';
 type Priority = Row['priority'];
+type Channel = Row['channel'];
+type Delivery = NonNullable<Conversation['messages'][number]['delivery']>;
 
 const LIST = '/v1/admin/support/conversations';
 const DETAIL = '/v1/admin/support/conversations/{id}';
@@ -41,6 +43,10 @@ const ASSIGNEES = ['any', 'me', 'unassigned'] as const satisfies readonly Assign
 
 const priorityTone = (priority: Priority) =>
   priority === 'urgent' ? 'danger' : priority === 'prime' ? 'warning' : 'neutral';
+const deliveryTone = (status: Delivery['status']) =>
+  status === 'failed' ? 'danger' : status === 'pending' ? 'warning' : 'success';
+const noticeClass =
+  'rounded-lg border border-border bg-surface p-4 font-body text-body-sm text-foreground';
 const slaTone = (state: Row['sla']['state']) =>
   state === 'breached' ? 'danger' : state === 'due_soon' ? 'warning' : 'success';
 const statusTone = (status: Row['status']) =>
@@ -67,7 +73,8 @@ export function SupportInboxPage() {
   const [queue, setQueue] = useState<Queue>('active');
   const [priority, setPriority] = useState<Priority | 'any'>('any');
   const [assignee, setAssignee] = useState<Assignee>('any');
-  const pages = useCursorPages(['get', LIST, queue, priority, assignee], async (cursor) =>
+  const [channel, setChannel] = useState<Channel | 'any'>('any');
+  const pages = useCursorPages(['get', LIST, queue, priority, assignee, channel], async (cursor) =>
     unwrap(
       await adminApi.GET(LIST, {
         params: {
@@ -76,6 +83,7 @@ export function SupportInboxPage() {
             assignee,
             limit: 50,
             ...(priority === 'any' ? {} : { priority }),
+            ...(channel === 'any' ? {} : { channel }),
             ...(cursor ? { cursor } : {}),
           },
         },
@@ -86,7 +94,7 @@ export function SupportInboxPage() {
   return (
     <RequirePermission permission="support:manage">
       <PageHeader title={t('support.title')} intro={t('support.intro')} />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <SelectField
           label={t('support.queue')}
           name="queue"
@@ -113,6 +121,19 @@ export function SupportInboxPage() {
           value={assignee}
           onChange={(event) => setAssignee(event.target.value as Assignee)}
           options={ASSIGNEES.map((value) => ({ value, label: label('support.assignees', value) }))}
+        />
+        <SelectField
+          label={t('support.channel')}
+          name="channel"
+          value={channel}
+          onChange={(event) => setChannel(event.target.value as Channel | 'any')}
+          options={[
+            { value: 'any', label: t('support.anyChannel') },
+            ...SUPPORT_CHANNELS.map((value) => ({
+              value,
+              label: label('support.channels', value),
+            })),
+          ]}
         />
       </div>
       <QueryState query={{ ...pages, data: rows }}>
@@ -145,9 +166,12 @@ export function SupportInboxPage() {
                     cell: (row) => (
                       <span className="flex flex-col">
                         <span>{row.customer.label}</span>
-                        {row.customer.guest ? (
-                          <span className="text-muted">{t('support.guest')}</span>
-                        ) : null}
+                        <span className="text-muted">
+                          {label('support.channels', row.channel)}
+                          {row.customer.guest && row.channel !== 'whatsapp'
+                            ? ` · ${t('support.guest')}`
+                            : ''}
+                        </span>
                       </span>
                     ),
                   },
@@ -320,6 +344,38 @@ function ReplyForm({ conversation }: { conversation: Conversation }) {
   );
 }
 
+/** Whether staff can write freely on WhatsApp now, or why a reply will not go (ADR-084). */
+function WhatsAppState({ whatsapp }: { whatsapp: NonNullable<Conversation['whatsapp']> }) {
+  const text = !whatsapp.reachable
+    ? t('support.whatsapp.unreachable')
+    : whatsapp.windowClosesAt
+      ? t('support.whatsapp.windowOpen', { time: format.dateTime(whatsapp.windowClosesAt) })
+      : whatsapp.optedOut
+        ? t('support.whatsapp.optedOut')
+        : t('support.whatsapp.windowClosed');
+  return (
+    <p role="status" className={noticeClass} data-testid="support-whatsapp-state">
+      {text}
+    </p>
+  );
+}
+
+function DeliveryState({ delivery }: { delivery: Delivery }) {
+  return (
+    <p className="flex flex-wrap items-center gap-2 pt-2 font-body text-body-sm text-muted">
+      <StatusBadge tone={deliveryTone(delivery.status)}>
+        {label('support.delivery', delivery.status)}
+      </StatusBadge>
+      {delivery.status === 'pending' && delivery.noticeSentAt ? (
+        <span>
+          {t('support.waitingForWindow', { time: format.dateTime(delivery.noticeSentAt) })}
+        </span>
+      ) : null}
+      {delivery.error ? <span>{t('support.deliveryError', { code: delivery.error })}</span> : null}
+    </p>
+  );
+}
+
 /** One conversation: details, controls, the whole thread with internal notes, and a reply box. */
 export function SupportConversationPage({ conversationId }: { conversationId: string }) {
   const { can } = useStaffSession();
@@ -379,6 +435,7 @@ export function SupportConversationPage({ conversationId }: { conversationId: st
                 },
               ]}
             />
+            {conversation.whatsapp ? <WhatsAppState whatsapp={conversation.whatsapp} /> : null}
             <Controls conversation={conversation} />
             <ol className="flex flex-col gap-3" aria-label={t('support.title')}>
               {conversation.messages.map((message) => (
@@ -403,8 +460,11 @@ export function SupportConversationPage({ conversationId }: { conversationId: st
                     </span>
                   </p>
                   <p className="font-body text-body whitespace-pre-wrap text-foreground">
-                    {message.text}
+                    {message.kind === 'unsupported'
+                      ? t('support.unsupported', { type: message.text })
+                      : message.text}
                   </p>
+                  {message.delivery ? <DeliveryState delivery={message.delivery} /> : null}
                 </li>
               ))}
             </ol>

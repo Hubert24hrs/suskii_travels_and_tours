@@ -480,6 +480,26 @@ export const adminMessages = {
     unassigned: 'Unassigned',
     messages: { one: '{count} message', other: '{count} messages' },
     back: 'Back to the inbox',
+    anyChannel: 'Any channel',
+    whatsapp: {
+      windowOpen: 'WhatsApp window open until {time}: replies go as messages.',
+      windowClosed:
+        'The 24-hour WhatsApp window is closed: a reply sends the approved notice, and your text follows when the traveller writes back.',
+      optedOut: 'The traveller wrote STOP: replies outside the window are not sent.',
+      unreachable:
+        'This traveller uses a WhatsApp username without a number: replies cannot be sent yet.',
+    },
+    unsupported:
+      'Sent a {type}. Attachments are not supported yet; ask the traveller to describe it.',
+    delivery: {
+      pending: 'Sending',
+      sent: 'Sent',
+      delivered: 'Delivered',
+      read: 'Read',
+      failed: 'Not delivered',
+    },
+    waitingForWindow: 'Notice sent {time}; this reply goes when the traveller writes back.',
+    deliveryError: 'Reason: {code}',
   },
   reviews: {
     title: 'Reviews',
