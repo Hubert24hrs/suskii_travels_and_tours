@@ -6,6 +6,7 @@ import {
   isNetworkError,
   NetworkError,
   problemSlug,
+  READ_TIMEOUT_MS,
   type TokenSource,
 } from './api';
 
@@ -139,6 +140,62 @@ describe('network failures', () => {
       (error: unknown) => error,
     );
     expect(isNetworkError(failure)).toBe(false);
+  });
+});
+
+describe('request timeouts', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  /** A platform fetch that never answers, as on a network that drops packets. */
+  const silent = () =>
+    jest.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const abort = () => reject(new DOMException('Aborted', 'AbortError'));
+          // Like fetch: a signal aborted before the call rejects at once.
+          if (init?.signal?.aborted) abort();
+          init?.signal?.addEventListener('abort', abort);
+        }),
+    );
+
+  it('gives up on a read that never answers and reports it as no network', async () => {
+    jest.useFakeTimers();
+    const api = createAppApi(tokens(undefined, undefined).source, () => 'en-NG', silent());
+    const failure = api.GET('/v1/me').then(
+      () => null,
+      (error: unknown) => error,
+    );
+    await jest.advanceTimersByTimeAsync(READ_TIMEOUT_MS);
+    // Screens read this as offline and show what the phone saved.
+    expect(isNetworkError(await failure)).toBe(true);
+  });
+
+  it('lets a write take as long as it needs', async () => {
+    jest.useFakeTimers();
+    const platform = silent();
+    const api = createAppApi(tokens(undefined, undefined).source, () => 'en-NG', platform);
+    let settled = false;
+    void api.POST('/v1/attestation/challenges').finally(() => {
+      settled = true;
+    });
+    await jest.advanceTimersByTimeAsync(READ_TIMEOUT_MS * 10);
+    expect(settled).toBe(false);
+    expect(platform.mock.calls[0]?.[1]?.signal).toBeUndefined();
+  });
+
+  it("keeps the caller's own abort an abort, not a network error", async () => {
+    const controller = new AbortController();
+    const api = createAppApi(tokens(undefined, undefined).source, () => 'en-NG', silent());
+    const failure = api.GET('/v1/me', { signal: controller.signal }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    controller.abort();
+    const error = await failure;
+    expect(isNetworkError(error)).toBe(false);
+    expect((error as Error).name).toBe('AbortError');
   });
 });
 

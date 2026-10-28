@@ -449,7 +449,9 @@ Tooling notes for agents:
 - Screens live in `src/screens`; files under `app/` only re-export them (typed routes). Copy comes
   from `useT()` (the full catalog, bundled with the app); there are no hard-coded strings.
 - Talk to the API through `useApp().api` (bearer token from memory, one refresh-and-retry on a
-  401, `X-Suskii-Client: mobile-<os>/<version>`); never call `fetch` directly. The refresh is
+  401, `X-Suskii-Client: mobile-<os>/<version>`); never call `fetch` directly. Reads (GET, HEAD)
+  give up after `READ_TIMEOUT_MS` (20 s) as a `NetworkError`, so screens fall back to saved
+  copies; writes and uploads have no timeout (their Idempotency-Key covers a retry). The refresh is
   single flight (`SessionStore`) because the API revokes a session on refresh-token reuse.
 - Secrets (tokens, guest booking tokens, cache key, App Attest key id) go in `secureStorage`
   (Keychain / Keystore, this device only). Personal data kept offline goes in `secureCache()`
