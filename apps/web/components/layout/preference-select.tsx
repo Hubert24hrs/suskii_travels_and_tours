@@ -37,7 +37,7 @@ export function PreferenceSelect({
     <form
       method="post"
       action={action}
-      className={cn('flex items-center gap-2', className)}
+      className={cn('flex max-w-full flex-wrap items-center gap-2', className)}
       onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
@@ -50,14 +50,15 @@ export function PreferenceSelect({
         });
       }}
     >
-      <label className="flex items-center gap-2 font-body text-body-sm text-foreground">
+      {/* Wraps and shrinks: option text runs long in some languages (ADR-076). */}
+      <label className="flex max-w-full min-w-0 flex-wrap items-center gap-2 font-body text-body-sm text-foreground">
         <span>{label}</span>
         <select
           name={name}
           defaultValue={value}
           disabled={pending}
           onChange={(event) => event.currentTarget.form?.requestSubmit()}
-          className="min-h-12 rounded-md border border-border-strong bg-surface px-3 font-body text-body-sm text-foreground focus-visible:focus-ring"
+          className="min-h-12 max-w-full min-w-0 rounded-md border border-border-strong bg-surface px-3 font-body text-body-sm text-foreground focus-visible:focus-ring"
         >
           {options.map((option) => (
             <option key={option.value} value={option.value} lang={option.lang}>
