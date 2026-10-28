@@ -53,3 +53,24 @@ Risks:
   gate. Both load only when needed; the prompt is fixed-position.
 - **No real provider in tests.** The networks' hosts are stubbed in every website test and the API
   uses the mock adapter.
+
+## Part 1 outcome
+
+Built. Ads stay off until the owner sets the pixel ids and tokens (staging first, with the test
+event codes).
+
+- The base homepage was 101 bytes under its 170 kB budget, so the prompt and the tags had to stay
+  out of the code every page loads. The server reads the consent cookie per request; the prompt
+  loads only without a choice and the tags only while marketing is allowed. The header's
+  signed-in check stopped pulling in the session refresh code. The homepage ships 173,815 bytes
+  in 11 scripts (base 173,979).
+- Content ids are booking verticals on both the website and the server.
+
+| Check                            | Result                                                                                                                                         |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint and typecheck               | 25 of 25 tasks                                                                                                                                 |
+| API unit tests with coverage     | 594 passed (51 suites)                                                                                                                         |
+| API e2e                          | 524 of 524 outside the S3 suite (no container runtime locally; CI runs it); the ad conversion suite 5 of 5                                     |
+| Shared, i18n, worker, app (Jest) | 248, 33, 50 and 250 passed                                                                                                                     |
+| Website e2e                      | 117 of 118 (main and slow-3G projects all pass)                                                                                                |
+| Lighthouse (local)               | Total blocking time only, median 248 ms at CPU benchmark 1,252; the base fails the same way on this machine (262 ms at 1,238). CI is the judge |
