@@ -221,3 +221,44 @@ timers running.
   per conversation; the assistant stops once a person has replied.
 - **Over-reliance.** Answers are labelled as automated, a person still reads every
   conversation, and assistant answers never count as the first response in SLA reports.
+
+## Part 3 outcome
+
+Built as planned (ADR-085). The assistant is off (`SUPPORT_ASSISTANT_ENABLED=false`) until the
+owner turns it on; the test stacks (website e2e, the hosted test server) run it with the mock
+model and no staffed hours.
+
+- **API** (`apps/api/src/support/assistant`): `SupportAssistant` answers after a traveller's
+  message commits on the website, in the app or on WhatsApp, outside `SUPPORT_HOURS`, before any
+  staff reply, under a lock per conversation and the spend caps; `SupportAnswerer` asks the
+  model for structured output and `checkAnswer()` checks it (known sources, every figure and
+  contact from the cited sources); `assistantBookingFacts()` builds the booking's facts from the
+  traveller's own view without names, contacts, documents, codes or references. Migration
+  `20261107120000_support_assistant` (expand-only: two enum values and a nullable column),
+  metrics `suskii.support.assistant.*`.
+- **Clients**: the website and the app label assistant answers "Automated answer" with a note
+  that a person will also read the message, and show the handover in the traveller's language;
+  the console shows the FAQs and booking facts an answer cited, and marks a handover.
+- **Eval**: 40 conversations (`test/fixtures/support-assistant-eval.json`), graded by rule. With
+  recorded answers it passes 40/40 and the checks stop all 7 deliberately wrong answers (an
+  invented figure, a phone number, a link, an unknown source, no sources). Against the real
+  model it needs `LLM_API_KEY` and one run of `ai-eval.yml` with the `support-assistant` suite.
+
+- **Local verification**: unit tests (API, shared, worker, i18n), API e2e 578 of 578 (the S3
+  suite needs a container runtime and runs in CI), admin e2e 21 of 21, website e2e 130 of 130,
+  mobile Jest 260 of 260, builds, `check:migrations` and the security checklist. The homepage
+  Lighthouse gate, which part 3 does not touch (its website changes are the support page and the
+  e2e stack), scored performance 93, LCP 2.0 s and CLS 0 here, but total blocking time varied from
+  159 to 956 ms between runs on this shared 4-core machine (median 251 ms, limit 200 ms); CI runs
+  that gate on its own runner.
+
+### Turning it on (owner)
+
+1. Set the staffed hours, for example `SUPPORT_HOURS=mon-fri 08:00-20:00, sat 09:00-14:00` and
+   `SUPPORT_TIME_ZONE=Africa/Lagos` (empty hours: the assistant answers at any time).
+2. Add `LLM_API_KEY` as a repository secret and run Actions, AI search eval, with the suite
+   `support-assistant` (a few cents). It must pass 90% with no unsafe answer.
+3. Publish the help-centre FAQs in the console (Content, FAQs): the assistant answers only from
+   them and the traveller's booking. Three are seeded today.
+4. In production set `SUPPORT_ASSISTANT_ENABLED=true` and `LLM_PROVIDER=anthropic` with the key
+   in Secret Manager (see `production.tfvars.example`); adjust the spend caps if needed.
