@@ -18,6 +18,7 @@ export type VisaPruneRun = components['schemas']['VisaPruneRun'];
 export type PriceAlertRun = components['schemas']['PriceAlertRun'];
 export type ReferralRun = components['schemas']['ReferralRun'];
 export type ReminderRun = components['schemas']['ReminderRun'];
+export type ReviewInvitationRun = components['schemas']['ReviewInvitationRun'];
 export type RetentionRun = components['schemas']['RetentionRun'];
 export type RideDispatchRun = components['schemas']['RideDispatchRun'];
 export type DriverDocumentScanRun = components['schemas']['DriverDocumentScanRun'];
@@ -74,6 +75,8 @@ export interface BookingsApi {
   readonly runReminders: () => Promise<ReminderRun>;
   /** Referral qualification and rewards (ADR-031). */
   readonly runReferrals: () => Promise<ReferralRun>;
+  /** Review invitations after finished trips (ADR-077). */
+  readonly runReviewInvitations: () => Promise<ReviewInvitationRun>;
   /** Records past their retention period are purged; long-closed bookings anonymised (ADR-039). */
   readonly runRetention: () => Promise<RetentionRun>;
   /** Compares captured payments, refunds and payouts with the ledger (ADR-051). */
@@ -231,6 +234,10 @@ export function createInternalApi(
         'runReferrals',
         (signal, headers) => client.POST('/v1/internal/referrals/run', { signal, headers }),
         MONEY_SWEEP_TIMEOUT_MS,
+      ),
+    runReviewInvitations: () =>
+      call('runReviewInvitations', (signal, headers) =>
+        client.POST('/v1/internal/reviews/invitations/run', { signal, headers }),
       ),
     runRetention: () =>
       call(

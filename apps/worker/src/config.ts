@@ -66,6 +66,8 @@ const envSchema = z
     PRICE_ALERT_SWEEP_MINUTES: minutes(15),
     REMINDER_SWEEP_MINUTES: minutes(15),
     REFERRAL_SWEEP_MINUTES: minutes(60),
+    /** Review invitations the morning after a trip ends (ADR-077). */
+    REVIEW_INVITATION_SWEEP_MINUTES: minutes(60),
     /** How often records past their retention period are purged (ADR-039). */
     RETENTION_SWEEP_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
 

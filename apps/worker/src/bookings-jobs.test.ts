@@ -28,6 +28,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   pruneVisaDocuments: vi.fn(() => Promise.resolve({ deleted: 4 })),
   runReminders: vi.fn(() => Promise.resolve({ checkin: 2, prime: 1 })),
   runReferrals: vi.fn(() => Promise.resolve({ qualified: 1, review: 1, rewarded: 1 })),
+  runReviewInvitations: vi.fn(() => Promise.resolve({ planned: 3, sent: 2, skipped: 1 })),
   runRetention: vi.fn(() =>
     Promise.resolve({
       sessions: 3,
@@ -56,6 +57,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
       'rental-photos': 0,
       'partner-clicks': 0,
       'partner-conversions': 0,
+      'rejected-reviews': 0,
     }),
   ),
   reconcileLedger: vi.fn(() => Promise.resolve({ checked: 12, discrepancies: 1, unconfirmed: 2 })),
@@ -137,6 +139,29 @@ describe('account sweeps', () => {
       processBookingJob({ name: ACCOUNT_JOB.referrals }, { api, logger: log }),
     ).resolves.toEqual({ qualified: 1, review: 1, rewarded: 1 });
     expect(log.warn).toHaveBeenCalledWith({ review: 1 }, 'referrals need review');
+  });
+
+  it('sends review invitations and logs only when some went out', async () => {
+    const api = fakeApi();
+    const log = logger();
+    await expect(
+      processBookingJob({ name: ACCOUNT_JOB.reviewInvitations }, { api, logger: log }),
+    ).resolves.toEqual({ planned: 3, sent: 2, skipped: 1 });
+    expect(log.info).toHaveBeenCalledWith(
+      { planned: 3, sent: 2, skipped: 1 },
+      'review invitations sent',
+    );
+    const quiet = logger();
+    await processBookingJob(
+      { name: ACCOUNT_JOB.reviewInvitations },
+      {
+        api: fakeApi({
+          runReviewInvitations: vi.fn(() => Promise.resolve({ planned: 5, sent: 0, skipped: 0 })),
+        }),
+        logger: quiet,
+      },
+    );
+    expect(quiet.info).not.toHaveBeenCalled();
   });
 
   it('stops on a final failure until the next tick', async () => {
