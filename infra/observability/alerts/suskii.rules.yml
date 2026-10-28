@@ -314,6 +314,30 @@ groups:
             is refunded in full.
           runbook: docs/runbooks/stuck-ride.md
 
+      - alert: PrivacyBreachNoticeDue
+        expr: sum(suskii_privacy_breach_notices_pending{state=~"due_soon|overdue"}) > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: 'A regulator must hear about a personal data breach within 12 hours'
+          description: >-
+            A breach notice is pending with less than 12 hours to its deadline, or past it. Notify
+            the regulator, or record that no notice is required, in the console (Privacy).
+          runbook: docs/runbooks/personal-data-breach.md
+
+      - alert: PrivacyRequestOverdue
+        expr: sum(suskii_privacy_requests_open{state="overdue"}) > 0
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'A data rights request is past its due time'
+          description: >-
+            A request recorded in the privacy register has not been answered in the time its
+            jurisdiction allows. Answer it, or record the refusal and its reason.
+          runbook: docs/runbooks/data-rights-requests.md
+
       - alert: DriverDocumentBacklog
         expr: >-
           max(suskii_driver_documents_oldest_age_seconds) > 172800

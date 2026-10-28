@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { adTagConfig, adTagOrigins } from './lib/ad-tags';
 import { buildCsp } from './lib/csp';
 import { publicEnv } from './lib/env';
+import { isPaymentPage } from './lib/payment-pages';
 
 const imageOrigins = (process.env.IMAGE_REMOTE_HOSTS ?? '')
   .split(',')
@@ -34,6 +35,7 @@ export function proxy(request: NextRequest): NextResponse {
     upgradeInsecureRequests: publicEnv.siteUrl.startsWith('https://'),
     errorReportOrigin,
     adOrigins,
+    paymentPage: isPaymentPage(request.nextUrl.pathname),
   });
   const upstreamId = request.headers.get('x-request-id');
   const requestId =

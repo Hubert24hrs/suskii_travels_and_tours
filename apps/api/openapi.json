@@ -6548,6 +6548,583 @@
         "x-step-up": true
       }
     },
+    "/v1/admin/privacy/breaches": {
+      "get": {
+        "operationId": "adminListPrivacyBreaches",
+        "summary": "Personal data breaches with their regulator notices (newest first)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyBreachPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "privacy:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminOpenPrivacyBreach",
+        "summary": "Open a personal data breach",
+        "description": "Creates one notice per jurisdiction, due `breachNoticeDueAt` after awareness (72 hours). Details are stored encrypted.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivacyBreachCreateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyBreachDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "privacy:manage"
+        ],
+        "x-audit": [
+          "privacy.breach_opened"
+        ]
+      }
+    },
+    "/v1/admin/privacy/breaches/{id}": {
+      "get": {
+        "operationId": "adminGetPrivacyBreach",
+        "summary": "One breach with its details",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyBreachDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "privacy:manage"
+        ]
+      }
+    },
+    "/v1/admin/privacy/breaches/{id}/close": {
+      "post": {
+        "operationId": "adminClosePrivacyBreach",
+        "summary": "Close a breach",
+        "description": "Refused while a regulator notice is pending (409 `notices-pending`) or when already closed (409 `breach-closed`).",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyBreachDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "privacy:manage"
+        ],
+        "x-audit": [
+          "privacy.breach_closed"
+        ]
+      }
+    },
+    "/v1/admin/privacy/breaches/{id}/notices": {
+      "post": {
+        "operationId": "adminRecordPrivacyBreachNotice",
+        "summary": "Record a regulator's notice, or that none is required",
+        "description": "For a jurisdiction the breach was opened for (404 otherwise); a closed breach takes no changes (409 `breach-closed`).",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivacyBreachNoticeInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyBreachDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "privacy:manage"
+        ],
+        "x-audit": [
+          "privacy.breach_notice_recorded"
+        ]
+      }
+    },
+    "/v1/admin/privacy/requests": {
+      "get": {
+        "operationId": "adminListPrivacyRequests",
+        "summary": "Data rights requests (open ones by due time)",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequestPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "privacy:manage"
+        ]
+      },
+      "post": {
+        "operationId": "adminOpenPrivacyRequest",
+        "summary": "Record a data rights request received by email, phone, post or support",
+        "description": "The due time follows the jurisdiction (`PRIVACY_RULES`). The person is an account or an email address, which is stored encrypted and shown masked.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivacyRequestCreateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "privacy:manage"
+        ],
+        "x-audit": [
+          "privacy.request_opened"
+        ]
+      }
+    },
+    "/v1/admin/privacy/requests/{id}/close": {
+      "post": {
+        "operationId": "adminClosePrivacyRequest",
+        "summary": "Close a request as completed, or refused with a reason",
+        "description": "A closed request cannot be closed again (409 `request-closed`).",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivacyRequestCloseInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivacyRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "privacy:manage"
+        ],
+        "x-audit": [
+          "privacy.request_closed"
+        ]
+      }
+    },
     "/v1/admin/promos": {
       "get": {
         "operationId": "adminListPromoCodes",
@@ -33389,6 +33966,7 @@
                 "support",
                 "content_manager",
                 "visa_officer",
+                "privacy_officer",
                 "driver",
                 "operator_agent"
               ]
@@ -33816,6 +34394,7 @@
                 "support",
                 "content_manager",
                 "visa_officer",
+                "privacy_officer",
                 "driver",
                 "operator_agent"
               ]
@@ -47866,6 +48445,692 @@
         ],
         "additionalProperties": false
       },
+      "PrivacyBreach": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "awareAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "highRisk": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "contact",
+                "identity_documents",
+                "booking",
+                "payment_references",
+                "location",
+                "credentials",
+                "other_personal_data"
+              ]
+            }
+          },
+          "subjectsAffected": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "closedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrivacyBreachNotice"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "awareAt",
+          "highRisk",
+          "categories",
+          "subjectsAffected",
+          "status",
+          "closedAt",
+          "notices"
+        ],
+        "additionalProperties": false
+      },
+      "PrivacyBreachCreateInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120
+          },
+          "details": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "awareAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "highRisk": {
+            "type": "boolean"
+          },
+          "categories": {
+            "minItems": 1,
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "contact",
+                "identity_documents",
+                "booking",
+                "payment_references",
+                "location",
+                "credentials",
+                "other_personal_data"
+              ]
+            }
+          },
+          "jurisdictions": {
+            "minItems": 1,
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "NG",
+                "KE",
+                "ZA",
+                "EU",
+                "GB",
+                "OTHER"
+              ]
+            }
+          },
+          "subjectsAffected": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "title",
+          "details",
+          "awareAt",
+          "highRisk",
+          "categories",
+          "jurisdictions"
+        ]
+      },
+      "PrivacyBreachDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "awareAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "highRisk": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "contact",
+                "identity_documents",
+                "booking",
+                "payment_references",
+                "location",
+                "credentials",
+                "other_personal_data"
+              ]
+            }
+          },
+          "subjectsAffected": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "closedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrivacyBreachNotice"
+            }
+          },
+          "details": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "awareAt",
+          "highRisk",
+          "categories",
+          "subjectsAffected",
+          "status",
+          "closedAt",
+          "notices",
+          "details"
+        ],
+        "additionalProperties": false
+      },
+      "PrivacyBreachNotice": {
+        "type": "object",
+        "properties": {
+          "jurisdiction": {
+            "type": "string",
+            "enum": [
+              "NG",
+              "KE",
+              "ZA",
+              "EU",
+              "GB",
+              "OTHER"
+            ]
+          },
+          "regulator": {
+            "type": "string"
+          },
+          "regulatorDueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "statutory": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "notified",
+              "not_required"
+            ]
+          },
+          "regulatorNotifiedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "regulatorReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subjectsNotifiedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overdue": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "jurisdiction",
+          "regulator",
+          "regulatorDueAt",
+          "statutory",
+          "source",
+          "decision",
+          "regulatorNotifiedAt",
+          "regulatorReference",
+          "subjectsNotifiedAt",
+          "overdue"
+        ],
+        "additionalProperties": false
+      },
+      "PrivacyBreachNoticeInputInput": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "decision": {
+                "type": "string",
+                "const": "notified"
+              },
+              "jurisdiction": {
+                "type": "string",
+                "enum": [
+                  "NG",
+                  "KE",
+                  "ZA",
+                  "EU",
+                  "GB",
+                  "OTHER"
+                ]
+              },
+              "regulatorNotifiedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "regulatorReference": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "subjectsNotifiedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "decision",
+              "jurisdiction",
+              "regulatorNotifiedAt"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "decision": {
+                "type": "string",
+                "const": "not_required"
+              },
+              "jurisdiction": {
+                "type": "string",
+                "enum": [
+                  "NG",
+                  "KE",
+                  "ZA",
+                  "EU",
+                  "GB",
+                  "OTHER"
+                ]
+              }
+            },
+            "required": [
+              "decision",
+              "jurisdiction"
+            ]
+          }
+        ]
+      },
+      "PrivacyBreachPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrivacyBreach"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "PrivacyRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "access",
+              "rectification",
+              "erasure",
+              "objection",
+              "restriction",
+              "portability"
+            ]
+          },
+          "jurisdiction": {
+            "type": "string",
+            "enum": [
+              "NG",
+              "KE",
+              "ZA",
+              "EU",
+              "GB",
+              "OTHER"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "self_service",
+              "email",
+              "support",
+              "phone",
+              "post"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "completed",
+              "refused"
+            ]
+          },
+          "userId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subjectEmail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "statutory": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "closedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refusalReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "identity_not_verified",
+                  "manifestly_unfounded",
+                  "legal_obligation",
+                  "no_data"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "jurisdiction",
+          "channel",
+          "status",
+          "userId",
+          "subjectEmail",
+          "receivedAt",
+          "dueAt",
+          "statutory",
+          "source",
+          "overdue",
+          "closedAt",
+          "refusalReason"
+        ],
+        "additionalProperties": false
+      },
+      "PrivacyRequestCloseInput": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "const": "completed"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "const": "refused"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "identity_not_verified",
+                  "manifestly_unfounded",
+                  "legal_obligation",
+                  "no_data"
+                ]
+              }
+            },
+            "required": [
+              "outcome",
+              "reason"
+            ]
+          }
+        ]
+      },
+      "PrivacyRequestCreateInput": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "access",
+              "rectification",
+              "erasure",
+              "objection",
+              "restriction",
+              "portability"
+            ]
+          },
+          "jurisdiction": {
+            "type": "string",
+            "enum": [
+              "NG",
+              "KE",
+              "ZA",
+              "EU",
+              "GB",
+              "OTHER"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "support",
+              "phone",
+              "post"
+            ]
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subjectEmail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "jurisdiction",
+          "channel",
+          "receivedAt"
+        ]
+      },
+      "PrivacyRequestPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrivacyRequest"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
       "ProblemDetails": {
         "type": "object",
         "description": "RFC 9457 problem details (application/problem+json).",
@@ -50420,6 +51685,16 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "privacy-requests": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "privacy-breaches": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -50457,7 +51732,9 @@
           "support-conversations",
           "whatsapp-contacts",
           "supplier-customer-ip",
-          "status-incidents"
+          "status-incidents",
+          "privacy-requests",
+          "privacy-breaches"
         ],
         "additionalProperties": false
       },
@@ -51875,7 +53152,7 @@
         "properties": {
           "roles": {
             "minItems": 1,
-            "maxItems": 9,
+            "maxItems": 10,
             "type": "array",
             "items": {
               "type": "string",
@@ -51887,6 +53164,7 @@
                 "support",
                 "content_manager",
                 "visa_officer",
+                "privacy_officer",
                 "driver",
                 "operator_agent"
               ]

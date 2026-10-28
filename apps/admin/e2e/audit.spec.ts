@@ -14,6 +14,7 @@ const EXPECTED: readonly { persona: PersonaKey; action: string; target: string }
   { persona: 'metasearch', action: 'metasearch_partner.key_rotated', target: 'metasearch_partner' },
   { persona: 'prime', action: 'prime.plan_updated', target: 'prime_plan' },
   { persona: 'supportAgent', action: 'support.replied', target: 'support_conversation' },
+  { persona: 'privacyOfficer', action: 'privacy.breach_closed', target: 'privacy_breach' },
 ];
 
 test('the audit log shows each staff change with its author', async ({ page, stack }) => {

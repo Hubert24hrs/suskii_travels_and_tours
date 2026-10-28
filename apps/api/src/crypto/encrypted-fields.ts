@@ -25,6 +25,8 @@ import {
   voucherContext,
   whatsappBsuidContext,
   whatsappPhoneContext,
+  privacyBreachDetailsContext,
+  privacyRequestEmailContext,
 } from './encryption-contexts';
 import type { FieldEncryption } from './field-encryption';
 
@@ -102,6 +104,20 @@ export const ENCRYPTED_FIELDS: readonly EncryptedField[] = [
     contextColumn: 'id',
     context: noteContext,
     purpose: 'Staff note on a booking',
+  },
+  {
+    table: 'privacy_requests',
+    column: 'subject_email_ciphertext',
+    contextColumn: 'id',
+    context: privacyRequestEmailContext,
+    purpose: 'Email address to answer a data rights request from someone without an account',
+  },
+  {
+    table: 'privacy_breaches',
+    column: 'details_ciphertext',
+    contextColumn: 'id',
+    context: privacyBreachDetailsContext,
+    purpose: 'What happened in a personal data breach (staff account of the facts)',
   },
   {
     table: 'support_messages',

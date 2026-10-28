@@ -144,3 +144,46 @@ tests:
       - eval_time: 90m
         alertname: RideNoDriverRateHigh
         exp_alerts: []
+
+  - name: a breach notice pages once it is due within 12 hours, an overdue request opens a ticket
+    interval: 1m
+    input_series:
+      # Every API replica reports the same registers.
+      - series: 'suskii_privacy_breach_notices_pending{instance="api-1", state="later"}'
+        values: '1x20'
+      - series: 'suskii_privacy_breach_notices_pending{instance="api-1", state="due_soon"}'
+        values: '0x5 1x15'
+      - series: 'suskii_privacy_breach_notices_pending{instance="api-2", state="due_soon"}'
+        values: '0x5 1x15'
+      - series: 'suskii_privacy_requests_open{instance="api-1", state="overdue"}'
+        values: '0x70 1x70'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: PrivacyBreachNoticeDue
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: PrivacyBreachNoticeDue
+        exp_alerts:
+          - exp_labels:
+              severity: page
+            exp_annotations:
+              summary: 'A regulator must hear about a personal data breach within 12 hours'
+              description: >-
+                A breach notice is pending with less than 12 hours to its deadline, or past it.
+                Notify the regulator, or record that no notice is required, in the console
+                (Privacy).
+              runbook: docs/runbooks/personal-data-breach.md
+      - eval_time: 100m
+        alertname: PrivacyRequestOverdue
+        exp_alerts: []
+      - eval_time: 135m
+        alertname: PrivacyRequestOverdue
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: 'A data rights request is past its due time'
+              description: >-
+                A request recorded in the privacy register has not been answered in the time its
+                jurisdiction allows. Answer it, or record the refusal and its reason.
+              runbook: docs/runbooks/data-rights-requests.md

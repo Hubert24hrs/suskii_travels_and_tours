@@ -43,6 +43,7 @@ export const EXPORT_SECTIONS = [
   'reviews',
   'company',
   'support',
+  'privacyRequests',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -63,7 +64,10 @@ export type Retention =
   | { kind: 'reference' }
   | { kind: 'rule'; rule: RetentionRule }
   | { kind: 'job'; job: 'visa-documents-prune' | 'snapshots-prune' | 'push-tokens-prune' }
-  | { kind: 'parent'; parent: 'Session' | 'Booking' | 'SupportConversation' | 'StatusIncident' }
+  | {
+      kind: 'parent';
+      parent: 'Session' | 'Booking' | 'SupportConversation' | 'StatusIncident' | 'PrivacyBreach';
+    }
   | { kind: 'append-only' };
 
 export interface DataTreatment {
@@ -646,6 +650,25 @@ export const DATA_REGISTRY = {
     deletion: 'none',
     retention: { kind: 'parent', parent: 'StatusIncident' },
     note: 'Public updates on a status page incident.',
+  },
+  // --- Data rights requests and personal data breaches (ADR-089) -----------------------------
+  PrivacyRequest: {
+    section: 'privacyRequests',
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'privacy-requests' },
+    note: 'A data rights request: kind, jurisdiction, channel, dates and outcome, linked to the account or holding an encrypted email to answer. Kept after account deletion as evidence the request was answered (no contact data for account requests); purged three years after closing.',
+  },
+  PrivacyBreach: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'privacy-breaches' },
+    note: "A personal data breach: title, staff account of the facts (encrypted), data categories and counts. Linked to nobody's account; purged six years after closing.",
+  },
+  PrivacyBreachNotice: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'parent', parent: 'PrivacyBreach' },
+    note: 'What one regulator was told about a breach, when it was due and their reference.',
   },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 

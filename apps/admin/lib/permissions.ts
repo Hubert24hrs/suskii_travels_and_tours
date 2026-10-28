@@ -24,6 +24,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/trust-signals', label: 'nav.trustSignals', anyOf: ['cms:manage'] },
   { href: '/users', label: 'nav.users', anyOf: ['users:read'] },
   { href: '/audit', label: 'nav.audit', anyOf: ['audit:read'] },
+  // Data rights requests and breaches (ADR-089).
+  { href: '/privacy', label: 'nav.privacy', anyOf: ['privacy:manage'] },
   { href: '/visa', label: 'nav.visa', anyOf: ['visa:process'] },
   { href: '/prime', label: 'nav.prime', anyOf: ['pricing:manage'] },
   { href: '/referrals', label: 'nav.referrals', anyOf: ['referrals:review'] },

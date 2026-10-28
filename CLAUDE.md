@@ -89,7 +89,11 @@ the owner's Expedia Partner Solutions account, one sandbox run and certification
 `GET /v1/status` and incidents in the console, on the website and in the app; it waits for the
 owner's on-call channel. Item 12, an accessibility audit against WCAG 2.2 AA, is built
 and checked in CI (`docs/phases/accessibility.md`, `docs/accessibility/wcag-2.2-aa.md`); the
-manual screen reader pass waits for devices and testers. Item 13 comes next.
+manual screen reader pass waits for devices and testers. Item 13, compliance, runs in two parts
+(`docs/phases/compliance.md`): part 1, payment pages that run only our scripts (PCI DSS SAQ A),
+the privacy obligations per country and a breach runbook, is built and waits for the owner's
+registrations and filings; part 2, rights request and breach registers with deadlines, alerts and
+records of processing generated from code, is built and waits for the owner's privacy officer.
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -172,6 +176,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api eval:support-assistant` | Support assistant eval: 40 conversations, 90% and no unsafe answer (`--recorded`) |
 | `pnpm --filter @suskii/api sandbox:duffel`         | Duffel flights and Stays test-mode check (ADR-062; test token, `--book`)          |
 | `pnpm --filter @suskii/api test:sandbox`           | Our API's booking journey against Duffel test mode (manual workflow only)         |
+| `pnpm --filter @suskii/api privacy:records`        | Regenerate `docs/privacy/records-of-processing.md` (a unit test checks it)        |
 | `pnpm --filter @suskii/api sandbox:partners`       | Hotelbeds, Expedia, Viator and Travelpayouts check (owner keys, read-only)        |
 | `pnpm --filter @suskii/api rides:demo`             | Sample drivers take local rides; type the rider's PIN (not in prod)               |
 | `pnpm --filter @suskii/api staff:bootstrap`        | First super admin of a new environment (`--email`, `--yes`; once)                 |
@@ -771,6 +776,8 @@ Tooling notes for agents:
   "Accept all" and "Reject all" keep the same style. A new optional cookie or storage key goes
   in `cookie-catalog.ts` and every catalog, with a `COOKIE_POLICY_VERSION` bump when visitors
   should choose again.
+- Pages that start a payment (`isPaymentPage()`: `/checkout/*`, `/bookings/*`) never run the
+  tags and get a policy without `strict-dynamic` (ADR-089); a new payment page must match it.
 - Checkout sends `marketing` (`marketingAttribution()`: consent id and validated click ids) only
   with marketing consent. The API keeps it only through `AdAttribution.keep()`, which re-reads
   the recorded choice (`marketingAllowed`); the browser's word is never enough.
@@ -911,6 +918,29 @@ Tooling notes for agents:
   fails otherwise. The app follows the device's orientation.
 - Run the screen reader checklist (`docs/runbooks/screen-reader-checklist.md`) before each store
   release and any release that changes search, checkout or sign-in.
+
+### Compliance (PCI DSS SAQ A and privacy laws, ADR-089)
+
+- Card data never touches Suskii: hosted checkout only, by redirect or the system browser. Never
+  embed a provider's card fields, take card details by phone, chat or WhatsApp, or keep a raw
+  provider payload; each ends SAQ A eligibility (`docs/compliance/pci-saq-a.md`).
+- Payment pages allow only our scripts and Turnstile (`buildCsp({ paymentPage })`); a new script
+  there needs the inventory in `pci-saq-a.md` updated and the ads e2e still passing.
+- Country obligations and their sources live in `docs/compliance/privacy-obligations.md`; a
+  deadline in code comes only from a row there. A suspected breach follows
+  `docs/runbooks/personal-data-breach.md` (regulator clocks start at awareness).
+- Due times come only from `privacyRequestDueAt()` / `breachNoticeDueAt()` over `PRIVACY_RULES`
+  (`@suskii/shared`); a new deadline is a row there with its source and `statutory` flag.
+- Requests and breaches change only through `PrivacyRequestsService` and
+  `PrivacyBreachesService` (`/v1/admin/privacy`, `privacy:manage`): closing claims the row with a
+  conditional update, refusals take a reason from `PRIVACY_REFUSAL_REASONS` (never free text), a
+  breach closes only when no notice is pending, and audit metadata carries ids, laws, outcomes and
+  `late`, never the details or the email. A new self-service data right records itself with
+  `recordSelfService()`.
+- Records of processing are code (`apps/api/src/privacy/processing-records.ts`): a new table
+  holding personal data joins an activity, and a new provider that receives personal data becomes
+  a recipient with its location and transfer basis, in the same change; then run
+  `pnpm --filter @suskii/api privacy:records` (the records test fails otherwise).
 
 ### Hardening (phase 11, ADR-037 to ADR-048)
 
@@ -1104,6 +1134,7 @@ Tooling notes for agents:
 - [ADR-086: Expedia Rapid hotel adapter](docs/decisions/ADR-086-expedia-rapid-hotel-adapter.md)
 - [ADR-087: Availability objectives and the status page](docs/decisions/ADR-087-availability-objectives-and-status-page.md)
 - [ADR-088: WCAG 2.2 AA as the accessibility target](docs/decisions/ADR-088-wcag-2-2-aa-accessibility.md)
+- [ADR-089: Payment pages without third-party scripts, and privacy obligations per country](docs/decisions/ADR-089-payment-pages-and-privacy-obligations.md)
 - [ADR-090: Company wallet](docs/decisions/ADR-090-company-wallet.md)
 
 ## Open questions for the owner
@@ -1235,8 +1266,15 @@ platform, and who writes incident updates out of hours. Added with
 the accessibility audit (ADR-088): someone with iOS and Android devices to run the screen reader
 checklist (including landscape and the largest text size), the support contact and legal text for
 an accessibility statement page, and whether to commission an external audit before launch in
-the EU. Added with the company wallet (ADR-090): counsel's view on whether a closed-loop company
-balance is stored value under CBN rules, the top-up limits per currency and the daily count
-(defaults NGN 10,000 to 5,000,000 and USD 10 to 5,000, five a day), how support handles a
-company closing its wallet (refund of unused funds), and whether top-ups should go through the
-payment risk review.
+the EU. Added with
+compliance (ADR-089): registration with the NDPC (tier and fee), the ODPC and the Information
+Regulator; a data protection officer and an Information Officer; the yearly SAQ A with each
+payment provider's attestation; counsel's view on the rows marked "confirm" (registration tiers,
+Kenya's sector list, the transfer basis for London hosting and each supplier); the privacy policy
+and the PAIA manual; DPIAs for payment risk scoring and the AI features; who holds the
+`privacy_officer` role; and confirmation of each recipient's location and transfer basis in
+`docs/privacy/records-of-processing.md` against the terms the owner signs. Added with the company
+wallet (ADR-090): counsel's view on whether a closed-loop company balance is stored value under CBN
+rules, the top-up limits per currency and the daily count (defaults NGN 10,000 to 5,000,000 and USD
+10 to 5,000, five a day), how support handles a company closing its wallet (refund of unused funds),
+and whether top-ups should go through the payment risk review.

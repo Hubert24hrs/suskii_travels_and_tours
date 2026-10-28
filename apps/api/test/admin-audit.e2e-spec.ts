@@ -1073,6 +1073,36 @@ describe('admin audit coverage (e2e)', () => {
     );
   });
 
+  it('privacy registers: requests and breaches with their notices', async () => {
+    const request = await audited('adminOpenPrivacyRequest', {}, (r) =>
+      r.send({
+        kind: 'access',
+        jurisdiction: 'NG',
+        channel: 'email',
+        receivedAt: new Date(Date.now() - 3_600_000).toISOString(),
+        subjectEmail: 'audit-request@example.com',
+      }),
+    );
+    await audited('adminClosePrivacyRequest', { id: (request.body as { id: string }).id }, (r) =>
+      r.send({ outcome: 'completed' }),
+    );
+    const breach = await audited('adminOpenPrivacyBreach', {}, (r) =>
+      r.send({
+        title: 'Audit breach',
+        details: 'Recorded by the audit coverage test.',
+        awareAt: new Date(Date.now() - 3_600_000).toISOString(),
+        highRisk: false,
+        categories: ['other_personal_data'],
+        jurisdictions: ['GB'],
+      }),
+    );
+    const id = (breach.body as { id: string }).id;
+    await audited('adminRecordPrivacyBreachNotice', { id }, (r) =>
+      r.send({ decision: 'not_required', jurisdiction: 'GB' }),
+    );
+    await audited('adminClosePrivacyBreach', { id }, (r) => r.send({}));
+  });
+
   it('covered every admin mutation', () => {
     const missing = MUTATIONS.map((op) => op.operationId).filter((id) => !covered.has(id));
     expect(missing).toEqual([]);

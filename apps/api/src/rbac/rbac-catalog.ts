@@ -10,6 +10,7 @@ const ROLE_DESCRIPTIONS: Record<Role, string> = {
   support: 'Customer support and bookings',
   content_manager: 'CMS content',
   visa_officer: 'Visa applications and documents',
+  privacy_officer: 'Data rights requests, personal data breaches and their notices',
   driver: 'Approved independent driver: rides only',
   operator_agent: "Bus operator's boarding agent: scans that operator's tickets",
 };
