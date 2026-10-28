@@ -25,6 +25,7 @@ import { AUTH_LIMITS, PRIVACY_LIMITS, RateLimit } from '../rate-limit/rate-limit
 
 import { AccountDeletionService } from './account-deletion.service';
 import { DataExportService } from './data-export.service';
+import { PrivacyRequestsService } from './privacy-requests.service';
 import {
   accountDeletedSchema,
   dataExportBodySchema,
@@ -41,6 +42,7 @@ export class PrivacyController {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly reauth: ReauthService,
     private readonly exports: DataExportService,
+    private readonly requests: PrivacyRequestsService,
     private readonly deletion: AccountDeletionService,
     private readonly audit: AuditService,
   ) {}
@@ -103,6 +105,8 @@ export class PrivacyController {
       targetId: auth.userId,
       context,
     });
+    // An access request answered at once, kept in the register (ADR-089).
+    await this.requests.recordSelfService(auth.userId, 'access', context.country);
     const bytes = Buffer.from(JSON.stringify(document, null, 2), 'utf8');
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -151,6 +155,7 @@ export class PrivacyController {
     const context = requestContext(request);
     await this.reauth.verify(auth, body, context);
     const outcome = await this.deletion.delete(auth.userId, context);
+    await this.requests.recordSelfService(auth.userId, 'erasure', context.country);
     clearSessionCookies(response, this.config);
     return {
       deletedAt: outcome.deletedAt.toISOString(),

@@ -208,7 +208,13 @@ export type AuditAction =
   // Support conversations (ADR-083)
   | 'support.replied'
   | 'support.note_added'
-  | 'support.updated';
+  | 'support.updated'
+  // Data rights requests and personal data breaches (ADR-089)
+  | 'privacy.request_opened'
+  | 'privacy.request_closed'
+  | 'privacy.breach_opened'
+  | 'privacy.breach_notice_recorded'
+  | 'privacy.breach_closed';
 
 export interface AuditEvent {
   action: AuditAction;

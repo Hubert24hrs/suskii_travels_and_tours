@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { metrics, type ObservableResult } from '@opentelemetry/api';
 
 import { PrismaService } from '../infra/prisma.service';
+import { BREACH_NOTICE_WARNING_HOURS } from '../privacy/privacy-breaches.service';
 
 /** Bookings whose status means work is still due (payment, ticketing, a plan, a refund). */
 const IN_FLIGHT = [
@@ -23,7 +24,8 @@ const UNSCANNED_WINDOW_MS = 6 * 60 * 60_000;
  * Operational gauges read from the database at each metrics export (once a minute, ADR-047):
  * work in flight, the ticketing backlog and its oldest booking, open refunds and risk reviews,
  * database connections, and for Cars: live rides and the oldest search and trip, open safety
- * incidents, driver documents waiting for review and departures nobody was scanned onto.
+ * incidents, driver documents waiting for review and departures nobody was scanned onto; and the
+ * privacy registers' deadlines (ADR-089).
  * Without an exporter the callbacks never run.
  */
 const ageSeconds = (since: Date | null): number =>
@@ -97,10 +99,51 @@ export class OperationsMetrics implements OnModuleInit {
       })
       .addCallback((result) => this.observe('bus scans', () => this.unscannedTrips(result)));
     meter
+      .createObservableGauge('suskii.privacy_requests.open', {
+        description: 'Open data rights requests, by whether their due time has passed (ADR-089)',
+      })
+      .addCallback((result) =>
+        this.observe('privacy requests', () => this.privacyRequests(result)),
+      );
+    meter
+      .createObservableGauge('suskii.privacy_breach_notices.pending', {
+        description:
+          'Regulator notices of personal data breaches not yet decided, by how near their deadline is',
+      })
+      .addCallback((result) => this.observe('breach notices', () => this.breachNotices(result)));
+    meter
       .createObservableGauge('suskii.db.connections', {
         description: 'Connections to the application database by state, and the server maximum',
       })
       .addCallback((result) => this.observe('database', () => this.connections(result)));
+  }
+
+  private async privacyRequests(result: ObservableResult): Promise<void> {
+    const now = new Date();
+    const [due, overdue] = await Promise.all([
+      this.prisma.privacyRequest.count({ where: { status: 'open', dueAt: { gte: now } } }),
+      this.prisma.privacyRequest.count({ where: { status: 'open', dueAt: { lt: now } } }),
+    ]);
+    result.observe(due, { state: 'due' });
+    result.observe(overdue, { state: 'overdue' });
+  }
+
+  private async breachNotices(result: ObservableResult): Promise<void> {
+    const now = new Date();
+    const soon = new Date(now.getTime() + BREACH_NOTICE_WARNING_HOURS * 3_600_000);
+    const pending = { decision: 'pending' } as const;
+    const [overdue, dueSoon, later] = await Promise.all([
+      this.prisma.privacyBreachNotice.count({ where: { ...pending, regulatorDueAt: { lt: now } } }),
+      this.prisma.privacyBreachNotice.count({
+        where: { ...pending, regulatorDueAt: { gte: now, lt: soon } },
+      }),
+      this.prisma.privacyBreachNotice.count({
+        where: { ...pending, regulatorDueAt: { gte: soon } },
+      }),
+    ]);
+    result.observe(overdue, { state: 'overdue' });
+    result.observe(dueSoon, { state: 'due_soon' });
+    result.observe(later, { state: 'later' });
   }
 
   /** A failed reading skips one export; it must never break the exporter. */

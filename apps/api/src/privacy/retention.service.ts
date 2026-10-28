@@ -57,6 +57,9 @@ export const RETENTION_RULES = [
   'support-conversations',
   'whatsapp-contacts',
   'supplier-customer-ip',
+  // The data rights request and breach registers (ADR-089).
+  'privacy-requests',
+  'privacy-breaches',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -117,6 +120,10 @@ export const RETENTION_DAYS = {
    * a week covers payment and every ticketing retry.
    */
   'supplier-customer-ip': 7,
+  /** After a request was closed: three years of evidence that it was answered, and when. */
+  'privacy-requests': 1095,
+  /** After a breach was closed: six years of the record regulators expect to see. */
+  'privacy-breaches': 2190,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -334,6 +341,17 @@ export class RetentionService {
             createdAt: { lt: before('supplier-customer-ip') },
           },
           data: { customerIpEncrypted: null },
+        }),
+      ),
+      // Closed requests and breaches only (a breach's notices go with it); open ones stay.
+      'privacy-requests': counts(
+        await this.prisma.privacyRequest.deleteMany({
+          where: { status: { not: 'open' }, closedAt: { lt: before('privacy-requests') } },
+        }),
+      ),
+      'privacy-breaches': counts(
+        await this.prisma.privacyBreach.deleteMany({
+          where: { status: 'closed', closedAt: { lt: before('privacy-breaches') } },
         }),
       ),
       // Commission records are revenue: kept for the financial period after their last change.

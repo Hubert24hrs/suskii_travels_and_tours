@@ -386,6 +386,7 @@ export class DataExportService {
       reviews: await this.reviews(userId),
       company: await this.company(userId),
       support: await this.support(userId),
+      privacyRequests: await this.privacyRequests(userId),
     };
 
     return {
@@ -540,6 +541,23 @@ export class DataExportService {
    * Support conversations (ADR-083): what the traveller and staff wrote to each other. Internal
    * notes and which staff member answered stay out.
    */
+  /** The person's own data rights requests: what, how, when and the outcome (ADR-089). */
+  private async privacyRequests(userId: string): Promise<unknown> {
+    const rows = await this.prisma.privacyRequest.findMany({
+      where: { userId },
+      orderBy: { receivedAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      kind: row.kind,
+      channel: row.channel,
+      status: row.status,
+      receivedAt: iso(row.receivedAt),
+      dueAt: iso(row.dueAt),
+      closedAt: iso(row.closedAt),
+      refusalReason: row.refusalReason,
+    }));
+  }
+
   private async support(userId: string): Promise<unknown> {
     const rows = await this.prisma.supportConversation.findMany({
       where: { userId },

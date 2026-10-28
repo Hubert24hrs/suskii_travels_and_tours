@@ -65,6 +65,8 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
       'support-conversations': 0,
       'whatsapp-contacts': 0,
       'supplier-customer-ip': 0,
+      'privacy-requests': 0,
+      'privacy-breaches': 0,
     }),
   ),
   reconcileLedger: vi.fn(() => Promise.resolve({ checked: 12, discrepancies: 1, unconfirmed: 2 })),

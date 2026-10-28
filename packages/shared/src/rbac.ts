@@ -11,6 +11,8 @@ export const ROLES = [
   'support',
   'content_manager',
   'visa_officer',
+  // The data protection officer (Nigeria) or Information Officer (South Africa), ADR-089.
+  'privacy_officer',
   // Cars (ADR-049): vetted independent drivers and bus operators' boarding agents. Neither is
   // Suskii staff: no console, no MFA requirement, and their routes check record ownership too.
   'driver',
@@ -46,6 +48,7 @@ export const PERMISSIONS = {
   'support:manage': 'Handle support tickets',
   'reports:read': 'View dashboards and reports',
   'audit:read': 'View the audit log',
+  'privacy:manage': 'Record data rights requests and personal data breaches, and their notices',
   'ground:manage': 'Manage bus operators, routes and trips, ride fares and the rental fleet',
   'drivers:review': 'Review driver applications, documents and vehicles',
   'safety:manage': 'Handle SOS alerts and ride safety incidents',
@@ -102,6 +105,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'reviews:moderate',
   ],
   visa_officer: ['profile:manage', 'bookings:read', 'visa:process'],
+  privacy_officer: ['profile:manage', 'users:read', 'audit:read', 'privacy:manage'],
   driver: ['profile:manage', 'driving'],
   operator_agent: ['profile:manage', 'tickets:scan'],
 };
