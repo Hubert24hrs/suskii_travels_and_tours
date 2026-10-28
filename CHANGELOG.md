@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fast on slow 3G (2026-10-28)
+
+#### Added
+
+- **Search results in under 3 seconds on slow 3G (ADR-075).** From pressing Search on the
+  homepage to the first fare on a throttled mid-range Android (400 kbit/s, 400 ms, 4x CPU): 8.4 s
+  before, 2.1 s now (median of three). The web e2e `slow-3g` project runs the journey in CI and
+  fails above 3 s.
+- **One round trip per search.** The website and the app show the page the search answers with.
+  `POST /v1/flights/searches` and `POST /v1/hotels/searches` take `limit` (1 to 50, default 20).
+- **The search starts with the form.** The website's search forms start the search as they are
+  submitted and the results page picks it up; the first four cards draw before the filters.
+- **Compressed public answers.** The API compresses search, catalog and content reads (Brotli or
+  gzip, `COMPRESSED_PATHS`), never answers that can hold a token or personal data.
+- **Data saver.** A footer choice on the website (`__Host-suskii_data_saver`, else the browser's
+  `Save-Data: on`) and a setting under Account in the app: 10 results per page, and city art
+  instead of destination photos on the website.
+- The website opens its connection to the API early (`preconnect`), and the tab icon is a 48 px
+  PNG (2.7 kB instead of 60 kB); the install manifest has its own 512 px icon.
+
+#### Fixed
+
+- Rentals: two bookings inserting overlapping periods of one car at the same moment could end in a
+  Postgres deadlock, answered as 500; the loser now gets 409 `vehicle-unavailable`.
+
 ### Payment methods at checkout (2026-10-27)
 
 #### Added

@@ -49,15 +49,26 @@ from pressing Search to the first fare (median of three runs). Where the time we
    per page instead of 20 and draws city art instead of destination photos. In the app, a Data
    saver setting under Account (stored in `preferences`) asks for 10 results per page. Links on
    the website already never prefetch (`AppLink`).
-7. **Tested in CI.** The web e2e `slow-3g` project runs the journey three times in fresh browser
+7. **The search starts with the form.** When the traveller presses Search, the form starts the
+   search request itself (`lib/search-handoff.ts`) and then opens the results page, which picks
+   up that request when its search, currency and page size match and it is under 30 seconds old.
+   A retry on the results page always starts a fresh search. The form loads the API client on
+   its first touch (`warmSearch`), so the homepage still does not ship it (ADR-013).
+8. **First cards first.** The results page draws the first four cards at once and the filters and
+   the rest of the list just after (`AfterPaint`, a deferred render), so a slow phone paints a
+   fare before it lays out the whole page.
+9. **Tested in CI.** The web e2e `slow-3g` project runs the journey three times in fresh browser
    profiles on the throttled phone and fails when the median exceeds 3 seconds. It runs alone,
    after the parallel tests and before Lighthouse. The API e2e checks the first-page size and the
    compressed answer; the app's Jest tests check the single round trip and the data-saver page size.
 
 ## Consequences
 
-- Searches cost one round trip instead of two, and the bytes on the wire for a first page drop by
-  about 85% where the API compresses them.
+- Pressing Search to the first fare went from 8.4 s to 2.1 s (median of three) on the throttled
+  phone profile. Searches cost one round trip instead of two, and the bytes on the wire for a
+  first page drop by about 85% where the API compresses them.
+- A search the traveller abandons on the way to the results page still runs once; it is the same
+  search the page would have run.
 - DevTools throttling adds latency per request rather than per packet, so a real phone on slow 3G
   also pays for connection setup; the early connection covers most of that, and field data
   (web-vitals beacons, ADR-044) shows the real distribution.
