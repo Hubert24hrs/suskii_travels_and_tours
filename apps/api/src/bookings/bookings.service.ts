@@ -510,6 +510,8 @@ export class BookingsService {
         new Date(now.getTime() + PRICE_HOLD_MS),
       ),
       linkedBookingId: payload.kind === 'addon' ? payload.linkedBookingId : null,
+      // A metasearch partner's arrival (ADR-081) follows its quote into the booking.
+      metasearchLandingId: quote.metasearchLandingId,
       ...(company ?? {}),
       items: {
         create: [

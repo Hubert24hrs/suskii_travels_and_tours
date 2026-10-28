@@ -51,6 +51,8 @@ export const RETENTION_RULES = [
   'company-invitations',
   // Server-side ad conversions (ADR-079).
   'ad-conversions',
+  // Metasearch landings (ADR-081).
+  'metasearch-landings',
 ] as const;
 export type RetentionRule = (typeof RETENTION_RULES)[number];
 
@@ -100,6 +102,8 @@ export const RETENTION_DAYS = {
   'company-invitations': 30,
   /** After the booking was made: long enough to send, retry and answer a question about it. */
   'ad-conversions': 30,
+  /** Metasearch arrivals: 13 months, for year-on-year partner reports. */
+  'metasearch-landings': 400,
 } as const satisfies Record<
   Exclude<
     RetentionRule,
@@ -287,6 +291,12 @@ export class RetentionService {
       'ad-conversions': counts(
         await this.prisma.adConversion.deleteMany({
           where: { createdAt: { lt: before('ad-conversions') } },
+        }),
+      ),
+      // Quotes and bookings keep working without the landing (the link is set to null).
+      'metasearch-landings': counts(
+        await this.prisma.metasearchLanding.deleteMany({
+          where: { createdAt: { lt: before('metasearch-landings') } },
         }),
       ),
       // Commission records are revenue: kept for the financial period after their last change.

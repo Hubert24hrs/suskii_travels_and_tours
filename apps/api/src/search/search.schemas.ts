@@ -85,7 +85,7 @@ export const airportPointSchema = named(
   }),
 );
 
-const carrierSchema = named('Carrier', z.object({ code: z.string(), name: z.string() }));
+export const carrierSchema = named('Carrier', z.object({ code: z.string(), name: z.string() }));
 
 export const flightSegmentSchema = named(
   'FlightSegment',

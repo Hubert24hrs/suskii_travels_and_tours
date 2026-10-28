@@ -200,7 +200,11 @@ export type AuditAction =
   | 'company.trip_approved'
   | 'company.trip_rejected'
   | 'company.suspended'
-  | 'company.reinstated';
+  | 'company.reinstated'
+  // Metasearch partners (ADR-081)
+  | 'metasearch_partner.created'
+  | 'metasearch_partner.updated'
+  | 'metasearch_partner.key_rotated';
 
 export interface AuditEvent {
   action: AuditAction;

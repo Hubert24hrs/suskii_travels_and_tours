@@ -592,23 +592,26 @@ model PromoRedemption {
 
 /// A supplier offer re-priced for checkout. Bookings (phase 5) are created from these.
 model Offer {
-  id                 String        @id @default(uuid(7)) @db.Uuid
-  vertical           Vertical
-  supplier           String
-  supplierOfferId    String        @map("supplier_offer_id")
+  id                  String             @id @default(uuid(7)) @db.Uuid
+  vertical            Vertical
+  supplier            String
+  supplierOfferId     String             @map("supplier_offer_id")
   /// Normalised offer in our domain shape (never raw vendor JSON).
-  payload            Json
-  supplierTotalMinor BigInt        @map("supplier_total_minor")
-  supplierCurrency   String        @map("supplier_currency") @db.Char(3)
+  payload             Json
+  supplierTotalMinor  BigInt             @map("supplier_total_minor")
+  supplierCurrency    String             @map("supplier_currency") @db.Char(3)
   /// Customer price breakdown at quote time.
-  price              Json
-  totalMinor         BigInt        @map("total_minor")
-  currency           String        @db.Char(3)
-  searchId           String?       @map("search_id")
-  userId             String?       @map("user_id") @db.Uuid
-  expiresAt          DateTime      @map("expires_at") @db.Timestamptz(3)
-  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  bookingItems       BookingItem[]
+  price               Json
+  totalMinor          BigInt             @map("total_minor")
+  currency            String             @db.Char(3)
+  searchId            String?            @map("search_id")
+  userId              String?            @map("user_id") @db.Uuid
+  expiresAt           DateTime           @map("expires_at") @db.Timestamptz(3)
+  /// The metasearch landing that quoted it (ADR-081); bookings copy it.
+  metasearchLandingId String?            @map("metasearch_landing_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  bookingItems        BookingItem[]
+  metasearchLanding   MetasearchLanding? @relation(fields: [metasearchLandingId], references: [id], onDelete: SetNull)
 
   @@index([supplier, supplierOfferId])
   @@index([expiresAt])
@@ -982,6 +985,8 @@ model Booking {
   approvalDecidedAt    DateTime?             @map("approval_decided_at") @db.Timestamptz(3)
   /// Code from `APPROVAL_REJECT_REASONS` when an approver said no.
   approvalRejectReason String?               @map("approval_reject_reason")
+  /// The metasearch landing the booking came through (ADR-081), copied from its quote.
+  metasearchLandingId  String?               @map("metasearch_landing_id") @db.Uuid
   /// Contact details and passports wiped after account deletion (ADR-029).
   redactedAt           DateTime?             @map("redacted_at") @db.Timestamptz(3)
   /// Set when the retention sweep cleared the last personal data of a closed booking (ADR-039).
@@ -989,29 +994,30 @@ model Booking {
   createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user             User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  linkedBooking    Booking?               @relation("LinkedAddons", fields: [linkedBookingId], references: [id], onDelete: SetNull)
-  addons           Booking[]              @relation("LinkedAddons")
-  vouchers         BookingVoucher[]
-  visaApplications VisaApplication[]
-  items            BookingItem[]
-  busTickets       BusTicket[]
-  ride             Ride?
-  passengers       BookingPassenger[]
-  history          BookingStatusHistory[]
-  payments         Payment[]
-  documents        BookingDocument[]
-  paymentPlan      PaymentPlan?
-  refunds          Refund[]
-  accessLinks      BookingAccessLink[]
-  pushTokens       PushToken[]
-  notes            BookingNote[]
-  riskReviews      PaymentRiskReview[]
-  scheduleChanges  FlightScheduleChange[]
-  partnerClicks    PartnerClick[]
-  reviews          Review[]
-  adConversion     AdConversion?
-  company          Company?               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user              User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  linkedBooking     Booking?               @relation("LinkedAddons", fields: [linkedBookingId], references: [id], onDelete: SetNull)
+  addons            Booking[]              @relation("LinkedAddons")
+  vouchers          BookingVoucher[]
+  visaApplications  VisaApplication[]
+  items             BookingItem[]
+  busTickets        BusTicket[]
+  ride              Ride?
+  passengers        BookingPassenger[]
+  history           BookingStatusHistory[]
+  payments          Payment[]
+  documents         BookingDocument[]
+  paymentPlan       PaymentPlan?
+  refunds           Refund[]
+  accessLinks       BookingAccessLink[]
+  pushTokens        PushToken[]
+  notes             BookingNote[]
+  riskReviews       PaymentRiskReview[]
+  scheduleChanges   FlightScheduleChange[]
+  partnerClicks     PartnerClick[]
+  reviews           Review[]
+  adConversion      AdConversion?
+  company           Company?               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  metasearchLanding MetasearchLanding?     @relation(fields: [metasearchLandingId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   /// Admin booking search and the dashboard filter by creation date (ADR-036).
@@ -1025,6 +1031,8 @@ model Booking {
   @@index([status, reviewInviteAt])
   /// Company reports and approvals (ADR-078).
   @@index([companyId, createdAt])
+  /// Metasearch partner reports (ADR-081).
+  @@index([metasearchLandingId])
   @@map("bookings")
 }
 
@@ -3066,6 +3074,57 @@ enum PartnerConversionStatus {
   pending
   confirmed
   cancelled
+}
+
+enum MetasearchLandingOutcome {
+  same
+  lower
+  higher
+  unavailable
+  expired
+}
+
+/// A metasearch engine allowed to price our flights (ADR-081). The key is stored only as an HMAC.
+model MetasearchPartner {
+  id                String              @id @default(uuid(7)) @db.Uuid
+  name              String
+  /// Short lowercase code shown in reports and metrics.
+  code              String              @unique
+  /// HMAC (`metasearch-key`) of the API key; the key itself is shown once.
+  keyHash           String              @unique @map("key_hash")
+  /// The first characters of the key, so staff can recognise it.
+  keyPrefix         String              @map("key_prefix")
+  active            Boolean             @default(true)
+  requestsPerMinute Int                 @map("requests_per_minute")
+  requestsPerDay    Int                 @map("requests_per_day")
+  maxResults        Int                 @map("max_results")
+  keyRotatedAt      DateTime            @map("key_rotated_at") @db.Timestamptz(3)
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  landings          MetasearchLanding[]
+
+  @@map("metasearch_partners")
+}
+
+/// A traveller arriving through a metasearch deep link, and whether the partner's price held.
+/// No personal data: the partner, the outcome and the two totals.
+model MetasearchLanding {
+  id          String                   @id @default(uuid(7)) @db.Uuid
+  partnerId   String                   @map("partner_id") @db.Uuid
+  outcome     MetasearchLandingOutcome
+  /// The total the partner showed, in `currency`.
+  shownMinor  BigInt                   @map("shown_minor")
+  /// The total quoted on arrival; null when the flight was gone or the link had expired.
+  landedMinor BigInt?                  @map("landed_minor")
+  currency    String                   @db.Char(3)
+  createdAt   DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  partner     MetasearchPartner        @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  offers      Offer[]
+  bookings    Booking[]
+
+  @@index([partnerId, createdAt])
+  @@index([createdAt])
+  @@map("metasearch_landings")
 }
 
 /// An outbound click on a partner offer (ADR-070). Ids only: no IP address, browser or URL.

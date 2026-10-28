@@ -169,3 +169,13 @@ export const webVitals = {
 export const adConversions = meter.createCounter('suskii.ad_conversions', {
   description: 'Server-side ad conversions by network and outcome',
 });
+
+/** Metasearch partner requests (ADR-081) by partner code and outcome (ok, limited, invalid). */
+export const metasearchRequests = meter.createCounter('suskii.metasearch.requests', {
+  description: 'Metasearch API requests by partner and outcome',
+});
+
+/** Deep-link arrivals by partner code and whether the price held (same, lower, higher, ...). */
+export const metasearchLandings = meter.createCounter('suskii.metasearch.landings', {
+  description: 'Metasearch landings by partner and outcome',
+});

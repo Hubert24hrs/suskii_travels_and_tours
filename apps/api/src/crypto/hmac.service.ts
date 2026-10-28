@@ -34,7 +34,8 @@ export type HmacPurpose =
   | 'social-mock-key'
   // Company invitations (ADR-078): the single-use token and the invited address.
   | 'company-invitation'
-  | 'company-invitation-email';
+  | 'company-invitation-email'
+  | 'metasearch-key';
 
 const PURPOSES: readonly HmacPurpose[] = [
   'ip',
@@ -61,6 +62,7 @@ const PURPOSES: readonly HmacPurpose[] = [
   'social-mock-key',
   'company-invitation',
   'company-invitation-email',
+  'metasearch-key',
 ];
 const HKDF_SALT = 'suskii-api:hmac:v1';
 
