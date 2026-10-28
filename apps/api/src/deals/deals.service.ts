@@ -12,7 +12,7 @@ import {
 } from '@suskii/shared';
 
 import { APP_CONFIG, type AppConfig } from '../config/config';
-import type { Airport, City, DealRoute, DealSnapshot } from '../generated/prisma/client';
+import type { Airport, City, DealRoute, DealSnapshot, RouteFare } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { FxService } from '../pricing/fx.service';
 import { PricingService } from '../pricing/pricing.service';
@@ -22,14 +22,22 @@ import { searchUnavailable } from '../search/search.errors';
 import type { SupplierFlightOffer } from '../suppliers/supplier.types';
 
 import type {
+  dealAirlineSchema,
+  dealAirlinesSchema,
+  dealCitiesSchema,
+  dealCitySchema,
   dealRouteSchema,
   dealRoutesSchema,
   flightDealSchema,
   flightDealsSchema,
   RefreshResult,
+  routeFactsSchema,
 } from './deals.schemas';
+import { citySlug, daysBefore, TYPICAL_DAYS } from './route-facts';
+import { RouteFactsService } from './route-facts.service';
 
 type FlightDealDto = z.infer<typeof flightDealSchema>;
+type RouteFactsDto = z.infer<typeof routeFactsSchema>;
 type AirportWithCity = Airport & { city: City | null };
 type RouteWithAirports = DealRoute & { origin: AirportWithCity; destination: AirportWithCity };
 
@@ -66,6 +74,7 @@ export class DealsService {
     private readonly pricing: PricingService,
     private readonly fx: FxService,
     private readonly flightSearch: FlightSearchService,
+    private readonly routeFacts: RouteFactsService,
   ) {}
 
   async list(
@@ -91,7 +100,7 @@ export class DealsService {
       deals: withDeals
         .filter((route) => !options.origin || route.originCode === options.origin)
         .slice(0, options.limit)
-        .flatMap((route) => route.snapshots.map((snapshot) => price(route, snapshot))),
+        .flatMap((route) => route.snapshots.map((snapshot) => price.deal(route, snapshot))),
     };
   }
 
@@ -122,13 +131,185 @@ export class DealsService {
     });
     const price = await this.priceFor(currency, client, now);
     const [snapshot] = route.snapshots;
+    const fares = (await this.routeFacts.faresFor([route.id], now)).get(route.id) ?? [];
+    const names = await this.routeFacts.airlineNames(fares.map((fare) => fare.carrierCode));
+    const summary = this.routeFacts.summarise(fares, now, names);
+    const facts: RouteFactsDto | null = summary && {
+      cheapest: {
+        price: toWire(price.fare(route, summary.cheapest)),
+        departureDate: isoDate(summary.cheapest.departureDate),
+        carrier: {
+          code: summary.cheapest.carrierCode,
+          name: names.get(summary.cheapest.carrierCode) ?? summary.cheapest.carrierName,
+        },
+      },
+      typical: toWire(price.fare(route, summary.typical)),
+      airlines: summary.airlines,
+      direct: summary.direct,
+      fastestMinutes: summary.fastestMinutes,
+      cheapestMonth: summary.cheapestMonth,
+      observedDays: summary.observedDays,
+      sample: summary.sample,
+      updatedAt: summary.updatedAt.toISOString(),
+    };
     return {
       ...this.summary(route),
       cabinClass: route.cabinClass,
       stayNights: route.stayNights,
       currency,
-      deal: snapshot ? price(route, snapshot) : null,
+      deal: snapshot ? price.deal(route, snapshot) : null,
+      facts,
       relatedRoutes: related.map((entry) => this.summary(entry)),
+    };
+  }
+
+  /** Cities with active routes, for hub pages and the sitemap (ADR-080). */
+  async cities(): Promise<z.infer<typeof dealCitiesSchema>> {
+    const routes = await this.prisma.dealRoute.findMany({
+      where: { active: true },
+      include: routeInclude,
+    });
+    const cities = new Map<
+      string,
+      { slug: string; name: string; countryCode: string; departures: number; arrivals: number }
+    >();
+    const count = (airport: AirportWithCity, side: 'departures' | 'arrivals') => {
+      const place = placeOf(airport);
+      const slug = citySlug(place.cityName);
+      if (!slug) return;
+      const city = cities.get(slug) ?? {
+        slug,
+        name: place.cityName,
+        countryCode: place.countryCode,
+        departures: 0,
+        arrivals: 0,
+      };
+      city[side] += 1;
+      cities.set(slug, city);
+    };
+    for (const route of routes) {
+      count(route.origin, 'departures');
+      count(route.destination, 'arrivals');
+    }
+    return { cities: [...cities.values()].sort((a, b) => a.name.localeCompare(b.name)) };
+  }
+
+  /** A city hub: active routes from and to the city, with the latest fare and typical price. */
+  async city(
+    slug: string,
+    currency: string,
+    client: ClientContext,
+  ): Promise<z.infer<typeof dealCitySchema>> {
+    const now = new Date();
+    const routes = await this.prisma.dealRoute.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: 'asc' }, { slug: 'asc' }],
+      include: { ...routeInclude, snapshots: this.freshSnapshot(now) },
+    });
+    const inCity = (airport: AirportWithCity) => citySlug(placeOf(airport).cityName) === slug;
+    const departures = routes.filter((route) => inCity(route.origin));
+    const arrivals = routes.filter((route) => inCity(route.destination));
+    const anchor = departures[0]?.origin ?? arrivals[0]?.destination;
+    if (!anchor) throw new NotFoundException();
+    const price = await this.priceFor(currency, client, now);
+    const fares = await this.routeFacts.faresFor(
+      [...departures, ...arrivals].map((route) => route.id),
+      now,
+    );
+    const card = (route: (typeof routes)[number]) => {
+      const summary = this.routeFacts.summarise(fares.get(route.id) ?? [], now, new Map());
+      const [snapshot] = route.snapshots;
+      return {
+        ...this.summary(route),
+        deal: snapshot ? price.deal(route, snapshot) : null,
+        typical: summary ? toWire(price.fare(route, summary.typical)) : null,
+        direct: summary ? summary.direct : null,
+      };
+    };
+    const place = placeOf(anchor);
+    return {
+      city: { slug, name: place.cityName, countryCode: place.countryCode },
+      currency,
+      departures: departures.map(card),
+      arrivals: arrivals.map(card),
+    };
+  }
+
+  /** Airlines seen on active routes in the last 90 days, for airline pages and the sitemap. */
+  async airlines(): Promise<z.infer<typeof dealAirlinesSchema>> {
+    const seen = await this.prisma.routeFare.groupBy({
+      by: ['carrierCode', 'routeId'],
+      where: {
+        observedOn: { gte: daysBefore(new Date(), TYPICAL_DAYS - 1) },
+        route: { active: true },
+      },
+      _max: { carrierName: true },
+    });
+    const byCarrier = new Map<string, { name: string; routes: number }>();
+    for (const row of seen) {
+      const entry = byCarrier.get(row.carrierCode) ?? {
+        name: row._max.carrierName ?? row.carrierCode,
+        routes: 0,
+      };
+      entry.routes += 1;
+      byCarrier.set(row.carrierCode, entry);
+    }
+    const names = await this.routeFacts.airlineNames([...byCarrier.keys()]);
+    return {
+      airlines: [...byCarrier]
+        .map(([code, entry]) => ({
+          code,
+          name: names.get(code) ?? entry.name,
+          routes: entry.routes,
+        }))
+        .sort((a, b) => b.routes - a.routes || a.name.localeCompare(b.name)),
+    };
+  }
+
+  /** An airline page: the active routes it was seen on in 90 days, with its own cheapest fare. */
+  async airline(
+    code: string,
+    currency: string,
+    client: ClientContext,
+  ): Promise<z.infer<typeof dealAirlineSchema>> {
+    const now = new Date();
+    const rows = await this.prisma.routeFare.findMany({
+      where: {
+        carrierCode: code,
+        observedOn: { gte: daysBefore(now, TYPICAL_DAYS - 1) },
+        route: { active: true },
+      },
+      include: { route: { include: routeInclude } },
+    });
+    if (rows.length === 0) throw new NotFoundException();
+    const [record] = await this.prisma.airline.findMany({
+      where: { iataCode: code, active: true },
+      take: 1,
+    });
+    const price = await this.priceFor(currency, client, now);
+    const byRoute = new Map<string, typeof rows>();
+    for (const row of rows) byRoute.set(row.routeId, [...(byRoute.get(row.routeId) ?? []), row]);
+    const routes = [...byRoute.values()].flatMap((routeRows) => {
+      const cheapest = routeRows.reduce((best, row) => (row.usdMinor < best.usdMinor ? row : best));
+      return [
+        {
+          ...this.summary(cheapest.route),
+          cheapest: {
+            price: toWire(price.fare(cheapest.route, cheapest)),
+            departureDate: isoDate(cheapest.departureDate),
+          },
+          direct: routeRows.some((row) => row.stops === 0),
+          fastestMinutes: Math.min(...routeRows.map((row) => row.durationMinutes)),
+          sample: routeRows.some((row) => row.supplier === MOCK_SUPPLIER),
+        },
+      ];
+    });
+    routes.sort((a, b) => a.slug.localeCompare(b.slug));
+    const latest = rows.reduce((best, row) => (row.updatedAt > best.updatedAt ? row : best));
+    return {
+      airline: { code, name: record?.name ?? latest.carrierName, logoUrl: record?.logoUrl ?? null },
+      currency,
+      routes,
     };
   }
 
@@ -192,6 +373,7 @@ export class DealsService {
         },
         'USD',
       );
+    await this.routeFacts.record(route.id, offers, usd, now);
     const cheapest = offers.reduce((best, offer) =>
       compare(usd(offer), usd(best)) < 0 ? offer : best,
     );
@@ -249,36 +431,52 @@ export class DealsService {
     };
   }
 
-  /** Prices snapshots per adult with the current rules, display currency and sales channel. */
+  /**
+   * Prices snapshots and fare history per adult with the current rules, display currency and
+   * sales channel. Supplier cost goes in; only the priced total comes out.
+   */
   private async priceFor(
     currency: string,
     client: ClientContext,
     now: Date,
-  ): Promise<(route: RouteWithAirports, snapshot: DealSnapshot) => FlightDealDto> {
+  ): Promise<{
+    deal: (route: RouteWithAirports, snapshot: DealSnapshot) => FlightDealDto;
+    fare: (route: RouteWithAirports, fare: RouteFare) => Money;
+  }> {
     const pricer = await this.pricing.pricer('flights', currency);
-    return (route, snapshot) => {
-      const { breakdown } = pricer(
+    const total = (
+      route: RouteWithAirports,
+      source: {
+        baseMinor: bigint;
+        taxesMinor: bigint;
+        currency: string;
+        supplier: string;
+        carrierCode: string;
+      },
+      countries: { originCountry: string; destinationCountry: string },
+    ): Money =>
+      pricer(
         {
-          base: money(snapshot.baseMinor, snapshot.currency),
-          taxes: money(snapshot.taxesMinor, snapshot.currency),
+          base: money(source.baseMinor, source.currency),
+          taxes: money(source.taxesMinor, source.currency),
         },
         {
           vertical: 'flights',
-          supplier: snapshot.supplier,
+          supplier: source.supplier,
           channel: client.channel,
           userTier: client.userTier,
           benefits: client.benefits,
           originCode: route.originCode,
           destinationCode: route.destinationCode,
-          originCountry: snapshot.originCountry,
-          destinationCountry: snapshot.destinationCountry,
-          carrierCode: snapshot.carrierCode,
+          ...countries,
+          carrierCode: source.carrierCode,
           cabinClass: route.cabinClass,
           passengers: 1,
           now,
         },
-      );
-      return {
+      ).breakdown.total;
+    return {
+      deal: (route, snapshot) => ({
         id: snapshot.id,
         routeSlug: route.slug,
         origin: placeOf(route.origin),
@@ -289,10 +487,20 @@ export class DealsService {
         cabinClass: route.cabinClass,
         stops: snapshot.stops,
         durationMinutes: snapshot.durationMinutes,
-        price: toWire(breakdown.total),
+        price: toWire(
+          total(route, snapshot, {
+            originCountry: snapshot.originCountry,
+            destinationCountry: snapshot.destinationCountry,
+          }),
+        ),
         sample: snapshot.supplier === MOCK_SUPPLIER,
         updatedAt: snapshot.fetchedAt.toISOString(),
-      };
+      }),
+      fare: (route, fare) =>
+        total(route, fare, {
+          originCountry: route.origin.countryCode,
+          destinationCountry: route.destination.countryCode,
+        }),
     };
   }
 }

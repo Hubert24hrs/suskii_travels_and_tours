@@ -719,10 +719,38 @@ model DealRoute {
   origin          Airport        @relation("DealRouteOrigin", fields: [originCode], references: [iataCode])
   destination     Airport        @relation("DealRouteDestination", fields: [destinationCode], references: [iataCode])
   snapshots       DealSnapshot[]
+  fares           RouteFare[]
 
   @@unique([originCode, destinationCode, cabinClass])
   @@index([active, sortOrder])
   @@map("deal_routes")
+}
+
+/// Fare history for route facts (ADR-080): the cheapest fare found per route, observation day
+/// (UTC) and departure date. Supplier cost, priced only at read time; no personal data.
+model RouteFare {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  routeId         String    @map("route_id") @db.Uuid
+  observedOn      DateTime  @map("observed_on") @db.Date
+  departureDate   DateTime  @map("departure_date") @db.Date
+  returnDate      DateTime? @map("return_date") @db.Date
+  supplier        String
+  carrierCode     String    @map("carrier_code") @db.VarChar(3)
+  carrierName     String    @map("carrier_name")
+  /// Outbound slice.
+  stops           Int
+  durationMinutes Int       @map("duration_minutes")
+  baseMinor       BigInt    @map("base_minor")
+  taxesMinor      BigInt    @map("taxes_minor")
+  currency        String    @db.Char(3)
+  /// Base plus taxes in US cents when found: compares fares quoted in different currencies.
+  usdMinor        BigInt    @map("usd_minor")
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  route           DealRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, observedOn, departureDate])
+  @@index([observedOn])
+  @@map("route_fares")
 }
 
 /// Cheapest fare found by one refresh. Supplier price plus the context markup rules need; the

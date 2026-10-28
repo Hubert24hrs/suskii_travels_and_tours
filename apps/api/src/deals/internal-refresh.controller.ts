@@ -14,6 +14,7 @@ import {
 } from './deals.schemas';
 import { DealsService } from './deals.service';
 import { DestinationsService } from './destinations.service';
+import { RouteFactsService } from './route-facts.service';
 
 const TAGS = ['Internal'];
 
@@ -24,6 +25,7 @@ export class InternalRefreshController {
   constructor(
     private readonly deals: DealsService,
     private readonly destinations: DestinationsService,
+    private readonly routeFacts: RouteFactsService,
   ) {}
 
   @Get('refresh-targets')
@@ -75,16 +77,17 @@ export class InternalRefreshController {
   @HttpCode(HttpStatus.OK)
   @Contract({
     operationId: 'pruneSnapshots',
-    summary: 'Delete deal and destination snapshots past the retention window',
+    summary: 'Delete deal and destination snapshots and route fare history past retention',
     tags: TAGS,
     responses: { 200: pruneResultSchema },
     errors: [401, 404],
   })
   async prune(): Promise<z.infer<typeof pruneResultSchema>> {
-    const [deletedDeals, deletedDestinations] = await Promise.all([
+    const [deletedDeals, deletedDestinations, deletedFares] = await Promise.all([
       this.deals.prune(),
       this.destinations.prune(),
+      this.routeFacts.prune(),
     ]);
-    return { deletedDeals, deletedDestinations };
+    return { deletedDeals, deletedDestinations, deletedFares };
   }
 }

@@ -248,7 +248,7 @@ describe('homepage data (e2e): content, deals, destinations, newsletter', () => 
         data: { fetchedAt: new Date(Date.now() - 8 * 24 * HOUR) },
       });
       const pruned = await internal('post', '/v1/internal/snapshots/prune').expect(200);
-      expect(pruned.body).toEqual({ deletedDeals: 1, deletedDestinations: 0 });
+      expect(pruned.body).toEqual({ deletedDeals: 1, deletedDestinations: 0, deletedFares: 0 });
     });
 
     it('describes routes for SEO pages', async () => {

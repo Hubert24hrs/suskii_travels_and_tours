@@ -7,7 +7,13 @@ import { Contract } from '../contract/contract';
 import { clientContext } from '../search/client-context';
 
 import {
+  airlineCodeParamsSchema,
+  citySlugParamsSchema,
   currencyOnlyQuerySchema,
+  dealAirlineSchema,
+  dealAirlinesSchema,
+  dealCitiesSchema,
+  dealCitySchema,
   dealRouteParamsSchema,
   dealRouteSchema,
   dealRoutesSchema,
@@ -74,5 +80,69 @@ export class DealsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof dealRouteSchema>> {
     return this.deals.route(slug, query.currency, clientContext(request));
+  }
+
+  @Get('cities')
+  @Header('Cache-Control', 'public, max-age=300')
+  @Contract({
+    operationId: 'listDealCities',
+    summary: 'Cities with popular routes (hub pages and sitemap, ADR-080)',
+    tags: TAGS,
+    responses: { 200: dealCitiesSchema },
+  })
+  cities(): Promise<z.infer<typeof dealCitiesSchema>> {
+    return this.deals.cities();
+  }
+
+  @Get('cities/:slug')
+  @Header('Cache-Control', PRICED_CACHE)
+  @Header('Vary', 'X-Suskii-Client')
+  @Contract({
+    operationId: 'getDealCity',
+    summary: 'A city hub: popular routes from and to the city with their fares',
+    tags: TAGS,
+    params: citySlugParamsSchema,
+    query: currencyOnlyQuerySchema,
+    responses: { 200: dealCitySchema },
+    errors: [404],
+  })
+  city(
+    @Param('slug') slug: string,
+    @Query() query: z.infer<typeof currencyOnlyQuerySchema>,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof dealCitySchema>> {
+    return this.deals.city(slug, query.currency, clientContext(request));
+  }
+
+  @Get('airlines')
+  @Header('Cache-Control', 'public, max-age=300')
+  @Contract({
+    operationId: 'listDealAirlines',
+    summary: 'Airlines seen on popular routes in the last 90 days (airline pages, ADR-080)',
+    tags: TAGS,
+    responses: { 200: dealAirlinesSchema },
+  })
+  airlines(): Promise<z.infer<typeof dealAirlinesSchema>> {
+    return this.deals.airlines();
+  }
+
+  @Get('airlines/:code')
+  @Header('Cache-Control', PRICED_CACHE)
+  @Header('Vary', 'X-Suskii-Client')
+  @Contract({
+    operationId: 'getDealAirline',
+    summary: 'An airline page: the popular routes it flies with its own cheapest fares',
+    tags: TAGS,
+    params: airlineCodeParamsSchema,
+    query: currencyOnlyQuerySchema,
+    responses: { 200: dealAirlineSchema },
+    errors: [404],
+  })
+  airline(
+    @Param('code') code: string,
+    @Query() query: z.infer<typeof currencyOnlyQuerySchema>,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof dealAirlineSchema>> {
+    return this.deals.airline(code, query.currency, clientContext(request));
   }
 }

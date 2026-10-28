@@ -82,6 +82,40 @@ export const dealRoutesSchema = named(
 
 export const dealRouteParamsSchema = z.object({ slug: z.string().max(80).regex(SLUG) });
 
+const carrierSchema = z.object({ code: z.string(), name: z.string() });
+
+export const routeFactsSchema = named(
+  'RouteFacts',
+  z
+    .object({
+      cheapest: z
+        .object({ price: moneySchema, departureDate: isoDate, carrier: carrierSchema })
+        .meta({ description: 'Lowest fare found in the last 30 days.' }),
+      typical: moneySchema.meta({
+        description: "Median of each day's cheapest fare over the last 90 days.",
+      }),
+      airlines: z
+        .array(carrierSchema)
+        .meta({ description: 'Airlines seen in the last 90 days, most often first.' }),
+      direct: z.boolean().meta({ description: 'A nonstop outbound flight was seen in 90 days.' }),
+      fastestMinutes: z
+        .number()
+        .int()
+        .meta({ description: 'Shortest outbound journey seen in 90 days.' }),
+      cheapestMonth: z.number().int().min(1).max(12).nullable().meta({
+        description:
+          'Departure month with the lowest median fare over a year; null until three months were seen.',
+      }),
+      observedDays: z.number().int().meta({ description: 'Days with fares in the last 90.' }),
+      sample: z.boolean().meta({ description: 'Built from mock supplier fares: show as sample.' }),
+      updatedAt: z.iso.datetime(),
+    })
+    .meta({
+      description:
+        "What the fare history says about a route (ADR-080): one adult, return, the route's cabin, priced with today's rules.",
+    }),
+);
+
 export const dealRouteSchema = named(
   'DealRouteDetail',
   dealRouteSummarySchema.extend({
@@ -89,7 +123,85 @@ export const dealRouteSchema = named(
     stayNights: z.number().int(),
     currency: z.string(),
     deal: flightDealSchema.nullable().meta({ description: 'Latest fresh fare, if any.' }),
+    facts: routeFactsSchema
+      .nullable()
+      .meta({ description: 'Null until enough days of fares exist (ADR-080).' }),
     relatedRoutes: z.array(dealRouteSummarySchema),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// City hubs and airline pages (ADR-080)
+// ---------------------------------------------------------------------------
+
+export const citySlugParamsSchema = z.object({ slug: z.string().max(80).regex(SLUG) });
+
+const cityRouteSchema = dealRouteSummarySchema.extend({
+  deal: flightDealSchema.nullable().meta({ description: 'Latest fresh fare, if any.' }),
+  typical: moneySchema.nullable().meta({ description: 'Typical fare (90-day median), if known.' }),
+  direct: z.boolean().nullable().meta({ description: 'A nonstop flight was seen, if known.' }),
+});
+
+export const dealCitiesSchema = named(
+  'DealCities',
+  z.object({
+    cities: z.array(
+      z.object({
+        slug: z.string(),
+        name: z.string(),
+        countryCode: z.string(),
+        departures: z.number().int().meta({ description: 'Active routes from this city.' }),
+        arrivals: z.number().int().meta({ description: 'Active routes to this city.' }),
+      }),
+    ),
+  }),
+);
+
+export const dealCitySchema = named(
+  'DealCity',
+  z.object({
+    city: z.object({ slug: z.string(), name: z.string(), countryCode: z.string() }),
+    currency: z.string(),
+    departures: z.array(cityRouteSchema),
+    arrivals: z.array(cityRouteSchema),
+  }),
+);
+
+export const airlineCodeParamsSchema = z.object({
+  code: z
+    .string()
+    .regex(/^[A-Z0-9]{2}$/)
+    .meta({ description: 'IATA airline designator, upper case.' }),
+});
+
+export const dealAirlinesSchema = named(
+  'DealAirlines',
+  z.object({
+    airlines: z.array(
+      z.object({
+        code: z.string(),
+        name: z.string(),
+        routes: z.number().int().meta({ description: 'Routes the airline was seen on (90 days).' }),
+      }),
+    ),
+  }),
+);
+
+export const dealAirlineSchema = named(
+  'DealAirline',
+  z.object({
+    airline: z.object({ code: z.string(), name: z.string(), logoUrl: z.string().nullable() }),
+    currency: z.string(),
+    routes: z.array(
+      dealRouteSummarySchema.extend({
+        cheapest: z
+          .object({ price: moneySchema, departureDate: isoDate })
+          .meta({ description: "The airline's lowest fare on the route in the last 90 days." }),
+        direct: z.boolean().meta({ description: 'The airline flew it nonstop in 90 days.' }),
+        fastestMinutes: z.number().int(),
+        sample: z.boolean(),
+      }),
+    ),
   }),
 );
 
@@ -144,7 +256,11 @@ export const refreshResultSchema = named(
 
 export const pruneResultSchema = named(
   'PruneResult',
-  z.object({ deletedDeals: z.number().int(), deletedDestinations: z.number().int() }),
+  z.object({
+    deletedDeals: z.number().int(),
+    deletedDestinations: z.number().int(),
+    deletedFares: z.number().int().meta({ description: 'Route fare history past retention.' }),
+  }),
 );
 
 export const routeIdParamsSchema = z.object({ routeId: z.uuid() });
