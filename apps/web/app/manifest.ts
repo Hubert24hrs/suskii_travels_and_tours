@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: color.primary,
     // Built from the logo by scripts/brand-assets.mjs (ADR-068).
     icons: [
-      { src: '/icon.png', type: 'image/png', sizes: '512x512' },
+      { src: '/brand/icon-512.png', type: 'image/png', sizes: '512x512' },
       { src: '/apple-icon.png', type: 'image/png', sizes: '180x180' },
     ],
   };
