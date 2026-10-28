@@ -24,6 +24,9 @@ export interface DateRangePickerLabels {
   close: string;
   previousMonth: string;
   nextMonth: string;
+  /** Day label templates with `{date}`, used on pages in other languages than English. */
+  today?: string;
+  selected?: string;
 }
 
 export interface DateRangePickerProps {
@@ -90,6 +93,8 @@ export function DateRangePicker({
         weekStartsOn={weekStartsOn}
         previousMonthLabel={labels.previousMonth}
         nextMonthLabel={labels.nextMonth}
+        todayLabel={labels.today}
+        selectedLabel={labels.selected}
       />
     </Suspense>
   );

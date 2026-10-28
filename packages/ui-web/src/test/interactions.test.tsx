@@ -103,6 +103,9 @@ describe('DateRangePicker', () => {
       const caption = page.getByText('أكتوبر 2026').first();
       await expect.element(caption).toBeInTheDocument();
       expect(caption.element().closest('[dir="rtl"]')).not.toBeNull();
+      await expect
+        .element(page.getByRole('button', { name: /12 أكتوبر 2026/ }).first())
+        .toBeVisible();
     } finally {
       root.lang = previous.lang;
       root.dir = previous.dir;

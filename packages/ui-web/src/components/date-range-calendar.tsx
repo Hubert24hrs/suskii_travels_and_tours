@@ -1,6 +1,12 @@
 'use client';
 
-import { DayPicker, type ClassNames, type DateRange, type DayPickerLocale } from '@daypicker/react';
+import {
+  DayPicker,
+  type ClassNames,
+  type DateRange,
+  type DayPickerLocale,
+  type Modifiers,
+} from '@daypicker/react';
 
 // Selected cells are highlighted on the <td>; `group` lets the day button react to that state.
 const classNames: Partial<ClassNames> = {
@@ -44,21 +50,34 @@ export interface DateRangeCalendarProps {
   weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | undefined;
   previousMonthLabel: string;
   nextMonthLabel: string;
+  /** Day label templates with `{date}` ("Today, {date}", "{date}, selected"), other languages. */
+  todayLabel?: string | undefined;
+  selectedLabel?: string | undefined;
 }
 
 /**
- * The page's language and direction (`<html lang dir>`). The calendar only renders in the browser,
- * after a picker opens, so the document is there; Latin digits match the rest of the page.
+ * Month, weekday and day names from Intl in the page's language, with Latin digits (ADR-076).
+ * English pages keep DayPicker's own names and labels; so does a page that passes a date-fns
+ * locale. The calendar only renders in the browser, after a picker opens.
  */
-function pageLanguage() {
-  const root = typeof document === 'undefined' ? null : document.documentElement;
-  const declared = root?.lang ?? '';
-  const lang = `${declared === '' ? 'en' : declared}-u-nu-latn`;
+function pageNames(todayLabel: string | undefined, selectedLabel: string | undefined) {
+  const lang = typeof document === 'undefined' ? '' : document.documentElement.lang;
+  if (lang === '' || /^en(?:-|$)/i.test(lang)) return {};
+  const tag = `${lang}-u-nu-latn`;
+  const month = new Intl.DateTimeFormat(tag, { month: 'long', year: 'numeric' });
+  const weekday = new Intl.DateTimeFormat(tag, { weekday: 'narrow' });
+  const fullDate = new Intl.DateTimeFormat(tag, { dateStyle: 'full' });
   return {
-    dir: root?.dir === 'rtl' ? ('rtl' as const) : ('ltr' as const),
-    month: new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }),
-    weekday: new Intl.DateTimeFormat(lang, { weekday: 'narrow' }),
-    fullDate: new Intl.DateTimeFormat(lang, { dateStyle: 'full' }),
+    formatters: {
+      formatCaption: (date: Date) => month.format(date),
+      formatWeekdayName: (date: Date) => weekday.format(date),
+    },
+    labelDayButton: (date: Date, modifiers: Modifiers) => {
+      let label = fullDate.format(date);
+      if (modifiers.today && todayLabel) label = todayLabel.replace('{date}', label);
+      if (modifiers.selected && selectedLabel) label = selectedLabel.replace('{date}', label);
+      return label;
+    },
   };
 }
 
@@ -76,27 +95,22 @@ export default function DateRangeCalendar({
   weekStartsOn,
   previousMonthLabel,
   nextMonthLabel,
+  todayLabel,
+  selectedLabel,
 }: DateRangeCalendarProps) {
-  const page = pageLanguage();
+  const { formatters, labelDayButton } = locale ? {} : pageNames(todayLabel, selectedLabel);
   const shared = {
     numberOfMonths,
     classNames,
     autoFocus: true,
-    dir: page.dir,
+    dir: typeof document !== 'undefined' && document.documentElement.dir === 'rtl' ? 'rtl' : 'ltr',
     labels: {
       labelPrevious: () => previousMonthLabel,
       labelNext: () => nextMonthLabel,
-      ...(locale ? {} : { labelDayButton: (date: Date) => page.fullDate.format(date) }),
+      ...(labelDayButton ? { labelDayButton } : {}),
     },
-    // Without a date-fns locale, month and weekday names come from Intl in the page's language.
-    ...(locale
-      ? { locale }
-      : {
-          formatters: {
-            formatCaption: (month: Date) => page.month.format(month),
-            formatWeekdayName: (day: Date) => page.weekday.format(day),
-          },
-        }),
+    ...(formatters ? { formatters } : {}),
+    ...(locale ? { locale } : {}),
     ...(minDate ? { disabled: { before: minDate }, startMonth: minDate } : {}),
     ...(weekStartsOn === undefined ? {} : { weekStartsOn }),
   };

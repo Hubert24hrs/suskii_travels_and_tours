@@ -59,6 +59,8 @@ export function DateField({
         close: t('search.datePicker.close'),
         previousMonth: t('search.datePicker.previousMonth'),
         nextMonth: t('search.datePicker.nextMonth'),
+        today: t('search.datePicker.today'),
+        selected: t('search.datePicker.selected'),
       }}
       error={error}
     />
