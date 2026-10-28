@@ -36,7 +36,8 @@ On the throttled phone profile, against the e2e stack built from the base branch
 | 3    | Compressed search and catalog answers (Brotli or gzip) from the API, for public search and catalog routes only                                                   | `apps/api/src/app.setup.ts`                                 |
 | 4    | Connect to the API early (`preconnect` on every page) and a 48 px tab icon instead of the 512 px one (the install manifest keeps a 512 px icon)                  | web root layout, `scripts/brand-assets.mjs`, `manifest.ts`  |
 | 5    | Data saver: a footer choice on the website (else the browser's `Save-Data` signal) and a setting in the app; 10 results per page, city art instead of photos     | web, app, `@suskii/i18n`                                    |
-| 6    | Docs: ADR-075, CLAUDE.md, CHANGELOG                                                                                                                              | `docs/`                                                     |
+| 6    | The search starts as the form is submitted (the results page picks it up), and the first four cards draw before the filters and the rest of the list             | `lib/search-handoff.ts`, search forms, web results          |
+| 7    | Docs: ADR-075, CLAUDE.md, CHANGELOG                                                                                                                              | `docs/`                                                     |
 
 ## Risks
 
@@ -47,3 +48,24 @@ On the throttled phone profile, against the e2e stack built from the base branch
   can leak the secret (BREACH). Only public search and catalog answers are compressed at the
   origin; nothing with a token or personal data.
 - **Flaky timing in CI.** Shared runners vary; the test takes the median of three runs.
+
+## Outcome
+
+Built as planned (ADR-075). Pressing Search on the homepage to the first fare, on the throttled
+phone profile, median of three fresh browsers:
+
+| Step                                                    | Median |
+| ------------------------------------------------------- | ------ |
+| Before                                                  | 8.4 s  |
+| One round trip, compressed answers, early connect, icon | 3.1 s  |
+| Search started by the form, first cards first           | 2.1 s  |
+
+The last local run measured 2139, 2113 and 2004 ms. The `slow-3g` Playwright project runs the
+journey in CI and fails above 3 s; the API e2e checks the first-page size and compression, and
+the app's Jest tests check the single round trip and the data-saver page size.
+
+Tried and dropped: loading the results page's code when the form is first touched. Next.js
+splits that code into different chunks for the results route, so the download was wasted.
+
+Open: real supplier time (Duffel answers in seconds) is outside the budget and still adds to what
+travellers see; streaming partial results is a possible next step.

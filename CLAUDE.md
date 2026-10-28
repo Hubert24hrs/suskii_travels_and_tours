@@ -63,6 +63,8 @@ the rates wait for the owner's accountant. Item 2, a one-tap full refund when th
 significantly changes a flight, is built (`docs/phases/refund-offer.md`). Item 3, payment methods
 (mobile money, transfers, USSD, Apple Pay and Google Pay, cash at an agent, Stripe 3D Secure), is
 built (`docs/phases/payment-methods.md`); the channel names wait for one sandbox payment per method.
+Item 4, search results in under 3 seconds on slow 3G and a mid-range Android with a data saver, is
+built and tested in CI (`docs/phases/fast-on-slow-3g.md`, 2.1 s median).
 
 Phase 12 status: images, Terraform (GCP + Cloudflare), the Helm chart, the pipelines and the store
 content are built; the compose release rehearsal passes. Deploying, the kind rehearsal and store
@@ -395,6 +397,12 @@ Tooling notes for agents:
   session storage through `lib/booking-token.ts`.
 - Result filters and sort live in the URL (`useUrlParams`). Fetched state is keyed by its inputs
   instead of being reset inside effects (the React Compiler lint rejects `setState` in effects).
+- Search is one round trip (ADR-075): the search forms start the POST (`lib/search-handoff.ts`)
+  and the results page shows the first page it answers with, asking for another page only when
+  the sort, filters or page change. Pass the page size (`limit`, 10 under the data saver, else 20) everywhere a search is started or paged. The `slow-3g` e2e project fails above 3 s from
+  pressing Search to the first fare; keep heavy work on the results page behind `AfterPaint`.
+- Data saver (`getDataSaver()`: the `__Host-suskii_data_saver` cookie, else `Save-Data: on`)
+  means 10 results per page and city art instead of photos; new image-heavy sections honour it.
 - Checkout, payment and booking pages are private: `noIndex` metadata and robots.txt disallow.
 - Never import a message catalog (`getMessages`) into a client component: the whole catalog then
   ships with every page using it. Pass a subset through `I18nProvider` (the root layout gives the
@@ -445,6 +453,9 @@ Tooling notes for agents:
   needs a polyfill there and a case in `polyfills.test.ts` (Jest runs on Node's full `Intl`).
 - Push permission is requested only after a booking or from Account (`followBooking`,
   `followAccount`), never on launch.
+- Results screens show the page the search answers with (`initialData` while the filters are
+  the defaults) and send `limit` (10 when `useApp().dataSaver` is on, else 20) on every search
+  and page (ADR-075).
 - Test builds find the hosted test server at launch (`discoverHostedServer`, ADR-066); read the
   API and website origins through `appConfig` getters (they can change at runtime) and
   `webHost()`, never cache them at module load. A server chosen under Test server wins.
@@ -664,6 +675,8 @@ Tooling notes for agents:
   needs an existing runbook (`observability.spec.ts`); CI runs promtool on the rules.
 - Outbound HTTP uses `redirect: 'error'` and a timeout. Production refuses plain http for every
   provider, the internal API, Postgres, Redis, OTLP (except localhost) and SMTP.
+- The API compresses only the public reads in `COMPRESSED_PATHS` (`app.setup.ts`, ADR-075).
+  Never add a route whose answer can hold a token or personal data (BREACH).
 - Every `<form>` has a `method` (`post` for personal data, `get` only for searches); a lint rule
   enforces it.
 - Website cookies and storage keys go in `apps/web/lib/cookie-catalog.ts` (an e2e test fails on
@@ -820,6 +833,7 @@ Tooling notes for agents:
 - [ADR-072: All-in prices and tax rules per country](docs/decisions/ADR-072-all-in-prices-and-tax-rules.md)
 - [ADR-073: Refund offer for airline changes](docs/decisions/ADR-073-refund-offer-for-airline-changes.md)
 - [ADR-074: Payment methods at checkout](docs/decisions/ADR-074-payment-methods-at-checkout.md)
+- [ADR-075: Fast on slow 3G](docs/decisions/ADR-075-fast-on-slow-3g.md)
 
 ## Open questions for the owner
 
@@ -906,4 +920,5 @@ airline change, to confirm Duffel quotes the full involuntary refund. Added with
 (ADR-074): one sandbox payment per method with Paystack and Flutterwave test keys (to confirm the
 channel names), whether Apple Pay is enabled on the Paystack account, Flutterwave's "Enable
 Dashboard Payment Options" turned off, and whether to apply for long-lived transfer accounts for
-agent payments.
+agent payments. Added with fast on slow 3G (ADR-075): one check on a real mid-range Android phone
+on slow mobile data, through the hosted test server, to compare with the emulated numbers.
