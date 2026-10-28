@@ -24,11 +24,18 @@ what the first marketing tag must bring.
    SDKs (ADR-042 rule 7); app install campaigns are an owner decision for later.
 2. **First-visit prompt.** While a tag is configured and the visitor has no choice under the
    current policy, a bottom prompt offers "Accept all" and "Reject all" with equal weight, and
-   "Choose" (the existing dialog). Its code loads after the page is interactive and it is
-   fixed-position (no layout shift); the homepage budget stays at 170 kB. `COOKIE_POLICY_VERSION`
+   "Choose" (the existing dialog). It is fixed-position (no layout shift). `COOKIE_POLICY_VERSION`
    becomes 2, so every earlier choice is asked again.
+   - **Homepage budget.** The homepage sat 101 bytes under its 170 kB budget, so nothing new can
+     ship with every page. The server reads the consent cookie with each request (pages render
+     per request) and tells a small `Marketing` component whether to ask, to start the tags or to
+     do nothing; the prompt and the tags are separate chunks loaded only when needed. A visitor
+     who said no loads no ad code, and a first visit adds the prompt (about 2 kB) after the page
+     is interactive. The header's signed-in check also stopped pulling in the session refresh
+     code, so the homepage ships less than before (173,815 bytes against 173,979).
 3. **Tags load only after `marketing` consent**, from our own bundle (trusted by
-   `strict-dynamic`), and stop at the next page load after a withdrawal. The CSP adds the
+   `strict-dynamic`). After a withdrawal no page event reaches them (every call re-checks the
+   cookie), and the tags themselves are gone at the next page load. The CSP adds the
    networks' `connect-src` and `img-src` hosts only when that network is configured.
 4. **Browser events** are standard names with trip facts only: `PageView`, `Search` (vertical and
    IATA codes), `ViewContent`, `InitiateCheckout` and `Purchase` (value and currency from the API's

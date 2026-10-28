@@ -710,11 +710,13 @@ Tooling notes for agents:
 
 ### Ads with consent (apps/web, apps/api/src/marketing, ADR-079)
 
-- The website's Meta and TikTok tags start only through `AdTags` after
-  `hasCookieConsent('marketing')` (or the `suskii:consent` event); their code is a dynamic
-  import, so pages without consent ship none of it. Ids come from `META_PIXEL_ID` /
-  `TIKTOK_PIXEL_ID` at request time (`adTagConfig()`); unset means no tag, no prompt and no CSP
-  hosts (`adTagOrigins`).
+- The website's Meta and TikTok tags start only through `Marketing` (root layout): the server
+  reads the consent cookie (`getMarketingState()`: `ask`, `allowed` or `refused`) and the
+  prompt and `AdTags` are lazy chunks loaded only when needed; a later choice arrives as the
+  `suskii:consent` event with the choices in `detail`. Keep anything that imports consent
+  parsing or ad code out of modules every page loads: the homepage budget has almost no room.
+  Ids come from `META_PIXEL_ID` / `TIKTOK_PIXEL_ID` at request time (`adTagConfig()`); unset
+  means no tag, no prompt and no CSP hosts (`adTagOrigins`).
 - Pages report through `trackAd(event, params)` or `<TrackAd>` with trip facts only: the booking
   vertical as content id, airport codes for a flight search, value and currency from an API
   `Money` (`adValue`), the booking id as Purchase event id. Never a name, email, phone or
