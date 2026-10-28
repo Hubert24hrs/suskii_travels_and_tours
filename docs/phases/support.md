@@ -184,3 +184,40 @@ connects a number.
 6. Send a test message from a phone to the number. It should appear in the console under
    Support with the WhatsApp channel filter. Then send one from an account that uses a WhatsApp
    username, to confirm how replies reach a business-scoped user id.
+
+## Part 3 plan: the after-hours assistant (ADR-085)
+
+When nobody is on shift, a traveller who writes to support gets an answer in seconds, drawn only
+from the published FAQs and, when the conversation is about one of their bookings, that
+booking's facts. The assistant never acts (no cancellations, refunds, changes or promises),
+says when it cannot help, and leaves the conversation in the queue for a person, with its SLA
+timers running.
+
+| Step | Work                                                                                                                                                                                                                        | Files                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| 1    | Shared: staffed hours (`parseSupportHours()`, `supportStaffed()`), the `assistant` author and the `handover` message kind, assistant limits; copy in every catalog                                                          | `packages/shared`, `packages/i18n`            |
+| 2    | Settings: `SUPPORT_ASSISTANT_ENABLED` (off unless set), `SUPPORT_HOURS` and `SUPPORT_TIME_ZONE`, replies per conversation, daily and per-conversation spend caps; the model settings stay those of AI trip search (`LLM_*`) | `src/config`, `.env.example`, Terraform, Helm |
+| 3    | Database: the `assistant` author, the `handover` kind and the sources an answer cited (`assistant_sources`); expand-only migration                                                                                          | `prisma`                                      |
+| 4    | Answering: the facts a booking may show (`assistantBookingFacts()`: no names, contacts, documents, codes or references), the prompt, structured output, the grounding checks (sources, figures, links, length) and handover | `src/support/assistant`                       |
+| 5    | Service: after a traveller's message commits (website, app, WhatsApp), outside staffed hours, before any staff reply and under the caps: one answer or one handover; never touches SLA fields; a lock per conversation      | `src/support/assistant`                       |
+| 6    | Budget: AI trip search's reservation (reserve the worst case, settle to the bill) with its own keys and caps; metrics for outcomes, tokens and cost                                                                         | `src/ai-search`, `src/telemetry`              |
+| 7    | Clients: assistant messages labelled "Automated answer" with a note that a person will also read the message; the handover in the traveller's language; the console shows the cited sources                                 | `apps/web`, `apps/mobile`, `apps/admin`       |
+| 8    | Eval: 40 conversations over 12 FAQs and 5 bookings (answers, handovers, prompt injection, action requests, private data), graded by rule; recorded answers in CI, the real model through `ai-eval.yml`                      | `test/fixtures`, `scripts`, `.github`         |
+| 9    | Tests (unit, API e2e, web e2e, app Jest, console e2e) and docs                                                                                                                                                              | everywhere                                    |
+
+### Part 3 risks
+
+- **A wrong answer about money or a trip.** The model sees only FAQs and the booking's facts,
+  must cite what it used, and every figure in its answer must appear in what it cited; links,
+  email addresses and phone numbers must too. Anything else becomes a handover. The eval fails
+  on any answer where a handover was expected.
+- **Prompt injection.** The traveller's words are data in the user turn; the model has no
+  tools, its output is a JSON object checked by code, and nothing it says changes a booking.
+- **Personal data at a third party.** The traveller's text is scrubbed (`scrubQuery()`), the
+  booking facts carry no names, contact details, documents, ticket numbers, voucher codes or
+  references, and requests carry no user or conversation id. Nothing the model returns is
+  logged; only outcomes, latency, tokens and cost are measured.
+- **Cost.** A daily cap for all conversations, a per-conversation cap and at most three answers
+  per conversation; the assistant stops once a person has replied.
+- **Over-reliance.** Answers are labelled as automated, a person still reads every
+  conversation, and assistant answers never count as the first response in SLA reports.
