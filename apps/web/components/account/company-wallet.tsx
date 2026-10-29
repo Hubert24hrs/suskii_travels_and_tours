@@ -29,9 +29,9 @@ const STATUS_VARIANT: Record<TopUp['status'], 'success' | 'danger' | 'neutral'> 
 };
 
 /**
- * The company wallet (ADR-090) for admins and approvers: balances, recent movements and top-ups,
- * and, for admins, adding funds through the provider's hosted page. Coming back from that page
- * (`?topUp=`), the card follows the top-up until the provider confirms it.
+ * The company wallet (ADR-090) for admins and approvers: balances, recent movements and the funds
+ * added, and, for admins, adding funds through the provider's hosted page. Coming back from that
+ * page (`?topUp=`), the card follows that payment until the provider confirms it.
  */
 export function CompanyWallet() {
   const { t } = useAccountT();
@@ -170,7 +170,7 @@ export function CompanyWallet() {
               <li
                 key={topUp.id}
                 className="flex flex-col gap-1 py-2 md:flex-row md:items-center md:justify-between"
-                data-testid={`company-top-up-${topUp.reference}`}
+                data-testid={`company-funds-${topUp.reference}`}
               >
                 <span className="flex flex-col gap-1 font-body text-body-sm text-foreground">
                   <span className="font-bold">{topUp.reference}</span>
