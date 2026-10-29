@@ -81,7 +81,7 @@ like secrets (those belong in the component's Secret):
 {{- if has $key $reserved }}
 {{- fail (printf "%s.%s is set by the chart" $path $key) }}
 {{- end }}
-{{- if regexMatch "(SECRET|TOKEN|PASSWORD|PRIVATE|HMAC|ENCRYPTION_KEY$|ENCRYPTION_PREVIOUS_KEYS|_HASH$|_KEY$|^DATABASE_URL$|^REDIS_URL$)" $key }}
+{{- if regexMatch "(SECRET|TOKEN|PASSWORD|PRIVATE|HMAC|ENCRYPTION_KEY$|ENCRYPTION_PREVIOUS_KEYS|_HASH$|_KEY$|_APP_ID$|^DATABASE_URL$|^REDIS_URL$)" $key }}
 {{- fail (printf "%s.%s looks like a secret: put it in the component's Secret" $path $key) }}
 {{- end }}
 - { name: {{ $key }}, value: {{ $value | quote }} }
