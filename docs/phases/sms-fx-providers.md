@@ -36,6 +36,8 @@ Built as planned.
 | API typecheck and lint (changed files)       | clean                                                                     |
 | New unit tests (adapters, routing, settings) | 39 of 39 with the settings and notification specs                         |
 | API e2e: phone codes, channel off            | 15 of 15 and 1 of 1 (503 then an immediate retry; WhatsApp `channel_off`) |
+| API e2e: exchange rates (fake rates server)  | 6 of 6 (exact rate in a priced search, fixed naira rate, error codes)     |
+| Full API e2e with the coverage gates         | 618 of 623; the 5 S3 tests need Docker Hub (they pass in CI); gates met   |
 | Records of processing                        | regenerated; the privacy tests pass                                       |
 | Check script without keys                    | names every missing key and exits 1                                       |
 
