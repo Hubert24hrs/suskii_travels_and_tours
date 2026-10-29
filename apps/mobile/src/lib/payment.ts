@@ -13,6 +13,8 @@ export type PaymentStart =
   | { kind: 'provider-unavailable' }
   | { kind: 'method-unavailable' }
   | { kind: 'device' }
+  | { kind: 'company-wallet-insufficient' }
+  | { kind: 'company-wallet-unavailable' }
   | { kind: 'error' };
 
 /**
@@ -51,6 +53,9 @@ export async function startPayment(
     if (slug === 'payment-provider-unavailable') return { kind: 'provider-unavailable' };
     if (slug === 'payment-method-unavailable') return { kind: 'method-unavailable' };
     if (slug === 'attestation-required') return { kind: 'device' };
+    // Company wallet (ADR-090): short of funds, or not this traveller's to spend.
+    if (slug === 'company-wallet-insufficient') return { kind: 'company-wallet-insufficient' };
+    if (slug === 'company-wallet-unavailable') return { kind: 'company-wallet-unavailable' };
     return { kind: 'error' };
   } catch {
     return { kind: 'error' };

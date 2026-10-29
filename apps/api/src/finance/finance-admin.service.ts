@@ -63,6 +63,8 @@ export class FinanceAdminService {
         const data = { ledgerCheckedAt: null };
         if (row.subjectType === 'payment') await tx.payment.updateMany({ where, data });
         else if (row.subjectType === 'refund') await tx.refund.updateMany({ where, data });
+        else if (row.subjectType === 'company_topup')
+          await tx.companyWalletTopUp.updateMany({ where, data });
         else await tx.driverPayout.updateMany({ where, data });
       }
       await this.audit.record(

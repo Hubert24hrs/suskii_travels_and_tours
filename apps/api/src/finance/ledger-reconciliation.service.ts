@@ -3,6 +3,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { equals, money, type Money } from '@suskii/shared';
 
 import { BookingNotifications } from '../bookings/booking-notifications';
+import { walletRefundKey } from '../bookings/refunds.service';
+import { topUpCaptureKey } from '../companies/company-top-ups';
 import {
   Prisma,
   type DiscrepancyKind,
@@ -19,7 +21,12 @@ const BATCH = 100;
 const SWEEP_BUDGET_MS = 20_000;
 /** Capture postings this recent are checked against their payment's status every sweep. */
 const ORPHAN_WINDOW_DAYS = 7;
-const CAPTURE_KINDS = ['payment_captured', 'payment_unapplied', 'wallet_payment'];
+const CAPTURE_KINDS = [
+  'payment_captured',
+  'payment_unapplied',
+  'wallet_payment',
+  'company_wallet_payment',
+];
 
 const isUniqueViolation = (error: unknown): boolean =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
@@ -33,10 +40,11 @@ export interface Finding {
   actual: Money | null;
 }
 
+/** A top-up has no booking, so its facts carry a null booking id. */
 type PaymentFacts = Pick<
   Payment,
-  'id' | 'bookingId' | 'amountMinor' | 'currency' | 'requiresRefund' | 'failureReason'
->;
+  'id' | 'amountMinor' | 'currency' | 'requiresRefund' | 'failureReason'
+> & { bookingId: string | null };
 
 /**
  * What is wrong with a captured payment, given its capture posting (null when missing) and the
@@ -119,9 +127,11 @@ export class LedgerReconciliationService {
     const stopStartingAt = Date.now() + SWEEP_BUDGET_MS;
     const findings: Finding[] = [];
     const payments = await this.checkPayments(now, stopStartingAt, findings);
+    const topUps = await this.checkTopUps(now, stopStartingAt, findings);
     const refunds = await this.checkRefunds(now, findings);
     const payouts = await this.checkPayouts(now, findings);
     await this.checkOrphans(now, findings);
+    await this.checkTopUpOrphans(now, findings);
 
     let raised = 0;
     for (const finding of findings) if (await this.record(finding, now)) raised += 1;
@@ -130,9 +140,9 @@ export class LedgerReconciliationService {
       await this.notifications.ops('ledger.discrepancy', null, { count: String(raised) });
     }
     return {
-      checked: payments.checked + refunds + payouts,
+      checked: payments.checked + topUps.checked + refunds + payouts,
       discrepancies: raised,
-      unconfirmed: payments.unconfirmed,
+      unconfirmed: payments.unconfirmed + topUps.unconfirmed,
     };
   }
 
@@ -188,6 +198,78 @@ export class LedgerReconciliationService {
     return { checked, unconfirmed };
   }
 
+  /**
+   * Company wallet top-ups (ADR-090): each captured one against its credit to the company wallet
+   * and the provider's own record, at the amount the provider charged.
+   */
+  private async checkTopUps(
+    now: Date,
+    stopStartingAt: number,
+    findings: Finding[],
+  ): Promise<{ checked: number; unconfirmed: number }> {
+    const topUps = await this.prisma.companyWalletTopUp.findMany({
+      where: { status: 'succeeded', ledgerCheckedAt: null },
+      orderBy: { createdAt: 'asc' },
+      take: BATCH,
+    });
+    let checked = 0;
+    let unconfirmed = 0;
+    for (const topUp of topUps) {
+      const provider = this.providers.find(topUp.provider);
+      if (provider && Date.now() > stopStartingAt) break;
+      checked += 1;
+      const charged =
+        topUp.receivedMinor !== null && topUp.receivedCurrency
+          ? money(topUp.receivedMinor, topUp.receivedCurrency)
+          : money(topUp.amountMinor, topUp.currency);
+      const captured = await this.posted(topUpCaptureKey(topUp.id));
+      let verified: PaymentVerification | null = null;
+      let answered = true;
+      if (provider) {
+        try {
+          verified = await provider.verifyPayment({
+            providerReference: topUp.providerReference,
+            providerTransactionId: topUp.providerTransactionId,
+            amount: charged,
+          });
+          if (
+            verified.status === 'pending' ||
+            (verified.status === 'succeeded' && !verified.amount)
+          )
+            unconfirmed += 1;
+        } catch (error) {
+          answered = false;
+          unconfirmed += 1;
+          this.logger.warn(
+            { topUpId: topUp.id, reason: (error as Error).name },
+            'reconciliation could not verify a top-up',
+          );
+        }
+      }
+      findings.push(
+        ...paymentFindings(
+          {
+            id: topUp.id,
+            bookingId: null,
+            amountMinor: charged.minor,
+            currency: charged.currency,
+            requiresRefund: false,
+            failureReason: null,
+          },
+          captured,
+          verified,
+        ).map((finding) => ({ ...finding, subjectType: 'company_topup' as const })),
+      );
+      if (answered) {
+        await this.prisma.companyWalletTopUp.update({
+          where: { id: topUp.id },
+          data: { ledgerCheckedAt: now },
+        });
+      }
+    }
+    return { checked, unconfirmed };
+  }
+
   private async checkRefunds(now: Date, findings: Finding[]): Promise<number> {
     const refunds = await this.prisma.refund.findMany({
       where: { status: 'succeeded', ledgerCheckedAt: null },
@@ -197,9 +279,9 @@ export class LedgerReconciliationService {
     for (const refund of refunds) {
       // Wallet refunds post once; refunds to the card go out (initiated) and settle.
       const keys =
-        refund.destination === 'wallet'
-          ? [`refund:${refund.id}:to-wallet`]
-          : [`refund:${refund.id}:initiated`, `refund:${refund.id}:settled`];
+        refund.destination === 'original'
+          ? [`refund:${refund.id}:initiated`, `refund:${refund.id}:settled`]
+          : [walletRefundKey(refund)];
       findings.push(
         ...postingFindings(
           { subjectType: 'refund', subjectId: refund.id, bookingId: refund.bookingId },
@@ -257,6 +339,31 @@ export class LedgerReconciliationService {
         subjectType: 'payment',
         subjectId: orphan.payment_id,
         bookingId: orphan.booking_id,
+        expected: null,
+        actual: money(orphan.amount_minor, orphan.currency),
+      });
+    }
+  }
+
+  /** Money credited to a company wallet for a top-up that is not captured (ADR-090). */
+  private async checkTopUpOrphans(now: Date, findings: Finding[]): Promise<void> {
+    const since = new Date(now.getTime() - ORPHAN_WINDOW_DAYS * 86_400_000);
+    const orphans = await this.prisma.$queryRaw<
+      { top_up_id: string; currency: string; amount_minor: bigint }[]
+    >`
+      SELECT u.id AS top_up_id, e.currency, SUM(e.amount_minor)::bigint AS amount_minor
+      FROM ledger_transactions t
+      JOIN company_wallet_top_ups u ON t.idempotency_key = 'company-topup:' || u.id::text || ':captured'
+      JOIN ledger_entries e ON e.transaction_id = t.id AND e.direction = 'debit'
+      WHERE t.kind = 'company_topup_captured' AND t.created_at >= ${since} AND u.status <> 'succeeded'
+      GROUP BY u.id, e.currency
+      LIMIT ${BATCH}`;
+    for (const orphan of orphans) {
+      findings.push({
+        kind: 'orphan_ledger',
+        subjectType: 'company_topup',
+        subjectId: orphan.top_up_id,
+        bookingId: null,
         expected: null,
         actual: money(orphan.amount_minor, orphan.currency),
       });

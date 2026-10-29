@@ -49,6 +49,8 @@ export const RETENTION_RULES = [
   'rejected-reviews',
   // Company invitations (ADR-078).
   'company-invitations',
+  // Company wallet top-ups (ADR-090).
+  'company-top-ups',
   // Server-side ad conversions (ADR-079).
   'ad-conversions',
   // Metasearch landings (ADR-081).
@@ -138,6 +140,7 @@ export const RETENTION_DAYS = {
     | 'reconciliation-discrepancies'
     | 'rental-photos'
     | 'partner-conversions'
+    | 'company-top-ups'
   >,
   number
 >;
@@ -152,6 +155,8 @@ const CLOSED_STATUSES: BookingStatus[] = [
 ];
 const REDACTED_NAME = 'REDACTED';
 const DAY_MS = 86_400_000;
+/** Top-ups that were never paid are kept this long, to answer a company about them. */
+const UNPAID_TOP_UP_DAYS = 90;
 const BATCH = 200;
 
 const daysBefore = (now: Date, days: number): Date => new Date(now.getTime() - days * DAY_MS);
@@ -310,6 +315,25 @@ export class RetentionService {
       'company-invitations': counts(
         await this.prisma.companyInvitation.deleteMany({
           where: { expiresAt: { lt: before('company-invitations') } },
+        }),
+      ),
+      // Unpaid top-ups after 90 days; paid ones are the company's money, kept for the period.
+      'company-top-ups': counts(
+        await this.prisma.companyWalletTopUp.deleteMany({
+          where: {
+            OR: [
+              {
+                status: { in: ['failed', 'expired', 'cancelled'] },
+                updatedAt: { lt: daysBefore(now, UNPAID_TOP_UP_DAYS) },
+              },
+              {
+                status: 'succeeded',
+                createdAt: {
+                  lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS),
+                },
+              },
+            ],
+          },
         }),
       ),
       'ad-conversions': counts(

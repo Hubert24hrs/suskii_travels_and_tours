@@ -101,6 +101,7 @@ interface Fixture {
   companyBookingId: string;
   companyMemberId: string;
   companyInvitationId: string;
+  companyTopUpId: string;
   /** Support conversations (ADR-083): the owner's own. */
   supportConversationId: string;
 }
@@ -216,6 +217,7 @@ const CASES: Record<string, Case> = {
   revokeCompanyInvitation: {
     path: (f) => `/v1/me/company/invitations/${f.companyInvitationId}`,
   },
+  getCompanyTopUp: { path: (f) => `/v1/me/company/wallet/top-ups/${f.companyTopUpId}` },
   getSupportConversation: { path: (f) => `/v1/support/conversations/${f.supportConversationId}` },
   markSupportConversationRead: {
     path: (f) => `/v1/support/conversations/${f.supportConversationId}/read`,
@@ -585,6 +587,13 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       .send({ email: 'colleague@owner.test', role: 'booker' })
       .expect(201);
     const members = await ctx.http().get('/v1/me/company/members').set(auth).expect(200);
+    const topUp = await ctx
+      .http()
+      .post('/v1/me/company/wallet/top-ups')
+      .set(auth)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({ amount: { amountMinor: 5_000_000, currency: 'NGN' } })
+      .expect(201);
     const companyTrip = await createFlightBooking(owner, { company: true });
     const conversation = await ctx
       .http()
@@ -598,6 +607,7 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       companyBookingId: companyTrip.bookingId,
       companyMemberId: members.body.members[0].id as string,
       companyInvitationId: invitation.body.id as string,
+      companyTopUpId: topUp.body.id as string,
       rideId,
       ridePlaceId: ridePlace?.id ?? '',
       scheduleChangeId: scheduleChange.id,

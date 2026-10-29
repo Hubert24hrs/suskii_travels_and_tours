@@ -751,6 +751,9 @@ export const en = {
     company: {
       label: 'Book for {company}',
       help: 'The company travel policy applies. If the trip needs an approver, you pay once they say yes.',
+      wallet: 'Pay from the company wallet',
+      walletHelp:
+        "The whole amount comes from your company's balance. If it does not cover the trip, you can pay another way.",
     },
     title: 'Checkout',
     heading: 'Complete your booking',
@@ -940,6 +943,10 @@ export const en = {
         'This payment method is not available for this booking. Choose another one.',
       soldOut:
         'There is no longer enough room on this date for your group. Go back and choose another date.',
+      companyWalletInsufficient:
+        'The company wallet does not cover this trip. Ask a company admin to add funds, or pay another way.',
+      companyWalletUnavailable:
+        'This booking cannot be paid from the company wallet. Pay another way.',
     },
   },
   mobile: {
@@ -1913,6 +1920,7 @@ export const en = {
     completePayment: 'Complete payment',
     retryPayment: 'Pay now',
     payFromWallet: 'Pay {amount} from your Suskii wallet',
+    payFromCompanyWallet: 'Pay {amount} from the company wallet',
     walletBalance: 'Wallet balance: {amount}',
     plan: {
       holdHeading: 'Your reservation',
@@ -1988,6 +1996,7 @@ export const en = {
       destinations: {
         original: 'the card or account you paid with',
         wallet: 'your Suskii wallet',
+        company_wallet: "your company's Suskii wallet",
       },
       states: {
         in_progress: 'In progress',
@@ -2543,6 +2552,49 @@ export const en = {
         traveller: 'Traveller: {name}',
         bookedBy: 'Booked by {name}',
       },
+      wallet: {
+        heading: 'Company wallet',
+        intro:
+          'Prepaid funds for company trips. Bookers pay approved trips from it in one step, and refunds of those trips come back to it.',
+        balance: 'Balance',
+        empty: 'No funds yet.',
+        adminOnly: 'Company admins can add funds while the company is active.',
+        addHeading: 'Add funds',
+        amount: 'Amount',
+        currency: 'Currency',
+        limits: 'From {min} to {max} per top-up.',
+        add: 'Add funds',
+        movements: 'Recent movements',
+        topUps: 'Top-ups',
+        forBooking: 'Booking {reference}',
+        terms:
+          'Funds can be spent only on trips booked for the company. To close the wallet and get unused funds back, contact Suskii support.',
+        continue: 'Continue to payment',
+        kinds: {
+          topUp: 'Funds added',
+          payment: 'Trip paid',
+          refund: 'Refund',
+        },
+        statuses: {
+          pending: 'Waiting for payment',
+          succeeded: 'Added',
+          failed: 'Failed',
+          expired: 'Expired',
+          cancelled: 'Cancelled',
+        },
+        returned: {
+          pending: 'Waiting for the payment provider to confirm your top-up.',
+          succeeded: 'The funds were added to the company wallet.',
+          failed: 'The payment did not go through. Nothing was added.',
+          expired: 'The payment page expired. Nothing was added.',
+          cancelled: 'The top-up was cancelled. Nothing was added.',
+        },
+        errors: {
+          amount: 'Enter an amount from {min} to {max}.',
+          limit: 'Your company has started the most top-ups allowed today. Try again tomorrow.',
+          provider: 'Funds cannot be added in this currency right now.',
+        },
+      },
       report: {
         heading: 'Spend',
         intro: 'Paid and confirmed company trips over the last 12 months, in each currency.',
@@ -2596,6 +2648,9 @@ export const en = {
         refund_settled: 'Refund',
         refund_failed: 'Refund returned',
         refund_to_wallet: 'Refund to wallet',
+        company_topup_captured: 'Company wallet top-up',
+        company_wallet_payment: 'Paid from company wallet',
+        refund_to_company_wallet: 'Refund to company wallet',
         cancellation_fee: 'Cancellation fee',
         referral_reward: 'Referral reward',
         ride_earnings: 'Ride earnings',

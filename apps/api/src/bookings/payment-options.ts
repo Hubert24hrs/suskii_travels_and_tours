@@ -105,6 +105,7 @@ export function paymentOptionsDto(
   plans: PlanOptions,
   policy: PlanPolicy,
   wallet: Money | null,
+  companyWallet: PaymentOptionsDto['companyWallet'] = null,
 ): PaymentOptionsDto {
   return {
     providers: choices.providers,
@@ -127,5 +128,6 @@ export function paymentOptionsDto(
         }
       : null,
     wallet: wallet ? toWire(wallet) : null,
+    companyWallet,
   };
 }

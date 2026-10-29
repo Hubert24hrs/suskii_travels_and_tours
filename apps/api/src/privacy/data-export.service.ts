@@ -526,15 +526,46 @@ export class DataExportService {
     }));
   }
 
-  /** Company accounts (ADR-078): the account's company and role. */
+  /**
+   * Company accounts (ADR-078): the account's company and role, and the company wallet top-ups
+   * this person started (ADR-090).
+   */
   private async company(userId: string): Promise<unknown> {
-    const member = await this.prisma.companyMember.findUnique({
-      where: { userId },
-      include: { company: { select: { id: true, name: true, countryCode: true } } },
-    });
-    return member
-      ? { company: member.company, role: member.role, joinedAt: iso(member.createdAt) }
-      : null;
+    const [member, topUps] = await Promise.all([
+      this.prisma.companyMember.findUnique({
+        where: { userId },
+        include: { company: { select: { id: true, name: true, countryCode: true } } },
+      }),
+      this.prisma.companyWalletTopUp.findMany({
+        where: { requestedById: userId },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          reference: true,
+          companyId: true,
+          status: true,
+          amountMinor: true,
+          currency: true,
+          method: true,
+          createdAt: true,
+          succeededAt: true,
+        },
+      }),
+    ]);
+    return {
+      membership: member
+        ? { company: member.company, role: member.role, joinedAt: iso(member.createdAt) }
+        : null,
+      walletTopUps: topUps.map((topUp) => ({
+        reference: topUp.reference,
+        companyId: topUp.companyId,
+        status: topUp.status,
+        amountMinor: topUp.amountMinor.toString(),
+        currency: topUp.currency,
+        method: topUp.method,
+        createdAt: iso(topUp.createdAt),
+        succeededAt: topUp.succeededAt ? iso(topUp.succeededAt) : null,
+      })),
+    };
   }
 
   /**

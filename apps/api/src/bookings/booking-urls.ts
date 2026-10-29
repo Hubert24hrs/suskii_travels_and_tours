@@ -19,3 +19,7 @@ export const paymentReturnUrl = (
   channel === 'mobile'
     ? `${webBase(config)}/mobile/payment-return?booking=${bookingId}`
     : bookingUrl(config, bookingId);
+
+/** Where a company wallet top-up's hosted checkout sends the admin back (ADR-090). */
+export const companyTopUpReturnUrl = (config: AppConfig, topUpId: string): string =>
+  `${webBase(config)}/account/company?topUp=${topUpId}`;

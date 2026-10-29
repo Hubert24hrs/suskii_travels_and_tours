@@ -6,6 +6,8 @@ export type AccountRef =
   | { kind: 'booking'; bookingId: string; currency: string }
   | { kind: 'unapplied'; currency: string }
   | { kind: 'wallet'; userId: string; currency: string }
+  // What a company prepaid and has not spent (ADR-090).
+  | { kind: 'company-wallet'; companyId: string; currency: string }
   | { kind: 'refunds-in-flight'; provider: string; currency: string }
   | { kind: 'cancellation-fees'; currency: string }
   | { kind: 'promotions'; currency: string }
@@ -60,6 +62,13 @@ export function accountSpec(ref: AccountRef): AccountSpec {
         allowNegative: false,
         userId: ref.userId,
       };
+    case 'company-wallet':
+      return {
+        ...base,
+        code: `${companyWalletPrefix(ref.companyId)}${ref.currency}`,
+        type: 'liability',
+        allowNegative: false,
+      };
     case 'refunds-in-flight':
       return {
         ...base,
@@ -113,6 +122,9 @@ export function accountSpec(ref: AccountRef): AccountSpec {
   }
 }
 
+/** Code prefix of a company's wallet accounts (one per currency, ADR-090). */
+export const companyWalletPrefix = (companyId: string): string => `company-wallet:${companyId}:`;
+
 /** Code prefix of a driver's earnings accounts (one per currency). */
 export const driverEarningsPrefix = (driverId: string): string => `driver-earnings:${driverId}:`;
 
@@ -125,6 +137,10 @@ export const LEDGER_KINDS = [
   'refund_settled',
   'refund_failed',
   'refund_to_wallet',
+  // Company wallet (ADR-090): a top-up captured, a company trip paid from it, a refund back.
+  'company_topup_captured',
+  'company_wallet_payment',
+  'refund_to_company_wallet',
   'cancellation_fee',
   'referral_reward',
   'ride_earnings',

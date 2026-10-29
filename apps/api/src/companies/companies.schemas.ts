@@ -7,15 +7,19 @@ import {
   CABIN_CLASSES,
   COMPANY_ROLES,
   COMPANY_STATUSES,
+  COMPANY_TOP_UP_STATUSES,
+  PAYMENT_PROVIDER_NAMES,
   POLICY_FINDINGS,
   approvalRejectSchema,
   companyInputSchema,
+  companyTopUpInputSchema,
   companyInvitationInputSchema,
   travelPolicySchema,
 } from '@suskii/shared';
 
-import { bookingSummarySchema } from '../bookings/bookings.schemas';
+import { bookingSummarySchema, PAYMENT_METHODS } from '../bookings/bookings.schemas';
 import { named } from '../contract/contract';
+import { LEDGER_KINDS } from '../ledger/ledger-accounts';
 import { moneySchema } from '../pricing/pricing.schemas';
 
 const timestamp = z.iso.datetime();
@@ -180,10 +184,68 @@ export const adminCompanySchema = named(
     createdAt: timestamp,
   }),
 );
+// ---------------------------------------------------------------------------
+// Company wallet (ADR-090)
+
+export const companyTopUpSchema = named(
+  'CompanyTopUp',
+  z.object({
+    id: z.uuid(),
+    reference: z.string().meta({ description: 'Shown on the payment page, such as `W-K7QX3M`.' }),
+    status: z.enum(COMPANY_TOP_UP_STATUSES),
+    amount: moneySchema,
+    received: moneySchema.nullable().meta({
+      description: 'What the provider charged when it differs from `amount`; that is credited.',
+    }),
+    checkoutUrl: z.url().nullable().meta({
+      description: 'The hosted payment page, for the admin who started it while it is pending.',
+    }),
+    expiresAt: timestamp,
+    createdAt: timestamp,
+    succeededAt: timestamp.nullable(),
+  }),
+);
+
+export const companyWalletSchema = named(
+  'CompanyWallet',
+  z.object({
+    balances: z.array(moneySchema).meta({ description: 'One balance per currency ever used.' }),
+    canTopUp: z.boolean().meta({ description: 'Admins of an active company can add funds.' }),
+    topUpOptions: z
+      .array(z.object({ currency: z.string().length(3), min: moneySchema, max: moneySchema }))
+      .meta({ description: 'Currencies a top-up can be paid in now, with the amount limits.' }),
+    topUpsPerDay: z.number().int(),
+    movements: z.array(
+      z.object({
+        id: z.uuid(),
+        kind: z.enum(LEDGER_KINDS),
+        amount: moneySchema.meta({ description: 'Positive when money came into the wallet.' }),
+        bookingId: z.uuid().nullable(),
+        bookingReference: z.string().nullable(),
+        occurredAt: timestamp,
+      }),
+    ),
+    topUps: z.array(companyTopUpSchema).meta({ description: 'The latest 20, newest first.' }),
+  }),
+);
+
+export const startTopUpSchema = named(
+  'StartCompanyTopUp',
+  companyTopUpInputSchema.extend({
+    provider: z.enum(PAYMENT_PROVIDER_NAMES).nullable().default(null),
+    method: z.enum(PAYMENT_METHODS).nullable().default(null),
+  }),
+);
+export const topUpParamsSchema = z.object({ topUpId: z.uuid() });
+
 export const adminCompanyDetailSchema = named(
   'AdminCompanyDetail',
   adminCompanySchema.extend({
     policy: companyPolicySchema,
+    walletBalances: z.array(moneySchema),
+    recentTopUps: z
+      .array(companyTopUpSchema.omit({ checkoutUrl: true }))
+      .meta({ description: 'The latest 10 company wallet top-ups (ADR-090).' }),
     memberList: z.array(
       z.object({
         userId: z.uuid(),

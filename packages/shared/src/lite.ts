@@ -308,13 +308,17 @@ export {
   APPROVAL_MODES,
   APPROVAL_REJECT_REASONS,
   COMPANY_ROLES,
+  COMPANY_TOP_UP_STATUSES,
   POLICY_FINDINGS,
   canApprove,
   canManageCompany,
+  canTopUpCompanyWallet,
+  seesCompanyWallet,
   type ApprovalMode,
   type ApprovalRejectReason,
   type BookingApprovalStatus,
   type CompanyRole,
+  type CompanyTopUpStatus,
   type PolicyFinding,
 } from './companies';
 export {

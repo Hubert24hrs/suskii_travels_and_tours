@@ -8,7 +8,7 @@ import {
   canApprove,
   canManageCompany as canManage,
   COMPANY_ROLES,
-  currencyExponent,
+  seesCompanyWallet,
   SUPPORTED_CURRENCIES,
   type ApprovalRejectReason,
   type CompanyRole,
@@ -22,6 +22,8 @@ import { NativeSelect } from '../search/native-select';
 
 import { useAccountT } from './account-messages';
 import { AccountCard, ErrorLine, StatusLine, useAccountUser } from './account-shell';
+import { CompanyWallet } from './company-wallet';
+import { decimalToMinor, minorToDecimal } from './decimal-money';
 
 type Company = Schemas['Company'];
 type Members = Schemas['CompanyMembers'];
@@ -38,26 +40,10 @@ interface CompanyInput {
   billingEmail: string;
 }
 
-/** "150000.50" in the currency's minor units, without floating point; null when not a price. */
-export function decimalToMinor(text: string, currency: string): number | null {
-  const exponent = currencyExponent(currency);
-  const match = /^(\d{1,12})(?:\.(\d+))?$/.exec(text.trim().replace(/,/g, ''));
-  if (!match?.[1] || (match[2] ?? '').length > exponent) return null;
-  const minor = Number(`${match[1]}${(match[2] ?? '').padEnd(exponent, '0')}`);
-  return Number.isSafeInteger(minor) && minor > 0 ? minor : null;
-}
-
-const minorToDecimal = (minor: number, currency: string): string => {
-  const exponent = currencyExponent(currency);
-  if (exponent === 0) return String(minor);
-  const text = String(minor).padStart(exponent + 1, '0');
-  return `${text.slice(0, -exponent)}.${text.slice(-exponent)}`;
-};
-
 /**
  * The account's company (ADR-078): create one, or manage it by role. Admins edit the details,
  * the travel policy and the members; admins and approvers decide on waiting trips and see the
- * spend; everyone sees the company trips they may see.
+ * company wallet and the spend; everyone sees the company trips they may see.
  */
 export function CompanySection({ countries }: { countries: readonly Country[] }) {
   const [company, setCompany] = useState<Company | null | undefined>(undefined);
@@ -85,6 +71,7 @@ export function CompanySection({ countries }: { countries: readonly Country[] })
       <CompanyDetails company={company} countries={countries} onSaved={setCompany} />
       <PolicyCard company={company} onSaved={setCompany} />
       {canApprove(company.myRole) ? <ApprovalsCard onDecided={reload} key={version} /> : null}
+      {seesCompanyWallet(company.myRole) ? <CompanyWallet /> : null}
       <MembersCard company={company} onLeft={() => setCompany(null)} />
       <TripsCard key={`trips-${version}`} />
       {canApprove(company.myRole) ? <SpendCard /> : null}

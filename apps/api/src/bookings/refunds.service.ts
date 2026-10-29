@@ -6,7 +6,14 @@ import { AuditService } from '../audit/audit.service';
 import { BackgroundTasks } from '../common/background-tasks';
 import type { RequestContext } from '../common/request-context';
 import { APP_CONFIG, type AppConfig } from '../config/config';
-import type { Payment, Prisma, Refund, RefundStatus } from '../generated/prisma/client';
+import type {
+  Payment,
+  PaymentKind,
+  Prisma,
+  Refund,
+  RefundDestination,
+  RefundStatus,
+} from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import type { AccountRef } from '../ledger/ledger-accounts';
 import { InsufficientBalanceError, LedgerService, transfer } from '../ledger/ledger.service';
@@ -27,6 +34,21 @@ import type { AdminRefundDto, CreateRefundRequest } from './bookings.schemas';
 import { refundAttempts } from '../telemetry/metrics';
 
 type Tx = Prisma.TransactionClient;
+
+/** Destinations credited inside the ledger; they never reach a payment provider. */
+const WALLET_DESTINATIONS: RefundDestination[] = ['wallet', 'company_wallet'];
+export const isWalletDestination = (destination: RefundDestination): boolean =>
+  WALLET_DESTINATIONS.includes(destination);
+
+/** A wallet payment refunds to the wallet it came from (ADR-017, ADR-090); others choose. */
+const walletDestination = (kind: PaymentKind): RefundDestination | null =>
+  kind === 'wallet' ? 'wallet' : kind === 'company_wallet' ? 'company_wallet' : null;
+
+/** The ledger key of a refund credited to a wallet (the reconciliation looks it up). */
+export const walletRefundKey = (refund: Pick<Refund, 'id' | 'destination'>): string =>
+  refund.destination === 'company_wallet'
+    ? `refund:${refund.id}:to-company-wallet`
+    : `refund:${refund.id}:to-wallet`;
 
 export interface StaffActor {
   userId: string;
@@ -145,7 +167,7 @@ export class RefundsService {
         provider: input.payment.provider,
         amountMinor: input.amount.minor,
         currency: input.amount.currency,
-        destination: input.payment.kind === 'wallet' ? 'wallet' : 'original',
+        destination: walletDestination(input.payment.kind) ?? 'original',
         reason: input.reason,
         status: input.needsApproval ? 'pending_approval' : 'approved',
         automatic: true,
@@ -249,7 +271,7 @@ export class RefundsService {
       if (payment?.status !== 'succeeded') throw refundInvalid('That payment was not received.');
       if (payment.currency !== amount.currency)
         throw refundInvalid('Refund in the currency of the payment.');
-      const destination = payment.kind === 'wallet' ? 'wallet' : input.destination;
+      const destination = walletDestination(payment.kind) ?? input.destination;
       if (destination === 'wallet' && !booking.userId) {
         throw refundInvalid('Guest bookings cannot be refunded to a wallet.');
       }
@@ -458,16 +480,12 @@ export class RefundsService {
       include: { payment: true },
     });
 
-    if (refund.destination === 'wallet') {
-      const booking = await this.prisma.booking.findUniqueOrThrow({
-        where: { id: refund.bookingId },
-        select: { userId: true },
-      });
-      const userId = booking.userId;
-      if (!userId) return this.failNow(refund, 'no_wallet');
+    if (isWalletDestination(refund.destination)) {
+      const wallet = await this.walletFor(this.prisma, refund);
+      if (!wallet) return this.failNow(refund, 'no_wallet');
       try {
         await this.prisma.$transaction(async (tx) => {
-          await this.postToWallet(tx, refund, userId);
+          await this.postToWallet(tx, refund, wallet);
           await tx.refund.update({
             where: { id: refund.id },
             data: { status: 'succeeded', settledAt: new Date() },
@@ -565,18 +583,33 @@ export class RefundsService {
     if (changed) await this.alertFailed(refundId, reason);
   }
 
-  private postToWallet(tx: Tx, refund: Refund, userId: string): Promise<unknown> {
+  /**
+   * The wallet a wallet refund credits: the traveller's, or the company's for a trip paid from
+   * the company wallet (ADR-090); null when the booking has no such owner.
+   */
+  private async walletFor(tx: Tx | PrismaService, refund: Refund): Promise<AccountRef | null> {
+    const booking = await tx.booking.findUniqueOrThrow({
+      where: { id: refund.bookingId },
+      select: { userId: true, companyId: true },
+    });
+    if (refund.destination === 'company_wallet') {
+      return booking.companyId
+        ? { kind: 'company-wallet', companyId: booking.companyId, currency: refund.currency }
+        : null;
+    }
+    return booking.userId
+      ? { kind: 'wallet', userId: booking.userId, currency: refund.currency }
+      : null;
+  }
+
+  private postToWallet(tx: Tx, refund: Refund, wallet: AccountRef): Promise<unknown> {
     return this.ledger.post(tx, {
-      key: `refund:${refund.id}:to-wallet`,
-      kind: 'refund_to_wallet',
+      key: walletRefundKey(refund),
+      kind: wallet.kind === 'company-wallet' ? 'refund_to_company_wallet' : 'refund_to_wallet',
       bookingId: refund.bookingId,
       paymentId: refund.paymentId,
       refundId: refund.id,
-      lines: transfer(
-        sourceAccount(refund),
-        { kind: 'wallet', userId, currency: refund.currency },
-        money(refund.amountMinor, refund.currency),
-      ),
+      lines: transfer(sourceAccount(refund), wallet, money(refund.amountMinor, refund.currency)),
     });
   }
 
@@ -607,13 +640,10 @@ export class RefundsService {
     providerRefundId: string | null,
   ): Promise<boolean> {
     if (refund.status === 'succeeded') return false;
-    if (refund.destination === 'wallet') {
-      const { userId } = await tx.booking.findUniqueOrThrow({
-        where: { id: refund.bookingId },
-        select: { userId: true },
-      });
-      if (!userId) throw refundInvalid('Guest bookings cannot be refunded to a wallet.');
-      await this.postToWallet(tx, refund, userId);
+    if (isWalletDestination(refund.destination)) {
+      const wallet = await this.walletFor(tx, refund);
+      if (!wallet) throw refundInvalid('This booking has no wallet to refund to.');
+      await this.postToWallet(tx, refund, wallet);
     } else {
       await this.postInitiated(tx, refund);
       await this.ledger.post(tx, {
@@ -729,7 +759,7 @@ export class RefundsService {
       const byOurs = await tx.refund
         .findUnique({ where: { id: event.refundId } })
         .catch(() => null);
-      if (byOurs?.provider === provider && byOurs.destination !== 'wallet') return byOurs;
+      if (byOurs?.provider === provider && !isWalletDestination(byOurs.destination)) return byOurs;
     }
     if (event.providerRefundId) {
       const byTheirs = await tx.refund.findUnique({
@@ -746,7 +776,7 @@ export class RefundsService {
         provider,
         providerRefundId: null,
         // Wallet refunds never reach the provider, so its events cannot be about them.
-        destination: { not: 'wallet' },
+        destination: { notIn: WALLET_DESTINATIONS },
         status: { in: ['processing', 'needs_review'] },
         amountMinor: event.amount.minor,
         currency: event.amount.currency,
@@ -787,7 +817,7 @@ export class RefundsService {
     for (const refund of processing) {
       if (Date.now() > stopStartingAt) return counts;
       // Interrupted between claim and posting: a wallet credit never involves the provider.
-      if (refund.destination === 'wallet') {
+      if (isWalletDestination(refund.destination)) {
         await this.settle(refund.id, null);
         counts.settled += 1;
         continue;
@@ -831,7 +861,7 @@ export class RefundsService {
     const reviews = await this.prisma.refund.findMany({
       where: {
         status: 'needs_review',
-        destination: { not: 'wallet' },
+        destination: { notIn: WALLET_DESTINATIONS },
         updatedAt: { lt: new Date(now.getTime() - RECONCILE_AFTER_MS) },
       },
       include: { payment: true },

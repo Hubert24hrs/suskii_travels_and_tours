@@ -15,6 +15,7 @@ import type {
   adminCompanySchema,
 } from './companies.schemas';
 import { presentPolicy } from './companies.service';
+import { CompanyWalletService } from './company-wallet.service';
 
 type AdminCompany = z.infer<typeof adminCompanySchema>;
 
@@ -41,6 +42,7 @@ export class AdminCompaniesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly wallet: CompanyWalletService,
   ) {}
 
   async list(
@@ -79,6 +81,7 @@ export class AdminCompaniesService {
     return {
       ...present(row),
       policy: presentPolicy(row.policy),
+      ...(await this.wallet.forConsole(row.id)),
       memberList: row.members.map((member) => ({
         userId: member.userId,
         name: member.user.displayName,

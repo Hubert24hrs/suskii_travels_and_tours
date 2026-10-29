@@ -4,18 +4,19 @@ import { SUPPORTED_CURRENCIES, money } from '@suskii/shared';
 import { z } from 'zod';
 
 import {
-  PaymentProvider,
-  WebhookSignatureError,
-  headerValue,
+  checkoutLabel,
   type CheckoutRequest,
   type CheckoutSession,
+  headerValue,
   type PaymentEvent,
   type PaymentMethod,
+  PaymentProvider,
   type PaymentRef,
   type PaymentVerification,
   type ProviderRefund,
   type RefundRequest,
   type WebhookHeaders,
+  WebhookSignatureError,
 } from '../payment-provider';
 import { ProviderHttp } from '../provider-http';
 
@@ -111,6 +112,7 @@ export class StripePaymentProvider extends PaymentProvider {
   }
 
   async createCheckout(request: CheckoutRequest): Promise<CheckoutSession> {
+    const label = checkoutLabel(request);
     const nowSeconds = Math.floor(this.now().getTime() / 1000);
     const wanted = Math.floor(request.expiresAt.getTime() / 1000);
     // Our own deadline stays authoritative: a later success is refunded automatically.
@@ -128,9 +130,9 @@ export class StripePaymentProvider extends PaymentProvider {
       'line_items[0][quantity]': '1',
       'line_items[0][price_data][currency]': request.amount.currency.toLowerCase(),
       'line_items[0][price_data][unit_amount]': request.amount.minor.toString(),
-      'line_items[0][price_data][product_data][name]': `Suskii booking ${request.reference}`,
+      'line_items[0][price_data][product_data][name]': `Suskii ${label.subject} ${request.reference}`,
       'metadata[payment_id]': request.paymentId,
-      'metadata[booking_reference]': request.reference,
+      [`metadata[${label.referenceKey}]`]: request.reference,
       'payment_intent_data[metadata][payment_id]': request.paymentId,
       // 3D Secure whenever the card's bank or strong customer authentication requires it (ADR-074).
       'payment_method_options[card][request_three_d_secure]': 'automatic',

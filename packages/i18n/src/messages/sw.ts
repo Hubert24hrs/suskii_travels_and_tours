@@ -776,6 +776,9 @@ export const sw: Messages = {
     company: {
       label: 'Weka kwa niaba ya {company}',
       help: 'Sera ya usafiri ya kampuni inatumika. Safari ikihitaji idhini, utalipa mara mwidhinishaji akikubali.',
+      wallet: 'Lipa kutoka pochi ya kampuni',
+      walletHelp:
+        'Kiasi chote kinatoka kwenye salio la kampuni yako. Kisipotosha kwa safari, unaweza kulipa kwa njia nyingine.',
     },
     title: 'Malipo',
     heading: 'Kamilisha uhifadhi wako',
@@ -970,6 +973,10 @@ export const sw: Messages = {
       methodUnavailable: 'Njia hii ya malipo haipatikani kwa uhifadhi huu. Chagua nyingine.',
       soldOut:
         'Hakuna tena nafasi ya kutosha tarehe hii kwa kundi lako. Rudi nyuma uchague tarehe nyingine.',
+      companyWalletInsufficient:
+        'Pochi ya kampuni haitoshi kwa safari hii. Mwombe msimamizi wa kampuni aongeze fedha, au lipa kwa njia nyingine.',
+      companyWalletUnavailable:
+        'Uhifadhi huu hauwezi kulipwa kutoka pochi ya kampuni. Lipa kwa njia nyingine.',
     },
   },
   mobile: {
@@ -1968,6 +1975,7 @@ export const sw: Messages = {
     completePayment: 'Kamilisha malipo',
     retryPayment: 'Lipa sasa',
     payFromWallet: 'Lipa {amount} kutoka pochi yako ya Suskii',
+    payFromCompanyWallet: 'Lipa {amount} kutoka pochi ya kampuni',
     walletBalance: 'Salio la pochi: {amount}',
     plan: {
       holdHeading: 'Uhifadhi wako',
@@ -2047,6 +2055,7 @@ export const sw: Messages = {
       destinations: {
         original: 'kadi au akaunti uliyolipia',
         wallet: 'pochi yako ya Suskii',
+        company_wallet: 'pochi ya Suskii ya kampuni yako',
       },
       states: {
         in_progress: 'Yanaendelea',
@@ -2607,6 +2616,49 @@ export const sw: Messages = {
         traveller: 'Msafiri: {name}',
         bookedBy: 'Imewekwa na {name}',
       },
+      wallet: {
+        heading: 'Pochi ya kampuni',
+        intro:
+          'Fedha zilizolipwa mapema kwa safari za kampuni. Wanaohifadhi hulipa safari zilizoidhinishwa kwa hatua moja, na marejesho ya safari hizo hurudi humo.',
+        balance: 'Salio',
+        empty: 'Bado hakuna fedha.',
+        adminOnly: 'Wasimamizi wa kampuni wanaweza kuongeza fedha wakati kampuni iko hai.',
+        addHeading: 'Ongeza fedha',
+        amount: 'Kiasi',
+        currency: 'Sarafu',
+        limits: 'Kuanzia {min} hadi {max} kwa kila uongezaji.',
+        add: 'Ongeza fedha',
+        movements: 'Miamala ya karibuni',
+        topUps: 'Uongezaji wa fedha',
+        forBooking: 'Uhifadhi {reference}',
+        terms:
+          'Fedha zinaweza kutumika tu kwa safari zilizohifadhiwa kwa ajili ya kampuni. Kufunga pochi na kurejeshewa fedha zisizotumika, wasiliana na msaada wa Suskii.',
+        continue: 'Endelea kulipa',
+        kinds: {
+          topUp: 'Fedha zimeongezwa',
+          payment: 'Safari imelipwa',
+          refund: 'Marejesho',
+        },
+        statuses: {
+          pending: 'Inasubiri malipo',
+          succeeded: 'Imeongezwa',
+          failed: 'Imeshindwa',
+          expired: 'Imeisha muda',
+          cancelled: 'Imeghairiwa',
+        },
+        returned: {
+          pending: 'Tunasubiri mtoa huduma wa malipo athibitishe uongezaji wako.',
+          succeeded: 'Fedha zimeongezwa kwenye pochi ya kampuni.',
+          failed: 'Malipo hayakufanikiwa. Hakuna kilichoongezwa.',
+          expired: 'Ukurasa wa malipo umeisha muda. Hakuna kilichoongezwa.',
+          cancelled: 'Uongezaji umeghairiwa. Hakuna kilichoongezwa.',
+        },
+        errors: {
+          amount: 'Weka kiasi kuanzia {min} hadi {max}.',
+          limit: 'Kampuni yako imefikia idadi ya juu ya uongezaji kwa leo. Jaribu tena kesho.',
+          provider: 'Fedha haziwezi kuongezwa kwa sarafu hii kwa sasa.',
+        },
+      },
       report: {
         heading: 'Matumizi',
         intro:
@@ -2661,6 +2713,9 @@ export const sw: Messages = {
         refund_settled: 'Marejesho',
         refund_failed: 'Marejesho yamerudishwa',
         refund_to_wallet: 'Marejesho kwenye pochi',
+        company_topup_captured: 'Uongezaji wa pochi ya kampuni',
+        company_wallet_payment: 'Imelipwa kutoka pochi ya kampuni',
+        refund_to_company_wallet: 'Marejesho kwenye pochi ya kampuni',
         cancellation_fee: 'Ada ya kughairi',
         referral_reward: 'Zawadi ya mwaliko',
         ride_earnings: 'Mapato ya safari',

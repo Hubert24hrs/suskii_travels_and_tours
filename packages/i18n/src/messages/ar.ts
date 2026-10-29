@@ -844,6 +844,8 @@ export const ar: Messages = {
     company: {
       label: 'احجز لصالح {company}',
       help: 'تنطبق سياسة السفر الخاصة بالشركة. إذا احتاجت الرحلة إلى موافقة، تدفع بعد أن يوافق المعتمِد.',
+      wallet: 'ادفع من محفظة الشركة',
+      walletHelp: 'يُخصم المبلغ كاملًا من رصيد شركتك. إذا لم يكفِ للرحلة، يمكنك الدفع بطريقة أخرى.',
     },
     title: 'إتمام الحجز',
     heading: 'أكمل حجزك',
@@ -1055,6 +1057,9 @@ export const ar: Messages = {
       providerUnavailable: 'طريقة الدفع هذه غير متاحة. اختر طريقة أخرى.',
       methodUnavailable: 'طريقة الدفع هذه غير متاحة لهذا الحجز. اختر طريقة أخرى.',
       soldOut: 'لم يعد هناك متسع كافٍ لمجموعتك في هذا التاريخ. ارجع واختر تاريخًا آخر.',
+      companyWalletInsufficient:
+        'رصيد محفظة الشركة لا يغطي هذه الرحلة. اطلب من مسؤول الشركة إضافة رصيد، أو ادفع بطريقة أخرى.',
+      companyWalletUnavailable: 'لا يمكن دفع هذا الحجز من محفظة الشركة. ادفع بطريقة أخرى.',
     },
   },
   mobile: {
@@ -2138,6 +2143,7 @@ export const ar: Messages = {
     completePayment: 'إتمام الدفع',
     retryPayment: 'ادفع الآن',
     payFromWallet: 'ادفع {amount} من محفظة Suskii',
+    payFromCompanyWallet: 'ادفع {amount} من محفظة الشركة',
     walletBalance: 'رصيد المحفظة: {amount}',
     plan: {
       holdHeading: 'حجزك المؤقت',
@@ -2210,6 +2216,7 @@ export const ar: Messages = {
       destinations: {
         original: 'البطاقة أو الحساب الذي دفعت منه',
         wallet: 'محفظة Suskii الخاصة بك',
+        company_wallet: 'محفظة Suskii الخاصة بشركتك',
       },
       states: {
         in_progress: 'قيد التنفيذ',
@@ -2807,6 +2814,49 @@ export const ar: Messages = {
         traveller: 'المسافر: {name}',
         bookedBy: 'حجزها {name}',
       },
+      wallet: {
+        heading: 'محفظة الشركة',
+        intro:
+          'رصيد مدفوع مسبقًا لرحلات الشركة. يدفع منظّمو الحجز الرحلات المعتمدة منه بخطوة واحدة، وتعود إليه المبالغ المستردة لتلك الرحلات.',
+        balance: 'الرصيد',
+        empty: 'لا يوجد رصيد بعد.',
+        adminOnly: 'يمكن لمسؤولي الشركة إضافة رصيد ما دامت الشركة نشطة.',
+        addHeading: 'إضافة رصيد',
+        amount: 'المبلغ',
+        currency: 'العملة',
+        limits: 'من {min} إلى {max} لكل عملية شحن.',
+        add: 'إضافة رصيد',
+        movements: 'الحركات الأخيرة',
+        topUps: 'عمليات الشحن',
+        forBooking: 'الحجز {reference}',
+        terms:
+          'لا يُستخدم الرصيد إلا للرحلات المحجوزة باسم الشركة. لإغلاق المحفظة واسترداد الرصيد غير المستخدم، تواصل مع دعم Suskii.',
+        continue: 'متابعة الدفع',
+        kinds: {
+          topUp: 'أُضيف رصيد',
+          payment: 'دُفعت رحلة',
+          refund: 'استرداد',
+        },
+        statuses: {
+          pending: 'بانتظار الدفع',
+          succeeded: 'أُضيف',
+          failed: 'فشل',
+          expired: 'انتهت صلاحيته',
+          cancelled: 'أُلغي',
+        },
+        returned: {
+          pending: 'ننتظر تأكيد مزوّد الدفع لعملية الشحن.',
+          succeeded: 'أُضيف الرصيد إلى محفظة الشركة.',
+          failed: 'لم يكتمل الدفع. لم يُضف أي رصيد.',
+          expired: 'انتهت صلاحية صفحة الدفع. لم يُضف أي رصيد.',
+          cancelled: 'أُلغيت عملية الشحن. لم يُضف أي رصيد.',
+        },
+        errors: {
+          amount: 'أدخل مبلغًا من {min} إلى {max}.',
+          limit: 'بلغت شركتك الحد الأقصى لعمليات الشحن اليوم. حاول مرة أخرى غدًا.',
+          provider: 'لا يمكن إضافة رصيد بهذه العملة حاليًا.',
+        },
+      },
       report: {
         heading: 'الإنفاق',
         intro: 'رحلات الشركة المدفوعة والمؤكدة خلال آخر 12 شهرًا، بكل عملة.',
@@ -2860,6 +2910,9 @@ export const ar: Messages = {
         refund_settled: 'استرداد',
         refund_failed: 'استرداد مُعاد',
         refund_to_wallet: 'استرداد إلى المحفظة',
+        company_topup_captured: 'شحن محفظة الشركة',
+        company_wallet_payment: 'دُفع من محفظة الشركة',
+        refund_to_company_wallet: 'استرداد إلى محفظة الشركة',
         cancellation_fee: 'رسوم إلغاء',
         referral_reward: 'مكافأة دعوة',
         ride_earnings: 'أرباح التوصيل',

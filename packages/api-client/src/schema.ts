@@ -5019,6 +5019,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/company/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The company wallet
+         * @description Admins and approvers (403 `company-approver-required`): balances, the latest movements and top-ups, and the currencies and limits a top-up can use (ADR-090).
+         */
+        get: operations["getCompanyWallet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/wallet/top-ups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add funds to the company wallet
+         * @description Admins of an active company (403 `company-admin-required`, 409 `company-suspended`). Opens a hosted checkout; the wallet is credited only when the provider confirms the payment. 422 `company-top-up-currency` or `company-top-up-amount` outside `topUpOptions`; 409 `company-top-up-limit` after `topUpsPerDay` top-ups in 24 hours.
+         */
+        post: operations["startCompanyTopUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/company/wallet/top-ups/{topUpId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One company wallet top-up
+         * @description Admins and approvers. The return page polls it until the provider confirms.
+         */
+        get: operations["getCompanyTopUp"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/data-export": {
         parameters: {
             query?: never;
@@ -6643,7 +6703,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                kind: "checkout" | "wallet";
+                kind: "checkout" | "wallet" | "company_wallet";
                 provider: string;
                 /** @enum {string} */
                 status: "pending" | "succeeded" | "failed" | "cancelled" | "expired";
@@ -6807,6 +6867,21 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             policy: components["schemas"]["CompanyPolicy"];
+            walletBalances: components["schemas"]["Money"][];
+            recentTopUps: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+                /** @enum {string} */
+                status: "pending" | "succeeded" | "failed" | "expired" | "cancelled";
+                amount: components["schemas"]["Money"];
+                received: components["schemas"]["Money"] | null;
+                /** Format: date-time */
+                expiresAt: string;
+                /** Format: date-time */
+                createdAt: string;
+                succeededAt: string | null;
+            }[];
             memberList: {
                 /** Format: uuid */
                 userId: string;
@@ -7352,7 +7427,7 @@ export interface components {
             provider: string;
             amount: components["schemas"]["Money"];
             /** @enum {string} */
-            destination: "original" | "wallet";
+            destination: "original" | "wallet" | "company_wallet";
             /** @enum {string} */
             reason: "duplicate_payment" | "amount_mismatch" | "late_payment" | "ticketing_failed" | "installment_default" | "customer_cancellation" | "goodwill" | "supplier_cancellation" | "risk_rejected" | "deposit_release" | "other";
             /** @enum {string} */
@@ -8021,7 +8096,7 @@ export interface components {
             id: string;
             amount: components["schemas"]["Money"];
             /** @enum {string} */
-            destination: "original" | "wallet";
+            destination: "original" | "wallet" | "company_wallet";
             /** @enum {string} */
             status: "in_progress" | "completed" | "failed";
             /** Format: date-time */
@@ -8451,6 +8526,43 @@ export interface components {
                 total: components["schemas"]["Money"];
                 bookings: number;
             }[];
+        };
+        CompanyTopUp: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed" | "expired" | "cancelled";
+            amount: components["schemas"]["Money"];
+            received: components["schemas"]["Money"] | null;
+            checkoutUrl: string | null;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            succeededAt: string | null;
+        };
+        CompanyWallet: {
+            balances: components["schemas"]["Money"][];
+            canTopUp: boolean;
+            topUpOptions: {
+                currency: string;
+                min: components["schemas"]["Money"];
+                max: components["schemas"]["Money"];
+            }[];
+            topUpsPerDay: number;
+            movements: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "company_topup_captured" | "company_wallet_payment" | "refund_to_company_wallet" | "cancellation_fee" | "referral_reward" | "ride_earnings" | "payout_sent" | "payout_settled" | "payout_failed" | "deposit_deduction";
+                amount: components["schemas"]["Money"];
+                bookingId: string | null;
+                bookingReference: string | null;
+                /** Format: date-time */
+                occurredAt: string;
+            }[];
+            topUps: components["schemas"]["CompanyTopUp"][];
         };
         ContentPage: {
             slug: string;
@@ -10415,6 +10527,9 @@ export interface components {
                 schedule: components["schemas"]["ScheduledPayment"][];
             } | null;
             wallet: components["schemas"]["Money"] | null;
+            companyWallet: {
+                covers: boolean;
+            } | null;
         };
         PaymentPlan: {
             /** @enum {string} */
@@ -10870,7 +10985,7 @@ export interface components {
             /** @enum {string} */
             kind: "ledger_missing" | "ledger_amount" | "provider_status" | "provider_amount" | "orphan_ledger";
             /** @enum {string} */
-            subjectType: "payment" | "refund" | "payout";
+            subjectType: "payment" | "refund" | "payout" | "company_topup";
             /** Format: uuid */
             subjectId: string;
             bookingId: string | null;
@@ -11200,6 +11315,7 @@ export interface components {
             "partner-conversions": number;
             "rejected-reviews": number;
             "company-invitations": number;
+            "company-top-ups": number;
             "ad-conversions": number;
             "metasearch-landings": number;
             "support-conversations": number;
@@ -11583,6 +11699,16 @@ export interface components {
             contactsNotified: number;
             emergencyNumber: string;
         };
+        StartCompanyTopUpInput: {
+            amount: {
+                amountMinor: number;
+                currency: string;
+            };
+            /** @default null */
+            provider?: ("mock" | "paystack" | "flutterwave" | "stripe") | null;
+            /** @default null */
+            method?: ("card" | "bank_transfer" | "ussd" | "mobile_money" | "apple_google_pay" | "agent") | null;
+        };
         StartedSupportConversation: {
             conversation: components["schemas"]["SupportConversation"];
             accessToken: string | null;
@@ -11598,6 +11724,8 @@ export interface components {
             payInFull?: boolean;
             /** @default false */
             useWallet?: boolean;
+            /** @default false */
+            useCompanyWallet?: boolean;
         };
         StartSupportConversationRequestInput: {
             /** @enum {string} */
@@ -12257,7 +12385,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "cancellation_fee" | "referral_reward" | "ride_earnings" | "payout_sent" | "payout_settled" | "payout_failed" | "deposit_deduction";
+                kind: "payment_captured" | "payment_unapplied" | "wallet_payment" | "refund_initiated" | "refund_settled" | "refund_failed" | "refund_to_wallet" | "company_topup_captured" | "company_wallet_payment" | "refund_to_company_wallet" | "cancellation_fee" | "referral_reward" | "ride_earnings" | "payout_sent" | "payout_settled" | "payout_failed" | "deposit_deduction";
                 amount: components["schemas"]["Money"];
                 bookingId: string | null;
                 /** Format: date-time */
@@ -22201,6 +22329,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompanySpend"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getCompanyWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyWallet"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    startCompanyTopUp: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartCompanyTopUpInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyTopUp"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    getCompanyTopUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topUpId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanyTopUp"];
                 };
             };
             400: components["responses"]["Problem400"];

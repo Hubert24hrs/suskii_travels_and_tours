@@ -19,6 +19,7 @@ const SWEEP_BUDGET_MS = 20_000;
  * Lost webhooks (ADR-016): pending payments whose checkout closed, or that are older than
  * PAYMENT_RECONCILE_AFTER_MINUTES, are verified with the provider. A settled outcome goes through
  * the webhook pipeline as `reconcile:{reference}:{status}`, so it is applied exactly once.
+ * Company wallet top-ups (ADR-090) are checked the same way after the payments.
  */
 @Injectable()
 export class PaymentReconciliationService {
@@ -98,6 +99,79 @@ export class PaymentReconciliationService {
         this.logger.warn(
           { paymentId: payment.id, reason: (error as Error).name },
           'payment reconciliation failed',
+        );
+      }
+    }
+    const topUps = await this.reconcileTopUps(now, staleBefore, stopStartingAt);
+    return { checked: checked + topUps.checked, settled: settled + topUps.settled };
+  }
+
+  private async reconcileTopUps(
+    now: Date,
+    staleBefore: Date,
+    stopStartingAt: number,
+  ): Promise<{ checked: number; settled: number }> {
+    const topUps = await this.prisma.companyWalletTopUp.findMany({
+      where: {
+        status: 'pending',
+        provider: { in: this.providers.all().map((provider) => provider.name) },
+        OR: [{ expiresAt: { lt: now } }, { createdAt: { lt: staleBefore } }],
+        AND: [
+          {
+            OR: [
+              { reconciledAt: null },
+              { reconciledAt: { lt: new Date(now.getTime() - RECHECK_AFTER_MS) } },
+            ],
+          },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
+      take: BATCH,
+    });
+    let checked = 0;
+    let settled = 0;
+    for (const topUp of topUps) {
+      if (Date.now() > stopStartingAt) break;
+      checked += 1;
+      const provider = this.providers.find(topUp.provider);
+      if (!provider) continue;
+      try {
+        const verified = await provider.verifyPayment({
+          providerReference: topUp.providerReference,
+          providerTransactionId: topUp.providerTransactionId,
+          amount: money(topUp.amountMinor, topUp.currency),
+        });
+        await this.prisma.companyWalletTopUp.update({
+          where: { id: topUp.id },
+          data: { reconciledAt: now },
+        });
+        if (verified.status === 'pending') {
+          if (topUp.expiresAt.getTime() < now.getTime() - GIVE_UP_AFTER_MS) {
+            // A capture after this still arrives by webhook and is credited then.
+            await this.prisma.companyWalletTopUp.updateMany({
+              where: { id: topUp.id, status: 'pending' },
+              data: { status: 'expired', failureReason: 'never_completed' },
+            });
+          }
+          continue;
+        }
+        const outcome = await this.events.apply(provider.name, {
+          eventId: `reconcile:${topUp.providerReference}:${verified.status}`,
+          type: verified.status === 'succeeded' ? 'payment.succeeded' : 'payment.failed',
+          providerReference: topUp.providerReference,
+          providerTransactionId: verified.providerTransactionId,
+          providerRefundId: null,
+          refundId: null,
+          amount: verified.amount,
+          method: verified.method,
+          occurredAt: now.toISOString(),
+          failureReason: verified.failureReason,
+        });
+        if (outcome !== 'duplicate') settled += 1;
+      } catch (error) {
+        this.logger.warn(
+          { topUpId: topUp.id, reason: (error as Error).name },
+          'top-up reconciliation failed',
         );
       }
     }
