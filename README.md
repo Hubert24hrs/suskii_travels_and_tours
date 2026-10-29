@@ -8,6 +8,7 @@ and Android) and a Next.js admin console.
 - Working guide for contributors and Claude Code: [`CLAUDE.md`](./CLAUDE.md)
 - Architecture decisions: [`docs/decisions/`](./docs/decisions)
 - Phase plans: [`docs/phases/`](./docs/phases)
+- What the owner still has to do (accounts, keys, legal), step by step: [`docs/owner/launch-checklist.md`](./docs/owner/launch-checklist.md)
 
 ## Repository layout
 
