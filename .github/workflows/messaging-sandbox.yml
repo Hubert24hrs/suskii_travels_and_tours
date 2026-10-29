@@ -1,0 +1,82 @@
+name: Text and exchange-rate check
+
+# Reads today's rates from Open Exchange Rates and, when a phone is given, sends one test text
+# through Termii and Africa's Talking, through our adapters (ADR-091). Manual only, with the
+# owner's repository secrets; a provider whose secrets are missing is named and skipped, and the
+# run fails when none is set. The phone is masked in the log. CI never calls a provider.
+on:
+  workflow_dispatch:
+    inputs:
+      to:
+        description: Phone for one test text per provider, international format (+234...). Leave empty to check exchange rates only.
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: messaging-sandbox
+  cancel-in-progress: false
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  sandbox:
+    name: Text and exchange-rate check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check the secrets are set
+        env:
+          TO: ${{ inputs.to }}
+          OPENEXCHANGERATES_APP_ID: ${{ secrets.OPENEXCHANGERATES_APP_ID }}
+          TERMII_API_KEY: ${{ secrets.TERMII_API_KEY }}
+          AFRICASTALKING_API_KEY: ${{ secrets.AFRICASTALKING_API_KEY }}
+        run: |
+          if [ -n "$TO" ]; then echo "::add-mask::$TO"; fi
+          if [ -z "$OPENEXCHANGERATES_APP_ID$TERMII_API_KEY$AFRICASTALKING_API_KEY" ]; then
+            echo "::error::No provider has its secrets set. Add them under Settings, Secrets and variables, Actions (OPENEXCHANGERATES_APP_ID; TERMII_API_KEY with the TERMII_SENDER_ID variable; AFRICASTALKING_API_KEY with the AFRICASTALKING_USERNAME variable), then run this workflow again."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The API's workspace dependencies (shared, design tokens, ...), as CI builds them.
+      - name: Build the API's workspace packages
+        run: pnpm exec turbo run build --filter=@suskii/api^...
+
+      - name: Run the check
+        env:
+          TO: ${{ inputs.to }}
+          OPENEXCHANGERATES_APP_ID: ${{ secrets.OPENEXCHANGERATES_APP_ID }}
+          TERMII_API_KEY: ${{ secrets.TERMII_API_KEY }}
+          TERMII_SENDER_ID: ${{ vars.TERMII_SENDER_ID }}
+          TERMII_CHANNEL: ${{ vars.TERMII_CHANNEL }}
+          TERMII_API_URL: ${{ vars.TERMII_API_URL }}
+          AFRICASTALKING_API_KEY: ${{ secrets.AFRICASTALKING_API_KEY }}
+          AFRICASTALKING_USERNAME: ${{ vars.AFRICASTALKING_USERNAME }}
+          AFRICASTALKING_SENDER_ID: ${{ vars.AFRICASTALKING_SENDER_ID }}
+        run: |
+          if [ -n "$TO" ]; then
+            echo "::add-mask::$TO"
+            pnpm --filter @suskii/api sandbox:messaging --to "$TO"
+          else
+            pnpm --filter @suskii/api sandbox:messaging
+          fi
