@@ -123,7 +123,7 @@ variable "api_env" {
     # Secrets belong in Secret Manager (extra_secrets): a plain value shows in the console and state.
     condition = alltrue([
       for key in keys(var.api_env) :
-      !can(regex("(SECRET|TOKEN|PASSWORD|PRIVATE|HMAC|ENCRYPTION_KEY$|ENCRYPTION_PREVIOUS_KEYS|_HASH$|_KEY$)", key))
+      !can(regex("(SECRET|TOKEN|PASSWORD|PRIVATE|HMAC|ENCRYPTION_KEY$|ENCRYPTION_PREVIOUS_KEYS|_HASH$|_KEY$|_APP_ID$)", key))
     ])
     error_message = "api_env must not hold secrets; add their names to extra_secrets and set the values in Secret Manager."
   }

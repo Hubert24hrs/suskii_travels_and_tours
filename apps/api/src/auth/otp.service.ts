@@ -7,9 +7,9 @@ import { HmacService } from '../crypto/hmac.service';
 import { randomDigits } from '../crypto/random';
 import { REDIS } from '../infra/redis';
 import { otpSmsBody } from '../notifications/templates';
-import { SmsProvider } from '../notifications/sms';
+import { SmsProvider, SmsSendError } from '../notifications/sms';
 
-import { invalidCode } from './errors';
+import { invalidCode, smsUnavailable } from './errors';
 import { LoginThrottleService } from './login-throttle.service';
 
 export const OTP_TTL_SECONDS = 5 * 60;
@@ -57,11 +57,18 @@ export class OtpService {
       attempts: 0,
     };
     await this.redis.set(keys.code, JSON.stringify(stored), 'EX', OTP_TTL_SECONDS);
-    await this.sms.send({
-      to: phone,
-      body: otpSmsBody(code),
-      template: `otp:${purpose.split(':')[0]}`,
-    });
+    try {
+      await this.sms.send({
+        to: phone,
+        body: otpSmsBody(code),
+        template: `otp:${purpose.split(':')[0]}`,
+      });
+    } catch (error) {
+      // Nothing reached the phone: drop the code and the cooldown so the traveller can retry.
+      await this.redis.del(keys.code, keys.cooldown);
+      if (error instanceof SmsSendError) throw smsUnavailable();
+      throw error;
+    }
   }
 
   /** Consumes the code on success; throws `invalid-code` (or 429 when locked) otherwise. */

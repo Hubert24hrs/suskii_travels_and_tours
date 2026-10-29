@@ -70,6 +70,27 @@ describe('auth: phone OTP and social sign-in (e2e)', () => {
       expect(keys.join('|')).not.toContain(PHONE);
     });
 
+    it('answers 503 when the text provider fails, keeping nothing, so a retry works at once (ADR-091)', async () => {
+      ctx.sms.failWith = 'http-500';
+      try {
+        const refused = await ctx.http().post('/v1/auth/otp/request').send({ phone: PHONE });
+        expect(refused.status).toBe(503);
+        expect(refused.body.type).toBe('urn:suskii:problem:sms-unavailable');
+        expect(JSON.stringify(refused.body)).not.toContain(PHONE);
+        expect(await ctx.redis.keys('auth:otp*')).toEqual([]);
+      } finally {
+        ctx.sms.failWith = null;
+      }
+      // No cooldown was left behind: the next request sends at once.
+      await ctx.http().post('/v1/auth/otp/request').send({ phone: PHONE }).expect(202);
+      expect(ctx.sms.outbox).toHaveLength(1);
+      await ctx
+        .http()
+        .post('/v1/auth/otp/verify')
+        .send({ phone: PHONE, code: lastSmsCode(ctx, PHONE) })
+        .expect(200);
+    });
+
     it('burns a code after 5 wrong guesses and then locks the number', async () => {
       await ctx.http().post('/v1/auth/otp/request').send({ phone: PHONE }).expect(202);
       const code = lastSmsCode(ctx, PHONE);

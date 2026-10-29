@@ -460,4 +460,66 @@ describe('parseEnv', () => {
     }
     expect(message).not.toContain('MAPS_PROVIDER:');
   });
+
+  it('needs credentials for every text provider named, routes by calling code, and no mock in production (ADR-091)', () => {
+    expect(parseEnv(base)).toMatchObject({ SMS_PROVIDER: 'mock', SMS_ROUTES: [] });
+    expect(() => parseEnv({ ...base, SMS_PROVIDER: 'termii' })).toThrow(
+      /TERMII_API_KEY.*TERMII_SENDER_ID/s,
+    );
+    expect(() => parseEnv({ ...base, SMS_ROUTES: '254=africastalking' })).toThrow(
+      /AFRICASTALKING_USERNAME.*AFRICASTALKING_API_KEY/s,
+    );
+    expect(() => parseEnv({ ...base, SMS_ROUTES: '+234=termii' })).toThrow(/SMS_ROUTES/);
+    const env = parseEnv({
+      ...base,
+      SMS_PROVIDER: 'africastalking',
+      SMS_ROUTES: '234=termii',
+      TERMII_API_KEY: 'TL-test-key-0123456789',
+      TERMII_SENDER_ID: 'SuskiiTT',
+      AFRICASTALKING_USERNAME: 'suskii',
+      AFRICASTALKING_API_KEY: 'atsk_test_0123456789',
+    });
+    expect(env.SMS_ROUTES).toEqual([['234', 'termii']]);
+    expect(env.TERMII_CHANNEL).toBe('dnd');
+    let message = '';
+    try {
+      parseEnv({
+        ...base,
+        NODE_ENV: 'production',
+        SMS_PROVIDER: 'africastalking',
+        SMS_ROUTES: '233=mock',
+        AFRICASTALKING_USERNAME: 'sandbox',
+        AFRICASTALKING_API_KEY: 'atsk_test_0123456789',
+        AFRICASTALKING_API_URL: 'https://api.sandbox.africastalking.com',
+        TERMII_API_URL: 'http://api.ng.termii.com',
+        WHATSAPP_PROVIDER: 'none',
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain('SMS_ROUTES: mock provider is not allowed');
+    expect(message).toContain('AFRICASTALKING_API_URL: the sandbox delivers nothing');
+    expect(message).toContain('TERMII_API_URL: must use https');
+    expect(message).not.toContain('SMS_PROVIDER');
+    // `none` turns WhatsApp notifications off, which production accepts.
+    expect(message).not.toContain('WHATSAPP_PROVIDER');
+  });
+
+  it('needs the app id for real exchange rates and reads fixed rates per dollar (ADR-091)', () => {
+    expect(() => parseEnv({ ...base, FX_PROVIDER: 'openexchangerates' })).toThrow(
+      /OPENEXCHANGERATES_APP_ID/,
+    );
+    const env = parseEnv({
+      ...base,
+      FX_PROVIDER: 'openexchangerates',
+      OPENEXCHANGERATES_APP_ID: 'oxr-app-id-0123456789',
+      FX_RATE_OVERRIDES: 'NGN=1600.5, GHS=15',
+    });
+    expect(env.FX_RATE_OVERRIDES).toEqual({ NGN: '1600.5', GHS: '15' });
+    expect(parseEnv(base).FX_RATE_OVERRIDES).toEqual({});
+    expect(() => parseEnv({ ...base, FX_RATE_OVERRIDES: 'NGN=1,600' })).toThrow(
+      /FX_RATE_OVERRIDES/,
+    );
+    expect(() => parseEnv({ ...base, FX_RATE_OVERRIDES: 'ngn=1600' })).toThrow(/FX_RATE_OVERRIDES/);
+  });
 });

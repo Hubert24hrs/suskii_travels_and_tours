@@ -58,6 +58,9 @@ extra_secrets = [
   "DUFFEL_API_TOKEN",
   "SMTP_PASSWORD",
   "EXPO_ACCESS_TOKEN",
+  "TERMII_API_KEY",           # texts (ADR-091)
+  "OPENEXCHANGERATES_APP_ID", # exchange rates (ADR-091)
+  # "AFRICASTALKING_API_KEY", # texts outside Nigeria, with SMS_ROUTES below
 ]
 
 api_env = {
@@ -81,6 +84,16 @@ api_env = {
   SMTP_SECURE        = "true"
   SMTP_USER          = "REPLACE"
   PUSH_PROVIDER      = "expo"
+  # Texts (ADR-091): Termii (sender ID approved by Termii, DND route activated). When selling
+  # outside Nigeria, add Africa's Talking for those numbers: its key in extra_secrets, then
+  # SMS_ROUTES = "254=africastalking,233=africastalking" and AFRICASTALKING_USERNAME = "REPLACE".
+  SMS_PROVIDER     = "termii"
+  TERMII_SENDER_ID = "REPLACE"
+  # Exchange rates (ADR-091). To pin the naira to your bank's settlement rate instead of the
+  # market rate, add FX_RATE_OVERRIDES = "NGN=REPLACE" (naira per US dollar).
+  FX_PROVIDER = "openexchangerates"
+  # WhatsApp notifications need one approved template per message; off until then (ADR-091).
+  WHATSAPP_PROVIDER  = "none"
   ANTIVIRUS_PROVIDER = "clamav"
   CLAMAV_HOST        = "REPLACE"
   DEVICE_ATTESTATION = "none"

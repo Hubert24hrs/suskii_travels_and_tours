@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Text and exchange-rate providers (2026-10-28)
+
+#### Added
+
+- **Texts through Termii and Africa's Talking (ADR-091).** Sign-in codes, booking and safety
+  texts go through `SMS_PROVIDER`, with `SMS_ROUTES` sending numbers by calling code to another
+  provider (`234=termii`). Termii uses the DND route by default, so codes reach numbers on
+  Nigeria's Do-Not-Disturb list. Failures are logged as a provider code, never the number or the
+  text.
+- **Exchange rates from Open Exchange Rates.** Rates are kept as their exact decimal text. Missing
+  or malformed rates are left out, never guessed. `FX_RATE_OVERRIDES` pins chosen rates, such as
+  the bank's naira rate, on top.
+- **WhatsApp notifications can be off.** `WHATSAPP_PROVIDER=none` skips the channel (logged as
+  `channel_off`) and is accepted in production until each message has an approved template.
+- **Owner check.** `pnpm --filter @suskii/api sandbox:messaging` and the manual
+  `messaging-sandbox.yml` workflow read today's rates and send one test text per provider.
+
+#### Changed
+
+- A sign-in code that cannot be texted now answers 503 `sms-unavailable` and leaves no code or
+  cooldown behind, so the traveller can retry at once.
+- Terraform and Helm refuse plain settings ending in `_APP_ID` (secrets belong in Secret Manager).
+
 ### Company wallet (2026-10-28)
 
 #### Added
@@ -34,6 +57,7 @@ All notable changes to this project are documented here. The format follows
 
 - Two payments at once from one personal wallet answered 500 when the second found the balance
   spent; it now answers 409 `wallet-insufficient`.
+
 ### Compliance, part 2: rights requests, breaches and records of processing (2026-10-28)
 
 #### Added

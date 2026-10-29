@@ -250,10 +250,12 @@ export class AuthController {
   @Contract({
     operationId: 'requestSignInOtp',
     summary: 'Text a 6-digit sign-in code to a phone number',
-    description: 'Codes expire after 5 minutes; a new code can be requested every 60 seconds.',
+    description:
+      'Codes expire after 5 minutes; a new code can be requested every 60 seconds. 503 `sms-unavailable` when the text provider fails (nothing was sent; retry at once).',
     tags: TAGS,
     body: otpRequestBodySchema,
     responses: { 202: otpDispatchedSchema },
+    errors: [503],
   })
   async requestOtp(
     @Body() body: z.infer<typeof otpRequestBodySchema>,

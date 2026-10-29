@@ -32,6 +32,10 @@ const csv = <T extends z.ZodType<unknown, string>>(item: T) =>
 
 const originOf = (url: string): string => new URL(url).origin;
 
+/** SMS adapters (ADR-091); `mock` keeps texts in memory. */
+export const SMS_PROVIDERS = ['mock', 'termii', 'africastalking'] as const;
+export type SmsProviderName = (typeof SMS_PROVIDERS)[number];
+
 /** Support targets per priority in minutes (ADR-083), until SUPPORT_SLA says otherwise. */
 export const DEFAULT_SUPPORT_SLA: SupportTargets = {
   urgent: { responseMinutes: 15, resolutionMinutes: 240 },
@@ -153,8 +157,40 @@ export const envSchema = z
     SMTP_SECURE: booleanish.default(false),
     SMTP_USER: z.string().min(1).optional(),
     SMTP_PASSWORD: z.string().min(1).optional(),
-    SMS_PROVIDER: z.enum(['mock']).default('mock'),
-    WHATSAPP_PROVIDER: z.enum(['mock']).default('mock'),
+    /**
+     * Texts (ADR-091): sign-in codes, booking and safety alerts. `SMS_ROUTES` sends numbers by
+     * calling-code prefix to another provider (`234=termii,254=africastalking`); the rest go to
+     * `SMS_PROVIDER`. Every provider named needs its settings below.
+     */
+    SMS_PROVIDER: z.enum(SMS_PROVIDERS).default('mock'),
+    SMS_ROUTES: csv(
+      z
+        .string()
+        .regex(/^\d{1,4}=(mock|termii|africastalking)$/, 'use callingCode=provider')
+        .transform((rule) => {
+          const [prefix = '', provider = 'mock'] = rule.split('=');
+          return [prefix, provider as SmsProviderName] as const;
+        }),
+    ).default([]),
+    SMS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(10_000),
+    TERMII_API_URL: z.url().default('https://api.ng.termii.com'),
+    TERMII_API_KEY: z.string().min(8).optional(),
+    /** Sender ID approved by Termii (3 to 11 letters or digits). */
+    TERMII_SENDER_ID: z
+      .string()
+      .regex(/^[A-Za-z0-9 ]{3,11}$/)
+      .optional(),
+    /** `dnd` reaches Do-Not-Disturb numbers (transactional route, activated by Termii); `generic` does not. */
+    TERMII_CHANNEL: z.enum(['dnd', 'generic']).default('dnd'),
+    AFRICASTALKING_API_URL: z.url().default('https://api.africastalking.com'),
+    AFRICASTALKING_USERNAME: z.string().min(1).optional(),
+    AFRICASTALKING_API_KEY: z.string().min(8).optional(),
+    AFRICASTALKING_SENDER_ID: z.string().min(1).max(20).optional(),
+    /**
+     * Booking and alert messages on WhatsApp (ADR-032, ADR-091). `none` turns the channel off:
+     * travellers get those messages by email, push and text instead.
+     */
+    WHATSAPP_PROVIDER: z.enum(['mock', 'none']).default('mock'),
     /** Push notifications (ADR-022): Expo's push service relays to FCM and APNs. */
     PUSH_PROVIDER: z.enum(['expo', 'mock']).default('mock'),
     EXPO_PUSH_URL: z.url().default('https://exp.host/--/api/v2/push/send'),
@@ -248,8 +284,27 @@ export const envSchema = z
     SUPPLIER_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(10_000),
     /** How long identical searches are served from cache (spec: 5-15 minutes). */
     SEARCH_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(600),
-    FX_PROVIDER: z.enum(['mock']).default('mock'),
+    /** Exchange rates (ADR-008, ADR-091): `openexchangerates` needs an app id. */
+    FX_PROVIDER: z.enum(['mock', 'openexchangerates']).default('mock'),
     FX_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3600),
+    OPENEXCHANGERATES_API_URL: z.url().default('https://openexchangerates.org/api'),
+    OPENEXCHANGERATES_APP_ID: z.string().min(8).optional(),
+    FX_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30_000).default(10_000),
+    /**
+     * Rates fixed by the owner on top of the provider's, per US dollar (`NGN=1600.5,GHS=15.2`):
+     * for example the bank's settlement rate for the naira (ADR-008). Others stay the provider's.
+     */
+    FX_RATE_OVERRIDES: csv(
+      z
+        .string()
+        .regex(/^[A-Z]{3}=\d{1,12}(\.\d{1,12})?$/, 'use CUR=rate per US dollar')
+        .transform((rule) => {
+          const [currency = '', rate = ''] = rule.split('=');
+          return [currency, rate] as const;
+        }),
+    )
+      .transform((rules): Readonly<Record<string, string>> => Object.fromEntries(rules))
+      .default({}),
     /**
      * Country of the selling entity whose tax rules price every offer (ADR-072). Rules for other
      * countries can be prepared in the admin console; only this country's apply.
@@ -817,10 +872,34 @@ export const envSchema = z
         if (!env[key]) require(key, 'is required when OBJECT_STORAGE is s3');
       }
     }
+    // A provider that is named needs its credentials, in every environment (ADR-091).
+    const smsProviders = new Set<SmsProviderName>([
+      env.SMS_PROVIDER,
+      ...env.SMS_ROUTES.map(([, provider]) => provider),
+    ]);
+    if (smsProviders.has('termii')) {
+      if (!env.TERMII_API_KEY) require('TERMII_API_KEY', 'is required when Termii sends texts');
+      if (!env.TERMII_SENDER_ID) require('TERMII_SENDER_ID', 'is required when Termii sends texts');
+    }
+    if (smsProviders.has('africastalking')) {
+      if (!env.AFRICASTALKING_USERNAME)
+        require('AFRICASTALKING_USERNAME', "is required when Africa's Talking sends texts");
+      if (!env.AFRICASTALKING_API_KEY)
+        require('AFRICASTALKING_API_KEY', "is required when Africa's Talking sends texts");
+    }
+    if (env.FX_PROVIDER === 'openexchangerates' && !env.OPENEXCHANGERATES_APP_ID)
+      require('OPENEXCHANGERATES_APP_ID', 'is required when FX_PROVIDER is openexchangerates');
     if (env.NODE_ENV !== 'production') return;
     if (!env.INTERNAL_API_TOKEN) require('INTERNAL_API_TOKEN', 'is required in production');
     else if (env.INTERNAL_API_TOKEN.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
       require('INTERNAL_API_TOKEN', 'the local development token is not allowed in production');
+    // The sandbox delivers nothing: travellers would never get their sign-in codes.
+    if (
+      smsProviders.has('africastalking') &&
+      !env.ALLOW_MOCK_PROVIDERS &&
+      new URL(env.AFRICASTALKING_API_URL).hostname.includes('sandbox')
+    )
+      require('AFRICASTALKING_API_URL', 'the sandbox delivers nothing; use https://api.africastalking.com in production');
     if (!env.TURNSTILE_SECRET_KEY) require('TURNSTILE_SECRET_KEY', 'is required in production');
     if (env.SOCIAL_MOCK_ENABLED)
       require('SOCIAL_MOCK_ENABLED', 'is never allowed in production: it signs anyone in as any email');
@@ -844,7 +923,9 @@ export const envSchema = z
     if (!env.ALLOW_MOCK_PROVIDERS && env.SMS_PROVIDER === 'mock')
       require('SMS_PROVIDER', 'mock provider is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.WHATSAPP_PROVIDER === 'mock')
-      require('WHATSAPP_PROVIDER', 'mock provider is not allowed in production');
+      require('WHATSAPP_PROVIDER', 'mock provider is not allowed in production; use none to turn the channel off');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.SMS_ROUTES.some(([, provider]) => provider === 'mock'))
+      require('SMS_ROUTES', 'mock provider is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.PUSH_PROVIDER === 'mock')
       require('PUSH_PROVIDER', 'mock provider is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.DEVICE_ATTESTATION === 'mock')
@@ -881,6 +962,9 @@ export const envSchema = z
       'META_GRAPH_API_URL',
       'WHATSAPP_GRAPH_API_URL',
       'TIKTOK_EVENTS_API_URL',
+      'TERMII_API_URL',
+      'AFRICASTALKING_API_URL',
+      'OPENEXCHANGERATES_API_URL',
     ] as const) {
       if (!env[key].startsWith('https://')) require(key, 'must use https in production');
     }

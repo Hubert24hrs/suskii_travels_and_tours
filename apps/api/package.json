@@ -36,6 +36,7 @@
     "eval:support-assistant": "tsx scripts/eval-support-assistant.ts",
     "sandbox:duffel": "tsx scripts/duffel-sandbox.ts",
     "sandbox:partners": "tsx scripts/partner-sandbox.ts",
+    "sandbox:messaging": "tsx scripts/messaging-sandbox.ts",
     "privacy:records": "tsx scripts/records-of-processing.ts"
   },
   "dependencies": {

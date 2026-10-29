@@ -104,3 +104,12 @@ export const invalidOrExpiredLink = (): ProblemDetailsException =>
     'Invalid or expired link',
     'Request a new link and try again.',
   );
+
+/** The text provider refused or did not answer (ADR-091); the code was not sent. */
+export const smsUnavailable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.SERVICE_UNAVAILABLE,
+    'sms-unavailable',
+    'We could not send the code',
+    'Text messages are not going through right now. Try again in a few minutes.',
+  );

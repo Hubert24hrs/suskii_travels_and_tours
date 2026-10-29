@@ -178,6 +178,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api test:sandbox`           | Our API's booking journey against Duffel test mode (manual workflow only)         |
 | `pnpm --filter @suskii/api privacy:records`        | Regenerate `docs/privacy/records-of-processing.md` (a unit test checks it)        |
 | `pnpm --filter @suskii/api sandbox:partners`       | Hotelbeds, Expedia, Viator and Travelpayouts check (owner keys, read-only)        |
+| `pnpm --filter @suskii/api sandbox:messaging`      | Exchange rates and one test text per provider (owner keys, `--to +234...`)        |
 | `pnpm --filter @suskii/api rides:demo`             | Sample drivers take local rides; type the rider's PIN (not in prod)               |
 | `pnpm --filter @suskii/api staff:bootstrap`        | First super admin of a new environment (`--email`, `--yes`; once)                 |
 | `pnpm release:rehearse`                            | Compose deploy, ops command, broken release, rollback (`:local` images)           |
@@ -919,6 +920,23 @@ Tooling notes for agents:
 - Run the screen reader checklist (`docs/runbooks/screen-reader-checklist.md`) before each store
   release and any release that changes search, checkout or sign-in.
 
+### Texts and exchange rates (ADR-091)
+
+- Texts go only through `SmsProvider`: Termii, Africa's Talking or the mock, chosen by
+  `SMS_PROVIDER`, with `SMS_ROUTES` by calling code (`smsProviderFor()`). A new provider is an
+  adapter in `notifications/sms-providers.ts`, a value in `SMS_PROVIDERS`, its settings with a
+  boot check, a recipient in the records of processing and a row in the outbound hosts.
+- Adapters throw `SmsSendError(provider, code)`; codes and logs never hold the number or the
+  text. A caller that must tell the traveller (sign-in codes) maps it to 503 `sms-unavailable`
+  and leaves no code or cooldown behind.
+- Exchange rates come only through `FxProvider` (`fxProviderFor()`): Open Exchange Rates or the
+  mock, with `FX_RATE_OVERRIDES` on top. Rates stay exact decimal strings (`parseExactJson`);
+  never parse a provider's rates through floats or guess a missing one.
+- `WHATSAPP_PROVIDER=none` turns WhatsApp notifications off (`channel_off`); they need one
+  approved template per message before a real adapter can send them.
+- No test or CI job calls a provider; the owner checks real keys with `sandbox:messaging` or
+  `messaging-sandbox.yml`.
+
 ### Compliance (PCI DSS SAQ A and privacy laws, ADR-089)
 
 - Card data never touches Suskii: hosted checkout only, by redirect or the system browser. Never
@@ -1136,6 +1154,7 @@ Tooling notes for agents:
 - [ADR-088: WCAG 2.2 AA as the accessibility target](docs/decisions/ADR-088-wcag-2-2-aa-accessibility.md)
 - [ADR-089: Payment pages without third-party scripts, and privacy obligations per country](docs/decisions/ADR-089-payment-pages-and-privacy-obligations.md)
 - [ADR-090: Company wallet](docs/decisions/ADR-090-company-wallet.md)
+- [ADR-091: Text and exchange-rate providers](docs/decisions/ADR-091-sms-and-exchange-rate-providers.md)
 
 ## Open questions for the owner
 
@@ -1186,9 +1205,9 @@ inventory (manual by default), cash for rides (off by default), VAT on Cars fare
 with billing and the region (default `europe-west2`, London), two domains with Cloudflare zones
 (Pro on production for the managed WAF; Advanced Certificate Manager for a visitor cipher
 allowlist), the GitHub `staging` and `production` environments with their variables and
-production reviewers, then `DEPLOY_ENABLED=true`; real adapters for SMS, WhatsApp, exchange rates,
-driver KYC and payouts, without which production cannot start (they are mock-only
-today); where production ClamAV runs; customer-managed encryption keys (decide before the first
+production reviewers, then `DEPLOY_ENABLED=true`; accounts for texts (Termii, Africa's Talking)
+and exchange rates (Open Exchange Rates), whose adapters now exist (ADR-091), and real driver KYC
+and payouts only if rides are switched on; where production ClamAV runs; customer-managed encryption keys (decide before the first
 production apply); name-based egress filtering (Secure Web Proxy or Cloud NGFW); a public route
 for per-PR preview deploys; the App Store Connect app (`ascAppId`) and a D-U-N-S number for the
 Apple organisation account; whether Suskii Prime counts as a travel service or needs in-app
@@ -1277,4 +1296,9 @@ and the PAIA manual; DPIAs for payment risk scoring and the AI features; who hol
 wallet (ADR-090): counsel's view on whether a closed-loop company balance is stored value under CBN
 rules, the top-up limits per currency and the daily count (defaults NGN 10,000 to 5,000,000 and USD
 10 to 5,000, five a day), how support handles a company closing its wallet (refund of unused funds),
-and whether top-ups should go through the payment risk review.
+and whether top-ups should go through the payment risk review. Added with texts and exchange rates
+(ADR-091): a Termii account with an approved sender ID and the DND route, an Africa's Talking
+account for numbers outside Nigeria (or one provider for all), an Open Exchange Rates app id and
+plan, whether to pin the naira to the bank's settlement rate (`FX_RATE_OVERRIDES`), approved
+WhatsApp templates before booking messages go by WhatsApp, and one run of `messaging-sandbox.yml`
+with a real phone. Every owner action is listed, step by step, in `docs/owner/launch-checklist.md`.

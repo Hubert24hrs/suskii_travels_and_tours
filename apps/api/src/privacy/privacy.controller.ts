@@ -67,9 +67,10 @@ export class PrivacyController {
   @Contract({
     operationId: 'sendReauthCode',
     summary: 'Text a confirmation code (accounts without a password)',
+    description: '503 `sms-unavailable` when the text provider fails (nothing was sent).',
     tags: TAGS,
     responses: { 202: acceptedSchema },
-    errors: [409],
+    errors: [409, 503],
   })
   async sendCode(@CurrentAuth() auth: AuthContext): Promise<z.infer<typeof acceptedSchema>> {
     await this.reauth.sendCode(auth.userId);

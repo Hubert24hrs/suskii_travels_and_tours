@@ -24,7 +24,7 @@ Create and protect accounts: sign-in, MFA, sessions, devices, staff roles and th
 - **Lawful basis:** Contract: needed for the service the person asked for; Legitimate interests: security, fraud prevention and service quality
 - **People:** Travellers with an account; Suskii staff; Drivers and driver applicants; Bus operator agents
 - **Data:** Names, dates of birth, nationality; Email addresses and phone numbers; Password hashes, authenticators, session tokens; Push tokens, hashed IP addresses, device attestation
-- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Email relay (SMTP); SMS provider; Apple App Attest, Google Play Integrity; Sentry
+- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Email relay (SMTP); Termii (texts); Africa's Talking (texts); Apple App Attest, Google Play Integrity; Sentry
 
 | Table | Retention | On account deletion |
 | --- | --- | --- |
@@ -122,7 +122,7 @@ Send booking and account messages, honour channel preferences, watch fares for a
 - **Lawful basis:** Contract: needed for the service the person asked for; Consent: given, recorded and withdrawable
 - **People:** Travellers with an account; Newsletter subscribers
 - **Data:** Email addresses and phone numbers; Settings, consent choices and alerts; Support messages and notifications; Push tokens, hashed IP addresses, device attestation
-- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Email relay (SMTP); SMS provider; Expo push service (to FCM and APNs)
+- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Email relay (SMTP); Termii (texts); Africa's Talking (texts); Expo push service (to FCM and APNs)
 
 | Table | Retention | On account deletion |
 | --- | --- | --- |
@@ -140,7 +140,7 @@ Hold and sell bus seats, issue and scan boarding passes, run rides with safety t
 - **Lawful basis:** Contract: needed for the service the person asked for; Vital interests: protecting someone in an emergency; Legitimate interests: security, fraud prevention and service quality
 - **People:** Travellers with an account; Guests who book without an account, and the passengers they name; Bus operator agents; Emergency contacts named by riders
 - **Data:** Names, dates of birth, nationality; Email addresses and phone numbers; Itineraries, bookings, tickets and vouchers; Pickup and drop-off points, ride positions; Drivers' NIN, licence, vehicle and documents; renters' licences
-- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); SMS provider; Expo push service (to FCM and APNs)
+- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Termii (texts); Africa's Talking (texts); Expo push service (to FCM and APNs)
 
 | Table | Retention | On account deletion |
 | --- | --- | --- |
@@ -284,7 +284,8 @@ Who receives personal data, where it processes it and the basis for sending it a
 | Expedia Rapid, and the hotels it books | independent controller | Guest names, the booker's contact details and the checkout IP address for the booked stay (ADR-086) | United States; then the hotel's country | Needed to perform the booking or payment the person asked for (NDPA ss. 41 to 43, Kenya DPA s. 48, POPIA s. 72) | optional (`HOTEL_SUPPLIERS`) |
 | Paystack, Flutterwave, Stripe | independent controller | Email address, amount and our reference; card details are entered on their pages only (SAQ A) | Nigeria (Paystack, Flutterwave); United States and Ireland (Stripe) | Needed to perform the booking or payment the person asked for (NDPA ss. 41 to 43, Kenya DPA s. 48, POPIA s. 72) | optional (`PAYMENT_PROVIDERS`) |
 | Email relay (SMTP) | processor | Email address and the message | Depends on the relay the owner picks | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | not contracted (`SMTP_URL`) |
-| SMS provider | processor | Phone number and the message (sign-in codes, alerts) | Depends on the provider the owner picks | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | not contracted (`SMS_PROVIDER`) |
+| Termii (texts) | processor | Phone number and the text (sign-in codes, booking and safety alerts) (ADR-091) | Nigeria | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | not contracted (`SMS_PROVIDER, SMS_ROUTES`) |
+| Africa's Talking (texts) | processor | Phone number and the text (sign-in codes, booking and safety alerts) (ADR-091) | Kenya; then the mobile networks of the number | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | not contracted (`SMS_PROVIDER, SMS_ROUTES`) |
 | Expo push service (to FCM and APNs) | processor | Push token and the notification text (in-app paths only, no booking details) | United States | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | live |
 | Meta WhatsApp Cloud API | processor | The traveller's WhatsApp number and support messages (ADR-084) | United States and Ireland | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | not contracted (`WHATSAPP_SUPPORT_PROVIDER`) |
 | Meta Conversions API, TikTok Events API | independent controller | SHA-256 of the normalised email and phone, click ids and the Purchase value, only with marketing consent | United States and Ireland (Meta); Singapore, United States and Ireland (TikTok) | Consent recorded before anything is sent (marketing consent, ADR-079) | not contracted (`AD_CONVERSIONS`) |
