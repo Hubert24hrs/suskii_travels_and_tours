@@ -206,17 +206,18 @@ Invite travellers to review finished trips, moderate and publish reviews with a 
 
 ### Company accounts
 
-Run company accounts: members and roles, invitations, travel policy, approvals and spend reports.
+Run company accounts: members and roles, invitations, travel policy, approvals, spend reports and the company wallet (top-ups by hosted checkout).
 
 - **Lawful basis:** Contract: needed for the service the person asked for
 - **People:** Members of company accounts
-- **Data:** Names, dates of birth, nationality; Email addresses and phone numbers; Itineraries, bookings, tickets and vouchers
-- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Email relay (SMTP)
+- **Data:** Names, dates of birth, nationality; Email addresses and phone numbers; Itineraries, bookings, tickets and vouchers; Payment references, amounts and refunds (never card numbers)
+- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Email relay (SMTP); Paystack, Flutterwave, Stripe
 
 | Table | Retention | On account deletion |
 | --- | --- | --- |
 | `CompanyMember` | While the account exists; deletion applies its treatment | delete |
 | `CompanyInvitation` | Retention sweep `company-invitations`: 30 days after the event | retain |
+| `CompanyWalletTopUp` | Retention sweep `company-top-ups` (period from settings) | retain |
 
 ### Ad measurement with consent
 
@@ -297,5 +298,5 @@ Who receives personal data, where it processes it and the basis for sending it a
 
 ## Coverage
 
-All 73 tables that hold personal data belong to an activity above;
+All 74 tables that hold personal data belong to an activity above;
 the other 49 hold reference or operational data only.

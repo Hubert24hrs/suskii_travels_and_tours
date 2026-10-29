@@ -181,7 +181,12 @@ export class BookingPaymentsService {
 
     await this.ledger.post(tx, {
       key: `payment:${payment.id}:captured`,
-      kind: payment.kind === 'wallet' ? 'wallet_payment' : 'payment_captured',
+      kind:
+        payment.kind === 'wallet'
+          ? 'wallet_payment'
+          : payment.kind === 'company_wallet'
+            ? 'company_wallet_payment'
+            : 'payment_captured',
       bookingId: booking.id,
       paymentId: payment.id,
       lines: transfer(

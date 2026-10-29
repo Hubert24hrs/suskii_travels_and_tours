@@ -436,12 +436,12 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
     id: 'companies',
     name: 'Company accounts',
     purpose:
-      'Run company accounts: members and roles, invitations, travel policy, approvals and spend reports.',
+      'Run company accounts: members and roles, invitations, travel policy, approvals, spend reports and the company wallet (top-ups by hosted checkout).',
     basis: ['contract'],
     subjects: ['company_members'],
-    categories: ['identity', 'contact', 'trips'],
-    models: ['CompanyMember', 'CompanyInvitation'],
-    recipients: [...hosting, 'email_relay'],
+    categories: ['identity', 'contact', 'trips', 'payments'],
+    models: ['CompanyMember', 'CompanyInvitation', 'CompanyWalletTopUp'],
+    recipients: [...hosting, 'email_relay', 'payment_providers'],
   },
   {
     id: 'advertising',

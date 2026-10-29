@@ -608,6 +608,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'rule', rule: 'company-invitations' },
     note: 'Emailed invitations: HMACs of the token and the address, a masked address and the role. Purged 30 days after they expire.',
   },
+  CompanyWalletTopUp: {
+    section: 'company',
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'company-top-ups' },
+    note: "A top-up of the company wallet (ADR-090): amount, status, provider references, a hashed IP and who started it; never card data. A financial record of the company's money: kept after the account goes (the user row becomes a tombstone) for FINANCIAL_RECORDS_RETENTION_YEARS; unpaid ones go after 90 days.",
+  },
   AdConversion: {
     section: 'activity',
     deletion: 'delete',

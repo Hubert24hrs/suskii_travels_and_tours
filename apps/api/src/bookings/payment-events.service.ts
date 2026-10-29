@@ -1,9 +1,10 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
-import { money, toWire } from '@suskii/shared';
+import { money, toWire, type Money } from '@suskii/shared';
 
 import { BackgroundTasks } from '../common/background-tasks';
+import { CompanyTopUps } from '../companies/company-top-ups';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
@@ -22,7 +23,7 @@ import { BookingPaymentsService } from './booking-payments.service';
 import { BookingTransitions, WEBHOOK_ACTOR } from './booking-transitions';
 import { invalidWebhook, paymentClosed, paymentProviderDown } from './booking.errors';
 import type { mockPaymentResultSchema, mockPaymentSchema } from './bookings.schemas';
-import { paymentReturnUrl } from './booking-urls';
+import { companyTopUpReturnUrl, paymentReturnUrl } from './booking-urls';
 import { RefundsService } from './refunds.service';
 import { TicketingService } from './ticketing.service';
 import { paymentWebhooks, payments } from '../telemetry/metrics';
@@ -59,6 +60,7 @@ export class PaymentEventsService {
     private readonly ticketing: TicketingService,
     private readonly background: BackgroundTasks,
     private readonly notifications: BookingNotifications,
+    private readonly topUps: CompanyTopUps,
   ) {}
 
   async receive(
@@ -180,7 +182,12 @@ export class PaymentEventsService {
     const found = event.providerReference
       ? await tx.payment.findUnique({ where: { providerReference: event.providerReference } })
       : null;
-    if (found?.provider !== provider) return { ...NOTHING, outcome: 'unknown_payment' };
+    if (!found) {
+      // Not a booking payment: a company wallet top-up (ADR-090), or nothing we know.
+      const topUp = await this.topUps.applyProviderEvent(tx, provider, event);
+      return { ...NOTHING, outcome: topUp ?? 'unknown_payment' };
+    }
+    if (found.provider !== provider) return { ...NOTHING, outcome: 'unknown_payment' };
     // One payment event at a time per booking.
     await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${found.bookingId}::uuid FOR UPDATE`;
     const booking = await tx.booking.findUniqueOrThrow({ where: { id: found.bookingId } });
@@ -232,14 +239,14 @@ export class PaymentEventsService {
   // -------------------------------------------------------------------------
 
   async mockPayment(reference: string): Promise<z.infer<typeof mockPaymentSchema>> {
-    const payment = await this.mockPaymentRow(reference);
+    const target = await this.mockTarget(reference);
     return {
-      reference: payment.providerReference,
-      bookingReference: payment.booking.reference,
-      amount: toWire(money(payment.amountMinor, payment.currency)),
-      status: payment.status,
-      expiresAt: payment.expiresAt.toISOString(),
-      returnUrl: paymentReturnUrl(this.config, payment.bookingId, payment.booking.channel),
+      reference,
+      bookingReference: target.label,
+      amount: toWire(target.amount),
+      status: target.status,
+      expiresAt: target.expiresAt.toISOString(),
+      returnUrl: target.returnUrl,
     };
   }
 
@@ -249,9 +256,9 @@ export class PaymentEventsService {
     outcome: 'succeeded' | 'failed',
     card: PaymentCard | null = null,
   ): Promise<z.infer<typeof mockPaymentResultSchema>> {
-    const payment = await this.mockPaymentRow(reference);
-    if (payment.status !== 'pending' || payment.expiresAt <= new Date()) throw paymentClosed();
-    const amount = money(payment.amountMinor, payment.currency);
+    const target = await this.mockTarget(reference);
+    if (target.status !== 'pending' || target.expiresAt <= new Date()) throw paymentClosed();
+    const amount = target.amount;
     this.mock.recordOutcome(reference, outcome, amount);
     if (this.mock.dropNextWebhooks > 0) {
       // Test hook: the provider took the money but its webhook never arrives (reconciliation).
@@ -260,20 +267,43 @@ export class PaymentEventsService {
       const { rawBody, headers } = this.mock.signedEvent(reference, outcome, amount, card);
       await this.receive(this.mock.name, rawBody, headers);
     }
-    const after = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
-    return {
-      status: after.status,
-      returnUrl: paymentReturnUrl(this.config, payment.bookingId, payment.booking.channel),
-    };
+    const after = await this.mockTarget(reference);
+    return { status: after.status, returnUrl: after.returnUrl };
   }
 
-  private async mockPaymentRow(reference: string) {
+  /** What the mock page charges for: a booking payment or a company wallet top-up (ADR-090). */
+  private async mockTarget(reference: string): Promise<{
+    label: string;
+    amount: Money;
+    status: 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'expired';
+    expiresAt: Date;
+    returnUrl: string;
+  }> {
     if (!this.providers.find(this.mock.name)) throw new NotFoundException();
     const payment = await this.prisma.payment.findUnique({
       where: { providerReference: reference },
       include: { booking: { select: { reference: true, channel: true } } },
     });
-    if (payment?.provider !== this.mock.name) throw new NotFoundException();
-    return payment;
+    if (payment) {
+      if (payment.provider !== this.mock.name) throw new NotFoundException();
+      return {
+        label: payment.booking.reference,
+        amount: money(payment.amountMinor, payment.currency),
+        status: payment.status,
+        expiresAt: payment.expiresAt,
+        returnUrl: paymentReturnUrl(this.config, payment.bookingId, payment.booking.channel),
+      };
+    }
+    const topUp = await this.prisma.companyWalletTopUp.findUnique({
+      where: { providerReference: reference },
+    });
+    if (topUp?.provider !== this.mock.name) throw new NotFoundException();
+    return {
+      label: topUp.reference,
+      amount: money(topUp.amountMinor, topUp.currency),
+      status: topUp.status,
+      expiresAt: topUp.expiresAt,
+      returnUrl: companyTopUpReturnUrl(this.config, topUp.id),
+    };
   }
 }

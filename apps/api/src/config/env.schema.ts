@@ -43,6 +43,15 @@ export const DEFAULT_SUPPORT_SLA: SupportTargets = {
   normal: { responseMinutes: 120, resolutionMinutes: 1_440 },
 };
 
+/** Smallest and largest company wallet top-up per currency, in minor units (ADR-090). */
+export type CompanyTopUpLimits = Readonly<Record<string, { minMinor: number; maxMinor: number }>>;
+
+/** ₦10,000 to ₦5,000,000 and $10 to $5,000, until COMPANY_WALLET_TOPUP_LIMITS says otherwise. */
+export const DEFAULT_COMPANY_TOPUP_LIMITS: CompanyTopUpLimits = {
+  NGN: { minMinor: 1_000_000, maxMinor: 500_000_000 },
+  USD: { minMinor: 1_000, maxMinor: 500_000 },
+};
+
 /** Prefix of the local development internal token in .env.example; refused in production. */
 export const LOCAL_INTERNAL_TOKEN_PREFIX = 'local-dev-only-';
 
@@ -573,6 +582,30 @@ export const envSchema = z
         ...Object.fromEntries(rules),
       }))
       .default(DEFAULT_SUPPORT_SLA),
+    /**
+     * Company wallet (ADR-090): the currencies a wallet takes and the smallest and largest top-up
+     * in each, as `CUR=min/max` in minor units (`NGN=1000000/500000000`). A currency not listed
+     * cannot be added; set it to replace the defaults entirely.
+     */
+    COMPANY_WALLET_TOPUP_LIMITS: csv(
+      z
+        .string()
+        .regex(/^[A-Z]{3}=\d{1,15}\/\d{1,15}$/, 'use CUR=minMinor/maxMinor')
+        .transform((rule) => {
+          const [currency = '', bounds = ''] = rule.split('=');
+          const [min = '0', max = '0'] = bounds.split('/');
+          return [currency, { minMinor: Number(min), maxMinor: Number(max) }] as const;
+        })
+        .refine(([, bounds]) => bounds.minMinor > 0 && bounds.minMinor <= bounds.maxMinor, {
+          message: 'min must be positive and not above max',
+        }),
+    )
+      .transform((rules): CompanyTopUpLimits =>
+        rules.length === 0 ? DEFAULT_COMPANY_TOPUP_LIMITS : Object.fromEntries(rules),
+      )
+      .default(DEFAULT_COMPANY_TOPUP_LIMITS),
+    /** Top-ups a company may start in a day (card testing and mistakes). */
+    COMPANY_WALLET_TOPUPS_PER_DAY: z.coerce.number().int().min(1).max(100).default(5),
     /**
      * WhatsApp as a support channel (ADR-084): `none` turns the webhook off (404), `mock` keeps
      * replies in memory (tests), `cloud` calls the WhatsApp Cloud API.

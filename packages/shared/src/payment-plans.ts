@@ -44,7 +44,8 @@ export const REFUND_REASONS = [
 ] as const;
 export type RefundReason = (typeof REFUND_REASONS)[number];
 
-export const REFUND_DESTINATIONS = ['original', 'wallet'] as const;
+/** Where a refund goes; `company_wallet` only for trips paid from it (ADR-090). */
+export const REFUND_DESTINATIONS = ['original', 'wallet', 'company_wallet'] as const;
 export type RefundDestination = (typeof REFUND_DESTINATIONS)[number];
 
 export interface InstallmentPolicy {

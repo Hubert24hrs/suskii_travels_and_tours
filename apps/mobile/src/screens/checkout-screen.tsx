@@ -135,6 +135,9 @@ function Checkout({ quote }: { quote: Quote }) {
     },
   });
   const [forCompany, setForCompany] = useState(false);
+  // Company wallet (ADR-090): the booker pays the whole trip from the company's balance.
+  const [fromCompanyWallet, setFromCompanyWallet] = useState(false);
+  const companyWallet = Boolean(company.data) && forCompany && fromCompanyWallet;
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
@@ -194,8 +197,8 @@ function Checkout({ quote }: { quote: Quote }) {
     bag && bagCount > 0
       ? { amountMinor: bag.price.amountMinor * bagCount, currency: bag.price.currency }
       : null;
-  // Reserving and installments are never offered with paid extras.
-  const chosenPlan: PlanChoiceValue = extras ? 'full' : plan;
+  // Reserving and installments are never offered with paid extras or a wallet payment.
+  const chosenPlan: PlanChoiceValue = extras || companyWallet ? 'full' : plan;
   const issue = (key: string): string | undefined => {
     const code: CheckoutIssue | undefined = errors[key];
     return code ? t(`checkout.issues.${code}`) : undefined;
@@ -234,9 +237,14 @@ function Checkout({ quote }: { quote: Quote }) {
       router.replace(`/trips/${booking.id}` as Href);
       return;
     }
-    const started = await startPayment(api, booking.id, booking.headers, {
-      method: chosenMethod(quote.payment.methods, method),
-    });
+    const started = await startPayment(
+      api,
+      booking.id,
+      booking.headers,
+      companyWallet
+        ? { useCompanyWallet: true }
+        : { method: chosenMethod(quote.payment.methods, method) },
+    );
     switch (started.kind) {
       case 'redirect':
         await openHostedCheckout(started.checkoutUrl);
@@ -261,6 +269,18 @@ function Checkout({ quote }: { quote: Quote }) {
         return;
       case 'device':
         setFormError(t('mobile.checkout.deviceCheckFailed'));
+        return;
+      case 'company-wallet-insufficient':
+      case 'company-wallet-unavailable':
+        // The booking exists: submitting again pays it another way.
+        setFromCompanyWallet(false);
+        setFormError(
+          t(
+            started.kind === 'company-wallet-insufficient'
+              ? 'checkout.errors.companyWalletInsufficient'
+              : 'checkout.errors.companyWalletUnavailable',
+          ),
+        );
         return;
       case 'error':
         setFormError(t('checkout.errors.generic'));
@@ -607,14 +627,18 @@ function Checkout({ quote }: { quote: Quote }) {
           />
         </Card>
 
-        <PlanChoice
-          vertical={quote.vertical}
-          options={quote.payment}
-          value={chosenPlan}
-          onChange={setPlan}
-          extrasSelected={extras !== null}
-        />
-        <MethodChoice methods={quote.payment.methods} value={method} onChange={setMethod} />
+        {companyWallet ? null : (
+          <>
+            <PlanChoice
+              vertical={quote.vertical}
+              options={quote.payment}
+              value={chosenPlan}
+              onChange={setPlan}
+              extrasSelected={extras !== null}
+            />
+            <MethodChoice methods={quote.payment.methods} value={method} onChange={setMethod} />
+          </>
+        )}
 
         {price ? (
           <Card className="gap-2 p-4">
@@ -721,6 +745,19 @@ function Checkout({ quote }: { quote: Quote }) {
               onChange={setForCompany}
             />
             <Text className="font-body text-body-sm text-muted">{t('checkout.company.help')}</Text>
+            {forCompany ? (
+              <>
+                <Checkbox
+                  testID="checkout-company-wallet"
+                  label={t('checkout.company.wallet')}
+                  checked={fromCompanyWallet}
+                  onChange={setFromCompanyWallet}
+                />
+                <Text className="font-body text-body-sm text-muted">
+                  {t('checkout.company.walletHelp')}
+                </Text>
+              </>
+            ) : null}
           </View>
         ) : null}
         <Checkbox

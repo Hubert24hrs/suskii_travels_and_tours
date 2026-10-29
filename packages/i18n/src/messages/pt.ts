@@ -777,6 +777,9 @@ export const pt: Messages = {
     company: {
       label: 'Reservar para {company}',
       help: 'Aplica-se a política de viagem da empresa. Se a viagem precisar de aprovação, paga depois de o aprovador aceitar.',
+      wallet: 'Pagar com a carteira da empresa',
+      walletHelp:
+        'O valor total sai do saldo da sua empresa. Se não cobrir a viagem, pode pagar de outra forma.',
     },
     title: 'Finalizar compra',
     heading: 'Conclua a sua reserva',
@@ -974,6 +977,10 @@ export const pt: Messages = {
         'Este método de pagamento não está disponível para esta reserva. Escolha outro.',
       soldOut:
         'Já não há lugares suficientes nesta data para o seu grupo. Volte atrás e escolha outra data.',
+      companyWalletInsufficient:
+        'A carteira da empresa não cobre esta viagem. Peça a um administrador da empresa para adicionar fundos, ou pague de outra forma.',
+      companyWalletUnavailable:
+        'Esta reserva não pode ser paga com a carteira da empresa. Pague de outra forma.',
     },
   },
   mobile: {
@@ -1975,6 +1982,7 @@ export const pt: Messages = {
     completePayment: 'Concluir pagamento',
     retryPayment: 'Pagar agora',
     payFromWallet: 'Pagar {amount} com a sua carteira Suskii',
+    payFromCompanyWallet: 'Pagar {amount} com a carteira da empresa',
     walletBalance: 'Saldo da carteira: {amount}',
     plan: {
       holdHeading: 'A sua reserva',
@@ -2056,6 +2064,7 @@ export const pt: Messages = {
       destinations: {
         original: 'o cartão ou a conta com que pagou',
         wallet: 'a sua carteira Suskii',
+        company_wallet: 'a carteira Suskii da sua empresa',
       },
       states: {
         in_progress: 'Em curso',
@@ -2624,6 +2633,51 @@ export const pt: Messages = {
         traveller: 'Viajante: {name}',
         bookedBy: 'Reservada por {name}',
       },
+      wallet: {
+        heading: 'Carteira da empresa',
+        intro:
+          'Fundos pré-pagos para viagens da empresa. Quem reserva paga as viagens aprovadas num só passo, e os reembolsos dessas viagens voltam para ela.',
+        balance: 'Saldo',
+        empty: 'Ainda sem fundos.',
+        adminOnly:
+          'Os administradores da empresa podem adicionar fundos enquanto a empresa estiver ativa.',
+        addHeading: 'Adicionar fundos',
+        amount: 'Valor',
+        currency: 'Moeda',
+        limits: 'De {min} a {max} por carregamento.',
+        add: 'Adicionar fundos',
+        movements: 'Movimentos recentes',
+        topUps: 'Carregamentos',
+        forBooking: 'Reserva {reference}',
+        terms:
+          'Os fundos só podem ser usados em viagens reservadas para a empresa. Para fechar a carteira e recuperar os fundos não usados, contacte o apoio da Suskii.',
+        continue: 'Continuar para o pagamento',
+        kinds: {
+          topUp: 'Fundos adicionados',
+          payment: 'Viagem paga',
+          refund: 'Reembolso',
+        },
+        statuses: {
+          pending: 'A aguardar pagamento',
+          succeeded: 'Adicionado',
+          failed: 'Falhou',
+          expired: 'Expirado',
+          cancelled: 'Cancelado',
+        },
+        returned: {
+          pending: 'A aguardar que o prestador de pagamentos confirme o seu carregamento.',
+          succeeded: 'Os fundos foram adicionados à carteira da empresa.',
+          failed: 'O pagamento não foi concluído. Nada foi adicionado.',
+          expired: 'A página de pagamento expirou. Nada foi adicionado.',
+          cancelled: 'O carregamento foi cancelado. Nada foi adicionado.',
+        },
+        errors: {
+          amount: 'Introduza um valor de {min} a {max}.',
+          limit:
+            'A sua empresa atingiu o número máximo de carregamentos de hoje. Tente novamente amanhã.',
+          provider: 'De momento não é possível adicionar fundos nesta moeda.',
+        },
+      },
       report: {
         heading: 'Gastos',
         intro: 'Viagens da empresa pagas e confirmadas nos últimos 12 meses, em cada moeda.',
@@ -2678,6 +2732,9 @@ export const pt: Messages = {
         refund_settled: 'Reembolso',
         refund_failed: 'Reembolso devolvido',
         refund_to_wallet: 'Reembolso para a carteira',
+        company_topup_captured: 'Carregamento da carteira da empresa',
+        company_wallet_payment: 'Pago com a carteira da empresa',
+        refund_to_company_wallet: 'Reembolso para a carteira da empresa',
         cancellation_fee: 'Taxa de cancelamento',
         referral_reward: 'Recompensa por convite',
         ride_earnings: 'Ganhos de viagens',

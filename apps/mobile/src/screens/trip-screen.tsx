@@ -266,7 +266,7 @@ export function TripScreen() {
         ? t('booking.statusHelp.working')
         : t(`booking.statusHelp.${helpKey(status)}`);
 
-  const pay = async (options: { payInFull?: boolean } = {}) => {
+  const pay = async (options: { payInFull?: boolean; useCompanyWallet?: boolean } = {}) => {
     setBusy(true);
     setActionError(null);
     const bookingHeaders = await tripStore.bookingHeaders(booking.id);
@@ -283,9 +283,14 @@ export function TripScreen() {
     }
     const started = await startPayment(api, booking.id, bookingHeaders, {
       payInFull: options.payInFull ?? false,
+      useCompanyWallet: options.useCompanyWallet ?? false,
     });
     if (started.kind === 'redirect') await openHostedCheckout(started.checkoutUrl);
     else if (started.kind === 'device') setActionError(t('mobile.checkout.deviceCheckFailed'));
+    else if (started.kind === 'company-wallet-insufficient')
+      setActionError(t('checkout.errors.companyWalletInsufficient'));
+    else if (started.kind === 'company-wallet-unavailable')
+      setActionError(t('checkout.errors.companyWalletUnavailable'));
     else if (started.kind !== 'paid' && started.kind !== 'price-changed')
       setActionError(t('checkout.errors.generic'));
     setBusy(false);
@@ -499,6 +504,17 @@ export function TripScreen() {
                 {booking.pendingPriceChange
                   ? t('checkout.priceChange.accept')
                   : t('booking.retryPayment')}
+              </Button>
+            ) : null}
+            {/* The API says whether the company wallet covers the amount due (ADR-090). */}
+            {booking.amountDue && booking.paymentOptions?.companyWallet?.covers ? (
+              <Button
+                testID="pay-from-company-wallet"
+                variant="secondary"
+                disabled={busy}
+                onPress={() => void pay({ useCompanyWallet: true })}
+              >
+                {t('booking.payFromCompanyWallet', { amount: format.money(booking.amountDue) })}
               </Button>
             ) : null}
           </View>

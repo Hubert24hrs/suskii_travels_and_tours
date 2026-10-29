@@ -76,7 +76,7 @@ export const adminBookingDetailSchema = named(
       .array(
         z.object({
           id: z.uuid(),
-          kind: z.enum(['checkout', 'wallet']),
+          kind: z.enum(['checkout', 'wallet', 'company_wallet']),
           provider: z.string(),
           status: z.enum(['pending', 'succeeded', 'failed', 'cancelled', 'expired']),
           method: z.string().nullable().meta({ description: 'Channel only; never card details.' }),

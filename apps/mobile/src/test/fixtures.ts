@@ -222,6 +222,7 @@ export function flightQuote(patch: Partial<Schemas['Quote']> = {}): Schemas['Quo
       hold: null,
       installments: null,
       wallet: null,
+      companyWallet: null,
     },
     ...patch,
   };

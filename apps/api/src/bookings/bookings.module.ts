@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { CompanyApprovalNotices, CompanyPolicyEvaluator } from '../companies/company-policy';
+import { CompanyTopUps } from '../companies/company-top-ups';
 import { AdAttribution } from '../marketing/ad-attribution';
 import { DocumentsModule } from '../documents/documents.module';
 import { PaymentsModule } from '../payments/payments.module';
@@ -82,6 +83,7 @@ import { TravellersService } from './travellers.service';
     PaymentReviewsService,
     CompanyPolicyEvaluator,
     CompanyApprovalNotices,
+    CompanyTopUps,
     AdAttribution,
   ],
   exports: [
@@ -96,6 +98,7 @@ import { TravellersService } from './travellers.service';
     BookingTransitions,
     InhouseCatalog,
     QuotesService,
+    CompanyTopUps,
   ],
 })
 export class BookingsModule {}

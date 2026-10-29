@@ -52,6 +52,23 @@ export const canApprove = (role: CompanyRole): boolean => role === 'admin' || ro
 /** Admins and approvers see every company booking; others see the ones they made. */
 export const seesAllCompanyBookings = (role: CompanyRole): boolean => canApprove(role);
 
+/**
+ * The company wallet (ADR-090): admins add funds, admins and approvers see the balance and its
+ * history. Any member pays their own approved company trips from it; the travel policy's
+ * approval mode is the company's control over spending.
+ */
+export const canTopUpCompanyWallet = (role: CompanyRole): boolean => canManageCompany(role);
+export const seesCompanyWallet = (role: CompanyRole): boolean => canApprove(role);
+
+export const COMPANY_TOP_UP_STATUSES = [
+  'pending',
+  'succeeded',
+  'failed',
+  'expired',
+  'cancelled',
+] as const;
+export type CompanyTopUpStatus = (typeof COMPANY_TOP_UP_STATUSES)[number];
+
 /** A company's travel policy; a field left null does not apply. */
 export interface TravelPolicy {
   /** Highest price per night for a stay, in minor units of `hotelNightlyCurrency`. */

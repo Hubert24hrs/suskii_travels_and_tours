@@ -4,23 +4,24 @@ import { parseMoney, toDecimalString, type Money } from '@suskii/shared';
 import { z } from 'zod';
 
 import {
+  checkoutLabel,
+  type CheckoutRequest,
+  type CheckoutSession,
+  headerValue,
+  PAYMENT_METHOD_LIST,
+  type PaymentCard,
+  paymentCard,
+  type PaymentEvent,
+  type PaymentMethod,
   PaymentProvider,
   PaymentProviderUnavailableError,
-  WebhookSignatureError,
-  WebhookVerificationError,
-  headerValue,
-  paymentCard,
-  PAYMENT_METHOD_LIST,
-  type CheckoutRequest,
-  type PaymentCard,
-  type PaymentMethod,
-  type CheckoutSession,
-  type PaymentEvent,
   type PaymentRef,
   type PaymentVerification,
   type ProviderRefund,
   type RefundRequest,
   type WebhookHeaders,
+  WebhookSignatureError,
+  WebhookVerificationError,
 } from '../payment-provider';
 import { ProviderHttp } from '../provider-http';
 
@@ -138,6 +139,7 @@ export class FlutterwavePaymentProvider extends PaymentProvider {
   }
 
   async createCheckout(request: CheckoutRequest): Promise<CheckoutSession> {
+    const label = checkoutLabel(request);
     const minutes = Math.ceil((request.expiresAt.getTime() - Date.now()) / 60_000);
     const response = envelope(z.looseObject({ link: z.url() })).parse(
       await this.http.request({
@@ -149,8 +151,8 @@ export class FlutterwavePaymentProvider extends PaymentProvider {
           currency: request.amount.currency,
           redirect_url: request.returnUrl,
           customer: { email: request.customerEmail },
-          customizations: { title: 'Suskii Travels', description: `Booking ${request.reference}` },
-          meta: { payment_id: request.paymentId, booking_reference: request.reference },
+          customizations: { title: 'Suskii Travels', description: label.title },
+          meta: { payment_id: request.paymentId, [label.referenceKey]: request.reference },
           session_duration: Math.min(1440, Math.max(1, minutes)),
           // The page opens on the chosen method only; without one it shows the account's options.
           ...(request.method

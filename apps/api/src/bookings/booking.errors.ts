@@ -134,6 +134,23 @@ export const walletInsufficient = (): ProblemDetailsException =>
     'Pay with another method instead.',
   );
 
+/** The company wallet pays whole company trips for their booker only (ADR-090). */
+export const companyWalletUnavailable = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'company-wallet-unavailable',
+    'The company wallet cannot pay this booking',
+    'Only the person who booked a company trip can pay it from the company wallet, in one payment.',
+  );
+
+export const companyWalletInsufficient = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'company-wallet-insufficient',
+    'The company wallet does not cover this payment',
+    'Ask a company admin to add funds, or pay with another method.',
+  );
+
 export const providerUnavailable = (): ProblemDetailsException =>
   new ProblemDetailsException(
     HttpStatus.UNPROCESSABLE_ENTITY,

@@ -125,6 +125,13 @@ function CompanyDetail({ id }: { id: string }) {
                   term: t('companies.approvalMode'),
                   value: label('companies.approvalModes', policy.approvalMode),
                 },
+                {
+                  term: t('companies.walletBalance'),
+                  value:
+                    company.walletBalances.length === 0
+                      ? t('companies.walletEmpty')
+                      : format.list(company.walletBalances.map((balance) => format.money(balance))),
+                },
               ]}
             />
             <DataTable
@@ -150,6 +157,35 @@ function CompanyDetail({ id }: { id: string }) {
                 },
               ]}
             />
+            {company.recentTopUps.length > 0 ? (
+              <DataTable
+                caption={t('companies.topUps')}
+                rows={company.recentTopUps}
+                rowKey={(row) => row.id}
+                columns={[
+                  {
+                    key: 'reference',
+                    header: t('companies.topUpReference'),
+                    cell: (row) => row.reference,
+                  },
+                  {
+                    key: 'amount',
+                    header: t('companies.topUpAmount'),
+                    cell: (row) => format.money(row.received ?? row.amount),
+                  },
+                  {
+                    key: 'status',
+                    header: t('companies.topUpStatus'),
+                    cell: (row) => label('companies.topUpStatuses', row.status),
+                  },
+                  {
+                    key: 'created',
+                    header: t('companies.topUpCreated'),
+                    cell: (row) => format.dateTime(row.createdAt),
+                  },
+                ]}
+              />
+            ) : null}
           </Section>
         );
       }}
@@ -157,7 +193,10 @@ function CompanyDetail({ id }: { id: string }) {
   );
 }
 
-/** Company accounts (ADR-078): find a company, see its members and policy, suspend it. */
+/**
+ * Company accounts (ADR-078): find a company, see its members, policy and wallet (ADR-090), and
+ * suspend it.
+ */
 export function CompaniesPage() {
   const [filters, setFilters] = useState<{ q?: string; status?: Status }>({});
   const [draft, setDraft] = useState<{ q: string; status: Status | '' }>({ q: '', status: '' });

@@ -112,7 +112,33 @@ export class BookingFundsService {
         this.planOptions(booking, now),
         planPolicy(this.config),
         wallet,
+        await this.companyWallet(booking, amountDue),
       ),
     };
+  }
+
+  /**
+   * Whether the company wallet can pay this booking now (ADR-090): a company trip that needs no
+   * more approval, without an active plan, booked by someone still in the active company. Only
+   * whether it covers the amount leaves here; the balance is for admins and approvers.
+   */
+  private async companyWallet(
+    booking: BookingRecord,
+    amountDue: Money,
+  ): Promise<{ covers: boolean } | null> {
+    if (!booking.companyId || !booking.userId) return null;
+    if (booking.approvalStatus === 'pending' || booking.approvalStatus === 'rejected') return null;
+    if (booking.paymentPlan?.status === 'active') return null;
+    const member = await this.prisma.companyMember.findUnique({
+      where: { userId: booking.userId },
+      select: { companyId: true, company: { select: { status: true } } },
+    });
+    if (member?.companyId !== booking.companyId || member.company.status !== 'active') return null;
+    const balance = await this.ledger.balance(this.prisma, {
+      kind: 'company-wallet',
+      companyId: booking.companyId,
+      currency: amountDue.currency,
+    });
+    return { covers: balance.minor >= amountDue.minor };
   }
 }

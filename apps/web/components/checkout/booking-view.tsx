@@ -192,7 +192,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
 
   const pay = async (
     booking: Booking,
-    options: { payInFull?: boolean; useWallet?: boolean } = {},
+    options: { payInFull?: boolean; useWallet?: boolean; useCompanyWallet?: boolean } = {},
   ) => {
     setBusy(true);
     setActionError(null);
@@ -215,11 +215,13 @@ export function BookingView({ bookingId }: { bookingId: string }) {
         header: { ...headers, 'Idempotency-Key': idempotencyKey() },
       },
       body: {
-        method: options.useWallet
-          ? null
-          : chosenMethod(booking.paymentOptions?.methods ?? [], method),
+        method:
+          options.useWallet || options.useCompanyWallet
+            ? null
+            : chosenMethod(booking.paymentOptions?.methods ?? [], method),
         payInFull: options.payInFull ?? false,
         useWallet: options.useWallet ?? false,
+        useCompanyWallet: options.useCompanyWallet ?? false,
       },
     });
     if (data?.checkoutUrl) {
@@ -236,6 +238,10 @@ export function BookingView({ bookingId }: { bookingId: string }) {
       } else if (slug === 'payment-method-unavailable') {
         setMethod(null);
         setActionError(t('checkout.errors.methodUnavailable'));
+      } else if (slug === 'company-wallet-insufficient') {
+        setActionError(t('checkout.errors.companyWalletInsufficient'));
+      } else if (slug === 'company-wallet-unavailable') {
+        setActionError(t('checkout.errors.companyWalletUnavailable'));
       } else if (response.status === 429) {
         setActionError(t('checkout.errors.tooMany'));
       } else if (slug !== 'price-changed') {
@@ -319,6 +325,9 @@ export function BookingView({ bookingId }: { bookingId: string }) {
   const wallet = booking.paymentOptions?.wallet ?? null;
   const walletCovers =
     due !== null && wallet?.currency === due.currency && wallet.amountMinor >= due.amountMinor;
+  // The API says whether the company wallet covers the amount due; never the balance (ADR-090).
+  const companyWalletCovers =
+    due !== null && booking.paymentOptions?.companyWallet?.covers === true;
   // A company trip waiting for an approver cannot be paid yet (ADR-078).
   const approval = booking.company?.approvalStatus ?? 'not_required';
   const findings = (booking.company?.policyFindings ?? []).map((finding) =>
@@ -380,6 +389,16 @@ export function BookingView({ bookingId }: { bookingId: string }) {
               onClick={() => void pay(booking, { useWallet: true })}
             >
               {t('booking.payFromWallet', { amount: format.money(due) })}
+            </Button>
+          ) : null}
+          {companyWalletCovers ? (
+            <Button
+              variant="secondary"
+              disabled={busy}
+              data-testid="pay-from-company-wallet"
+              onClick={() => void pay(booking, { useCompanyWallet: true })}
+            >
+              {t('booking.payFromCompanyWallet', { amount: format.money(due) })}
             </Button>
           ) : null}
           {(status === 'EXPIRED' ||

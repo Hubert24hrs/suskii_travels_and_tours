@@ -29,6 +29,35 @@ All notable changes to this project are documented here. The format follows
   cooldown behind, so the traveller can retry at once.
 - Terraform and Helm refuse plain settings ending in `_APP_ID` (secrets belong in Secret Manager).
 
+### Company wallet (2026-10-28)
+
+#### Added
+
+- **Company wallet (ADR-090).** Company admins add funds by hosted checkout (limits per currency,
+  five top-ups a day per company, `Idempotency-Key`); the wallet is credited only by the
+  provider's verified webhook or by reconciliation, once, at the amount the provider charged
+  (a different amount is audited). Bookers pay approved company trips from it in one step
+  (`useCompanyWallet`), never with a payment plan; two trips paid at once cannot overdraw it
+  (409 `company-wallet-insufficient`). Refunds of those trips go back to the wallet.
+- **Who sees it.** Admins and approvers see balances, movements and top-ups on the website
+  (Account, Company) through `GET /v1/me/company/wallet`; the booking's payment options say only
+  whether the wallet covers the amount due. The console's company detail shows balances and the
+  latest top-ups.
+- **Checks.** The ledger reconciliation compares each top-up with its capture and the provider
+  (`company_topup` discrepancies); the console dashboard counts company wallet payments and
+  refunds with the other wallet money.
+- **Clients.** Website: the Wallet card (add funds, return page that follows the top-up,
+  history), "Pay from the company wallet" at checkout and on the booking page. App: the same
+  choice at checkout and on the trip screen. Copy in all five languages.
+- **Data.** `company_wallet_top_ups` (expand-only migration `20261111120000_company_wallet`),
+  data registry entry, export to the requester, retention (90 days unpaid, the financial records
+  period paid), settings `COMPANY_WALLET_TOPUP_LIMITS` and `COMPANY_WALLET_TOPUPS_PER_DAY`.
+
+#### Fixed
+
+- Two payments at once from one personal wallet answered 500 when the second found the balance
+  spent; it now answers 409 `wallet-insufficient`.
+
 ### Compliance, part 2: rights requests, breaches and records of processing (2026-10-28)
 
 #### Added

@@ -69,8 +69,9 @@ Arabic (right to left) and Portuguese on the website and in the app, is built
 (`docs/phases/languages.md`); the translations wait for a native speaker's review. Item 6,
 verified reviews of finished trips with moderation, is built (`docs/phases/verified-reviews.md`).
 Item 7, company accounts (members in roles, a travel policy, approval before payment and spend
-reports), is built (`docs/phases/company-accounts.md`); the company wallet and invoiced credit
-come next. Item 8, growth, runs in four parts (`docs/phases/growth.md`): part 1, ads with consent
+reports), is built (`docs/phases/company-accounts.md`); the company wallet (prepaid funds admins
+add and bookers spend) is built (`docs/phases/company-wallet.md`) and waits for counsel on stored
+value and the owner's limits; invoiced credit comes next. Item 8, growth, runs in four parts (`docs/phases/growth.md`): part 1, ads with consent
 (Meta and TikTok tags after marketing consent, server-side Purchase events), is built and waits
 for the owner's pixel ids and tokens; part 2, SEO pages from fare history (route facts, flight
 hubs, airline pages), is built; part 3, metasearch (partner keys, the live price API, sealed deep
@@ -741,6 +742,24 @@ Tooling notes for agents:
 - Console: `/v1/admin/companies` for `users:read`; suspend (`users:manage`, `@StepUp()`) and
   reinstate are audited. A suspended company cannot book for itself (409 `company-suspended`).
 
+### Company wallet (apps/api/src/companies, ADR-090)
+
+- The balance is the ledger account `company-wallet:{companyId}:{CUR}` (never negative). Money
+  enters only by a captured top-up (`CompanyTopUps`, from the webhook pipeline or
+  reconciliation) or a refund of a trip it paid; it leaves only through
+  `CheckoutService.payFromCompanyWallet`. Never post to it anywhere else, and never credit a
+  top-up from a client's word.
+- Top-ups are `company_wallet_top_ups` rows found by provider reference after booking payments
+  in `PaymentEventsService`; they credit what the provider charged (a difference is audited).
+  Start them only through `CompanyWalletService.startTopUp` (admins of an active company,
+  `COMPANY_WALLET_TOPUP_LIMITS`, `COMPANY_WALLET_TOPUPS_PER_DAY`, `Idempotency-Key`).
+- Only the booker of a company trip that needs no more approval, while a member of the active
+  company and without a payment plan, pays from it. Payment options show `companyWallet.covers`
+  only; balances are for `seesCompanyWallet` roles (admins and approvers).
+- Refunds of wallet-paid trips go back to their wallet (`walletFor()` in `RefundsService`); a
+  new wallet destination joins `WALLET_DESTINATIONS` and `walletRefundKey()` so the ledger
+  reconciliation finds its postings.
+
 ### Ads with consent (apps/web, apps/api/src/marketing, ADR-079)
 
 - The website's Meta and TikTok tags start only through `Marketing` (root layout): the server
@@ -1134,6 +1153,7 @@ Tooling notes for agents:
 - [ADR-087: Availability objectives and the status page](docs/decisions/ADR-087-availability-objectives-and-status-page.md)
 - [ADR-088: WCAG 2.2 AA as the accessibility target](docs/decisions/ADR-088-wcag-2-2-aa-accessibility.md)
 - [ADR-089: Payment pages without third-party scripts, and privacy obligations per country](docs/decisions/ADR-089-payment-pages-and-privacy-obligations.md)
+- [ADR-090: Company wallet](docs/decisions/ADR-090-company-wallet.md)
 - [ADR-091: Text and exchange-rate providers](docs/decisions/ADR-091-sms-and-exchange-rate-providers.md)
 
 ## Open questions for the owner
@@ -1272,9 +1292,13 @@ payment provider's attestation; counsel's view on the rows marked "confirm" (reg
 Kenya's sector list, the transfer basis for London hosting and each supplier); the privacy policy
 and the PAIA manual; DPIAs for payment risk scoring and the AI features; who holds the
 `privacy_officer` role; and confirmation of each recipient's location and transfer basis in
-`docs/privacy/records-of-processing.md` against the terms the owner signs. Added with texts and
-exchange rates (ADR-091): a Termii account with an approved sender ID and the DND route, an Africa's
-Talking account for numbers outside Nigeria (or one provider for all), an Open Exchange Rates app id
-and plan, whether to pin the naira to the bank's settlement rate (`FX_RATE_OVERRIDES`), approved
+`docs/privacy/records-of-processing.md` against the terms the owner signs. Added with the company
+wallet (ADR-090): counsel's view on whether a closed-loop company balance is stored value under CBN
+rules, the top-up limits per currency and the daily count (defaults NGN 10,000 to 5,000,000 and USD
+10 to 5,000, five a day), how support handles a company closing its wallet (refund of unused funds),
+and whether top-ups should go through the payment risk review. Added with texts and exchange rates
+(ADR-091): a Termii account with an approved sender ID and the DND route, an Africa's Talking
+account for numbers outside Nigeria (or one provider for all), an Open Exchange Rates app id and
+plan, whether to pin the naira to the bank's settlement rate (`FX_RATE_OVERRIDES`), approved
 WhatsApp templates before booking messages go by WhatsApp, and one run of `messaging-sandbox.yml`
 with a real phone. Every owner action is listed, step by step, in `docs/owner/launch-checklist.md`.

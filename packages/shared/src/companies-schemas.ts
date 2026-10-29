@@ -54,3 +54,15 @@ export const companyInvitationInputSchema = z.object({
 export type CompanyInvitationInput = z.infer<typeof companyInvitationInputSchema>;
 
 export const approvalRejectSchema = z.object({ reason: z.enum(APPROVAL_REJECT_REASONS) });
+
+/**
+ * A top-up of the company wallet (ADR-090): the amount in minor units of a currency the wallet
+ * takes; limits per currency come from the API (`topUpLimits` on the wallet).
+ */
+export const companyTopUpInputSchema = z.object({
+  amount: z.object({
+    amountMinor: z.number().int().positive().refine(Number.isSafeInteger),
+    currency: z.string().regex(CURRENCY_PATTERN),
+  }),
+});
+export type CompanyTopUpInput = z.infer<typeof companyTopUpInputSchema>;

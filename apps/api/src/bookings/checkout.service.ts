@@ -7,11 +7,13 @@ import { AuditService } from '../audit/audit.service';
 import { BackgroundTasks } from '../common/background-tasks';
 import { toJsonValue } from '../common/json';
 import { uuidv7 } from '../common/uuid';
+import type { ProblemDetailsException } from '../common/problem-details';
+import { companySuspended } from '../companies/company-policy';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { Prisma, type BookingStatus } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { withCurrentTier } from '../prime/prime-status';
-import { LedgerService } from '../ledger/ledger.service';
+import { InsufficientBalanceError, LedgerService } from '../ledger/ledger.service';
 import {
   PaymentProviderUnavailableError,
   type PaymentProvider,
@@ -52,6 +54,8 @@ import {
   approvalRequired,
   bookingConflict,
   bookingExpired,
+  companyWalletInsufficient,
+  companyWalletUnavailable,
   installmentInvalid,
   paymentProviderDown,
   priceChanged,
@@ -204,6 +208,10 @@ export class CheckoutService {
       );
     }
 
+    if (request.useCompanyWallet) {
+      if (plan) throw companyWalletUnavailable();
+      return this.payFromCompanyWallet(booking, amount, fresh, actor, caller);
+    }
     if (request.useWallet)
       return this.payFromWallet(booking, amount, installmentId, fresh, actor, caller);
 
@@ -300,7 +308,7 @@ export class CheckoutService {
     const wallet = { kind: 'wallet', userId, currency: booking.currency } as const;
     const paymentId = uuidv7();
     const now = new Date();
-    const result = await this.prisma.$transaction(async (tx) => {
+    const result = await this.inWallet(walletInsufficient, async (tx) => {
       await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${booking.id}::uuid FOR UPDATE`;
       if ((await this.ledger.balance(tx, wallet)).minor < amount.minor) throw walletInsufficient();
       const { closed } = await this.abandonOpenPayments(tx, booking, actor, 'wallet_payment');
@@ -359,6 +367,110 @@ export class CheckoutService {
       amount: toWire(amount),
       expiresAt: now.toISOString(),
     };
+  }
+
+  /**
+   * The company wallet pays a whole company trip in one transaction (ADR-090), for its booker
+   * while they are still a member of the active company. Two trips paid at once cannot overdraw
+   * it: the ledger refuses a negative balance and the second answers `company-wallet-insufficient`.
+   */
+  private async payFromCompanyWallet(
+    booking: BookingRecord,
+    amount: Money,
+    fresh: ConfirmedPrice | null,
+    actor: BookingActor,
+    caller: BookingCaller,
+  ): Promise<PaymentSession> {
+    const { companyId, userId } = booking;
+    if (!companyId || !userId || caller.client.userId !== userId) {
+      throw companyWalletUnavailable();
+    }
+    if (booking.approvalStatus === 'rejected') throw companyWalletUnavailable();
+    const wallet = { kind: 'company-wallet', companyId, currency: booking.currency } as const;
+    const paymentId = uuidv7();
+    const now = new Date();
+    const result = await this.inWallet(companyWalletInsufficient, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${booking.id}::uuid FOR UPDATE`;
+      const member = await tx.companyMember.findUnique({
+        where: { userId },
+        select: { companyId: true, company: { select: { status: true } } },
+      });
+      if (member?.companyId !== companyId) throw companyWalletUnavailable();
+      if (member.company.status !== 'active') throw companySuspended();
+      if ((await this.ledger.balance(tx, wallet)).minor < amount.minor) {
+        throw companyWalletInsufficient();
+      }
+      const { closed } = await this.abandonOpenPayments(tx, booking, actor, 'wallet_payment');
+      const item = booking.items[0];
+      if (fresh && item) await this.storeFresh(tx, item.id, fresh);
+      const current = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      const payment = await tx.payment.create({
+        data: {
+          id: paymentId,
+          bookingId: booking.id,
+          kind: 'company_wallet',
+          provider: 'company_wallet',
+          providerReference: `company_wallet_${paymentId}`,
+          status: 'pending',
+          amountMinor: amount.minor,
+          currency: amount.currency,
+          checkoutUrl: null,
+          expiresAt: now,
+        },
+      });
+      const settled = await this.payments.applyReceived(
+        tx,
+        current,
+        payment,
+        { amount, providerTransactionId: null, method: 'company_wallet', occurredAt: now },
+        wallet,
+        actor,
+      );
+      if (settled.outcome !== 'paid') throw bookingConflict();
+      await this.audit.record(
+        {
+          action: 'company_wallet.paid',
+          actorUserId: userId,
+          targetType: 'payment',
+          targetId: paymentId,
+          context: caller.context,
+          metadata: {
+            bookingId: booking.id,
+            companyId,
+            amountMinor: amount.minor.toString(),
+            currency: amount.currency,
+          },
+        },
+        tx,
+      );
+      return { settled, closed };
+    });
+    this.closeAtProviders(result.closed);
+    const paid = result.settled.paidBookingId;
+    if (paid) this.background.run('ticketing', () => this.ticketing.process(paid));
+    return {
+      paymentId,
+      status: 'succeeded',
+      checkoutUrl: null,
+      amount: toWire(amount),
+      expiresAt: now.toISOString(),
+    };
+  }
+
+  /**
+   * A wallet payment's transaction: a balance another payment spent first makes the ledger
+   * refuse the posting, which the caller sees as the wallet's 409 instead of a server error.
+   */
+  private async inWallet<T>(
+    insufficient: () => ProblemDetailsException,
+    work: (tx: Tx) => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await this.prisma.$transaction(work);
+    } catch (error) {
+      if (error instanceof InsufficientBalanceError) throw insufficient();
+      throw error;
+    }
   }
 
   /**

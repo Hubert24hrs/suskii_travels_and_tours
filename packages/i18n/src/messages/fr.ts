@@ -784,6 +784,9 @@ export const fr: Messages = {
     company: {
       label: 'Réserver pour {company}',
       help: "La politique de voyage de l'entreprise s'applique. Si le voyage doit être validé, vous payez une fois la validation donnée.",
+      wallet: "Payer avec le portefeuille de l'entreprise",
+      walletHelp:
+        "Le montant total est prélevé sur le solde de votre entreprise. S'il ne couvre pas le voyage, vous pouvez payer autrement.",
     },
     title: 'Paiement',
     heading: 'Finalisez votre réservation',
@@ -980,6 +983,10 @@ export const fr: Messages = {
         "Ce moyen de paiement n'est pas disponible pour cette réservation. Choisissez-en un autre.",
       soldOut:
         "Il n'y a plus assez de places à cette date pour votre groupe. Revenez en arrière et choisissez une autre date.",
+      companyWalletInsufficient:
+        "Le portefeuille de l'entreprise ne couvre pas ce voyage. Demandez à un administrateur d'ajouter des fonds, ou payez autrement.",
+      companyWalletUnavailable:
+        "Cette réservation ne peut pas être payée avec le portefeuille de l'entreprise. Payez autrement.",
     },
   },
   mobile: {
@@ -1985,6 +1992,7 @@ export const fr: Messages = {
     completePayment: 'Finaliser le paiement',
     retryPayment: 'Payer maintenant',
     payFromWallet: 'Payer {amount} avec votre portefeuille Suskii',
+    payFromCompanyWallet: "Payer {amount} avec le portefeuille de l'entreprise",
     walletBalance: 'Solde du portefeuille : {amount}',
     plan: {
       holdHeading: 'Votre réservation bloquée',
@@ -2067,6 +2075,7 @@ export const fr: Messages = {
       destinations: {
         original: 'la carte ou le compte utilisé pour payer',
         wallet: 'votre portefeuille Suskii',
+        company_wallet: 'le portefeuille Suskii de votre entreprise',
       },
       states: {
         in_progress: 'En cours',
@@ -2638,6 +2647,52 @@ export const fr: Messages = {
         traveller: 'Voyageur : {name}',
         bookedBy: 'Réservé par {name}',
       },
+      wallet: {
+        heading: "Portefeuille de l'entreprise",
+        intro:
+          "Des fonds prépayés pour les voyages de l'entreprise. Les réservateurs paient les voyages approuvés en une étape, et les remboursements de ces voyages y reviennent.",
+        balance: 'Solde',
+        empty: 'Aucun fonds pour le moment.',
+        adminOnly:
+          "Les administrateurs de l'entreprise peuvent ajouter des fonds tant que l'entreprise est active.",
+        addHeading: 'Ajouter des fonds',
+        amount: 'Montant',
+        currency: 'Devise',
+        limits: 'De {min} à {max} par rechargement.',
+        add: 'Ajouter des fonds',
+        movements: 'Mouvements récents',
+        topUps: 'Rechargements',
+        forBooking: 'Réservation {reference}',
+        terms:
+          "Les fonds ne peuvent servir qu'aux voyages réservés pour l'entreprise. Pour fermer le portefeuille et récupérer les fonds non utilisés, contactez le support Suskii.",
+        continue: 'Continuer vers le paiement',
+        kinds: {
+          topUp: 'Fonds ajoutés',
+          payment: 'Voyage payé',
+          refund: 'Remboursement',
+        },
+        statuses: {
+          pending: 'En attente de paiement',
+          succeeded: 'Ajouté',
+          failed: 'Échoué',
+          expired: 'Expiré',
+          cancelled: 'Annulé',
+        },
+        returned: {
+          pending:
+            'Nous attendons la confirmation de votre rechargement par le prestataire de paiement.',
+          succeeded: "Les fonds ont été ajoutés au portefeuille de l'entreprise.",
+          failed: "Le paiement n'a pas abouti. Rien n'a été ajouté.",
+          expired: "La page de paiement a expiré. Rien n'a été ajouté.",
+          cancelled: "Le rechargement a été annulé. Rien n'a été ajouté.",
+        },
+        errors: {
+          amount: 'Saisissez un montant de {min} à {max}.',
+          limit:
+            "Votre entreprise a atteint le nombre maximal de rechargements pour aujourd'hui. Réessayez demain.",
+          provider: "Impossible d'ajouter des fonds dans cette devise pour le moment.",
+        },
+      },
       report: {
         heading: 'Dépenses',
         intro:
@@ -2695,6 +2750,9 @@ export const fr: Messages = {
         refund_settled: 'Remboursement',
         refund_failed: 'Remboursement retourné',
         refund_to_wallet: 'Remboursement sur le portefeuille',
+        company_topup_captured: "Rechargement du portefeuille de l'entreprise",
+        company_wallet_payment: "Payé avec le portefeuille de l'entreprise",
+        refund_to_company_wallet: "Remboursement sur le portefeuille de l'entreprise",
         cancellation_fee: "Frais d'annulation",
         referral_reward: 'Récompense de parrainage',
         ride_earnings: 'Gains de courses',

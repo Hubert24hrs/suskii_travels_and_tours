@@ -1,4 +1,4 @@
-import { LOCAL_INTERNAL_TOKEN_PREFIX, parseEnv } from './env.schema';
+import { DEFAULT_COMPANY_TOPUP_LIMITS, LOCAL_INTERNAL_TOKEN_PREFIX, parseEnv } from './env.schema';
 
 const base = {
   DATABASE_URL: 'postgresql://suskii:pw@localhost:5432/suskii',
@@ -398,6 +398,26 @@ describe('parseEnv', () => {
         INTERNAL_API_TOKEN: `${LOCAL_INTERNAL_TOKEN_PREFIX}0123456789abcdefghij`,
       }),
     ).toThrow(/INTERNAL_API_TOKEN: the local development token is not allowed in production/);
+  });
+
+  it('takes company wallet top-up limits per currency, replacing the defaults (ADR-090)', () => {
+    expect(parseEnv(base).COMPANY_WALLET_TOPUP_LIMITS).toEqual(DEFAULT_COMPANY_TOPUP_LIMITS);
+    expect(
+      parseEnv({ ...base, COMPANY_WALLET_TOPUP_LIMITS: '' }).COMPANY_WALLET_TOPUP_LIMITS,
+    ).toEqual(DEFAULT_COMPANY_TOPUP_LIMITS);
+    expect(
+      parseEnv({ ...base, COMPANY_WALLET_TOPUP_LIMITS: 'GHS=5000/2000000, NGN=500000/100000000' })
+        .COMPANY_WALLET_TOPUP_LIMITS,
+    ).toEqual({
+      GHS: { minMinor: 5_000, maxMinor: 2_000_000 },
+      NGN: { minMinor: 500_000, maxMinor: 100_000_000 },
+    });
+    for (const bad of ['NGN=0/100', 'NGN=500/100', 'naira=1/2', 'NGN=100']) {
+      expect(() => parseEnv({ ...base, COMPANY_WALLET_TOPUP_LIMITS: bad })).toThrow(
+        /COMPANY_WALLET_TOPUP_LIMITS/,
+      );
+    }
+    expect(parseEnv(base).COMPANY_WALLET_TOPUPS_PER_DAY).toBe(5);
   });
 
   it('parses deal refresh settings with sensible defaults', () => {

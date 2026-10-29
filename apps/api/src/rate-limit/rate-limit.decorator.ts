@@ -165,6 +165,7 @@ export const COMPANY_LIMITS = {
   inviteUser: { name: 'company-invite-user', limit: 30, windowSeconds: 3600, by: 'user' },
   acceptUser: { name: 'company-accept-user', limit: 10, windowSeconds: 600, by: 'user' },
   exportUser: { name: 'company-export-user', limit: 20, windowSeconds: 600, by: 'user' },
+  topUpUser: { name: 'company-topup-user', limit: 10, windowSeconds: 3600, by: 'user' },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 /** Cars (ADR-050): holds and quotes are scraping and hoarding targets; safety routes never starve. */
