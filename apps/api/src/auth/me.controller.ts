@@ -133,10 +133,11 @@ export class MeController {
   @Contract({
     operationId: 'requestPhoneVerification',
     summary: 'Text a code to add or change the phone number',
+    description: '503 `sms-unavailable` when the text provider fails (nothing was sent).',
     tags: TAGS,
     body: phoneBodySchema,
     responses: { 202: otpDispatchedSchema },
-    errors: [401],
+    errors: [401, 503],
   })
   async requestPhone(
     @CurrentAuth() auth: AuthContext,

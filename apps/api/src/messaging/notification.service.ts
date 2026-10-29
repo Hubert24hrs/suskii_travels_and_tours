@@ -25,7 +25,13 @@ export interface NotificationContent {
 
 export type DeliveryOutcome = Partial<Record<NotificationChannel, NotificationStatus>>;
 
-type Skip = 'preference_off' | 'no_email' | 'no_verified_phone' | 'no_device' | 'account_inactive';
+type Skip =
+  | 'preference_off'
+  | 'no_email'
+  | 'no_verified_phone'
+  | 'no_device'
+  | 'account_inactive'
+  | 'channel_off';
 
 /**
  * The account notification dispatcher (ADR-032): resolves the user's channel choices, sends what
@@ -107,6 +113,9 @@ export class NotificationService {
         case 'whatsapp': {
           if (!user.phone || !user.phoneVerifiedAt || !content.text) {
             return await this.log(userId, content, channel, 'skipped', 'no_verified_phone');
+          }
+          if (channel === 'whatsapp' && !this.whatsapp.enabled) {
+            return await this.log(userId, content, channel, 'skipped', 'channel_off');
           }
           const message = { to: user.phone, body: content.text, template: content.template };
           if (channel === 'sms') await this.sms.send(message);

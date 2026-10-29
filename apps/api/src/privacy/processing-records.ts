@@ -110,14 +110,23 @@ export const RECIPIENTS = {
     status: 'not contracted',
     setting: 'SMTP_URL',
   },
-  sms_provider: {
-    name: 'SMS provider',
+  termii: {
+    name: 'Termii (texts)',
     role: 'processor',
-    receives: 'Phone number and the message (sign-in codes, alerts)',
-    location: 'Depends on the provider the owner picks',
+    receives: 'Phone number and the text (sign-in codes, booking and safety alerts) (ADR-091)',
+    location: 'Nigeria',
     transfer: 'processor_terms',
     status: 'not contracted',
-    setting: 'SMS_PROVIDER',
+    setting: 'SMS_PROVIDER, SMS_ROUTES',
+  },
+  africastalking: {
+    name: "Africa's Talking (texts)",
+    role: 'processor',
+    receives: 'Phone number and the text (sign-in codes, booking and safety alerts) (ADR-091)',
+    location: 'Kenya; then the mobile networks of the number',
+    transfer: 'processor_terms',
+    status: 'not contracted',
+    setting: 'SMS_PROVIDER, SMS_ROUTES',
   },
   expo_push: {
     name: 'Expo push service (to FCM and APNs)',
@@ -267,7 +276,14 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'AuditLog',
       'IdempotencyKey',
     ],
-    recipients: [...hosting, 'email_relay', 'sms_provider', 'device_attestation', 'sentry'],
+    recipients: [
+      ...hosting,
+      'email_relay',
+      'termii',
+      'africastalking',
+      'device_attestation',
+      'sentry',
+    ],
   },
   {
     id: 'bookings',
@@ -352,7 +368,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'NewsletterSubscription',
       'PushToken',
     ],
-    recipients: [...hosting, 'email_relay', 'sms_provider', 'expo_push'],
+    recipients: [...hosting, 'email_relay', 'termii', 'africastalking', 'expo_push'],
   },
   {
     id: 'ground',
@@ -381,7 +397,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'RentalLicence',
       'RentalHandoverPhoto',
     ],
-    recipients: [...hosting, 'sms_provider', 'expo_push'],
+    recipients: [...hosting, 'termii', 'africastalking', 'expo_push'],
   },
   {
     id: 'drivers',

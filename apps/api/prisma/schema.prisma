@@ -2002,7 +2002,7 @@ model Notification {
   channel   NotificationChannel
   template  String
   status    NotificationStatus
-  /// Why a message was skipped or failed (preference_off, no_verified_phone, provider_error).
+  /// Why a message was skipped or failed (preference_off, no_verified_phone, channel_off, provider_error).
   reason    String?
   createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
 

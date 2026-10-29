@@ -2718,7 +2718,7 @@ export interface paths {
         put?: never;
         /**
          * Text a 6-digit sign-in code to a phone number
-         * @description Codes expire after 5 minutes; a new code can be requested every 60 seconds.
+         * @description Codes expire after 5 minutes; a new code can be requested every 60 seconds. 503 `sms-unavailable` when the text provider fails (nothing was sent; retry at once).
          */
         post: operations["requestSignInOtp"];
         delete?: never;
@@ -5274,7 +5274,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Text a code to add or change the phone number */
+        /**
+         * Text a code to add or change the phone number
+         * @description 503 `sms-unavailable` when the text provider fails (nothing was sent).
+         */
         post: operations["requestPhoneVerification"];
         delete?: never;
         options?: never;
@@ -5428,7 +5431,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Text a confirmation code (accounts without a password) */
+        /**
+         * Text a confirmation code (accounts without a password)
+         * @description 503 `sms-unavailable` when the text provider fails (nothing was sent).
+         */
         post: operations["sendReauthCode"];
         delete?: never;
         options?: never;
@@ -18259,6 +18265,7 @@ export interface operations {
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     verifySignInOtp: {
@@ -22760,6 +22767,7 @@ export interface operations {
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     verifyPhone: {
@@ -23073,6 +23081,7 @@ export interface operations {
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     getMyReferrals: {

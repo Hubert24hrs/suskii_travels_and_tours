@@ -9,7 +9,18 @@ export interface WhatsAppMessage {
 
 /** WhatsApp delivery behind an interface (ADR-032); no provider is contracted yet. */
 export abstract class WhatsAppProvider {
+  /** False when the channel is off (`WHATSAPP_PROVIDER=none`): nothing is sent or attempted. */
+  readonly enabled: boolean = true;
   abstract send(message: WhatsAppMessage): Promise<void>;
+}
+
+/** The channel turned off (ADR-091): the notification service skips WhatsApp entirely. */
+export class DisabledWhatsAppProvider extends WhatsAppProvider {
+  override readonly enabled = false;
+
+  send(): Promise<void> {
+    return Promise.reject(new Error('WhatsApp notifications are turned off'));
+  }
 }
 
 /**

@@ -13178,7 +13178,7 @@
       "post": {
         "operationId": "requestSignInOtp",
         "summary": "Text a 6-digit sign-in code to a phone number",
-        "description": "Codes expire after 5 minutes; a new code can be requested every 60 seconds.",
+        "description": "Codes expire after 5 minutes; a new code can be requested every 60 seconds. 503 `sms-unavailable` when the text provider fails (nothing was sent; retry at once).",
         "tags": [
           "Auth"
         ],
@@ -13226,6 +13226,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
           }
         }
       }
@@ -22448,6 +22451,7 @@
       "post": {
         "operationId": "requestPhoneVerification",
         "summary": "Text a code to add or change the phone number",
+        "description": "503 `sms-unavailable` when the text provider fails (nothing was sent).",
         "tags": [
           "Account"
         ],
@@ -22497,6 +22501,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
           }
         }
       }
@@ -22974,6 +22981,7 @@
       "post": {
         "operationId": "sendReauthCode",
         "summary": "Text a confirmation code (accounts without a password)",
+        "description": "503 `sms-unavailable` when the text provider fails (nothing was sent).",
         "tags": [
           "Account"
         ],
@@ -23016,6 +23024,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
           }
         }
       }
