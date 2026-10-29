@@ -76,8 +76,9 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 3. Repository secrets `TERMII_API_KEY` and `AFRICASTALKING_API_KEY`; variables
    `TERMII_SENDER_ID` and `AFRICASTALKING_USERNAME`. Run **Text and exchange-rate check**
    (`messaging-sandbox.yml`) with your phone in the `to` box: a test text should arrive.
-4. Production: the same keys in Secret Manager; `SMS_PROVIDER`, `SMS_ROUTES`,
-   `TERMII_SENDER_ID` and `AFRICASTALKING_USERNAME` in `api_env` (already in the example).
+4. Production: the same keys in Secret Manager; `SMS_PROVIDER = "termii"` and
+   `TERMII_SENDER_ID` in `api_env` (already in the example). When you sell outside Nigeria, add
+   Africa's Talking for those numbers with `SMS_ROUTES` (the example shows how).
 
 ### 1.5 Exchange rates
 
