@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-27
 - Deciders: Claude Code (implementer), pending owner review
+- Amended by: ADR-092 (it also starts on a schedule, every four hours)
 
 ## Context
 

@@ -162,7 +162,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/mobile android`             | Build and run the development build on an Android emulator                        |
 | `pnpm --filter @suskii/mobile scan:bundle dist`    | Secret scan of the mobile export (`--self-test` checks the scanner)               |
 | `pnpm --filter @suskii/web e2e:stack`              | Run the e2e stack (API, worker refresh, web) for Maestro flows                    |
-| Actions, Test server, Run workflow                 | Hosted test server for phones (`test-server.yml`, up to 5.5 hours)                |
+| Actions, Test server, Run workflow                 | Hosted test server for phones (`test-server.yml`, 5.5 h; also every 4 h, ADR-092) |
 | `node scripts/brand-assets.mjs`                    | Rebuild app and web icons, splash and header mark from `brand/` (ADR-068)         |
 | `pnpm format` / `format:check`                     | Prettier write / check                                                            |
 | `pnpm security:checklist` (`--check` in CI)        | Regenerate `docs/security/checklist.md` from the reviewed mapping                 |
@@ -1155,6 +1155,7 @@ Tooling notes for agents:
 - [ADR-089: Payment pages without third-party scripts, and privacy obligations per country](docs/decisions/ADR-089-payment-pages-and-privacy-obligations.md)
 - [ADR-090: Company wallet](docs/decisions/ADR-090-company-wallet.md)
 - [ADR-091: Text and exchange-rate providers](docs/decisions/ADR-091-sms-and-exchange-rate-providers.md)
+- [ADR-092: The hosted test server on a schedule](docs/decisions/ADR-092-test-server-on-a-schedule.md)
 
 ## Open questions for the owner
 

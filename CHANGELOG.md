@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### App home and the test server (2026-11-09)
+
+#### Changed
+
+- The "Buses, rides and car rental" card on the app's home screen shows only under the Cars tab;
+  Flights, Hotels, Packages and Tours show just their own search or browse card.
+- The hosted test server also starts by itself every four hours and runs 5.5 hours (ADR-092), so
+  the test app finds a server at any hour instead of showing the "cannot reach the server" card.
+  A new run takes over once it answers; the older one serves until its time ends.
+
 ### Dependency advisories (2026-11-09)
 
 #### Security
