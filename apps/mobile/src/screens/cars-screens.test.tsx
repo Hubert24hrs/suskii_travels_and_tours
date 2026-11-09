@@ -70,14 +70,20 @@ describe('Cars on mobile', () => {
   });
 
   describe('entry points', () => {
-    it('links the Cars hub from home only while a product is on', async () => {
+    it('links the Cars hub from the Cars tab only', async () => {
       mockApi({
         'GET /v1/deals/flights': () => json({ currency: 'NGN', origins: [], deals: [] }),
         'GET /v1/cars/features': () => json(carsFeatures),
       });
       await renderWithApp(<HomeScreen />);
 
-      await fireEvent.press(await screen.findByTestId('home-cars'));
+      await screen.findByTestId('search-tab-cars');
+      for (const tab of ['flights', 'hotels', 'packages', 'tours']) {
+        await fireEvent.press(screen.getByTestId(`search-tab-${tab}`));
+        expect(screen.queryByTestId('home-cars')).toBeNull();
+      }
+      await fireEvent.press(screen.getByTestId('search-tab-cars'));
+      await fireEvent.press(screen.getByTestId('home-cars'));
       expect(router.push).toHaveBeenCalledWith('/cars');
     });
 
@@ -125,8 +131,8 @@ describe('Cars on mobile', () => {
       expect(screen.getByText(m.mobile.home.unreachable)).toBeOnTheScreen();
       // Only the test build points to Account, Test server.
       expect(screen.queryByTestId('server-set-test-server')).toBeNull();
-      expect(screen.getByTestId('home-cars')).toBeOnTheScreen();
       await fireEvent.press(screen.getByTestId('search-tab-cars'));
+      expect(screen.getByTestId('home-cars')).toBeOnTheScreen();
       expect(screen.getByTestId('home-cars-buses')).toBeOnTheScreen();
       expect(screen.getByTestId('home-cars-rides')).toBeOnTheScreen();
       expect(screen.getByTestId('home-cars-rentals')).toBeOnTheScreen();

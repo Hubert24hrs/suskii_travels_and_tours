@@ -69,8 +69,8 @@ function CarsProducts({ features }: { features: CarsFeatures | null }) {
 
 /**
  * Home: the search card (flights, hotels, packages, tours and Cars), the Cars products and the
- * freshest deals. Cars shows while a product is on, and while the API cannot be reached, so it is
- * never silently missing.
+ * freshest deals. The Cars tab shows while a product is on, and while the API cannot be reached,
+ * so it is never silently missing; its card links the Cars hub.
  */
 export function HomeScreen() {
   const { t } = useT();
@@ -146,7 +146,8 @@ export function HomeScreen() {
             <Browse vertical={current} />
           )}
         </Card>
-        {showCars ? (
+        {/* The way into the Cars hub belongs to the Cars tab only; the other tabs keep to their own. */}
+        {current === 'cars' ? (
           <Card className="gap-3 p-4">
             <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
               {t('mobile.home.carsHeading')}

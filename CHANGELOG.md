@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### App home: the road card on the Cars tab only (2026-11-09)
+
+#### Changed
+
+- The "Buses, rides and car rental" card on the app's home screen shows only under the Cars tab;
+  Flights, Hotels, Packages and Tours show just their own search or browse card.
+
+#### Fixed
+
+- A results screen test used a fixed departure date that has now passed; it uses a date a month
+  ahead.
+
 ### Text and exchange-rate providers (2026-10-28)
 
 #### Added

@@ -11,6 +11,8 @@ import { FlightResultsScreen } from './flight-results-screen';
 
 const m = getMessages('en-NG');
 const SEARCH_ID = 'fs_0123456789abcdef';
+/** A month ahead, so the form's rules never see a past date however late the suite runs. */
+const DEPART = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
 
 function flightResults(count: number, sort = 'best'): Schemas['FlightSearchResult'] {
   const quote = flightQuote();
@@ -48,7 +50,7 @@ describe('results screens (ADR-075)', () => {
       trip: 'one_way',
       from: 'LOS',
       to: 'ABV',
-      depart: '2026-11-02',
+      depart: DEPART,
       adults: '1',
     });
   });
