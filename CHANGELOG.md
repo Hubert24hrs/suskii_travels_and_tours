@@ -16,6 +16,18 @@ All notable changes to this project are documented here. The format follows
   the test app finds a server at any hour instead of showing the "cannot reach the server" card.
   A new run takes over once it answers; the older one serves until its time ends.
 
+### Dependency advisories (2026-11-09)
+
+#### Security
+
+- `decode-uri-component` 0.2.2 (in the app, through expo-router's `query-string`) is patched with
+  the fixed 0.5.1 decoder, rewritten as CommonJS because `query-string` 7 cannot load the ESM-only
+  fixed release (GHSA-qr28-fpjm-wq7f, CVE-2026-45822). A malformed link that took 17 seconds to
+  decode now takes 1 ms.
+- `systeminformation` 5.33.19 in the API's host metrics (GHSA-3f7j-7jwc-fxfj) and `node-forge`
+  1.4.3 in the Expo CLI (six advisories) through overrides; the node-forge audit exception is
+  removed.
+
 #### Fixed
 
 - A results screen test used a fixed departure date that has now passed; it uses a date a month
