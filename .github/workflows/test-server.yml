@@ -8,15 +8,21 @@ name: Test server
 # computer of their own:
 #   https://github.com/<owner>/<repo>/releases/download/test-server/test-server.json
 #
-# Start it from Actions, Test server, Run workflow. It stops after `hours` (at most 5.5, the
-# runner's limit is 6) or when cancelled; starting another one replaces it. Data is throwaway:
-# every run seeds a fresh database. Pull requests that change it run a short smoke test instead.
+# It starts by itself every four hours and runs 5.5 hours (ADR-092), so a server is always up:
+# a new run publishes its address once it answers, and the older run keeps serving until its own
+# time ends. Start one sooner from Actions, Test server, Run workflow; it stops after `hours` (at
+# most 5.5, the runner's limit is 6) or when cancelled, and replaces an earlier manual run. Data
+# is throwaway: every run seeds a fresh database. Pull requests that change it run a short smoke
+# test instead.
 on:
   workflow_dispatch:
     inputs:
       hours:
         description: How long to keep it running, in hours (0.25 to 5.5)
         default: '5'
+  # Every four hours (00:23, 04:23, ... UTC): 1.5 hours of overlap absorbs late scheduled starts.
+  schedule:
+    - cron: '23 */4 * * *'
   pull_request:
     paths:
       - .github/workflows/test-server.yml
@@ -27,8 +33,10 @@ on:
 permissions:
   contents: read
 
+# Manual runs replace each other; scheduled runs each get their own group so they overlap
+# instead of cancelling the server that is still serving.
 concurrency:
-  group: test-server-${{ github.event_name == 'workflow_dispatch' && 'live' || github.ref }}
+  group: test-server-${{ github.event_name == 'workflow_dispatch' && 'live' || github.event_name == 'schedule' && format('scheduled-{0}', github.run_id) || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -47,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 355
     permissions:
-      # Only to publish test-server.json on the `test-server` pre-release (manual runs).
+      # Only to publish test-server.json on the `test-server` pre-release (manual and scheduled runs).
       contents: write
     services:
       postgres:
@@ -70,7 +78,7 @@ jobs:
       - name: Check the duration
         id: duration
         env:
-          HOURS: ${{ github.event_name == 'workflow_dispatch' && inputs.hours || '0' }}
+          HOURS: ${{ github.event_name == 'workflow_dispatch' && inputs.hours || github.event_name == 'schedule' && '5.5' || '0' }}
         run: |
           minutes=$(awk -v h="$HOURS" 'BEGIN { if (h !~ /^[0-9]+(\.[0-9]+)?$/) exit 1; printf "%d", h * 60 }') \
             || { echo "::error::hours must be a number between 0.25 and 5.5"; exit 1; }
@@ -164,7 +172,7 @@ jobs:
 
       - name: Publish the address
         id: publish
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           URL: ${{ steps.tunnel.outputs.url }}
