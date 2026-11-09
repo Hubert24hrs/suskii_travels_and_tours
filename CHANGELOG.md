@@ -32,6 +32,8 @@ All notable changes to this project are documented here. The format follows
 
 - A results screen test used a fixed departure date that has now passed; it uses a date a month
   ahead.
+- The date picker's interaction tests pin "today" to 5 October 2026, the month their story's dates
+  are in; from November the calendar opened on another month and the tests failed.
 
 ### Text and exchange-rate providers (2026-10-28)
 
