@@ -1,5 +1,5 @@
 import { composeStories } from '@storybook/react-vite';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
 
@@ -75,6 +75,16 @@ describe('PassengerPicker', () => {
 });
 
 describe('DateRangePicker', () => {
+  // The calendar opens on today's month and the story's dates are in October 2026, so "today" is
+  // pinned there. Only Date is faked: clicks and waits keep real timers.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 5, 12));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('selects a range and blocks days before the minimum date', async () => {
     await page.viewport(1280, 900);
     const screen = await render(<RoundTrip />);

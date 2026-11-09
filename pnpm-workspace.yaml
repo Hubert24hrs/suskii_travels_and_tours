@@ -272,6 +272,13 @@ overrides:
   # ReDoS fix (6.3.1) has no provenance, so the pnpm trust policy refuses it whenever the graph
   # is re-resolved. They call satisfies, intersects, lt, gt, valid and parse, unchanged in 7.
   semver@<7: ^7.8.5
+  # OpenTelemetry host metrics in the API (GHSA-3f7j-7jwc-fxfj, a Windows-only command injection
+  # in services(); the API runs on Linux and never calls it). Inside the parent's ^5.31.6 range.
+  systeminformation@<5.33.16: ^5.33.16
+  # The Expo CLI's development certificates (GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g,
+  # GHSA-8hrf-8g6f-7xwp, GHSA-hqq3-7jhf-c5jx, GHSA-5x38-2vff-x55p, GHSA-86w9-cpqp-85rv).
+  # Inside its ^1.3.3 range.
+  node-forge@<1.4.1: ^1.4.1
   # Lighthouse's puppeteer pulls chromium-bidi, which pins zod 3 (same advisory). Its zod schemas
   # only run in the WebDriver BiDi mapper, which puppeteer loads on demand; Lighthouse uses CDP.
   'chromium-bidi>zod': ^4.6.7
@@ -290,10 +297,15 @@ overrides:
 # CI's `pnpm audit --prod --audit-level high` ignores only these ids; review them monthly.
 auditConfig:
   ignoreGhsas:
-    # node-forge in @expo/cli (developer certificates); never part of the app or a server.
-    - GHSA-86w9-cpqp-85rv
+    # decode-uri-component 0.2.2 via expo-router > query-string: the fix is backported by the
+    # patch below (the fixed 0.5 line is ESM-only and query-string 7 requires CommonJS).
+    - GHSA-qr28-fpjm-wq7f
     # braces in @expo/cli's Metro file map; patterns come from the project, not from users.
     - GHSA-vfj7-8cjw-p6xm
+
+# Security fixes backported where the fixed release cannot be used (dependency-exceptions.md).
+patchedDependencies:
+  decode-uri-component@0.2.2: patches/decode-uri-component@0.2.2.patch
 
 # Supply-chain guards (phase 11): new releases wait three days before pnpm resolves them, so a
 # compromised publish is usually caught first; transitive dependencies may not come from git or
