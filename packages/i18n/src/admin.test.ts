@@ -35,4 +35,10 @@ describe('admin catalog', () => {
     expect(t('promos.redemptions', { count: 1200 })).toBe('1,200 uses');
     expect(t('nav.signedInAs', { name: 'Ada' })).toBe('Signed in as Ada');
   });
+  it('names every record a reconciliation finding can point at', () => {
+    // The API's discrepancy subjects (finance.schemas.ts): a missing label shows the raw key.
+    for (const subject of ['payment', 'refund', 'payout', 'company_topup', 'trip_payment']) {
+      expect(Object.keys(adminMessages.finance.subjects)).toContain(subject);
+    }
+  });
 });
