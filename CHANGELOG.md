@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Feature parity, part 4: hotel photos, property types and room details (2026-11-10)
+
+Part 4 of `docs/phases/feature-parity.md` (ADR-096):
+
+#### Added
+
+- **Photos.** A picture on every hotel card and a gallery on the hotel page, on the website and
+  in the app, where the supplier sends photos (Duffel Stays does). The demo supplier's hotels
+  show pictures drawn by the website (`/art/hotels`). No photos under the data saver.
+- **Property types.** Hotel, apartment, resort, guesthouse, villa, hostel or lodge on cards and
+  pages, a `propertyTypes` facet and a `types` filter.
+- **Descriptions and room details.** The supplier's text about the property as plain text, and
+  for each rate the guests a room sleeps, its size and its beds.
+- **Hotel filters in the app.** A sheet with price ceilings, stars, property type, meals,
+  amenities and areas, as the website has.
+- Hotel responses gain `propertyType`, `photo`, `description`, `photos` and `rates[].room`.
+
 ### Feature parity, part 3: live flight status and delay alerts (2026-11-10)
 
 Part 3 of `docs/phases/feature-parity.md` (ADR-095):

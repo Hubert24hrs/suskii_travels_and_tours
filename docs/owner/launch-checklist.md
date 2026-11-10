@@ -76,6 +76,9 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
    (for example Cirium, OAG, FlightAware AeroAPI or AeroDataBox) and tell Claude, who writes its
    adapter. Until then `FLIGHT_STATUS_PROVIDER` stays `none`: bookings show their booked times
    and no delay alert is sent. Decide whether alerts should also go by text or WhatsApp.
+9. **Hotel photos** (ADR-096): after the Duffel Stays sandbox run, add the host its photo URLs
+   use to the website's `IMAGE_REMOTE_HOSTS` (GitHub environment variable). Without it the
+   website shows Duffel hotels without photographs; the app shows them either way.
 
 ### 1.4 Text messages (sign-in codes, booking and safety alerts)
 
