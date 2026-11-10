@@ -84,6 +84,72 @@ export function tripTitle(plan: Pick<TripPlan, 'origin' | 'destination'>): {
   };
 }
 
+/** Cars are collected and returned mid-morning unless the traveller says otherwise. */
+const CAR_HANDOVER = 'T10:00';
+
+/** Two adults to a room, as the hotel form starts; the traveller changes rooms on the search. */
+function hotelRooms(adults: number): string[] {
+  const rooms: string[] = [];
+  for (let left = adults; left > 0; left -= 2) rooms.push(String(Math.min(left, 2)));
+  return rooms;
+}
+
+/**
+ * The query string of the ordinary search for one part of a plan, as the website's and the
+ * app's search pages read it: a return flight, a hotel in the destination's city, a car there
+ * for the same days, or the add-ons of that kind. Children's ages are not in a plan, so the hotel
+ * search starts with the adults. Null when the part needs the destination's catalog city and the
+ * airport has none (hotel, transfer, insurance): the traveller then starts from the search form.
+ */
+export function tripSearchQuery(plan: TripPlan, component: TripComponent): string | null {
+  const { origin, destination, departDate, returnDate, adults, children } = plan;
+  const travellers: [string, string][] = [
+    ['adults', String(adults)],
+    ...(children > 0 ? ([['children', String(children)]] as [string, string][]) : []),
+  ];
+  let pairs: [string, string][];
+  switch (component) {
+    case 'flight':
+      pairs = [
+        ['trip', 'round_trip'],
+        ['from', origin.code],
+        ['to', destination.code],
+        ['depart', departDate],
+        ['return', returnDate],
+        ...travellers,
+      ];
+      break;
+    case 'hotel':
+      if (!destination.cityId) return null;
+      pairs = [
+        ['dest', destination.cityId],
+        ['checkin', departDate],
+        ['checkout', returnDate],
+        ...hotelRooms(adults).map((room): [string, string] => ['room', room]),
+      ];
+      break;
+    case 'car':
+      pairs = [
+        ['city', destination.cityName ?? destination.name],
+        ['pickupAt', `${departDate}${CAR_HANDOVER}`],
+        ['returnAt', `${returnDate}${CAR_HANDOVER}`],
+      ];
+      break;
+    case 'transfer':
+    case 'insurance':
+      if (!destination.cityId) return null;
+      pairs = [
+        ['type', component === 'transfer' ? 'airport_transfer' : 'insurance'],
+        ['dest', destination.cityId],
+        ['start', departDate],
+        ['end', returnDate],
+        ...travellers,
+      ];
+      break;
+  }
+  return pairs.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+}
+
 /** Where a trip stands, from its parts: nothing added, to pay, paid, or closed. */
 export const TRIP_STATES = ['empty', 'open', 'awaiting_payment', 'paid', 'closed'] as const;
 export type TripState = (typeof TRIP_STATES)[number];

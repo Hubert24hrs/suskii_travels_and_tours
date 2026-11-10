@@ -30,10 +30,13 @@ export function appTripUrl(bookingId: string | undefined): string {
     : `${appScheme()}://trips`;
 }
 
-/** `suskii://trip-builder/{id}` for a valid combined trip id (ADR-099), else the Trips tab. */
+/**
+ * `suskii://trips/built/{id}` for a valid combined trip id (ADR-099), else the Trips tab. Under
+ * `trips`, so the app's checkout browser session recognises the hand-back as it does a booking's.
+ */
 export function appBuiltTripUrl(tripId: string | undefined): string {
   return tripId && UUID.test(tripId)
-    ? `${appScheme()}://trip-builder/${tripId.toLowerCase()}`
+    ? `${appScheme()}://trips/built/${tripId.toLowerCase()}`
     : `${appScheme()}://trips`;
 }
 

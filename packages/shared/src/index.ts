@@ -818,6 +818,7 @@ export {
   tripComponentOf,
   tripPartState,
   tripState,
+  tripSearchQuery,
   tripTitle,
   type TripComponent,
   type TripDestination,

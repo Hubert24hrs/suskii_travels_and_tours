@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { tripComponentOf, tripPartState, tripState, tripTitle } from './trips';
+import {
+  tripComponentOf,
+  tripPartState,
+  tripSearchQuery,
+  tripState,
+  tripTitle,
+  type TripPlan,
+} from './trips';
 import { TRIP_PLAN_ISSUES, tripPlanSchema } from './trips-schemas';
 
 const PLAN = {
@@ -101,5 +108,31 @@ describe('trips (ADR-099)', () => {
     expect(issues({ ...PLAN, components: [] })).toHaveLength(1);
     expect(issues({ ...PLAN, adults: 0 })).toHaveLength(1);
     expect(issues({ ...PLAN, components: ['cruise'] })).toHaveLength(1);
+  });
+  it('prefills the ordinary search of each part from the plan', () => {
+    const plan = { ...PLAN, adults: 3, children: 1 } as TripPlan;
+    expect(tripSearchQuery(plan, 'flight')).toBe(
+      'trip=round_trip&from=LOS&to=LHR&depart=2027-03-10&return=2027-03-17&adults=3&children=1',
+    );
+    // Two adults to a room; children's ages are asked on the hotel search itself.
+    expect(tripSearchQuery(plan, 'hotel')).toBe(
+      'dest=0193a5b0-0000-7000-8000-000000000001&checkin=2027-03-10&checkout=2027-03-17&room=2&room=1',
+    );
+    expect(tripSearchQuery(plan, 'car')).toBe(
+      'city=London&pickupAt=2027-03-10T10%3A00&returnAt=2027-03-17T10%3A00',
+    );
+    expect(tripSearchQuery(plan, 'transfer')).toBe(
+      'type=airport_transfer&dest=0193a5b0-0000-7000-8000-000000000001&start=2027-03-10&end=2027-03-17&adults=3&children=1',
+    );
+    expect(tripSearchQuery({ ...plan, children: 0 }, 'insurance')).toBe(
+      'type=insurance&dest=0193a5b0-0000-7000-8000-000000000001&start=2027-03-10&end=2027-03-17&adults=3',
+    );
+    // Without a catalog city the traveller starts from the search form.
+    const noCity = { ...plan, destination: { ...plan.destination, cityId: null, cityName: null } };
+    expect(tripSearchQuery(noCity, 'hotel')).toBeNull();
+    expect(tripSearchQuery(noCity, 'insurance')).toBeNull();
+    expect(tripSearchQuery(noCity, 'car')).toBe(
+      'city=Heathrow%20Airport&pickupAt=2027-03-10T10%3A00&returnAt=2027-03-17T10%3A00',
+    );
   });
 });

@@ -1,4 +1,4 @@
-import type { TripComponent, TripPlan } from '@suskii/shared/lite';
+import { tripSearchQuery, type TripComponent, type TripPlan } from '@suskii/shared/lite';
 
 /**
  * The trip a traveller is building (ADR-099), kept in this tab while they choose each part on
@@ -96,68 +96,20 @@ export function quoteTripComponent(quote: {
   }
 }
 
-const query = (params: Record<string, string | undefined>): string => {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params))
-    if (value !== undefined) search.set(key, value);
-  return search.toString();
+const SEARCH_PAGES: Record<TripComponent, { search: string; form: string }> = {
+  flight: { search: '/flights/search', form: '/flights' },
+  hotel: { search: '/hotels/search', form: '/hotels' },
+  car: { search: '/rentals', form: '/rentals' },
+  transfer: { search: '/travel-add-ons', form: '/travel-add-ons' },
+  insurance: { search: '/travel-add-ons', form: '/travel-add-ons' },
 };
-
-/** Two adults to a room, as the hotel form starts: the traveller changes rooms on the search. */
-function rooms(adults: number): string[] {
-  const list: string[] = [];
-  for (let left = adults; left > 0; left -= 2) list.push(String(Math.min(left, 2)));
-  return list;
-}
-
-/** Cars are collected and returned mid-morning unless the traveller says otherwise. */
-const HANDOVER = 'T10:00';
 
 /**
  * The ordinary search page for one part of the plan, prefilled with its places, dates and
- * travellers. Children's ages are not in a plan, so the hotel search starts with the adults.
+ * travellers (`tripSearchQuery`); the search form itself when the plan cannot prefill it.
  */
 export function tripSearchHref(plan: TripPlan, component: TripComponent): string {
-  const { origin, destination, departDate, returnDate, adults, children } = plan;
-  const travellers = {
-    adults: String(adults),
-    children: children > 0 ? String(children) : undefined,
-  };
-  switch (component) {
-    case 'flight':
-      return `/flights/search?${query({
-        trip: 'round_trip',
-        from: origin.code,
-        to: destination.code,
-        depart: departDate,
-        return: returnDate,
-        ...travellers,
-      })}`;
-    case 'hotel': {
-      if (!destination.cityId) return '/hotels';
-      const search = new URLSearchParams({
-        dest: destination.cityId,
-        checkin: departDate,
-        checkout: returnDate,
-      });
-      for (const room of rooms(adults)) search.append('room', room);
-      return `/hotels/search?${search.toString()}`;
-    }
-    case 'car':
-      return `/rentals?${query({
-        city: destination.cityName ?? destination.name,
-        pickupAt: `${departDate}${HANDOVER}`,
-        returnAt: `${returnDate}${HANDOVER}`,
-      })}`;
-    case 'transfer':
-    case 'insurance':
-      if (!destination.cityId) return '/travel-add-ons';
-      return `/travel-add-ons?${query({
-        type: component === 'transfer' ? 'airport_transfer' : 'insurance',
-        dest: destination.cityId,
-        start: departDate,
-        end: returnDate,
-        ...travellers,
-      })}`;
-  }
+  const query = tripSearchQuery(plan, component);
+  const page = SEARCH_PAGES[component];
+  return query === null ? page.form : `${page.search}?${query}`;
 }
