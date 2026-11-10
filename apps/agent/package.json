@@ -1,0 +1,39 @@
+{
+  "name": "@suskii/agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Suskii Agent service (LangGraph.js): the supervisor and specialist graphs behind the assistant. Reaches the platform only through the API's tool gateway (ADR-101).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rimraf dist .turbo coverage"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "catalog:",
+    "@langchain/core": "catalog:",
+    "@langchain/langgraph": "catalog:",
+    "@langchain/langgraph-checkpoint-postgres": "catalog:",
+    "@suskii/shared": "workspace:*",
+    "pg": "catalog:",
+    "pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@suskii/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "rimraf": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

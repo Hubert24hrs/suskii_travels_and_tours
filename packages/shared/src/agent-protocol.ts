@@ -39,6 +39,24 @@ export type AgentRunOutcome = (typeof AGENT_RUN_OUTCOMES)[number];
 export const AGENT_MESSAGE_KINDS = ['text', 'handover', 'notice'] as const;
 export type AgentMessageKind = (typeof AGENT_MESSAGE_KINDS)[number];
 
+/**
+ * What the assistant says without a model: a code the clients show in the traveller's language
+ * from their own catalogs. The agent service writes no copy of its own.
+ */
+export const AGENT_NOTICES = [
+  // A greeting answered by rule, before any model call is paid for.
+  'greeting',
+  // The answer could not be grounded in what the tools returned; a person can help.
+  'cannot_answer',
+  // The run used its steps or its tool calls.
+  'limit',
+  'timeout',
+  // The model or the agent service failed.
+  'unavailable',
+  'paused',
+] as const;
+export type AgentNotice = (typeof AGENT_NOTICES)[number];
+
 export const AGENT_CARD_KINDS = [
   'flight',
   'hotel',
@@ -187,7 +205,9 @@ export const agentRunEventSchema = z.discriminatedUnion('type', [
     /** The agent that answered, and every one that worked on the run. */
     agent: agentName,
     agents: z.array(agentName).max(AGENT_NAMES.length),
+    /** An answer the model wrote and the guard passed; null when a notice stands in for it. */
     answer: agentAnswerSchema.nullable(),
+    notice: z.enum(AGENT_NOTICES).nullable(),
     /** With `confirmation`: the pending confirmation the API created for the traveller's tap. */
     confirmationId: uuid.nullable(),
     /** The prompts that produced the answer (`flights@3`), so a bad one can be traced. */

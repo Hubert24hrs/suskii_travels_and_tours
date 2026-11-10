@@ -87,8 +87,15 @@ catalog:
   '@types/express': ^5.0.6
 
   # API platform (apps/api)
-  # LLM adapter for AI trip search (ADR-061), confined to apps/api/src/ai-search/anthropic.
+  # LLM adapter for AI trip search (ADR-061), confined to apps/api/src/ai-search/anthropic,
+  # and for the agent service's model factory (ADR-106), confined to apps/agent/src/model.
   '@anthropic-ai/sdk': 1.1.0
+  # Agent service (apps/agent, ADR-101): the graph runtime and its PostgreSQL checkpointer.
+  # Pinned exactly: the checkpoint tables are a checked-in migration copied from this version
+  # (ADR-103), and a test fails when the library's own set-up would change them.
+  '@langchain/langgraph': 1.7.2
+  '@langchain/core': 1.3.5
+  '@langchain/langgraph-checkpoint-postgres': 1.1.2
   prisma: 7.10.0
   '@prisma/client': 7.10.0
   '@prisma/adapter-pg': 7.10.0

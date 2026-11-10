@@ -82,6 +82,7 @@ describe('the agent wire protocol (ADR-101)', () => {
       agent: 'flights',
       agents: ['concierge', 'flights'],
       answer: { kind: 'text', text: 'Two flights.', cards: [], sources: ['flights.search#1'] },
+      notice: null,
       confirmationId: null,
       prompts: ['router@1', 'flights@1'],
       steps: 3,

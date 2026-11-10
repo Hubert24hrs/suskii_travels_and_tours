@@ -100,6 +100,7 @@ export {
 export {
   AGENT_CARD_KINDS,
   AGENT_MESSAGE_KINDS,
+  AGENT_NOTICES,
   AGENT_RUN_OUTCOMES,
   agentAnswerSchema,
   agentCardPathSchema,
@@ -114,6 +115,7 @@ export {
   type AgentCard,
   type AgentCardKind,
   type AgentMessageKind,
+  type AgentNotice,
   type AgentModelUsage,
   type AgentRunContext,
   type AgentRunEnd,
