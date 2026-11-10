@@ -36,7 +36,8 @@ parts, each one pull request with its tests.
   the activities partner.
 - **Live flight status.** It needs a flight-status data provider (a paid account). Part 3 builds
   the tracking and the alerts on a provider interface with the mock; the owner picks the provider.
-- **Map tiles.** A map needs a tile provider. Part 5 records the choice in an ADR.
+- **Map tiles.** A street map needs a tile provider. Part 5 draws the hotels as pins without
+  tiles and links to the traveller's maps app; ADR-097 records why and what a tile map needs.
 - **Corporate fleet and contract rates.** Company bookings and approvals already cover rentals;
   negotiated rates need the owner's commercial terms.
 - **AI recommendations.** AI trip search stays the way a sentence becomes a search (ADR-061).
@@ -144,3 +145,30 @@ the filter and the text rules, the app's `hotel-screens.test.tsx` (5), the websi
 The audit now reads 16 built, 7 partly and 6 missing for hotels. Left for the owner: each
 supplier's photo host in `IMAGE_REMOTE_HOSTS`; Hotelbeds and Expedia content needs their content
 APIs. No supplier sends videos.
+
+### Part 5: hotel collections, deals, the pin map and recent searches (ADR-097)
+
+Built on the API, the website and the app:
+
+- **Collections.** Deals, Family, Luxury, Honeymoon and Long stays as chips over the results,
+  each a fixed rule over supplier data (`hotelCollections()` in `@suskii/shared`) printed under
+  the chips when chosen. The API marks each hotel (`collections`), counts them in a facet and
+  filters by `collection`.
+- **Deals.** A hotel at least 15% below the median price of its star class in the search (five
+  hotels or more in the class, guest score 7 or more) carries "{percent}% below similar hotels".
+- **Map view.** The results as pins placed by coordinates, each a button; the chosen hotel's
+  card shows under the drawing with "Open in maps" (OpenStreetMap on the website, the phone's
+  maps app in the app). No tiles, no map library, nothing sent to a map provider.
+- **Things to do.** The hotel page lists the activities partner's offers for the hotel's city.
+- **Continue your search.** The last three hotel searches, kept on the device only, on the
+  website's hotels page and above the app's hotel form, with "Clear".
+- **Last-minute deals.** "Tonight in {city}" on the website's hotels page opens tonight's Deals
+  in each popular destination.
+
+Tests: unit tests for the rules (`hotel-collections.test.ts`, `results.spec.ts`), API e2e in
+`search.e2e-spec.ts`, the app's `hotel-screens.test.tsx` (10) and the website's
+`hotel-discovery.spec.ts` (5).
+
+The audit now reads 23 built, 5 partly and 1 missing for hotels. Left for the owner: a tile
+provider if a street map is wanted, the deal thresholds, and Viator access for things to do. AI
+hotel recommendations stay unbuilt by decision (fixed, stated rules instead).

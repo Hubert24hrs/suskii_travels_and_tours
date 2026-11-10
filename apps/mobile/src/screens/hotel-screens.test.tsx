@@ -1,9 +1,13 @@
 import type { Schemas } from '@suskii/api-client';
 import { getMessages } from '@suskii/i18n';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Linking } from 'react-native';
 
+import { HotelSearchForm } from '../components/search/hotel-search-form';
 import { preferences } from '../lib/cache';
+import { mapsUrl } from '../lib/maps';
+import { recentHotelSearches } from '../lib/recent-hotel-searches';
 import { json, mockApi, renderWithApp } from '../test/app';
 
 import { HotelRatesScreen } from './hotel-rates-screen';
@@ -91,6 +95,9 @@ function results(count: number): Schemas['HotelSearchResult'] {
       ...base,
       id: `${SEARCH_ID}.h${index}`,
       photo: photo('exterior', 'The building'),
+      // The first hotel is a deal: 22% below the usual price of its star class.
+      deal: index === 0 ? { percentBelow: 22 } : null,
+      collections: index === 0 ? ['deals' as const, 'family' as const] : ['family' as const],
       cheapestRate: rate(`${SEARCH_ID}.h${index}.r0`),
       freeCancellationAvailable: true,
     })),
@@ -116,6 +123,10 @@ function results(count: number): Schemas['HotelSearchResult'] {
         { type: 'hotel', count: 8 },
         { type: 'resort', count: 3 },
         { type: 'apartment', count: 2 },
+      ],
+      collections: [
+        { collection: 'deals', count: 1 },
+        { collection: 'family', count: count },
       ],
       freeCancellation: 13,
     },
@@ -195,6 +206,117 @@ describe('hotel results (ADR-096)', () => {
   });
 });
 
+describe('hotel discovery (ADR-097)', () => {
+  beforeEach(() => {
+    preferences.clearAll();
+    jest.mocked(router.push).mockClear();
+    jest.mocked(useLocalSearchParams).mockReturnValue({
+      dest: CITY,
+      checkin: CHECK_IN,
+      checkout: CHECK_OUT,
+      room: '2',
+    });
+  });
+
+  it('marks a deal and narrows the list to a collection on the API', async () => {
+    const { calls } = mockApi({
+      'POST /v1/hotels/searches': () => json(results(3)),
+      [`GET /v1/hotels/searches/${SEARCH_ID}/hotels`]: () => json(results(1)),
+    });
+    await renderWithApp(<HotelResultsScreen />);
+    expect(await screen.findAllByTestId('hotel-result')).toHaveLength(3);
+    // Only the first hotel is priced well below the others of its class.
+    expect(screen.getAllByTestId('hotel-deal')).toHaveLength(1);
+    expect(screen.getByTestId('hotel-deal')).toHaveTextContent('22% below similar hotels');
+
+    expect(screen.getByTestId('hotel-collection-all')).toBeChecked();
+    await fireEvent.press(screen.getByTestId('hotel-collection-deals'));
+    await waitFor(async () => expect(await screen.findAllByTestId('hotel-result')).toHaveLength(1));
+    const page = calls.filter((request) => request.url.includes(`${SEARCH_ID}/hotels`)).at(-1);
+    expect(new URL(page?.url ?? '').searchParams.get('collection')).toBe('deals');
+    // The rule behind the collection is spelled out.
+    expect(screen.getByTestId('collection-help')).toHaveTextContent(
+      m.results.collections.help.deals,
+    );
+  });
+
+  it('shows the hotels as pins and opens the chosen one in the maps app', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    mockApi({ 'POST /v1/hotels/searches': () => json(results(3)) });
+    await renderWithApp(<HotelResultsScreen />);
+    expect(await screen.findAllByTestId('hotel-result')).toHaveLength(3);
+
+    await fireEvent.press(screen.getByTestId('hotel-view'));
+    expect(await screen.findByTestId('hotel-map')).toBeOnTheScreen();
+    // Nothing is chosen yet: the screen says what to do, and no card shows.
+    expect(screen.getByText(m.results.map.choose)).toBeOnTheScreen();
+    expect(screen.queryByTestId('hotel-result')).toBeNull();
+    expect(screen.getByTestId(`hotel-pin-${SEARCH_ID}.h1`)).toHaveAccessibleName(
+      /The Palm Resort, ₦193,500/,
+    );
+
+    await fireEvent.press(screen.getByTestId(`hotel-pin-${SEARCH_ID}.h1`));
+    expect(await screen.findAllByTestId('hotel-result')).toHaveLength(1);
+    await fireEvent.press(screen.getByTestId('hotel-open-map'));
+    // The phone's own maps app: a `geo:` address on Android, Apple Maps on iPhone.
+    expect(openURL).toHaveBeenCalledWith(mapsUrl(6.43, 3.42, 'The Palm Resort'));
+    expect(openURL.mock.calls[0]?.[0]).toMatch(/6\.43,3\.42.*The%20Palm%20Resort/);
+    expect(screen.getByText(m.results.map.note)).toBeOnTheScreen();
+
+    // Back to the list.
+    await fireEvent.press(screen.getByTestId('hotel-view'));
+    expect(await screen.findAllByTestId('hotel-result')).toHaveLength(3);
+    openURL.mockRestore();
+  });
+
+  it('remembers a search on the device and offers it again on the search form', async () => {
+    mockApi({ 'POST /v1/hotels/searches': () => json(results(2)) });
+    const searched = await renderWithApp(<HotelResultsScreen />);
+    expect(await screen.findAllByTestId('hotel-result')).toHaveLength(2);
+    expect(recentHotelSearches.list()).toEqual([
+      {
+        cityId: CITY,
+        cityName: 'Lagos',
+        checkIn: CHECK_IN,
+        checkOut: CHECK_OUT,
+        rooms: [{ adults: 2, childAges: [] }],
+      },
+    ]);
+    searched.unmount();
+
+    await renderWithApp(<HotelSearchForm />);
+    const recent = screen.getByTestId('recent-hotel-search');
+    expect(recent).toHaveTextContent(/Lagos · .* · 2 guests/);
+    await fireEvent.press(recent);
+    expect(router.push).toHaveBeenCalledWith(
+      `/search/hotels?dest=${CITY}&checkin=${CHECK_IN}&checkout=${CHECK_OUT}&room=2`,
+    );
+    // Clearing forgets them at once.
+    await fireEvent.press(screen.getByTestId('recent-hotel-clear'));
+    expect(screen.queryByTestId('recent-hotel-searches')).toBeNull();
+    expect(recentHotelSearches.list()).toEqual([]);
+  });
+
+  it('ignores what it cannot trust in storage, and stays that have begun', () => {
+    preferences.set(
+      'search.hotels.recent',
+      JSON.stringify([
+        { cityId: 'not-a-city', cityName: 'X', checkIn: CHECK_IN, checkOut: CHECK_OUT, rooms: [] },
+        {
+          cityId: CITY,
+          cityName: 'Lagos',
+          checkIn: '2020-01-01',
+          checkOut: '2020-01-03',
+          rooms: [{ adults: 2, childAges: [] }],
+        },
+      ]),
+    );
+    expect(recentHotelSearches.list()).toEqual([]);
+    preferences.set('search.hotels.recent', 'not json');
+    expect(recentHotelSearches.list()).toEqual([]);
+  });
+});
+
 describe('hotel page (ADR-096)', () => {
   const detail = (): Schemas['HotelDetail'] => ({
     ...base,
@@ -245,6 +367,49 @@ describe('hotel page (ADR-096)', () => {
       /Sleeps 2 · 28 m² · 1 × queen bed · 1 × sofa bed/,
     );
     expect(screen.getByText('A larger room on a higher floor.')).toBeOnTheScreen();
+  });
+
+  it('offers things to do in the city from partners, and the maps app for the address', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const { calls } = mockApi({
+      [`GET /v1/hotels/results/${HOTEL_ID}`]: () => json(detail()),
+      'GET /v1/partners/offers': () =>
+        json({
+          currency: 'NGN',
+          partial: false,
+          offers: [
+            {
+              id: 'viator:SAMPLE1',
+              programId: 'viator',
+              category: 'activity',
+              brand: 'Viator',
+              title: 'Lekki Conservation Centre canopy walk',
+              fromPrice: { amountMinor: 2_500_000, currency: 'NGN' },
+              rating: { average: 4.7, count: 212 },
+              durationMinutes: 180,
+              imageUrl: null,
+              href: '/v1/go/token-abcdefghijklmnopqrstuvwxyz',
+              sample: true,
+            },
+          ],
+        }),
+    });
+    await renderWithApp(<HotelRatesScreen />);
+
+    const card = await screen.findByTestId('hotel-things-to-do');
+    expect(card).toHaveTextContent(/Things to do in Lagos/);
+    expect(card).toHaveTextContent(/Lekki Conservation Centre canopy walk/);
+    const offers = calls.find((request) => request.url.includes('/v1/partners/offers'));
+    const query = new URL(offers?.url ?? '').searchParams;
+    expect(query.get('cityName')).toBe('Lagos');
+    expect(query.get('countryCode')).toBe('NG');
+    expect(query.get('categories')).toBe('activity');
+
+    await fireEvent.press(screen.getByTestId('hotel-open-map'));
+    // The phone's own maps app: a `geo:` address on Android, Apple Maps on iPhone.
+    expect(openURL).toHaveBeenCalledWith(mapsUrl(6.43, 3.42, 'The Palm Resort'));
+    expect(openURL.mock.calls[0]?.[0]).toMatch(/6\.43,3\.42.*The%20Palm%20Resort/);
+    openURL.mockRestore();
   });
 
   it('leaves the photos out under the data saver', async () => {

@@ -60,8 +60,9 @@ requests wait for the owner's sandbox check. Part 2, seat selection at checkout 
 built; Duffel seats wait for one sandbox run (`DUFFEL_SEAT_SELECTION`). Part 3, live flight
 status and delay alerts (ADR-095), is built and waits for the owner's flight-data provider
 (`FLIGHT_STATUS_PROVIDER`). Part 4, hotel photos, property types, room details and the app's
-hotel filters (ADR-096), is built; supplier photo hosts go in `IMAGE_REMOTE_HOSTS`. Parts 5 and
-6 are planned.
+hotel filters (ADR-096), is built; supplier photo hosts go in `IMAGE_REMOTE_HOSTS`. Part 5,
+hotel collections, deals, a pin map of the results, things to do and recent searches (ADR-097),
+is built; a street map waits for the owner's tile provider. Part 6 is planned.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -790,6 +791,29 @@ Tooling notes for agents:
 - The app's hotel filters live in a sheet and are applied on the API; the list keeps its place
   while a filter loads (`keepPreviousData`).
 
+### Hotel discovery (packages/shared hotel-collections, apps/api/src/search; ADR-097)
+
+- Collections (`deals`, `family`, `luxury`, `honeymoon`, `long_stay`) and the deal percentage come
+  only from `hotelCollections()` and `dealPercent()` in `@suskii/shared`, applied by
+  `withCollections()` to a priced search before filters and paging. They are fixed rules over
+  supplier data and the search's own prices: no model ranks or labels a hotel, and a client
+  never computes either. A changed rule changes its `results.collections.help.*` text in every
+  catalog (the rule is shown to the traveller).
+- A deal compares a hotel with the median of its star class in the same search (at least
+  `DEAL_MIN_CLASS_SIZE` hotels, guest score `DEAL_MIN_SCORE` or more, `DEAL_MIN_PERCENT` below).
+  Never show a "was" price or call a hotel a deal on a supplier's word.
+- The map view draws pins from coordinates and loads no tiles and no map library: nothing goes
+  to a map provider. Streets and directions are a link to a maps app (OpenStreetMap on the
+  website, `openMaps()` in the app). A tile map needs a provider in the CSP, the outbound hosts
+  and the records of processing first (ADR-097). The list stays the complete alternative; the
+  website's map is a lazy chunk and `view=map` lives in the URL.
+- "Continue your search" keeps the last hotel searches on the device only
+  (`lib/recent-hotel-searches.ts` on both clients: checked again when read, dropped after
+  check-in, cleared with the account's data in the app). Never send them to the API.
+- "Things to do" on a hotel page is `PartnerOffers` with the hotel's country and city (ADR-069);
+  "Tonight in {city}" on the website's hotels page takes its dates from the browser's clock, so
+  it renders there and sits under the destinations, where it moves nothing (ADR-075).
+
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 
 - Only a confirmed booking item whose trip has ended (the day after `tripFacts` `endDate`, within
@@ -1259,6 +1283,7 @@ Tooling notes for agents:
 - [ADR-094: Seat selection on flights](docs/decisions/ADR-094-flight-seat-selection.md)
 - [ADR-095: Live flight status and delay alerts](docs/decisions/ADR-095-live-flight-status-and-delay-alerts.md)
 - [ADR-096: Hotel photos, property types and room details](docs/decisions/ADR-096-hotel-photos-property-types-and-room-details.md)
+- [ADR-097: Hotel collections, deals, the pin map and recent searches](docs/decisions/ADR-097-hotel-collections-deals-and-the-pin-map.md)
 
 ## Open questions for the owner
 
@@ -1414,5 +1439,7 @@ and whether Suskii adds a fee to seats (none today). Added with live flight stat
 a flight-data provider and plan (then its adapter), whether delay alerts also go by text or
 WhatsApp, and the delay worth telling (default 30 minutes). Added with hotel content (ADR-096):
 each supplier's photo host for `IMAGE_REMOTE_HOSTS`, and Hotelbeds and Expedia content (photos,
-descriptions, categories) once those accounts exist. Every owner action is listed, step by
+descriptions, categories) once those accounts exist. Added with hotel discovery (ADR-097): a tile
+provider if the map should show streets (and its name in the privacy policy), and the deal
+thresholds (15% below the star class, five hotels to compare, guest score 7). Every owner action is listed, step by
 step, in `docs/owner/launch-checklist.md`.

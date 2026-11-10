@@ -1,4 +1,14 @@
-import { compare, maxOf, minOf, type Money, type PropertyType } from '@suskii/shared';
+import {
+  HOTEL_COLLECTIONS,
+  compare,
+  dealPercent,
+  hotelCollections,
+  maxOf,
+  minOf,
+  type HotelCollection,
+  type Money,
+  type PropertyType,
+} from '@suskii/shared';
 
 import type { PriceBreakdown } from '../pricing/pricing-engine';
 import type {
@@ -189,6 +199,43 @@ export interface PricedHotel {
   hotel: SupplierHotel;
   rates: PricedRate[];
   cheapest: PricedRate;
+  /** Percent below the usual price of its star class in this search; set by `withCollections`. */
+  deal?: number | null;
+  /** The collections the hotel belongs to (ADR-097); set by `withCollections`. */
+  collections?: HotelCollection[];
+}
+
+/**
+ * Marks each hotel of a priced search with its deal and its collections (ADR-097). A deal
+ * compares the hotel's cheapest total with the median of its star class in the same search, so
+ * it is computed over the whole search, before any filter.
+ */
+export function withCollections(items: readonly PricedHotel[]): PricedHotel[] {
+  const classes = new Map<number, bigint[]>();
+  for (const item of items) {
+    const prices = classes.get(item.hotel.stars) ?? [];
+    prices.push(item.cheapest.price.total.minor);
+    classes.set(item.hotel.stars, prices);
+  }
+  return items.map((item) => {
+    const { hotel } = item;
+    const deal = dealPercent(
+      item.cheapest.price.total.minor,
+      classes.get(hotel.stars) ?? [],
+      hotel.reviewScore,
+    );
+    const guests = hotel.rates.flatMap((rate) => rate.room?.maxGuests ?? []);
+    const collections = hotelCollections({
+      stars: hotel.stars,
+      reviewScore: hotel.reviewScore,
+      propertyType: hotel.propertyType ?? null,
+      amenities: hotel.amenities,
+      maxRoomGuests: guests.length > 0 ? Math.max(...guests) : null,
+      roomNames: [...new Set(hotel.rates.map((rate) => rate.roomName))],
+      dealPercent: deal,
+    });
+    return { ...item, deal, collections };
+  });
 }
 
 export type HotelSort = 'recommended' | 'price' | 'rating' | 'stars';
@@ -272,6 +319,8 @@ export interface HotelFilters {
   maxPrice?: number | undefined;
   /** Property types (any of them); a hotel whose type the supplier did not give never matches. */
   types?: string[] | undefined;
+  /** One collection (ADR-097): deals, family, luxury, honeymoon or long stays. */
+  collection?: HotelCollection | undefined;
 }
 
 /** Applies rate-level filters first (board, free cancellation), then hotel-level ones. */
@@ -284,6 +333,7 @@ export function filterHotels(items: readonly PricedHotel[], filters: HotelFilter
     if (filters.areas && (hotel.area === null || !filters.areas.includes(hotel.area))) continue;
     if (filters.types && !(hotel.propertyType && filters.types.includes(hotel.propertyType)))
       continue;
+    if (filters.collection && !item.collections?.includes(filters.collection)) continue;
     if (
       filters.amenities &&
       !filters.amenities.every((amenity) => hotel.amenities.includes(amenity))
@@ -365,6 +415,11 @@ export function hotelFacets(items: readonly PricedHotel[]) {
     propertyTypes: [...types]
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type)),
+    // In the order clients list them, and only the ones this search has hotels for.
+    collections: HOTEL_COLLECTIONS.map((collection) => ({
+      collection,
+      count: items.filter((item) => item.collections?.includes(collection)).length,
+    })).filter((entry) => entry.count > 0),
     freeCancellation: items.filter((item) => item.rates.some(({ rate }) => rate.refundable)).length,
   };
 }

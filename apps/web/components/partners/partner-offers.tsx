@@ -19,7 +19,14 @@ export type PartnerMessages = Pick<Messages, 'partners'>;
 
 export type PartnerOffersSource =
   | { kind: 'booking'; bookingId: string; currency: CurrencyCode }
-  | { kind: 'place'; countryCode: string; categories: readonly Category[]; currency: CurrencyCode };
+  | {
+      kind: 'place';
+      countryCode: string;
+      /** Narrows activities to a city (the hotel page, ADR-097). */
+      cityName?: string;
+      categories: readonly Category[];
+      currency: CurrencyCode;
+    };
 
 const LINK =
   'inline-flex min-h-12 items-center justify-center self-start rounded-md border border-border-strong bg-surface px-6 font-body text-body font-bold text-primary focus-visible:focus-ring';
@@ -41,6 +48,7 @@ async function load(source: PartnerOffersSource): Promise<Offers | null> {
     params: {
       query: {
         countryCode: source.countryCode,
+        ...(source.cityName ? { cityName: source.cityName } : {}),
         categories: source.categories.join(','),
         currency: source.currency,
       },

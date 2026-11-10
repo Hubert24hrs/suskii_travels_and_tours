@@ -132,7 +132,8 @@ export const sw: Messages = {
       bookingAccess: 'Hufungua uhifadhi uliofanya kama mgeni, katika kichupo hiki pekee.',
       supportAccess:
         'Hufungua mazungumzo ya usaidizi uliyoanzisha bila akaunti, katika kichupo hiki pekee.',
-      search: 'Hukumbuka utafutaji wako wa mwisho wa safari ya ndege na maeneo ya hivi karibuni.',
+      search:
+        'Hukumbuka utafutaji wako wa mwisho wa safari ya ndege, utafutaji wako wa hoteli wa hivi karibuni na maeneo ya hivi karibuni.',
       addonsName: 'Hujaza jina lako la ukoo unapotafuta huduma za ziada za uhifadhi.',
       companyInvite:
         'Huhifadhi mwaliko wa kampuni unapoingia ili kuukubali, kwenye kichupo hiki tu.',
@@ -683,6 +684,52 @@ export const sw: Messages = {
       backup_power: 'Umeme wa akiba',
       room_service: 'Huduma ya chumbani',
       laundry: 'Kufulia nguo',
+    },
+    collections: {
+      label: 'Makundi',
+      all: 'Hoteli zote',
+      deals: 'Ofa',
+      family: 'Familia',
+      luxury: 'Anasa',
+      honeymoon: 'Fungate',
+      long_stay: 'Kukaa muda mrefu',
+      help: {
+        deals:
+          'Angalau 15% chini ya bei ya kawaida ya hoteli zenye nyota sawa katika utafutaji huu.',
+        family: 'Hoteli zenye chumba cha watu watatu au zaidi.',
+        luxury: 'Hoteli za nyota tano, na za nyota nne zilizopewa alama 9 au zaidi.',
+        honeymoon:
+          'Hoteli za nyota nne na tano zenye alama 8 au zaidi, zenye spa au bwawa la kuogelea.',
+        long_stay: 'Fleti, na malazi yenye jiko au huduma ya kufua.',
+      },
+      deal: '{percent}% chini ya hoteli zinazofanana',
+    },
+    map: {
+      show: 'Ramani',
+      list: 'Orodha',
+      view: 'Mwonekano',
+      heading: 'Hoteli kwenye ramani',
+      note: 'Mwonekano huu unaonyesha hoteli zilipo zikilinganishwa. Hauna ramani ya barabara: fungua hoteli katika programu yako ya ramani kwa barabara na maelekezo.',
+      pin: '{hotel}, {price}',
+      choose: 'Chagua hoteli kwenye ramani ili kuiona hapa.',
+      open: 'Fungua kwenye ramani',
+      openLabel: 'Fungua {hotel} katika programu ya ramani',
+    },
+    discover: {
+      thingsToDo: 'Mambo ya kufanya {city}',
+      recentHeading: 'Endelea na utafutaji wako',
+      recentNote:
+        'Utafutaji wako wa hivi karibuni wa hoteli, umehifadhiwa kwenye kifaa hiki pekee.',
+      recentItem: '{city} · {dates} · {guests}',
+      recentGuests: {
+        one: 'mgeni {count}',
+        other: 'wageni {count}',
+      },
+      recentClear: 'Futa',
+      lastMinuteHeading: 'Ofa za dakika za mwisho',
+      lastMinuteNote:
+        'Usiku wa leo, kwa watu wazima wawili: hoteli zilizo angalau 15% chini ya bei ya kawaida ya hoteli zenye nyota sawa.',
+      lastMinuteItem: 'Usiku wa leo, {city}',
     },
     propertyTypes: {
       hotel: 'Hoteli',

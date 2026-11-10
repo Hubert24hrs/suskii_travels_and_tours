@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { recentHotelSearches } from './recent-hotel-searches';
 
 import { documentStore } from './documents';
 import { offlineScanner } from './offline-scan';
@@ -15,5 +16,6 @@ export function forgetAccountData(queryClient: QueryClient): void {
   tripStore.forgetAccount();
   documentStore.removeAllExcept(guestTrips);
   offlineScanner.forget();
+  recentHotelSearches.clear();
   queryClient.clear();
 }

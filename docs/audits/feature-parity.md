@@ -3,7 +3,7 @@
 Audited on 2026-11-09 against the owner's three feature lists (20 essential features and the
 advanced ones for each product). Each line was checked in the API, the website and the app.
 Statuses are updated as the parts of the build plan land (part 1, flights, on 2026-11-09; parts 2
-to 4, seat selection, live flight status and hotel content, on 2026-11-10).
+to 5, seat selection, live flight status, hotel content and hotel discovery, on 2026-11-10).
 
 - **Built**: works today on the API, the website and the app.
 - **Partly**: some of it works; the note says what is missing.
@@ -56,42 +56,42 @@ The build plan for every line that is not Built is in `docs/phases/feature-parit
 
 ### Essential
 
-| #   | Feature                                 | Status  | Evidence, or what is missing                                                                                                                                 |
-| --- | --------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Search by city, country and destination | Built   | Place search matches city and country names; the search itself runs on a city                                                                                |
-| 2   | Check-in and check-out dates            | Built   |                                                                                                                                                              |
-| 3   | Number of guests and rooms              | Built   | Up to 8 rooms, children with ages                                                                                                                            |
-| 4   | Hotel categories and star ratings       | Built   | Stars, and the property type (hotel, apartment, resort...) with a filter where the supplier gives it (ADR-096)                                               |
-| 5   | Budget-based filtering                  | Built   | Maximum price on the website and in the app's filter sheet (ADR-096)                                                                                         |
-| 6   | Location-based hotel discovery          | Partly  | Area filter on the website; coordinates are returned but nothing shows them                                                                                  |
-| 7   | Interactive hotel maps                  | Missing |                                                                                                                                                              |
-| 8   | Hotel photographs and videos            | Partly  | Photos on cards and a gallery on the hotel page where the supplier sends them (Duffel Stays; drawn samples on demo data) (ADR-096). No supplier sends videos |
-| 9   | Room types and availability             | Built   | Every rate names its room; sold-out rates are refused at the price check                                                                                     |
-| 10  | Room descriptions                       | Built   | A description, the guests it sleeps, size and beds on each rate where the supplier sends them (ADR-096)                                                      |
-| 11  | Hotel amenities                         | Built   |                                                                                                                                                              |
-| 12  | Breakfast availability                  | Built   | Board filter on the website and in the app (ADR-096)                                                                                                         |
-| 13  | Pool, gym, Wi-Fi and parking filters    | Built   | Amenity filters on the website and in the app (ADR-096)                                                                                                      |
-| 14  | Guest reviews and ratings               | Built   | The supplier's score and Suskii's verified reviews (ADR-077)                                                                                                 |
-| 15  | Cancellation policies                   | Built   | Refundable or not, and the free-cancellation deadline, on every rate                                                                                         |
-| 16  | Payment options                         | Built   | Payment methods at checkout (ADR-074)                                                                                                                        |
-| 17  | Hotel reservation confirmation          | Built   |                                                                                                                                                              |
-| 18  | Booking history                         | Built   | Trips on the website and in the app                                                                                                                          |
-| 19  | Hotel recommendations                   | Partly  | The "Recommended" order and popular destinations; nothing personal                                                                                           |
-| 20  | Special hotel deals                     | Partly  | Popular destinations with "from" prices; no deals list for hotels                                                                                            |
+| #   | Feature                                 | Status | Evidence, or what is missing                                                                                                                                 |
+| --- | --------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Search by city, country and destination | Built  | Place search matches city and country names; the search itself runs on a city                                                                                |
+| 2   | Check-in and check-out dates            | Built  |                                                                                                                                                              |
+| 3   | Number of guests and rooms              | Built  | Up to 8 rooms, children with ages                                                                                                                            |
+| 4   | Hotel categories and star ratings       | Built  | Stars, and the property type (hotel, apartment, resort...) with a filter where the supplier gives it (ADR-096)                                               |
+| 5   | Budget-based filtering                  | Built  | Maximum price on the website and in the app's filter sheet (ADR-096)                                                                                         |
+| 6   | Location-based hotel discovery          | Built  | Area filter, and a map view of the results with each hotel placed by its coordinates (ADR-097)                                                               |
+| 7   | Interactive hotel maps                  | Partly | Pins that can be chosen, the hotel under them and "Open in maps" for streets and directions; no street tiles until the owner picks a tile provider (ADR-097) |
+| 8   | Hotel photographs and videos            | Partly | Photos on cards and a gallery on the hotel page where the supplier sends them (Duffel Stays; drawn samples on demo data) (ADR-096). No supplier sends videos |
+| 9   | Room types and availability             | Built  | Every rate names its room; sold-out rates are refused at the price check                                                                                     |
+| 10  | Room descriptions                       | Built  | A description, the guests it sleeps, size and beds on each rate where the supplier sends them (ADR-096)                                                      |
+| 11  | Hotel amenities                         | Built  |                                                                                                                                                              |
+| 12  | Breakfast availability                  | Built  | Board filter on the website and in the app (ADR-096)                                                                                                         |
+| 13  | Pool, gym, Wi-Fi and parking filters    | Built  | Amenity filters on the website and in the app (ADR-096)                                                                                                      |
+| 14  | Guest reviews and ratings               | Built  | The supplier's score and Suskii's verified reviews (ADR-077)                                                                                                 |
+| 15  | Cancellation policies                   | Built  | Refundable or not, and the free-cancellation deadline, on every rate                                                                                         |
+| 16  | Payment options                         | Built  | Payment methods at checkout (ADR-074)                                                                                                                        |
+| 17  | Hotel reservation confirmation          | Built  |                                                                                                                                                              |
+| 18  | Booking history                         | Built  | Trips on the website and in the app                                                                                                                          |
+| 19  | Hotel recommendations                   | Built  | The "Recommended" order, collections by stated rules (family, luxury, honeymoon, long stays) and the traveller's own recent searches (ADR-097)               |
+| 20  | Special hotel deals                     | Built  | A "Deals" collection and badge: at least 15% below the usual price of the star class in the search (ADR-097)                                                 |
 
 ### Advanced
 
-| Feature                                 | Status  | Evidence, or what is missing                                                                   |
-| --------------------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| AI-powered hotel recommendations        | Missing | AI trip search covers flights only                                                             |
-| Personalised accommodation suggestions  | Missing |                                                                                                |
-| Nearby attractions and restaurants      | Partly  | Partner activities (Viator) show on a booking, not on the hotel page; no restaurants           |
-| Family-friendly accommodation discovery | Missing |                                                                                                |
-| Honeymoon and luxury hotel collections  | Missing |                                                                                                |
-| Last-minute hotel deals                 | Missing |                                                                                                |
-| Extended-stay accommodation             | Partly  | Stays up to 30 nights; nothing helps find weekly or monthly stays                              |
-| Corporate accommodation reservations    | Built   | Company accounts cover hotels                                                                  |
-| Verified hotel and property partners    | Partly  | Hotels come only from contracted suppliers (Duffel, Hotelbeds, Expedia); sample data is badged |
+| Feature                                 | Status  | Evidence, or what is missing                                                                                                             |
+| --------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| AI-powered hotel recommendations        | Missing | By decision: collections and the order are fixed, stated rules; no model ranks hotels (ADR-097). AI trip search covers flights only      |
+| Personalised accommodation suggestions  | Partly  | "Continue your search" offers the traveller's last hotel searches, kept on the device only; no profile is built (ADR-097)                |
+| Nearby attractions and restaurants      | Partly  | "Things to do in {city}" on the hotel page from the activities partner (ADR-097); no supplier lists restaurants                          |
+| Family-friendly accommodation discovery | Built   | The "Family" collection: a room for three or more, or a family room (ADR-097)                                                            |
+| Honeymoon and luxury hotel collections  | Built   | "Luxury" and "Honeymoon" collections with their rules shown (ADR-097)                                                                    |
+| Last-minute hotel deals                 | Built   | "Tonight in {city}" on the website's hotels page opens tonight's Deals; the Deals collection works on any dates in the app too (ADR-097) |
+| Extended-stay accommodation             | Built   | The "Long stays" collection (apartments, villas, a kitchen or laundry); stays up to 30 nights (ADR-097)                                  |
+| Corporate accommodation reservations    | Built   | Company accounts cover hotels                                                                                                            |
+| Verified hotel and property partners    | Partly  | Hotels come only from contracted suppliers (Duffel, Hotelbeds, Expedia); sample data is badged                                           |
 
 ## C. Car rental
 
@@ -145,6 +145,6 @@ the own-fleet rental system.
 |            | Built | Partly | Missing | Lines |
 | ---------- | ----- | ------ | ------- | ----- |
 | Flights    | 22    | 7      | 0       | 29    |
-| Hotels     | 16    | 7      | 6       | 29    |
+| Hotels     | 23    | 5      | 1       | 29    |
 | Car rental | 19    | 6      | 6       | 31    |
-| All        | 57    | 20     | 12      | 89    |
+| All        | 64    | 18     | 7       | 89    |

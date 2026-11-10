@@ -1,6 +1,7 @@
 'use client';
 
 import { useFormatters } from '@suskii/i18n/react';
+import type { HotelCollection } from '@suskii/shared/lite';
 import { Button } from '@suskii/ui-web';
 
 import type { Schemas } from '../../lib/browser-api';
@@ -23,6 +24,8 @@ export interface HotelFilterState {
   maxPrice: number | undefined;
   /** Property types (hotel, apartment, resort...), any of them. */
   types: string[];
+  /** One collection (deals, family, luxury...), chosen from the chips above the list. */
+  collection: HotelCollection | undefined;
 }
 
 export const EMPTY_HOTEL_FILTERS: HotelFilterState = {
@@ -34,6 +37,7 @@ export const EMPTY_HOTEL_FILTERS: HotelFilterState = {
   board: undefined,
   maxPrice: undefined,
   types: [],
+  collection: undefined,
 };
 
 function priceSteps(range: { min: Schemas['Money']; max: Schemas['Money'] }): number[] {

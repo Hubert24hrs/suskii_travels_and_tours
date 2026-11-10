@@ -131,7 +131,8 @@ export const pt: Messages = {
       sessionExpiry: 'Indica ao site quando renovar a sua sessão.',
       bookingAccess: 'Abre uma reserva feita como convidado, apenas neste separador.',
       supportAccess: 'Abre uma conversa com o apoio iniciada sem conta, apenas neste separador.',
-      search: 'Memoriza a sua última pesquisa de voo e os locais recentes.',
+      search:
+        'Memoriza a sua última pesquisa de voo, as pesquisas recentes de hotéis e os locais recentes.',
       addonsName: 'Preenche o seu apelido quando procura extras para uma reserva.',
       companyInvite:
         'Guarda um convite de empresa enquanto inicia sessão para o aceitar, apenas neste separador.',
@@ -684,6 +685,50 @@ export const pt: Messages = {
       backup_power: 'Gerador de reserva',
       room_service: 'Serviço de quartos',
       laundry: 'Lavandaria',
+    },
+    collections: {
+      label: 'Coleções',
+      all: 'Todos os hotéis',
+      deals: 'Ofertas',
+      family: 'Famílias',
+      luxury: 'Luxo',
+      honeymoon: 'Lua de mel',
+      long_stay: 'Estadias longas',
+      help: {
+        deals:
+          'Pelo menos 15% abaixo do preço habitual dos hotéis com as mesmas estrelas nesta pesquisa.',
+        family: 'Hotéis com um quarto para três ou mais pessoas.',
+        luxury: 'Hotéis de cinco estrelas, e de quatro estrelas com nota 9 ou mais.',
+        honeymoon: 'Hotéis de quatro e cinco estrelas com nota 8 ou mais, com spa ou piscina.',
+        long_stay: 'Apartamentos e alojamentos com cozinha ou lavandaria.',
+      },
+      deal: '{percent}% abaixo de hotéis semelhantes',
+    },
+    map: {
+      show: 'Mapa',
+      list: 'Lista',
+      view: 'Vista',
+      heading: 'Hotéis no mapa',
+      note: 'Esta vista mostra onde os hotéis ficam uns em relação aos outros. Não tem mapa de ruas: abra um hotel na sua aplicação de mapas para ver ruas e direções.',
+      pin: '{hotel}, {price}',
+      choose: 'Escolha um hotel no mapa para o ver aqui.',
+      open: 'Abrir nos mapas',
+      openLabel: 'Abrir {hotel} numa aplicação de mapas',
+    },
+    discover: {
+      thingsToDo: 'O que fazer em {city}',
+      recentHeading: 'Continuar a sua pesquisa',
+      recentNote: 'As suas últimas pesquisas de hotéis, guardadas apenas neste dispositivo.',
+      recentItem: '{city} · {dates} · {guests}',
+      recentGuests: {
+        one: '{count} hóspede',
+        other: '{count} hóspedes',
+      },
+      recentClear: 'Limpar',
+      lastMinuteHeading: 'Ofertas de última hora',
+      lastMinuteNote:
+        'Esta noite, para dois adultos: hotéis pelo menos 15% abaixo do preço habitual dos hotéis com as mesmas estrelas.',
+      lastMinuteItem: 'Esta noite em {city}',
     },
     propertyTypes: {
       hotel: 'Hotel',

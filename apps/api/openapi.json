@@ -19372,6 +19372,21 @@
             }
           },
           {
+            "name": "collection",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "deals",
+                "family",
+                "luxury",
+                "honeymoon",
+                "long_stay"
+              ]
+            }
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -44181,6 +44196,34 @@
               "additionalProperties": false
             }
           },
+          "collections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "collection": {
+                  "type": "string",
+                  "enum": [
+                    "deals",
+                    "family",
+                    "luxury",
+                    "honeymoon",
+                    "long_stay"
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "collection",
+                "count"
+              ],
+              "additionalProperties": false
+            }
+          },
           "freeCancellation": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -44194,6 +44237,7 @@
           "boards",
           "areas",
           "propertyTypes",
+          "collections",
           "freeCancellation"
         ],
         "additionalProperties": false
@@ -44731,6 +44775,40 @@
               }
             ]
           },
+          "deal": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "percentBelow": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "percentBelow"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "collections": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "deals",
+                "family",
+                "luxury",
+                "honeymoon",
+                "long_stay"
+              ]
+            }
+          },
           "cheapestRate": {
             "$ref": "#/components/schemas/HotelRate"
           },
@@ -44754,6 +44832,8 @@
           "propertyType",
           "verifiedReviews",
           "photo",
+          "deal",
+          "collections",
           "cheapestRate",
           "freeCancellationAvailable"
         ],

@@ -46,6 +46,7 @@ import {
   mergeDuplicateHotels,
   paginate,
   sortHotels,
+  withCollections,
   type HotelFilters,
   type HotelSort,
   type PricedHotel,
@@ -580,9 +581,11 @@ export class HotelSearchService {
     ]);
     const now = new Date();
     const nights = nightsOf(meta.request);
-    const priced = [...items.values()]
-      .map((item) => priceHotel(item, meta.request, pricer, client, now))
-      .filter((item): item is PricedHotel => item !== null);
+    const priced = withCollections(
+      [...items.values()]
+        .map((item) => priceHotel(item, meta.request, pricer, client, now))
+        .filter((item): item is PricedHotel => item !== null),
+    );
     const facets = hotelFacets(priced);
     const filtered = sortHotels(filterHotels(priced, options), options.sort);
     const { page, nextCursor } = paginate(filtered, options.cursor, options.limit);
@@ -601,6 +604,8 @@ export class HotelSearchService {
         ...hotelBase(item.hotel, item.id),
         verifiedReviews: verified[index] ?? null,
         photo: presentPhotos(item.hotel.photos, this.config.WEB_APP_URL, 1)[0] ?? null,
+        deal: item.deal ? { percentBelow: item.deal } : null,
+        collections: item.collections ?? [],
         cheapestRate: toHotelRateDto(item.cheapest, nights, fx),
         freeCancellationAvailable: item.rates.some(({ rate }) => rate.refundable),
       })),

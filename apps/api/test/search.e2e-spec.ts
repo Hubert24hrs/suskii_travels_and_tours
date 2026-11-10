@@ -515,6 +515,47 @@ describe('search (e2e): mock suppliers end to end', () => {
         expect(rate.room.sizeSqm).toBeGreaterThan(10);
         expect(rate.room.beds[0]?.count).toBeGreaterThan(0);
       }
+      // Collections and deals (ADR-097): fixed rules, and a deal names how far below the usual
+      // price of its star class the hotel is.
+      const collections = search.body.facets.collections as { collection: string; count: number }[];
+      expect(collections.map((entry) => entry.collection)).toEqual(
+        expect.arrayContaining(['family', 'luxury', 'long_stay']),
+      );
+      const all = await ctx
+        .http()
+        .get(`/v1/hotels/searches/${search.body.searchId as string}/hotels`)
+        .query({ limit: 50 })
+        .expect(200);
+      const cards = all.body.hotels as {
+        stars: number;
+        collections: string[];
+        deal: { percentBelow: number } | null;
+        cheapestRate: { price: { total: { amountMinor: number } } };
+      }[];
+      for (const card of cards) {
+        expect(card.collections.includes('deals')).toBe(card.deal !== null);
+        if (card.deal) expect(card.deal.percentBelow).toBeGreaterThanOrEqual(15);
+        if (card.stars === 5) expect(card.collections).toContain('luxury');
+      }
+      for (const { collection, count } of collections) {
+        const listed = await ctx
+          .http()
+          .get(`/v1/hotels/searches/${search.body.searchId as string}/hotels`)
+          .query({ collection, limit: 50 })
+          .expect(200);
+        expect(listed.body.total).toBe(count);
+        expect(
+          (listed.body.hotels as { collections: string[] }[]).every((hotel) =>
+            hotel.collections.includes(collection),
+          ),
+        ).toBe(true);
+      }
+      await ctx
+        .http()
+        .get(`/v1/hotels/searches/${search.body.searchId as string}/hotels`)
+        .query({ collection: 'penthouse' })
+        .expect(400);
+
       // A quote carries the room too, so checkout can show it.
       const quote = await ctx
         .http()

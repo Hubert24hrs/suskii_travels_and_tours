@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { AppLink } from '../app-link';
+import { PartnerOffers } from '../partners/partner-offers';
 
 import { ReviewScore, Stars, VerifiedScore } from './hotel-card';
 import { PhotoGallery } from './hotel-photos';
@@ -185,9 +186,22 @@ export function HotelRooms({
             </span>
           ) : null}
         </div>
-        <p className="flex items-center gap-1 font-body text-body text-foreground">
-          <MapPin aria-hidden="true" className="size-4" />
-          {[hotel.area, hotel.cityName].filter(Boolean).join(', ')}
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-body text-body text-foreground">
+          <span className="flex items-center gap-1">
+            <MapPin aria-hidden="true" className="size-4" />
+            {[hotel.area, hotel.cityName].filter(Boolean).join(', ')}
+          </span>
+          {/* Streets and directions live in a maps app; no map tiles load here (ADR-097). */}
+          <a
+            href={`https://www.openstreetmap.org/?mlat=${hotel.latitude}&mlon=${hotel.longitude}#map=16/${hotel.latitude}/${hotel.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t('results.map.openLabel', { hotel: hotel.name })}
+            className="inline-flex min-h-6 items-center font-bold text-primary underline focus-visible:focus-ring"
+            data-testid="hotel-open-map"
+          >
+            {t('results.map.open')}
+          </a>
         </p>
         <ReviewScore score={hotel.reviewScore} count={hotel.reviewCount} />
         <VerifiedScore summary={hotel.verifiedReviews} />
@@ -325,6 +339,18 @@ export function HotelRooms({
           })}
         </ol>
       </section>
+      {/* Tours and activities from partners, booked on the partner's site (ADR-069). */}
+      <PartnerOffers
+        source={{
+          kind: 'place',
+          countryCode: hotel.countryCode,
+          cityName: hotel.cityName,
+          categories: ['activity'],
+          currency,
+        }}
+        heading={t('results.discover.thingsToDo', { city: hotel.cityName })}
+        testId="hotel-things-to-do"
+      />
     </div>
   );
 }

@@ -9,13 +9,17 @@ import { useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { FilterChip } from '../components/results/filter-chip';
+import { HotelMap } from '../components/results/hotel-map';
 import { HotelPhoto } from '../components/results/hotel-photo';
 import { Loading, Notice } from '../components/states';
+import { openMaps } from '../lib/maps';
+import { recentHotelSearches } from '../lib/recent-hotel-searches';
 import { useApp, useT } from '../providers/app-provider';
 
 type Hotel = Schemas['HotelSummary'];
 type Facets = Schemas['HotelFacets'];
 type Board = Facets['boards'][number]['board'];
+type Collection = Facets['collections'][number]['collection'];
 type Sort = 'recommended' | 'price' | 'rating' | 'stars';
 
 /** What the filter sheet narrows the list by; the API applies all of it (ADR-096). */
@@ -91,6 +95,13 @@ function HotelCard({
             ? t('results.hotels.review', { score: hotel.reviewScore, count: hotel.reviewCount })
             : t('results.hotels.noReviews')}
         </Text>
+        {hotel.deal ? (
+          <View testID="hotel-deal">
+            <Badge variant="promo">
+              {t('results.collections.deal', { percent: hotel.deal.percentBelow })}
+            </Badge>
+          </View>
+        ) : null}
         {hotel.freeCancellationAvailable ? (
           <Badge variant="success">{t('results.hotels.freeCancellation')}</Badge>
         ) : null}
@@ -128,8 +139,11 @@ export function HotelResultsScreen() {
   const [sort, setSort] = useState<Sort>('recommended');
   const [freeCancellation, setFreeCancellation] = useState(false);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [collection, setCollection] = useState<Collection | null>(null);
+  const [mapView, setMapView] = useState(false);
+  const [onMap, setOnMap] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
-  const plain = JSON.stringify(filters) === JSON.stringify(NO_FILTERS);
+  const plain = JSON.stringify(filters) === JSON.stringify(NO_FILTERS) && collection === null;
 
   const request = useMemo(() => parseHotelSearchParams(params).form, [params]);
 
@@ -143,13 +157,27 @@ export function HotelResultsScreen() {
         body: request ?? ({} as never),
       });
       if (!data) throw new Error('hotel search');
+      // Offered again on the search form, from this device only (ADR-097).
+      const city = data.hotels[0]?.cityName;
+      if (city && request?.destination.type === 'city') {
+        recentHotelSearches.remember({
+          cityId: request.destination.cityId,
+          cityName: city,
+          checkIn: request.checkIn,
+          checkOut: request.checkOut,
+          rooms: request.rooms.map((room) => ({
+            adults: room.adults,
+            childAges: [...(room.childAges ?? [])],
+          })),
+        });
+      }
       return data;
     },
   });
   const searchId = search.data?.searchId;
 
   const hotels = useInfiniteQuery({
-    queryKey: ['hotels', searchId, sort, freeCancellation, filters, currency, pageSize],
+    queryKey: ['hotels', searchId, sort, freeCancellation, filters, collection, currency, pageSize],
     enabled: Boolean(searchId),
     // A plain search already answered with its first page (ADR-075): show it instead of asking again.
     initialData: () =>
@@ -176,6 +204,7 @@ export function HotelResultsScreen() {
             ...(filters.areas.length ? { areas: filters.areas.join(',') } : {}),
             ...(filters.board ? { board: filters.board } : {}),
             ...(filters.maxPrice !== null ? { maxPrice: filters.maxPrice } : {}),
+            ...(collection ? { collection } : {}),
             ...(pageParam ? { cursor: pageParam } : {}),
           },
         },
@@ -222,6 +251,9 @@ export function HotelResultsScreen() {
   // Facets describe the whole search, so the sheet's choices do not shrink as filters are set.
   const facets = first?.facets;
   const prices = priceSteps(facets?.price ?? null);
+  const chosen = list.find((hotel) => hotel.id === onMap) ?? null;
+  // On the map, only the chosen hotel's card shows under the drawing.
+  const shown = mapView ? (chosen ? [chosen] : []) : list;
   const amenityLabel = (code: string): string => {
     const key = `results.amenities.${code}`;
     const label = t(key as Parameters<typeof t>[0]);
@@ -230,7 +262,7 @@ export function HotelResultsScreen() {
   return (
     <View className="flex-1 bg-background">
       <FlashList
-        data={list}
+        data={shown}
         keyExtractor={(hotel) => hotel.id}
         ListHeaderComponent={
           <View className="gap-3 px-4 pt-4 pb-2">
@@ -255,14 +287,69 @@ export function HotelResultsScreen() {
                   : t('results.filters.freeCancellation')}
               </Button>
               <Button testID="hotel-filters" variant="ghost" onPress={() => setSheet(true)}>
-                {plain ? t('mobile.search.filters') : `${t('mobile.search.filters')} •`}
+                {JSON.stringify(filters) === JSON.stringify(NO_FILTERS)
+                  ? t('mobile.search.filters')
+                  : `${t('mobile.search.filters')} •`}
+              </Button>
+              <Button
+                testID="hotel-view"
+                variant="ghost"
+                accessibilityState={{ selected: mapView }}
+                onPress={() => setMapView((value) => !value)}
+              >
+                {mapView ? t('results.map.list') : t('results.map.show')}
               </Button>
             </View>
+            {facets && facets.collections.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View
+                  accessibilityRole="radiogroup"
+                  accessibilityLabel={t('results.collections.label')}
+                  className="flex-row gap-2"
+                >
+                  {[null, ...facets.collections.map((entry) => entry.collection)].map((entry) => (
+                    <FilterChip
+                      key={entry ?? 'all'}
+                      testID={`hotel-collection-${entry ?? 'all'}`}
+                      label={
+                        entry ? t(`results.collections.${entry}`) : t('results.collections.all')
+                      }
+                      selected={collection === entry}
+                      onPress={() => setCollection(entry)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            ) : null}
+            {collection ? (
+              <Text testID="collection-help" className="font-body text-body-sm text-foreground">
+                {t(`results.collections.help.${collection}`)}
+              </Text>
+            ) : null}
+            {mapView ? (
+              <View className="gap-3">
+                <HotelMap hotels={list} selected={chosen?.id ?? null} onSelect={setOnMap} />
+                {chosen ? (
+                  <Button
+                    testID="hotel-open-map"
+                    variant="secondary"
+                    accessibilityLabel={t('results.map.openLabel', { hotel: chosen.name })}
+                    onPress={() => void openMaps(chosen.latitude, chosen.longitude, chosen.name)}
+                  >
+                    {t('results.map.open')}
+                  </Button>
+                ) : (
+                  <Text className="font-body text-body-sm text-foreground">
+                    {t('results.map.choose')}
+                  </Text>
+                )}
+              </View>
+            ) : null}
           </View>
         }
-        ListEmptyComponent={<Notice body={t('results.hotels.none')} />}
+        ListEmptyComponent={mapView ? null : <Notice body={t('results.hotels.none')} />}
         ListFooterComponent={
-          hotels.hasNextPage ? (
+          hotels.hasNextPage && !mapView ? (
             <View className="p-4">
               <Button
                 variant="ghost"
