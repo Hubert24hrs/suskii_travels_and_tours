@@ -74,6 +74,7 @@ describe('internal API client', () => {
       'payment-plans-due': { reminders: 2, defaulted: 0, expired: 1 },
       'refunds-due': { executed: 1, settled: 1, review: 0 },
       'schedule-changes-due': { checked: 2, detected: 1, resolved: 0, failed: 0 },
+      'flight-status-due': { checked: 3, alerts: 1, failed: 0 },
     };
     const fetch = vi.fn((request: Request) =>
       Promise.resolve(reply(200, replies[request.url.split('/').pop() ?? ''] ?? {})),
@@ -87,11 +88,13 @@ describe('internal API client', () => {
     await expect(api.processDuePaymentPlans()).resolves.toMatchObject({ reminders: 2 });
     await expect(api.processDueRefunds()).resolves.toMatchObject({ executed: 1 });
     await expect(api.checkScheduleChanges()).resolves.toMatchObject({ detected: 1 });
+    await expect(api.checkFlightStatus()).resolves.toEqual({ checked: 3, alerts: 1, failed: 0 });
     expect(fetch.mock.calls.map(([request]) => request.url)).toEqual([
       'http://api.internal:4000/v1/internal/bookings/reconcile-payments',
       'http://api.internal:4000/v1/internal/bookings/payment-plans-due',
       'http://api.internal:4000/v1/internal/bookings/refunds-due',
       'http://api.internal:4000/v1/internal/bookings/schedule-changes-due',
+      'http://api.internal:4000/v1/internal/bookings/flight-status-due',
     ]);
   });
 

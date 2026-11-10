@@ -14,6 +14,7 @@ import {
   type ReminderRun,
   type RetentionRun,
   type ReviewInvitationRun,
+  type FlightStatusRun,
   type ScheduleChangeRun,
   type TicketingRun,
   type VisaPruneRun,
@@ -27,8 +28,10 @@ import { type Logger } from './logger.js';
  * are ticketed (first attempts the API could not start, plus retries whose backoff has elapsed);
  * pending payments whose webhook never came are verified with the provider; payment plans get
  * their reminders and are closed on a missed payment; approved refunds are sent and pending ones
- * followed up; and ticketed flights due a check are asked for airline schedule changes (ADR-065). Visa documents whose background scan was lost are scanned again every few
- * minutes, and documents past their retention period are deleted daily (ADR-026). Check-in and
+ * followed up; ticketed flights due a check are asked for airline schedule changes (ADR-065) and,
+ * around the day of travel, for their live status (ADR-095). Visa documents whose background
+ * scan was lost are scanned again every few minutes, and documents past their retention period
+ * are deleted daily (ADR-026). Check-in and
  * Prime reminders and referral qualification run every few minutes (ADR-030, ADR-031), review
  * invitations hourly (ADR-077), ad conversions every few minutes (ADR-079), and the retention
  * sweep daily (ADR-039). Captured payments, refunds and driver payouts are compared
@@ -45,6 +48,8 @@ export const BOOKING_JOB = {
   refunds: 'bookings-refunds',
   /** The API checks each ticketed flight only every SCHEDULE_CHANGE_CHECK_HOURS (ADR-065). */
   scheduleChanges: 'bookings-schedule-changes',
+  /** Live status of flights on the day of travel, and delay alerts (ADR-095). */
+  flightStatus: 'bookings-flight-status',
 } as const;
 
 /** Visa document housekeeping, on the same queue with their own schedules. */
@@ -98,6 +103,7 @@ export async function processBookingJob(
   | PlanRun
   | RefundRun
   | ScheduleChangeRun
+  | FlightStatusRun
   | VisaScanRun
   | VisaPruneRun
   | ReminderRun
@@ -157,6 +163,14 @@ export async function processBookingJob(
       }
       if (result.failed > 0) {
         deps.logger.warn({ failed: result.failed }, 'airline schedule change checks failed');
+      }
+      return result;
+    }
+    case BOOKING_JOB.flightStatus: {
+      const result = await sweep(() => deps.api.checkFlightStatus());
+      if (result.alerts > 0) deps.logger.info(result, 'flight status alerts sent');
+      if (result.failed > 0) {
+        deps.logger.warn({ failed: result.failed }, 'flight status readings failed');
       }
       return result;
     }
