@@ -500,11 +500,6 @@ function Checkout({ quote }: { quote: Quote }) {
           ) : null}
         </Card>
 
-        {quote.flight && !meals ? (
-          <Text testID="meal-unavailable" className="font-body text-body-sm text-muted">
-            {t('checkout.meal.unavailable')}
-          </Text>
-        ) : null}
         {draft.passengers.map((passenger, index) => {
           const number = draft.passengers
             .slice(0, index + 1)
@@ -524,6 +519,12 @@ function Checkout({ quote }: { quote: Quote }) {
             />
           );
         })}
+        {/* Under the travellers, where the meal choice would be: nothing above them moves. */}
+        {quote.flight && !meals ? (
+          <Text testID="meal-unavailable" className="font-body text-body-sm text-muted">
+            {t('checkout.meal.unavailable')}
+          </Text>
+        ) : null}
         {quote.visa && draft.passengers.length > 0 ? (
           <Text className="font-body text-body-sm text-foreground">
             {t('checkout.visaNationality', { country: format.country(quote.visa.nationality) })}
