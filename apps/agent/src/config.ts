@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { z } from 'zod';
 
 /** Prefix of the local development tokens in .env.example; refused in production (ADR-101). */
@@ -119,4 +122,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AgentConfig {
     throw new Error(`Invalid agent environment: ${issues}`);
   }
   return result.data;
+}
+
+/** Local development only: loads the repo-root `.env`; variables already set always win. */
+export function loadDevelopmentEnvFile(cwd = process.cwd()): void {
+  if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') return;
+  for (const candidate of [resolve(cwd, '.env'), resolve(cwd, '../../.env')]) {
+    if (existsSync(candidate)) {
+      process.loadEnvFile(candidate);
+      return;
+    }
+  }
 }

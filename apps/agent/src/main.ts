@@ -1,5 +1,5 @@
 import { createCheckpointer } from './checkpointer.js';
-import { loadConfig } from './config.js';
+import { loadConfig, loadDevelopmentEnvFile } from './config.js';
 import { createLogger } from './logger.js';
 import { createModelFactory } from './model/factory.js';
 import { RunService } from './runs.js';
@@ -10,6 +10,7 @@ import { HttpToolGateway } from './tools/gateway.js';
 const DRAIN_MS = 25_000;
 
 async function main(): Promise<void> {
+  loadDevelopmentEnvFile();
   const config = loadConfig();
   const logger = createLogger(config);
   const checkpointer = createCheckpointer(config);
