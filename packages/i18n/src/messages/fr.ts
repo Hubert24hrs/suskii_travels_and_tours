@@ -127,7 +127,8 @@ export const fr: Messages = {
       bookingAccess: 'Ouvre une réservation faite sans compte, dans cet onglet uniquement.',
       supportAccess:
         'Ouvre une conversation avec l’assistance commencée sans compte, dans cet onglet uniquement.',
-      search: 'Mémorise votre dernière recherche de vol et vos lieux récents.',
+      search:
+        'Mémorise votre dernière recherche de vol, vos recherches d’hôtel récentes et vos lieux récents.',
       addonsName:
         'Remplit votre nom de famille quand vous cherchez des options pour une réservation.',
       companyInvite:
@@ -688,6 +689,50 @@ export const fr: Messages = {
       backup_power: 'Groupe électrogène',
       room_service: 'Service en chambre',
       laundry: 'Blanchisserie',
+    },
+    collections: {
+      label: 'Sélections',
+      all: 'Tous les hôtels',
+      deals: 'Bonnes affaires',
+      family: 'Familles',
+      luxury: 'Luxe',
+      honeymoon: 'Lune de miel',
+      long_stay: 'Longs séjours',
+      help: {
+        deals:
+          'Au moins 15 % sous le prix habituel des hôtels de même catégorie dans cette recherche.',
+        family: 'Hôtels avec une chambre pour trois personnes ou plus.',
+        luxury: 'Hôtels cinq étoiles, et quatre étoiles notés 9 ou plus.',
+        honeymoon: 'Hôtels quatre et cinq étoiles notés 8 ou plus, avec spa ou piscine.',
+        long_stay: 'Appartements et hébergements avec cuisine ou laverie.',
+      },
+      deal: '{percent} % sous les hôtels similaires',
+    },
+    map: {
+      show: 'Carte',
+      list: 'Liste',
+      view: 'Affichage',
+      heading: 'Les hôtels sur la carte',
+      note: "Cette vue montre où les hôtels se situent les uns par rapport aux autres. Elle n'a pas de plan des rues : ouvrez un hôtel dans votre application de cartes pour les rues et l'itinéraire.",
+      pin: '{hotel}, {price}',
+      choose: "Choisissez un hôtel sur la carte pour l'afficher ici.",
+      open: 'Ouvrir dans Cartes',
+      openLabel: 'Ouvrir {hotel} dans une application de cartes',
+    },
+    discover: {
+      thingsToDo: 'À faire à {city}',
+      recentHeading: 'Reprendre votre recherche',
+      recentNote: "Vos dernières recherches d'hôtels, conservées sur cet appareil uniquement.",
+      recentItem: '{city} · {dates} · {guests}',
+      recentGuests: {
+        one: '{count} voyageur',
+        other: '{count} voyageurs',
+      },
+      recentClear: 'Effacer',
+      lastMinuteHeading: 'Offres de dernière minute',
+      lastMinuteNote:
+        'Ce soir, pour deux adultes : des hôtels au moins 15 % sous le prix habituel des hôtels de même catégorie.',
+      lastMinuteItem: 'Ce soir à {city}',
     },
     propertyTypes: {
       hotel: 'Hôtel',
