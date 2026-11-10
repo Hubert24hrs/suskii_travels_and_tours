@@ -93,7 +93,7 @@ describe('SupportScreen', () => {
       'POST /v1/support/conversations': () =>
         json(
           {
-            type: 'https://errors.suskii.example/support-email-required',
+            type: 'urn:suskii:problem:support-email-required',
             title: 'Email required',
             status: 422,
           },
@@ -235,7 +235,7 @@ describe('SupportConversationScreen', () => {
     params.mockReturnValue({ id: ID });
     mockApi({
       [`GET /v1/support/conversations/${ID}`]: () =>
-        json({ type: 'https://errors.suskii.example/not-found', status: 404 }, 404),
+        json({ type: 'urn:suskii:problem:not-found', status: 404 }, 404),
     });
     await renderWithApp(<SupportConversationScreen />);
 

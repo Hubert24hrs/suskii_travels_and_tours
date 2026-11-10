@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Loading, Notice } from '../components/states';
+import { problemSlug } from '../lib/api';
 import { attestationHeader } from '../lib/attestation';
 import { SUPPORT_POLL_MS, supportTokens } from '../lib/support';
 import { tripStore } from '../lib/trips';
@@ -88,11 +89,12 @@ function StartForm({ bookingId }: { bookingId: string | null }) {
         router.push(`/support/${data.conversation.id}` as Href);
         return;
       }
-      const slug = (problem as { type?: string } | undefined)?.type ?? '';
+      // Problem types are `urn:suskii:problem:<slug>`; `problemSlug` reads the slug.
+      const slug = problemSlug(problem);
       setError(
-        slug.endsWith('/support-limit')
+        slug === 'support-limit'
           ? t('support.errors.limit')
-          : slug.endsWith('/support-email-required')
+          : slug === 'support-email-required'
             ? t('support.errors.email')
             : t('support.errors.generic'),
       );
@@ -298,9 +300,8 @@ export function SupportConversationScreen() {
         if (action === 'reply') setReply('');
         return;
       }
-      const slug = (problem as { type?: string } | undefined)?.type ?? '';
       setError(
-        slug.endsWith('/support-conversation-full')
+        problemSlug(problem) === 'support-conversation-full'
           ? t('support.errors.full')
           : t('support.errors.generic'),
       );
