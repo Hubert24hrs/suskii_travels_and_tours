@@ -2014,6 +2014,7 @@ export const en = {
     notFound: 'This payment link is not valid.',
   },
   booking: {
+    builtTrip: { partOf: 'This booking is part of your trip {reference}.', open: 'Open the trip' },
     company: {
       pending:
         'Waiting for your company to approve this trip. You can pay once an approver says yes, before the price expires.',
@@ -3272,6 +3273,8 @@ export const en = {
       title: 'Your trip',
       back: 'All trips',
       reference: 'Trip {reference}',
+      currencyNote:
+        'This trip is priced in {currency}. Switch your currency to {currency} before you add a part, or the booking will not join the trip.',
       partsHeading: 'Parts of your trip',
       notAdded: 'Not added yet',
       choose: {

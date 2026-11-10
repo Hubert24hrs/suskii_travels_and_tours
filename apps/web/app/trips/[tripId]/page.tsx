@@ -23,13 +23,13 @@ export async function generateMetadata(): Promise<Metadata> {
  * payment, so only our own scripts run here (ADR-089).
  */
 export default async function TripPage({ params }: { params: Promise<{ tripId: string }> }) {
-  const { locale, messages } = await getI18n();
+  const { locale, messages, currency } = await getI18n();
   const { tripId } = await params;
   return (
     <Container className="pt-8 pb-16">
       <PaymentPageGuard />
       <I18nProvider locale={locale} messages={pickTripMessages(messages)}>
-        <TripView tripId={tripId} />
+        <TripView tripId={tripId} currency={currency} />
       </I18nProvider>
     </Container>
   );

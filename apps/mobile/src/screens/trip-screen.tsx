@@ -475,6 +475,21 @@ export function TripScreen() {
               {t(`booking.company.${approval}`)}
             </Text>
           ) : null}
+          {/* A part of a combined trip (ADR-099): the trip shows every part and takes payment. */}
+          {booking.trip && !offline ? (
+            <View testID="trip-built" className="items-start gap-1">
+              <Text className="font-body text-body-sm text-foreground">
+                {t('booking.builtTrip.partOf', { reference: booking.trip.reference })}
+              </Text>
+              <Button
+                testID="trip-built-open"
+                variant="ghost"
+                onPress={() => router.push(`/trips/built/${booking.trip?.id ?? ''}` as Href)}
+              >
+                {t('booking.builtTrip.open')}
+              </Button>
+            </View>
+          ) : null}
           {findings.length > 0 ? (
             <Text className="font-body text-body-sm text-foreground">
               {t('booking.company.outsidePolicy', { findings: format.list(findings) })}

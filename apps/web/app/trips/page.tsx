@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * the plan; each part is then chosen on its ordinary search.
  */
 export default async function TripsPage() {
-  const { t, locale, messages } = await getI18n();
+  const { t, locale, messages, currency } = await getI18n();
   const cars = await api.carsFeatures();
   // Car rental can be switched off (ADR-049); the builder then offers the other parts.
   const components = TRIP_COMPONENTS.filter((part) => part !== 'car' || cars?.rentals === true);
@@ -38,7 +38,12 @@ export default async function TripsPage() {
         <p className="font-body text-body text-foreground">{t('trips.intro')}</p>
       </div>
       <I18nProvider locale={locale} messages={pickPlannerMessages(messages)}>
-        <TripPlanner apiBaseUrl={publicEnv.apiBaseUrl} locale={locale} components={components} />
+        <TripPlanner
+          apiBaseUrl={publicEnv.apiBaseUrl}
+          locale={locale}
+          currency={currency}
+          components={components}
+        />
       </I18nProvider>
     </Container>
   );

@@ -363,6 +363,18 @@ export function BookingView({ bookingId }: { bookingId: string }) {
               {t('booking.company.outsidePolicy', { findings: format.list(findings) })}
             </p>
           ) : null}
+          {/* A part of a combined trip (ADR-099): the trip shows every part and takes payment. */}
+          {booking.trip ? (
+            <p data-testid="booking-trip" className="font-body text-body-sm text-foreground">
+              {t('booking.builtTrip.partOf', { reference: booking.trip.reference })}{' '}
+              <AppLink
+                href={`/trips/${booking.trip.id}`}
+                className="inline-flex min-h-6 items-center font-bold text-primary underline focus-visible:focus-ring"
+              >
+                {t('booking.builtTrip.open')}
+              </AppLink>
+            </p>
+          ) : null}
         </div>
         {actionError ? (
           <p role="alert" className="font-body text-body-sm text-danger">

@@ -2080,6 +2080,10 @@ export const pt: Messages = {
     notFound: 'Este link de pagamento não é válido.',
   },
   booking: {
+    builtTrip: {
+      partOf: 'Esta reserva faz parte da sua viagem {reference}.',
+      open: 'Abrir a viagem',
+    },
     company: {
       pending:
         'A aguardar que a sua empresa aprove esta viagem. Pode pagar assim que um aprovador aceitar, antes de o preço expirar.',
@@ -3362,6 +3366,8 @@ export const pt: Messages = {
       title: 'A sua viagem',
       back: 'Todas as viagens',
       reference: 'Viagem {reference}',
+      currencyNote:
+        'Esta viagem tem preços em {currency}. Mude a sua moeda para {currency} antes de adicionar uma parte, ou a reserva não entrará na viagem.',
       partsHeading: 'Partes da sua viagem',
       notAdded: 'Ainda não adicionado',
       choose: {

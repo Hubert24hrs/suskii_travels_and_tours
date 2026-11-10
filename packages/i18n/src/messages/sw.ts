@@ -2075,6 +2075,10 @@ export const sw: Messages = {
     notFound: 'Kiungo hiki cha malipo si halali.',
   },
   booking: {
+    builtTrip: {
+      partOf: 'Uhifadhi huu ni sehemu ya safari yako {reference}.',
+      open: 'Fungua safari',
+    },
     company: {
       pending:
         'Inasubiri kampuni yako iidhinishe safari hii. Utaweza kulipa mara mwidhinishaji akikubali, kabla bei haijaisha muda.',
@@ -3346,6 +3350,8 @@ export const sw: Messages = {
       title: 'Safari yako',
       back: 'Safari zote',
       reference: 'Safari {reference}',
+      currencyNote:
+        'Safari hii ina bei kwa {currency}. Badilisha sarafu yako iwe {currency} kabla ya kuongeza sehemu, la sivyo uhifadhi hautaingia kwenye safari.',
       partsHeading: 'Sehemu za safari yako',
       notAdded: 'Bado haijaongezwa',
       choose: {

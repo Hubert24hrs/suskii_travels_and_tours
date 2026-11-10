@@ -7,6 +7,7 @@ import {
   TRIP_MAX_CHILDREN,
   TRIP_MAX_NIGHTS,
   tripTitle,
+  type CurrencyCode,
   type TripComponent,
 } from '@suskii/shared/lite';
 import { Badge, Button, Card, DateRangePicker } from '@suskii/ui-web';
@@ -58,10 +59,13 @@ const SIGN_IN = `/sign-in?next=${encodeURIComponent('/trips')}`;
 export function TripPlanner({
   apiBaseUrl,
   locale,
+  currency,
   components,
 }: {
   apiBaseUrl: string;
   locale: string;
+  /** The visitor's display currency: every part of the trip is booked and paid in it. */
+  currency: CurrencyCode;
   /** The parts on sale (car rental can be switched off, ADR-049). */
   components: readonly TripComponent[];
 }) {
@@ -177,6 +181,7 @@ export function TripPlanner({
             children: state.children,
             components: state.components,
           },
+          currency,
         },
       });
       if (data) {

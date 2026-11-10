@@ -121,9 +121,28 @@ test.describe('trip builder (ADR-099)', () => {
         page.getByLabel(t(`trips.components.${component}`), { exact: true }),
       ).toBeChecked();
     }
-    await page.getByRole('button', { name: t('trips.plan.submit') }).click();
+    const [created] = await Promise.all([
+      page.waitForRequest(
+        (request) => request.method() === 'POST' && request.url().endsWith('/v1/trips'),
+      ),
+      page.getByRole('button', { name: t('trips.plan.submit') }).click(),
+    ]);
+    // The trip is in the visitor's currency, the one every search then quotes in.
+    expect(created.postDataJSON()).toMatchObject({
+      currency: 'NGN',
+      plan: {
+        origin: { code: 'LOS' },
+        destination: { code: 'LHR' },
+        departDate: depart,
+        returnDate: back,
+        adults: 1,
+        children: 0,
+        components: ['flight', 'hotel', 'car', 'transfer', 'insurance'],
+      },
+    });
     await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
     const tripId = page.url().split('/').pop() ?? '';
+    await expect(page.getByTestId('trip-currency-note')).toHaveCount(0);
 
     await expect(
       page.getByRole('heading', {
@@ -285,6 +304,12 @@ test.describe('trip builder (ADR-099)', () => {
     await expect(page.getByTestId('booking-status')).toHaveText(t('booking.status.CONFIRMED'), {
       timeout: 30_000,
     });
+    // And it leads back to the trip it is a part of.
+    await page
+      .getByTestId('booking-trip')
+      .getByRole('link', { name: t('booking.builtTrip.open') })
+      .click();
+    await page.waitForURL(new RegExp(`/trips/${tripId}$`));
   });
 
   test('keeps a plan through sign-up, takes only the parts wanted and can be deleted', async ({

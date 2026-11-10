@@ -307,6 +307,7 @@ describe('BuiltTripScreen', () => {
     expect(screen.getByTestId('trip-price-flight')).toHaveTextContent(/950,000/);
     expect(screen.getByTestId('trip-price-hotel')).toHaveTextContent(/600,000/);
     expect(screen.getByTestId('trip-total')).toHaveTextContent(/1,550,000/);
+    expect(screen.queryByTestId('trip-currency-note')).toBeNull();
     expect(screen.getByTestId('trip-part-flight')).toHaveTextContent(
       /Lagos to London, Mock Airways/,
     );
@@ -415,6 +416,13 @@ describe('BuiltTripScreen', () => {
       ),
     );
     expect(screen.getByTestId('trip-total')).toHaveTextContent(/950,000/);
+  });
+
+  it('says so when the app is in another currency than the trip', async () => {
+    mockApi({ [`GET /v1/trips/${TRIP_ID}`]: () => json(twoParts({ currency: 'USD' })) });
+    await renderWithApp(<BuiltTripScreen />, await signedInSession());
+    // Searches quote in the app's currency (NGN here): a part booked now would not join.
+    expect(await screen.findByTestId('trip-currency-note')).toHaveTextContent(/priced in USD/);
   });
 
   it('shows a paid trip with nothing left to pay or delete', async () => {

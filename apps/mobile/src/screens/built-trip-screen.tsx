@@ -147,7 +147,7 @@ function AddonChoices({
 }
 
 function BuiltTrip({ tripId }: { tripId: string }) {
-  const { api } = useApp();
+  const { api, currency } = useApp();
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
@@ -364,6 +364,14 @@ function BuiltTrip({ tripId }: { tripId: string }) {
       ) : null}
       {trip.state === 'closed' ? (
         <Text className="font-body text-body-sm text-foreground">{t('trips.page.closed')}</Text>
+      ) : null}
+      {trip.currency !== currency && trip.state !== 'paid' && trip.state !== 'closed' ? (
+        <Text
+          testID="trip-currency-note"
+          className="rounded-md border border-border-strong p-4 font-body text-body-sm text-foreground"
+        >
+          {t('trips.page.currencyNote', { currency: trip.currency })}
+        </Text>
       ) : null}
       {error ? (
         <Text accessibilityRole="alert" className="font-body text-body-sm text-danger">

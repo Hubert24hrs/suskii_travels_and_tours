@@ -42,6 +42,19 @@ describe('TripScreen', () => {
     expect(router.push).toHaveBeenCalledWith(`/support?booking=${BOOKING_ID}`);
   });
 
+  it('links a booking back to the combined trip it is a part of (ADR-099)', async () => {
+    const TRIP_ID = '0192d3a0-7c1e-7b2a-9f00-00000000d001';
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    mockApi({
+      [GET]: () =>
+        json(booking({ trip: { id: TRIP_ID, reference: 'T-AB12CD', component: 'flight' } })),
+    });
+    await renderWithApp(<TripScreen />);
+    expect(await screen.findByTestId('trip-built')).toHaveTextContent(/T-AB12CD/);
+    await fireEvent.press(screen.getByTestId('trip-built-open'));
+    expect(router.push).toHaveBeenCalledWith(`/trips/built/${TRIP_ID}`);
+  });
+
   it('holds a company trip waiting for approval: no pay button until an approver says yes', async () => {
     await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
     mockApi({

@@ -2238,6 +2238,7 @@ export const ar: Messages = {
     notFound: 'رابط الدفع هذا غير صالح.',
   },
   booking: {
+    builtTrip: { partOf: 'هذا الحجز جزء من رحلتك {reference}.', open: 'افتح الرحلة' },
     company: {
       pending:
         'بانتظار موافقة شركتك على هذه الرحلة. يمكنك الدفع بعد موافقة معتمِد، قبل انتهاء صلاحية السعر.',
@@ -3556,6 +3557,8 @@ export const ar: Messages = {
       title: 'رحلتك',
       back: 'كل الرحلات',
       reference: 'الرحلة {reference}',
+      currencyNote:
+        'أسعار هذه الرحلة بعملة {currency}. اختر {currency} عملةً لك قبل إضافة جزء، وإلا لن ينضم الحجز إلى الرحلة.',
       partsHeading: 'أجزاء رحلتك',
       notAdded: 'لم يُضف بعد',
       choose: {

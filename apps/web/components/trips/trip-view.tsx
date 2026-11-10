@@ -35,7 +35,14 @@ const shouldPoll = (trip: Trip): boolean =>
  * remembers which part is being chosen, so checkout adds the booking here instead of taking
  * payment. Money on screen comes from the API; nothing is added up in the browser.
  */
-export function TripView({ tripId }: { tripId: string }) {
+export function TripView({
+  tripId,
+  currency,
+}: {
+  tripId: string;
+  /** The visitor's display currency, which the searches quote in. */
+  currency: string;
+}) {
   const { t } = useTripT();
   const format = useFormatters();
   const router = useRouter();
@@ -259,6 +266,15 @@ export function TripView({ tripId }: { tripId: string }) {
       {trip.state === 'closed' ? (
         <p role="status" className="font-body text-body-sm text-foreground">
           {t('trips.page.closed')}
+        </p>
+      ) : null}
+      {trip.currency !== currency && trip.state !== 'paid' && trip.state !== 'closed' ? (
+        <p
+          role="status"
+          data-testid="trip-currency-note"
+          className="rounded-md border border-border-strong p-4 font-body text-body-sm text-foreground"
+        >
+          {t('trips.page.currencyNote', { currency: trip.currency })}
         </p>
       ) : null}
       {error ? (
