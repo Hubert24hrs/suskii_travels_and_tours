@@ -1,6 +1,11 @@
 'use client';
 
-import { SUPPORT_CHANNELS, SUPPORT_PRIORITIES, SUPPORT_STATUSES } from '@suskii/shared';
+import {
+  SUPPORT_CHANNELS,
+  SUPPORT_PRIORITIES,
+  SUPPORT_STATUSES,
+  SUPPORT_TOPICS,
+} from '@suskii/shared';
 import { Button, useToast } from '@suskii/ui-web';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Route } from 'next';
@@ -30,6 +35,7 @@ type Queue = 'active' | 'open' | 'waiting' | 'resolved';
 type Assignee = 'any' | 'me' | 'unassigned';
 type Priority = Row['priority'];
 type Channel = Row['channel'];
+type Topic = NonNullable<Row['topic']>;
 type Delivery = NonNullable<Conversation['messages'][number]['delivery']>;
 
 const LIST = '/v1/admin/support/conversations';
@@ -74,21 +80,25 @@ export function SupportInboxPage() {
   const [priority, setPriority] = useState<Priority | 'any'>('any');
   const [assignee, setAssignee] = useState<Assignee>('any');
   const [channel, setChannel] = useState<Channel | 'any'>('any');
-  const pages = useCursorPages(['get', LIST, queue, priority, assignee, channel], async (cursor) =>
-    unwrap(
-      await adminApi.GET(LIST, {
-        params: {
-          query: {
-            queue,
-            assignee,
-            limit: 50,
-            ...(priority === 'any' ? {} : { priority }),
-            ...(channel === 'any' ? {} : { channel }),
-            ...(cursor ? { cursor } : {}),
+  const [topic, setTopic] = useState<Topic | 'any'>('any');
+  const pages = useCursorPages(
+    ['get', LIST, queue, priority, assignee, channel, topic],
+    async (cursor) =>
+      unwrap(
+        await adminApi.GET(LIST, {
+          params: {
+            query: {
+              queue,
+              assignee,
+              limit: 50,
+              ...(priority === 'any' ? {} : { priority }),
+              ...(channel === 'any' ? {} : { channel }),
+              ...(topic === 'any' ? {} : { topic }),
+              ...(cursor ? { cursor } : {}),
+            },
           },
-        },
-      }),
-    ),
+        }),
+      ),
   );
   const rows = pages.data?.pages.flatMap((page) => page.items);
   return (
@@ -135,6 +145,16 @@ export function SupportInboxPage() {
             })),
           ]}
         />
+        <SelectField
+          label={t('support.topic')}
+          name="topic"
+          value={topic}
+          onChange={(event) => setTopic(event.target.value as Topic | 'any')}
+          options={[
+            { value: 'any', label: t('support.anyTopic') },
+            ...SUPPORT_TOPICS.map((value) => ({ value, label: label('support.topics', value) })),
+          ]}
+        />
       </div>
       <QueryState query={{ ...pages, data: rows }}>
         {(items) =>
@@ -171,6 +191,7 @@ export function SupportInboxPage() {
                           {row.customer.guest && row.channel !== 'whatsapp'
                             ? ` · ${t('support.guest')}`
                             : ''}
+                          {row.topic ? ` · ${label('support.topics', row.topic)}` : ''}
                         </span>
                       </span>
                     ),

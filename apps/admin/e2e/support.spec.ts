@@ -136,3 +136,57 @@ test('an agent answers a WhatsApp message inside the 24-hour window', async ({ p
   await expect(reply).toContainText(t('support.delivery.sent'));
   await expectNoAxeViolations(page);
 });
+
+/** A date this many days from today, as the API takes it. */
+const inDays = (days: number): string =>
+  new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * Group flight requests (ADR-093) arrive as conversations with their own topic: the agent
+ * narrows the inbox to them and reads the request as the traveller sent it.
+ */
+test('an agent finds a group flight request with the topic filter', async ({ page, stack }) => {
+  const other = await visitorConversation();
+  const response = await fetch(`${API_URL}/v1/flights/group-requests`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Suskii-Client': 'web/e2e' },
+    body: JSON.stringify({
+      tripType: 'round_trip',
+      origin: 'LOS',
+      destination: 'ABV',
+      departureDate: inDays(40),
+      returnDate: inDays(47),
+      travellers: 32,
+      cabinClass: 'economy',
+      organisation: 'Unity Choir',
+      notes: null,
+      email: 'choir.admin@example.com',
+      turnstileToken: 'e2e',
+    }),
+  });
+  expect(response.status).toBe(201);
+  const { conversation } = (await response.json()) as Started;
+
+  await signIn(page, stack, 'groupDesk');
+  await page.goto('/support');
+  const group = page.getByRole('row', { name: new RegExp(conversation.reference) });
+  await expect(group).toContainText(t('support.topics.group_booking'));
+  await expect(
+    page.getByRole('row', { name: new RegExp(other.conversation.reference) }),
+  ).toBeVisible();
+
+  await page.getByLabel(t('support.topic')).selectOption('group_booking');
+  await expect(group).toBeVisible();
+  await expect(
+    page.getByRole('row', { name: new RegExp(other.conversation.reference) }),
+  ).toHaveCount(0);
+  await expectNoAxeViolations(page);
+
+  await group
+    .getByRole('link', { name: t('support.openFor', { reference: conversation.reference }) })
+    .click();
+  const request = page.getByTestId('support-customer');
+  await expect(request).toContainText('Lagos (LOS) to Abuja (ABV)');
+  await expect(request).toContainText('Travellers: 32');
+  await expect(request).toContainText('Unity Choir');
+});
