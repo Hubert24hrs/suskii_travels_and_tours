@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 
-import { money, toWire, utcToLocal } from '@suskii/shared';
+import { money, toWire, utcToLocal, zero } from '@suskii/shared';
 
 import { documentDateTime } from '../documents/booking-pdf';
 
@@ -227,18 +227,34 @@ export function inhouseSections(
         rental: {
           product: product(payload),
           vehicle: payload.vehicle,
-          branch: payload.branch,
+          // Rentals quoted before ADR-098 carry none of the options: each reads as "none".
+          branch: { ...payload.branch, airportCode: payload.branch.airportCode ?? null },
           cityName: payload.cityName,
           timeZone: payload.timeZone,
           pickupAtLocal: payload.pickupAtLocal,
           returnAtLocal: payload.returnAtLocal,
           days: payload.days,
+          rate: payload.rate ?? null,
           chauffeur: payload.chauffeur,
+          minDriverAge: payload.minDriverAge ?? null,
+          driverAge: payload.driverAge ?? null,
           delivery: payload.delivery,
+          extras: (payload.extras ?? []).map((extra) => ({
+            code: extra.code,
+            quantity: extra.quantity,
+            amount: toWire(extra.amount),
+          })),
+          returnBranch: payload.returnBranch ?? null,
+          crossBorder: payload.crossBorder ?? null,
           charge: {
             vehicle: toWire(payload.charge.vehicle),
             chauffeur: toWire(payload.charge.chauffeur),
             delivery: toWire(payload.charge.delivery),
+            extras: toWire(payload.charge.extras ?? zero(payload.charge.vehicle.currency)),
+            oneWay: toWire(payload.charge.oneWay ?? zero(payload.charge.vehicle.currency)),
+            crossBorder: toWire(
+              payload.charge.crossBorder ?? zero(payload.charge.vehicle.currency),
+            ),
             deposit: toWire(payload.charge.deposit),
           },
           mileage: {

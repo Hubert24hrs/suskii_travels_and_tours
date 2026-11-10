@@ -172,3 +172,29 @@ Tests: unit tests for the rules (`hotel-collections.test.ts`, `results.spec.ts`)
 The audit now reads 23 built, 5 partly and 1 missing for hotels. Left for the owner: a tile
 provider if a street map is wanted, the deal thresholds, and Viator access for things to do. AI
 hotel recommendations stay unbuilt by decision (fixed, stated rules instead).
+
+### Part 6: car rental rates, airport branches and options (ADR-098)
+
+Built on the API, the website, the app and the console:
+
+- **Weekly and monthly rates.** A car may have a price for seven days and for thirty.
+  `rentalVehicleCost()` prices the days in months, weeks and days, and a part never costs more
+  than the next longer block. Rentals run up to 90 days.
+- **Airport branches.** A branch names its airport; the search has "Airport branches only".
+- **Transmission and driver age.** Search filters for both; a car's minimum age is shown and a
+  quote under it is refused. The licence review before pickup stays the real check.
+- **Extras.** Child seat, GPS and additional driver, per day and per unit.
+- **Return to another branch** for the branch's one-way fee, and **cross-border cover**: the
+  countries a car may enter, for a flat fee.
+- **Priced again before payment.** A dearer option is a price change to accept; a withdrawn one
+  fails the booking unpaid.
+- **Console.** The new-car form takes every option; reservations list what to prepare.
+
+Tests: unit tests for the pricing and the options (`ground.test.ts`, `rental-options.spec.ts`),
+`rentals.e2e-spec.ts` (3 new cases, 11 in all), the app's `cars-screens.test.tsx` (3 new cases)
+and the website's `cars.spec.ts` (a second rental journey).
+
+The audit now reads 29 built, 2 partly and 0 missing for car rental, and 74, 14 and 1 for all
+89 lines. The two partly lines are commercial: comparing rental companies inside the search
+(partner offers sit on the Cars page) and contract rates for corporate fleets. Left for the
+owner: each car's rates, minimum age, extras, border countries and return branches.

@@ -11,6 +11,7 @@ import {
   CABIN_CLASSES,
   FLIGHT_STATES,
   RENTAL_CATEGORIES,
+  RENTAL_EXTRAS,
   RENTAL_STATUSES,
   RIDE_CATEGORIES,
   TRANSMISSIONS,
@@ -414,13 +415,57 @@ export const rentalItemSchema = named(
       features: z.array(z.string()),
       photoUrls: z.array(z.string()),
     }),
-    branch: z.object({ name: z.string(), address: z.string(), lat: z.number(), lng: z.number() }),
+    branch: z.object({
+      name: z.string(),
+      address: z.string(),
+      lat: z.number(),
+      lng: z.number(),
+      airportCode: z
+        .string()
+        .nullable()
+        .meta({ description: 'IATA code when the branch is at an airport.' }),
+    }),
     cityName: z.string(),
     timeZone: z.string(),
     pickupAtLocal: z.string().meta({ description: 'Branch local time, YYYY-MM-DDTHH:mm.' }),
     returnAtLocal: z.string(),
     days: z.number().int().meta({ description: 'Started 24-hour periods charged.' }),
+    rate: z
+      .object({ months: z.number().int(), weeks: z.number().int(), days: z.number().int() })
+      .nullable()
+      .meta({
+        description:
+          'How the days were priced: thirty-day blocks, seven-day blocks and single days. Null on rentals quoted before weekly and monthly rates.',
+      }),
     chauffeur: z.boolean(),
+    minDriverAge: z
+      .number()
+      .int()
+      .nullable()
+      .meta({ description: "The car's minimum driver age for self-drive." }),
+    driverAge: z.number().int().nullable().meta({ description: 'The age the renter gave.' }),
+    extras: z.array(
+      z.object({
+        code: z.enum(RENTAL_EXTRAS),
+        quantity: z.number().int(),
+        amount: moneySchema,
+      }),
+    ),
+    returnBranch: z
+      .object({
+        code: z.string(),
+        name: z.string(),
+        address: z.string(),
+        lat: z.number(),
+        lng: z.number(),
+        airportCode: z.string().nullable(),
+      })
+      .nullable()
+      .meta({ description: 'Another branch the car is returned to; null for the pickup branch.' }),
+    crossBorder: z
+      .object({ countries: z.array(z.string()) })
+      .nullable()
+      .meta({ description: 'Countries the renter may drive to; null when the car stays.' }),
     delivery: z
       .object({ label: z.string(), lat: z.number(), lng: z.number(), km: z.number().int() })
       .nullable()
@@ -429,6 +474,9 @@ export const rentalItemSchema = named(
       vehicle: moneySchema,
       chauffeur: moneySchema,
       delivery: moneySchema,
+      extras: moneySchema,
+      oneWay: moneySchema.meta({ description: 'The fee for returning to another branch.' }),
+      crossBorder: moneySchema,
       deposit: moneySchema.meta({
         description: 'Refundable; charged with the booking and refunded after the return.',
       }),

@@ -1,6 +1,7 @@
 'use client';
 
 import { Button, useToast } from '@suskii/ui-web';
+import type { paths } from '@suskii/api-client';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -152,6 +153,122 @@ function Fleet() {
   );
 }
 
+type VehicleBody = NonNullable<
+  paths['/v1/admin/rentals/vehicles']['post']['requestBody']
+>['content']['application/json'];
+type RentalOptionFields = Pick<
+  VehicleBody,
+  | 'airportCode'
+  | 'weeklyMinor'
+  | 'monthlyMinor'
+  | 'minDriverAge'
+  | 'extras'
+  | 'crossBorder'
+  | 'returnBranches'
+>;
+
+/**
+ * The options of the new-car form (ADR-098) as the API takes them, or null when something
+ * cannot be read: an empty field means "not offered", never zero.
+ */
+function parseRentalOptions(fields: {
+  currency: string;
+  airportCode: string;
+  weekly: string;
+  monthly: string;
+  minDriverAge: string;
+  childSeat: string;
+  gps: string;
+  additionalDriver: string;
+  crossBorderCountries: string;
+  crossBorderFee: string;
+  returnBranches: string;
+}): RentalOptionFields | null {
+  const amount = (text: string): number | null | undefined => {
+    if (text.trim() === '') return null;
+    const minor = minorFromInput(text, fields.currency);
+    return minor !== null && Number.isFinite(minor) && minor > 0 ? minor : undefined;
+  };
+  const weekly = amount(fields.weekly);
+  const monthly = amount(fields.monthly);
+  const prices = {
+    child_seat: amount(fields.childSeat),
+    gps: amount(fields.gps),
+    additional_driver: amount(fields.additionalDriver),
+  } as const;
+  const age = Number(fields.minDriverAge);
+  const airport = fields.airportCode.trim().toUpperCase();
+  const countries = fields.crossBorderCountries
+    .split(',')
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => code !== '');
+  const fee =
+    fields.crossBorderFee.trim() === ''
+      ? 0
+      : minorFromInput(fields.crossBorderFee, fields.currency);
+  const branches = fields.returnBranches
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .map((line) => {
+      const [code = '', name = '', address = '', lat = '', lng = '', price = '', at = ''] = line
+        .split('|')
+        .map((part) => part.trim());
+      const feeMinor = minorFromInput(price, fields.currency);
+      const point = { lat: Number(lat), lng: Number(lng) };
+      return code !== '' &&
+        name !== '' &&
+        address !== '' &&
+        lat !== '' &&
+        lng !== '' &&
+        Number.isFinite(point.lat) &&
+        Number.isFinite(point.lng) &&
+        feeMinor !== null &&
+        Number.isFinite(feeMinor) &&
+        feeMinor >= 0 &&
+        (at === '' || /^[A-Za-z]{3}$/.test(at))
+        ? {
+            code,
+            name,
+            address,
+            ...point,
+            feeMinor,
+            airportCode: at === '' ? null : at.toUpperCase(),
+          }
+        : null;
+    });
+  if (
+    weekly === undefined ||
+    monthly === undefined ||
+    Object.values(prices).includes(undefined) ||
+    !Number.isInteger(age) ||
+    age < 18 ||
+    age > 99 ||
+    (airport !== '' && !/^[A-Z]{3}$/.test(airport)) ||
+    countries.some((code) => !/^[A-Z]{2}$/.test(code)) ||
+    fee === null ||
+    !Number.isFinite(fee) ||
+    fee < 0 ||
+    branches.includes(null)
+  ) {
+    return null;
+  }
+  // How many of each a renter may take: two child seats, one GPS, two more drivers.
+  const max = { child_seat: 2, gps: 1, additional_driver: 2 } as const;
+  return {
+    airportCode: airport === '' ? null : airport,
+    weeklyMinor: weekly,
+    monthlyMinor: monthly,
+    minDriverAge: age,
+    extras: (Object.keys(prices) as (keyof typeof prices)[]).flatMap((code) => {
+      const dailyMinor = prices[code];
+      return typeof dailyMinor === 'number' ? [{ code, dailyMinor, max: max[code] }] : [];
+    }),
+    crossBorder: countries.length > 0 ? { countries, feeMinor: fee } : null,
+    returnBranches: branches.filter((branch) => branch !== null),
+  };
+}
+
 function NewVehicle() {
   const [open, setOpen] = useState(false);
   const [fields, setFields] = useState({
@@ -173,6 +290,17 @@ function NewVehicle() {
     daily: '',
     deposit: '',
     policy: '3, 100\n1, 50',
+    // Options (ADR-098): every one may stay empty.
+    airportCode: '',
+    weekly: '',
+    monthly: '',
+    minDriverAge: '21',
+    childSeat: '',
+    gps: '',
+    additionalDriver: '',
+    crossBorderCountries: '',
+    crossBorderFee: '',
+    returnBranches: '',
   });
   const [invalid, setInvalid] = useState(false);
   const { toast } = useToast();
@@ -191,7 +319,8 @@ function NewVehicle() {
     const daily = minorFromInput(fields.daily, fields.currency);
     const deposit = minorFromInput(fields.deposit, fields.currency) ?? 0;
     const policy = parsePolicy(fields.policy);
-    if (!daily || !Number.isFinite(daily) || !Number.isFinite(deposit) || !policy) {
+    const options = parseRentalOptions(fields);
+    if (!daily || !Number.isFinite(daily) || !Number.isFinite(deposit) || !policy || !options) {
       setInvalid(true);
       return;
     }
@@ -216,6 +345,7 @@ function NewVehicle() {
         dailyMinor: daily,
         depositMinor: deposit,
         cancellationPolicy: policy,
+        ...options,
       },
     });
   };
@@ -272,7 +402,27 @@ function NewVehicle() {
           {text('currency', t('common.currency'))}
           {text('daily', t('rentals.daily'), 'decimal')}
           {text('deposit', t('rentals.deposit'), 'decimal')}
+          {text('weekly', t('rentals.weekly'), 'decimal')}
+          {text('monthly', t('rentals.monthly'), 'decimal')}
+          {text('minDriverAge', t('rentals.minDriverAge'), 'numeric')}
+          {text('airportCode', t('rentals.airportCode'))}
+          {text('childSeat', t('rentals.extraChildSeat'), 'decimal')}
+          {text('gps', t('rentals.extraGps'), 'decimal')}
+          {text('additionalDriver', t('rentals.extraDriver'), 'decimal')}
+          {text('crossBorderFee', t('rentals.crossBorderFee'), 'decimal')}
         </FormGrid>
+        <TextField
+          label={t('rentals.crossBorderCountries')}
+          hint={t('rentals.crossBorderCountriesHint')}
+          value={fields.crossBorderCountries}
+          onChange={(event) => set('crossBorderCountries')(event.target.value)}
+        />
+        <TextAreaField
+          label={t('rentals.returnBranches')}
+          hint={t('rentals.returnBranchesHint')}
+          value={fields.returnBranches}
+          onChange={(event) => set('returnBranches')(event.target.value)}
+        />
         <TextAreaField
           label={t('ground.policy')}
           hint={t('ground.policyHint')}
@@ -635,6 +785,27 @@ function Reservations() {
                 key: 'mode',
                 header: t('rentals.chauffeur'),
                 cell: (row) => (row.chauffeur ? t('rentals.chauffeur') : t('rentals.selfDrive')),
+              },
+              {
+                key: 'options',
+                header: t('rentals.options'),
+                cell: (row) => {
+                  // What the desk prepares before the car leaves (ADR-098).
+                  const lines = [
+                    ...row.extras.map((extra) =>
+                      t('rentals.extraLine', {
+                        name: label('rentals.extras', extra.code),
+                        count: extra.quantity,
+                      }),
+                    ),
+                    row.returnBranch ? t('rentals.returnTo', { name: row.returnBranch.name }) : '',
+                    row.crossBorder
+                      ? t('rentals.crossBorderTo', { countries: row.crossBorder.join(', ') })
+                      : '',
+                    row.driverAge === null ? '' : t('rentals.driverAged', { age: row.driverAge }),
+                  ].filter((line) => line !== '');
+                  return lines.length > 0 ? lines.join(' · ') : t('common.none');
+                },
               },
               {
                 key: 'licence',

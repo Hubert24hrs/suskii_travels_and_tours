@@ -6,6 +6,32 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Feature parity, part 6: car rental rates, airport branches and options (2026-11-10)
+
+Part 6 of `docs/phases/feature-parity.md` (ADR-098):
+
+#### Added
+
+- **Weekly and monthly rates.** A car may have a price for seven days and for thirty; a rental's
+  days are priced in months, weeks and days, and a part never costs more than the next longer
+  block. Search results say how a long rental was priced.
+- **Airport branches.** A branch names its airport; "Airport branches only" in the search, and
+  "At LOS airport" on cards, pages and bookings.
+- **Transmission and driver age filters**, and a minimum driver age per car, refused at the
+  quote when the driver is younger (`driver_too_young`).
+- **Extras** (child seat, GPS, additional driver) per day and per unit; a **return to another
+  branch** for its one-way fee; **cross-border cover** for a flat fee where a car is allowed
+  abroad. Each is priced again before payment.
+- The console's new-car form takes every option, and reservations list what to prepare.
+- New columns on `rental_vehicles` (expand-only); new price lines `rental_extras`,
+  `rental_one_way` and `rental_cross_border`.
+
+#### Changed
+
+- Rentals can run up to 90 days (30 before).
+- A self-drive booking form asks for the driver's age. The age is in the data export and is
+  cleared with the delivery address on deletion and retention.
+
 ### Feature parity, part 5: hotel collections, deals, a map and recent searches (2026-11-10)
 
 Part 5 of `docs/phases/feature-parity.md` (ADR-097):

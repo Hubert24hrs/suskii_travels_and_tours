@@ -454,7 +454,10 @@ export const HANDOVER_KINDS = ['check_out', 'check_in'] as const;
 export type HandoverKind = (typeof HANDOVER_KINDS)[number];
 
 /** Longest single rental. */
-export const RENTAL_MAX_DAYS = 30;
+export const RENTAL_MAX_DAYS = 90;
+/** The days a weekly and a monthly rate cover. */
+export const RENTAL_WEEK_DAYS = 7;
+export const RENTAL_MONTH_DAYS = 30;
 
 const DAY_MS = 86_400_000;
 
@@ -466,9 +469,55 @@ export function rentalDays(pickupAt: Date, returnAt: Date): number {
 
 export interface RentalRates {
   daily: Money;
+  /** The price of seven days; null or absent when the car has no weekly rate. */
+  weekly?: Money | null;
+  /** The price of thirty days; null or absent when the car has no monthly rate. */
+  monthly?: Money | null;
   /** Null when the vehicle is not offered with a chauffeur. */
   chauffeurDaily: Money | null;
   deposit: Money;
+}
+
+/** How a rental's days were priced: whole months, whole weeks and single days. */
+export interface RentalRateBlocks {
+  months: number;
+  weeks: number;
+  days: number;
+}
+
+/**
+ * The car's price for a number of days (ADR-098): thirty-day blocks at the monthly rate, then
+ * seven-day blocks at the weekly rate, then single days. A part is never charged more than the
+ * next longer block: six days cost no more than a week, four weeks no more than a month.
+ */
+export function rentalVehicleCost(
+  rates: Pick<RentalRates, 'daily' | 'weekly' | 'monthly'>,
+  days: number,
+): { total: Money; blocks: RentalRateBlocks } {
+  const weekly = rates.weekly ?? null;
+  const monthly = rates.monthly ?? null;
+  let months = monthly ? Math.floor(days / RENTAL_MONTH_DAYS) : 0;
+  const rest = days - months * RENTAL_MONTH_DAYS;
+  let weeks = weekly ? Math.floor(rest / RENTAL_WEEK_DAYS) : 0;
+  let odd = rest - weeks * RENTAL_WEEK_DAYS;
+  if (weekly && multiply(rates.daily, odd).minor > weekly.minor) {
+    weeks += 1;
+    odd = 0;
+  }
+  let part = add(
+    weekly ? multiply(weekly, weeks) : zero(rates.daily.currency),
+    multiply(rates.daily, odd),
+  );
+  if (monthly && part.minor > monthly.minor) {
+    months += 1;
+    weeks = 0;
+    odd = 0;
+    part = zero(rates.daily.currency);
+  }
+  return {
+    total: add(monthly ? multiply(monthly, months) : zero(rates.daily.currency), part),
+    blocks: { months, weeks, days: odd },
+  };
 }
 
 export interface RentalCharge {
@@ -477,6 +526,8 @@ export interface RentalCharge {
   chauffeur: Money;
   /** Refundable; never marked up, discounted or counted as revenue (ADR-051). */
   deposit: Money;
+  /** How the car's days were priced. */
+  blocks: RentalRateBlocks;
 }
 
 /** The rental's parts, or null when a chauffeur was asked for but is not offered. */
@@ -488,17 +539,85 @@ export function rentalCharge(
 ): RentalCharge | null {
   if (chauffeur && !rates.chauffeurDaily) return null;
   const days = rentalDays(pickupAt, returnAt);
+  const vehicle = rentalVehicleCost(rates, days);
   return {
     days,
-    vehicle: multiply(rates.daily, days),
+    vehicle: vehicle.total,
     chauffeur:
       chauffeur && rates.chauffeurDaily
         ? multiply(rates.chauffeurDaily, days)
         : zero(rates.daily.currency),
     // A chauffeured rental is never driven by the customer, so no damage deposit is taken.
     deposit: chauffeur ? zero(rates.deposit.currency) : rates.deposit,
+    blocks: vehicle.blocks,
   };
 }
+
+/** Things added to a rental, each charged per day and per unit (ADR-098). */
+export const RENTAL_EXTRAS = ['child_seat', 'gps', 'additional_driver'] as const;
+export type RentalExtraCode = (typeof RENTAL_EXTRAS)[number];
+/** The most of one extra a car can offer. */
+export const RENTAL_EXTRA_MAX_QUANTITY = 4;
+
+/** An extra a car offers: its price per day and how many can be taken. */
+export interface RentalExtraOffer {
+  code: RentalExtraCode;
+  daily: Money;
+  max: number;
+}
+export interface RentalExtraChoice {
+  code: RentalExtraCode;
+  quantity: number;
+}
+export interface RentalExtraLine extends RentalExtraChoice {
+  amount: Money;
+}
+
+/** Why chosen extras cannot be priced. */
+export const RENTAL_EXTRA_ISSUES = {
+  notOffered: 'extra_not_offered',
+  tooMany: 'extra_too_many',
+  duplicate: 'extra_duplicate',
+  withChauffeur: 'extra_with_chauffeur',
+} as const;
+export type RentalExtraIssue = (typeof RENTAL_EXTRA_ISSUES)[keyof typeof RENTAL_EXTRA_ISSUES];
+
+/**
+ * The chosen extras priced for the rental's days, or the first reason they cannot be. An
+ * additional driver makes no sense with a chauffeur, who is the only driver.
+ */
+export function rentalExtrasCharge(
+  offers: readonly RentalExtraOffer[],
+  choices: readonly RentalExtraChoice[],
+  days: number,
+  chauffeur: boolean,
+  currency: string,
+): { lines: RentalExtraLine[]; total: Money } | { issue: RentalExtraIssue } {
+  const lines: RentalExtraLine[] = [];
+  let total = zero(currency);
+  const seen = new Set<RentalExtraCode>();
+  for (const choice of choices) {
+    if (choice.quantity <= 0) continue;
+    if (seen.has(choice.code)) return { issue: RENTAL_EXTRA_ISSUES.duplicate };
+    seen.add(choice.code);
+    const offer = offers.find((entry) => entry.code === choice.code);
+    if (!offer) return { issue: RENTAL_EXTRA_ISSUES.notOffered };
+    if (chauffeur && choice.code === 'additional_driver') {
+      return { issue: RENTAL_EXTRA_ISSUES.withChauffeur };
+    }
+    if (choice.quantity > offer.max) return { issue: RENTAL_EXTRA_ISSUES.tooMany };
+    const amount = multiply(offer.daily, days * choice.quantity);
+    lines.push({ code: choice.code, quantity: choice.quantity, amount });
+    total = add(total, amount);
+  }
+  return { lines, total };
+}
+
+/** Youngest and oldest age a rental form accepts for the driver. */
+export const RENTAL_DRIVER_AGE_MIN = 18;
+export const RENTAL_DRIVER_AGE_MAX = 99;
+/** A car's minimum driver age when its owner sets none. */
+export const RENTAL_DEFAULT_MIN_DRIVER_AGE = 21;
 
 /** Fuel level in eighths of a tank, as handover forms record it. */
 export const FUEL_EIGHTHS_MAX = 8;

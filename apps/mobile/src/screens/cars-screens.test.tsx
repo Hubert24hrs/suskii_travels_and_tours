@@ -485,6 +485,7 @@ describe('Cars on mobile', () => {
                 estimate: {
                   rental: { amountMinor: 7_000_000, currency: 'NGN' },
                   deposit: rentalVehicle.deposit,
+                  blocks: { months: 0, weeks: 0, days: 2 },
                 },
               },
             ],
@@ -499,6 +500,10 @@ describe('Cars on mobile', () => {
       const card = await screen.findByTestId(`rental-car-${rentalVehicle.slug}`);
       expect(card).toHaveTextContent(/₦70,000 for 2 days/);
       expect(card).toHaveTextContent(/Refundable deposit ₦100,000/);
+      // The weekly rate and the minimum age are on the card; two days are priced by the day.
+      expect(card).toHaveTextContent(/₦210,000 a week/);
+      expect(card).toHaveTextContent(/Drivers aged 23 or over/);
+      expect(screen.queryByTestId('rental-priced-as')).toBeNull();
       const search = new URL(calls[0]?.url ?? '');
       expect(Object.fromEntries(search.searchParams)).toEqual({
         pickupAt: '2026-11-05T10:00',
@@ -508,6 +513,51 @@ describe('Cars on mobile', () => {
       await fireEvent.press(card);
       expect(router.push).toHaveBeenCalledWith(
         `/rentals/${rentalVehicle.slug}?pickupAt=2026-11-05T10%3A00&returnAt=2026-11-07T10%3A00`,
+      );
+    });
+
+    it('filters by transmission, airport branch and driver age, and says how a long rental is priced', async () => {
+      const { calls } = mockApi({
+        'GET /v1/rentals/vehicles': () =>
+          json({
+            days: 10,
+            vehicles: [
+              {
+                ...rentalVehicle,
+                branch: { ...rentalVehicle.branch, airportCode: 'LOS' },
+                estimate: {
+                  rental: { amountMinor: 31_500_000, currency: 'NGN' },
+                  deposit: rentalVehicle.deposit,
+                  blocks: { months: 0, weeks: 1, days: 3 },
+                },
+              },
+            ],
+          }),
+      });
+      await renderWithApp(<RentalSearchScreen />);
+      await fireEvent.changeText(screen.getByTestId('rental-pickup'), '2026-11-05T10:00');
+      await fireEvent.changeText(screen.getByTestId('rental-return'), '2026-11-15T10:00');
+      await fireEvent.press(screen.getByTestId('rental-transmission-automatic'));
+      await fireEvent.press(screen.getByTestId('rental-airport-only'));
+      await fireEvent.changeText(screen.getByTestId('rental-driver-age'), '30');
+      await fireEvent.press(screen.getByTestId('rental-search-submit'));
+
+      const card = await screen.findByTestId(`rental-car-${rentalVehicle.slug}`);
+      expect(card).toHaveTextContent(/At LOS airport/);
+      expect(screen.getByTestId('rental-priced-as')).toHaveTextContent(
+        'Priced as 1 week and 3 days',
+      );
+      expect(Object.fromEntries(new URL(calls[0]?.url ?? '').searchParams)).toEqual({
+        pickupAt: '2026-11-05T10:00',
+        returnAt: '2026-11-15T10:00',
+        transmission: 'automatic',
+        airport: 'true',
+        driverAge: '30',
+      });
+      // The age goes with the visitor to the car, so the form there starts filled in.
+      await fireEvent.press(card);
+      expect(router.push).toHaveBeenCalledWith(
+        `/rentals/${rentalVehicle.slug}?pickupAt=2026-11-05T10%3A00&returnAt=2026-11-15T10%3A00&driverAge=30`,
       );
     });
 
@@ -547,7 +597,97 @@ describe('Cars on mobile', () => {
         returnAtLocal: '2026-11-07T10:00',
         chauffeur: true,
         delivery: null,
+        // A chauffeur drives: no age is asked, and nothing else was chosen.
+        driverAge: null,
+        extras: [],
+        returnBranch: null,
+        crossBorder: false,
       });
+    });
+
+    it("shows the car's terms and books with the driver's age, extras, another return branch and cross-border cover", async () => {
+      jest.mocked(useLocalSearchParams).mockReturnValue({
+        slug: rentalVehicle.slug,
+        pickupAt: '2026-11-05T10:00',
+        returnAt: '2026-11-07T10:00',
+      });
+      const { calls } = mockApi({
+        [`GET /v1/rentals/vehicles/${rentalVehicle.slug}`]: () => json(rentalVehicle),
+        'POST /v1/inhouse-quotes': () => json(quoteCreated, 201),
+      });
+      await renderWithApp(<RentalCarScreen />, await signedInSession());
+
+      expect(await screen.findByTestId('rental-rates')).toHaveTextContent(
+        '₦35,000 a day · ₦210,000 a week',
+      );
+      expect(screen.getByText('Minimum driver age: 23')).toBeOnTheScreen();
+      expect(
+        screen.getByText('Child seat: ₦2,000 a day and Additional driver: ₦3,000 a day'),
+      ).toBeOnTheScreen();
+      expect(
+        screen.getByText('Allowed in Benin and Ghana for ₦50,000 per rental.'),
+      ).toBeOnTheScreen();
+      expect(screen.getByText('Lagos airport branch: ₦8,000')).toBeOnTheScreen();
+
+      // No age, then an age under the car's minimum: neither reaches the API.
+      await fireEvent.press(screen.getByTestId('book-rental'));
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        m.cars.rentals.book.errors.driverAgeRequired,
+      );
+      await fireEvent.changeText(screen.getByTestId('book-driver-age'), '21');
+      await fireEvent.press(screen.getByTestId('book-rental'));
+      expect(screen.getByRole('alert')).toHaveTextContent(m.cars.rentals.book.errors.driverAge);
+      expect(calls.some((request) => request.url.endsWith('/v1/inhouse-quotes'))).toBe(false);
+
+      await fireEvent.changeText(screen.getByTestId('book-driver-age'), '30');
+      await fireEvent.press(screen.getByTestId('book-extra-child_seat-2'));
+      await fireEvent.press(screen.getByTestId('book-extra-additional_driver-1'));
+      await fireEvent.press(screen.getByTestId('book-return-branch-lagos-airport'));
+      await fireEvent.press(screen.getByTestId('book-cross-border'));
+      await fireEvent.press(screen.getByTestId('book-rental'));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/checkout/${QUOTE_ID}`));
+      const quote = calls.find((request) => request.url.endsWith('/v1/inhouse-quotes'));
+      expect(await quote?.json()).toEqual({
+        kind: 'rental',
+        vehicleId: rentalVehicle.id,
+        pickupAtLocal: '2026-11-05T10:00',
+        returnAtLocal: '2026-11-07T10:00',
+        chauffeur: false,
+        delivery: null,
+        driverAge: 30,
+        extras: [
+          { code: 'child_seat', quantity: 2 },
+          { code: 'additional_driver', quantity: 1 },
+        ],
+        returnBranch: 'lagos-airport',
+        crossBorder: true,
+      });
+    });
+
+    it('says when the API finds the driver too young or an option withdrawn', async () => {
+      jest.mocked(useLocalSearchParams).mockReturnValue({
+        slug: rentalVehicle.slug,
+        driverAge: '30',
+      });
+      let code = 'driver_too_young';
+      mockApi({
+        [`GET /v1/rentals/vehicles/${rentalVehicle.slug}`]: () => json(rentalVehicle),
+        'POST /v1/inhouse-quotes': () =>
+          json({ type: 'urn:suskii:problem:quote-invalid', status: 422, code }, 422),
+      });
+      await renderWithApp(<RentalCarScreen />, await signedInSession());
+      // The age from the search is already in the form.
+      expect(await screen.findByTestId('book-driver-age')).toHaveDisplayValue('30');
+      await fireEvent.press(screen.getByTestId('book-rental'));
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        m.cars.rentals.book.errors.driverAge,
+      );
+      code = 'extra_not_offered';
+      await fireEvent.press(screen.getByTestId('book-rental'));
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toHaveTextContent(m.cars.rentals.book.errors.option),
+      );
     });
 
     it('takes the licence details, then the scan from the document picker', async () => {

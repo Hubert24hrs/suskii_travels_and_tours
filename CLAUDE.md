@@ -62,7 +62,10 @@ status and delay alerts (ADR-095), is built and waits for the owner's flight-dat
 (`FLIGHT_STATUS_PROVIDER`). Part 4, hotel photos, property types, room details and the app's
 hotel filters (ADR-096), is built; supplier photo hosts go in `IMAGE_REMOTE_HOSTS`. Part 5,
 hotel collections, deals, a pin map of the results, things to do and recent searches (ADR-097),
-is built; a street map waits for the owner's tile provider. Part 6 is planned.
+is built; a street map waits for the owner's tile provider. Part 6, car rental rates by the
+week and month, airport branches, driver age, extras, one-way returns and cross-border cover
+(ADR-098), is built; the fleet's real rates and terms come from the owner. The audit reads 74 of
+89 lines built, 14 partly and 1 missing.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -659,6 +662,17 @@ Tooling notes for agents:
   `DriverPayoutsService`.
 - Rentals: availability is the database exclusion constraint (with `RENTAL_TURNAROUND_HOURS`),
   never an application check; handover records are immutable and photos are sealed per file.
+- Rental prices (ADR-098): the car's days come only from `rentalVehicleCost()` (thirty-day
+  blocks, seven-day blocks, single days; a part never costs more than the next longer block) and
+  extras from `rentalExtrasCharge()`, both in `@suskii/shared`. A car's options (extras,
+  cross-border terms, return branches) are JSON on the vehicle, read only through
+  `rentalOptions()` and priced by `rentalOptionCharges()` for the quote and again in
+  `InhouseCatalog.reprice`: never sell an option at a stored price or after the car stopped
+  offering it. Fees join `rentalBase()`; the deposit is never part of it.
+- The driver's age is the renter's word (optional on the wire, null for a chauffeured rental);
+  the licence review before check-out stays the real check. It is personal data: in the export
+  and cleared by `redactCarsBooking`. Fields added to a rental payload are optional, because
+  stored quotes and bookings predate them; readers default each one.
 - Fare breakdown lines come from `carsPriceBreakdown()` (allocated from the priced fare, so they
   add up and show no margin); `priceBreakdown` is an additive field. The departure planner and
   trip suggestions (`TripPlanningService`) load bookings through `BookingsService.load()`, use
@@ -1284,6 +1298,7 @@ Tooling notes for agents:
 - [ADR-095: Live flight status and delay alerts](docs/decisions/ADR-095-live-flight-status-and-delay-alerts.md)
 - [ADR-096: Hotel photos, property types and room details](docs/decisions/ADR-096-hotel-photos-property-types-and-room-details.md)
 - [ADR-097: Hotel collections, deals, the pin map and recent searches](docs/decisions/ADR-097-hotel-collections-deals-and-the-pin-map.md)
+- [ADR-098: Car rental rates by the week and month, airport branches and rental options](docs/decisions/ADR-098-car-rental-rates-branches-and-options.md)
 
 ## Open questions for the owner
 
@@ -1441,5 +1456,8 @@ WhatsApp, and the delay worth telling (default 30 minutes). Added with hotel con
 each supplier's photo host for `IMAGE_REMOTE_HOSTS`, and Hotelbeds and Expedia content (photos,
 descriptions, categories) once those accounts exist. Added with hotel discovery (ADR-097): a tile
 provider if the map should show streets (and its name in the privacy policy), and the deal
-thresholds (15% below the star class, five hotels to compare, guest score 7). Every owner action is listed, step by
+thresholds (15% below the star class, five hotels to compare, guest score 7). Added with car rental
+options (ADR-098): each car's weekly and monthly rate, minimum driver age, extras and their
+prices, the countries its insurance covers and the fee, the branches that take returns and the
+one-way fees, and whether a young-driver surcharge should replace the refusal. Every owner action is listed, step by
 step, in `docs/owner/launch-checklist.md`.

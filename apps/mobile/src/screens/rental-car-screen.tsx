@@ -11,13 +11,15 @@ import { Checkbox, ChoiceChips } from '../components/booking/form-controls';
 import { CancellationTiers } from '../components/inhouse/inhouse-summary';
 import { Loading, Notice } from '../components/states';
 import { problemSlug } from '../lib/api';
-import { LOCAL_DATE_TIME } from '../lib/cars';
+import { driverAgeOf, LOCAL_DATE_TIME } from '../lib/cars';
 import { daysFromToday } from '../lib/dates';
 import { useApp, useT } from '../providers/app-provider';
 
 type Vehicle = Schemas['RentalVehicle'];
 type Place = Schemas['RidePlaces']['places'][number];
-type IssueKey = 'period' | 'tooLong' | 'unavailable' | 'chauffeur' | 'delivery';
+type ExtraCode = Vehicle['extras'][number]['code'];
+type IssueKey =
+  'period' | 'tooLong' | 'unavailable' | 'chauffeur' | 'delivery' | 'driverAge' | 'option';
 const ISSUE_KEYS: Record<string, IssueKey> = {
   period_invalid: 'period',
   too_long: 'tooLong',
@@ -25,8 +27,16 @@ const ISSUE_KEYS: Record<string, IssueKey> = {
   chauffeur_unavailable: 'chauffeur',
   delivery_unavailable: 'delivery',
   delivery_too_far: 'delivery',
+  driver_too_young: 'driverAge',
+  extra_not_offered: 'option',
+  extra_too_many: 'option',
+  extra_duplicate: 'option',
+  extra_with_chauffeur: 'option',
+  return_branch_unavailable: 'option',
+  cross_border_unavailable: 'option',
 };
 const NO_DELIVERY = 'branch';
+const SAME_BRANCH = 'same';
 
 function Fact({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -42,15 +52,21 @@ function BookRental({
   initial,
 }: {
   vehicle: Vehicle;
-  initial: { pickupAt: string; returnAt: string; chauffeur: boolean };
+  initial: { pickupAt: string; returnAt: string; chauffeur: boolean; driverAge: string };
 }) {
   const { api } = useApp();
   const { t } = useT();
+  const format = useFormatters();
   const router = useRouter();
   const [pickupAt, setPickupAt] = useState(initial.pickupAt);
   const [returnAt, setReturnAt] = useState(initial.returnAt);
   const [chauffeur, setChauffeur] = useState(initial.chauffeur && vehicle.chauffeurDaily !== null);
   const [delivery, setDelivery] = useState(NO_DELIVERY);
+  // The car's options (ADR-098): the API prices each one, this form says what was chosen.
+  const [driverAge, setDriverAge] = useState(initial.driverAge);
+  const [chosen, setChosen] = useState<Partial<Record<ExtraCode, number>>>({});
+  const [returnBranch, setReturnBranch] = useState(SAME_BRANCH);
+  const [crossBorder, setCrossBorder] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const places = useQuery({
@@ -75,6 +91,18 @@ function BookRental({
       setError(t('cars.rentals.book.errors.period'));
       return;
     }
+    // A chauffeur drives a chauffeured car, so the renter's age is asked only for self-drive.
+    const age = driverAgeOf(driverAge);
+    if (!chauffeur) {
+      if (age === null) {
+        setError(t('cars.rentals.book.errors.driverAgeRequired'));
+        return;
+      }
+      if (age < vehicle.minDriverAge) {
+        setError(t('cars.rentals.book.errors.driverAge'));
+        return;
+      }
+    }
     const place = places.data?.find((item) => item.id === delivery);
     setBusy(true);
     try {
@@ -90,6 +118,15 @@ function BookRental({
           returnAtLocal: returnAt,
           chauffeur,
           delivery: place ? { label: place.name, lat: place.lat, lng: place.lng } : null,
+          driverAge: chauffeur ? null : age,
+          extras: vehicle.extras
+            .map((extra) => ({ code: extra.code, quantity: chosen[extra.code] ?? 0 }))
+            // The only driver of a chauffeured car is the chauffeur.
+            .filter(
+              (extra) => extra.quantity > 0 && !(chauffeur && extra.code === 'additional_driver'),
+            ),
+          returnBranch: returnBranch === SAME_BRANCH ? null : returnBranch,
+          crossBorder,
         },
       });
       if (data) {
@@ -155,6 +192,71 @@ function BookRental({
           onChange={setDelivery}
         />
       ) : null}
+      {chauffeur ? null : (
+        <Input
+          testID="book-driver-age"
+          label={t('cars.rentals.book.driverAge')}
+          hint={t('cars.rentals.book.driverAgeHelp', { age: vehicle.minDriverAge })}
+          value={driverAge}
+          onChangeText={setDriverAge}
+          keyboardType="number-pad"
+          maxLength={2}
+        />
+      )}
+      {vehicle.extras
+        .filter((extra) => !(chauffeur && extra.code === 'additional_driver'))
+        .map((extra) => (
+          <ChoiceChips
+            key={extra.code}
+            testID={`book-extra-${extra.code}`}
+            label={t('cars.rentals.book.extraOption', {
+              name: t(`booking.cars.rental.extraNames.${extra.code}`),
+              price: format.money(extra.daily),
+            })}
+            options={[
+              { value: '0', label: t('cars.rentals.book.extraNone') },
+              ...Array.from({ length: extra.max }, (_, index) => ({
+                value: String(index + 1),
+                label: String(index + 1),
+              })),
+            ]}
+            value={String(chosen[extra.code] ?? 0)}
+            onChange={(value) =>
+              setChosen((current) => ({ ...current, [extra.code]: Number(value) }))
+            }
+          />
+        ))}
+      {vehicle.returnBranches.length > 0 ? (
+        <ChoiceChips
+          testID="book-return-branch"
+          label={t('cars.rentals.book.returnTo')}
+          options={[
+            { value: SAME_BRANCH, label: t('cars.rentals.book.sameBranch') },
+            ...vehicle.returnBranches.map((branch) => ({
+              value: branch.code,
+              label: t('cars.rentals.book.returnOption', {
+                name: branch.name,
+                price: format.money(branch.fee),
+              }),
+            })),
+          ]}
+          value={returnBranch}
+          onChange={setReturnBranch}
+        />
+      ) : null}
+      {vehicle.crossBorder ? (
+        <Checkbox
+          testID="book-cross-border"
+          label={t('cars.rentals.book.crossBorder', {
+            countries: format.list(
+              vehicle.crossBorder.countries.map((code) => format.country(code)),
+            ),
+            price: format.money(vehicle.crossBorder.fee),
+          })}
+          checked={crossBorder}
+          onChange={setCrossBorder}
+        />
+      ) : null}
       {error ? (
         <Text accessibilityRole="alert" className="font-body text-body-sm text-danger">
           {error}
@@ -177,6 +279,7 @@ export function RentalCarScreen() {
     pickupAt?: string;
     returnAt?: string;
     chauffeur?: string;
+    driverAge?: string;
   }>();
   const { api } = useApp();
   const { t } = useT();
@@ -213,6 +316,7 @@ export function RentalCarScreen() {
         ? params.returnAt
         : `${daysFromToday(7)}T10:00`,
     chauffeur: params.chauffeur === 'true',
+    driverAge: driverAgeOf(params.driverAge ?? '') === null ? '' : (params.driverAge ?? ''),
   };
   const title = `${vehicle.make} ${vehicle.model} (${vehicle.year})`;
 
@@ -230,6 +334,11 @@ export function RentalCarScreen() {
             {title}
           </Text>
           {vehicle.sample ? <Badge variant="neutral">{t('cars.sample')}</Badge> : null}
+          {vehicle.branch.airportCode ? (
+            <Badge variant="neutral">
+              {t('cars.rentals.atAirport', { code: vehicle.branch.airportCode })}
+            </Badge>
+          ) : null}
         </View>
         <Text className="font-body-bold text-body-sm text-muted">
           {[
@@ -238,8 +347,21 @@ export function RentalCarScreen() {
             t('cars.rentals.seats', { count: vehicle.seats }),
           ].join(' · ')}
         </Text>
-        <Text className="font-body text-body text-foreground">
-          {t('cars.rentals.perDay', { price: format.money(vehicle.daily) })}
+        <Text testID="rental-rates" className="font-body text-body text-foreground">
+          {[
+            t('cars.rentals.perDay', { price: format.money(vehicle.daily) }),
+            vehicle.weekly
+              ? t('cars.rentals.perWeek', { price: format.money(vehicle.weekly) })
+              : '',
+            vehicle.monthly
+              ? t('cars.rentals.perMonth', { price: format.money(vehicle.monthly) })
+              : '',
+          ]
+            .filter((part) => part !== '')
+            .join(' · ')}
+        </Text>
+        <Text className="font-body text-caption text-muted">
+          {t('cars.rentals.detail.longTerm')}
         </Text>
         {vehicle.sample ? (
           <Text className="font-body text-caption text-muted">{t('cars.sampleNote')}</Text>
@@ -252,6 +374,43 @@ export function RentalCarScreen() {
         <Fact title={t('cars.rentals.detail.branch')}>
           {vehicle.branch.name}, {vehicle.branch.address}
         </Fact>
+        <Fact title={t('cars.rentals.driverAge')}>
+          {t('cars.rentals.detail.minDriverAge', { age: vehicle.minDriverAge })}
+        </Fact>
+        {vehicle.extras.length > 0 ? (
+          <Fact title={t('cars.rentals.detail.extrasHeading')}>
+            {format.list(
+              vehicle.extras.map((extra) =>
+                t('cars.rentals.detail.extraPrice', {
+                  name: t(`booking.cars.rental.extraNames.${extra.code}`),
+                  price: format.money(extra.daily),
+                }),
+              ),
+            )}
+          </Fact>
+        ) : null}
+        <Fact title={t('cars.rentals.detail.crossBorderHeading')}>
+          {vehicle.crossBorder
+            ? t('cars.rentals.detail.crossBorder', {
+                countries: format.list(
+                  vehicle.crossBorder.countries.map((code) => format.country(code)),
+                ),
+                price: format.money(vehicle.crossBorder.fee),
+              })
+            : t('cars.rentals.detail.noCrossBorder')}
+        </Fact>
+        {vehicle.returnBranches.length > 0 ? (
+          <Fact title={t('cars.rentals.detail.returnHeading')}>
+            {format.list(
+              vehicle.returnBranches.map((branch) =>
+                t('cars.rentals.detail.returnBranch', {
+                  name: branch.name,
+                  price: format.money(branch.fee),
+                }),
+              ),
+            )}
+          </Fact>
+        ) : null}
         {vehicle.features.length > 0 ? (
           <Fact title={t('cars.rentals.detail.features')}>{vehicle.features.join(', ')}</Fact>
         ) : null}

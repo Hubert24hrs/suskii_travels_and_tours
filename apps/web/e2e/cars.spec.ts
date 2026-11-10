@@ -201,6 +201,12 @@ test.describe('car rental', () => {
     await page.waitForURL(/\/rentals\/sample-/);
     await expect(page.locator('#book-pickup')).toHaveValue(pickupAt);
     await expectNoAxeViolations(page);
+    // A self-drive rental asks for the driver's age before anything is quoted (ADR-098).
+    await page.getByTestId('book-rental').click();
+    await expect(
+      page.getByRole('alert').filter({ hasText: t('cars.rentals.book.errors.driverAgeRequired') }),
+    ).toBeVisible();
+    await page.locator('#book-driver-age').fill('30');
     await page.getByTestId('book-rental').click();
 
     await page.waitForURL(/\/checkout\//);
@@ -233,6 +239,84 @@ test.describe('car rental', () => {
       t('booking.cars.rental.licence.states.pending_review'),
       { timeout: 15_000 },
     );
+    await expectNoAxeViolations(page);
+  });
+
+  test('finds airport cars, prices ten days by the week and books extras, another return branch and cross-border cover', async ({
+    page,
+  }) => {
+    await signedIn(page, 'web-renter-options');
+    const pickupAt = `${isoDaysFromToday(8)}T10:00`;
+    const returnAt = `${isoDaysFromToday(18)}T10:00`;
+    await page.goto('/rentals');
+    await page.locator('#rental-pickup').fill(pickupAt);
+    await page.locator('#rental-return').fill(returnAt);
+    await page.locator('#rental-transmission').selectOption('automatic');
+    await page.locator('#rental-driver-age').fill('30');
+    await page.getByLabel(t('cars.rentals.airportOnly')).check();
+    await page.getByRole('button', { name: t('cars.rentals.search') }).click();
+    await page.waitForURL(/airport=true/);
+
+    // Two sample cars live at the airport branch; each says so and how ten days were priced.
+    const cars = page.getByTestId('rental-cars');
+    await expect(cars.getByRole('listitem')).toHaveCount(2);
+    await expect(cars.getByTestId('rental-airport')).toHaveCount(2);
+    await expect(cars.getByTestId('rental-airport').first()).toHaveText(
+      t('cars.rentals.atAirport', { code: 'LOS' }),
+    );
+    await expect(cars.getByTestId('rental-priced-as').first()).toHaveText(/1 week.+3 days/);
+    await expectNoAxeViolations(page);
+    // A driver of 22 cannot take the luxury car, which asks for 25.
+    const young = new URL(page.url());
+    young.searchParams.set('driverAge', '22');
+    await page.goto(`${young.pathname}${young.search}`);
+    await expect(page.getByTestId('rental-cars').getByRole('listitem')).toHaveCount(1);
+    await page.goBack();
+
+    await cars.getByRole('link', { name: /RAV4/ }).click();
+    await page.waitForURL(/\/rentals\/sample-toyota-rav4/);
+    await expect(page.getByTestId('rental-weekly')).toBeVisible();
+    await expect(page.getByTestId('rental-monthly')).toBeVisible();
+    await expect(page.getByTestId('rental-airport')).toHaveText(
+      t('cars.rentals.detail.airportBranch', { code: 'LOS' }),
+    );
+    await expect(page.getByTestId('rental-min-age')).toHaveText(
+      t('cars.rentals.detail.minDriverAge', { age: 21 }),
+    );
+    await expect(page.getByTestId('rental-extras').getByRole('listitem')).toHaveCount(3);
+    await expect(page.getByTestId('rental-cross-border')).toContainText(/Benin.+Togo.+Ghana/);
+    await expect(page.getByTestId('rental-return-branches').getByRole('listitem')).toHaveCount(2);
+
+    // The age came with the search; the options are chosen here and priced by the API.
+    await expect(page.locator('#book-driver-age')).toHaveValue('30');
+    await page.locator('#book-extra-child_seat').selectOption('2');
+    await page.locator('#book-return-branch').selectOption('sample-lekki');
+    await page.getByRole('checkbox', { name: /Benin/ }).check();
+    await expectNoAxeViolations(page);
+    await page.getByTestId('book-rental').click();
+
+    await page.waitForURL(/\/checkout\//);
+    const details = page.getByTestId('cars-details');
+    await expect(details).toContainText(t('booking.cars.rental.airport', { code: 'LOS' }));
+    await expect(details).toContainText(
+      t('booking.cars.rental.extra', {
+        name: t('booking.cars.rental.extraNames.child_seat'),
+        count: 2,
+      }),
+    );
+    await expect(details).toContainText(/Lekki branch/);
+    await expect(details).toContainText(/Benin.+Togo.+Ghana/);
+    const lines = page.getByTestId('price-line');
+    for (const code of ['rental_extras', 'rental_one_way', 'rental_cross_border'] as const) {
+      await expect(lines.filter({ hasText: t(`checkout.breakdown.${code}`) })).toHaveCount(1);
+    }
+    await page.locator('#guest-0-givenNames').fill('Ada');
+    await page.locator('#guest-0-surname').fill('Okafor');
+    await contactAndTerms(page, 'renter-options@example.com');
+    await payAndConfirm(page);
+    // The confirmed booking keeps what was chosen.
+    await expect(page.getByTestId('cars-details')).toContainText(/Lekki branch/);
+    await expect(page.getByTestId('cars-details')).toContainText(/Benin.+Togo.+Ghana/);
     await expectNoAxeViolations(page);
   });
 });

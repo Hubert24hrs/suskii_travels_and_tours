@@ -8,6 +8,10 @@ import {
   licenceNumberSchema,
   plateSchema,
   RENTAL_CATEGORIES,
+  RENTAL_DEFAULT_MIN_DRIVER_AGE,
+  RENTAL_DRIVER_AGE_MAX,
+  RENTAL_DRIVER_AGE_MIN,
+  RENTAL_EXTRAS,
   RENTAL_STATUSES,
   slugSchema,
   TRANSMISSIONS,
@@ -16,6 +20,14 @@ import {
 import { RENTAL_LICENCE_STATES } from '../bookings/bookings.schemas';
 import { named } from '../contract/contract';
 import { moneySchema } from '../pricing/pricing.schemas';
+
+import {
+  airportCodeSchema,
+  RENTAL_OPTION_ISSUES,
+  rentalCrossBorderSchema,
+  rentalExtrasSchema,
+  rentalReturnBranchesSchema,
+} from './rental-options';
 
 /** Car rental (ADR-049, ADR-051): fleet search, licences, handovers and deposits. */
 
@@ -55,7 +67,11 @@ export const RENTAL_QUOTE_ISSUES = {
   deliveryTooFar: 'delivery_too_far',
   currencyUnavailable: 'currency_unavailable',
   notAvailable: 'not_available',
+  driverTooYoung: 'driver_too_young',
+  ...RENTAL_OPTION_ISSUES,
 } as const;
+
+const driverAge = z.number().int().min(RENTAL_DRIVER_AGE_MIN).max(RENTAL_DRIVER_AGE_MAX);
 
 export const vehicleIdParamsSchema = z.object({ vehicleId: z.uuid() });
 export const slugParamsSchema = z.object({ slug: slugSchema });
@@ -67,6 +83,15 @@ export const rentalSearchQuerySchema = z.object({
   pickupAt: localDateTimeSchema,
   returnAt: localDateTimeSchema,
   category: z.enum(RENTAL_CATEGORIES).optional(),
+  transmission: z.enum(TRANSMISSIONS).optional(),
+  airport: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .default(false)
+    .meta({ description: 'Only cars whose branch is at an airport.' }),
+  driverAge: z.coerce.number().pipe(driverAge).optional().meta({
+    description: 'Self-drive only: leaves out cars whose minimum driver age is higher.',
+  }),
   chauffeur: z
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
@@ -88,8 +113,46 @@ const vehicleCardSchema = z.object({
   artKey: z.string().nullable(),
   sample: z.boolean(),
   cityName: z.string(),
-  branch: z.object({ name: z.string(), address: z.string(), lat: z.number(), lng: z.number() }),
+  branch: z.object({
+    name: z.string(),
+    address: z.string(),
+    lat: z.number(),
+    lng: z.number(),
+    airportCode: z
+      .string()
+      .nullable()
+      .meta({ description: 'IATA code when the branch is at an airport.' }),
+  }),
   daily: moneySchema,
+  weekly: moneySchema.nullable().meta({ description: 'The price of seven days, where offered.' }),
+  monthly: moneySchema.nullable().meta({ description: 'The price of thirty days, where offered.' }),
+  minDriverAge: z.number().int().meta({ description: 'Youngest driver of a self-drive rental.' }),
+  extras: z
+    .array(
+      z.object({
+        code: z.enum(RENTAL_EXTRAS),
+        daily: moneySchema,
+        max: z.number().int(),
+      }),
+    )
+    .meta({ description: 'Charged per day and per unit.' }),
+  crossBorder: z
+    .object({ countries: z.array(z.string()), fee: moneySchema })
+    .nullable()
+    .meta({ description: 'Where the car may be driven abroad, and the flat fee; null when not.' }),
+  returnBranches: z
+    .array(
+      z.object({
+        code: z.string(),
+        name: z.string(),
+        address: z.string(),
+        lat: z.number(),
+        lng: z.number(),
+        airportCode: z.string().nullable(),
+        fee: moneySchema,
+      }),
+    )
+    .meta({ description: 'Other places the car may be returned, with the one-way fee.' }),
   chauffeurDaily: moneySchema
     .nullable()
     .meta({ description: 'Null when no chauffeur is offered.' }),
@@ -117,6 +180,9 @@ export const rentalSearchResultSchema = named(
             description: 'Car and chauffeur for the period, before fees.',
           }),
           deposit: moneySchema,
+          blocks: z
+            .object({ months: z.number().int(), weeks: z.number().int(), days: z.number().int() })
+            .meta({ description: 'How the days were priced: months, weeks and single days.' }),
         }),
       }),
     ),
@@ -198,9 +264,16 @@ const vehicleFields = z.object({
   branchAddress: z.string().trim().min(2).max(300),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
+  airportCode: airportCodeSchema.nullable(),
   timeZone: z.string().min(3).max(64),
   currency: currencyCodeSchema,
   dailyMinor: minor.min(1),
+  weeklyMinor: minor.min(1).nullable(),
+  monthlyMinor: minor.min(1).nullable(),
+  minDriverAge: driverAge,
+  extras: rentalExtrasSchema,
+  crossBorder: rentalCrossBorderSchema.nullable(),
+  returnBranches: rentalReturnBranchesSchema,
   chauffeurDailyMinor: minor.min(1).nullable(),
   depositMinor: minor,
   deliveryPerKmMinor: minor.min(1).nullable(),
@@ -216,6 +289,13 @@ export const vehicleBodySchema = vehicleFields.extend({
   features: vehicleFields.shape.features.default([]),
   photoUrls: vehicleFields.shape.photoUrls.default([]),
   artKey: vehicleFields.shape.artKey.default(null),
+  airportCode: vehicleFields.shape.airportCode.default(null),
+  weeklyMinor: vehicleFields.shape.weeklyMinor.default(null),
+  monthlyMinor: vehicleFields.shape.monthlyMinor.default(null),
+  minDriverAge: vehicleFields.shape.minDriverAge.default(RENTAL_DEFAULT_MIN_DRIVER_AGE),
+  extras: vehicleFields.shape.extras.default([]),
+  crossBorder: vehicleFields.shape.crossBorder.default(null),
+  returnBranches: vehicleFields.shape.returnBranches.default([]),
   chauffeurDailyMinor: vehicleFields.shape.chauffeurDailyMinor.default(null),
   deliveryPerKmMinor: vehicleFields.shape.deliveryPerKmMinor.default(null),
   deliveryMaxKm: vehicleFields.shape.deliveryMaxKm.default(null),
@@ -265,6 +345,18 @@ export const adminReservationSchema = named(
     delivery: z
       .object({ label: z.string(), lat: z.number(), lng: z.number(), km: z.number().int() })
       .nullable(),
+    extras: z
+      .array(z.object({ code: z.enum(RENTAL_EXTRAS), quantity: z.number().int() }))
+      .meta({ description: 'What to fit or note before the car leaves.' }),
+    returnBranch: z
+      .object({ name: z.string(), address: z.string() })
+      .nullable()
+      .meta({ description: 'Where the car comes back when not to its own branch.' }),
+    crossBorder: z
+      .array(z.string())
+      .nullable()
+      .meta({ description: 'Countries the renter may drive to; null when the car stays.' }),
+    driverAge: z.number().int().nullable(),
     status: z.enum(RENTAL_STATUSES),
     licenceRequired: z.boolean(),
     licence: z

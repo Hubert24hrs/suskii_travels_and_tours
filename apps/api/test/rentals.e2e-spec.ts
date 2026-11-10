@@ -89,6 +89,7 @@ describe('rentals (e2e)', () => {
         estimate: {
           rental: { amountMinor: 9_000_000, currency: 'NGN' },
           deposit: { amountMinor: 10_000_000, currency: 'NGN' },
+          blocks: { months: 0, weeks: 0, days: 2 },
         },
       }),
     ]);
@@ -466,6 +467,7 @@ describe('rentals (e2e)', () => {
       vehicleId: car.id,
       pickupAtLocal: localIn(4),
       returnAtLocal: localIn(28),
+      driverAge: 34,
       delivery: {
         label: 'Home, 12 Allen Avenue',
         lat: IKEJA_BRANCH.lat + 0.01,
@@ -525,8 +527,13 @@ describe('rentals (e2e)', () => {
     });
     for (const snapshot of [item.payload, item.offer.payload] as {
       delivery: { label: string };
+      driverAge: number | null;
+      request: { driverAge: number | null };
     }[]) {
       expect(snapshot.delivery.label).toBe('Redacted');
+      // The age the renter gave goes too, from the snapshot and the request it echoes.
+      expect(snapshot.driverAge).toBeNull();
+      expect(snapshot.request.driverAge).toBeNull();
     }
     const handovers = await ctx.prisma.rentalHandover.findMany({
       where: { reservationId },
@@ -560,7 +567,12 @@ describe('rentals (e2e)', () => {
     expect(await issue({ pickupAtLocal: localIn(0), returnAtLocal: localIn(24) })).toBe(
       'period_invalid',
     );
-    expect(await issue({ returnAtLocal: localIn(5 + 24 * 40) })).toBe('too_long');
+    // Forty days are a long-term rental now (ADR-098); the longest is ninety.
+    await rentalQuote(ctx, renter.headers, {
+      ...period,
+      returnAtLocal: localIn(5 + 24 * 40),
+    }).expect(201);
+    expect(await issue({ returnAtLocal: localIn(5 + 24 * 100) })).toBe('too_long');
 
     const { reservationId } = await paidRental(ctx, renter.headers, period);
     const stranger = bearer((await signUp(ctx, 'stranger@example.com')).accessToken);
@@ -581,5 +593,261 @@ describe('rentals (e2e)', () => {
     // Staff with other duties cannot open the rental desk.
     const support = (await staffSession(ctx, 'support@suskii.test', ['support'])).headers;
     await ctx.http().get('/v1/admin/rentals/reservations').set(support).expect(403);
+  });
+
+  describe('rental options (ADR-098)', () => {
+    const OPTIONS = {
+      airportCode: 'LOS',
+      branchName: 'Lagos airport branch',
+      weeklyMinor: 27_000_000,
+      monthlyMinor: 90_000_000,
+      minDriverAge: 23,
+      extras: [
+        { code: 'child_seat', dailyMinor: 200_000, max: 2 },
+        { code: 'additional_driver', dailyMinor: 300_000, max: 1 },
+      ],
+      crossBorder: { countries: ['BJ', 'GH'], feeMinor: 5_000_000 },
+      returnBranches: [
+        {
+          code: 'lekki-branch',
+          name: 'Lekki branch',
+          address: 'Admiralty Way, Lekki',
+          lat: 6.4474,
+          lng: 3.4723,
+          feeMinor: 1_000_000,
+          airportCode: null,
+        },
+      ],
+    };
+    const TEN_DAYS = { pickupAtLocal: localIn(5), returnAtLocal: localIn(5 + 24 * 10) };
+    const search = async (query: Record<string, string>): Promise<Record<string, unknown>[]> =>
+      (
+        await ctx
+          .http()
+          .get('/v1/rentals/vehicles')
+          .query({
+            city: 'Lagos',
+            pickupAt: TEN_DAYS.pickupAtLocal,
+            returnAt: TEN_DAYS.returnAtLocal,
+            ...query,
+          })
+          .expect(200)
+      ).body.vehicles as Record<string, unknown>[];
+
+    it('finds cars by transmission, airport branch and driver age, and prices weeks', async () => {
+      const airport = await rentalVehicle(ctx, staff, { fields: OPTIONS });
+      const city = await rentalVehicle(ctx, staff, { fields: { transmission: 'manual' } });
+      const ids = (cars: Record<string, unknown>[]): unknown[] => cars.map((car) => car.id).sort();
+      const both = [airport.id, city.id].sort();
+
+      const all = await search({});
+      expect(ids(all)).toEqual(both);
+      const card = all.find((car) => car.id === airport.id);
+      expect(card).toMatchObject({
+        branch: { name: 'Lagos airport branch', airportCode: 'LOS' },
+        weekly: { amountMinor: 27_000_000, currency: 'NGN' },
+        monthly: { amountMinor: 90_000_000, currency: 'NGN' },
+        minDriverAge: 23,
+        extras: [
+          { code: 'child_seat', daily: { amountMinor: 200_000, currency: 'NGN' }, max: 2 },
+          { code: 'additional_driver', daily: { amountMinor: 300_000, currency: 'NGN' }, max: 1 },
+        ],
+        crossBorder: { countries: ['BJ', 'GH'], fee: { amountMinor: 5_000_000, currency: 'NGN' } },
+        returnBranches: [
+          { code: 'lekki-branch', name: 'Lekki branch', fee: { amountMinor: 1_000_000 } },
+        ],
+        // Ten days: one week at the weekly rate and three days at the daily one.
+        estimate: {
+          rental: { amountMinor: 27_000_000 + 3 * 4_500_000, currency: 'NGN' },
+          blocks: { months: 0, weeks: 1, days: 3 },
+        },
+      });
+      // A car without the options says so, at the daily rate and the default age.
+      expect(all.find((car) => car.id === city.id)).toMatchObject({
+        branch: { airportCode: null },
+        weekly: null,
+        monthly: null,
+        minDriverAge: 21,
+        extras: [],
+        crossBorder: null,
+        returnBranches: [],
+        estimate: {
+          rental: { amountMinor: 45_000_000 },
+          blocks: { months: 0, weeks: 0, days: 10 },
+        },
+      });
+
+      expect(ids(await search({ transmission: 'manual' }))).toEqual([city.id]);
+      expect(ids(await search({ transmission: 'automatic' }))).toEqual([airport.id]);
+      expect(ids(await search({ airport: 'true' }))).toEqual([airport.id]);
+      // A driver of 21 cannot take the car that asks for 23, unless a chauffeur drives it.
+      expect(ids(await search({ driverAge: '21' }))).toEqual([city.id]);
+      expect(ids(await search({ driverAge: '23' }))).toEqual(both);
+      expect(ids(await search({ driverAge: '21', chauffeur: 'true' }))).toEqual(both);
+      await ctx
+        .http()
+        .get('/v1/rentals/vehicles')
+        .query({
+          city: 'Lagos',
+          ...{ pickupAt: TEN_DAYS.pickupAtLocal, returnAt: TEN_DAYS.returnAtLocal },
+          driverAge: '12',
+        })
+        .expect(400);
+
+      // The car's own page carries the same terms.
+      const page = await ctx.http().get(`/v1/rentals/vehicles/${airport.slug}`).expect(200);
+      expect(page.body).toMatchObject({ minDriverAge: 23, branch: { airportCode: 'LOS' } });
+    });
+
+    it('sells extras, a return to another branch and cross-border cover, and refuses what a car does not offer', async () => {
+      const car = await rentalVehicle(ctx, staff, { fields: OPTIONS });
+      const plain = await rentalVehicle(ctx, staff);
+      const issue = async (vehicleId: string, body: Record<string, unknown>): Promise<string> =>
+        (await rentalQuote(ctx, renter.headers, { vehicleId, ...TEN_DAYS, ...body }).expect(422))
+          .body.code as string;
+      expect(await issue(car.id, { driverAge: 21 })).toBe('driver_too_young');
+      expect(await issue(car.id, { extras: [{ code: 'gps', quantity: 1 }] })).toBe(
+        'extra_not_offered',
+      );
+      expect(await issue(car.id, { extras: [{ code: 'child_seat', quantity: 3 }] })).toBe(
+        'extra_too_many',
+      );
+      expect(
+        await issue(car.id, {
+          chauffeur: true,
+          extras: [{ code: 'additional_driver', quantity: 1 }],
+        }),
+      ).toBe('extra_with_chauffeur');
+      expect(await issue(car.id, { returnBranch: 'no-such-branch' })).toBe(
+        'return_branch_unavailable',
+      );
+      expect(await issue(plain.id, { crossBorder: true })).toBe('cross_border_unavailable');
+      // A chauffeur drives, so the renter's age is not asked of a chauffeured rental.
+      const chauffeured = await rentalQuote(ctx, renter.headers, {
+        vehicleId: car.id,
+        ...TEN_DAYS,
+        chauffeur: true,
+        driverAge: 19,
+      }).expect(201);
+      expect(chauffeured.body.rental.driverAge).toBeNull();
+
+      const quote = await rentalQuote(ctx, renter.headers, {
+        vehicleId: car.id,
+        ...TEN_DAYS,
+        driverAge: 30,
+        extras: [
+          { code: 'child_seat', quantity: 2 },
+          { code: 'additional_driver', quantity: 1 },
+        ],
+        returnBranch: 'lekki-branch',
+        crossBorder: true,
+      }).expect(201);
+      const vehicle = 27_000_000 + 3 * 4_500_000;
+      const extras = (2 * 200_000 + 300_000) * 10;
+      expect(quote.body.rental).toMatchObject({
+        days: 10,
+        rate: { months: 0, weeks: 1, days: 3 },
+        minDriverAge: 23,
+        driverAge: 30,
+        branch: { airportCode: 'LOS' },
+        extras: [
+          { code: 'child_seat', quantity: 2, amount: { amountMinor: 4_000_000, currency: 'NGN' } },
+          {
+            code: 'additional_driver',
+            quantity: 1,
+            amount: { amountMinor: 3_000_000, currency: 'NGN' },
+          },
+        ],
+        returnBranch: { code: 'lekki-branch', name: 'Lekki branch', airportCode: null },
+        crossBorder: { countries: ['BJ', 'GH'] },
+        charge: {
+          vehicle: { amountMinor: vehicle },
+          extras: { amountMinor: extras },
+          oneWay: { amountMinor: 1_000_000 },
+          crossBorder: { amountMinor: 5_000_000 },
+          deposit: { amountMinor: 10_000_000 },
+        },
+      });
+      // The fare is the sum of its parts, and the breakdown shows each of them.
+      expect(quote.body.price.fare.amountMinor).toBe(vehicle + extras + 1_000_000 + 5_000_000);
+      expect(
+        (quote.body.priceBreakdown as { code: string; amount: { amountMinor: number } }[]).map(
+          (line) => [line.code, line.amount.amountMinor],
+        ),
+      ).toEqual([
+        ['rental_vehicle', vehicle],
+        ['rental_extras', extras],
+        ['rental_one_way', 1_000_000],
+        ['rental_cross_border', 5_000_000],
+      ]);
+
+      // Paid and confirmed with the options; the rental desk sees what to prepare.
+      const created = await bookRental(ctx, renter.headers, quote.body.quoteId as string).expect(
+        201,
+      );
+      const booking = await payInFull(ctx, created.body.booking.id as string, renter.headers);
+      expect(booking.status).toBe('CONFIRMED');
+      expect(booking.rental).toMatchObject({
+        returnBranch: { name: 'Lekki branch' },
+        crossBorder: { countries: ['BJ', 'GH'] },
+        charge: { extras: { amountMinor: extras }, oneWay: { amountMinor: 1_000_000 } },
+      });
+      const desk = await ctx.http().get('/v1/admin/rentals/reservations').set(staff).expect(200);
+      expect(desk.body.reservations).toEqual([
+        expect.objectContaining({
+          extras: [
+            { code: 'child_seat', quantity: 2 },
+            { code: 'additional_driver', quantity: 1 },
+          ],
+          returnBranch: { name: 'Lekki branch', address: 'Admiralty Way, Lekki' },
+          crossBorder: ['BJ', 'GH'],
+          driverAge: 30,
+        }),
+      ]);
+    });
+
+    it("never sells an option the car has stopped offering, and charges today's price for the rest", async () => {
+      const car = await rentalVehicle(ctx, staff, { fields: OPTIONS });
+      const body = { vehicleId: car.id, ...TEN_DAYS, driverAge: 30 };
+      const pay = (bookingId: string) =>
+        ctx
+          .http()
+          .post(`/v1/bookings/${bookingId}/payments`)
+          .set('Idempotency-Key', nextKey('e2e-rental-options'))
+          .set(renter.headers)
+          .send({});
+      const patch = (fields: Record<string, unknown>) =>
+        ctx
+          .http()
+          .patch(`/v1/admin/rentals/vehicles/${car.id}`)
+          .set(staff)
+          .send(fields)
+          .expect(204);
+
+      // The child seat gets dearer between booking and payment: the renter is asked again.
+      const seats = await rentalQuote(ctx, renter.headers, {
+        ...body,
+        extras: [{ code: 'child_seat', quantity: 1 }],
+      }).expect(201);
+      const first = await bookRental(ctx, renter.headers, seats.body.quoteId as string).expect(201);
+      await patch({ extras: [{ code: 'child_seat', dailyMinor: 250_000, max: 2 }] });
+      const dearer = await pay(first.body.booking.id as string).expect(409);
+      expect(dearer.body.type).toBe('urn:suskii:problem:price-changed');
+      expect(
+        dearer.body.priceChange.current.amountMinor - dearer.body.priceChange.previous.amountMinor,
+      ).toBe(50_000 * 10);
+
+      // The renter accepts the new total. Then the fleet withdraws the extra altogether: the
+      // booking can no longer be paid as it was made, and the seat is never sold.
+      await ctx
+        .http()
+        .post(`/v1/bookings/${first.body.booking.id as string}/price-consent`)
+        .set(renter.headers)
+        .send({ total: dearer.body.priceChange.current })
+        .expect(200);
+      await patch({ extras: [] });
+      const gone = await pay(first.body.booking.id as string).expect(410);
+      expect(gone.body.type).toBe('urn:suskii:problem:offer-unavailable');
+    });
   });
 });

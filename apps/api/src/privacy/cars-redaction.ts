@@ -9,7 +9,7 @@ export const REDACTED_PLACE = 'Redacted';
  * Personal data on a booking's Cars records (ADR-029, ADR-053), cleared when the booking is
  * redacted (account deletion) or anonymised (retention): ride places are renamed, coordinates
  * rounded to about 1 km and the route dropped; rating comments and handover notes are cleared;
- * a rental's delivery address and licence go and its handover photos are destroyed. Fares,
+ * a rental's delivery address, the driver's age and the licence go and its handover photos are destroyed. Fares,
  * seats, statuses, odometer readings and stars stay as the financial and safety record. Returns
  * the storage keys to delete after the commit.
  */
@@ -41,6 +41,8 @@ function redactSnapshot(raw: unknown): unknown {
   } else if (payload.kind === 'rental') {
     for (const target of [payload, request]) {
       if (target?.delivery) target.delivery = coarse(target.delivery as Point);
+      // The age the renter gave for a self-drive rental (ADR-098) goes with the address.
+      if (target?.driverAge !== undefined) target.driverAge = null;
     }
   } else {
     return null;
