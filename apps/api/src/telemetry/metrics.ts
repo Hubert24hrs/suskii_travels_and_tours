@@ -251,3 +251,30 @@ export const agentToolDuration = meter.createHistogram('suskii.agent.tool_durati
 export const agentPauses = meter.createCounter('suskii.agent.pauses', {
   description: 'Times staff paused or released the assistant, by change and reason',
 });
+
+// Price intelligence (ADR-102).
+
+/** Attempts to read a page by vendor, proxy class and outcome (`ok` or the failure class). */
+export const priceIntelAttempts = meter.createCounter('suskii.price_intel.attempts', {
+  description: 'Web-data attempts by vendor, proxy class and outcome',
+});
+
+/** Reads by product, trigger and how they ended (succeeded, cached, stale, exhausted, denied). */
+export const priceIntelJobs = meter.createCounter('suskii.price_intel.jobs', {
+  description: 'Price intelligence reads by product, trigger and result',
+});
+
+export const priceIntelCost = meter.createCounter('suskii.price_intel.cost', {
+  unit: 'micro-USD',
+  description: 'Estimated web-data spend by vendor',
+});
+
+/** Observations stored by product and status (verified, unverified, rejected). */
+export const priceIntelObservations = meter.createCounter('suskii.price_intel.observations', {
+  description: 'Price observations by product and status',
+});
+
+/** Budget thresholds crossed (50, 80, 100) and parser drift incidents opened. */
+export const priceIntelAlerts = meter.createCounter('suskii.price_intel.alerts', {
+  description: 'Price intelligence alerts by kind and level',
+});

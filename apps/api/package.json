@@ -62,6 +62,7 @@
     "ioredis": "catalog:",
     "jose": "catalog:",
     "nestjs-pino": "catalog:",
+    "node-html-parser": "catalog:",
     "nodemailer": "catalog:",
     "pdf-lib": "catalog:",
     "pg": "catalog:",

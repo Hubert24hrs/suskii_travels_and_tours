@@ -378,6 +378,9 @@ catalogs:
     next:
       specifier: 16.4.1
       version: 16.4.1
+    node-html-parser:
+      specifier: ^9.0.7
+      version: 9.0.7
     nodemailer:
       specifier: ^10.1.7
       version: 10.1.7
@@ -738,6 +741,9 @@ importers:
       nestjs-pino:
         specifier: 'catalog:'
         version: 5.2.1(@nestjs/common@12.1.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.1)(pino-http@11.0.0)(pino@10.3.1)(rxjs@7.8.2)
+      node-html-parser:
+        specifier: 'catalog:'
+        version: 9.0.7
       nodemailer:
         specifier: 'catalog:'
         version: 10.1.7
@@ -8007,6 +8013,10 @@ packages:
     resolution: {integrity: sha512-aN97NXWF6AWBTahfVOIrB/NShkzi5H7F9r1s9mD3cDj4Ko5f2qhhVoYMibXF7GlLveb/D2ioWay8lxI97Ven3g==}
     engines: {node: '>=0.12'}
 
+  entities@8.1.0:
+    resolution: {integrity: sha512-kxL7msIffSuh9aaFAMD7rxAIuTRMAHMeBtgHW2yUdWw732ZNh4MehkF2gdjvtdmikkaIP9bFDDJOPlsvm7avrA==}
+    engines: {node: '>=20.19.0'}
+
   env-paths@2.2.1:
     resolution: {integrity: sha512-+h1lkLKhZMTYjog1VEpJNG7NZJWcuc2DDk/qsqSTRRCOXiLjeQ1d1/udrUGhqMxUgAlwKNZ0cf2uqan5GLuS2A==}
     engines: {node: '>=6'}
@@ -10499,6 +10509,9 @@ packages:
   node-gyp-build-optional-packages@5.2.2:
     resolution: {integrity: sha512-s+w+rBWnpTMwSFbaE0UXsRlg7hU4FjekKU4eyAih5T8nJuNZT1nNsskXpxmeqSK9UzkBl6UgRlnKc8hz8IEqOw==}
     hasBin: true
+
+  node-html-parser@9.0.7:
+    resolution: {integrity: sha512-0Io6nKYNN2e+QSoJFxU991Z8kX4H2Ogy3l14Ow0XxR2Wonk9l5qBonx1dYO97UyVfYJ1U9H0WHZOIZW6q5KPrA==}
 
   node-int64@0.4.0:
     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
@@ -19716,6 +19729,8 @@ snapshots:
 
   entities@6.0.1: {}
 
+  entities@8.1.0: {}
+
   env-paths@2.2.1: {}
 
   env-paths@3.0.0: {}
@@ -23193,6 +23208,11 @@ snapshots:
     dependencies:
       detect-libc: 2.1.2
     optional: true
+
+  node-html-parser@9.0.7:
+    dependencies:
+      css-select: 5.2.2
+      entities: 8.1.0
 
   node-int64@0.4.0: {}
 

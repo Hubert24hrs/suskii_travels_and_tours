@@ -107,6 +107,9 @@ catalog:
   compression: ^1.8.2
   '@types/compression': ^1.8.1
   nodemailer: ^10.1.7
+  # Reads prices out of public pages with CSS selectors (ADR-102). It parses; it never runs a
+  # page's scripts.
+  node-html-parser: ^9.0.7
   '@types/nodemailer': ^8.0.2
   '@opentelemetry/api': ^1.9.0
   '@opentelemetry/sdk-node': ^0.222.0
