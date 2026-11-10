@@ -269,6 +269,11 @@ export async function startStack(options: { adTags?: boolean } = {}): Promise<St
       CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
       // Lagos-Dubai fares rise 5% at the re-check before payment (price-change consent test).
       MOCK_REPRICE_RULES: PRICE_CHANGE_ROUTE_RULE,
+      // Live flight status from the mock (ADR-095): flights leaving within three days are
+      // followed, and Lagos to Kano runs 45 minutes late (the delay test and phone testing).
+      FLIGHT_STATUS_PROVIDER: 'mock',
+      FLIGHT_STATUS_WINDOW_HOURS: '72',
+      MOCK_FLIGHT_STATUS_RULES: 'LOS-KAN:delayed:45',
       // Mock suppliers unless a tester opts in to Duffel's test mode (phone and browser testing).
       ...supplierEnv(),
       OBJECT_STORAGE_DIR: join(LOG_DIR, 'objects'),
