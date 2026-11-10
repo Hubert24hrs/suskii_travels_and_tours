@@ -12,6 +12,11 @@ import { choose, pickDates } from './helpers';
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
 const PASSWORD = 'a perfectly long passphrase';
+/**
+ * Days from today to the start of the five-part trip. A run against a server that keeps its data
+ * (the phone check, ADR-100) passes its own, so two runs never want the same car on the same days.
+ */
+const START_DAYS = Number(process.env.E2E_TRIP_START_DAYS ?? 30);
 const format = createFormatters('en-NG');
 
 const newEmail = (label: string): string =>
@@ -102,8 +107,8 @@ test.describe('trip builder (ADR-099)', () => {
     page,
   }) => {
     test.setTimeout(240_000);
-    const depart = isoDaysFromToday(30);
-    const back = isoDaysFromToday(37);
+    const depart = isoDaysFromToday(START_DAYS);
+    const back = isoDaysFromToday(START_DAYS + 7);
     await register(page, 'web-trip');
 
     // The plan: where from and to, when, who and the parts wanted (all five by default).

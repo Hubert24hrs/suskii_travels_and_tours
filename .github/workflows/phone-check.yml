@@ -171,15 +171,20 @@ jobs:
       - name: Install Chromium
         run: pnpm --filter @suskii/web exec playwright install --with-deps chromium
 
+      # The trip books a rental car, and the server keeps its bookings for hours: each run takes
+      # one of sixteen weeks (30 to 172 days ahead, inside the 180 a car can be booked ahead), so
+      # runs on the same server rarely want the same days, and then there is a second car.
       - name: Build a trip of five parts, and book a flight and a hotel
         working-directory: apps/web
         env:
           E2E_BASE_URL: ${{ needs.server.outputs.url }}
           NEXT_PUBLIC_API_BASE_URL: ${{ needs.server.outputs.url }}
-        run: >-
-          pnpm exec playwright test e2e/trip-builder.spec.ts e2e/booking.spec.ts
-          --project=chromium
-          --grep "trip builder|goes from search results to a confirmed|goes from hotel results to a confirmed"
+        run: |
+          export E2E_TRIP_START_DAYS=$(( 30 + 9 * ((GITHUB_RUN_ID + GITHUB_RUN_ATTEMPT) % 16) ))
+          echo "The trip starts $E2E_TRIP_START_DAYS days from today."
+          pnpm exec playwright test e2e/trip-builder.spec.ts e2e/booking.spec.ts \
+            --project=chromium \
+            --grep "trip builder|goes from search results to a confirmed|goes from hotel results to a confirmed"
 
       - name: Report
         run: echo "On the website a traveller built a trip of five parts and paid once, and booked a flight and a hotel." >> "$GITHUB_STEP_SUMMARY"
