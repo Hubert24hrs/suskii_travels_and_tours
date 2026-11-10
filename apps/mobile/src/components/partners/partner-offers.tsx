@@ -16,7 +16,14 @@ type Category = Offer['category'];
 
 export type PartnerOffersSource =
   | { kind: 'booking'; bookingId: string; currency: CurrencyCode }
-  | { kind: 'place'; countryCode: string; categories: readonly Category[]; currency: CurrencyCode };
+  | {
+      kind: 'place';
+      countryCode: string;
+      /** Narrows activities to a city (the hotel page, ADR-097). */
+      cityName?: string;
+      categories: readonly Category[];
+      currency: CurrencyCode;
+    };
 
 /**
  * Affiliate offers (ADR-069): partner pages for car rental, transfers, eSIMs and insurance, and
@@ -55,6 +62,7 @@ export function PartnerOffers({
         params: {
           query: {
             countryCode: source.countryCode,
+            ...(source.cityName ? { cityName: source.cityName } : {}),
             categories: source.categories.join(','),
             currency: source.currency,
           },

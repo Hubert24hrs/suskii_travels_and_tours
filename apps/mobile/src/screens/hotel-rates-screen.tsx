@@ -6,8 +6,10 @@ import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
+import { PartnerOffers } from '../components/partners/partner-offers';
 import { PhotoGallery } from '../components/results/hotel-photo';
 import { Loading, Notice } from '../components/states';
+import { openMaps } from '../lib/maps';
 import { useApp, useT } from '../providers/app-provider';
 
 type Rate = Schemas['HotelRate'];
@@ -132,6 +134,15 @@ export function HotelRatesScreen() {
           .filter(Boolean)
           .join(' · ')}
       </Text>
+      {/* Streets and directions live in the phone's maps app (ADR-097). */}
+      <Button
+        testID="hotel-open-map"
+        variant="ghost"
+        accessibilityLabel={t('results.map.openLabel', { hotel: detail.name })}
+        onPress={() => void openMaps(detail.latitude, detail.longitude, detail.name)}
+      >
+        {t('results.map.open')}
+      </Button>
       {/* Data saver (ADR-075): the screen stays text. */}
       {dataSaver ? null : (
         <PhotoGallery
@@ -212,6 +223,18 @@ export function HotelRatesScreen() {
           </View>
         </Card>
       ))}
+      {/* Tours and activities from partners, booked on the partner's site (ADR-069). */}
+      <PartnerOffers
+        source={{
+          kind: 'place',
+          countryCode: detail.countryCode,
+          cityName: detail.cityName,
+          categories: ['activity'],
+          currency,
+        }}
+        heading={t('results.discover.thingsToDo', { city: detail.cityName })}
+        testID="hotel-things-to-do"
+      />
     </ScrollView>
   );
 }
