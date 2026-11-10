@@ -6,6 +6,7 @@ import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
+import { PhotoGallery } from '../components/results/hotel-photo';
 import { Loading, Notice } from '../components/states';
 import { useApp, useT } from '../providers/app-provider';
 
@@ -13,10 +14,37 @@ type Rate = Schemas['HotelRate'];
 
 class ExpiredError extends Error {}
 
+/** What the supplier says of the room: who it sleeps, its size and beds, and a description. */
+function RoomDetails({ room }: { room: NonNullable<Rate['room']> }) {
+  const { t } = useT();
+  const format = useFormatters();
+  const facts = [
+    room.maxGuests ? t('results.stayContent.sleeps', { count: room.maxGuests }) : null,
+    room.sizeSqm ? t('results.stayContent.size', { size: format.number(room.sizeSqm) }) : null,
+    ...room.beds.map((bed) =>
+      t('results.stayContent.bed', {
+        count: bed.count,
+        type: t(`results.stayContent.bedTypes.${bed.type}`),
+      }),
+    ),
+  ].filter((fact): fact is string => fact !== null);
+  if (facts.length === 0 && !room.description) return null;
+  return (
+    <View testID="room-details" className="gap-1">
+      {facts.length > 0 ? (
+        <Text className="font-body text-body-sm text-foreground">{facts.join(' · ')}</Text>
+      ) : null}
+      {room.description ? (
+        <Text className="font-body text-caption text-muted">{room.description}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 /** Every rate of one hotel: room, meals, cancellation terms, charges paid at the hotel. */
 export function HotelRatesScreen() {
   const { hotelId } = useLocalSearchParams<{ hotelId: string }>();
-  const { api, currency } = useApp();
+  const { api, currency, dataSaver } = useApp();
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
@@ -94,9 +122,34 @@ export function HotelRatesScreen() {
         {detail.name}
       </Text>
       <Text className="font-body text-body-sm text-foreground">
-        {t('results.hotels.stars', { count: detail.stars })} ·{' '}
-        {[detail.area, detail.cityName].filter(Boolean).join(', ')}
+        {[
+          detail.propertyType
+            ? t('results.stayContent.stars', { count: detail.stars })
+            : t('results.hotels.stars', { count: detail.stars }),
+          detail.propertyType ? t(`results.propertyTypes.${detail.propertyType}`) : null,
+          [detail.area, detail.cityName].filter(Boolean).join(', '),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
       </Text>
+      {/* Data saver (ADR-075): the screen stays text. */}
+      {dataSaver ? null : (
+        <PhotoGallery
+          hotel={detail.name}
+          photos={detail.photos}
+          sample={detail.supplier === 'mock'}
+        />
+      )}
+      {detail.description ? (
+        <View className="gap-1">
+          <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+            {t('results.stayContent.about')}
+          </Text>
+          <Text testID="hotel-description" className="font-body text-body-sm text-foreground">
+            {detail.description}
+          </Text>
+        </View>
+      ) : null}
       <Text accessibilityRole="header" className="pt-2 font-heading text-h4 text-heading">
         {t('results.hotels.rooms')}
       </Text>
@@ -106,6 +159,7 @@ export function HotelRatesScreen() {
           <Text className="font-body text-body-sm text-foreground">
             {t(`results.boards.${rate.board}`)}
           </Text>
+          {rate.room ? <RoomDetails room={rate.room} /> : null}
           {rate.refundable ? (
             <Badge variant="success">
               {rate.freeCancellationUntil
