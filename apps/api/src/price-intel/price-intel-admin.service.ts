@@ -3,11 +3,9 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   SCRAPE_VENDORS,
   normaliseDomain,
-  type AutomatedAccessFinding,
   type PriceProduct,
   type ProxyClass,
   type ScrapeVendor,
-  type SourcePolicyBasis,
 } from '@suskii/shared';
 import type { z } from 'zod';
 
@@ -27,6 +25,7 @@ import type {
 } from './price-intel.schemas';
 import { PriceIntelService } from './price-intel.service';
 import { SCRAPE_PROVIDERS, type ScrapeProviders } from './scrape-providers';
+import { scrapingRegisterRows } from './scraping-register';
 
 /** A vendor that does not answer its health call in this long is shown as unknown. */
 const HEALTH_TIMEOUT_MS = 5000;
@@ -207,35 +206,9 @@ export class PriceIntelAdminService {
     };
   }
 
-  /** Every site with its status and basis: what `docs/legal/scraping-register.md` asks for. */
+  /** Every site with its status and basis: what `docs/legal/scraping-register.md` holds. */
   async register(now: Date = new Date()): Promise<z.infer<typeof scrapingRegisterSchema>> {
-    const rows = await this.prisma.priceSource.findMany({
-      include: { policy: true },
-      orderBy: { domain: 'asc' },
-    });
-    return {
-      generatedAt: now.toISOString(),
-      rows: rows.flatMap((row) =>
-        row.policy
-          ? [
-              {
-                domain: row.domain,
-                name: row.name,
-                status: row.policy.status,
-                basis: row.policy.basis as SourcePolicyBasis | null,
-                basisReference: row.policy.basisReference,
-                robots: row.policy.robots as AutomatedAccessFinding,
-                terms: row.policy.terms as AutomatedAccessFinding,
-                products: row.products as PriceProduct[],
-                vendors: row.policy.vendors as ScrapeVendor[],
-                maxProxyClass: row.policy.maxProxyClass as ProxyClass,
-                requestsPerMinute: row.policy.requestsPerMinute,
-                decidedAt: row.policy.decidedAt?.toISOString() ?? null,
-              },
-            ]
-          : [],
-      ),
-    };
+    return { generatedAt: now.toISOString(), rows: await scrapingRegisterRows(this.prisma) };
   }
 
   /** The vendor or the domain a switch or a budget is about, checked; null for the global one. */
