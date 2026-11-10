@@ -75,3 +75,27 @@ Tests: API e2e `flight-extras.e2e-spec.ts` (11), shared unit tests, the app's Je
 The audit now reads 22 built, 6 partly and 1 missing for flights. Left for the owner: the Duffel
 sandbox check for special meals, who answers group requests, and counsel's view on meal requests
 as sensitive data (`docs/owner/launch-checklist.md`).
+
+### Part 2: seat selection (ADR-094)
+
+Built on the API, the website and the app:
+
+- **Seat maps.** `GET /v1/quotes/{quoteId}/seat-maps` answers the airline's map for each flight
+  of a flight quote, priced in the quote's currency. Clients ask for it only when the traveller
+  presses "Choose seats".
+- **Choosing.** One seat per traveller with a seat on each flight, never for a lap infant; the
+  rules are `seatChoiceIssue()` in `@suskii/shared` and the API applies them again
+  (`422 seats-invalid`). The seat price is the airline's, added to the total as its own line.
+- **Checks.** The map is read again when the booking is made and before payment, and the
+  supplier refuses the order when a seat has gone. Seats rule out reserving and installments.
+- **Shown** on the booking page, the trip screen and the itinerary PDF.
+- **Suppliers.** The mock airline sells seats on every flight. The Duffel adapter reads seat
+  maps and orders seats behind `DUFFEL_SEAT_SELECTION`, off until the sandbox check (which now
+  reads the maps and orders one seat) has passed once.
+
+Tests: API e2e `flight-seats.e2e-spec.ts` (5), the Duffel adapter's unit tests, shared unit
+tests, the app's checkout and trip tests, the website's `flight-seats.spec.ts` (3).
+
+The audit now reads 22 built, 7 partly and none missing for flights. Left for the owner: one
+Duffel sandbox run with booking on, then `DUFFEL_SEAT_SELECTION=true`; whether to add a fee to
+seats. Changing a seat after booking is not built (it needs the airline's order change API).

@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Feature parity, part 2: seat selection on flights (2026-11-10)
+
+Part 2 of `docs/phases/feature-parity.md` (ADR-094):
+
+#### Added
+
+- **Seat selection.** Checkout on the website and in the app has a "Seats" section: "Choose
+  seats" loads the airline's seat map for each flight of the fare
+  (`GET /v1/quotes/{quoteId}/seat-maps`), and each traveller with a seat picks one. Taken seats
+  cannot be chosen; a seat names its place (window, aisle, extra legroom, exit row) and the
+  airline's price, which is added to the total as its own line with no markup. Where the airline
+  sells no seats in advance, checkout says so.
+- **Checked three times.** The API reads the map again when the booking is made
+  (`422 seats-invalid`), before payment (a taken seat ends the booking unpaid) and the supplier
+  refuses the order if a seat has gone. A booking with seats is paid in full: no reserving or
+  installments.
+- Bookings gain `price.seats` and `passengers[].seats`; the booking page, the trip screen and the
+  itinerary PDF list each traveller's seats.
+- The Duffel adapter reads seat maps and orders seats behind `DUFFEL_SEAT_SELECTION` (off until
+  one sandbox run); the Duffel sandbox check now reads the maps and orders a seat with `--book`.
+
 ### Feature parity, part 1: flights (2026-11-09)
 
 The owner's feature lists for flights, hotels and car rental were audited line by line

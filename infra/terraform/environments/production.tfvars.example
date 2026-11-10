@@ -120,6 +120,9 @@ api_env = {
   # Manager, register https://<api host>/v1/webhooks/whatsapp in the Meta app, then uncomment:
   # WHATSAPP_SUPPORT_PROVIDER = "cloud"
   # WHATSAPP_PHONE_NUMBER_ID  = "REPLACE"
+  # Seat selection on Duffel flights (ADR-094) is off unless set. Run the Duffel sandbox check
+  # with booking on first (it orders one seat), then uncomment:
+  # DUFFEL_SEAT_SELECTION = "true"
   # AI trip search (ADR-061) is off unless set. To offer it, add "LLM_API_KEY" to extra_secrets,
   # set its value in Secret Manager, run the eval (ai-eval.yml) and uncomment:
   # AI_SEARCH_ENABLED = "true"
