@@ -864,6 +864,43 @@ export const fr: Messages = {
         child: 'Repas enfant',
       },
     },
+    seats: {
+      heading: 'Sièges',
+      intro:
+        "Choisissez un siège pour chaque voyageur, ou passez cette étape et la compagnie vous attribuera des sièges à l'enregistrement.",
+      choose: 'Choisir les sièges',
+      loading: 'Chargement du plan de cabine…',
+      failed:
+        "Impossible de charger le plan de cabine. Vous pouvez quand même réserver ; la compagnie vous attribuera des sièges à l'enregistrement.",
+      unavailable:
+        "Cette compagnie attribue les sièges à l'enregistrement. Aucun siège ne peut être choisi ici.",
+      flight: '{origin} vers {destination} · {flight}',
+      choosingFor: 'Choix pour',
+      seatFree: 'Siège {seat}, {details}, {price}',
+      seatTaken: 'Siège {seat}, occupé',
+      seatYours: 'Siège {seat}, choisi pour {name}',
+      noCharge: 'sans frais',
+      standard: 'siège standard',
+      features: {
+        window: 'hublot',
+        aisle: 'couloir',
+        extra_legroom: "plus d'espace pour les jambes",
+        exit_row: 'issue de secours',
+      },
+      legend: {
+        free: 'Disponible',
+        taken: 'Occupé',
+        yours: 'Vos sièges',
+      },
+      chosen: '{name} : siège {seat} ({price})',
+      notChosen: '{name} : aucun siège choisi',
+      total: 'Sièges',
+      infant: "Un bébé voyage sur les genoux d'un adulte.",
+      notWithPlans:
+        'La réservation avec paiement différé et le paiement en plusieurs fois ne sont pas disponibles avec des sièges choisis.',
+      row: 'Rangée {number}',
+      pricesIn: 'Les prix des sièges sont par voyageur, en {currency}.',
+    },
     addonDetails: {
       heading: 'Détails du transfert',
       hint: 'Nous les transmettons uniquement à votre chauffeur ou prestataire.',
@@ -1012,6 +1049,7 @@ export const fr: Messages = {
       bot: 'Impossible de vérifier cette demande. Actualisez la page et réessayez.',
       terms: 'Les conditions de réservation ont changé. Actualisez la page pour les consulter.',
       extras: 'Ces extras ne sont plus disponibles. Choisissez-les à nouveau.',
+      seats: "L'un de vos sièges n'est plus disponible. Choisissez à nouveau vos sièges.",
       tooMany: 'Trop de tentatives. Patientez quelques minutes et réessayez.',
       holdUnavailable:
         'La compagnie ne bloque pas ce tarif pour le moment. Vous pouvez toujours payer la totalité.',
@@ -2014,6 +2052,7 @@ export const fr: Messages = {
     room: 'Chambre {number}',
     passport: 'Passeport se terminant par {hint}',
     mealRequest: 'Repas demandé : {meal}',
+    seats: 'Sièges : {seats}',
     extraBags: { one: '+{count} bagage supplémentaire', other: '+{count} bagages supplémentaires' },
     paid: 'Total payé',
     price: 'Prix total',
