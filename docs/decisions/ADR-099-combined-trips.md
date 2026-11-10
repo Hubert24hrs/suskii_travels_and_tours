@@ -89,6 +89,11 @@ its balance (`BookingFundsService.paid`), the payment risk review, ticketing and
 read its own payment, as before. Card data still never touches Suskii (hosted checkout only,
 SAQ A).
 
+One rule does count the trip and not the shares: the velocity signals of the payment risk review
+(ADR-040: five payments a day for an account or a contact, ten checkouts from an address). The
+card was charged once, so a trip is one payment there. Counted by share, one trip of five parts
+used up the day's limit, and the traveller's next purchase was held for staff.
+
 A trip has one checkout open at a time, and it charges what the trip shows: starting a new one,
 adding a part or removing one closes the checkout that was open (`closeOpenCheckout`) and returns
 its bookings to unpaid. A payment that still arrives on a closed checkout goes through the

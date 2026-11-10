@@ -1,0 +1,49 @@
+# The first traveller on a checkout screen, as on the passport: title, gender, names, date of
+# birth and nationality. The keyboard covers the fields below it, so each step closes it and
+# scrolls before the next tap. Passport fields, where a flight abroad asks for them, follow in
+# the calling flow.
+appId: com.suskii.travels.e2e
+---
+- scrollUntilVisible:
+    element:
+      id: passengers.0.title-ms
+- tapOn:
+    id: passengers.0.title-ms
+- scrollUntilVisible:
+    element:
+      id: passengers.0.gender-f
+- tapOn:
+    id: passengers.0.gender-f
+- scrollUntilVisible:
+    element:
+      id: passengers.0.givenNames
+- tapOn:
+    id: passengers.0.givenNames
+- inputText: Ada
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.surname
+- tapOn:
+    id: passengers.0.surname
+- inputText: Okafor
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.dateOfBirth
+- tapOn:
+    id: passengers.0.dateOfBirth
+- inputText: 1990-04-01
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.nationality
+- tapOn:
+    id: passengers.0.nationality
+- inputText: Nigeria
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.nationality-option-NG
+- tapOn:
+    id: passengers.0.nationality-option-NG

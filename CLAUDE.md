@@ -71,7 +71,9 @@ Trip builder (outside the numbered phases; the owner's combined travel packages,
 traveller plans a trip (Lagos to London, the dates, who travels), chooses a flight, a hotel, a
 rental car, an airport transfer and travel insurance, or only the parts they want, sees a price
 per part with one total and pays once. Built on the API, the website and the app
-(`docs/phases/trip-builder.md`); a discount for a combined trip waits for the owner.
+(`docs/phases/trip-builder.md`); a discount for a combined trip waits for the owner. The phone
+check (ADR-100) runs it in the published test APK and on the website against the online test
+server.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -184,6 +186,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/mobile scan:bundle dist`    | Secret scan of the mobile export (`--self-test` checks the scanner)               |
 | `pnpm --filter @suskii/web e2e:stack`              | Run the e2e stack (API, worker refresh, web) for Maestro flows                    |
 | Actions, Test server, Run workflow                 | Hosted test server for phones (`test-server.yml`, 5.5 h; also every 4 h, ADR-092) |
+| Actions, Phone check, Run workflow                 | Published test APK on an emulator and the website, against that server (ADR-100)  |
 | `node scripts/brand-assets.mjs`                    | Rebuild app and web icons, splash and header mark from `brand/` (ADR-068)         |
 | `pnpm format` / `format:check`                     | Prettier write / check                                                            |
 | `pnpm security:checklist` (`--check` in CI)        | Regenerate `docs/security/checklist.md` from the reviewed mapping                 |
@@ -433,6 +436,9 @@ Tooling notes for agents:
 
 - Pages render per request (nonce CSP, ADR-010); cache API reads through `lib/api.ts`
   (`revalidate` + tags). Never read `localStorage` during render; restore it in an effect.
+- An answer one booking can change for the next visitor (which rental cars are free on the dates
+  asked, a bus trip's seat map) is read with `revalidate: 0`. A cached list keeps offering what
+  was just taken, also to the first visitor after the cache has expired.
 - Node and browsers ship different CLDR data, so `Intl` text in a server-rendered client component
   can differ at hydration. Render it in an element with `suppressHydrationWarning` (as
   `FieldButton` and `NativeSelect` do) and switch browser-only values (the visitor's time zone)
@@ -514,8 +520,13 @@ Tooling notes for agents:
   `attestationHeader()`. The API client feeds `X-Suskii-Attestation-Result` back to
   `noteAttestationResult()`; the iOS key counts as attested only after `valid` (ADR-023).
 - Maestro flows live in `e2e/maestro` and run in order from `e2e/run-android.sh` (critical path,
-  bus, offline trip, an in-house tour with the route restored, a message to support, then Google
-  sign-up and sign-in again); add new journeys there.
+  bus, offline trip, an in-house tour with the route restored, a message to support, a combined
+  trip paid once, then Google sign-up and sign-in again); add new journeys there. `device.sh`
+  holds the device set-up and `run_flow`; check a new flow with `maestro check-syntax`.
+- The phone check (ADR-100, `e2e/run-hosted.sh`, `phone-check.yml`) runs the test APK against the
+  online test server with nothing routed to the runner. A flow it runs must work on a server that
+  keeps its data for hours: take anything unique (an account's address) from `-e`, never a fixed
+  value. `mobile-test-apk.yml` publishes only after it passes; never publish the APK another way.
 - Wrap checkout, payment and document screens in `useSensitiveScreen()`.
 - Flight checkout offers the quote's first extra (a checked bag) per traveller with a seat, as the
   website does; bags send `extras` and switch reserving and installments off (ADR-063).
@@ -855,6 +866,9 @@ Tooling notes for agents:
   share when the amount is wrong, is flagged and refunded, never applied in part. A booking's
   ledger postings and balance stay its own. Refunds of a share go to the trip payment's provider
   reference (`providerRef()` in `RefundsService`).
+- Code that counts payments per person or address counts a trip payment once, not its shares
+  (`PaymentRiskService.assess`: the velocity signals of ADR-040). A share is still reviewed and
+  held on its own.
 - Code that lists pending payments for a booking must leave trip shares to the trip
   (`tripPaymentId: null` in reconciliation; `abandonOpenPayments` does not close them at the
   provider). Reconciliation covers trip payments on their own (`reconcileTripPayments`,
@@ -1346,6 +1360,7 @@ Tooling notes for agents:
 - [ADR-097: Hotel collections, deals, the pin map and recent searches](docs/decisions/ADR-097-hotel-collections-deals-and-the-pin-map.md)
 - [ADR-098: Car rental rates by the week and month, airport branches and rental options](docs/decisions/ADR-098-car-rental-rates-branches-and-options.md)
 - [ADR-099: Combined trips, built from ordinary bookings and paid once](docs/decisions/ADR-099-combined-trips.md)
+- [ADR-100: Phone check, the test APK and the website against the online test server](docs/decisions/ADR-100-phone-check.md)
 
 ## Open questions for the owner
 
@@ -1510,5 +1525,7 @@ one-way fees, and whether a young-driver surcharge should replace the refusal. A
 trips (ADR-099): whether a combined trip gets a discount or a fee (none today), whether tours, visa
 assistance, an eSIM or lounge access should become parts of a trip, whether the plan should ask
 children's ages, one confirmation email for the whole trip, a console view of trips, and paying a
-trip in installments or from a wallet. Every owner action is listed, step by
-step, in `docs/owner/launch-checklist.md`.
+trip in installments or from a wallet. Added with the phone check (ADR-100): a device farm
+(Firebase Test Lab, BrowserStack or AWS Device Farm) to run the same flows on real phones before
+a store release, and whether the check should run on a schedule. Every owner action is listed,
+step by step, in `docs/owner/launch-checklist.md`.

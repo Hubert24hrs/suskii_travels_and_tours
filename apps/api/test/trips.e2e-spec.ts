@@ -862,6 +862,54 @@ describe('combined trips (e2e)', () => {
     await getTrip(kept);
   });
 
+  it('counts a trip as one payment for the daily limit, and holds a trip paid beyond it', async () => {
+    const reviews = () => ctx.prisma.paymentRiskReview.findMany({ orderBy: { createdAt: 'asc' } });
+    /** An ordinary flight booking, paid on its own. */
+    const single = async (): Promise<string> => {
+      const id = await flightBooking();
+      const payment = await ctx
+        .http()
+        .post(`/v1/bookings/${id}/payments`)
+        .set('Idempotency-Key', nextKey('e2e-trip-single'))
+        .set(traveller.headers)
+        .expect(201);
+      await complete(referenceOf(payment.body.checkoutUrl as string));
+      return id;
+    };
+
+    // One charge pays five bookings. The traveller's next payment is their second of the day,
+    // not their sixth, so it is not held for review (ADR-040: five payments a day).
+    const { trip } = await fullTrip();
+    const charge = await payTrip(trip.id).expect(201);
+    await complete(referenceOf(charge.body.checkoutUrl as string));
+    const next = await single();
+    expect(await reviews()).toEqual([]);
+    expect((await ctx.prisma.booking.findUniqueOrThrow({ where: { id: next } })).status).toBe(
+      'CONFIRMED',
+    );
+
+    // Three more make five charges. A sixth is over the limit, and a trip is no way around it:
+    // each of its bookings waits for finance.
+    for (let count = 0; count < 3; count += 1) await single();
+    expect(await reviews()).toEqual([]);
+    const tripId = (await createTrip(['flight', 'hotel']).expect(201)).body.id as string;
+    const flight = await flightBooking();
+    const hotel = await hotelBooking();
+    await addPart(tripId, flight).expect(200);
+    await addPart(tripId, hotel).expect(200);
+    const sixth = await payTrip(tripId).expect(201);
+    await complete(referenceOf(sixth.body.checkoutUrl as string));
+    const held = await reviews();
+    expect(held.map((review) => review.bookingId).sort()).toEqual([flight, hotel].sort());
+    for (const review of held) {
+      expect(review).toMatchObject({
+        status: 'open',
+        signals: ['velocity_account', 'velocity_contact'],
+      });
+    }
+    expect((await getTrip(tripId)).parts.map((part) => part.status)).toEqual(['PAID', 'PAID']);
+  });
+
   it('caps the trips one account can leave unpaid', async () => {
     const created: string[] = [];
     for (let index = 0; index < 10; index += 1) {
