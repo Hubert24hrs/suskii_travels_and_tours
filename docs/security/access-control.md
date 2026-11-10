@@ -22,7 +22,7 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   `@StepUp()`.
 - **One catalog.** `ROLE_PERMISSIONS` (`packages/shared/src/rbac.ts`) maps the ten roles
   (`customer`, `super_admin`, `operations`, `finance`, `support`, `content_manager`,
-  `visa_officer`, `privacy_officer`, and the Cars roles `driver` and `operator_agent`) to 27
+  `visa_officer`, `privacy_officer`, and the Cars roles `driver` and `operator_agent`) to 32
   permissions. The seed syncs it to the database for the console. Drivers and operator agents
   are not staff (`NON_STAFF_ROLES`): no console, no MFA requirement, and their routes also check
   the record (the driver assigned to a ride, the agent's operator) (ADR-049, ADR-050).
@@ -35,6 +35,16 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   audit list. `admin-matrix.e2e-spec.ts` calls every admin route as every role and expects 403
   unless the role holds the permission. Denials are audited (`rbac.access_denied`) or logged
   (`authorization denied`).
+- **The assistant's tools** (`/v1/internal/agent-tools`, ADR-101, ADR-107) accept only the agent
+  service's own token (`AGENT_TOOLS_TOKEN`; the worker's token opens nothing there, and the
+  agent's opens none of the worker's routes) and answer 404 while `AGENT_ENABLED` is off. A
+  call then runs only for a grant the API sealed for a running run (the caller, roles, channel
+  and scopes are inside it and are never taken from the model), for a tool that is the calling
+  agent's, inside the grant's scopes, at an autonomy level that lets its tier run, and within
+  the run's call limit. A `commit` tool never runs from the gateway. Approving a refund,
+  capturing a payment, paying out, posting to the ledger, changing a price rule and confirming a
+  booking cannot be registered as tools at all (`isForbiddenAgentTool`; the API refuses to
+  start). `test/agent-gateway.e2e-spec.ts` covers each refusal.
 - **Internal routes** (`/v1/internal`) accept only the worker's service token. Behind
   Cloudflare the edge also blocks them, and blocks the console and `/v1/admin` from addresses
   outside `admin_allowed_ips` (ADR-059).
@@ -84,6 +94,8 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Audit log, dashboards, partner commission summary                                                | Staff with `audit:read` or `reports:read`                                                                                                                                                                                                                                                                                                                               |
 | Metasearch partners (`/v1/admin/metasearch/partners`)                                            | Staff with `reports:read` see partners and the 30-day report (key hint only); `pricing:manage` adds partners and replaces keys with step-up, and changes limits or access; all audited                                                                                                                                                                                  |
 | Privacy registers (`/v1/admin/privacy`)                                                          | Staff with `privacy:manage` (privacy officers, super admins): rights requests (email shown masked) and breaches (details only on the breach itself); every change audited with ids and outcomes only (ADR-089)                                                                                                                                                          |
+| The assistant's switches (`/v1/admin/ai`)                                                        | Staff with `ai:read` (operations, finance, support, super admins) see the overview: whether it is on and paused, the day's model spend, run counts, autonomy levels and the tools. Pausing needs `ai:manage` (super admins) and nothing more; releasing the pause and changing an autonomy level also need step-up. Each change is audited with codes only (ADR-107)    |
+| Conversations with the assistant                                                                 | Their owner's session (a guest's token, stored as an HMAC, when the chat routes arrive); the agent service never reads the tables and reaches a person's data only through the tool gateway with that person's grant (ADR-101)                                                                                                                                          |
 
 Anything a caller may not access answers **404**, never 403, so ids cannot be probed. Ownership
 is checked in the service that loads the record (`BookingsService.load()` and the like), not in

@@ -28,7 +28,8 @@ secrets:
   # TRAVELPAYOUTS_POSTBACK_SECRET and VIATOR_API_KEY for partner offers, ADR-070;
   # META_CAPI_ACCESS_TOKEN and TIKTOK_EVENTS_ACCESS_TOKEN for ad conversions, ADR-079;
   # WHATSAPP_ACCESS_TOKEN, WHATSAPP_APP_SECRET and WHATSAPP_VERIFY_TOKEN for WhatsApp support,
-  # ADR-084; EXPEDIA_RAPID_API_KEY and EXPEDIA_RAPID_SHARED_SECRET for Expedia hotels, ADR-086).
+  # ADR-084; EXPEDIA_RAPID_API_KEY and EXPEDIA_RAPID_SHARED_SECRET for Expedia hotels, ADR-086;
+  # AGENT_RUN_TOKEN and AGENT_TOOLS_TOKEN once the agent service runs, ADR-101).
   api: suskii-api
   # DATABASE_URL (the schema owner) and DATABASE_APP_URL (the app role).
   migrate: suskii-migrate
@@ -44,7 +45,8 @@ api:
   # SMS_PROVIDER, SMS_ROUTES, TERMII_SENDER_ID, AFRICASTALKING_USERNAME, FX_PROVIDER,
   # FX_RATE_OVERRIDES, WHATSAPP_PROVIDER, COMPANY_WALLET_TOPUP_LIMITS,
   # COMPANY_WALLET_TOPUPS_PER_DAY, DUFFEL_SEAT_SELECTION, FLIGHT_STATUS_PROVIDER,
-  # ADMIN_IP_ALLOWLIST, ...); secrets go in the Secret above. NODE_ENV, the port, origins and client address header are set by the chart.
+  # AGENT_ENABLED, AGENT_URL, PRICE_INTEL_ENABLED, ADMIN_IP_ALLOWLIST, ...); secrets go in the
+  # Secret above. NODE_ENV, the port, origins and client address header are set by the chart.
   env:
     LOG_LEVEL: info
     OBJECT_STORAGE: s3

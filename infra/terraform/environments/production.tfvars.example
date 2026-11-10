@@ -135,6 +135,13 @@ api_env = {
   # SUPPORT_ASSISTANT_ENABLED = "true"
   # SUPPORT_HOURS             = "mon-fri 08:00-20:00, sat 09:00-14:00"
   # SUPPORT_TIME_ZONE         = "Africa/Lagos"
+  # Suskii Agent (ADR-101 to ADR-107) and price intelligence (ADR-102) are off unless set, and
+  # nothing here turns them on: the agent service is not deployed yet (docs/phases/ai-agent.md).
+  # When it is, AGENT_RUN_TOKEN and AGENT_TOOLS_TOKEN go in extra_secrets (two different values,
+  # neither equal to INTERNAL_API_TOKEN), and the owner decides:
+  # AGENT_ENABLED       = "true"
+  # AGENT_URL           = "https://REPLACE"
+  # PRICE_INTEL_ENABLED = "true"
   # Company wallet top-ups (ADR-090) default to NGN 10,000 to 5,000,000 and USD 10 to 5,000,
   # five a day per company. To change them (minor units, CUR=min/max), uncomment:
   # COMPANY_WALLET_TOPUP_LIMITS   = "NGN=1000000/500000000,USD=1000/500000"

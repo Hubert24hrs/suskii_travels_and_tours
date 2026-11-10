@@ -73,6 +73,9 @@ api_env = {
 
   # The after-hours assistant (ADR-085) answers at any hour on staging (no staffed hours).
   SUPPORT_ASSISTANT_ENABLED = "true"
+
+  # Suskii Agent (ADR-101) stays off until its service is deployed here: it then needs
+  # AGENT_URL, and AGENT_RUN_TOKEN and AGENT_TOOLS_TOKEN in extra_secrets.
 }
 
 web_env = {
