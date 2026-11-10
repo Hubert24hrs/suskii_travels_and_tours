@@ -14341,6 +14341,529 @@
         ]
       }
     },
+    "/v1/agent/chat": {
+      "post": {
+        "operationId": "sendAgentMessage",
+        "summary": "Send a message to the assistant",
+        "description": "Stores the message and starts a run; the answer arrives as events of the run (`GET /v1/agent/runs/{runId}` or its stream). 409 `agent-busy` while the last message is still being answered, 409 `agent-conversation-full` after 200 messages, 429 `agent-budget` when the day's spend cap is reached, 503 `agent-paused` or `agent-unavailable` when the assistant cannot answer. The assistant never books, pays or refunds: an action it proposes is a confirmation the traveller taps.",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Agent-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guests: the access token returned when the conversation started. Account holders use their session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentChatRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentChatStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/agent/conversations": {
+      "post": {
+        "operationId": "startAgentConversation",
+        "summary": "Start a conversation with the assistant",
+        "description": "Optionally opened from one of the caller's bookings (guests add `X-Booking-Token`). Without a session, the website sends a Turnstile token and the app a device attestation (400 `bot-check-failed` otherwise); guests receive an access token once. 409 `agent-conversation-limit` when an account already has 20 open conversations.",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Suskii-Attestation",
+            "in": "header",
+            "required": false,
+            "description": "Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartAgentConversationRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedAgentConversation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listAgentConversations",
+        "summary": "The signed-in traveller's conversations with the assistant",
+        "description": "Most recently active first; empty without a session (guests open theirs by id).",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConversationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/agent/conversations/{conversationId}": {
+      "get": {
+        "operationId": "getAgentConversation",
+        "summary": "A conversation with its messages",
+        "description": "The caller's own conversation; 404 for anyone else's. `activeRunId` names a run that is still answering.",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Agent-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guests: the access token returned when the conversation started. Account holders use their session instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConversation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAgentConversation",
+        "summary": "Delete a conversation",
+        "description": "Deletes the conversation, its messages and the assistant's working state of it. It cannot be undone.",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Agent-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guests: the access token returned when the conversation started. Account holders use their session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/agent/messages/{messageId}/feedback": {
+      "put": {
+        "operationId": "rateAgentMessage",
+        "summary": "Say whether an answer helped",
+        "description": "A thumb up or down on an answer of the caller's own conversation; null takes it back.",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Agent-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guests: the access token returned when the conversation started. Account holders use their session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentFeedbackRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/agent/runs/{runId}": {
+      "get": {
+        "operationId": "getAgentRun",
+        "summary": "The events of a run, for clients that poll",
+        "description": "Status lines while the assistant works, then the answer as a `message` and a `done`. Ask again with `after` set to the last event number seen until `done` is true. Events are kept for an hour; the answer itself stays in the conversation.",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "X-Agent-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guests: the access token returned when the conversation started. Account holders use their session instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRunEvents"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/agent/runs/{runId}/stream": {
+      "get": {
+        "operationId": "streamAgentRun",
+        "summary": "The events of a run as a server-sent event stream",
+        "description": "The same events as the poll, each with its number as the event id: reconnect with `Last-Event-ID` (or `after`) to resume. The stream ends with the run. It is never compressed or cached.",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "X-Agent-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guests: the access token returned when the conversation started. Account holders use their session instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/agent/status": {
       "get": {
         "operationId": "getAgentStatus",
@@ -37256,6 +37779,404 @@
         ],
         "additionalProperties": false
       },
+      "AgentChatRequestInput": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "conversationId",
+          "text"
+        ]
+      },
+      "AgentChatStarted": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "$ref": "#/components/schemas/AgentMessage"
+          }
+        },
+        "required": [
+          "runId",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "AgentConversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "bookingId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "messageCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "activeRunId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentMessage"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "locale",
+          "currency",
+          "status",
+          "bookingId",
+          "messageCount",
+          "activeRunId",
+          "lastMessageAt",
+          "createdAt",
+          "messages"
+        ],
+        "additionalProperties": false
+      },
+      "AgentConversationList": {
+        "type": "object",
+        "properties": {
+          "conversations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reference": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "closed"
+                  ]
+                },
+                "messageCount": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "lastMessageAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "reference",
+                "status",
+                "messageCount",
+                "lastMessageAt",
+                "createdAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "conversations"
+        ],
+        "additionalProperties": false
+      },
+      "AgentFeedbackRequestInput": {
+        "type": "object",
+        "properties": {
+          "feedback": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "feedback"
+        ]
+      },
+      "AgentMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "handover",
+              "notice"
+            ]
+          },
+          "agent": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "concierge",
+                  "flights",
+                  "hotels",
+                  "cars",
+                  "tours",
+                  "trip_builder",
+                  "bookings",
+                  "payments",
+                  "support",
+                  "disruption",
+                  "price_intel",
+                  "operations",
+                  "finance_prep",
+                  "marketing",
+                  "business_intelligence",
+                  "executive"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "greeting",
+                  "cannot_answer",
+                  "limit",
+                  "timeout",
+                  "unavailable",
+                  "paused"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "flight",
+                    "hotel",
+                    "car",
+                    "transfer",
+                    "tour",
+                    "package",
+                    "visa",
+                    "booking",
+                    "trip",
+                    "price",
+                    "link"
+                  ]
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "lines": {
+                  "maxItems": 4,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  }
+                },
+                "price": {
+                  "type": "object",
+                  "properties": {
+                    "amountMinor": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "currency": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{3}$"
+                    }
+                  },
+                  "required": [
+                    "amountMinor",
+                    "currency"
+                  ],
+                  "additionalProperties": false
+                },
+                "indicative": {
+                  "type": "boolean"
+                },
+                "href": {
+                  "type": "string",
+                  "maxLength": 600,
+                  "pattern": "^\\/(?!\\/)[A-Za-z0-9\\-._~%/?=&+:,@]*$"
+                },
+                "ref": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "booking",
+                        "trip",
+                        "support"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "kind",
+                "title",
+                "lines"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "confirmationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "kind",
+          "agent",
+          "text",
+          "notice",
+          "cards",
+          "confirmationId",
+          "feedback",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
       "AgentPauseInputInput": {
         "type": "object",
         "properties": {
@@ -37273,6 +38194,170 @@
         "required": [
           "reason"
         ]
+      },
+      "AgentRunEvents": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "waiting",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "refused"
+            ]
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "status"
+                    },
+                    "agent": {
+                      "type": "string",
+                      "enum": [
+                        "concierge",
+                        "flights",
+                        "hotels",
+                        "cars",
+                        "tours",
+                        "trip_builder",
+                        "bookings",
+                        "payments",
+                        "support",
+                        "disruption",
+                        "price_intel",
+                        "operations",
+                        "finance_prep",
+                        "marketing",
+                        "business_intelligence",
+                        "executive"
+                      ]
+                    },
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "routing",
+                        "thinking",
+                        "tool",
+                        "checking"
+                      ]
+                    },
+                    "tool": {
+                      "type": "string",
+                      "maxLength": 64
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type",
+                    "agent",
+                    "phase"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "message"
+                    },
+                    "message": {
+                      "$ref": "#/components/schemas/AgentMessage"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "done"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "answered",
+                        "handover",
+                        "confirmation",
+                        "guard_blocked",
+                        "step_limit",
+                        "tool_limit",
+                        "timeout",
+                        "model_error",
+                        "model_refused",
+                        "paused",
+                        "cancelled",
+                        "failed"
+                      ]
+                    },
+                    "confirmationId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type",
+                    "outcome",
+                    "confirmationId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "runId",
+          "status",
+          "done",
+          "events"
+        ],
+        "additionalProperties": false
       },
       "AgentStatus": {
         "type": "object",
@@ -60849,6 +61934,52 @@
         ],
         "additionalProperties": false
       },
+      "StartAgentConversationRequestInput": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en-NG",
+              "en-GB",
+              "en-US",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "NGN",
+              "USD",
+              "GBP",
+              "EUR",
+              "GHS",
+              "KES",
+              "ZAR"
+            ]
+          },
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "turnstileToken": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "StartCompanyTopUpInput": {
         "type": "object",
         "properties": {
@@ -60910,6 +62041,25 @@
         "required": [
           "amount"
         ]
+      },
+      "StartedAgentConversation": {
+        "type": "object",
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/AgentConversation"
+          },
+          "accessToken": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "conversation",
+          "accessToken"
+        ],
+        "additionalProperties": false
       },
       "StartedSupportConversation": {
         "type": "object",
