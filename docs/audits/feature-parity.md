@@ -141,7 +141,29 @@ the own-fleet rental system.
 | Additional driver options                   | Built  | An extra per day, not with a chauffeur (ADR-098)                                                                               |
 | Child seats and GPS add-ons                 | Built  | Extras per day and per unit, priced again before payment (ADR-098)                                                             |
 
+## D. Combined travel packages
+
+The owner's list of 2026-11-10, built as the trip builder (ADR-099,
+`docs/phases/trip-builder.md`). A traveller may take every part or only one or two.
+
+| Feature                               | Status | Where                                                                                                                   |
+| ------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Choose the departure (Lagos)          | Built  | The plan form: an airport, on the website at `/trips` and in the app from Home                                          |
+| Choose the destination (London)       | Built  | The plan form; the airport's city is used for the hotel, the car and the add-ons                                        |
+| Choose the departure and return dates | Built  | The plan form, up to 30 nights                                                                                          |
+| Select a flight                       | Built  | The ordinary flight search, prefilled as a return trip; checkout adds the booking to the trip                           |
+| Choose a hotel                        | Built  | The ordinary hotel search in the destination's city for the trip's dates                                                |
+| Select a rental car                   | Built  | The rental search in the destination's city for the same days (needs the fleet switched on, ADR-069)                    |
+| Add airport transfers                 | Built  | The airport transfer add-ons on sale at the destination                                                                 |
+| Add travel insurance                  | Built  | The insurance add-ons, quoted for the trip's dates and travellers                                                       |
+| Review the entire trip                | Built  | The trip page: every part with what was chosen, its dates and its state                                                 |
+| A price for each part and a total     | Built  | Each part's own all-in price and their sum, from the API; no discount is invented                                       |
+| Pay for the combined package          | Built  | One hosted checkout for every part; each booking is then confirmed and can be changed, cancelled or refunded on its own |
+| Only one or two parts                 | Built  | The plan names the parts wanted, and a trip can be paid with any of them                                                |
+
 ## Totals
+
+Flights, hotels and car rental (sections A to C):
 
 |            | Built | Partly | Missing | Lines |
 | ---------- | ----- | ------ | ------- | ----- |

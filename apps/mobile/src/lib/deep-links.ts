@@ -98,6 +98,9 @@ function appPath({ path, query }: Parts): IncomingLink {
   if (first === 'trips' && segments.length === 1) return { path: '/trips' };
   if (first === 'trips' && second && UUID.test(second) && segments.length === 2)
     return tripLink(second, '', false);
+  // A combined trip (ADR-099), where its hosted checkout hands the traveller back.
+  if (first === 'trips' && second === 'built' && third && UUID.test(third) && segments.length === 3)
+    return { path: `/trips/built/${third.toLowerCase()}` };
   if (
     (first === 'deals' || first === 'account' || first === 'prime' || first === 'support') &&
     !second

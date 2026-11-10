@@ -148,6 +148,7 @@ export function booking(patch: Partial<Booking> = {}): Booking {
     paymentOptions: null,
     refunds: [],
     company: null,
+    trip: null,
     ...patch,
   };
 }

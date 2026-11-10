@@ -67,6 +67,12 @@ week and month, airport branches, driver age, extras, one-way returns and cross-
 (ADR-098), is built; the fleet's real rates and terms come from the owner. The audit reads 74 of
 89 lines built, 14 partly and 1 missing.
 
+Trip builder (outside the numbered phases; the owner's combined travel packages, ADR-099): a
+traveller plans a trip (Lagos to London, the dates, who travels), chooses a flight, a hotel, a
+rental car, an airport transfer and travel insurance, or only the parts they want, sees a price
+per part with one total and pays once. Built on the API, the website and the app
+(`docs/phases/trip-builder.md`); a discount for a combined trip waits for the owner.
+
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
 needs the owner's account, then one run of `partner-sandbox.yml` (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
@@ -828,6 +834,46 @@ Tooling notes for agents:
   "Tonight in {city}" on the website's hotels page takes its dates from the browser's clock, so
   it renders there and sits under the destinations, where it moves nothing (ADR-075).
 
+### Combined trips (apps/api/src/trips, packages/shared trips; ADR-099)
+
+- A trip is a group of the account's own ordinary bookings, one per part (`flight`, `hotel`,
+  `car`, `transfer`, `insurance`; `tripComponentOf()` in `@suskii/shared`), with a plan of
+  places, dates and head counts. Never build a second booking flow for a trip: each part is
+  searched, booked, re-checked, fulfilled, cancelled and refunded as an ordinary booking.
+- Parts change only through `TripsService` (`addPart`, `removePart`, `remove`): the booking is
+  loaded with `BookingsService.load()` and must be the caller's by session, unpaid, in the trip's
+  currency, wanted by the plan, not a company booking, without a payment plan and in no other
+  trip. Every `/v1/trips` route acts on the caller's own trips (404 otherwise). Never set
+  `bookings.trip_id` elsewhere.
+- One payment: `TripCheckoutService.startPayment()` confirms each part's price with its supplier,
+  then creates one `trip_payments` row and one `payments` share per booking
+  (`trip_payment_id`). Never take a trip's money any other way, and never offer a plan, a wallet
+  or a company payment for a trip. A change to a trip's parts closes the checkout it has open
+  (`TripsService.closeOpenCheckout`), so the traveller only ever pays what the trip shows.
+- The webhook for a trip payment (`PaymentEventsService.processTripPayment`) settles each share
+  through `applyReceived` under its booking's lock; a share that cannot be applied, or every
+  share when the amount is wrong, is flagged and refunded, never applied in part. A booking's
+  ledger postings and balance stay its own. Refunds of a share go to the trip payment's provider
+  reference (`providerRef()` in `RefundsService`).
+- Code that lists pending payments for a booking must leave trip shares to the trip
+  (`tripPaymentId: null` in reconciliation; `abandonOpenPayments` does not close them at the
+  provider). Reconciliation covers trip payments on their own (`reconcileTripPayments`,
+  `checkTripPayments`, discrepancy subject `trip_payment`).
+- The total is the sum of the parts' own all-in prices. A discount for a combination is a
+  pricing rule the owner decides, never something a client or the trip computes.
+- A trip with a payment, started or made, is never deleted. A plan holds no names, contacts or
+  documents; keep it that way (the export, retention and the store forms say so).
+- Clients: the plan form and the trip page (website `/trips`, `/trips/{id}`; app
+  `/trips/plan`, `/trips/built/{id}`). Each part opens the ordinary search from
+  `tripSearchQuery()`. While a part is being chosen the client remembers the trip and the part
+  (`lib/trip-builder.ts`: session storage on the website, memory in the app); checkout adds the
+  booking with `addTripPart` only when the quote is that part (`quoteTripComponent()`), says so
+  first and offers to book on its own. The website's trip page is a payment page
+  (`isPaymentPage()`), private and not indexed; the app's trip screen is wrapped in
+  `useSensitiveScreen()`.
+- The booking answer's `trip` field is additive; fields added to a trip answer stay optional for
+  older app builds.
+
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 
 - Only a confirmed booking item whose trip has ended (the day after `tripFacts` `endDate`, within
@@ -1299,6 +1345,7 @@ Tooling notes for agents:
 - [ADR-096: Hotel photos, property types and room details](docs/decisions/ADR-096-hotel-photos-property-types-and-room-details.md)
 - [ADR-097: Hotel collections, deals, the pin map and recent searches](docs/decisions/ADR-097-hotel-collections-deals-and-the-pin-map.md)
 - [ADR-098: Car rental rates by the week and month, airport branches and rental options](docs/decisions/ADR-098-car-rental-rates-branches-and-options.md)
+- [ADR-099: Combined trips, built from ordinary bookings and paid once](docs/decisions/ADR-099-combined-trips.md)
 
 ## Open questions for the owner
 
@@ -1459,5 +1506,9 @@ provider if the map should show streets (and its name in the privacy policy), an
 thresholds (15% below the star class, five hotels to compare, guest score 7). Added with car rental
 options (ADR-098): each car's weekly and monthly rate, minimum driver age, extras and their
 prices, the countries its insurance covers and the fee, the branches that take returns and the
-one-way fees, and whether a young-driver surcharge should replace the refusal. Every owner action is listed, step by
+one-way fees, and whether a young-driver surcharge should replace the refusal. Added with combined
+trips (ADR-099): whether a combined trip gets a discount or a fee (none today), whether tours, visa
+assistance, an eSIM or lounge access should become parts of a trip, whether the plan should ask
+children's ages, one confirmation email for the whole trip, a console view of trips, and paying a
+trip in installments or from a wallet. Every owner action is listed, step by
 step, in `docs/owner/launch-checklist.md`.

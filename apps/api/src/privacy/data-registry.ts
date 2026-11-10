@@ -44,6 +44,7 @@ export const EXPORT_SECTIONS = [
   'company',
   'support',
   'privacyRequests',
+  'trips',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -66,7 +67,8 @@ export type Retention =
   | { kind: 'job'; job: 'visa-documents-prune' | 'snapshots-prune' | 'push-tokens-prune' }
   | {
       kind: 'parent';
-      parent: 'Session' | 'Booking' | 'SupportConversation' | 'StatusIncident' | 'PrivacyBreach';
+      parent:
+        'Session' | 'Booking' | 'SupportConversation' | 'StatusIncident' | 'PrivacyBreach' | 'Trip';
     }
   | { kind: 'append-only' };
 
@@ -619,6 +621,18 @@ export const DATA_REGISTRY = {
     deletion: 'retain',
     retention: { kind: 'rule', rule: 'company-top-ups' },
     note: "A top-up of the company wallet (ADR-090): amount, status, provider references, a hashed IP and who started it; never card data. A financial record of the company's money: kept after the account goes (the user row becomes a tombstone) for FINANCIAL_RECORDS_RETENTION_YEARS; unpaid ones go after 90 days.",
+  },
+  Trip: {
+    section: 'trips',
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'trips' },
+    note: 'A group of bookings paid together (ADR-099): where from and to, the dates, head counts and the parts wanted; no names, contacts or documents. Exported with its parts; each booking also says which trip it belongs to. Kept with its bookings as a financial record: an empty plan goes after 30 days, the rest after FINANCIAL_RECORDS_RETENTION_YEARS.',
+  },
+  TripPayment: {
+    section: 'payments',
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'Trip' },
+    note: "One hosted checkout for a trip's unpaid bookings: amount, status and provider references; never card data (SAQ-A). Each booking's share is a payment row of its own, which is what the export lists.",
   },
   AdConversion: {
     section: 'activity',

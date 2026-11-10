@@ -1,5 +1,5 @@
 import { Card } from '@suskii/ui-web';
-import { Map, Palmtree } from 'lucide-react';
+import { Luggage, Map, Palmtree } from 'lucide-react';
 
 import { api } from '../../lib/api';
 import { getI18n } from '../../lib/i18n';
@@ -47,10 +47,18 @@ export async function PackagesTeaser() {
       body: t('sections.teaser.toursBody'),
       price: tourFrom ? t('inhouse.fromPerAdult', { price: format.moneyFrom(tourFrom) }) : null,
     },
+    // The trip builder (ADR-099): the traveller puts the parts together and pays once.
+    {
+      href: '/trips',
+      icon: <Luggage aria-hidden="true" className="size-10" />,
+      title: t('sections.teaser.tripTitle'),
+      body: t('sections.teaser.tripBody'),
+      price: null,
+    },
   ];
   return (
     <Section id="packages-tours" title={t('sections.teaser.heading')}>
-      <ul className="grid gap-4 md:grid-cols-2">
+      <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => (
           <li key={card.href}>
             <Card interactive className="relative flex h-full items-start gap-4 p-6">

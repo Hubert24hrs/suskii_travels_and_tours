@@ -13,7 +13,8 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useT } from '../../providers/app-provider';
 
-function Stepper({
+/** A labelled counter with 48pt buttons; the value is announced as it changes. */
+export function Stepper({
   label,
   value,
   min,

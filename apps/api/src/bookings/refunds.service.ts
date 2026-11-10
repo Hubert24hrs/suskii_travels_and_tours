@@ -13,6 +13,7 @@ import type {
   Refund,
   RefundDestination,
   RefundStatus,
+  TripPayment,
 } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import type { AccountRef } from '../ledger/ledger-accounts';
@@ -121,6 +122,27 @@ const paymentRef = (payment: Payment): PaymentRef => ({
   providerTransactionId: payment.providerTransactionId,
   amount: money(payment.amountMinor, payment.currency),
 });
+
+/** A payment as loaded for a provider call: with the trip checkout it is a share of, if any. */
+type RefundedPayment = Payment & { tripPayment?: TripPayment | null };
+
+/**
+ * The charge at the provider a refund goes back to. A booking's share of a trip checkout
+ * (ADR-099) was never a charge of its own: the provider knows the trip payment's reference and
+ * amount, and takes this refund as a part of that one charge.
+ */
+const providerRef = (payment: RefundedPayment): PaymentRef => {
+  const trip = payment.tripPayment;
+  if (!trip) return paymentRef(payment);
+  return {
+    providerReference: trip.providerReference,
+    providerTransactionId: trip.providerTransactionId ?? payment.providerTransactionId,
+    amount:
+      trip.receivedMinor !== null && trip.receivedCurrency
+        ? money(trip.receivedMinor, trip.receivedCurrency)
+        : money(trip.amountMinor, trip.currency),
+  };
+};
 
 /**
  * Refunds (ADR-019): automatic ones for money Suskii cannot deliver on, staff ones behind
@@ -477,7 +499,7 @@ export class RefundsService {
     if (count === 0) return 'skipped';
     const refund = await this.prisma.refund.findUniqueOrThrow({
       where: { id: refundId },
-      include: { payment: true },
+      include: { payment: { include: { tripPayment: true } } },
     });
 
     if (isWalletDestination(refund.destination)) {
@@ -516,14 +538,14 @@ export class RefundsService {
   }
 
   private async callProvider(
-    refund: Refund & { payment: Payment },
+    refund: Refund & { payment: RefundedPayment },
     provider: PaymentProvider,
   ): Promise<'succeeded' | 'processing' | 'failed' | 'needs_review'> {
     let result: ProviderRefund;
     try {
       result = await provider.refund({
         refundId: refund.id,
-        payment: paymentRef(refund.payment),
+        payment: providerRef(refund.payment),
         amount: money(refund.amountMinor, refund.currency),
       });
     } catch (error) {
@@ -780,7 +802,13 @@ export class RefundsService {
         status: { in: ['processing', 'needs_review'] },
         amountMinor: event.amount.minor,
         currency: event.amount.currency,
-        payment: { providerReference: event.providerReference },
+        // The charge is the payment's own, or the trip checkout it is a share of (ADR-099).
+        payment: {
+          OR: [
+            { providerReference: event.providerReference },
+            { tripPayment: { providerReference: event.providerReference } },
+          ],
+        },
       },
     });
     return candidates.length === 1 ? (candidates[0] ?? null) : null;
@@ -810,7 +838,7 @@ export class RefundsService {
 
     const processing = await this.prisma.refund.findMany({
       where: { status: 'processing', updatedAt: { lt: new Date(now.getTime() - POLL_AFTER_MS) } },
-      include: { payment: true },
+      include: { payment: { include: { tripPayment: true } } },
       orderBy: { updatedAt: 'asc' },
       take: BATCH,
     });
@@ -835,7 +863,10 @@ export class RefundsService {
           }
           continue;
         }
-        const state = await provider.getRefund(refund.providerRefundId, paymentRef(refund.payment));
+        const state = await provider.getRefund(
+          refund.providerRefundId,
+          providerRef(refund.payment),
+        );
         if (state && state.status !== 'pending') {
           if ((await this.applyProviderResult(refund.id, state)) === 'succeeded')
             counts.settled += 1;
@@ -864,7 +895,7 @@ export class RefundsService {
         destination: { notIn: WALLET_DESTINATIONS },
         updatedAt: { lt: new Date(now.getTime() - RECONCILE_AFTER_MS) },
       },
-      include: { payment: true },
+      include: { payment: { include: { tripPayment: true } } },
       orderBy: { updatedAt: 'asc' },
       take: BATCH,
     });
@@ -873,11 +904,14 @@ export class RefundsService {
       const provider = this.providers.find(refund.provider);
       if (!provider) continue;
       try {
-        const listed = await provider.listRefunds(paymentRef(refund.payment));
+        const listed = await provider.listRefunds(providerRef(refund.payment));
         if (!listed) continue;
         const match =
           listed.find((item) => item.refundId === refund.id) ??
           (() => {
+            // One charge can carry the refunds of several bookings of a trip (ADR-099): an
+            // unnamed refund of the same amount could be another booking's, so staff decide.
+            if (refund.payment.tripPayment) return undefined;
             const sameAmount = listed.filter(
               (item) => item.amount?.minor === refund.amountMinor && item.refundId === null,
             );

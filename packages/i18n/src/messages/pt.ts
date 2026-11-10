@@ -54,6 +54,7 @@ export const pt: Messages = {
     cars: 'Autocarros e carros',
   },
   footer: {
+    tripBuilder: 'Montar uma viagem',
     company: 'Empresa',
     explore: 'Explorar',
     support: 'Apoio',
@@ -136,6 +137,8 @@ export const pt: Messages = {
       addonsName: 'Preenche o seu apelido quando procura extras para uma reserva.',
       companyInvite:
         'Guarda um convite de empresa enquanto inicia sessão para o aceitar, apenas neste separador.',
+      tripBuilder:
+        'Guarda a viagem que está a montar enquanto escolhe cada parte, apenas neste separador.',
       socialSignIn:
         'Traz de volta a este site um início de sessão Google ou Apple, apenas neste separador.',
       turnstile:
@@ -402,6 +405,9 @@ export const pt: Messages = {
         'As opções dependem da companhia aérea, do hotel ou do produto e são apresentadas antes de pagar.',
     },
     teaser: {
+      tripTitle: 'Monte a sua viagem',
+      tripBody:
+        'Voo, hotel, carro, transfer do aeroporto e seguro juntos, ou só as partes que quiser. Um único pagamento.',
       heading: 'Pacotes de férias e passeios',
       packagesTitle: 'Pacotes de férias',
       packagesBody:
@@ -872,6 +878,11 @@ export const pt: Messages = {
     },
   },
   checkout: {
+    tripBuilder: {
+      banner: 'Isto será adicionado à sua viagem {reference}. Paga a viagem inteira no fim.',
+      alone: 'Reservar em separado',
+      submit: 'Adicionar à minha viagem',
+    },
     company: {
       label: 'Reservar para {company}',
       help: 'Aplica-se a política de viagem da empresa. Se a viagem precisar de aprovação, paga depois de o aprovador aceitar.',
@@ -2069,6 +2080,10 @@ export const pt: Messages = {
     notFound: 'Este link de pagamento não é válido.',
   },
   booking: {
+    builtTrip: {
+      partOf: 'Esta reserva faz parte da sua viagem {reference}.',
+      open: 'Abrir a viagem',
+    },
     company: {
       pending:
         'A aguardar que a sua empresa aprove esta viagem. Pode pagar assim que um aprovador aceitar, antes de o preço expirar.',
@@ -3271,6 +3286,137 @@ export const pt: Messages = {
     unavailable:
       'Não conseguimos carregar o estado do serviço neste momento. Se algo não estiver a funcionar, contacte o apoio.',
     bannerLink: 'Ver o estado do serviço',
+  },
+  trips: {
+    title: 'Monte a sua viagem',
+    metaDescription:
+      'Junte um voo, um hotel, um carro de aluguer, um transfer do aeroporto e um seguro de viagem, ou só as partes que quiser, e pague tudo de uma vez.',
+    intro:
+      'Junte um voo, um hotel, um carro de aluguer, um transfer do aeroporto e um seguro de viagem, ou só as partes que quiser. Vê um preço por cada parte e um total, e paga uma única vez.',
+    components: {
+      flight: 'Voo',
+      hotel: 'Hotel',
+      car: 'Carro de aluguer',
+      transfer: 'Transfer do aeroporto',
+      insurance: 'Seguro de viagem',
+    },
+    route: '{from} – {to}',
+    adults: {
+      one: '{count} adulto',
+      other: '{count} adultos',
+    },
+    children: {
+      one: '{count} criança',
+      other: '{count} crianças',
+    },
+    plan: {
+      heading: 'Onde e quando',
+      from: 'Origem',
+      to: 'Destino',
+      dates: 'Datas',
+      datesPlaceholder: 'Ida e volta',
+      adults: 'Adultos',
+      children: 'Crianças',
+      childrenHint: 'Dos 2 aos 11 anos',
+      addAdult: 'Adicionar um adulto',
+      removeAdult: 'Remover um adulto',
+      addChild: 'Adicionar uma criança',
+      removeChild: 'Remover uma criança',
+      parts: 'De que precisa?',
+      partsHint: 'Escolha uma ou mais partes. Pode deixar uma de fora mais tarde.',
+      submit: 'Começar a minha viagem',
+      signIn:
+        'Inicie sessão para montar uma viagem, para que todas as partes fiquem juntas na sua conta.',
+      signInAction: 'Iniciar sessão',
+      errors: {
+        origin: 'Escolha de onde parte.',
+        destination: 'Escolha para onde vai.',
+        same: 'Escolha um destino diferente da origem.',
+        dates: 'Escolha o dia da ida e o dia da volta.',
+        tooLong: 'Uma viagem pode ter até {nights} noites.',
+        parts: 'Escolha pelo menos uma parte.',
+        tooMany: 'Tem dez viagens sem nada pago. Elimine uma para começar outra.',
+        generic: 'Não foi possível começar a sua viagem. Tente novamente.',
+      },
+    },
+    list: {
+      heading: 'As suas viagens',
+      open: 'Abrir',
+      parts: {
+        one: '{count} parte adicionada',
+        other: '{count} partes adicionadas',
+      },
+      none: 'Ainda nada adicionado',
+    },
+    states: {
+      empty: 'Por começar',
+      open: 'Por pagar',
+      awaiting_payment: 'Pagamento iniciado',
+      paid: 'Paga',
+      closed: 'Fechada',
+    },
+    partStates: {
+      to_pay: 'Por pagar',
+      paying: 'Pagamento iniciado',
+      paid: 'Pago',
+      confirmed: 'Confirmado',
+      closed: 'Cancelado ou expirado',
+    },
+    page: {
+      title: 'A sua viagem',
+      back: 'Todas as viagens',
+      reference: 'Viagem {reference}',
+      currencyNote:
+        'Esta viagem tem preços em {currency}. Mude a sua moeda para {currency} antes de adicionar uma parte, ou a reserva não entrará na viagem.',
+      partsHeading: 'Partes da sua viagem',
+      notAdded: 'Ainda não adicionado',
+      choose: {
+        flight: 'Escolher um voo',
+        hotel: 'Escolher um hotel',
+        car: 'Escolher um carro',
+        transfer: 'Adicionar um transfer do aeroporto',
+        insurance: 'Adicionar um seguro de viagem',
+      },
+      change: 'Alterar',
+      remove: 'Remover',
+      removeLabel: 'Remover da viagem: {part}',
+      changeLabel: 'Alterar: {part}',
+      viewBooking: 'Ver reserva',
+      viewLabel: 'Ver reserva {reference}',
+      flightLine: '{from} – {to}, {airline}',
+      priceChanged: 'O preço mudou de {previous} para {current}.',
+      acceptPrice: 'Aceitar o novo preço',
+      reviewHeading: 'Rever e pagar',
+      total: 'Total da viagem',
+      due: 'A pagar agora',
+      pay: 'Pagar {amount}',
+      payNote:
+        'Um único pagamento cobre todas as partes. Cada parte mantém a sua própria reserva, por isso pode alterar ou cancelar uma sem mexer nas outras.',
+      continuePayment: 'Continuar para o pagamento',
+      waiting: 'Estamos à espera do seu pagamento. Esta página atualiza-se sozinha.',
+      paid: 'A sua viagem está paga. Cada parte tem a sua própria reserva e confirmação.',
+      closed: 'Todas as partes desta viagem foram canceladas ou expiraram.',
+      nothingYet: 'Adicione uma parte para ver o seu total.',
+      delete: 'Eliminar esta viagem',
+      deleteConfirm:
+        'Eliminar esta viagem? As reservas que contém ficam como reservas independentes.',
+      deleteYes: 'Sim, eliminar',
+      deleteNo: 'Manter',
+      missing: 'Não encontramos esta viagem. Inicie sessão com a conta que a criou.',
+      loadError: 'Não foi possível carregar a sua viagem.',
+      retry: 'Tentar novamente',
+      errors: {
+        priceChanged: 'Um preço mudou. Aceite o novo preço acima e depois pague.',
+        nothingToPay: 'Não há nada a pagar nesta viagem.',
+        unavailable: 'Uma parte já não está disponível. Escolha-a de novo.',
+        provider:
+          'Os pagamentos não estão disponíveis neste momento. Tente novamente dentro de alguns minutos.',
+        tooMany: 'Demasiadas tentativas. Aguarde um minuto e tente novamente.',
+        partPaid: 'Esta parte já está paga. Cancele-a a partir da respetiva reserva.',
+        hasPayments: 'Uma viagem com um pagamento não pode ser eliminada.',
+        generic: 'Ocorreu um erro. Tente novamente.',
+      },
+    },
   },
   seo: {
     homeTitle: '{brand}: voos baratos, hotéis, férias e apoio com vistos',

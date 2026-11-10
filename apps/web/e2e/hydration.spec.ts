@@ -96,6 +96,7 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
   ['help and support', () => '/support'],
   // Group flight requests (ADR-093): the same airport fields and email rule as the forms above.
   ['group flights', () => '/flights/groups'],
+  ['trip builder', () => '/trips'],
   // Status page (ADR-087): server-formatted check and incident times.
   ['service status', () => '/status'],
 ];

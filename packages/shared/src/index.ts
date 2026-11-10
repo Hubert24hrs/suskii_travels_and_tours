@@ -807,3 +807,24 @@ export {
   type CollectionHotel,
   type HotelCollection,
 } from './hotel-collections';
+export {
+  TRIP_COMPONENTS,
+  TRIP_MAX_ADULTS,
+  TRIP_MAX_CHILDREN,
+  TRIP_MAX_NIGHTS,
+  TRIP_MAX_OPEN,
+  TRIP_PART_STATES,
+  TRIP_STATES,
+  tripComponentOf,
+  tripPartState,
+  tripState,
+  tripSearchQuery,
+  tripTitle,
+  type TripComponent,
+  type TripDestination,
+  type TripPartState,
+  type TripPlace,
+  type TripPlan,
+  type TripState,
+} from './trips';
+export { TRIP_PLAN_ISSUES, tripPlanSchema } from './trips-schemas';

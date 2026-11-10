@@ -24,6 +24,11 @@ export interface ReceivedMoney {
   occurredAt: Date;
   /** What the provider reported about the card (risk signals, ADR-040). */
   card?: PaymentCard | null;
+  /**
+   * The provider charged something else than the whole checkout asked for (a trip payment,
+   * ADR-099): this share is never applied, whatever it happens to equal, and is given back.
+   */
+  unexpected?: boolean;
 }
 
 export interface SettleResult {
@@ -95,7 +100,10 @@ export class BookingPaymentsService {
     });
 
     // Not what we asked the provider to charge: record it and give it back.
-    if (!equals(received.amount, money(payment.amountMinor, payment.currency))) {
+    if (
+      received.unexpected ||
+      !equals(received.amount, money(payment.amountMinor, payment.currency))
+    ) {
       await this.receiveUnapplied(tx, payment, received.amount, from, 'amount_mismatch');
       await this.audit.record(
         {

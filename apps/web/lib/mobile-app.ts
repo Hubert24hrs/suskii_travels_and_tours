@@ -30,6 +30,16 @@ export function appTripUrl(bookingId: string | undefined): string {
     : `${appScheme()}://trips`;
 }
 
+/**
+ * `suskii://trips/built/{id}` for a valid combined trip id (ADR-099), else the Trips tab. Under
+ * `trips`, so the app's checkout browser session recognises the hand-back as it does a booking's.
+ */
+export function appBuiltTripUrl(tripId: string | undefined): string {
+  return tripId && UUID.test(tripId)
+    ? `${appScheme()}://trips/built/${tripId.toLowerCase()}`
+    : `${appScheme()}://trips`;
+}
+
 /** Digital Asset Links statement, or null when the package or fingerprints are missing. */
 export function assetLinks(): unknown[] | null {
   const packageName = process.env.MOBILE_ANDROID_PACKAGE ?? '';

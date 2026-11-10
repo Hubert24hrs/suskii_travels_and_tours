@@ -126,6 +126,14 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
     duration: 'tab',
   },
   {
+    name: 'suskii:trip-builder',
+    kind: 'sessionStorage',
+    category: 'necessary',
+    provider: 'suskii',
+    purpose: 'tripBuilder',
+    duration: 'tab',
+  },
+  {
     name: 'suskii:company-invite',
     kind: 'sessionStorage',
     category: 'necessary',

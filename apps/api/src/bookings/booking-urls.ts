@@ -23,3 +23,17 @@ export const paymentReturnUrl = (
 /** Where a company wallet top-up's hosted checkout sends the admin back (ADR-090). */
 export const companyTopUpReturnUrl = (config: AppConfig, topUpId: string): string =>
   `${webBase(config)}/account/company?topUp=${topUpId}`;
+
+/** A trip's page on the web app (ADR-099). */
+export const tripUrl = (config: AppConfig, tripId: string): string =>
+  `${webBase(config)}/trips/${tripId}`;
+
+/** Where a trip's hosted checkout sends the traveller back: the app's hand-off page or the trip. */
+export const tripPaymentReturnUrl = (
+  config: AppConfig,
+  tripId: string,
+  channel: SalesChannel | null,
+): string =>
+  channel === 'mobile'
+    ? `${webBase(config)}/mobile/payment-return?trip=${tripId}`
+    : tripUrl(config, tripId);

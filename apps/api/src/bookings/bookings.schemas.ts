@@ -35,6 +35,7 @@ import {
   PAYMENT_PLAN_KINDS,
   POLICY_FINDINGS,
   PAYMENT_PROVIDER_NAMES,
+  TRIP_COMPONENTS,
   REFUND_DESTINATIONS,
   REFUND_REASONS,
   REFUND_STATUSES,
@@ -1044,6 +1045,17 @@ export const bookingSchema = named(
       .meta({
         description:
           'A company trip (ADR-078): whether it waits for an approver (`pending`: payment answers 409 `approval-required`) and what the travel policy found.',
+      }),
+    trip: z
+      .object({
+        id: z.uuid(),
+        reference: z.string(),
+        component: z.enum(TRIP_COMPONENTS),
+      })
+      .nullable()
+      .meta({
+        description:
+          'The combined trip this booking is a part of (ADR-099), and which part. One checkout can pay the whole trip (`startTripPayment`); the booking can still be paid, cancelled and refunded on its own.',
       }),
   }),
 );

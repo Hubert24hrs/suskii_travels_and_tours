@@ -8661,6 +8661,11 @@
                     "minLength": 2,
                     "maxLength": 80
                   },
+                  "countryCode": {
+                    "default": "NG",
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
                   "branchName": {
                     "type": "string",
                     "minLength": 2,
@@ -9152,6 +9157,10 @@
                     "type": "string",
                     "minLength": 2,
                     "maxLength": 80
+                  },
+                  "countryCode": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
                   },
                   "branchName": {
                     "type": "string",
@@ -24302,6 +24311,43 @@
         }
       }
     },
+    "/v1/me/trips": {
+      "get": {
+        "operationId": "listMyTrips",
+        "summary": "The caller's trips, newest first",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/me/wallet": {
       "get": {
         "operationId": "getWallet",
@@ -27969,6 +28015,425 @@
         }
       }
     },
+    "/v1/trips": {
+      "post": {
+        "operationId": "createTrip",
+        "summary": "Start a trip from a plan",
+        "description": "The plan names where from and to, the dates, the travellers and the parts wanted (any of flight, hotel, car, transfer, insurance). Nothing is booked or priced here: each part is added as a booking with `addTripPart`. 409 `too-many-trips` when the account already has ten trips with nothing paid.",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTripRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trip"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/trips/{tripId}": {
+      "get": {
+        "operationId": "getTrip",
+        "summary": "A trip: its parts, a price per part and the total",
+        "description": "Poll while `state` is `awaiting_payment` or a part is `paid` (ticketing). Each part carries its booking summary, what it still costs and a price change waiting for consent, if any.",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trip"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTrip",
+        "summary": "Delete a trip nobody started paying",
+        "description": "The bookings in it are not cancelled: they leave the trip and stay ordinary unpaid bookings. 409 `trip-has-payments` once a payment was started or a part is paid.",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/trips/{tripId}/parts": {
+      "post": {
+        "operationId": "addTripPart",
+        "summary": "Add one of the caller's unpaid bookings to the trip",
+        "description": "The booking becomes the part it sells: a flight, a hotel stay, a rental car, an airport transfer or travel insurance. 422 `trip-part-invalid` with `code` when it is something else, in another currency, on a payment plan, booked for a company, not waiting for payment, in another trip, or a part the plan does not ask for. An unpaid part of the same kind gives way to the new one; a paid one answers 409 `trip-part-paid`. A checkout the trip has open is closed, since the total changes.",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTripPartRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trip"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/trips/{tripId}/parts/{bookingId}": {
+      "delete": {
+        "operationId": "removeTripPart",
+        "summary": "Take an unpaid booking out of the trip",
+        "description": "The booking is not cancelled: it stays an ordinary unpaid booking and expires on its own. A checkout the trip has open is closed, since its total counted this part. 409 `trip-part-paid` for a paid part.",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trip"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/trips/{tripId}/payments": {
+      "post": {
+        "operationId": "startTripPayment",
+        "summary": "Re-check every part and open one hosted checkout for the whole trip",
+        "description": "Re-prices each unpaid part with its supplier first. A changed total answers 409 `price-changed` with that booking's `priceChange`: accept it with the booking's `price-consent`, then call this again. A part that sold out answers 410 and leaves the total. When every part holds, one checkout opens for the sum; the provider's webhook then settles each booking. 409 `trip-nothing-to-pay` when no part is waiting for payment.",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Suskii-Attestation",
+            "in": "header",
+            "required": false,
+            "description": "Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartTripPaymentRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripPaymentSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem410"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
     "/v1/visa/documents/{documentId}/content": {
       "get": {
         "operationId": "getVisaDocumentContent",
@@ -28916,6 +29381,18 @@
           "addons"
         ],
         "additionalProperties": false
+      },
+      "AddTripPartRequestInput": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
       },
       "AdminBookingContact": {
         "type": "object",
@@ -36169,6 +36646,41 @@
                 "type": "null"
               }
             ]
+          },
+          "trip": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reference": {
+                    "type": "string"
+                  },
+                  "component": {
+                    "type": "string",
+                    "enum": [
+                      "flight",
+                      "hotel",
+                      "car",
+                      "transfer",
+                      "insurance"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "reference",
+                  "component"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -36208,7 +36720,8 @@
           "paymentPlan",
           "paymentOptions",
           "refunds",
-          "company"
+          "company",
+          "trip"
         ],
         "additionalProperties": false
       },
@@ -40335,6 +40848,156 @@
           "durationMinutes",
           "meetingPoint",
           "cancellationPolicy"
+        ]
+      },
+      "CreateTripRequestInput": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "object",
+            "properties": {
+              "origin": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "cityName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "countryCode": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  }
+                },
+                "required": [
+                  "code",
+                  "name",
+                  "cityName",
+                  "countryCode"
+                ]
+              },
+              "destination": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "cityName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "countryCode": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "cityId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "name",
+                  "cityName",
+                  "countryCode",
+                  "cityId"
+                ]
+              },
+              "departDate": {
+                "type": "string"
+              },
+              "returnDate": {
+                "type": "string"
+              },
+              "adults": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              "children": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8
+              },
+              "components": {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "flight",
+                    "hotel",
+                    "car",
+                    "transfer",
+                    "insurance"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "origin",
+              "destination",
+              "departDate",
+              "returnDate",
+              "adults",
+              "components"
+            ]
+          },
+          "currency": {
+            "default": "NGN",
+            "type": "string",
+            "enum": [
+              "NGN",
+              "USD",
+              "GBP",
+              "EUR",
+              "GHS",
+              "KES",
+              "ZAR"
+            ]
+          }
+        },
+        "required": [
+          "plan"
         ]
       },
       "CreateVisaProductInput": {
@@ -52000,7 +52663,8 @@
               "payment",
               "refund",
               "payout",
-              "company_topup"
+              "company_topup",
+              "trip_payment"
             ]
           },
           "subjectId": {
@@ -54123,6 +54787,11 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "trips": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "ad-conversions": {
             "type": "integer",
             "minimum": 0,
@@ -54194,6 +54863,7 @@
           "rejected-reviews",
           "company-invitations",
           "company-top-ups",
+          "trips",
           "ad-conversions",
           "metasearch-landings",
           "support-conversations",
@@ -56253,6 +56923,47 @@
           "message"
         ]
       },
+      "StartTripPaymentRequestInput": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "mock",
+                  "paystack",
+                  "flutterwave",
+                  "stripe"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "card",
+                  "bank_transfer",
+                  "ussd",
+                  "mobile_money",
+                  "apple_google_pay",
+                  "agent"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
       "StatusIncident": {
         "type": "object",
         "properties": {
@@ -57711,6 +58422,330 @@
           "nationality"
         ]
       },
+      "Trip": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "plan": {
+            "type": "object",
+            "properties": {
+              "origin": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "cityName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "countryCode": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  }
+                },
+                "required": [
+                  "code",
+                  "name",
+                  "cityName",
+                  "countryCode"
+                ],
+                "additionalProperties": false
+              },
+              "destination": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "cityName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "countryCode": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "cityId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "name",
+                  "cityName",
+                  "countryCode",
+                  "cityId"
+                ],
+                "additionalProperties": false
+              },
+              "departDate": {
+                "type": "string"
+              },
+              "returnDate": {
+                "type": "string"
+              },
+              "adults": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              "children": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8
+              },
+              "components": {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "flight",
+                    "hotel",
+                    "car",
+                    "transfer",
+                    "insurance"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "origin",
+              "destination",
+              "departDate",
+              "returnDate",
+              "adults",
+              "children",
+              "components"
+            ],
+            "additionalProperties": false
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "empty",
+              "open",
+              "awaiting_payment",
+              "paid",
+              "closed"
+            ]
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "component": {
+                  "type": "string",
+                  "enum": [
+                    "flight",
+                    "hotel",
+                    "car",
+                    "transfer",
+                    "insurance"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "to_pay",
+                    "paying",
+                    "paid",
+                    "confirmed",
+                    "closed"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT",
+                    "PRICED",
+                    "HELD",
+                    "AWAITING_PAYMENT",
+                    "PARTIALLY_PAID",
+                    "PAID",
+                    "TICKETING",
+                    "CONFIRMED",
+                    "FAILED",
+                    "CANCELLED",
+                    "REFUND_PENDING",
+                    "REFUNDED",
+                    "EXPIRED"
+                  ]
+                },
+                "booking": {
+                  "$ref": "#/components/schemas/BookingSummary"
+                },
+                "due": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "priceChange": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BookingPriceChange"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "component",
+                "state",
+                "status",
+                "booking",
+                "due",
+                "priceChange"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flight",
+                "hotel",
+                "car",
+                "transfer",
+                "insurance"
+              ]
+            }
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "due": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "payment": {
+            "type": "object",
+            "properties": {
+              "providers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PaymentProviderOption"
+                }
+              },
+              "methods": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PaymentMethodOption"
+                }
+              },
+              "open": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "checkoutUrl": {
+                        "type": "string"
+                      },
+                      "amount": {
+                        "$ref": "#/components/schemas/Money"
+                      },
+                      "expiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "checkoutUrl",
+                      "amount",
+                      "expiresAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "providers",
+              "methods",
+              "open"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "createdAt",
+          "plan",
+          "currency",
+          "state",
+          "parts",
+          "missing",
+          "total",
+          "due",
+          "payment"
+        ],
+        "additionalProperties": false
+      },
       "TripCancelled": {
         "type": "object",
         "properties": {
@@ -57728,6 +58763,58 @@
         "required": [
           "refundedBookings",
           "releasedBookings"
+        ],
+        "additionalProperties": false
+      },
+      "TripList": {
+        "type": "object",
+        "properties": {
+          "trips": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Trip"
+            }
+          }
+        },
+        "required": [
+          "trips"
+        ],
+        "additionalProperties": false
+      },
+      "TripPaymentSession": {
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "const": "pending"
+          },
+          "checkoutUrl": {
+            "type": "string"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "parts": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "paymentId",
+          "status",
+          "checkoutUrl",
+          "amount",
+          "parts",
+          "expiresAt"
         ],
         "additionalProperties": false
       },

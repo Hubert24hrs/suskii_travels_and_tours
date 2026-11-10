@@ -584,6 +584,7 @@ function vehicleData(input: In<typeof vehicleBodySchema>): Prisma.RentalVehicleC
     photoUrls: input.photoUrls,
     artKey: input.artKey,
     cityName: input.cityName,
+    countryCode: input.countryCode,
     branchName: input.branchName,
     branchAddress: input.branchAddress,
     lat: input.lat,

@@ -127,6 +127,7 @@ export class LedgerReconciliationService {
     const stopStartingAt = Date.now() + SWEEP_BUDGET_MS;
     const findings: Finding[] = [];
     const payments = await this.checkPayments(now, stopStartingAt, findings);
+    const tripPayments = await this.checkTripPayments(now, stopStartingAt, findings);
     const topUps = await this.checkTopUps(now, stopStartingAt, findings);
     const refunds = await this.checkRefunds(now, findings);
     const payouts = await this.checkPayouts(now, findings);
@@ -140,9 +141,9 @@ export class LedgerReconciliationService {
       await this.notifications.ops('ledger.discrepancy', null, { count: String(raised) });
     }
     return {
-      checked: payments.checked + topUps.checked + refunds + payouts,
+      checked: payments.checked + tripPayments.checked + topUps.checked + refunds + payouts,
       discrepancies: raised,
-      unconfirmed: payments.unconfirmed + topUps.unconfirmed,
+      unconfirmed: payments.unconfirmed + tripPayments.unconfirmed + topUps.unconfirmed,
     };
   }
 
@@ -159,8 +160,12 @@ export class LedgerReconciliationService {
     let checked = 0;
     let unconfirmed = 0;
     for (const payment of payments) {
+      // A share of a trip checkout (ADR-099) is unknown to the provider: its posting is checked
+      // here, and the whole checkout against the provider in `checkTripPayments`.
       const provider =
-        payment.kind === 'checkout' ? this.providers.find(payment.provider) : undefined;
+        payment.kind === 'checkout' && !payment.tripPaymentId
+          ? this.providers.find(payment.provider)
+          : undefined;
       if (provider && Date.now() > stopStartingAt) break;
       checked += 1;
       const captured = await this.posted(`payment:${payment.id}:captured`);
@@ -191,6 +196,85 @@ export class LedgerReconciliationService {
       if (answered) {
         await this.prisma.payment.update({
           where: { id: payment.id },
+          data: { ledgerCheckedAt: now },
+        });
+      }
+    }
+    return { checked, unconfirmed };
+  }
+
+  /**
+   * Trip checkouts (ADR-099): what the provider charged once against the capture postings of
+   * every booking's share added together. A missing share posting reads as a missing capture.
+   */
+  private async checkTripPayments(
+    now: Date,
+    stopStartingAt: number,
+    findings: Finding[],
+  ): Promise<{ checked: number; unconfirmed: number }> {
+    const tripPayments = await this.prisma.tripPayment.findMany({
+      where: { status: 'succeeded', ledgerCheckedAt: null },
+      include: { shares: { select: { id: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: BATCH,
+    });
+    let checked = 0;
+    let unconfirmed = 0;
+    for (const tripPayment of tripPayments) {
+      const provider = this.providers.find(tripPayment.provider);
+      if (provider && Date.now() > stopStartingAt) break;
+      checked += 1;
+      const charged =
+        tripPayment.receivedMinor !== null && tripPayment.receivedCurrency
+          ? money(tripPayment.receivedMinor, tripPayment.receivedCurrency)
+          : money(tripPayment.amountMinor, tripPayment.currency);
+      let captured: Money | null = null;
+      let complete = tripPayment.shares.length > 0;
+      for (const share of tripPayment.shares) {
+        const posted = await this.posted(`payment:${share.id}:captured`);
+        if (!posted) complete = false;
+        else captured = captured ? money(captured.minor + posted.minor, posted.currency) : posted;
+      }
+      let verified: PaymentVerification | null = null;
+      let answered = true;
+      if (provider) {
+        try {
+          verified = await provider.verifyPayment({
+            providerReference: tripPayment.providerReference,
+            providerTransactionId: tripPayment.providerTransactionId,
+            amount: charged,
+          });
+          if (
+            verified.status === 'pending' ||
+            (verified.status === 'succeeded' && !verified.amount)
+          )
+            unconfirmed += 1;
+        } catch (error) {
+          answered = false;
+          unconfirmed += 1;
+          this.logger.warn(
+            { tripPaymentId: tripPayment.id, reason: (error as Error).name },
+            'reconciliation could not verify a trip payment',
+          );
+        }
+      }
+      findings.push(
+        ...paymentFindings(
+          {
+            id: tripPayment.id,
+            bookingId: null,
+            amountMinor: charged.minor,
+            currency: charged.currency,
+            requiresRefund: false,
+            failureReason: null,
+          },
+          complete ? captured : null,
+          verified,
+        ).map((finding) => ({ ...finding, subjectType: 'trip_payment' as const })),
+      );
+      if (answered) {
+        await this.prisma.tripPayment.update({
+          where: { id: tripPayment.id },
           data: { ledgerCheckedAt: now },
         });
       }

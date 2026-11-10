@@ -3,6 +3,7 @@ import { recentHotelSearches } from './recent-hotel-searches';
 
 import { documentStore } from './documents';
 import { offlineScanner } from './offline-scan';
+import { activeTrip } from './trip-builder';
 import { tripStore } from './trips';
 
 /**
@@ -17,5 +18,7 @@ export function forgetAccountData(queryClient: QueryClient): void {
   documentStore.removeAllExcept(guestTrips);
   offlineScanner.forget();
   recentHotelSearches.clear();
+  // The trip being built belongs to the account that started it (ADR-099).
+  activeTrip.set(null);
   queryClient.clear();
 }

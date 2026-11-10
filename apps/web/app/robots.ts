@@ -25,6 +25,8 @@ export default function robots(): MetadataRoute.Robots {
           '/company/',
           '/rides/',
           '/trip/',
+          // A traveller's own combined trips; the plan form itself (/trips) is public (ADR-099).
+          '/trips/',
           // Support conversations are private; the help page itself (/support) is not (ADR-083).
           '/support/',
         ],

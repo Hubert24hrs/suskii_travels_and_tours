@@ -64,6 +64,7 @@ model User {
   deviceCredentials       DeviceCredential[]
   verificationTokens      VerificationToken[]
   bookings                Booking[]
+  trips                   Trip[]
   travellers              Traveller[]
   pushTokens              PushToken[]
   preferences             UserPreference?
@@ -994,6 +995,10 @@ model Booking {
   approvalRejectReason String?               @map("approval_reject_reason")
   /// The metasearch landing the booking came through (ADR-081), copied from its quote.
   metasearchLandingId  String?               @map("metasearch_landing_id") @db.Uuid
+  /// The trip this booking is a part of (ADR-099), and which part: `flight`, `hotel`, `car`,
+  /// `transfer` or `insurance`. Both null for a booking made on its own.
+  tripId               String?               @map("trip_id") @db.Uuid
+  tripComponent        String?               @map("trip_component")
   /// Contact details and passports wiped after account deletion (ADR-029).
   redactedAt           DateTime?             @map("redacted_at") @db.Timestamptz(3)
   /// Set when the retention sweep cleared the last personal data of a closed booking (ADR-039).
@@ -1026,7 +1031,9 @@ model Booking {
   adConversion         AdConversion?
   company              Company?               @relation(fields: [companyId], references: [id], onDelete: Restrict)
   metasearchLanding    MetasearchLanding?     @relation(fields: [metasearchLandingId], references: [id], onDelete: SetNull)
+  trip                 Trip?                  @relation(fields: [tripId], references: [id], onDelete: SetNull)
 
+  @@index([tripId])
   @@index([userId, createdAt])
   /// Admin booking search and the dashboard filter by creation date (ADR-036).
   @@index([createdAt])
@@ -1293,15 +1300,20 @@ model Payment {
   cardFingerprintHash   String?       @map("card_fingerprint_hash")
   /// When the reconciliation sweep last compared it with the ledger and the provider.
   ledgerCheckedAt       DateTime?     @map("ledger_checked_at") @db.Timestamptz(3)
+  /// Set on this booking's share of one checkout that pays a whole trip (ADR-099). The provider
+  /// knows only the trip payment's reference; `providerReference` here is derived from it.
+  tripPaymentId         String?       @map("trip_payment_id") @db.Uuid
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   booking     Booking             @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   installment Installment?        @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  tripPayment TripPayment?        @relation(fields: [tripPaymentId], references: [id], onDelete: SetNull)
   refunds     Refund[]
   riskReviews PaymentRiskReview[]
 
   @@index([bookingId])
+  @@index([tripPaymentId])
   @@index([status, expiresAt])
   @@index([ipHash, createdAt])
   @@index([status, ledgerCheckedAt])
@@ -2920,6 +2932,8 @@ enum DiscrepancySubject {
   refund
   payout
   company_topup
+  /// One checkout for a whole trip (ADR-099): its shares against what the provider charged.
+  trip_payment
 }
 
 enum DiscrepancyStatus {
@@ -2972,6 +2986,9 @@ model RentalVehicle {
   features            String[]       @default([])
   artKey              String?        @map("art_key")
   cityName            String         @map("city_name")
+  /// The country the branch is in (ISO 3166-1 alpha-2): what a rental booking says its trip
+  /// is to, for taxes and offers at the destination.
+  countryCode         String         @default("NG") @map("country_code") @db.Char(2)
   branchName          String         @map("branch_name")
   branchAddress       String         @map("branch_address")
   lat                 Float
@@ -3886,4 +3903,67 @@ model CompanyWalletTopUp {
   @@index([status, expiresAt])
   @@index([status, ledgerCheckedAt])
   @@map("company_wallet_top_ups")
+}
+
+/// A trip a traveller puts together from several bookings and pays for at once (ADR-099): a
+/// flight, a hotel, a car, an airport transfer and travel insurance, or any of them. Each part
+/// stays an ordinary booking with its own lifecycle; the trip only groups them.
+model Trip {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  /// Short public reference, shown on the provider's page, such as `T-K7QX3M`.
+  reference String   @unique
+  /// Null once the account is deleted: the trip stays with its bookings as a financial record.
+  userId    String?  @map("user_id") @db.Uuid
+  /// What the traveller asked for (`TripPlan`): places, dates, travellers and the parts wanted.
+  /// No personal data.
+  plan      Json
+  currency  String   @db.Char(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user     User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  bookings Booking[]
+  payments TripPayment[]
+
+  @@index([userId, createdAt])
+  @@map("trips")
+}
+
+/// One hosted checkout for every unpaid booking of a trip (ADR-099). The provider charges this
+/// row's amount once; each booking gets its share as a `payments` row pointing here, so the
+/// ledger, refunds and ticketing stay per booking.
+model TripPayment {
+  id                    String        @id @default(uuid(7)) @db.Uuid
+  tripId                String        @map("trip_id") @db.Uuid
+  provider              String
+  providerReference     String        @unique @map("provider_reference")
+  providerTransactionId String?       @map("provider_transaction_id")
+  status                PaymentStatus @default(pending)
+  amountMinor           BigInt        @map("amount_minor")
+  currency              String        @db.Char(3)
+  /// What the provider charged when it differs from the request; every share is then refunded.
+  receivedMinor         BigInt?       @map("received_minor")
+  receivedCurrency      String?       @map("received_currency") @db.Char(3)
+  checkoutUrl           String        @map("checkout_url")
+  /// Channel reported by the provider (card, bank_transfer, ussd...). Never card details.
+  method                String?
+  /// Where the checkout was started: decides where the provider sends the traveller back.
+  channel               SalesChannel
+  expiresAt             DateTime      @map("expires_at") @db.Timestamptz(3)
+  succeededAt           DateTime?     @map("succeeded_at") @db.Timestamptz(3)
+  failureReason         String?       @map("failure_reason")
+  /// Last time the worker asked the provider about this pending payment.
+  reconciledAt          DateTime?     @map("reconciled_at") @db.Timestamptz(3)
+  /// When the ledger reconciliation last compared it with the ledger and the provider.
+  ledgerCheckedAt       DateTime?     @map("ledger_checked_at") @db.Timestamptz(3)
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  trip   Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  shares Payment[]
+
+  @@index([tripId, createdAt])
+  @@index([status, expiresAt])
+  @@index([status, ledgerCheckedAt])
+  @@map("trip_payments")
 }

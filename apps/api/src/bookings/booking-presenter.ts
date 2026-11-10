@@ -5,6 +5,7 @@ import {
   money,
   subtract,
   toWire,
+  TRIP_COMPONENTS,
   type ApprovalRejectReason,
   type ContactDetails,
   type MealRequest,
@@ -47,6 +48,7 @@ export const BOOKING_INCLUDE = {
   documents: { orderBy: { type: 'asc' } },
   paymentPlan: { include: { installments: { orderBy: { sequence: 'asc' } } } },
   refunds: { orderBy: { createdAt: 'asc' } },
+  trip: { select: { id: true, reference: true } },
 } satisfies Prisma.BookingInclude;
 
 export type BookingRecord = Prisma.BookingGetPayload<{ include: typeof BOOKING_INCLUDE }>;
@@ -196,6 +198,7 @@ export function toBookingDto(
   const price = bookingPrice(booking);
   const pending = pendingPrice(booking);
   const payment = booking.payments[0];
+  const tripComponent = TRIP_COMPONENTS.find((component) => component === booking.tripComponent);
   // A company trip waiting for an approver cannot be paid yet (ADR-078).
   const awaitingApproval = booking.approvalStatus === 'pending';
 
@@ -377,6 +380,10 @@ export function toBookingDto(
             (booking.approvalRejectReason as ApprovalRejectReason | null) ?? null,
         }
       : null,
+    trip:
+      booking.trip && tripComponent
+        ? { id: booking.trip.id, reference: booking.trip.reference, component: tripComponent }
+        : null,
   };
 }
 

@@ -85,10 +85,11 @@ const AWAITING_PAYMENT_GRACE_MS = 10 * 60_000;
 
 type Tx = Prisma.TransactionClient;
 
-const earliest = (...dates: Date[]): Date => new Date(Math.min(...dates.map((d) => d.getTime())));
+export const earliest = (...dates: Date[]): Date =>
+  new Date(Math.min(...dates.map((d) => d.getTime())));
 
 /** When the supplier stops honouring the offer; our own products only need a fresh re-check. */
-function offerExpiry(payload: ItemPayload, now: Date): Date {
+export function offerExpiry(payload: ItemPayload, now: Date): Date {
   if (isInhouse(payload)) return new Date(now.getTime() + PRICE_HOLD_MS);
   return new Date(
     payload.kind === 'flight' ? payload.offer.expiresAt : bookedRate(payload).expiresAt,
@@ -700,10 +701,7 @@ export class CheckoutService {
     return expired;
   }
 
-  private async expire(
-    booking: { id: string; status: BookingStatus },
-    reason: string,
-  ): Promise<void> {
+  async expire(booking: { id: string; status: BookingStatus }, reason: string): Promise<void> {
     if (!EXPIRABLE.includes(booking.status)) return;
     await this.prisma.$transaction(async (tx) => {
       await tx.payment.updateMany({
@@ -738,7 +736,7 @@ export class CheckoutService {
    * for a closed session is still honoured when the booking can take it (ADR-014), otherwise it is
    * refunded automatically.
    */
-  private async abandonOpenPayments(
+  async abandonOpenPayments(
     tx: Tx,
     booking: { id: string; status: BookingStatus },
     actor: BookingActor,
@@ -746,7 +744,7 @@ export class CheckoutService {
   ): Promise<{ status: BookingStatus; closed: { provider: string; providerReference: string }[] }> {
     const open = await tx.payment.findMany({
       where: { bookingId: booking.id, status: 'pending' },
-      select: { id: true, provider: true, providerReference: true },
+      select: { id: true, provider: true, providerReference: true, tripPaymentId: true },
     });
     if (open.length > 0) {
       await tx.payment.updateMany({
@@ -768,11 +766,13 @@ export class CheckoutService {
             { reason },
           )
         : current.status;
-    return { status, closed: open };
+    // A share of a trip checkout (ADR-099) has no session of its own at the provider: the
+    // trip payment it belongs to is the one to close, and its owner does that.
+    return { status, closed: open.filter((payment) => payment.tripPaymentId === null) };
   }
 
   /** Best effort: providers that can expire a session (Stripe) stop taking payments on it. */
-  private closeAtProviders(sessions: { provider: string; providerReference: string }[]): void {
+  closeAtProviders(sessions: { provider: string; providerReference: string }[]): void {
     for (const session of sessions) {
       const provider: PaymentProvider | undefined = this.providers.find(session.provider);
       if (provider)

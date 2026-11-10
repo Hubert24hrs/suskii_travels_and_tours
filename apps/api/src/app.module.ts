@@ -18,6 +18,7 @@ import { BusesModule } from './buses/buses.module';
 import { RidesModule } from './rides/rides.module';
 import { DriversModule } from './drivers/drivers.module';
 import { RentalsModule } from './rentals/rentals.module';
+import { TripsModule } from './trips/trips.module';
 import { PlanningModule } from './planning/planning.module';
 import { PartnersModule } from './partners/partners.module';
 import { MetasearchModule } from './metasearch/metasearch.module';
@@ -117,6 +118,7 @@ export class AppModule implements NestModule {
         RemindersModule,
         ReviewsModule,
         CompaniesModule,
+        TripsModule,
         MarketingModule,
         MetasearchModule,
         SupportModule,

@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { openHostedCheckout } from '../lib/payment';
+import { activeTrip } from '../lib/trip-builder';
 import { tripStore } from '../lib/trips';
 import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
 import {
@@ -633,5 +634,53 @@ describe('CheckoutScreen', () => {
     const create = calls.filter((request) => request.url.endsWith('/v1/bookings'));
     expect(create).toHaveLength(1);
     expect(await create[0]?.json()).toMatchObject({ company: true });
+  });
+  it('adds the booking to the trip being built instead of taking payment (ADR-099)', async () => {
+    const TRIP_ID = '0192d3a0-7c1e-7b2a-9f00-00000000d001';
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(flightQuote()),
+      'GET /v1/catalog/countries': () => json(countries),
+      'GET /v1/me/company': () =>
+        json({ company: { name: 'Acme Logistics', status: 'active', myRole: 'booker' } }),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }) }, 201),
+      [`POST /v1/trips/${TRIP_ID}/parts`]: () => json({ id: TRIP_ID }),
+    });
+    // The traveller pressed "Choose a flight" on the trip's screen.
+    activeTrip.set({ id: TRIP_ID, reference: 'T-AB12CD', component: 'flight' });
+    await renderWithApp(<CheckoutScreen />, await signedInSession());
+    await fillTraveller();
+
+    // One payment for the whole trip: no plan, no method and no company choice here.
+    expect(screen.getByTestId('trip-banner')).toHaveTextContent(/T-AB12CD/);
+    expect(screen.getByTestId('checkout-submit')).toHaveTextContent(m.checkout.tripBuilder.submit);
+    expect(screen.queryByTestId('checkout-company')).toBeNull();
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+
+    await waitFor(() => expect(router.dismissTo).toHaveBeenCalledWith(`/trips/built/${TRIP_ID}`));
+    const added = calls.find((request) => request.url.endsWith(`/v1/trips/${TRIP_ID}/parts`));
+    expect(await added?.json()).toEqual({ bookingId: BOOKING_ID });
+    expect(calls.some((request) => request.url.endsWith('/payments'))).toBe(false);
+    expect(openHostedCheckout).not.toHaveBeenCalled();
+    expect(activeTrip.get()).toBeNull();
+    const create = calls.find((request) => request.url.endsWith('/v1/bookings'));
+    expect(await create?.json()).not.toHaveProperty('company');
+  });
+
+  it('books on its own when the quote is not the part the trip is waiting for', async () => {
+    api(() => json(paymentSession, 201));
+    // A hotel was being chosen; this checkout is for a flight.
+    activeTrip.set({
+      id: '0192d3a0-7c1e-7b2a-9f00-00000000d001',
+      reference: 'T-AB12CD',
+      component: 'hotel',
+    });
+    await renderWithApp(<CheckoutScreen />);
+    await screen.findByTestId('checkout');
+    expect(screen.queryByTestId('trip-banner')).toBeNull();
+    expect(screen.getByTestId('checkout-submit')).toHaveTextContent(m.checkout.pay);
+    activeTrip.set(null);
   });
 });
