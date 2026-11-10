@@ -24,6 +24,9 @@ import {
   type PrimeBenefits,
   type PrimePeriod,
   type RentalCategory,
+  type RentalExtraChoice,
+  type RentalExtraLine,
+  type RentalRateBlocks,
   type RideCategory,
   type RideFareBreakdown,
   type RideFareRule,
@@ -33,6 +36,7 @@ import {
 
 import type { BookingStatus, Vertical } from '../generated/prisma/client';
 import type { PricingContext, SupplierPrice } from '../pricing/pricing-engine';
+import type { RentalReturnBranch } from '../rentals/rental-options';
 import type { ClientContext } from '../search/client-context';
 
 /**
@@ -74,6 +78,11 @@ export type InhouseQuoteRequest =
       returnAtLocal: string;
       chauffeur: boolean;
       delivery: RideStop | null;
+      /** Options added with ADR-098; absent on older quotes. */
+      driverAge?: number | null;
+      extras?: RentalExtraChoice[];
+      returnBranch?: string | null;
+      crossBorder?: boolean;
       currency: string;
     }
   | {
@@ -279,7 +288,9 @@ export interface RentalItemPayload extends InhouseBase {
     features: string[];
     photoUrls: string[];
   };
-  branch: { name: string; address: string; lat: number; lng: number };
+  /** `airportCode` and everything marked optional below came with ADR-098: older quotes and
+   *  bookings have none of them, so readers default each one. */
+  branch: { name: string; address: string; lat: number; lng: number; airportCode?: string | null };
   cityName: string;
   countryCode: string;
   timeZone: string;
@@ -288,10 +299,28 @@ export interface RentalItemPayload extends InhouseBase {
   pickupAtUtc: string;
   returnAtUtc: string;
   days: number;
+  /** How the car's days were priced: months, weeks and single days. */
+  rate?: RentalRateBlocks;
   chauffeur: boolean;
+  /** The car's minimum, and the age the renter gave for a self-drive rental. */
+  minDriverAge?: number;
+  driverAge?: number | null;
   /** Delivery to the customer at pickup; the car comes back to the branch. */
   delivery: (RideStop & { km: number }) | null;
-  charge: { vehicle: Money; chauffeur: Money; delivery: Money; deposit: Money };
+  extras?: RentalExtraLine[];
+  /** Another branch the car is returned to; null or absent for the pickup branch. */
+  returnBranch?: RentalReturnBranch | null;
+  /** The countries the renter may drive to; null or absent when the car stays in the country. */
+  crossBorder?: { countries: string[] } | null;
+  charge: {
+    vehicle: Money;
+    chauffeur: Money;
+    delivery: Money;
+    deposit: Money;
+    extras?: Money;
+    oneWay?: Money;
+    crossBorder?: Money;
+  };
   mileage: { kmPerDay: number | null; excessKm: Money | null };
   fuelPolicy: string;
   insuranceSummary: string;
@@ -369,12 +398,27 @@ export function inhouseBasePrice(
     return { price: { base, taxes: vatOn(base, payload.vatBps) } };
   } else if (payload.kind === 'rental') {
     // The deposit is not part of the price: it is added to the booking as its own line.
-    base = add(add(payload.charge.vehicle, payload.charge.chauffeur), payload.charge.delivery);
+    base = rentalBase(payload.charge);
     return { price: { base, taxes: vatOn(base, payload.vatBps) } };
   } else {
     base = multiply(payload.unitPrice, payload.units);
   }
   return { price: { base, taxes: zero(base.currency) } };
+}
+
+/**
+ * What a rental costs before taxes and fees: the car, the chauffeur, delivery, extras, the
+ * one-way fee and the cross-border fee (ADR-098). The deposit is never part of it.
+ */
+export function rentalBase(charge: RentalItemPayload['charge']): Money {
+  const none = zero(charge.vehicle.currency);
+  return [
+    charge.chauffeur,
+    charge.delivery,
+    charge.extras ?? none,
+    charge.oneWay ?? none,
+    charge.crossBorder ?? none,
+  ].reduce(add, charge.vehicle);
 }
 
 /** Units an add-on is charged for, from its basis, travellers and dates. */

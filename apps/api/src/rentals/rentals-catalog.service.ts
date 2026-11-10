@@ -14,6 +14,7 @@ import {
   withinBounds,
   zero,
   type Money,
+  type RentalExtraChoice,
 } from '@suskii/shared';
 
 import { storedPolicy } from '../bookings/inhouse-catalog';
@@ -25,6 +26,7 @@ import { RoutingService } from '../ground/maps';
 import { PrismaService } from '../infra/prisma.service';
 
 import { rentalQuoteInvalid } from './rental-errors';
+import { rentalOptionCharges, rentalOptions, rentalRates, vehicleCard } from './rental-options';
 import {
   RENTAL_QUOTE_ISSUES,
   type availabilitySchema,
@@ -39,6 +41,11 @@ export interface RentalQuoteInput {
   returnAtLocal: string;
   chauffeur: boolean;
   delivery: RideStop | null;
+  /** Options added with ADR-098; a quote without them takes none. */
+  driverAge?: number | null;
+  extras?: readonly RentalExtraChoice[];
+  returnBranch?: string | null;
+  crossBorder?: boolean;
   currency: string;
 }
 
@@ -47,15 +54,6 @@ interface Period {
   returnAt: Date;
   days: number;
 }
-
-const rates = (vehicle: RentalVehicle) => ({
-  daily: money(vehicle.dailyMinor, vehicle.currency),
-  chauffeurDaily:
-    vehicle.chauffeurDailyMinor === null
-      ? null
-      : money(vehicle.chauffeurDailyMinor, vehicle.currency),
-  deposit: money(vehicle.depositMinor, vehicle.currency),
-});
 
 /**
  * The rental fleet as customers see it (ADR-051): published cars free for a period, a car's
@@ -80,7 +78,13 @@ export class RentalsCatalogService {
         status: 'published',
         cityName: { equals: query.city, mode: 'insensitive' },
         ...(query.category ? { category: query.category } : {}),
+        ...(query.transmission ? { transmission: query.transmission } : {}),
+        ...(query.airport ? { airportCode: { not: null } } : {}),
         ...(query.chauffeur ? { chauffeurDailyMinor: { not: null } } : {}),
+        // A chauffeur drives a chauffeured car, so the renter's age does not matter there.
+        ...(query.driverAge !== undefined && !query.chauffeur
+          ? { minDriverAge: { lte: query.driverAge } }
+          : {}),
       },
       orderBy: [{ dailyMinor: 'asc' }, { id: 'asc' }],
       take: 100,
@@ -94,7 +98,7 @@ export class RentalsCatalogService {
       days = period.days;
       if (await this.taken(vehicle.id, period)) continue;
       const charge = rentalCharge(
-        rates(vehicle),
+        rentalRates(vehicle),
         period.pickupAt,
         period.returnAt,
         query.chauffeur,
@@ -105,6 +109,7 @@ export class RentalsCatalogService {
         estimate: {
           rental: toWire(add(charge.vehicle, charge.chauffeur)),
           deposit: toWire(charge.deposit),
+          blocks: charge.blocks,
         },
       });
     }
@@ -158,8 +163,31 @@ export class RentalsCatalogService {
       throw rentalQuoteInvalid(RENTAL_QUOTE_ISSUES.currencyUnavailable);
     }
     const period = this.period(input.pickupAtLocal, input.returnAtLocal, vehicle.timeZone, now);
-    const charge = rentalCharge(rates(vehicle), period.pickupAt, period.returnAt, input.chauffeur);
+    const charge = rentalCharge(
+      rentalRates(vehicle),
+      period.pickupAt,
+      period.returnAt,
+      input.chauffeur,
+    );
     if (!charge) throw rentalQuoteInvalid(RENTAL_QUOTE_ISSUES.chauffeurUnavailable);
+    // The age is the renter's word; staff check the licence before the car leaves (ADR-050).
+    const driverAge = input.chauffeur ? null : (input.driverAge ?? null);
+    if (driverAge !== null && driverAge < vehicle.minDriverAge) {
+      throw rentalQuoteInvalid(RENTAL_QUOTE_ISSUES.driverTooYoung);
+    }
+    const selection = {
+      extras: input.extras ?? [],
+      returnBranch: input.returnBranch ?? null,
+      crossBorder: input.crossBorder ?? false,
+    };
+    const options = rentalOptionCharges(
+      rentalOptions(vehicle),
+      selection,
+      period.days,
+      input.chauffeur,
+      vehicle.currency,
+    );
+    if ('issue' in options) throw rentalQuoteInvalid(options.issue);
     if (await this.taken(vehicle.id, period))
       throw rentalQuoteInvalid(RENTAL_QUOTE_ISSUES.notAvailable);
 
@@ -207,6 +235,7 @@ export class RentalsCatalogService {
         address: vehicle.branchAddress,
         lat: vehicle.lat,
         lng: vehicle.lng,
+        airportCode: vehicle.airportCode,
       },
       cityName: vehicle.cityName,
       countryCode: 'NG',
@@ -216,13 +245,22 @@ export class RentalsCatalogService {
       pickupAtUtc: period.pickupAt.toISOString(),
       returnAtUtc: period.returnAt.toISOString(),
       days: period.days,
+      rate: charge.blocks,
       chauffeur: input.chauffeur,
+      minDriverAge: vehicle.minDriverAge,
+      driverAge,
       delivery,
+      extras: options.extras,
+      returnBranch: options.returnBranch,
+      crossBorder: options.crossBorder,
       charge: {
         vehicle: charge.vehicle,
         chauffeur: charge.chauffeur,
         delivery: deliveryCharge,
         deposit: charge.deposit,
+        extras: options.extrasTotal,
+        oneWay: options.oneWay,
+        crossBorder: options.crossBorderFee,
       },
       mileage: {
         kmPerDay: vehicle.mileageKmPerDay,
@@ -240,6 +278,10 @@ export class RentalsCatalogService {
         returnAtLocal: input.returnAtLocal,
         chauffeur: input.chauffeur,
         delivery: input.delivery,
+        driverAge,
+        extras: [...selection.extras],
+        returnBranch: selection.returnBranch,
+        crossBorder: selection.crossBorder,
         currency: input.currency,
       },
     };
@@ -283,48 +325,6 @@ export class RentalsCatalogService {
   }
 
   private card(vehicle: RentalVehicle) {
-    return {
-      id: vehicle.id,
-      slug: vehicle.slug,
-      make: vehicle.make,
-      model: vehicle.model,
-      year: vehicle.year,
-      category: vehicle.category,
-      transmission: vehicle.transmission,
-      seats: vehicle.seats,
-      features: vehicle.features,
-      photoUrls: vehicle.photoUrls,
-      artKey: vehicle.artKey,
-      sample: vehicle.sample,
-      cityName: vehicle.cityName,
-      branch: {
-        name: vehicle.branchName,
-        address: vehicle.branchAddress,
-        lat: vehicle.lat,
-        lng: vehicle.lng,
-      },
-      daily: toWire(money(vehicle.dailyMinor, vehicle.currency)),
-      chauffeurDaily:
-        vehicle.chauffeurDailyMinor === null
-          ? null
-          : toWire(money(vehicle.chauffeurDailyMinor, vehicle.currency)),
-      deposit: toWire(money(vehicle.depositMinor, vehicle.currency)),
-      delivery:
-        vehicle.deliveryPerKmMinor !== null && vehicle.deliveryMaxKm !== null
-          ? {
-              perKm: toWire(money(vehicle.deliveryPerKmMinor, vehicle.currency)),
-              maxKm: vehicle.deliveryMaxKm,
-            }
-          : null,
-      mileage: {
-        kmPerDay: vehicle.mileageKmPerDay,
-        excessKm:
-          vehicle.excessKmMinor === null
-            ? null
-            : toWire(money(vehicle.excessKmMinor, vehicle.currency)),
-      },
-      fuelPolicy: vehicle.fuelPolicy as 'full_to_full' | 'same_to_same',
-      insuranceSummary: vehicle.insuranceSummary,
-    };
+    return vehicleCard(vehicle);
   }
 }

@@ -23,6 +23,8 @@ export interface VehicleOptions {
   deliveryPerKmMinor?: number | null;
   /** Calendar days before pickup in the branch zone, as the admin form takes them. */
   cancellationPolicy?: { daysBefore: number; refundBps: number }[];
+  /** Any other field of the admin form (ADR-098 options, the transmission, ...). */
+  fields?: Record<string, unknown>;
 }
 
 /** A published car at the Ikeja branch, through the admin API. */
@@ -72,6 +74,7 @@ export async function rentalVehicle(
         { daysBefore: 1, refundBps: 5_000 },
         { daysBefore: 0, refundBps: 0 },
       ],
+      ...options.fields,
     })
     .expect(201);
   const id = created.body.id as string;
@@ -94,6 +97,10 @@ export function rentalQuote(
     chauffeur?: boolean;
     delivery?: unknown;
     currency?: string;
+    driverAge?: number | null;
+    extras?: { code: string; quantity: number }[];
+    returnBranch?: string | null;
+    crossBorder?: boolean;
   },
 ) {
   return ctx

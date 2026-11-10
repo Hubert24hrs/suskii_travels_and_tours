@@ -19,6 +19,10 @@ import {
   meetingPointSchema,
   moneyWireSchema,
   perPersonPricesSchema,
+  RENTAL_DRIVER_AGE_MAX,
+  RENTAL_DRIVER_AGE_MIN,
+  RENTAL_EXTRA_MAX_QUANTITY,
+  RENTAL_EXTRAS,
   RIDE_CATEGORIES,
   slugSchema,
   textListSchema,
@@ -365,6 +369,33 @@ export const inhouseQuoteRequestSchema = named(
         .nullable()
         .default(null)
         .meta({ description: 'Deliver the car here at pickup, where the car offers it.' }),
+      driverAge: z
+        .number()
+        .int()
+        .min(RENTAL_DRIVER_AGE_MIN)
+        .max(RENTAL_DRIVER_AGE_MAX)
+        .nullable()
+        .default(null)
+        .meta({
+          description:
+            "Self-drive: the driver's age. Refused below the car's minimum; the licence is checked at pickup.",
+        }),
+      extras: z
+        .array(
+          z.object({
+            code: z.enum(RENTAL_EXTRAS),
+            quantity: z.number().int().min(1).max(RENTAL_EXTRA_MAX_QUANTITY),
+          }),
+        )
+        .max(RENTAL_EXTRAS.length)
+        .default([])
+        .meta({ description: 'Extras the car offers, charged per day and per unit.' }),
+      returnBranch: slugSchema.nullable().default(null).meta({
+        description: "The `code` of one of the car's return branches; null for the pickup branch.",
+      }),
+      crossBorder: z.boolean().default(false).meta({
+        description: 'Take the car to the countries it is permitted in, for its flat fee.',
+      }),
       currency: currencyCodeSchema.default(DEFAULT_CURRENCY),
     }),
     z.object({

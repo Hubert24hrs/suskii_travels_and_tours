@@ -8681,6 +8681,18 @@
                     "minimum": -180,
                     "maximum": 180
                   },
+                  "airportCode": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "timeZone": {
                     "type": "string",
                     "minLength": 3,
@@ -8702,6 +8714,163 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 10000000000
+                  },
+                  "weeklyMinor": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "monthlyMinor": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "minDriverAge": {
+                    "default": 21,
+                    "type": "integer",
+                    "minimum": 18,
+                    "maximum": 99
+                  },
+                  "extras": {
+                    "default": [],
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "child_seat",
+                            "gps",
+                            "additional_driver"
+                          ]
+                        },
+                        "dailyMinor": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10000000000
+                        },
+                        "max": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "dailyMinor",
+                        "max"
+                      ]
+                    }
+                  },
+                  "crossBorder": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "countries": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{2}$"
+                            }
+                          },
+                          "feeMinor": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000000000
+                          }
+                        },
+                        "required": [
+                          "countries",
+                          "feeMinor"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "returnBranches": {
+                    "default": [],
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 80,
+                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 120
+                        },
+                        "address": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 300
+                        },
+                        "lat": {
+                          "type": "number",
+                          "minimum": -90,
+                          "maximum": 90
+                        },
+                        "lng": {
+                          "type": "number",
+                          "minimum": -180,
+                          "maximum": 180
+                        },
+                        "feeMinor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000000000
+                        },
+                        "airportCode": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "name",
+                        "address",
+                        "lat",
+                        "lng",
+                        "feeMinor"
+                      ]
+                    }
                   },
                   "chauffeurDailyMinor": {
                     "default": null,
@@ -9004,6 +9173,17 @@
                     "minimum": -180,
                     "maximum": 180
                   },
+                  "airportCode": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "timeZone": {
                     "type": "string",
                     "minLength": 3,
@@ -9025,6 +9205,157 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 10000000000
+                  },
+                  "weeklyMinor": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "monthlyMinor": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "minDriverAge": {
+                    "type": "integer",
+                    "minimum": 18,
+                    "maximum": 99
+                  },
+                  "extras": {
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "child_seat",
+                            "gps",
+                            "additional_driver"
+                          ]
+                        },
+                        "dailyMinor": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10000000000
+                        },
+                        "max": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 4
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "dailyMinor",
+                        "max"
+                      ]
+                    }
+                  },
+                  "crossBorder": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "countries": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{2}$"
+                            }
+                          },
+                          "feeMinor": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000000000
+                          }
+                        },
+                        "required": [
+                          "countries",
+                          "feeMinor"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "returnBranches": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 80,
+                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 120
+                        },
+                        "address": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 300
+                        },
+                        "lat": {
+                          "type": "number",
+                          "minimum": -90,
+                          "maximum": 90
+                        },
+                        "lng": {
+                          "type": "number",
+                          "minimum": -180,
+                          "maximum": 180
+                        },
+                        "feeMinor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000000000
+                        },
+                        "airportCode": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "name",
+                        "address",
+                        "lat",
+                        "lng",
+                        "feeMinor"
+                      ]
+                    }
                   },
                   "chauffeurDailyMinor": {
                     "anyOf": [
@@ -26114,6 +26445,38 @@
             }
           },
           {
+            "name": "transmission",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "automatic",
+                "manual"
+              ]
+            }
+          },
+          {
+            "name": "airport",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "driverAge",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
             "name": "chauffeur",
             "in": "query",
             "required": false,
@@ -32666,6 +33029,80 @@
               }
             ]
           },
+          "extras": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "child_seat",
+                    "gps",
+                    "additional_driver"
+                  ]
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "code",
+                "quantity"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "returnBranch": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "address"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "crossBorder": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "driverAge": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -32829,6 +33266,10 @@
           "chauffeur",
           "chauffeurDriverId",
           "delivery",
+          "extras",
+          "returnBranch",
+          "crossBorder",
+          "driverAge",
           "status",
           "licenceRequired",
           "licence",
@@ -32941,18 +33382,148 @@
                     },
                     "lng": {
                       "type": "number"
+                    },
+                    "airportCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "name",
                     "address",
                     "lat",
-                    "lng"
+                    "lng",
+                    "airportCode"
                   ],
                   "additionalProperties": false
                 },
                 "daily": {
                   "$ref": "#/components/schemas/Money"
+                },
+                "weekly": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "monthly": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "minDriverAge": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "extras": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "enum": [
+                          "child_seat",
+                          "gps",
+                          "additional_driver"
+                        ]
+                      },
+                      "daily": {
+                        "$ref": "#/components/schemas/Money"
+                      },
+                      "max": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "daily",
+                      "max"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "crossBorder": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "countries": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "fee": {
+                          "$ref": "#/components/schemas/Money"
+                        }
+                      },
+                      "required": [
+                        "countries",
+                        "fee"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "returnBranches": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "address": {
+                        "type": "string"
+                      },
+                      "lat": {
+                        "type": "number"
+                      },
+                      "lng": {
+                        "type": "number"
+                      },
+                      "airportCode": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "fee": {
+                        "$ref": "#/components/schemas/Money"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "name",
+                      "address",
+                      "lat",
+                      "lng",
+                      "airportCode",
+                      "fee"
+                    ],
+                    "additionalProperties": false
+                  }
                 },
                 "chauffeurDaily": {
                   "anyOf": [
@@ -33067,6 +33638,12 @@
                 "cityName",
                 "branch",
                 "daily",
+                "weekly",
+                "monthly",
+                "minDriverAge",
+                "extras",
+                "crossBorder",
+                "returnBranches",
                 "chauffeurDaily",
                 "deposit",
                 "delivery",
@@ -45248,6 +45825,64 @@
                   }
                 ]
               },
+              "driverAge": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 18,
+                    "maximum": 99
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "extras": {
+                "default": [],
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "child_seat",
+                        "gps",
+                        "additional_driver"
+                      ]
+                    },
+                    "quantity": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "quantity"
+                  ]
+                }
+              },
+              "returnBranch": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 80,
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "crossBorder": {
+                "default": false,
+                "type": "boolean"
+              },
               "currency": {
                 "default": "NGN",
                 "type": "string",
@@ -49599,7 +50234,10 @@
                     "bus_seats",
                     "rental_vehicle",
                     "rental_chauffeur",
-                    "rental_delivery"
+                    "rental_delivery",
+                    "rental_extras",
+                    "rental_one_way",
+                    "rental_cross_border"
                   ]
                 },
                 "amount": {
@@ -51972,13 +52610,20 @@
               },
               "lng": {
                 "type": "number"
+              },
+              "airportCode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "name",
               "address",
               "lat",
-              "lng"
+              "lng",
+              "airportCode"
             ],
             "additionalProperties": false
           },
@@ -51999,8 +52644,159 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "months": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "weeks": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "months",
+                  "weeks",
+                  "days"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "chauffeur": {
             "type": "boolean"
+          },
+          "minDriverAge": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "driverAge": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extras": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "child_seat",
+                    "gps",
+                    "additional_driver"
+                  ]
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "amount": {
+                  "$ref": "#/components/schemas/Money"
+                }
+              },
+              "required": [
+                "code",
+                "quantity",
+                "amount"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "returnBranch": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "lat": {
+                    "type": "number"
+                  },
+                  "lng": {
+                    "type": "number"
+                  },
+                  "airportCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "name",
+                  "address",
+                  "lat",
+                  "lng",
+                  "airportCode"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "crossBorder": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "countries": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "countries"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "delivery": {
             "anyOf": [
@@ -52047,6 +52843,15 @@
               "delivery": {
                 "$ref": "#/components/schemas/Money"
               },
+              "extras": {
+                "$ref": "#/components/schemas/Money"
+              },
+              "oneWay": {
+                "$ref": "#/components/schemas/Money"
+              },
+              "crossBorder": {
+                "$ref": "#/components/schemas/Money"
+              },
               "deposit": {
                 "$ref": "#/components/schemas/Money"
               }
@@ -52055,6 +52860,9 @@
               "vehicle",
               "chauffeur",
               "delivery",
+              "extras",
+              "oneWay",
+              "crossBorder",
               "deposit"
             ],
             "additionalProperties": false
@@ -52252,7 +53060,13 @@
           "pickupAtLocal",
           "returnAtLocal",
           "days",
+          "rate",
           "chauffeur",
+          "minDriverAge",
+          "driverAge",
+          "extras",
+          "returnBranch",
+          "crossBorder",
           "delivery",
           "charge",
           "mileage",
@@ -52441,18 +53255,148 @@
                     },
                     "lng": {
                       "type": "number"
+                    },
+                    "airportCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "name",
                     "address",
                     "lat",
-                    "lng"
+                    "lng",
+                    "airportCode"
                   ],
                   "additionalProperties": false
                 },
                 "daily": {
                   "$ref": "#/components/schemas/Money"
+                },
+                "weekly": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "monthly": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "minDriverAge": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "extras": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "enum": [
+                          "child_seat",
+                          "gps",
+                          "additional_driver"
+                        ]
+                      },
+                      "daily": {
+                        "$ref": "#/components/schemas/Money"
+                      },
+                      "max": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "daily",
+                      "max"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "crossBorder": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "countries": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "fee": {
+                          "$ref": "#/components/schemas/Money"
+                        }
+                      },
+                      "required": [
+                        "countries",
+                        "fee"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "returnBranches": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "address": {
+                        "type": "string"
+                      },
+                      "lat": {
+                        "type": "number"
+                      },
+                      "lng": {
+                        "type": "number"
+                      },
+                      "airportCode": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "fee": {
+                        "$ref": "#/components/schemas/Money"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "name",
+                      "address",
+                      "lat",
+                      "lng",
+                      "airportCode",
+                      "fee"
+                    ],
+                    "additionalProperties": false
+                  }
                 },
                 "chauffeurDaily": {
                   "anyOf": [
@@ -52542,11 +53486,38 @@
                     },
                     "deposit": {
                       "$ref": "#/components/schemas/Money"
+                    },
+                    "blocks": {
+                      "type": "object",
+                      "properties": {
+                        "months": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "weeks": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "months",
+                        "weeks",
+                        "days"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "rental",
-                    "deposit"
+                    "deposit",
+                    "blocks"
                   ],
                   "additionalProperties": false
                 }
@@ -52567,6 +53538,12 @@
                 "cityName",
                 "branch",
                 "daily",
+                "weekly",
+                "monthly",
+                "minDriverAge",
+                "extras",
+                "crossBorder",
+                "returnBranches",
                 "chauffeurDaily",
                 "deposit",
                 "delivery",
@@ -52666,18 +53643,148 @@
               },
               "lng": {
                 "type": "number"
+              },
+              "airportCode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "name",
               "address",
               "lat",
-              "lng"
+              "lng",
+              "airportCode"
             ],
             "additionalProperties": false
           },
           "daily": {
             "$ref": "#/components/schemas/Money"
+          },
+          "weekly": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "monthly": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minDriverAge": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "extras": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "child_seat",
+                    "gps",
+                    "additional_driver"
+                  ]
+                },
+                "daily": {
+                  "$ref": "#/components/schemas/Money"
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "code",
+                "daily",
+                "max"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "crossBorder": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "countries": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "fee": {
+                    "$ref": "#/components/schemas/Money"
+                  }
+                },
+                "required": [
+                  "countries",
+                  "fee"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "returnBranches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": "string"
+                },
+                "lat": {
+                  "type": "number"
+                },
+                "lng": {
+                  "type": "number"
+                },
+                "airportCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "fee": {
+                  "$ref": "#/components/schemas/Money"
+                }
+              },
+              "required": [
+                "code",
+                "name",
+                "address",
+                "lat",
+                "lng",
+                "airportCode",
+                "fee"
+              ],
+              "additionalProperties": false
+            }
           },
           "chauffeurDaily": {
             "anyOf": [
@@ -52804,6 +53911,12 @@
           "cityName",
           "branch",
           "daily",
+          "weekly",
+          "monthly",
+          "minDriverAge",
+          "extras",
+          "crossBorder",
+          "returnBranches",
           "chauffeurDaily",
           "deposit",
           "delivery",

@@ -18,7 +18,12 @@ import {
 } from '../src/crypto/encryption-contexts';
 import { LocalKeyFieldEncryption } from '../src/crypto/field-encryption';
 import { HmacService } from '../src/crypto/hmac.service';
-import type { PrismaClient, RentalCategory, RideCategory } from '../src/generated/prisma/client';
+import {
+  Prisma,
+  type PrismaClient,
+  type RentalCategory,
+  type RideCategory,
+} from '../src/generated/prisma/client';
 
 const LAGOS_ZONE = 'Africa/Lagos';
 const naira = (amount: number): bigint => BigInt(amount * 100);
@@ -368,7 +373,7 @@ interface RentalSeed {
   daily: number;
   chauffeur: number | null;
   deposit: number;
-  branch: 'ikeja' | 'lekki';
+  branch: 'ikeja' | 'lekki' | 'airport';
   features: string[];
 }
 
@@ -426,7 +431,7 @@ const RENTALS: RentalSeed[] = [
     daily: 75_000,
     chauffeur: 20_000,
     deposit: 150_000,
-    branch: 'ikeja',
+    branch: 'airport',
     features: ['air_conditioning', 'bluetooth', 'reverse_camera'],
   },
   {
@@ -468,7 +473,7 @@ const RENTALS: RentalSeed[] = [
     daily: 130_000,
     chauffeur: 25_000,
     deposit: 300_000,
-    branch: 'ikeja',
+    branch: 'airport',
     features: ['air_conditioning', 'leather_seats', 'bluetooth'],
   },
   {
@@ -500,7 +505,17 @@ const BRANCHES = {
     lat: 6.4474,
     lng: 3.4723,
   },
+  airport: {
+    name: 'Lagos airport branch (sample)',
+    address: 'Murtala Muhammed International Airport, Ikeja, Lagos',
+    lat: 6.5774,
+    lng: 3.321,
+    airportCode: 'LOS',
+  },
 } as const;
+
+/** Where a sample car may be returned instead of its own branch, with the one-way fee. */
+const RETURN_FEES = { ikeja: 5_000, lekki: 10_000, airport: 8_000 } as const;
 
 async function seedBuses(prisma: PrismaClient): Promise<void> {
   const operators = new Map<string, string>();
@@ -758,9 +773,38 @@ async function seedRentals(prisma: PrismaClient): Promise<void> {
       branchAddress: branch.address,
       lat: branch.lat,
       lng: branch.lng,
+      airportCode: 'airportCode' in branch ? branch.airportCode : null,
       timeZone: LAGOS_ZONE,
       currency: 'NGN',
       dailyMinor: naira(seed.daily),
+      // Sample rates (ADR-098): a week for the price of six days, a month for twenty-two.
+      weeklyMinor: naira(seed.daily * 6),
+      monthlyMinor: naira(seed.daily * 22),
+      minDriverAge: seed.category === 'luxury' ? 25 : 21,
+      extras: [
+        { code: 'child_seat', dailyMinor: Number(naira(2_000)), max: 2 },
+        { code: 'gps', dailyMinor: Number(naira(1_500)), max: 1 },
+        { code: 'additional_driver', dailyMinor: Number(naira(3_000)), max: 2 },
+      ],
+      // SUVs and luxury cars may go to the neighbours on the coastal road, for a flat fee.
+      crossBorder:
+        seed.category === 'suv' || seed.category === 'luxury'
+          ? { countries: ['BJ', 'TG', 'GH'], feeMinor: Number(naira(50_000)) }
+          : Prisma.DbNull,
+      returnBranches: (Object.keys(BRANCHES) as (keyof typeof BRANCHES)[])
+        .filter((key) => key !== seed.branch)
+        .map((key) => {
+          const other = BRANCHES[key];
+          return {
+            code: `sample-${key}`,
+            name: other.name,
+            address: other.address,
+            lat: other.lat,
+            lng: other.lng,
+            feeMinor: Number(naira(RETURN_FEES[key])),
+            airportCode: 'airportCode' in other ? other.airportCode : null,
+          };
+        }),
       chauffeurDailyMinor: seed.chauffeur === null ? null : naira(seed.chauffeur),
       depositMinor: naira(seed.deposit),
       // Delivery within 25 km at NGN 500 a kilometre; 200 km a day included, NGN 150 per extra km.

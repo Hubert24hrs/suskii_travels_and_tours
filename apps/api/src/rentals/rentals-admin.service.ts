@@ -22,6 +22,7 @@ import { PrismaService } from '../infra/prisma.service';
 import { LedgerService, transfer } from '../ledger/ledger.service';
 
 import { rentalConflict } from './rental-errors';
+import { vehicleCard } from './rental-options';
 import { RentalFiles } from './rental-files';
 import type {
   adminReservationListSchema,
@@ -101,42 +102,9 @@ export class RentalsAdminService {
     });
     return {
       vehicles: rows.map((row) => ({
-        id: row.id,
-        slug: row.slug,
+        ...vehicleCard(row),
         status: row.status,
         plate: row.plate,
-        make: row.make,
-        model: row.model,
-        year: row.year,
-        category: row.category,
-        transmission: row.transmission,
-        seats: row.seats,
-        features: row.features,
-        photoUrls: row.photoUrls,
-        artKey: row.artKey,
-        sample: row.sample,
-        cityName: row.cityName,
-        branch: { name: row.branchName, address: row.branchAddress, lat: row.lat, lng: row.lng },
-        daily: toWire(money(row.dailyMinor, row.currency)),
-        chauffeurDaily:
-          row.chauffeurDailyMinor === null
-            ? null
-            : toWire(money(row.chauffeurDailyMinor, row.currency)),
-        deposit: toWire(money(row.depositMinor, row.currency)),
-        delivery:
-          row.deliveryPerKmMinor !== null && row.deliveryMaxKm !== null
-            ? {
-                perKm: toWire(money(row.deliveryPerKmMinor, row.currency)),
-                maxKm: row.deliveryMaxKm,
-              }
-            : null,
-        mileage: {
-          kmPerDay: row.mileageKmPerDay,
-          excessKm:
-            row.excessKmMinor === null ? null : toWire(money(row.excessKmMinor, row.currency)),
-        },
-        fuelPolicy: row.fuelPolicy as 'full_to_full' | 'same_to_same',
-        insuranceSummary: row.insuranceSummary,
         upcomingRentals: row._count.reservations,
       })),
     };
@@ -183,6 +151,10 @@ export class RentalsAdminService {
       fuelPolicy: current.fuelPolicy,
       branchName: current.branchName,
       cityName: current.cityName,
+      airportCode: current.airportCode,
+      weeklyMinor: current.weeklyMinor === null ? null : Number(current.weeklyMinor),
+      monthlyMinor: current.monthlyMinor === null ? null : Number(current.monthlyMinor),
+      minDriverAge: current.minDriverAge,
     };
     const after = { ...before, ...pick(input, Object.keys(before) as (keyof typeof before)[]) };
     const changes = fieldChanges(before, after);
@@ -532,6 +504,12 @@ export class RentalsAdminService {
       chauffeur: row.chauffeur,
       chauffeurDriverId: row.chauffeurDriverId,
       delivery: payload.delivery,
+      extras: (payload.extras ?? []).map(({ code, quantity }) => ({ code, quantity })),
+      returnBranch: payload.returnBranch
+        ? { name: payload.returnBranch.name, address: payload.returnBranch.address }
+        : null,
+      crossBorder: payload.crossBorder?.countries ?? null,
+      driverAge: payload.driverAge ?? null,
       status: row.status,
       licenceRequired: row.licenceRequired,
       licence: row.licence
@@ -610,9 +588,16 @@ function vehicleData(input: In<typeof vehicleBodySchema>): Prisma.RentalVehicleC
     branchAddress: input.branchAddress,
     lat: input.lat,
     lng: input.lng,
+    airportCode: input.airportCode,
     timeZone: input.timeZone,
     currency: input.currency,
     dailyMinor: BigInt(input.dailyMinor),
+    weeklyMinor: big(input.weeklyMinor) ?? null,
+    monthlyMinor: big(input.monthlyMinor) ?? null,
+    minDriverAge: input.minDriverAge,
+    extras: input.extras,
+    crossBorder: input.crossBorder ?? Prisma.DbNull,
+    returnBranches: input.returnBranches,
     chauffeurDailyMinor: big(input.chauffeurDailyMinor) ?? null,
     depositMinor: BigInt(input.depositMinor),
     deliveryPerKmMinor: big(input.deliveryPerKmMinor) ?? null,
@@ -632,10 +617,16 @@ function vehicleUpdate(input: In<typeof vehicleUpdateSchema>): Prisma.RentalVehi
     depositMinor,
     deliveryPerKmMinor,
     excessKmMinor,
+    weeklyMinor,
+    monthlyMinor,
+    crossBorder,
     ...rest
   } = input;
   return {
     ...rest,
+    ...(weeklyMinor !== undefined ? { weeklyMinor: big(weeklyMinor) } : {}),
+    ...(monthlyMinor !== undefined ? { monthlyMinor: big(monthlyMinor) } : {}),
+    ...(crossBorder !== undefined ? { crossBorder: crossBorder ?? Prisma.DbNull } : {}),
     ...(dailyMinor !== undefined ? { dailyMinor: BigInt(dailyMinor) } : {}),
     ...(chauffeurDailyMinor !== undefined ? { chauffeurDailyMinor: big(chauffeurDailyMinor) } : {}),
     ...(depositMinor !== undefined ? { depositMinor: BigInt(depositMinor) } : {}),

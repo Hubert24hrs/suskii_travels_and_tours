@@ -13,6 +13,9 @@ export const PRICE_LINE_CODES = [
   'rental_vehicle',
   'rental_chauffeur',
   'rental_delivery',
+  'rental_extras',
+  'rental_one_way',
+  'rental_cross_border',
 ] as const;
 export type PriceLineCode = (typeof PRICE_LINE_CODES)[number];
 
@@ -63,6 +66,13 @@ export function carsPriceBreakdown(payload: ItemPayload, fare: Money): PriceLine
           quantity: payload.days,
         },
         { code: 'rental_delivery', weight: payload.charge.delivery.minor, quantity: null },
+        { code: 'rental_extras', weight: payload.charge.extras?.minor ?? 0n, quantity: null },
+        { code: 'rental_one_way', weight: payload.charge.oneWay?.minor ?? 0n, quantity: null },
+        {
+          code: 'rental_cross_border',
+          weight: payload.charge.crossBorder?.minor ?? 0n,
+          quantity: null,
+        },
       ];
       break;
     case 'flight':

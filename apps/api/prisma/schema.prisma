@@ -2996,6 +2996,22 @@ model RentalVehicle {
   insuranceSummary    String         @default("") @map("insurance_summary")
   /// Photos on `IMAGE_REMOTE_HOSTS` (https only).
   photoUrls           String[]       @default([]) @map("photo_urls")
+  /// IATA code of the airport the branch is at; null for a city branch (ADR-098).
+  airportCode         String?        @map("airport_code") @db.Char(3)
+  /// The price of seven days; null when the car has no weekly rate.
+  weeklyMinor         BigInt?        @map("weekly_minor")
+  /// The price of thirty days; null when the car has no monthly rate.
+  monthlyMinor        BigInt?        @map("monthly_minor")
+  /// Youngest driver of a self-drive rental.
+  minDriverAge        Int            @default(21) @map("min_driver_age")
+  /// Extras per day and unit: `[{ code, dailyMinor, max }]` (`RENTAL_EXTRAS`).
+  extras              Json           @default("[]")
+  /// Countries the car may be driven to and the flat fee: `{ countries, feeMinor }`; null when
+  /// it must stay in the country.
+  crossBorder         Json?          @map("cross_border")
+  /// Other places the car may be returned, each with its one-way fee:
+  /// `[{ code, name, address, lat, lng, feeMinor, airportCode }]`.
+  returnBranches      Json           @default("[]") @map("return_branches")
   /// Cancellation tiers (`CancellationTier[]`).
   cancellationPolicy  Json           @map("cancellation_policy")
   createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -3004,6 +3020,7 @@ model RentalVehicle {
   reservations RentalReservation[]
 
   @@index([cityName, status])
+  @@index([airportCode])
   @@map("rental_vehicles")
 }
 

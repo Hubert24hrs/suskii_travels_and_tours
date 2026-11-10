@@ -35,6 +35,7 @@ import type {
 import { SALES_CLOSE_MINUTES } from '../buses/bus-holds.service';
 import { PrismaService } from '../infra/prisma.service';
 import { storedBenefits } from '../prime/prime-status';
+import { rentalOptionCharges, rentalOptions, rentalRates } from '../rentals/rental-options';
 import { OfferUnavailableError } from '../suppliers/supplier.errors';
 
 import {
@@ -372,19 +373,35 @@ export class InhouseCatalog {
           throw unavailable('The pickup time has passed');
         }
         const charge = rentalCharge(
-          {
-            daily: money(vehicle.dailyMinor, vehicle.currency),
-            chauffeurDaily:
-              vehicle.chauffeurDailyMinor === null
-                ? null
-                : money(vehicle.chauffeurDailyMinor, vehicle.currency),
-            deposit: money(vehicle.depositMinor, vehicle.currency),
-          },
+          rentalRates(vehicle),
           new Date(payload.pickupAtUtc),
           new Date(payload.returnAtUtc),
           payload.chauffeur,
         );
         if (!charge) throw unavailable('A chauffeur is no longer offered with this car');
+        // Extras, the return branch and cross-border cover at what the car offers today
+        // (ADR-098): an option withdrawn since the quote is never sold.
+        const options = rentalOptionCharges(
+          rentalOptions(vehicle),
+          {
+            extras: (payload.extras ?? []).map(({ code, quantity }) => ({ code, quantity })),
+            returnBranch: payload.returnBranch?.code ?? null,
+            crossBorder: Boolean(payload.crossBorder),
+          },
+          charge.days,
+          payload.chauffeur,
+          vehicle.currency,
+        );
+        if ('issue' in options) {
+          throw unavailable('An option chosen for this rental is no longer offered');
+        }
+        if (
+          payload.driverAge !== null &&
+          payload.driverAge !== undefined &&
+          payload.driverAge < vehicle.minDriverAge
+        ) {
+          throw unavailable("The driver is under this car's minimum age");
+        }
         const delivery =
           payload.delivery && vehicle.deliveryPerKmMinor !== null
             ? multiply(money(vehicle.deliveryPerKmMinor, vehicle.currency), payload.delivery.km)
@@ -394,11 +411,18 @@ export class InhouseCatalog {
         }
         return {
           ...payload,
+          rate: charge.blocks,
+          extras: options.extras,
+          returnBranch: options.returnBranch,
+          crossBorder: options.crossBorder,
           charge: {
             vehicle: charge.vehicle,
             chauffeur: charge.chauffeur,
             delivery,
             deposit: charge.deposit,
+            extras: options.extrasTotal,
+            oneWay: options.oneWay,
+            crossBorder: options.crossBorderFee,
           },
         };
       }

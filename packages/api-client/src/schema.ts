@@ -7601,6 +7601,17 @@ export interface components {
                 lng: number;
                 km: number;
             } | null;
+            extras: {
+                /** @enum {string} */
+                code: "child_seat" | "gps" | "additional_driver";
+                quantity: number;
+            }[];
+            returnBranch: {
+                name: string;
+                address: string;
+            } | null;
+            crossBorder: string[] | null;
+            driverAge: number | null;
             /** @enum {string} */
             status: "reserved" | "checked_out" | "returned" | "cancelled";
             licenceRequired: boolean;
@@ -7659,8 +7670,31 @@ export interface components {
                     address: string;
                     lat: number;
                     lng: number;
+                    airportCode: string | null;
                 };
                 daily: components["schemas"]["Money"];
+                weekly: components["schemas"]["Money"] | null;
+                monthly: components["schemas"]["Money"] | null;
+                minDriverAge: number;
+                extras: {
+                    /** @enum {string} */
+                    code: "child_seat" | "gps" | "additional_driver";
+                    daily: components["schemas"]["Money"];
+                    max: number;
+                }[];
+                crossBorder: {
+                    countries: string[];
+                    fee: components["schemas"]["Money"];
+                } | null;
+                returnBranches: {
+                    code: string;
+                    name: string;
+                    address: string;
+                    lat: number;
+                    lng: number;
+                    airportCode: string | null;
+                    fee: components["schemas"]["Money"];
+                }[];
                 chauffeurDaily: components["schemas"]["Money"] | null;
                 deposit: components["schemas"]["Money"];
                 delivery: {
@@ -10106,6 +10140,18 @@ export interface components {
                 lng: number;
                 label: string;
             } | null;
+            /** @default null */
+            driverAge?: number | null;
+            /** @default [] */
+            extras?: {
+                /** @enum {string} */
+                code: "child_seat" | "gps" | "additional_driver";
+                quantity: number;
+            }[];
+            /** @default null */
+            returnBranch?: string | null;
+            /** @default false */
+            crossBorder?: boolean;
             /**
              * @default NGN
              * @enum {string}
@@ -10947,7 +10993,7 @@ export interface components {
         };
         PriceBreakdown: {
             /** @enum {string} */
-            code: "ride_base" | "ride_distance" | "ride_time" | "ride_surge" | "ride_minimum" | "ride_booking_fee" | "bus_seats" | "rental_vehicle" | "rental_chauffeur" | "rental_delivery";
+            code: "ride_base" | "ride_distance" | "ride_time" | "ride_surge" | "ride_minimum" | "ride_booking_fee" | "bus_seats" | "rental_vehicle" | "rental_chauffeur" | "rental_delivery" | "rental_extras" | "rental_one_way" | "rental_cross_border";
             amount: components["schemas"]["Money"];
             quantity: number | null;
         }[] | null;
@@ -11392,13 +11438,38 @@ export interface components {
                 address: string;
                 lat: number;
                 lng: number;
+                airportCode: string | null;
             };
             cityName: string;
             timeZone: string;
             pickupAtLocal: string;
             returnAtLocal: string;
             days: number;
+            rate: {
+                months: number;
+                weeks: number;
+                days: number;
+            } | null;
             chauffeur: boolean;
+            minDriverAge: number | null;
+            driverAge: number | null;
+            extras: {
+                /** @enum {string} */
+                code: "child_seat" | "gps" | "additional_driver";
+                quantity: number;
+                amount: components["schemas"]["Money"];
+            }[];
+            returnBranch: {
+                code: string;
+                name: string;
+                address: string;
+                lat: number;
+                lng: number;
+                airportCode: string | null;
+            } | null;
+            crossBorder: {
+                countries: string[];
+            } | null;
             delivery: {
                 label: string;
                 lat: number;
@@ -11409,6 +11480,9 @@ export interface components {
                 vehicle: components["schemas"]["Money"];
                 chauffeur: components["schemas"]["Money"];
                 delivery: components["schemas"]["Money"];
+                extras: components["schemas"]["Money"];
+                oneWay: components["schemas"]["Money"];
+                crossBorder: components["schemas"]["Money"];
                 deposit: components["schemas"]["Money"];
             };
             mileage: {
@@ -11488,8 +11562,31 @@ export interface components {
                     address: string;
                     lat: number;
                     lng: number;
+                    airportCode: string | null;
                 };
                 daily: components["schemas"]["Money"];
+                weekly: components["schemas"]["Money"] | null;
+                monthly: components["schemas"]["Money"] | null;
+                minDriverAge: number;
+                extras: {
+                    /** @enum {string} */
+                    code: "child_seat" | "gps" | "additional_driver";
+                    daily: components["schemas"]["Money"];
+                    max: number;
+                }[];
+                crossBorder: {
+                    countries: string[];
+                    fee: components["schemas"]["Money"];
+                } | null;
+                returnBranches: {
+                    code: string;
+                    name: string;
+                    address: string;
+                    lat: number;
+                    lng: number;
+                    airportCode: string | null;
+                    fee: components["schemas"]["Money"];
+                }[];
                 chauffeurDaily: components["schemas"]["Money"] | null;
                 deposit: components["schemas"]["Money"];
                 delivery: {
@@ -11506,6 +11603,11 @@ export interface components {
                 estimate: {
                     rental: components["schemas"]["Money"];
                     deposit: components["schemas"]["Money"];
+                    blocks: {
+                        months: number;
+                        weeks: number;
+                        days: number;
+                    };
                 };
             }[];
         };
@@ -11531,8 +11633,31 @@ export interface components {
                 address: string;
                 lat: number;
                 lng: number;
+                airportCode: string | null;
             };
             daily: components["schemas"]["Money"];
+            weekly: components["schemas"]["Money"] | null;
+            monthly: components["schemas"]["Money"] | null;
+            minDriverAge: number;
+            extras: {
+                /** @enum {string} */
+                code: "child_seat" | "gps" | "additional_driver";
+                daily: components["schemas"]["Money"];
+                max: number;
+            }[];
+            crossBorder: {
+                countries: string[];
+                fee: components["schemas"]["Money"];
+            } | null;
+            returnBranches: {
+                code: string;
+                name: string;
+                address: string;
+                lat: number;
+                lng: number;
+                airportCode: string | null;
+                fee: components["schemas"]["Money"];
+            }[];
             chauffeurDaily: components["schemas"]["Money"] | null;
             deposit: components["schemas"]["Money"];
             delivery: {
@@ -16685,10 +16810,41 @@ export interface operations {
                     branchAddress: string;
                     lat: number;
                     lng: number;
+                    /** @default null */
+                    airportCode?: string | null;
                     timeZone: string;
                     /** @enum {string} */
                     currency: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
                     dailyMinor: number;
+                    /** @default null */
+                    weeklyMinor?: number | null;
+                    /** @default null */
+                    monthlyMinor?: number | null;
+                    /** @default 21 */
+                    minDriverAge?: number;
+                    /** @default [] */
+                    extras?: {
+                        /** @enum {string} */
+                        code: "child_seat" | "gps" | "additional_driver";
+                        dailyMinor: number;
+                        max: number;
+                    }[];
+                    /** @default null */
+                    crossBorder?: {
+                        countries: string[];
+                        feeMinor: number;
+                    } | null;
+                    /** @default [] */
+                    returnBranches?: {
+                        code: string;
+                        name: string;
+                        address: string;
+                        lat: number;
+                        lng: number;
+                        feeMinor: number;
+                        /** @default null */
+                        airportCode?: string | null;
+                    }[];
                     /** @default null */
                     chauffeurDailyMinor?: number | null;
                     depositMinor: number;
@@ -16765,10 +16921,34 @@ export interface operations {
                     branchAddress?: string;
                     lat?: number;
                     lng?: number;
+                    airportCode?: string | null;
                     timeZone?: string;
                     /** @enum {string} */
                     currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
                     dailyMinor?: number;
+                    weeklyMinor?: number | null;
+                    monthlyMinor?: number | null;
+                    minDriverAge?: number;
+                    extras?: {
+                        /** @enum {string} */
+                        code: "child_seat" | "gps" | "additional_driver";
+                        dailyMinor: number;
+                        max: number;
+                    }[];
+                    crossBorder?: {
+                        countries: string[];
+                        feeMinor: number;
+                    } | null;
+                    returnBranches?: {
+                        code: string;
+                        name: string;
+                        address: string;
+                        lat: number;
+                        lng: number;
+                        feeMinor: number;
+                        /** @default null */
+                        airportCode?: string | null;
+                    }[];
                     chauffeurDailyMinor?: number | null;
                     depositMinor?: number;
                     deliveryPerKmMinor?: number | null;
@@ -24870,6 +25050,9 @@ export interface operations {
                 pickupAt: string;
                 returnAt: string;
                 category?: "economy" | "compact" | "suv" | "luxury" | "van";
+                transmission?: "automatic" | "manual";
+                airport?: "true" | "false";
+                driverAge?: number;
                 chauffeur?: "true" | "false";
             };
             header?: never;
