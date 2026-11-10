@@ -36,7 +36,15 @@ test.describe('preferences and sign-ups', () => {
     };
     expect(await searchLimit()).toBe('20');
 
+    // The selector posts the choice and refreshes afterwards. Wait for the answer that sets the
+    // cookie: the select shows "on" at once, so reading the cookie straight away races the post.
+    const stored = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        new URL(response.url()).pathname === '/preferences/dataSaver',
+    );
     await page.getByRole('contentinfo').getByLabel(t('footer.dataSaver')).selectOption('on');
+    expect((await stored).status()).toBe(204);
     await expect(page.getByRole('contentinfo').getByLabel(t('footer.dataSaver'))).toHaveValue('on');
     const cookies = await context.cookies();
     expect(cookies.find((cookie) => cookie.name === '__Host-suskii_data_saver')?.value).toBe('on');
