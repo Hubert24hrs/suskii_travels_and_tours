@@ -1,0 +1,86 @@
+name: Agent eval
+
+# The Suskii Agent evals against the real model (ADR-106): routing (81 messages, 95%), grounding
+# (33 answers: no invention shown, 90% of grounded answers shown) and safety (28 red-team cases,
+# no violation). Manual only: every run calls the model provider (a few cents). Needs the
+# LLM_API_KEY repository secret. CI checks the graph, the guard and the graders on every change
+# with recorded answers (apps/agent/src/evals/*.test.ts). No job here reaches the API, a database
+# or a traveller's data: tool results are fixtures.
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which eval to run
+        required: false
+        type: choice
+        default: all
+        options:
+          - all
+          - routing
+          - grounding
+          - safety
+      router_model:
+        description: Model that routes (AGENT_MODEL_ROUTER)
+        required: false
+        default: claude-haiku-5-5
+      specialist_model:
+        description: Model that answers (AGENT_MODEL_SPECIALIST)
+        required: false
+        default: claude-sonnet-5-5
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-eval
+  cancel-in-progress: false
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  eval:
+    name: Agent eval (${{ matrix.suite }})
+    if: inputs.suite == 'all' || inputs.suite == matrix.suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [routing, grounding, safety]
+    steps:
+      - name: Check the model key is set
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          if [ -z "$LLM_API_KEY" ]; then
+            echo "::error::Missing repository secret LLM_API_KEY (the model provider's API key). Add it under Settings, Secrets and variables, Actions, then run this workflow again."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the shared package
+        run: pnpm exec turbo run build --filter=@suskii/shared
+
+      - name: Run the eval
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          AGENT_MODEL_ROUTER: ${{ inputs.router_model }}
+          AGENT_MODEL_SPECIALIST: ${{ inputs.specialist_model }}
+          SUITE: ${{ matrix.suite }}
+        run: pnpm --filter @suskii/agent "eval:agent-$SUITE"

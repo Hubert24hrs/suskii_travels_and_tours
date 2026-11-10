@@ -1,3 +1,6 @@
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { BOOKING_TERMS_VERSION, type AgentScope } from '@suskii/shared';
 
 import { AgentGrants, type AgentGrant } from '../src/agent/agent-grants';
@@ -229,6 +232,25 @@ describe('customer agent tools (e2e)', () => {
     // Every customer agent can bring in a person.
     const handover = tools.find((tool) => tool.name === 'support.handover');
     expect(handover?.agents).toHaveLength(10);
+  });
+
+  it("matches the tool list the agent's evals run against", async () => {
+    // The agent workspace cannot import the API: its evals read this snapshot of the registry.
+    // After changing a tool, refresh it with UPDATE_AGENT_TOOLS_FIXTURE=1 and re-run the evals.
+    const fixture = join(__dirname, '..', '..', 'agent', 'evals', 'tools.json');
+    const response = await ctx
+      .http()
+      .get('/v1/internal/agent-tools')
+      .set('authorization', `Bearer ${TOOLS_TOKEN}`)
+      .expect(200);
+    const tools = (response.body as { tools: unknown[] }).tools;
+    if (process.env.UPDATE_AGENT_TOOLS_FIXTURE === '1') {
+      writeFileSync(fixture, `${JSON.stringify({ tools }, null, 2)}\n`);
+    }
+    expect(existsSync(fixture)).toBe(true);
+    expect((JSON.parse(readFileSync(fixture, 'utf8')) as { tools: unknown[] }).tools).toEqual(
+      tools,
+    );
   });
 
   it('searches flights for a guest, with what that person would pay and a link to the same search', async () => {

@@ -29,3 +29,6 @@ docs/legal/scraping-register.md
 
 # Helm templates are Go templates, not YAML (checked with helm lint and kubeconform in CI)
 infra/helm/*/templates/
+
+# Snapshot of the API tool registry, written by an API test (UPDATE_AGENT_TOOLS_FIXTURE=1)
+apps/agent/evals/tools.json

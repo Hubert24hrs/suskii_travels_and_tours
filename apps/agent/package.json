@@ -13,6 +13,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "eval:agent-routing": "tsx src/evals/cli.ts routing",
+    "eval:agent-grounding": "tsx src/evals/cli.ts grounding",
+    "eval:agent-safety": "tsx src/evals/cli.ts safety",
     "clean": "rimraf dist .turbo coverage"
   },
   "dependencies": {

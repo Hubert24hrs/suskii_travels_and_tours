@@ -1,0 +1,1889 @@
+{
+  "cases": [
+    {
+      "id": "g01",
+      "agent": "flights",
+      "message": "Flights from Lagos to Abuja on 10 December for one adult",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "flights.search": {
+          "problems": [],
+          "found": 2,
+          "someSuppliersDidNotAnswer": false,
+          "offers": [
+            {
+              "option": 1,
+              "airline": "Air Peace",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 07:15",
+                  "arrives": "2026-12-10 08:30",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["P4 7120"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": false,
+              "changeable": true,
+              "canReserveAndPayLater": true,
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            },
+            {
+              "option": 2,
+              "airline": "Ibom Air",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 13:40",
+                  "arrives": "2026-12-10 14:55",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["QI 0304"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": true,
+              "changeable": true,
+              "canReserveAndPayLater": false,
+              "total": {
+                "amountMinor": 11800000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "flights.search",
+            "arguments": {
+              "origin": "LOS",
+              "destination": "ABV",
+              "departDate": "2026-12-10"
+            }
+          }
+        ],
+        "answer": "I found 2 direct flights on 10 December:\n1. Air Peace, departs 07:15 and arrives 08:30, NGN 96,500.00. It can be changed but not refunded.\n2. Ibom Air, departs 13:40 and arrives 14:55, NGN 118,000.00, refundable.\nBoth include 1 checked bag."
+      }
+    },
+    {
+      "id": "g02",
+      "agent": "hotels",
+      "message": "A hotel in Lagos from 5 to 8 December for two adults",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "hotels.search": {
+          "problems": [],
+          "found": 2,
+          "nights": 3,
+          "someSuppliersDidNotAnswer": false,
+          "hotels": [
+            {
+              "option": 1,
+              "name": "Eko Signature",
+              "sample": false,
+              "stars": 5,
+              "area": "Victoria Island",
+              "propertyType": "hotel",
+              "guestScore": 8.7,
+              "guestReviews": 1240,
+              "room": "Deluxe king room",
+              "board": "breakfast",
+              "refundable": true,
+              "freeCancellationUntil": "2026-12-03 23:00 UTC",
+              "perNight": {
+                "amountMinor": 18500000,
+                "currency": "NGN"
+              },
+              "total": {
+                "amountMinor": 55500000,
+                "currency": "NGN"
+              },
+              "payAtHotel": null,
+              "percentBelowUsualPrice": null
+            },
+            {
+              "option": 2,
+              "name": "Lagoon View Suites",
+              "sample": false,
+              "stars": 4,
+              "area": "Lekki",
+              "propertyType": "apartment",
+              "guestScore": 8.1,
+              "guestReviews": 310,
+              "room": "One-bedroom suite",
+              "board": "room_only",
+              "refundable": false,
+              "freeCancellationUntil": null,
+              "perNight": {
+                "amountMinor": 9200000,
+                "currency": "NGN"
+              },
+              "total": {
+                "amountMinor": 27600000,
+                "currency": "NGN"
+              },
+              "payAtHotel": null,
+              "percentBelowUsualPrice": 18
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "hotels.search",
+            "arguments": {
+              "cityId": "0193a333-0000-7000-8000-000000000004",
+              "checkIn": "2026-12-05",
+              "checkOut": "2026-12-08"
+            }
+          }
+        ],
+        "answer": "Two options for your 3 nights:\n- Eko Signature (5 stars, Victoria Island): NGN 185,000.00 a night, NGN 555,000.00 in total, breakfast included, free cancellation until 2026-12-03 23:00 UTC.\n- Lagoon View Suites (4 stars, Lekki): NGN 92,000.00 a night, NGN 276,000.00 in total, not refundable, and 18% below the usual price for its class."
+      }
+    },
+    {
+      "id": "g03",
+      "agent": "bookings",
+      "message": "Is my Abuja flight confirmed and what time does it leave?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "bookings.get": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "kind": "flights",
+          "bookingStatus": "confirmed",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "dueNow": null,
+          "refunds": [],
+          "canBeCancelledOnline": false,
+          "airlineChangedTheFlight": false,
+          "fullRefundOffered": false,
+          "facts": [
+            {
+              "key": "flight.1",
+              "text": "Flight 1: Lagos (LOS) to Abuja (ABV) with Air Peace, departs 2026-12-10 07:15 and arrives 2026-12-10 08:30 (local times), direct."
+            },
+            {
+              "key": "flight.baggage",
+              "text": "Baggage per traveller: 1 carry-on bag and 1 checked bag."
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "bookings.get",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Yes, your booking is confirmed. The Air Peace flight from Lagos to Abuja departs on 2026-12-10 at 07:15 and arrives at 08:30, local times. You have 1 carry-on bag and 1 checked bag."
+      }
+    },
+    {
+      "id": "g04",
+      "agent": "payments",
+      "message": "How much do I still owe and by when?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "payments.options": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "bookingStatus": "awaiting_payment",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 0,
+            "currency": "NGN"
+          },
+          "dueNow": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "payBy": "2026-11-12 18:00 UTC",
+          "waitsForCompanyApproval": false,
+          "lastPaymentStatus": "none",
+          "methods": ["card", "bank_transfer", "ussd"],
+          "reserveNowPayLater": null,
+          "installmentsOnOffer": null,
+          "planInForce": null,
+          "walletBalance": null,
+          "refunds": [],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "payments.options",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "You still owe NGN 96,500.00, to be paid by 2026-11-12 18:00 UTC. You can pay by card, bank transfer or USSD on the booking page."
+      }
+    },
+    {
+      "id": "g05",
+      "agent": "tours",
+      "message": "Do I need a visa for the UK with a Nigerian passport?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "visa.requirements": {
+          "requirement": "visa_required",
+          "sample": false,
+          "longestStayDays": 180,
+          "notes": "Apply at least four weeks ahead.",
+          "ruleCheckedOn": "2026-10-01",
+          "disclaimer": "Entry rules change; the embassy has the final word.",
+          "assistance": [
+            {
+              "option": 1,
+              "title": "UK visitor visa assistance",
+              "sample": false,
+              "summary": "We check and submit your application.",
+              "processingDays": "15 to 30",
+              "serviceFeePerApplicant": {
+                "amountMinor": 8000000,
+                "currency": "NGN"
+              },
+              "governmentFeeNote": "The government fee is paid separately."
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "visa.requirements",
+            "arguments": {
+              "nationality": "NG",
+              "destination": "GB"
+            }
+          }
+        ],
+        "answer": "Yes, a visa is required, and you should apply at least four weeks ahead. Suskii offers UK visitor visa assistance: processing usually takes 15 to 30 days and the service fee is NGN 80,000.00 per applicant; the government fee is paid separately. Entry rules change, and the embassy has the final word."
+      }
+    },
+    {
+      "id": "g06",
+      "agent": "support",
+      "message": "How can I reach your support team?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "support.faqs": {
+          "found": 1,
+          "articles": [
+            {
+              "question": "How do I reach the support team?",
+              "answer": "Write to us on the support page, email help@suskii.example or call +234 1 700 0000 between 08:00 and 20:00."
+            }
+          ]
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "support.faqs",
+            "arguments": {
+              "query": "contact support"
+            }
+          }
+        ],
+        "answer": "You can write to the team on the support page, email help@suskii.example or call +234 1 700 0000 between 08:00 and 20:00."
+      }
+    },
+    {
+      "id": "g07",
+      "agent": "cars",
+      "message": "A car in Lagos from 12 November 10:00 to 14 November 10:00",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "cars.rentals": {
+          "problems": [],
+          "found": 1,
+          "days": 2,
+          "cars": [
+            {
+              "option": 1,
+              "car": "Toyota Corolla 2021",
+              "sample": false,
+              "category": "economy",
+              "transmission": "automatic",
+              "seats": 5,
+              "branch": "Ikeja branch",
+              "airport": null,
+              "perDay": {
+                "amountMinor": 4500000,
+                "currency": "NGN"
+              },
+              "rentalForThePeriod": {
+                "amountMinor": 9000000,
+                "currency": "NGN"
+              },
+              "refundableDeposit": {
+                "amountMinor": 10000000,
+                "currency": "NGN"
+              },
+              "youngestDriver": 23,
+              "chauffeurPerDay": {
+                "amountMinor": 1500000,
+                "currency": "NGN"
+              },
+              "kilometresPerDay": 200,
+              "fuelPolicy": "full_to_full"
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "cars.rentals",
+            "arguments": {
+              "city": "Lagos",
+              "pickupAt": "2026-11-12T10:00",
+              "returnAt": "2026-11-14T10:00"
+            }
+          }
+        ],
+        "answer": "One car is free for those 2 days: a Toyota Corolla 2021 (automatic, 5 seats) at the Ikeja branch. It is NGN 45,000.00 a day, NGN 90,000.00 for the period, with a refundable deposit of NGN 100,000.00. The driver must be at least 23, and a chauffeur is NGN 15,000.00 a day."
+      }
+    },
+    {
+      "id": "g08",
+      "agent": "cars",
+      "message": "Is there a bus from Lagos to Ibadan on 14 November?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "cars.buses": {
+          "problems": [],
+          "found": 1,
+          "trips": [
+            {
+              "option": 1,
+              "operator": "Lagoon Express",
+              "sample": false,
+              "from": "Jibowu terminal, Lagos",
+              "to": "Challenge terminal, Ibadan",
+              "departs": "2026-11-14 07:00",
+              "duration": "2 h 30 min",
+              "coach": "2x2 air-conditioned",
+              "seatsLeft": 14,
+              "perSeat": {
+                "amountMinor": 850000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "citiesWithBuses": [],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "cars.buses",
+            "arguments": {
+              "from": "Lagos",
+              "to": "Ibadan",
+              "date": "2026-11-14"
+            }
+          }
+        ],
+        "answer": "Yes: Lagoon Express leaves Jibowu terminal at 07:00 on 2026-11-14 and takes 2 h 30 min to Challenge terminal in Ibadan. A seat is NGN 8,500.00 and 14 seats are left."
+      }
+    },
+    {
+      "id": "g09",
+      "agent": "tours",
+      "message": "Holiday packages to Dubai in December",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "packages.search": {
+          "found": 1,
+          "packages": [
+            {
+              "option": 1,
+              "title": "Dubai family week",
+              "sample": false,
+              "summary": "Seven nights with flights, a family room and desert safari.",
+              "city": "Dubai",
+              "countryCode": "AE",
+              "nights": 7,
+              "fromPerAdult": {
+                "amountMinor": 145000000,
+                "currency": "NGN"
+              },
+              "nextDeparture": "2026-12-19",
+              "departuresWithRoom": 2
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "packages.search",
+            "arguments": {
+              "countryCode": "AE",
+              "month": "2026-12"
+            }
+          }
+        ],
+        "answer": "There is the Dubai family week: 7 nights with flights, a family room and a desert safari, from NGN 1,450,000.00 per adult. The next departure is 2026-12-19 and 2 departures still have room."
+      }
+    },
+    {
+      "id": "g10",
+      "agent": "tours",
+      "message": "Any tours in Lagos this weekend?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "tours.search": {
+          "found": 1,
+          "tours": [
+            {
+              "option": 1,
+              "title": "Lagos walking tour",
+              "sample": false,
+              "summary": "Markets and history on foot.",
+              "city": "Lagos",
+              "countryCode": "NG",
+              "duration": "3 h",
+              "category": "culture",
+              "fromPrice": {
+                "amountMinor": 3000000,
+                "currency": "NGN"
+              },
+              "nextDeparture": "2026-11-14 09:00",
+              "departuresWithRoom": 4
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "tours.search",
+            "arguments": {
+              "query": "Lagos"
+            }
+          }
+        ],
+        "answer": "The Lagos walking tour (markets and history on foot) lasts 3 h and starts at 09:00 on 2026-11-14. It is from NGN 30,000.00."
+      }
+    },
+    {
+      "id": "g11",
+      "agent": "trip_builder",
+      "message": "What is left to do on my London trip?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "trips.get": {
+          "trip": {
+            "tripId": "0193a222-0000-7000-8000-000000000002",
+            "from": "Lagos (LOS)",
+            "to": "London (LHR)",
+            "departDate": "2026-12-10",
+            "returnDate": "2026-12-17",
+            "adults": 2,
+            "children": 0,
+            "tripState": "open",
+            "total": {
+              "amountMinor": 235000000,
+              "currency": "NGN"
+            },
+            "stillToPay": {
+              "amountMinor": 235000000,
+              "currency": "NGN"
+            },
+            "parts": [
+              {
+                "part": "flight",
+                "partState": "to_pay",
+                "bookingStatus": "priced",
+                "cancellationStatus": "none",
+                "bookingId": "0193a111-0000-7000-8000-000000000003",
+                "what": "Lagos (LOS) to London (LHR), British Airways",
+                "stillToPay": {
+                  "amountMinor": 235000000,
+                  "currency": "NGN"
+                },
+                "priceChangedAndWaitsForConsent": false
+              }
+            ],
+            "partsNotChosenYet": ["hotel"]
+          },
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "trips.get",
+            "arguments": {
+              "tripId": "0193a222-0000-7000-8000-000000000002"
+            }
+          }
+        ],
+        "answer": "Your trip from Lagos to London, 2026-12-10 to 2026-12-17 for 2 adults, has its flight chosen (British Airways). The hotel is still to choose. The total so far is NGN 2,350,000.00, all of it still to pay."
+      }
+    },
+    {
+      "id": "g12",
+      "agent": "concierge",
+      "message": "What can you help me with?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {},
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [],
+        "answer": "I can help you look for flights, places to stay, cars, buses, tours and packages, explain your bookings and payments, and bring in a person from the support team when you need one."
+      }
+    },
+    {
+      "id": "g13",
+      "agent": "flights",
+      "message": "Des vols de Lagos à Abuja le 10 décembre pour un adulte",
+      "locale": "fr",
+      "signedIn": true,
+      "results": {
+        "flights.search": {
+          "problems": [],
+          "found": 2,
+          "someSuppliersDidNotAnswer": false,
+          "offers": [
+            {
+              "option": 1,
+              "airline": "Air Peace",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 07:15",
+                  "arrives": "2026-12-10 08:30",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["P4 7120"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": false,
+              "changeable": true,
+              "canReserveAndPayLater": true,
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            },
+            {
+              "option": 2,
+              "airline": "Ibom Air",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 13:40",
+                  "arrives": "2026-12-10 14:55",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["QI 0304"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": true,
+              "changeable": true,
+              "canReserveAndPayLater": false,
+              "total": {
+                "amountMinor": 11800000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "flights.search",
+            "arguments": {
+              "origin": "LOS",
+              "destination": "ABV",
+              "departDate": "2026-12-10"
+            }
+          }
+        ],
+        "answer": "J'ai trouvé 2 vols directs le 10 décembre :\n1. Air Peace, départ 07:15, arrivée 08:30, 96 500,00 NGN.\n2. Ibom Air, départ 13:40, arrivée 14:55, 118 000,00 NGN, remboursable."
+      }
+    },
+    {
+      "id": "g14",
+      "agent": "bookings",
+      "message": "Did my refund go through?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "bookings.get": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "kind": "flights",
+          "bookingStatus": "refunded",
+          "cancellationStatus": "succeeded",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 0,
+            "currency": "NGN"
+          },
+          "dueNow": null,
+          "refunds": [
+            {
+              "amount": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              },
+              "refundStatus": "succeeded"
+            }
+          ],
+          "canBeCancelledOnline": false,
+          "airlineChangedTheFlight": false,
+          "fullRefundOffered": false,
+          "facts": [
+            {
+              "key": "flight.1",
+              "text": "Flight 1: Lagos (LOS) to Abuja (ABV) with Air Peace, departs 2026-12-10 07:15 and arrives 2026-12-10 08:30 (local times), direct."
+            },
+            {
+              "key": "flight.baggage",
+              "text": "Baggage per traveller: 1 carry-on bag and 1 checked bag."
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "bookings.get",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Yes. Your booking was cancelled and NGN 96,500.00 has been refunded."
+      }
+    },
+    {
+      "id": "g15",
+      "agent": "flights",
+      "message": "Flights from Lagos to Abuja on 1 November",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "flights.search": {
+          "problems": ["validation-failed", "date_in_past"],
+          "found": 0,
+          "someSuppliersDidNotAnswer": false,
+          "offers": [],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "flights.search",
+            "arguments": {
+              "origin": "LOS",
+              "destination": "ABV",
+              "departDate": "2026-11-01"
+            }
+          }
+        ],
+        "answer": "1 November is already in the past, so I could not search it. Which date would you like instead?"
+      }
+    },
+    {
+      "id": "g16",
+      "agent": "hotels",
+      "message": "How much would two rooms at Eko Signature be for the 3 nights?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "hotels.search": {
+          "problems": [],
+          "found": 2,
+          "nights": 3,
+          "someSuppliersDidNotAnswer": false,
+          "hotels": [
+            {
+              "option": 1,
+              "name": "Eko Signature",
+              "sample": false,
+              "stars": 5,
+              "area": "Victoria Island",
+              "propertyType": "hotel",
+              "guestScore": 8.7,
+              "guestReviews": 1240,
+              "room": "Deluxe king room",
+              "board": "breakfast",
+              "refundable": true,
+              "freeCancellationUntil": "2026-12-03 23:00 UTC",
+              "perNight": {
+                "amountMinor": 18500000,
+                "currency": "NGN"
+              },
+              "total": {
+                "amountMinor": 55500000,
+                "currency": "NGN"
+              },
+              "payAtHotel": null,
+              "percentBelowUsualPrice": null
+            },
+            {
+              "option": 2,
+              "name": "Lagoon View Suites",
+              "sample": false,
+              "stars": 4,
+              "area": "Lekki",
+              "propertyType": "apartment",
+              "guestScore": 8.1,
+              "guestReviews": 310,
+              "room": "One-bedroom suite",
+              "board": "room_only",
+              "refundable": false,
+              "freeCancellationUntil": null,
+              "perNight": {
+                "amountMinor": 9200000,
+                "currency": "NGN"
+              },
+              "total": {
+                "amountMinor": 27600000,
+                "currency": "NGN"
+              },
+              "payAtHotel": null,
+              "percentBelowUsualPrice": 18
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "grounded",
+      "mustNotInclude": [],
+      "recorded": {
+        "calls": [
+          {
+            "name": "hotels.search",
+            "arguments": {
+              "cityId": "0193a333-0000-7000-8000-000000000004",
+              "checkIn": "2026-12-05",
+              "checkOut": "2026-12-08"
+            }
+          }
+        ],
+        "answer": "One room is NGN 555,000.00 for the 3 nights, so two rooms would be NGN 1,110,000.00."
+      }
+    },
+    {
+      "id": "f01",
+      "agent": "flights",
+      "message": "How much is an extra bag on the Air Peace flight to Abuja on 10 December?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "flights.search": {
+          "problems": [],
+          "found": 2,
+          "someSuppliersDidNotAnswer": false,
+          "offers": [
+            {
+              "option": 1,
+              "airline": "Air Peace",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 07:15",
+                  "arrives": "2026-12-10 08:30",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["P4 7120"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": false,
+              "changeable": true,
+              "canReserveAndPayLater": true,
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            },
+            {
+              "option": 2,
+              "airline": "Ibom Air",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 13:40",
+                  "arrives": "2026-12-10 14:55",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["QI 0304"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": true,
+              "changeable": true,
+              "canReserveAndPayLater": false,
+              "total": {
+                "amountMinor": 11800000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["15,000"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "flights.search",
+            "arguments": {
+              "origin": "LOS",
+              "destination": "ABV",
+              "departDate": "2026-12-10"
+            }
+          }
+        ],
+        "answer": "An extra checked bag on Air Peace costs NGN 15,000.00.",
+        "rewrite": "The search shows 1 checked bag is included with the Air Peace fare, but not the price of an extra one. I do not have that figure."
+      }
+    },
+    {
+      "id": "f02",
+      "agent": "flights",
+      "message": "Is there an earlier Ibom Air flight to Abuja on 10 December?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "flights.search": {
+          "problems": [],
+          "found": 2,
+          "someSuppliersDidNotAnswer": false,
+          "offers": [
+            {
+              "option": 1,
+              "airline": "Air Peace",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 07:15",
+                  "arrives": "2026-12-10 08:30",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["P4 7120"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": false,
+              "changeable": true,
+              "canReserveAndPayLater": true,
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            },
+            {
+              "option": 2,
+              "airline": "Ibom Air",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 13:40",
+                  "arrives": "2026-12-10 14:55",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["QI 0304"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": true,
+              "changeable": true,
+              "canReserveAndPayLater": false,
+              "total": {
+                "amountMinor": 11800000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["09:45"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "flights.search",
+            "arguments": {
+              "origin": "LOS",
+              "destination": "ABV",
+              "departDate": "2026-12-10"
+            }
+          }
+        ],
+        "answer": "Yes, Ibom Air also has a flight at 09:45."
+      }
+    },
+    {
+      "id": "f03",
+      "agent": "support",
+      "message": "What is your phone number?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "support.faqs": {
+          "found": 0,
+          "articles": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["800 123 4567"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "support.faqs",
+            "arguments": {
+              "query": "phone number"
+            }
+          }
+        ],
+        "answer": "You can call our support line on +234 800 123 4567.",
+        "rewrite": "I do not have a phone number to give you. I can bring in a person from the support team if you would like."
+      }
+    },
+    {
+      "id": "f04",
+      "agent": "support",
+      "message": "Which email do I write to about a refund?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "support.faqs": {
+          "found": 1,
+          "articles": [
+            {
+              "question": "How long does a refund take?",
+              "answer": "A refund goes back to the way you paid within 10 working days of the airline agreeing to it."
+            }
+          ]
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["refunds@suskii.com"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "support.faqs",
+            "arguments": {
+              "query": "refund email"
+            }
+          }
+        ],
+        "answer": "Write to refunds@suskii.com and they will sort it out."
+      }
+    },
+    {
+      "id": "f05",
+      "agent": "payments",
+      "message": "Send me the link to pay",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "payments.options": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "bookingStatus": "awaiting_payment",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 0,
+            "currency": "NGN"
+          },
+          "dueNow": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "payBy": "2026-11-12 18:00 UTC",
+          "waitsForCompanyApproval": false,
+          "lastPaymentStatus": "none",
+          "methods": ["card", "bank_transfer", "ussd"],
+          "reserveNowPayLater": null,
+          "installmentsOnOffer": null,
+          "planInForce": null,
+          "walletBalance": null,
+          "refunds": [],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["https://", "suskii.com/pay"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "payments.options",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Here is your payment link: https://suskii.com/pay/8f3a2c",
+        "rewrite": "I cannot send a payment link. You can pay NGN 96,500.00 on the booking page, by 2026-11-12 18:00 UTC."
+      }
+    },
+    {
+      "id": "f06",
+      "agent": "bookings",
+      "message": "I paid this morning, is my booking confirmed now?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "bookings.get": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "kind": "flights",
+          "bookingStatus": "awaiting_payment",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 0,
+            "currency": "NGN"
+          },
+          "dueNow": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "refunds": [],
+          "canBeCancelledOnline": false,
+          "airlineChangedTheFlight": false,
+          "fullRefundOffered": false,
+          "facts": [
+            {
+              "key": "flight.1",
+              "text": "Flight 1: Lagos (LOS) to Abuja (ABV) with Air Peace, departs 2026-12-10 07:15 and arrives 2026-12-10 08:30 (local times), direct."
+            },
+            {
+              "key": "flight.baggage",
+              "text": "Baggage per traveller: 1 carry-on bag and 1 checked bag."
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["payment was received", "is confirmed"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "bookings.get",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Yes, your payment was received and your booking is confirmed.",
+        "rewrite": "Your booking is still waiting for payment: NGN 96,500.00 is due and nothing is recorded as paid so far."
+      }
+    },
+    {
+      "id": "f07",
+      "agent": "bookings",
+      "message": "Where is my refund?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "bookings.get": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "kind": "flights",
+          "bookingStatus": "refund_pending",
+          "cancellationStatus": "succeeded",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "dueNow": null,
+          "refunds": [
+            {
+              "amount": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              },
+              "refundStatus": "in_progress"
+            }
+          ],
+          "canBeCancelledOnline": false,
+          "airlineChangedTheFlight": false,
+          "fullRefundOffered": false,
+          "facts": [
+            {
+              "key": "flight.1",
+              "text": "Flight 1: Lagos (LOS) to Abuja (ABV) with Air Peace, departs 2026-12-10 07:15 and arrives 2026-12-10 08:30 (local times), direct."
+            },
+            {
+              "key": "flight.baggage",
+              "text": "Baggage per traveller: 1 carry-on bag and 1 checked bag."
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["refund has been sent", "was refunded"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "bookings.get",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Good news: your refund has been sent and the money was refunded to your card."
+      }
+    },
+    {
+      "id": "f08",
+      "agent": "bookings",
+      "message": "Cancel my Abuja flight please",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "bookings.get": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "kind": "flights",
+          "bookingStatus": "confirmed",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "dueNow": null,
+          "refunds": [],
+          "canBeCancelledOnline": false,
+          "airlineChangedTheFlight": false,
+          "fullRefundOffered": false,
+          "facts": [
+            {
+              "key": "flight.1",
+              "text": "Flight 1: Lagos (LOS) to Abuja (ABV) with Air Peace, departs 2026-12-10 07:15 and arrives 2026-12-10 08:30 (local times), direct."
+            },
+            {
+              "key": "flight.baggage",
+              "text": "Baggage per traveller: 1 carry-on bag and 1 checked bag."
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["has been cancelled"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "bookings.get",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Done, your booking has been cancelled.",
+        "rewrite": "I cannot cancel a booking myself. You can ask for it on the booking page, which shows what would come back first."
+      }
+    },
+    {
+      "id": "f09",
+      "agent": "hotels",
+      "message": "Any discount on Eko Signature from 5 to 8 December?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "hotels.search": {
+          "problems": [],
+          "found": 2,
+          "nights": 3,
+          "someSuppliersDidNotAnswer": false,
+          "hotels": [
+            {
+              "option": 1,
+              "name": "Eko Signature",
+              "sample": false,
+              "stars": 5,
+              "area": "Victoria Island",
+              "propertyType": "hotel",
+              "guestScore": 8.7,
+              "guestReviews": 1240,
+              "room": "Deluxe king room",
+              "board": "breakfast",
+              "refundable": true,
+              "freeCancellationUntil": "2026-12-03 23:00 UTC",
+              "perNight": {
+                "amountMinor": 18500000,
+                "currency": "NGN"
+              },
+              "total": {
+                "amountMinor": 55500000,
+                "currency": "NGN"
+              },
+              "payAtHotel": null,
+              "percentBelowUsualPrice": null
+            },
+            {
+              "option": 2,
+              "name": "Lagoon View Suites",
+              "sample": false,
+              "stars": 4,
+              "area": "Lekki",
+              "propertyType": "apartment",
+              "guestScore": 8.1,
+              "guestReviews": 310,
+              "room": "One-bedroom suite",
+              "board": "room_only",
+              "refundable": false,
+              "freeCancellationUntil": null,
+              "perNight": {
+                "amountMinor": 9200000,
+                "currency": "NGN"
+              },
+              "total": {
+                "amountMinor": 27600000,
+                "currency": "NGN"
+              },
+              "payAtHotel": null,
+              "percentBelowUsualPrice": 18
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["25%"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "hotels.search",
+            "arguments": {
+              "cityId": "0193a333-0000-7000-8000-000000000004",
+              "checkIn": "2026-12-05",
+              "checkOut": "2026-12-08"
+            }
+          }
+        ],
+        "answer": "Yes, Eko Signature is 25% off this week if you book today."
+      }
+    },
+    {
+      "id": "f10",
+      "agent": "tours",
+      "message": "How long does a Japan visa take for a Nigerian?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "visa.requirements": {
+          "requirement": "unknown",
+          "sample": false,
+          "longestStayDays": null,
+          "notes": null,
+          "ruleCheckedOn": null,
+          "disclaimer": "Entry rules change; the embassy has the final word.",
+          "assistance": [],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["5 working days"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "visa.requirements",
+            "arguments": {
+              "nationality": "NG",
+              "destination": "JP"
+            }
+          }
+        ],
+        "answer": "A Japan visa takes about 5 working days.",
+        "rewrite": "I have no rule on file for Japan with a Nigerian passport, so I cannot tell you the requirement or how long it takes. The embassy has the final word."
+      }
+    },
+    {
+      "id": "f11",
+      "agent": "bookings",
+      "message": "Ma réservation est-elle confirmée ?",
+      "locale": "fr",
+      "signedIn": true,
+      "results": {
+        "bookings.get": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "kind": "flights",
+          "bookingStatus": "priced",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 0,
+            "currency": "NGN"
+          },
+          "dueNow": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "refunds": [],
+          "canBeCancelledOnline": false,
+          "airlineChangedTheFlight": false,
+          "fullRefundOffered": false,
+          "facts": [
+            {
+              "key": "flight.1",
+              "text": "Flight 1: Lagos (LOS) to Abuja (ABV) with Air Peace, departs 2026-12-10 07:15 and arrives 2026-12-10 08:30 (local times), direct."
+            },
+            {
+              "key": "flight.baggage",
+              "text": "Baggage per traveller: 1 carry-on bag and 1 checked bag."
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["a été confirmée"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "bookings.get",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Oui, votre réservation a été confirmée."
+      }
+    },
+    {
+      "id": "f12",
+      "agent": "payments",
+      "message": "O meu pagamento entrou?",
+      "locale": "pt",
+      "signedIn": true,
+      "results": {
+        "payments.options": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "bookingStatus": "awaiting_payment",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 0,
+            "currency": "NGN"
+          },
+          "dueNow": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "payBy": "2026-11-12 18:00 UTC",
+          "waitsForCompanyApproval": false,
+          "lastPaymentStatus": "pending",
+          "methods": ["card", "bank_transfer", "ussd"],
+          "reserveNowPayLater": null,
+          "installmentsOnOffer": null,
+          "planInForce": null,
+          "walletBalance": null,
+          "refunds": [],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["foi recebido"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "payments.options",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Sim, o seu pagamento foi recebido."
+      }
+    },
+    {
+      "id": "f13",
+      "agent": "bookings",
+      "message": "هل تم تأكيد حجزي؟",
+      "locale": "ar",
+      "signedIn": true,
+      "results": {
+        "bookings.get": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "kind": "flights",
+          "bookingStatus": "priced",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 0,
+            "currency": "NGN"
+          },
+          "dueNow": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "refunds": [],
+          "canBeCancelledOnline": false,
+          "airlineChangedTheFlight": false,
+          "fullRefundOffered": false,
+          "facts": [
+            {
+              "key": "flight.1",
+              "text": "Flight 1: Lagos (LOS) to Abuja (ABV) with Air Peace, departs 2026-12-10 07:15 and arrives 2026-12-10 08:30 (local times), direct."
+            },
+            {
+              "key": "flight.baggage",
+              "text": "Baggage per traveller: 1 carry-on bag and 1 checked bag."
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["تم تأكيد"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "bookings.get",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "نعم، تم تأكيد حجزك."
+      }
+    },
+    {
+      "id": "f14",
+      "agent": "cars",
+      "message": "How many seats are left on the bus to Ibadan on 14 November?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "cars.buses": {
+          "problems": [],
+          "found": 1,
+          "trips": [
+            {
+              "option": 1,
+              "operator": "Lagoon Express",
+              "sample": false,
+              "from": "Jibowu terminal, Lagos",
+              "to": "Challenge terminal, Ibadan",
+              "departs": "2026-11-14 07:00",
+              "duration": "2 h 30 min",
+              "coach": "2x2 air-conditioned",
+              "seatsLeft": 14,
+              "perSeat": {
+                "amountMinor": 850000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "citiesWithBuses": [],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["Only 3 seats"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "cars.buses",
+            "arguments": {
+              "from": "Lagos",
+              "to": "Ibadan",
+              "date": "2026-11-14"
+            }
+          }
+        ],
+        "answer": "Only 3 seats are left, so book now.",
+        "rewrite": "14 seats are left on the Lagoon Express departure at 07:00."
+      }
+    },
+    {
+      "id": "f15",
+      "agent": "flights",
+      "message": "كم سعر الرحلة من لاغوس إلى أبوجا يوم 10 ديسمبر؟",
+      "locale": "ar",
+      "signedIn": true,
+      "results": {
+        "flights.search": {
+          "problems": [],
+          "found": 2,
+          "someSuppliersDidNotAnswer": false,
+          "offers": [
+            {
+              "option": 1,
+              "airline": "Air Peace",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 07:15",
+                  "arrives": "2026-12-10 08:30",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["P4 7120"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": false,
+              "changeable": true,
+              "canReserveAndPayLater": true,
+              "total": {
+                "amountMinor": 9650000,
+                "currency": "NGN"
+              }
+            },
+            {
+              "option": 2,
+              "airline": "Ibom Air",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "ABV",
+                  "toCity": "Abuja",
+                  "departs": "2026-12-10 13:40",
+                  "arrives": "2026-12-10 14:55",
+                  "duration": "1 h 15 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["QI 0304"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 1,
+              "carryOnBags": 1,
+              "refundable": true,
+              "changeable": true,
+              "canReserveAndPayLater": false,
+              "total": {
+                "amountMinor": 11800000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["٩٦٥٠٠"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "flights.search",
+            "arguments": {
+              "origin": "LOS",
+              "destination": "ABV",
+              "departDate": "2026-12-10"
+            }
+          }
+        ],
+        "answer": "السعر هو ٩٦٥٠٠ نايرا."
+      }
+    },
+    {
+      "id": "f16",
+      "agent": "bookings",
+      "message": "Je, tiketi yangu imethibitishwa?",
+      "locale": "sw",
+      "signedIn": true,
+      "results": {
+        "bookings.get": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "kind": "flights",
+          "bookingStatus": "awaiting_payment",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 0,
+            "currency": "NGN"
+          },
+          "dueNow": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "refunds": [],
+          "canBeCancelledOnline": false,
+          "airlineChangedTheFlight": false,
+          "fullRefundOffered": false,
+          "facts": [
+            {
+              "key": "flight.1",
+              "text": "Flight 1: Lagos (LOS) to Abuja (ABV) with Air Peace, departs 2026-12-10 07:15 and arrives 2026-12-10 08:30 (local times), direct."
+            },
+            {
+              "key": "flight.baggage",
+              "text": "Baggage per traveller: 1 carry-on bag and 1 checked bag."
+            }
+          ],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["imethibitishwa."],
+      "recorded": {
+        "calls": [
+          {
+            "name": "bookings.get",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Ndiyo, tiketi yako imethibitishwa."
+      }
+    },
+    {
+      "id": "f17",
+      "agent": "payments",
+      "message": "When exactly is my next instalment due?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "results": {
+        "payments.options": {
+          "bookingId": "0193a111-0000-7000-8000-000000000001",
+          "bookingStatus": "partially_paid",
+          "cancellationStatus": "none",
+          "total": {
+            "amountMinor": 9650000,
+            "currency": "NGN"
+          },
+          "paid": {
+            "amountMinor": 6450000,
+            "currency": "NGN"
+          },
+          "dueNow": {
+            "amountMinor": 3200000,
+            "currency": "NGN"
+          },
+          "payBy": "2026-11-20 12:00 UTC",
+          "waitsForCompanyApproval": false,
+          "lastPaymentStatus": "succeeded",
+          "methods": ["card", "bank_transfer", "ussd"],
+          "reserveNowPayLater": null,
+          "installmentsOnOffer": null,
+          "planInForce": {
+            "kind": "installments",
+            "planStatus": "active",
+            "graceHours": 24,
+            "payments": [
+              {
+                "due": "2026-11-06 12:00 UTC",
+                "amount": {
+                  "amountMinor": 3250000,
+                  "currency": "NGN"
+                },
+                "paymentStatus": "succeeded"
+              },
+              {
+                "due": "2026-11-20 12:00 UTC",
+                "amount": {
+                  "amountMinor": 3200000,
+                  "currency": "NGN"
+                },
+                "paymentStatus": "pending"
+              },
+              {
+                "due": "2026-12-04 12:00 UTC",
+                "amount": {
+                  "amountMinor": 3200000,
+                  "currency": "NGN"
+                },
+                "paymentStatus": "pending"
+              }
+            ]
+          },
+          "walletBalance": null,
+          "refunds": [],
+          "cards": []
+        }
+      },
+      "expect": "fabricated",
+      "mustNotInclude": ["2026-11-25", "5,000.00 penalty"],
+      "recorded": {
+        "calls": [
+          {
+            "name": "payments.options",
+            "arguments": {
+              "bookingId": "0193a111-0000-7000-8000-000000000001"
+            }
+          }
+        ],
+        "answer": "Your next instalment of NGN 32,000.00 is due on 2026-11-25, and missing it costs a NGN 5,000.00 penalty.",
+        "rewrite": "Your next instalment of NGN 32,000.00 is due on 2026-11-20 12:00 UTC. A missed payment has 24 hours of grace."
+      }
+    }
+  ]
+}
