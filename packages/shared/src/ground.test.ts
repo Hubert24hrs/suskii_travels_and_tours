@@ -11,8 +11,11 @@ import {
   layoutSeats,
   NIGERIA_BOUNDS,
   nextRideStatus,
+  RENTAL_EXTRA_ISSUES,
   rentalCharge,
   rentalDays,
+  rentalExtrasCharge,
+  rentalVehicleCost,
   RIDE_EVENTS,
   RIDE_STATUSES,
   rideCancellationFee,
@@ -298,11 +301,150 @@ describe('rentals', () => {
       vehicle: money(9_000_000n, 'NGN'),
       chauffeur: money(0n, 'NGN'),
       deposit: rates.deposit,
+      blocks: { months: 0, weeks: 0, days: 2 },
     });
     const chauffeured = rentalCharge(rates, pickup, back, true);
     expect(chauffeured?.chauffeur).toEqual(money(3_000_000n, 'NGN'));
     expect(chauffeured?.deposit.minor).toBe(0n);
     expect(rentalCharge({ ...rates, chauffeurDaily: null }, pickup, back, true)).toBeNull();
+  });
+
+  describe('weekly and monthly rates', () => {
+    const daily = money(1_000_000n, 'NGN');
+    const weekly = money(6_000_000n, 'NGN');
+    const monthly = money(20_000_000n, 'NGN');
+    const cost = (days: number, with_: { weekly?: boolean; monthly?: boolean } = {}) =>
+      rentalVehicleCost(
+        {
+          daily,
+          weekly: with_.weekly === false ? null : weekly,
+          monthly: with_.monthly === false ? null : monthly,
+        },
+        days,
+      );
+
+    it('charges single days at the daily rate when the car has no other rate', () => {
+      expect(rentalVehicleCost({ daily }, 45)).toEqual({
+        total: money(45_000_000n, 'NGN'),
+        blocks: { months: 0, weeks: 0, days: 45 },
+      });
+    });
+
+    it('charges whole weeks at the weekly rate and the rest by the day', () => {
+      expect(cost(9, { monthly: false })).toEqual({
+        total: money(8_000_000n, 'NGN'),
+        blocks: { months: 0, weeks: 1, days: 2 },
+      });
+      expect(cost(5, { monthly: false }).total).toEqual(money(5_000_000n, 'NGN'));
+    });
+
+    it('never charges a few days more than the week they are part of', () => {
+      // Thirteen days: a week and six days would be 12m; the second week costs 6m, not more.
+      expect(cost(13, { monthly: false })).toEqual({
+        total: money(12_000_000n, 'NGN'),
+        blocks: { months: 0, weeks: 1, days: 6 },
+      });
+      const dear = rentalVehicleCost({ daily, weekly: money(5_000_000n, 'NGN') }, 6);
+      expect(dear).toEqual({
+        total: money(5_000_000n, 'NGN'),
+        blocks: { months: 0, weeks: 1, days: 0 },
+      });
+    });
+
+    it('charges whole months at the monthly rate, then weeks, then days', () => {
+      expect(cost(40)).toEqual({
+        // One month (20m), one week (6m), three days (3m).
+        total: money(29_000_000n, 'NGN'),
+        blocks: { months: 1, weeks: 1, days: 3 },
+      });
+      expect(cost(90).total).toEqual(money(60_000_000n, 'NGN'));
+    });
+
+    it('never charges four weeks more than the month', () => {
+      // Twenty-eight days by the week would be 24m; the month costs 20m.
+      expect(cost(28)).toEqual({
+        total: monthly,
+        blocks: { months: 1, weeks: 0, days: 0 },
+      });
+      // Fifty-nine days: one month, then four weeks and a day (25m) capped at a second month.
+      expect(cost(59)).toEqual({
+        total: money(40_000_000n, 'NGN'),
+        blocks: { months: 2, weeks: 0, days: 0 },
+      });
+    });
+
+    it('never costs less for more days', () => {
+      let before = 0n;
+      for (let days = 1; days <= 90; days += 1) {
+        const { total, blocks } = cost(days);
+        expect(total.minor).toBeGreaterThanOrEqual(before);
+        expect(total.minor).toBeLessThanOrEqual(daily.minor * BigInt(days));
+        expect(blocks.months * 30 + blocks.weeks * 7 + blocks.days).toBeGreaterThanOrEqual(days);
+        before = total.minor;
+      }
+    });
+  });
+
+  describe('extras', () => {
+    const offers = [
+      { code: 'child_seat' as const, daily: money(200_000n, 'NGN'), max: 2 },
+      { code: 'additional_driver' as const, daily: money(300_000n, 'NGN'), max: 1 },
+    ];
+
+    it('prices each extra per day and per unit', () => {
+      expect(
+        rentalExtrasCharge(
+          offers,
+          [
+            { code: 'child_seat', quantity: 2 },
+            { code: 'additional_driver', quantity: 1 },
+          ],
+          3,
+          false,
+          'NGN',
+        ),
+      ).toEqual({
+        lines: [
+          { code: 'child_seat', quantity: 2, amount: money(1_200_000n, 'NGN') },
+          { code: 'additional_driver', quantity: 1, amount: money(900_000n, 'NGN') },
+        ],
+        total: money(2_100_000n, 'NGN'),
+      });
+      expect(rentalExtrasCharge(offers, [], 3, false, 'NGN')).toEqual({
+        lines: [],
+        total: money(0n, 'NGN'),
+      });
+      // A quantity of zero is no choice at all.
+      expect(rentalExtrasCharge(offers, [{ code: 'gps', quantity: 0 }], 3, false, 'NGN')).toEqual({
+        lines: [],
+        total: money(0n, 'NGN'),
+      });
+    });
+
+    it('refuses what the car does not offer, too many, a repeat and a driver beside a chauffeur', () => {
+      const issue = (
+        choices: Parameters<typeof rentalExtrasCharge>[1],
+        chauffeur = false,
+      ): unknown => rentalExtrasCharge(offers, choices, 2, chauffeur, 'NGN');
+      expect(issue([{ code: 'gps', quantity: 1 }])).toEqual({
+        issue: RENTAL_EXTRA_ISSUES.notOffered,
+      });
+      expect(issue([{ code: 'child_seat', quantity: 3 }])).toEqual({
+        issue: RENTAL_EXTRA_ISSUES.tooMany,
+      });
+      expect(
+        issue([
+          { code: 'child_seat', quantity: 1 },
+          { code: 'child_seat', quantity: 1 },
+        ]),
+      ).toEqual({ issue: RENTAL_EXTRA_ISSUES.duplicate });
+      expect(issue([{ code: 'additional_driver', quantity: 1 }], true)).toEqual({
+        issue: RENTAL_EXTRA_ISSUES.withChauffeur,
+      });
+      expect(issue([{ code: 'child_seat', quantity: 1 }], true)).toMatchObject({
+        total: money(400_000n, 'NGN'),
+      });
+    });
   });
 });
 
