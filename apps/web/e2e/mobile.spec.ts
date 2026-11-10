@@ -51,7 +51,11 @@ test.describe('mobile payment return', () => {
   test.use({ allowedConsoleErrors: [/Not allowed to launch 'suskii:.*user gesture is required/] });
 
   test('hands the traveller back to the app without showing booking data', async ({ page }) => {
-    await page.goto(`/mobile/payment-return?booking=${BOOKING_ID}`);
+    // The page jumps to the app as soon as it runs. When that jump starts before the browser's
+    // load event, the event never comes, so the test waits for the document, not for "load".
+    await page.goto(`/mobile/payment-return?booking=${BOOKING_ID}`, {
+      waitUntil: 'domcontentloaded',
+    });
     await expect(page.getByRole('heading', { name: t('mobileReturn.heading') })).toBeVisible();
     await expect(page.getByTestId('open-app')).toHaveAttribute(
       'href',
@@ -61,7 +65,9 @@ test.describe('mobile payment return', () => {
     await expectNoAxeViolations(page);
 
     // Anything that is not a booking id opens the Trips tab instead.
-    await page.goto('/mobile/payment-return?booking=../../evil');
+    await page.goto('/mobile/payment-return?booking=../../evil', {
+      waitUntil: 'domcontentloaded',
+    });
     await expect(page.getByTestId('open-app')).toHaveAttribute('href', 'suskii://trips');
   });
 });

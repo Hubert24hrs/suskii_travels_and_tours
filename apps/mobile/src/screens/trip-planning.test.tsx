@@ -267,6 +267,7 @@ describe('Cars help on a trip', () => {
                 estimate: {
                   rental: { amountMinor: 10_500_000, currency: 'NGN' },
                   deposit: rentalVehicle.deposit,
+                  blocks: { months: 0, weeks: 0, days: 3 },
                 },
               },
             ],
