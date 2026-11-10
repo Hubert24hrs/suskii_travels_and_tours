@@ -3372,6 +3372,7 @@ export const ar: Messages = {
     link: 'المساعدة',
     topics: {
       group_booking: 'طلب حجز جماعي',
+      assistant_handover: 'محوَّل من المساعد',
     },
     getHelp: 'احصل على مساعدة بشأن هذا الحجز',
     start: {

@@ -30,6 +30,6 @@ import { VisaService } from './visa.service';
     },
   ],
   // Driver documents are scanned by the same engine (ADR-050).
-  exports: [AntivirusScanner],
+  exports: [AntivirusScanner, VisaService],
 })
 export class VisaModule {}

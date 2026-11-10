@@ -3172,6 +3172,7 @@ export const sw: Messages = {
     link: 'Msaada',
     topics: {
       group_booking: 'Ombi la nafasi ya kikundi',
+      assistant_handover: 'Imeletwa na msaidizi',
     },
     getHelp: 'Pata msaada kuhusu uhifadhi huu',
     start: {

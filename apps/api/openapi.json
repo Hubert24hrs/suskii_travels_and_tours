@@ -12105,7 +12105,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "group_booking"
+                "group_booking",
+                "assistant_handover"
               ]
             }
           },
@@ -36615,7 +36616,8 @@
               {
                 "type": "string",
                 "enum": [
-                  "group_booking"
+                  "group_booking",
+                  "assistant_handover"
                 ]
               },
               {
@@ -36916,7 +36918,8 @@
               {
                 "type": "string",
                 "enum": [
-                  "group_booking"
+                  "group_booking",
+                  "assistant_handover"
                 ]
               },
               {
@@ -62572,7 +62575,8 @@
               {
                 "type": "string",
                 "enum": [
-                  "group_booking"
+                  "group_booking",
+                  "assistant_handover"
                 ]
               },
               {
@@ -62685,7 +62689,8 @@
               {
                 "type": "string",
                 "enum": [
-                  "group_booking"
+                  "group_booking",
+                  "assistant_handover"
                 ]
               },
               {

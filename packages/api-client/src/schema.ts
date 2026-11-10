@@ -8449,7 +8449,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
-            topic: "group_booking" | null;
+            topic: ("group_booking" | "assistant_handover") | null;
             /** @enum {string} */
             priority: "urgent" | "prime" | "normal";
             /** @enum {string} */
@@ -8502,7 +8502,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
-            topic: "group_booking" | null;
+            topic: ("group_booking" | "assistant_handover") | null;
             /** @enum {string} */
             priority: "urgent" | "prime" | "normal";
             /** @enum {string} */
@@ -13510,7 +13510,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
-            topic: "group_booking" | null;
+            topic: ("group_booking" | "assistant_handover") | null;
             /** @enum {string} */
             status: "open" | "waiting" | "resolved";
             booking: {
@@ -13534,7 +13534,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
-            topic: "group_booking" | null;
+            topic: ("group_booking" | "assistant_handover") | null;
             /** @enum {string} */
             status: "open" | "waiting" | "resolved";
             booking: {
@@ -19501,7 +19501,7 @@ export interface operations {
                 queue?: "active" | "open" | "waiting" | "resolved";
                 priority?: "urgent" | "prime" | "normal";
                 channel?: "web" | "app" | "whatsapp";
-                topic?: "group_booking";
+                topic?: "group_booking" | "assistant_handover";
                 assignee?: "any" | "me" | "unassigned";
                 cursor?: string;
                 limit?: number;

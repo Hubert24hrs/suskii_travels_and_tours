@@ -60,5 +60,6 @@ import { WhatsAppController } from './whatsapp/whatsapp.controller';
           : mock,
     },
   ],
+  exports: [SupportService],
 })
 export class SupportModule {}

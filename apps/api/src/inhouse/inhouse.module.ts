@@ -25,6 +25,6 @@ import { VouchersService } from './vouchers.service';
     CatalogAdminService,
     VouchersService,
   ],
-  exports: [InhouseQuotesService],
+  exports: [InhouseQuotesService, InhouseCatalogService],
 })
 export class InhouseModule {}

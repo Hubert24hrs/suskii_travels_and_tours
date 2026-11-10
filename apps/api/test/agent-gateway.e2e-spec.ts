@@ -217,9 +217,10 @@ describe('agent tool gateway (e2e)', () => {
       expect(tool.description.length).toBeGreaterThan(20);
       expect(tool.parameters.type).toBe('object');
     }
-    // Everything shipped today only reads (the test tools aside).
+    // Nothing shipped commits (the test tools aside): a commit only ever becomes a confirmation
+    // a person taps. The tools that prepare something are named in `agent-tools.e2e-spec.ts`.
     for (const tool of tools.filter((entry) => !entry.name.startsWith('testing.'))) {
-      expect([tool.name, tool.tier]).toEqual([tool.name, 'read']);
+      expect([tool.name, tool.tier === 'commit']).toEqual([tool.name, false]);
     }
   });
 
