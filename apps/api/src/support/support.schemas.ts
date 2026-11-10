@@ -8,6 +8,8 @@ import {
   SUPPORT_MESSAGE_KINDS,
   SUPPORT_PRIORITIES,
   SUPPORT_STATUSES,
+  SUPPORT_TOPICS,
+  groupRequestSchema,
   supportMessageTextSchema,
   supportReplySchema,
   supportStartSchema,
@@ -56,10 +58,16 @@ const assistantSourceSchema = z.discriminatedUnion('kind', [
 ]);
 export const assistantSourcesSchema = z.array(assistantSourceSchema);
 
+const topicSchema = z.enum(SUPPORT_TOPICS).nullable().meta({
+  description:
+    '`group_booking`: a request for a flight for ten travellers or more. Null for conversations started on the support page.',
+});
+
 const conversationFields = {
   id: z.uuid(),
   reference: z.string(),
   category: z.enum(SUPPORT_CATEGORIES),
+  topic: topicSchema,
   status: z.enum(SUPPORT_STATUSES),
   booking: bookingRefSchema,
   lastMessageAt: timestamp,
@@ -95,6 +103,18 @@ export const startSupportSchema = named(
         'Cloudflare Turnstile token (action `support`); required on the website without a session. The app sends a device attestation instead.',
     }),
   }),
+);
+
+export const groupRequestBodySchema = named(
+  'GroupFlightRequest',
+  // Zod 4: `.extend()` is refused on a refined object, so the token is added with `.and()`.
+  groupRequestSchema.and(
+    z.object({
+      turnstileToken: z.string().min(1).max(2048).nullable().default(null).meta({
+        description: 'As for starting a support conversation.',
+      }),
+    }),
+  ),
 );
 
 export const startedSupportSchema = named(
@@ -135,6 +155,7 @@ const adminConversationFields = {
   id: z.uuid(),
   reference: z.string(),
   category: z.enum(SUPPORT_CATEGORIES),
+  topic: topicSchema,
   priority: z.enum(SUPPORT_PRIORITIES),
   status: z.enum(SUPPORT_STATUSES),
   channel: z.enum(SUPPORT_CHANNELS),
@@ -216,6 +237,9 @@ export const adminSupportQuerySchema = z.object({
   }),
   priority: z.enum(SUPPORT_PRIORITIES).optional(),
   channel: z.enum(SUPPORT_CHANNELS).optional(),
+  topic: z.enum(SUPPORT_TOPICS).optional().meta({
+    description: '`group_booking`: only group booking requests.',
+  }),
   assignee: z.enum(SUPPORT_ASSIGNEE_FILTERS).default('any'),
   cursor: z.string().max(80).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),

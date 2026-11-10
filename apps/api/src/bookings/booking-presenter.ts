@@ -7,6 +7,7 @@ import {
   toWire,
   type ApprovalRejectReason,
   type ContactDetails,
+  type MealRequest,
   type Money,
   type PassengerIssue,
   type PolicyFinding,
@@ -291,6 +292,7 @@ export function toBookingDto(
       extraBags: services
         .filter((selection) => selection.passengerIndex === passenger.position)
         .reduce((acc, selection) => acc + selection.quantity, 0),
+      meal: (passenger.mealRequest as MealRequest | null) ?? null,
     })),
     warnings: passengerWarnings(booking, payload),
     payment: payment

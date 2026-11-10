@@ -284,6 +284,11 @@ export const envSchema = z
     SUPPLIER_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(10_000),
     /** How long identical searches are served from cache (spec: 5-15 minutes). */
     SEARCH_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(600),
+    /**
+     * Days each side of the chosen dates that "Flexible dates" prices (one supplier search per
+     * day, cached like any search). 0 turns the day-by-day prices off.
+     */
+    FLEXIBLE_DATES_DAYS: z.coerce.number().int().min(0).max(3).default(3),
     /** Exchange rates (ADR-008, ADR-091): `openexchangerates` needs an app id. */
     FX_PROVIDER: z.enum(['mock', 'openexchangerates']).default('mock'),
     FX_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3600),

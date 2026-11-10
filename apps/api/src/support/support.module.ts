@@ -5,9 +5,13 @@ import { AuthModule } from '../auth/auth.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 
+import { CatalogModule } from '../catalog/catalog.module';
+
 import { AdminSupportController } from './admin-support.controller';
 import { SupportAnswerer } from './assistant/support-answerer';
 import { SupportAssistant } from './assistant/support-assistant.service';
+import { GroupRequestsController } from './group-requests.controller';
+import { GroupRequestsService } from './group-requests.service';
 import { SupportAccess } from './support-access';
 import { SupportAdminService } from './support-admin.service';
 import { SupportController } from './support.controller';
@@ -26,10 +30,16 @@ import { WhatsAppController } from './whatsapp/whatsapp.controller';
  * as a channel (ADR-084) and the after-hours assistant (ADR-085).
  */
 @Module({
-  imports: [AuthModule, BookingsModule, AiSearchModule],
-  controllers: [SupportController, AdminSupportController, WhatsAppController],
+  imports: [AuthModule, BookingsModule, AiSearchModule, CatalogModule],
+  controllers: [
+    SupportController,
+    GroupRequestsController,
+    AdminSupportController,
+    WhatsAppController,
+  ],
   providers: [
     SupportService,
+    GroupRequestsService,
     SupportAdminService,
     SupportAccess,
     SupportAnswerer,

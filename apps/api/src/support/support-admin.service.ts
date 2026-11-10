@@ -9,6 +9,7 @@ import {
   supportSlaState,
   whatsappWindowClosesAt,
   type SupportStatus,
+  type SupportTopic,
 } from '@suskii/shared';
 
 import { fieldChanges, hasChanges, type StaffActor } from '../admin/admin-helpers';
@@ -111,6 +112,7 @@ export class SupportAdminService {
       status: { in: statuses },
       ...(query.priority ? { priority: query.priority } : {}),
       ...(query.channel ? { channel: query.channel } : {}),
+      ...(query.topic ? { topic: query.topic } : {}),
       ...(query.assignee === 'me' ? { assigneeId: staffId } : {}),
       ...(query.assignee === 'unassigned' ? { assigneeId: null } : {}),
     };
@@ -362,6 +364,7 @@ export class SupportAdminService {
       id: row.id,
       reference: row.reference,
       category: row.category,
+      topic: (row.topic as SupportTopic | null) ?? null,
       priority: row.priority,
       status: row.status,
       channel: row.channel,

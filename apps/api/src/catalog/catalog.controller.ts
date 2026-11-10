@@ -10,6 +10,8 @@ import {
   cityDetailSchema,
   cityParamsSchema,
   countriesSchema,
+  nearbyAirportsQuerySchema,
+  nearbyAirportsSchema,
   placesQuerySchema,
   placeSuggestionsSchema,
   popularPlacesSchema,
@@ -71,6 +73,28 @@ export class CatalogController {
     const airport = await this.catalog.airport(iataCode);
     if (!airport) throw new NotFoundException();
     return airport;
+  }
+
+  @Get('airports/:iataCode/nearby')
+  @Header('Cache-Control', CACHE_ONE_DAY)
+  @Contract({
+    operationId: 'listNearbyAirports',
+    summary: 'Other airports near an airport',
+    description:
+      'Airports with scheduled flights within the radius (straight line), nearest first, for "also search from" suggestions. Small airfields are left out.',
+    tags: TAGS,
+    params: airportParamsSchema,
+    query: nearbyAirportsQuerySchema,
+    responses: { 200: nearbyAirportsSchema },
+    errors: [404],
+  })
+  async nearby(
+    @Param('iataCode') iataCode: string,
+    @Query() query: z.infer<typeof nearbyAirportsQuerySchema>,
+  ): Promise<z.infer<typeof nearbyAirportsSchema>> {
+    const items = await this.catalog.nearbyAirports(iataCode, query.radiusKm, query.limit);
+    if (!items) throw new NotFoundException();
+    return { airport: iataCode, radiusKm: query.radiusKm, items };
   }
 
   @Get('cities/:cityId')

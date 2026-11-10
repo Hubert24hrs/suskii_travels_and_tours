@@ -18,6 +18,7 @@ import { LAYOVER_WARNINGS } from '../suppliers/supplier.types';
 // ---------------------------------------------------------------------------
 
 const timestamp = z.iso.datetime();
+const isoDate = z.iso.date();
 const localDateTime = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
@@ -170,6 +171,10 @@ export const flightOfferSchema = named(
     price: priceSchema,
     expiresAt: timestamp,
     hold: z.object({ available: z.boolean(), paymentRequiredBy: timestamp.nullable() }),
+    mealRequests: z.boolean().meta({
+      description:
+        'Whether a special meal can be asked for each seated passenger at booking (`passengers[].meal`). False: the traveller asks the airline directly.',
+    }),
     services: z.array(flightServiceSchema),
   }),
 );
@@ -211,6 +216,41 @@ export const flightSearchResultSchema = named(
     ...pageFields,
     offers: z.array(flightOfferSchema),
     facets: flightFacetsSchema,
+  }),
+);
+
+export const flightDatePricesSchema = named(
+  'FlightDatePrices',
+  z.object({
+    currency: z.string().length(3),
+    days: z
+      .array(
+        z.object({
+          offset: z
+            .number()
+            .int()
+            .meta({ description: 'Days from the requested dates; 0 is the request itself.' }),
+          departureDate: isoDate,
+          returnDate: isoDate.nullable().meta({
+            description: 'Return trips keep their length: both dates move together.',
+          }),
+          status: z.enum(['priced', 'none', 'unavailable']).meta({
+            description:
+              '`none`: no flights that day. `unavailable`: the suppliers could not answer; the day can still be searched.',
+          }),
+          total: moneySchema.nullable().meta({
+            description: 'Lowest total for every traveller that day, priced as search results are.',
+          }),
+        }),
+      )
+      .meta({
+        description:
+          'Oldest day first. Days in the past or beyond the booking horizon are left out. Empty for multi-city trips and when day-by-day prices are off.',
+      }),
+    cheapestOffset: z.number().int().nullable().meta({
+      description:
+        'The offset of the lowest total; the earliest day wins a tie. Null without a price.',
+    }),
   }),
 );
 

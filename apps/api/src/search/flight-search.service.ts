@@ -2,9 +2,11 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
 import {
+  addDays,
   compare,
   equals,
   localDate,
+  MAX_ADVANCE_DAYS,
   subtract,
   toWire,
   type FlightSearchRequest,
@@ -48,6 +50,7 @@ import {
   supplierUnavailable,
 } from './search.errors';
 import type {
+  flightDatePricesSchema,
   flightOfferSchema,
   flightQuoteSchema,
   flightSearchResultSchema,
@@ -60,6 +63,11 @@ import { quotes } from '../telemetry/metrics';
 type FlightOfferDto = z.infer<typeof flightOfferSchema>;
 type FlightSearchResultDto = z.infer<typeof flightSearchResultSchema>;
 type FlightQuoteDto = z.infer<typeof flightQuoteSchema>;
+type FlightDatePricesDto = z.infer<typeof flightDatePricesSchema>;
+type DatePrice = FlightDatePricesDto['days'][number];
+
+/** Supplier searches for the days around a request run this many at a time. */
+const DATE_PRICE_CONCURRENCY = 3;
 
 interface StoredOffer {
   id: string;
@@ -150,6 +158,7 @@ export function toFlightOfferDto(
     price,
     expiresAt: offer.expiresAt,
     hold: offer.hold,
+    mealRequests: offer.mealRequests ?? false,
     services: offer.services.map((service) => ({
       id: service.id,
       type: service.type,
@@ -229,6 +238,83 @@ export class FlightSearchService {
       if (!best || compare(usd, best.usd) < 0) best = { offer, usd };
     }
     return best?.offer ?? null;
+  }
+
+  /**
+   * The lowest total on each day around a one-way or return request ("Flexible dates"): every
+   * slice moves by the same number of days, so a return trip keeps its length. Each day is an
+   * ordinary search that shares the cache and single-flight with customer searches, and is priced
+   * for this client as results are. A day the suppliers cannot answer is `unavailable`, never an
+   * error: the strip is an aid, the search itself already answered.
+   */
+  async datePrices(
+    request: FlightSearchRequest,
+    currency: string,
+    client: ClientContext,
+  ): Promise<FlightDatePricesDto> {
+    await this.validate(request);
+    const span = this.config.FLEXIBLE_DATES_DAYS;
+    if (span === 0 || request.slices.length > 2)
+      return { currency, days: [], cheapestOffset: null };
+
+    const horizon = addDays(new Date().toISOString().slice(0, 10), MAX_ADVANCE_DAYS);
+    const candidates: { offset: number; request: FlightSearchRequest }[] = [];
+    for (let offset = -span; offset <= span; offset++) {
+      const shifted: FlightSearchRequest = {
+        ...request,
+        slices: request.slices.map((slice) => ({
+          ...slice,
+          departureDate: addDays(slice.departureDate, offset),
+        })),
+      };
+      if (shifted.slices.some((slice) => slice.departureDate > horizon)) continue;
+      candidates.push({ offset, request: shifted });
+    }
+
+    const pricer = await this.pricing.pricer('flights', currency);
+    const priceDay = async (candidate: (typeof candidates)[number]): Promise<DatePrice | null> => {
+      const [first, second] = candidate.request.slices;
+      const day = {
+        offset: candidate.offset,
+        departureDate: first?.departureDate ?? '',
+        returnDate: second?.departureDate ?? null,
+      };
+      if (candidate.offset !== 0) {
+        // A day already gone at the origin is left out, like any search for it would be refused.
+        try {
+          await this.validate(candidate.request);
+        } catch {
+          return null;
+        }
+      }
+      try {
+        const { items } = await this.resolve(candidate.request);
+        const now = new Date();
+        let lowest: Money | null = null;
+        for (const { offer } of items.values()) {
+          if (Date.parse(offer.expiresAt) <= now.getTime()) continue;
+          const { total } = pricer(offer.price, flightPricingContext(offer, client, now)).breakdown;
+          if (!lowest || compare(total, lowest) < 0) lowest = total;
+        }
+        return lowest
+          ? { ...day, status: 'priced', total: toWire(lowest) }
+          : { ...day, status: 'none', total: null };
+      } catch {
+        return { ...day, status: 'unavailable', total: null };
+      }
+    };
+
+    const days: DatePrice[] = [];
+    for (let index = 0; index < candidates.length; index += DATE_PRICE_CONCURRENCY) {
+      const batch = candidates.slice(index, index + DATE_PRICE_CONCURRENCY);
+      for (const day of await Promise.all(batch.map(priceDay))) if (day) days.push(day);
+    }
+    let cheapest: DatePrice | null = null;
+    for (const day of days) {
+      if (day.total && (!cheapest?.total || day.total.amountMinor < cheapest.total.amountMinor))
+        cheapest = day;
+    }
+    return { currency, days, cheapestOffset: cheapest?.offset ?? null };
   }
 
   /**

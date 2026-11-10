@@ -1,7 +1,13 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 
-import { money, type ContactDetails, type Gender, type PassengerTitle } from '@suskii/shared';
+import {
+  money,
+  type ContactDetails,
+  type Gender,
+  type MealRequest,
+  type PassengerTitle,
+} from '@suskii/shared';
 
 import { AuditService } from '../audit/audit.service';
 import { APP_CONFIG, type AppConfig } from '../config/config';
@@ -351,6 +357,7 @@ export class TicketingService {
               expiryDate: date(passenger.documentExpiry),
             }
           : null,
+      meal: (passenger.mealRequest as MealRequest | null) ?? null,
     };
   }
 

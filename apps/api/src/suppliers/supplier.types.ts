@@ -1,6 +1,7 @@
 import type {
   CabinClass,
   Gender,
+  MealRequest,
   Money,
   PassengerTitle,
   PassengerType,
@@ -124,6 +125,11 @@ export interface SupplierFlightOffer {
   };
   /** Extras bookable with this offer; empty when the supplier returns none. */
   services: FlightService[];
+  /**
+   * Whether `book()` passes each passenger's meal request to the airline. Absent means no: the
+   * traveller then asks the airline directly, and no request is taken or stored.
+   */
+  mealRequests?: boolean;
 }
 
 export interface HotelSearchQuery {
@@ -190,6 +196,8 @@ export interface SupplierPassenger {
   dateOfBirth: string;
   nationality: string;
   document: { number: string; issuingCountry: string; expiryDate: string } | null;
+  /** Set only when the booked offer has `mealRequests`. */
+  meal?: MealRequest | null;
 }
 
 export interface SupplierContact {

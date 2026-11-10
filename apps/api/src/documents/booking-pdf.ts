@@ -26,6 +26,8 @@ export interface TicketDocument {
     type: PassengerType;
     ticketNumber: string | null;
     extraBags: number;
+    /** The meal request's industry code (e.g. `VLML`), when one was sent to the airline. */
+    mealCode: string | null;
   }[];
   slices: {
     origin: { code: string; name: string | null; cityName: string | null };
@@ -275,7 +277,11 @@ export async function renderTicketPdf(ticket: TicketDocument): Promise<Uint8Arra
   for (const passenger of ticket.passengers) {
     const name = `${passenger.surname}/${passenger.givenNames}${passenger.title ? ` ${passenger.title.toUpperCase()}` : ''}`;
     const bags = passenger.extraBags > 0 ? `, +${passenger.extraBags} bag` : '';
-    writer.pair(name, `${passenger.ticketNumber ?? 'Ticket pending'} (${passenger.type}${bags})`);
+    const meal = passenger.mealCode ? `, meal requested ${passenger.mealCode}` : '';
+    writer.pair(
+      name,
+      `${passenger.ticketNumber ?? 'Ticket pending'} (${passenger.type}${bags}${meal})`,
+    );
   }
 
   writer.heading('Itinerary');

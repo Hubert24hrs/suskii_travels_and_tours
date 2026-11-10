@@ -1161,6 +1161,9 @@ model BookingPassenger {
   documentExpiry    DateTime?     @map("document_expiry") @db.Date
   travellerId       String?       @map("traveller_id") @db.Uuid
   roomIndex         Int?          @map("room_index")
+  /// A special meal asked of the airline (`MEAL_REQUESTS`); sensitive: it can reveal a belief or
+  /// a health condition.
+  mealRequest       String?       @map("meal_request")
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
@@ -3533,6 +3536,9 @@ model SupportConversation {
   whatsappContactId     String?         @map("whatsapp_contact_id") @db.Uuid
   channel               SupportChannel
   category              SupportCategory
+  /// Set when the conversation came from a form of its own (`SUPPORT_TOPICS`), e.g. a group
+  /// booking request; null for conversations started on the support page.
+  topic                 String?
   priority              SupportPriority
   status                SupportStatus   @default(open)
   assigneeId            String?         @map("assignee_id") @db.Uuid

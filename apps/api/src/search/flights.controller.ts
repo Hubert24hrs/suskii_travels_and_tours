@@ -23,6 +23,7 @@ import { FlightSearchService } from './flight-search.service';
 import {
   currencyQuerySchema,
   searchQuerySchema,
+  flightDatePricesSchema,
   flightOfferSchema,
   flightOffersQuerySchema,
   flightQuoteSchema,
@@ -59,6 +60,27 @@ export class FlightsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof flightSearchResultSchema>> {
     return this.flights.search(body, query.currency, clientContext(request), query.limit);
+  }
+
+  @Post('date-prices')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit(SEARCH_LIMITS.datePricesIp, SEARCH_LIMITS.datePricesIpDaily)
+  @Contract({
+    operationId: 'priceFlightDates',
+    summary: 'The lowest total on each day around a search ("Flexible dates")',
+    description:
+      'For a one-way or return request, searches each day up to `FLEXIBLE_DATES_DAYS` either side (a return trip keeps its length) and answers the lowest total per day, priced as search results are. Each day shares the search cache. Call it only when the traveller asked for flexible dates: every uncached day is a supplier search.',
+    tags: TAGS,
+    body: requestSchema,
+    query: currencyQuerySchema,
+    responses: { 200: flightDatePricesSchema },
+  })
+  datePrices(
+    @Body() body: FlightSearchRequest,
+    @Query() query: z.infer<typeof currencyQuerySchema>,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof flightDatePricesSchema>> {
+    return this.flights.datePrices(body, query.currency, clientContext(request));
   }
 
   @Get('searches/:searchId/offers')

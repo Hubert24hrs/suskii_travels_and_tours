@@ -64,6 +64,9 @@ export const SEARCH_LIMITS = {
   searchIp: { name: 'search-ip', limit: 30, windowSeconds: 60, by: 'ip' },
   searchIpDaily: { name: 'search-ip-daily', limit: 1000, windowSeconds: 86_400, by: 'ip' },
   searchUser: { name: 'search-user', limit: 60, windowSeconds: 60, by: 'user' },
+  /** "Flexible dates" prices up to six more days per call, so it gets a fifth of the searches. */
+  datePricesIp: { name: 'date-prices-ip', limit: 6, windowSeconds: 60, by: 'ip' },
+  datePricesIpDaily: { name: 'date-prices-ip-daily', limit: 200, windowSeconds: 86_400, by: 'ip' },
   quoteIp: { name: 'quote-ip', limit: 30, windowSeconds: 60, by: 'ip' },
   promoIp: { name: 'promo-ip', limit: 10, windowSeconds: 600, by: 'ip' },
   promoUser: { name: 'promo-user', limit: 10, windowSeconds: 600, by: 'user' },

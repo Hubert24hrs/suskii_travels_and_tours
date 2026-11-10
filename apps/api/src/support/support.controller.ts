@@ -43,7 +43,7 @@ function header(request: AuthenticatedRequest, name: string, max = 512): string 
   return value.length > 0 && value.length <= max ? value : null;
 }
 
-const supportCaller = (request: AuthenticatedRequest): SupportCaller => ({
+export const supportCaller = (request: AuthenticatedRequest): SupportCaller => ({
   client: clientContext(request),
   context: requestContext(request),
   token: header(request, 'x-support-token', 256),

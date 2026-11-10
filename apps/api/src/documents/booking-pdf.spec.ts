@@ -25,6 +25,7 @@ describe('booking PDFs', () => {
           type: 'adult',
           ticketNumber: '1251234567890',
           extraBags: 1,
+          mealCode: 'VLML',
         },
       ],
       slices: [
