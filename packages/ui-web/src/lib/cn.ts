@@ -114,7 +114,9 @@ const GROUPS: [group: string, pattern: RegExp][] = [
   ['scroll-px', /^scroll-px-./],
   ['scroll-py', /^scroll-py-./],
   ['accent', new RegExp(`^accent-${COLOR}$`)],
-  ['outline', /^outline(?:-none)?$/],
+  // Two groups, as in Tailwind: `outline` sets the width and `outline-none` the style.
+  ['outline-w', /^outline$/],
+  ['outline-style', /^outline-none$/],
   ['transition', /^transition(?:-(?:all|colors|opacity|shadow|transform|none))?$/],
   ['object-fit', /^object-(?:contain|cover|fill|none|scale-down)$/],
   ['fill', new RegExp(`^fill-(?:${COLOR}|none)$`)],
