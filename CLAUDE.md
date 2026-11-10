@@ -848,7 +848,8 @@ Tooling notes for agents:
 - One payment: `TripCheckoutService.startPayment()` confirms each part's price with its supplier,
   then creates one `trip_payments` row and one `payments` share per booking
   (`trip_payment_id`). Never take a trip's money any other way, and never offer a plan, a wallet
-  or a company payment for a trip.
+  or a company payment for a trip. A change to a trip's parts closes the checkout it has open
+  (`TripsService.closeOpenCheckout`), so the traveller only ever pays what the trip shows.
 - The webhook for a trip payment (`PaymentEventsService.processTripPayment`) settles each share
   through `applyReceived` under its booking's lock; a share that cannot be applied, or every
   share when the amount is wrong, is flagged and refunded, never applied in part. A booking's

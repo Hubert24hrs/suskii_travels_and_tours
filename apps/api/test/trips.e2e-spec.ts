@@ -763,6 +763,76 @@ describe('combined trips (e2e)', () => {
     expect((await ctx.app.get(LedgerReconciliationService).run()).discrepancies).toBe(0);
   });
 
+  it('closes an open checkout when the parts change, so the traveller pays what the trip shows', async () => {
+    const tripId = (await createTrip(['flight', 'hotel', 'insurance']).expect(201)).body
+      .id as string;
+    const flightId = await flightBooking();
+    await addPart(tripId, flightId).expect(200);
+    const first = await payTrip(tripId).expect(201);
+    const waiting = await getTrip(tripId);
+    expect(waiting.state).toBe('awaiting_payment');
+    expect(waiting.payment.open).toMatchObject({ id: first.body.paymentId });
+
+    // Adding the hotel changes the total: the first checkout is closed and nothing is pending.
+    const hotelId = await hotelBooking();
+    const added = (await addPart(tripId, hotelId).expect(200)).body as Trip;
+    expect(added.payment.open).toBeNull();
+    expect(added.state).toBe('open');
+    expect(added.parts.map((part) => [part.component, part.state])).toEqual([
+      ['flight', 'to_pay'],
+      ['hotel', 'to_pay'],
+    ]);
+    expect(added.due).toEqual(added.total);
+    expect(
+      await ctx.prisma.tripPayment.findUniqueOrThrow({ where: { id: first.body.paymentId } }),
+    ).toMatchObject({ status: 'cancelled' });
+    expect(
+      await ctx.prisma.payment.count({
+        where: { tripPaymentId: first.body.paymentId, status: 'pending' },
+      }),
+    ).toBe(0);
+
+    // A second checkout covers both parts; removing one closes it again.
+    const second = await payTrip(tripId).expect(201);
+    expect(second.body).toMatchObject({ parts: 2, amount: added.total });
+    const removed = await ctx
+      .http()
+      .delete(`/v1/trips/${tripId}/parts/${hotelId}`)
+      .set(traveller.headers)
+      .expect(200);
+    expect(removed.body.payment.open).toBeNull();
+    expect(removed.body.parts.map((part: { component: string }) => part.component)).toEqual([
+      'flight',
+    ]);
+    // The hotel is an ordinary unpaid booking again, with no payment waiting on it.
+    const hotel = await ctx
+      .http()
+      .get(`/v1/bookings/${hotelId}`)
+      .set(traveller.headers)
+      .expect(200);
+    expect(hotel.body).toMatchObject({ status: 'PRICED', trip: null });
+    expect(
+      await ctx.prisma.payment.count({ where: { bookingId: hotelId, status: 'pending' } }),
+    ).toBe(0);
+
+    // The third checkout is for the flight alone, and paying it confirms the flight.
+    const third = await payTrip(tripId).expect(201);
+    expect(third.body).toMatchObject({ parts: 1, amount: removed.body.total });
+    await complete(referenceOf(third.body.checkoutUrl as string));
+    const paid = await getTrip(tripId);
+    expect(paid.state).toBe('paid');
+    expect(paid.parts.map((part) => [part.component, part.state])).toEqual([
+      ['flight', 'confirmed'],
+    ]);
+    // A closed checkout can no longer be paid on the provider's page.
+    await ctx
+      .http()
+      .post(`/v1/payments/mock/${referenceOf(second.body.checkoutUrl as string)}/complete`)
+      .send({ outcome: 'succeeded' })
+      .expect(409);
+    expect((await ctx.app.get(LedgerReconciliationService).run()).discrepancies).toBe(0);
+  });
+
   it('deletes a trip nobody started paying, and keeps one with a payment', async () => {
     const tripId = (await createTrip(['flight', 'insurance']).expect(201)).body.id as string;
     const flightId = await flightBooking();

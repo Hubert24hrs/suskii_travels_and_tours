@@ -6671,7 +6671,7 @@ export interface paths {
         put?: never;
         /**
          * Add one of the caller's unpaid bookings to the trip
-         * @description The booking becomes the part it sells: a flight, a hotel stay, a rental car, an airport transfer or travel insurance. 422 `trip-part-invalid` with `code` when it is something else, in another currency, on a payment plan, booked for a company, not waiting for payment, in another trip, or a part the plan does not ask for. An unpaid part of the same kind gives way to the new one; a paid one answers 409 `trip-part-paid`.
+         * @description The booking becomes the part it sells: a flight, a hotel stay, a rental car, an airport transfer or travel insurance. 422 `trip-part-invalid` with `code` when it is something else, in another currency, on a payment plan, booked for a company, not waiting for payment, in another trip, or a part the plan does not ask for. An unpaid part of the same kind gives way to the new one; a paid one answers 409 `trip-part-paid`. A checkout the trip has open is closed, since the total changes.
          */
         post: operations["addTripPart"];
         delete?: never;
@@ -6692,7 +6692,7 @@ export interface paths {
         post?: never;
         /**
          * Take an unpaid booking out of the trip
-         * @description The booking is not cancelled: it stays an ordinary unpaid booking and expires on its own. 409 `trip-part-paid` for a paid part.
+         * @description The booking is not cancelled: it stays an ordinary unpaid booking and expires on its own. A checkout the trip has open is closed, since its total counted this part. 409 `trip-part-paid` for a paid part.
          */
         delete: operations["removeTripPart"];
         options?: never;

@@ -140,19 +140,9 @@ export class TripCheckoutService {
     }
 
     const abandoned = await this.prisma.$transaction(async (tx) => {
-      const closed: { provider: string; providerReference: string }[] = [];
-      // An earlier checkout for this trip is closed: only one is open at a time.
-      const earlier = await tx.tripPayment.findMany({
-        where: { tripId: trip.id, status: 'pending' },
-        select: { id: true, provider: true, providerReference: true },
-      });
-      if (earlier.length > 0) {
-        await tx.tripPayment.updateMany({
-          where: { id: { in: earlier.map((payment) => payment.id) } },
-          data: { status: 'cancelled' },
-        });
-        closed.push(...earlier);
-      }
+      // An earlier checkout for this trip is closed with every share it had: only one is open at
+      // a time, and it charges what the trip shows now.
+      const closed = await this.trips.closeOpenCheckout(tx, trip.id, actor, 'trip_payment');
       await tx.tripPayment.create({
         data: {
           id: tripPaymentId,

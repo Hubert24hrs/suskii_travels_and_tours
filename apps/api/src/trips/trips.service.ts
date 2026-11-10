@@ -25,7 +25,9 @@ import {
   toBookingSummary,
 } from '../bookings/booking-presenter';
 import { totalOf } from '../bookings/booking-pricing';
-import { BookingsService, type BookingCaller } from '../bookings/bookings.service';
+import type { BookingActor } from '../bookings/booking-transitions';
+import { BookingsService, customerActor, type BookingCaller } from '../bookings/bookings.service';
+import { CheckoutService } from '../bookings/checkout.service';
 import { fromJsonValue, toJsonValue } from '../common/json';
 import type { RequestContext } from '../common/request-context';
 import { Prisma, type BookingStatus } from '../generated/prisma/client';
@@ -91,7 +93,42 @@ export class TripsService {
     private readonly bookings: BookingsService,
     private readonly providers: PaymentProviders,
     private readonly audit: AuditService,
+    private readonly checkout: CheckoutService,
   ) {}
+
+  /**
+   * Closes the checkout a trip has open: its parts are about to change, or a new checkout is
+   * replacing it, and the traveller must only ever pay what the trip shows. The bookings go back
+   * to unpaid (each share is cancelled as an abandoned checkout is). Returns the provider
+   * sessions to close once the transaction has committed. A payment that still arrives on the
+   * closed checkout is handled by the webhook: each share is taken or refunded.
+   */
+  async closeOpenCheckout(
+    tx: Tx,
+    tripId: string,
+    actor: BookingActor,
+    reason: string,
+  ): Promise<{ provider: string; providerReference: string }[]> {
+    const open = await tx.tripPayment.findMany({
+      where: { tripId, status: 'pending' },
+      select: { id: true, provider: true, providerReference: true },
+    });
+    if (open.length === 0) return [];
+    const ids = open.map((payment) => payment.id);
+    const shares = await tx.payment.findMany({
+      where: { tripPaymentId: { in: ids }, status: 'pending' },
+      select: { booking: { select: { id: true, status: true } } },
+      orderBy: { bookingId: 'asc' },
+    });
+    for (const share of shares) {
+      await this.checkout.abandonOpenPayments(tx, share.booking, actor, reason);
+    }
+    await tx.tripPayment.updateMany({
+      where: { id: { in: ids }, status: 'pending' },
+      data: { status: 'cancelled' },
+    });
+    return open.map(({ provider, providerReference }) => ({ provider, providerReference }));
+  }
 
   async create(
     userId: string,
@@ -180,9 +217,16 @@ export class TripsService {
       throw tripPartInvalid(TRIP_PART_ISSUES.otherTrip);
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const closed = await this.prisma.$transaction(async (tx) => {
       // One change to a trip's parts at a time.
       await tx.$queryRaw`SELECT id FROM trips WHERE id = ${trip.id}::uuid FOR UPDATE`;
+      // A checkout opened for the old set of parts would charge the old total.
+      const sessions = await this.closeOpenCheckout(
+        tx,
+        trip.id,
+        customerActor(caller),
+        'trip_changed',
+      );
       const current = await tx.booking.findFirst({
         where: { tripId: trip.id, tripComponent: component, id: { not: booking.id } },
         select: { id: true, status: true },
@@ -207,26 +251,39 @@ export class TripsService {
         },
         tx,
       );
+      return sessions;
     });
+    this.checkout.closeAtProviders(closed);
     return this.get(trip.id, userId);
   }
 
-  /** Takes an unpaid booking out of the trip. The booking itself is not cancelled. */
+  /**
+   * Takes an unpaid booking out of the trip. The booking itself is not cancelled. A checkout the
+   * trip has open is closed with it: its total counted this part.
+   */
   async removePart(
     tripId: string,
     bookingId: string,
+    caller: BookingCaller,
     userId: string,
-    context: RequestContext,
   ): Promise<TripDto> {
     const trip = await this.load(tripId, userId);
     const part = trip.bookings.find((booking) => booking.id === bookingId);
     if (!part) throw new NotFoundException();
     const state = tripPartState(part.status);
     if (state === 'paid' || state === 'confirmed') throw tripPartPaid();
-    await this.prisma.$transaction(async (tx) => {
+    const closed = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM trips WHERE id = ${trip.id}::uuid FOR UPDATE`;
-      await this.detach(tx, trip.id, bookingId, userId, context, 'removed');
+      const sessions = await this.closeOpenCheckout(
+        tx,
+        trip.id,
+        customerActor(caller),
+        'trip_changed',
+      );
+      await this.detach(tx, trip.id, bookingId, userId, caller.context, 'removed');
+      return sessions;
     });
+    this.checkout.closeAtProviders(closed);
     return this.get(trip.id, userId);
   }
 

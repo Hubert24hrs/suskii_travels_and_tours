@@ -89,6 +89,11 @@ its balance (`BookingFundsService.paid`), the payment risk review, ticketing and
 read its own payment, as before. Card data still never touches Suskii (hosted checkout only,
 SAQ A).
 
+A trip has one checkout open at a time, and it charges what the trip shows: starting a new one,
+adding a part or removing one closes the checkout that was open (`closeOpenCheckout`) and returns
+its bookings to unpaid. A payment that still arrives on a closed checkout goes through the
+webhook like any other: each share is taken or refunded.
+
 Payment plans (reserve now, installments), company bookings and the wallets are not offered for a
 trip: it is one payment in full.
 
