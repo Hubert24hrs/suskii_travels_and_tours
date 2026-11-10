@@ -72,6 +72,10 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
    orders one seat with the test ticket. When it passes, set `DUFFEL_SEAT_SELECTION = "true"`
    (staging first). Until then travellers on Duffel fares are told the airline sells no seats in
    advance. Decide whether Suskii adds a fee to seats (none today).
+8. **Live flight status and delay alerts** (ADR-095): choose a **flight-data provider** and plan
+   (for example Cirium, OAG, FlightAware AeroAPI or AeroDataBox) and tell Claude, who writes its
+   adapter. Until then `FLIGHT_STATUS_PROVIDER` stays `none`: bookings show their booked times
+   and no delay alert is sent. Decide whether alerts should also go by text or WhatsApp.
 
 ### 1.4 Text messages (sign-in codes, booking and safety alerts)
 
@@ -237,6 +241,7 @@ Nothing waits on these; change them when you want to (each is a setting or a con
 | Financial records of deleted accounts | 7 years                                             |
 | Price alerts                          | Every 6 hours, 5% drop                              |
 | Flexible dates                        | 3 days each side (`FLEXIBLE_DATES_DAYS`, 0 is off)  |
+| Delay alerts                          | From 30 minutes late, again per 15-minute move      |
 | Review window                         | 90 days after the trip                              |
 | Availability promise                  | 99.9% (status page)                                 |
 | Rides and own fleet                   | Off in production (no driver KYC or payouts needed) |

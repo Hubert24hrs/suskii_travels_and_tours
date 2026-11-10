@@ -2,8 +2,8 @@
 
 Audited on 2026-11-09 against the owner's three feature lists (20 essential features and the
 advanced ones for each product). Each line was checked in the API, the website and the app.
-Statuses are updated as the parts of the build plan land (part 1, flights, on 2026-11-09; part 2,
-seat selection, on 2026-11-10).
+Statuses are updated as the parts of the build plan land (part 1, flights, on 2026-11-09; parts 2
+and 3, seat selection and live flight status, on 2026-11-10).
 
 - **Built**: works today on the API, the website and the app.
 - **Partly**: some of it works; the note says what is missing.
@@ -40,17 +40,17 @@ The build plan for every line that is not Built is in `docs/phases/feature-parit
 
 ### Advanced
 
-| Feature                                     | Status | Evidence, or what is missing                                                                                                       |
-| ------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| AI flight recommendations                   | Partly | AI trip search fills the form from a sentence (ADR-061); the "Best" order is a fixed rule, not a model                             |
-| Cheapest travel date suggestions            | Built  | The flexible-dates strip marks the cheapest day near the chosen date (ADR-093); route pages name the cheapest month (ADR-080)      |
-| Nearby airport suggestions                  | Built  | Airports within 150 km of each end, as the same search from or to them (ADR-093)                                                   |
-| Fare comparison and historical price trends | Partly | Route pages show the lowest fare in 30 days and the typical fare over 90; results do not compare with them                         |
-| Automatic flight status tracking            | Partly | Ticketed orders are checked for airline changes (ADR-065); no live status on the day of travel                                     |
-| Flight delay and cancellation alerts        | Partly | Cancellations and time changes alert the traveller (ADR-065, ADR-073); day-of delays do not                                        |
-| Alternative flights when disruptions occur  | Partly | A significant change links to the other flights on the route beside the refund offer (ADR-093); rebooking in one step is not built |
-| Corporate flight booking                    | Built  | Company accounts, travel policy, approvals, reports and the company wallet (ADR-078, ADR-090)                                      |
-| Group flight reservations                   | Built  | Requests for 10 to 500 travellers go to the support team as their own topic (ADR-093); airlines price groups by hand               |
+| Feature                                     | Status | Evidence, or what is missing                                                                                                                                                                             |
+| ------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AI flight recommendations                   | Partly | AI trip search fills the form from a sentence (ADR-061); the "Best" order is a fixed rule, not a model                                                                                                   |
+| Cheapest travel date suggestions            | Built  | The flexible-dates strip marks the cheapest day near the chosen date (ADR-093); route pages name the cheapest month (ADR-080)                                                                            |
+| Nearby airport suggestions                  | Built  | Airports within 150 km of each end, as the same search from or to them (ADR-093)                                                                                                                         |
+| Fare comparison and historical price trends | Partly | Route pages show the lowest fare in 30 days and the typical fare over 90; results do not compare with them                                                                                               |
+| Automatic flight status tracking            | Partly | Ticketed flights are checked for airline changes (ADR-065) and followed live from a day before they leave (ADR-095); live data waits for the owner's flight-data provider (the mock runs on test stacks) |
+| Flight delay and cancellation alerts        | Partly | Schedule changes alert the traveller (ADR-065, ADR-073); day-of delays, gate changes and cancellations alert by email and push (ADR-095) once a flight-data provider is set                              |
+| Alternative flights when disruptions occur  | Partly | A significant change links to the other flights on the route beside the refund offer (ADR-093); rebooking in one step is not built                                                                       |
+| Corporate flight booking                    | Built  | Company accounts, travel policy, approvals, reports and the company wallet (ADR-078, ADR-090)                                                                                                            |
+| Group flight reservations                   | Built  | Requests for 10 to 500 travellers go to the support team as their own topic (ADR-093); airlines price groups by hand                                                                                     |
 
 ## B. Hotels
 

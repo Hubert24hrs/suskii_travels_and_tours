@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Feature parity, part 3: live flight status and delay alerts (2026-11-10)
+
+Part 3 of `docs/phases/feature-parity.md` (ADR-095):
+
+#### Added
+
+- **Live flight status.** A ticketed flight is followed from a day before it leaves until it has
+  landed. The booking page and the app's trip screen show a "Flight status" card: on schedule,
+  delayed, boarding, departed, landed, cancelled or diverted, with the expected time, how late
+  that is, the terminal, the gate and the baggage belt
+  (`GET /v1/bookings/{bookingId}/flight-status`).
+- **Delay alerts.** An email and a push when a flight is expected to leave 30 minutes late or
+  more, when that delay moves by 15 minutes (later or earlier), when it is back on time, when the
+  gate changes and when the flight is cancelled or diverted. Each is sent once.
+- Flight data comes through `FlightStatusProvider` (`FLIGHT_STATUS_PROVIDER`: `none` by default,
+  `mock` on test stacks). Only the airline, the flight number and the day are sent to it. The
+  worker's `bookings-flight-status` sweep reads the trips that are due.
+- New table `flight_statuses` and column `booking_items.next_status_check_at` (expand-only).
+
 ### Feature parity, part 2: seat selection on flights (2026-11-10)
 
 Part 2 of `docs/phases/feature-parity.md` (ADR-094):
