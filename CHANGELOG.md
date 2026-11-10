@@ -6,6 +6,55 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Suskii Agent, sub-phase C: price intelligence (2026-11-10)
+
+Prices read from public web pages where no supplier has one (ADR-102). Built and off: nothing
+is read in production until the owner sets `PRICE_INTEL_ENABLED`, opens a vendor account and
+approves a site with counsel.
+
+#### Added
+
+- **Sites that start closed.** A site is listed with its page addresses, its recipe, what its
+  robots file and terms say, the vendors that may read it in order, the highest proxy class and
+  its rate. It is in `review` until staff approve it with a basis (`licence`, `permission`,
+  `public_data_assessment` or `counsel_note`) and where that is written down; when the site
+  disallows automated access only a licence or a permission is accepted. Approval needs
+  step-up. Changing what was approved sends the site back to review; a blocked site is never
+  read. `docs/legal/scraping-register.md` and `price-intel:register` give counsel the register.
+- **Five vendors behind one interface**: Firecrawl, Apify, Browse AI, Oxylabs and Bright Data,
+  plus our own fetcher (which names itself and obeys the robots file) and a mock. Vendor types
+  stay inside each adapter and no test calls a vendor.
+- **Failover with one reaction per failure**: a refusal tries once more one proxy class higher
+  (never above the policy), a timeout or vendor error retries once, an empty page is read again
+  rendered, a spent quota opens the vendor's breaker, a policy refusal stops. A read ends after
+  6 tries, 60 seconds or 5 cents. Breakers, the per-site rate, concurrency and pauses, spend
+  and single flight live in Redis so every replica agrees.
+- **Budgets and switches.** Caps per vendor and per site by day and month, reserved before a
+  vendor is called, with staff told at 50, 80 and 100%; kill switches for everything, a vendor
+  or a site that take effect at once. Switching back on and raising a cap need step-up.
+- **Observations, judged before they are used.** A price becomes minor units and a currency
+  with public facts from a fixed list (no personal field; text that looks like a contact detail
+  is dropped), scored against its own history and other sites. A weak one is shown as
+  unverified, a wrong one is kept for staff and shown to nobody, and an old one is always
+  marked stale. Every observation is `indicative`.
+- **Parser drift.** When a site's pages stop yielding prices, staff are told once, the page is
+  kept for a week and reads move to the recipe's next method until a person changes the recipe.
+- **Guardrails in code**: an SSRF guard on every address the API builds (https, a host name on
+  the site's own domain, never a private address, a redirect never leaves the site), pages
+  treated as data and never shown to a model, and no challenge solving or evasion code.
+- **Console routes** under `/v1/admin/data-sources` (sites, decisions, a staff read, reads with
+  their tries, observations, the overview, switches, budgets, the register) and a worker job
+  that re-reads stale answers inside each site's night.
+- **For the owner**: `sandbox:scrapers` and the `scrapers-sandbox.yml` workflow check each
+  vendor's key and read one page of Suskii's own site through each adapter;
+  `docs/owner/launch-checklist.md` (section 7.1) lists the steps, and
+  `docs/runbooks/price-intelligence.md` what to do when a site asks us to stop.
+
+#### Fixed
+
+- A change to one field of a site reset its other rules to their defaults and sent an approved
+  site back to review (found by the end-to-end suite before release).
+
 ### Suskii Agent, sub-phase B: foundations (2026-11-10)
 
 What the assistant stands on before any agent exists (ADR-101, ADR-105, ADR-107). Nothing a

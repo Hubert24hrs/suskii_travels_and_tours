@@ -77,12 +77,15 @@ server.
 
 Suskii Agent (outside the numbered phases; the owner's LangGraph.js agent system and the
 price-intelligence layer, ADR-101 to ADR-107): sub-phase A (baseline, findings, plan and
-decisions) and B (foundations: the agent catalogue and permissions, the conversation, run and
-settings tables, sealed grants, the tool gateway, the pause switch and the spend caps) are done;
-C to H follow in order (`docs/phases/ai-agent.md`): the price-intelligence engine, the agent
-service, assisted quotes and staff agents, the console, the clients, hardening. Nothing of it
-runs in production until the owner sets `AGENT_ENABLED` and `PRICE_INTEL_ENABLED` and approves
-each web source.
+decisions), B (foundations: the agent catalogue and permissions, the conversation, run and
+settings tables, sealed grants, the tool gateway, the pause switch and the spend caps) and C
+(the price-intelligence engine: sites that start closed and are approved with a basis, the
+Firecrawl, Apify, Browse AI, Oxylabs and Bright Data adapters with our own fetcher and the mock,
+failover, budgets, kill switches, parser drift, observations and the register) are done; D to H
+follow in order (`docs/phases/ai-agent.md`): the agent service, assisted quotes and staff
+agents, the console, the clients, hardening. The vendor adapters wait for one run of
+`scrapers-sandbox.yml` with the owner's keys. Nothing of it runs in production until the owner
+sets `AGENT_ENABLED` and `PRICE_INTEL_ENABLED` and approves each web source.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -212,6 +215,8 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api privacy:records`        | Regenerate `docs/privacy/records-of-processing.md` (a unit test checks it)        |
 | `pnpm --filter @suskii/api sandbox:partners`       | Hotelbeds, Expedia, Viator and Travelpayouts check (owner keys, read-only)        |
 | `pnpm --filter @suskii/api sandbox:messaging`      | Exchange rates and one test text per provider (owner keys, `--to +234...`)        |
+| `pnpm --filter @suskii/api sandbox:scrapers`       | Web-data vendor keys, and one page of our own site each (`--own-page`)            |
+| `pnpm --filter @suskii/api price-intel:register`   | Print the scraping register of this environment (`--blank --write`: the page)     |
 | `pnpm --filter @suskii/api rides:demo`             | Sample drivers take local rides; type the rider's PIN (not in prod)               |
 | `pnpm --filter @suskii/api staff:bootstrap`        | First super admin of a new environment (`--email`, `--yes`; once)                 |
 | `pnpm release:rehearse`                            | Compose deploy, ops command, broken release, rollback (`:local` images)           |
@@ -938,6 +943,57 @@ Tooling notes for agents:
   `resetState` in the e2e helpers.
 - Clients read `GET /v1/agent/status` and offer the assistant only while `available` is true;
   an answer they cannot read hides it. Search, booking and payment never depend on it.
+
+### Price intelligence (apps/api/src/price-intel, packages/shared price-intel; ADR-102)
+
+- A price read from a website is an observation, never an offer: `indicative: true`, shown with
+  when and where it was seen, and sold only through an assisted quote (ADR-104). Search, booking
+  and payment never import `src/price-intel` or ask whether it is on.
+- A site is a `PriceSource` with one `SourcePolicy` and starts in `review`. Its status changes
+  only through `PriceSourcesService` (`approve`, `block`, `review`: a conditional update claims
+  the decision, audited); approval takes step-up and a basis `basisIssue()` accepts. Who may
+  read a site comes only from `readableVendors()`: the mock for a site in review, the policy's
+  chain once approved, nobody for a blocked or inactive one. Never decide that anywhere else.
+- A field whose change alters what the approver agreed to goes in `APPROVED_FIELDS` (it sends
+  an approved site back to review). A field with a default gets it in `priceSourceInputSchema`
+  only, never in the patch schema: Zod applies a default inside an optional field, and a change
+  must carry only what was sent (`price-sources.spec.ts`).
+- Reads go only through `PriceIntelService.read()` (fresh observations first, single flight,
+  the router, extraction, judging, storing) and vendors only through `ProviderRouter.read()`;
+  never call a `ScrapeProvider` directly. The router owns failover (`FAILURE_REACTIONS`: one
+  reaction per failure class), the proxy ladder (never above the policy's `maxProxyClass`, and
+  only classes priced in `PRICE_INTEL_COSTS`), budgets, breakers, the throttle and the hard
+  caps, and ends in `ScrapeExhausted`. Nothing loops.
+- An adapter (`providers/<vendor>-scrape-provider.ts`) maps one vendor: vendor types stay
+  inside it, it honours the `AbortSignal`, throws `ScrapeError` with a failure class, never
+  retries by itself and takes its key from the environment. What only that vendor needs for a
+  site (an actor and its input, a robot) lives in the site's `vendorSettings`, which refuses a
+  name that looks like a credential. A new vendor is an adapter, a value in `SCRAPE_VENDORS`,
+  prices in `DEFAULT_SCRAPE_COSTS`, its settings with a boot check, cases in
+  `providers.spec.ts`, a section in `sandbox:scrapers` and a row in the outbound hosts.
+- No code of ours solves a challenge, rotates identities or hides who is reading. Getting past
+  a block is a vendor's product, used only within the class the approver allowed; the `direct`
+  fetcher names itself and obeys the robots file.
+- An address Suskii fetches is built by `buildUrl()` from the site's stored template and
+  checked values and passes `assertFetchable()`; the `direct` fetcher connects only through
+  `pinnedLookup`. Never take an address or a host from a model, a tool argument or a request.
+- Fetched content is untrusted data: never run it, follow it, log it or put it in a model's
+  context. `extract()` yields only `PUBLIC_ITEM_FIELDS`, a price in minor units and an
+  availability, and drops text that `looksPersonal`. A new public field joins
+  `PUBLIC_ITEM_FIELDS`; nothing about a person ever does (the e2e reads a page holding a
+  reviewer's name and contact details and asserts none is stored).
+- An observation is judged by `judgeObservation()` (`@suskii/shared`) before it is stored;
+  `rejected` ones are kept for staff and shown to nobody; a stale one is always marked
+  `stale`. A page is kept (7 days) only when nothing could be read from it.
+- Redis holds what replicas must agree on (`pi:*`: kill switches, breakers, the throttle,
+  spend, single flight, drift). Switches and budgets fail closed. A question
+  (`scrape_jobs.query`) holds places, dates and head counts, never who asked.
+- No test or CI job calls a vendor: tests use `MockScrapeProvider` (`script()` queues
+  outcomes) and fixtures written from the vendors' SDKs. The owner checks real keys with
+  `sandbox:scrapers` (`scrapers-sandbox.yml`), which reads only a page of Suskii's own site.
+- A change to a site's rules, the vendors or what is stored updates the register's generator
+  (`scraping-register.ts`), the outbound hosts and `docs/runbooks/price-intelligence.md` in the
+  same change.
 
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 
