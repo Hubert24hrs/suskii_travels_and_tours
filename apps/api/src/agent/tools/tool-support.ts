@@ -141,6 +141,22 @@ export const utcTime = (iso: string): string => `${iso.slice(0, 10)} ${iso.slice
 export const placeText = (point: { code: string; cityName: string | null }): string =>
   point.cityName ? `${point.cityName} (${point.code})` : point.code;
 
+const LINKS = /\b(?:https?:\/\/|www\.)\S+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gi;
+
+/**
+ * A name a supplier wrote (a hotel, an area, a room) as a model may read it: one line, short,
+ * and without a link or an address. An answer may quote a contact a tool returned, so a
+ * supplier's text must not be a way to put one there.
+ */
+export function supplierText(text: string, max = 120): string {
+  const plain = text
+    .replace(LINKS, ' ')
+    .replace(/[\p{Cc}<>{}[\]]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return plain.length > max ? `${plain.slice(0, max - 1)}\u2026` : plain;
+}
+
 export const moneyOut = z.object({ amountMinor: z.number().int(), currency: z.string().length(3) });
 export const cardsOut = z.array(agentCardSchema).max(6);
 

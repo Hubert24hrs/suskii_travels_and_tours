@@ -27,6 +27,7 @@ import {
   moneyOut,
   problemCodes,
   problemsSchema,
+  supplierText,
   utcTime,
   wallTime,
 } from './tool-support';
@@ -301,14 +302,14 @@ export class SearchTools implements OnModuleInit {
               .slice(0, input.limit)
               .map((hotel: HotelSummary, index) => ({
                 option: index + 1,
-                name: hotel.name,
+                name: supplierText(hotel.name),
                 sample: hotel.supplier === 'mock',
                 stars: hotel.stars,
-                area: hotel.area,
+                area: hotel.area === null ? null : supplierText(hotel.area, 80),
                 propertyType: hotel.propertyType,
                 guestScore: hotel.reviewScore,
                 guestReviews: hotel.reviewCount,
-                room: hotel.cheapestRate.roomName,
+                room: supplierText(hotel.cheapestRate.roomName),
                 board: hotel.cheapestRate.board,
                 refundable: hotel.cheapestRate.refundable,
                 freeCancellationUntil: hotel.cheapestRate.freeCancellationUntil
