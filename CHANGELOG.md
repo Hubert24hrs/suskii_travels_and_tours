@@ -6,6 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Feature parity, part 1: flights (2026-11-09)
+
+The owner's feature lists for flights, hotels and car rental were audited line by line
+(`docs/audits/feature-parity.md`) and the missing lines planned in six parts
+(`docs/phases/feature-parity.md`). Part 1 (ADR-093):
+
+#### Added
+
+- **Flexible dates.** Ticking "Flexible dates" (or "See prices on nearby days" on the results)
+  shows the lowest total on each of the three days either side of the search, the cheapest
+  marked; a day is a link to its search and a return trip keeps its length
+  (`POST /v1/flights/date-prices`, `FLEXIBLE_DATES_DAYS`). The app's search form gains the
+  "Flexible dates" and "Direct flights only" boxes the website already had.
+- **Nearby airports.** Under the results, the same search from or to an airport within 150 km
+  (`GET /v1/catalog/airports/{iataCode}/nearby`).
+- **Meal requests.** A special meal per traveller with a seat (vegetarian, vegan, halal, kosher,
+  gluten-free, diabetic, child's meal) where the fare takes one; shown on the booking and the
+  itinerary. Where the fare takes none, checkout says to ask the airline. Booking passengers gain
+  `meal`; flight offers gain `mealRequests`.
+- **Group flights.** `/flights/groups` on the website and a group screen in the app take a
+  request for 10 to 500 travellers, which opens a support conversation under the new topic
+  "Group booking request" (`POST /v1/flights/group-requests`); the console inbox filters by
+  topic.
+- **Other flights after an airline change.** Beside the refund offer, a link to the other flights
+  on the route.
+
+#### Fixed
+
+- The app's support screens read the API's problem types in the wrong format, so "five open
+  conversations", "email needed" and "conversation full" showed the generic error.
+
 ### App home and the test server (2026-11-09)
 
 #### Changed

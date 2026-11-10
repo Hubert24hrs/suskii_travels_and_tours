@@ -2,7 +2,7 @@
 
 The owner sent three feature lists on 2026-11-09 (20 essential features and the advanced ones for
 flights, hotels and car rental) and asked that every line be checked and the missing ones built.
-The audit is `docs/audits/feature-parity.md`: 48 of 89 lines are built, 22 partly and 19 missing.
+The audit is `docs/audits/feature-parity.md`: 48 of 89 lines were built, 22 partly and 19 missing.
 This plan covers the 41 lines that are not built. It runs outside the numbered phases, in six
 parts, each one pull request with its tests.
 
@@ -45,3 +45,33 @@ parts, each one pull request with its tests.
 ## Outcome
 
 Filled in as each part lands.
+
+### Part 1: flights (ADR-093)
+
+Built on the API, the website and the app:
+
+- **Flexible dates.** `POST /v1/flights/date-prices` prices the days around a one-way or return
+  search (`FLEXIBLE_DATES_DAYS`, default 3 each side) through the shared search cache. The results
+  show the strip when "Flexible dates" was ticked or "See prices on nearby days" is pressed; the
+  cheapest day is marked and a day is a link to its search.
+- **Nearby airports.** `GET /v1/catalog/airports/{iataCode}/nearby`; under the results, the same
+  search from or to an airport within 150 km.
+- **Meal requests.** Seven special meals per traveller with a seat, where the offer says the fare
+  takes one; refused otherwise. Shown on the booking and the itinerary PDF. The mock airline
+  takes them on international flights; Duffel fares say to ask the airline until the sandbox
+  check.
+- **Group requests.** `/flights/groups` and the app's group screen send 10 to 500 travellers as a
+  support conversation with the topic `group_booking`; the console inbox filters by topic and
+  the after-hours assistant stays out.
+- **Other flights after a disruption.** A significant airline change links to the booked search
+  beside the refund offer.
+
+Also fixed on the way: the app's support screens read API problem types in the wrong format, so
+"five open conversations", "email needed" and "conversation full" showed the generic error.
+
+Tests: API e2e `flight-extras.e2e-spec.ts` (11), shared unit tests, the app's Jest suites
+(results, checkout, trip, search form, group request), the website's `flight-extras.spec.ts`.
+
+The audit now reads 22 built, 6 partly and 1 missing for flights. Left for the owner: the Duffel
+sandbox check for special meals, who answers group requests, and counsel's view on meal requests
+as sensitive data (`docs/owner/launch-checklist.md`).
