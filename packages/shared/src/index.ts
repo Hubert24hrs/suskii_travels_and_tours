@@ -780,3 +780,14 @@ export {
   type BedType,
   type PropertyType,
 } from './hotel-content';
+export {
+  DEAL_MIN_CLASS_SIZE,
+  DEAL_MIN_PERCENT,
+  DEAL_MIN_SCORE,
+  HOTEL_COLLECTIONS,
+  dealPercent,
+  hotelCollections,
+  medianMinor,
+  type CollectionHotel,
+  type HotelCollection,
+} from './hotel-collections';
