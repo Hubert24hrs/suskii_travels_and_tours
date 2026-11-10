@@ -763,9 +763,48 @@ describe('combined trips (e2e)', () => {
     expect((await ctx.app.get(LedgerReconciliationService).run()).discrepancies).toBe(0);
   });
 
+  it('deletes a trip nobody started paying, and keeps one with a payment', async () => {
+    const tripId = (await createTrip(['flight', 'insurance']).expect(201)).body.id as string;
+    const flightId = await flightBooking();
+    await addPart(tripId, flightId).expect(200);
+    // Not someone else's to delete.
+    const stranger = bearer((await signUp(ctx, 'trip.deleter@example.com')).accessToken);
+    await ctx.http().delete(`/v1/trips/${tripId}`).set(stranger).expect(404);
+    await ctx.http().delete(`/v1/trips/${tripId}`).set(traveller.headers).expect(204);
+    await ctx.http().get(`/v1/trips/${tripId}`).set(traveller.headers).expect(404);
+    // The flight is not cancelled: it is an ordinary unpaid booking again.
+    const flight = await ctx
+      .http()
+      .get(`/v1/bookings/${flightId}`)
+      .set(traveller.headers)
+      .expect(200);
+    expect(flight.body).toMatchObject({ status: 'PRICED', trip: null });
+    expect(
+      await ctx.prisma.auditLog.count({ where: { action: 'trip.deleted', targetId: tripId } }),
+    ).toBe(1);
+
+    // A trip with a payment started stays with its bookings.
+    const kept = (await createTrip(['flight', 'insurance']).expect(201)).body.id as string;
+    await addPart(kept, flightId).expect(200);
+    await payTrip(kept).expect(201);
+    const refused = await ctx.http().delete(`/v1/trips/${kept}`).set(traveller.headers).expect(409);
+    expect(refused.body.type).toBe('urn:suskii:problem:trip-has-payments');
+    await getTrip(kept);
+  });
+
   it('caps the trips one account can leave unpaid', async () => {
-    for (let index = 0; index < 10; index += 1) await createTrip(['hotel']).expect(201);
+    const created: string[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      created.push((await createTrip(['hotel']).expect(201)).body.id as string);
+    }
     const refused = await createTrip(['hotel']).expect(409);
     expect(refused.body.type).toBe('urn:suskii:problem:too-many-trips');
+    // Deleting a plan makes room for another.
+    await ctx
+      .http()
+      .delete(`/v1/trips/${created[0] ?? ''}`)
+      .set(traveller.headers)
+      .expect(204);
+    await createTrip(['hotel']).expect(201);
   });
 });

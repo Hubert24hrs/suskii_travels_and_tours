@@ -247,6 +247,7 @@ const CASES: Record<string, Case> = {
     raw: { contentType: 'image/png', bytes: PNG },
   },
   getTrip: { path: (f) => `/v1/trips/${f.tripId}` },
+  deleteTrip: { path: (f) => `/v1/trips/${f.tripId}` },
   addTripPart: {
     path: (f) => `/v1/trips/${f.tripId}/parts`,
     body: (f) => ({ bookingId: f.tripBookingId }),

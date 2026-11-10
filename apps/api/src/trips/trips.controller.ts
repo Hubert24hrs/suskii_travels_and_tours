@@ -96,6 +96,26 @@ export class TripsController {
     return this.trips.get(tripId, auth.userId);
   }
 
+  @Delete('trips/:tripId')
+  @Contract({
+    operationId: 'deleteTrip',
+    summary: 'Delete a trip nobody started paying',
+    description:
+      'The bookings in it are not cancelled: they leave the trip and stay ordinary unpaid bookings. 409 `trip-has-payments` once a payment was started or a part is paid.',
+    tags: TAGS,
+    params: tripIdParamsSchema,
+    responses: { 204: null },
+    errors: [404, 409],
+  })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @Param('tripId') tripId: string,
+    @CurrentAuth() auth: AuthContext,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    await this.trips.remove(tripId, auth.userId, requestContext(request));
+  }
+
   @Post('trips/:tripId/parts')
   @RateLimit(BOOKING_LIMITS.createUser)
   @Contract({

@@ -6650,7 +6650,11 @@ export interface paths {
         get: operations["getTrip"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a trip nobody started paying
+         * @description The bookings in it are not cancelled: they leave the trip and stay ordinary unpaid bookings. 409 `trip-has-payments` once a payment was started or a part is paid.
+         */
+        delete: operations["deleteTrip"];
         options?: never;
         head?: never;
         patch?: never;
@@ -26053,6 +26057,36 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    deleteTrip: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

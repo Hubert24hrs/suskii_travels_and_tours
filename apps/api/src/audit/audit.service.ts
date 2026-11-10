@@ -206,6 +206,7 @@ export type AuditAction =
   | 'trip.created'
   | 'trip.part_added'
   | 'trip.part_removed'
+  | 'trip.deleted'
   | 'trip.payment_created'
   | 'trip.payment_amount_mismatch'
   | 'company_wallet.topup_amount_mismatch'

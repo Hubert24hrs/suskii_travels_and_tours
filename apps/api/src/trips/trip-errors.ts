@@ -31,6 +31,14 @@ export const tripPartPaid = (): ProblemDetailsException =>
     'A paid booking stays in its trip. Cancel it from the booking itself if you need to.',
   );
 
+export const tripHasPayments = (): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.CONFLICT,
+    'trip-has-payments',
+    'This trip cannot be deleted',
+    'A trip with a payment, started or made, is kept with its bookings.',
+  );
+
 export const tripNothingToPay = (): ProblemDetailsException =>
   new ProblemDetailsException(
     HttpStatus.CONFLICT,

@@ -32,7 +32,13 @@ import { Prisma, type BookingStatus } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { PaymentProviders } from '../payments/payment-providers';
 
-import { tooManyTrips, TRIP_PART_ISSUES, tripPartInvalid, tripPartPaid } from './trip-errors';
+import {
+  tooManyTrips,
+  TRIP_PART_ISSUES,
+  tripHasPayments,
+  tripPartInvalid,
+  tripPartPaid,
+} from './trip-errors';
 import type { TripDto } from './trips.schemas';
 
 type Tx = Prisma.TransactionClient;
@@ -55,6 +61,8 @@ type TripBooking = TripRecord['bookings'][number];
 export const TRIP_PAYABLE: readonly BookingStatus[] = ['PRICED', 'AWAITING_PAYMENT'];
 /** A trip counts as paid for once a booking in it has been. */
 const SETTLED: readonly BookingStatus[] = ['PAID', 'TICKETING', 'CONFIRMED'];
+/** Bookings that may leave a trip being deleted: nothing was ever paid on them through it. */
+const DETACHABLE: readonly BookingStatus[] = ['DRAFT', 'PRICED', 'EXPIRED', 'CANCELLED'];
 
 /** Which part of a trip a booking is, read from what it sells. */
 export function componentOfBooking(booking: {
@@ -220,6 +228,41 @@ export class TripsService {
       await this.detach(tx, trip.id, bookingId, userId, context, 'removed');
     });
     return this.get(trip.id, userId);
+  }
+
+  /**
+   * Deletes a trip nobody started paying. Its bookings are not cancelled: they leave the trip
+   * and stay ordinary unpaid bookings. A trip with a payment, even a failed one, is a financial
+   * record and stays (409 `trip-has-payments`).
+   */
+  async remove(tripId: string, userId: string, context: RequestContext): Promise<void> {
+    const trip = await this.load(tripId, userId);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM trips WHERE id = ${trip.id}::uuid FOR UPDATE`;
+      const [payments, settled] = await Promise.all([
+        tx.tripPayment.count({ where: { tripId: trip.id } }),
+        tx.booking.count({
+          where: { tripId: trip.id, status: { notIn: [...DETACHABLE] } },
+        }),
+      ]);
+      if (payments > 0 || settled > 0) throw tripHasPayments();
+      const detached = await tx.booking.updateMany({
+        where: { tripId: trip.id },
+        data: { tripId: null, tripComponent: null },
+      });
+      await tx.trip.delete({ where: { id: trip.id } });
+      await this.audit.record(
+        {
+          action: 'trip.deleted',
+          actorUserId: userId,
+          targetType: 'trip',
+          targetId: trip.id,
+          context,
+          metadata: { parts: detached.count },
+        },
+        tx,
+      );
+    });
   }
 
   private async detach(
