@@ -163,6 +163,9 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 7. Before submitting: someone with an iPhone and an Android phone runs the screen reader
    checklist (`docs/runbooks/screen-reader-checklist.md`).
 8. Decide whether **Suskii Prime** is a travel service or needs in-app purchase on iPhone.
+9. Optional: a **device farm** account (Firebase Test Lab, BrowserStack or AWS Device Farm). The
+   phone check (ADR-100) runs the test build on an emulator; a farm runs the same journeys on
+   real phones before a store release.
 
 ## 3. Sign in with Google and Apple
 

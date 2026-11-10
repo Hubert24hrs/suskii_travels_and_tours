@@ -157,8 +157,9 @@ runs in a development build of the app rather than Expo Go.
   development and e2e builds).
 - **iOS**: build the development client on EAS (`eas build --profile development --platform ios`)
   once the Expo account exists, or run `pnpm --filter @suskii/mobile ios` on a Mac with Xcode.
-- **Tests**: `pnpm --filter @suskii/mobile test` (Jest). The Maestro critical path runs in the
-  `Mobile` workflow on an Android emulator; to run it locally, start the stack with
+- **Tests**: `pnpm --filter @suskii/mobile test` (Jest). The Maestro journeys (the critical path,
+  a combined trip and more) run in the `Mobile` workflow on an Android emulator; to run them
+  locally, start the stack with
   `pnpm --filter @suskii/web e2e:stack`, build the `e2e` APK (see `.github/workflows/mobile.yml`)
   and run `bash apps/mobile/e2e/run-android.sh <apk> maestro-report`.
 - **Secret scan**: `pnpm --filter @suskii/mobile build`, then
@@ -171,7 +172,11 @@ runs in a development build of the app rather than Expo Go.
 
 The `Mobile test APK` workflow publishes a sideloadable build at a fixed address:
 `https://github.com/Hubert24hrs/suskii_travels_and_tours/releases/download/mobile-test-apk/suskii-travels-test.apk`.
-It needs a running stack, which your phone reaches over your Wi-Fi (ADR-054):
+It is published only after the `Phone check` workflow has installed that file on an emulator and
+booked with it against the online test server (ADR-100). The app finds the online test server by
+itself (`Test server` workflow, ADR-066), so installing it is enough.
+
+To use a stack on your own computer instead, your phone reaches it over your Wi-Fi (ADR-054):
 
 1. Find your computer's address on the network (Windows `ipconfig`, macOS
    `ipconfig getifaddr en0`, Linux `hostname -I`), for example `192.168.1.20`. Phone and computer

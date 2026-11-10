@@ -65,5 +65,10 @@ Built on `feat/trip-builder`.
   accessibility and hydration lists; the payment-page policy test covers `/trips/{id}`.
 - **App:** `trip-builder.test.tsx` (plan, trip, payment, price change, removal, deletion) and
   checkout's add-to-trip tests.
+- **On a device:** the Maestro flow `trip-builder.yaml` signs up, plans Lagos to London, adds a
+  flight, a hotel and travel insurance, pays once on the hosted page and returns to a paid trip.
+  It runs on an Android emulator in the `Mobile` workflow and, in the test APK against the online
+  test server, in the phone check (ADR-100), which also runs the website's five-part journey
+  there.
 
 Waits for the owner: whether a combined trip gets a discount, and the open questions in ADR-099.

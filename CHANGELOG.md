@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Phone check: the test APK and the website against the online test server (2026-11-10)
+
+How the app is checked before a tester installs it (ADR-100):
+
+#### Added
+
+- **Phone check** (`phone-check.yml`): the test APK is checked against its checksum, installed
+  on an Android emulator and run against the online test server over the internet. The app has
+  to find the server by itself, a guest books and pays for a flight, and an account builds a
+  combined trip and pays once. A second job runs the website there: a trip of five parts paid
+  once, a flight and a hotel.
+- **The trip builder on a device**: the Maestro flow `trip-builder.yaml` (sign up, plan Lagos to
+  London, a flight, a hotel and travel insurance, one payment, back to a paid trip) runs in the
+  Android job on every pull request.
+
+#### Changed
+
+- **The test APK is published only after the phone check passes** on the file just built
+  (`mobile-test-apk.yml`; `publish: false` builds and checks only). Publishing needs a running
+  test server.
+- **The test APK compresses its native libraries** (`expo.useLegacyPackaging`): a smaller
+  download, unpacked at install. The emulator that checks it can only run phone code from
+  unpacked libraries.
+
 ### Trip builder: combined trips paid once (2026-11-10)
 
 The owner's combined travel packages (ADR-099, `docs/phases/trip-builder.md`):
