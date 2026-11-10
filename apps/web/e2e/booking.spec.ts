@@ -550,6 +550,11 @@ test.describe('airline changes (ADR-073)', () => {
     await expect(banner).toContainText(t('booking.scheduleChange.significant'));
     await expect(banner).toContainText(t('booking.scheduleChange.removed'));
     await expect(banner.getByText(t('booking.scheduleChange.support'))).toHaveCount(0);
+    // The booked search is one click away, to see what else flies the route before deciding.
+    await expect(banner.getByTestId('schedule-change-other-flights')).toHaveAttribute(
+      'href',
+      /^\/flights\/search\?trip=one_way&from=LOS&to=ABV&depart=/,
+    );
     await expectNoAxeViolations(page);
     await page.getByTestId('schedule-change-refund').click();
     await expect(page.getByRole('dialog')).toContainText(t('booking.scheduleChange.refundTitle'));

@@ -494,6 +494,8 @@ export function Checkout({
                 expiryDate: passenger.passportExpiry,
               }
             : null,
+          // Only fares that take requests show the choice; a saved draft may hold an old one.
+          ...(quote.flight?.offer.mealRequests && passenger.meal ? { meal: passenger.meal } : {}),
         })),
         guests: draft.guests,
         extras: draft.passengers.flatMap((passenger, index) =>
@@ -632,6 +634,17 @@ export function Checkout({
                 })}
               </p>
             ) : null}
+            {/* Said once for every traveller: a special meal is asked for, never promised. */}
+            {quote.flight ? (
+              <p
+                data-testid={quote.flight.offer.mealRequests ? 'meal-help' : 'meal-unavailable'}
+                className="font-body text-body-sm text-muted"
+              >
+                {quote.flight.offer.mealRequests
+                  ? t('checkout.meal.help')
+                  : t('checkout.meal.unavailable')}
+              </p>
+            ) : null}
             {draft.passengers.map((passenger, index) => {
               travellerNumbers[passenger.type] += 1;
               return (
@@ -646,6 +659,7 @@ export function Checkout({
                   countries={countries}
                   passport={passportMode(quote, facts)}
                   services={services}
+                  meals={quote.flight?.offer.mealRequests}
                   errors={errors}
                   warnings={warnings}
                 />

@@ -157,6 +157,11 @@ export function SupportConversation({ conversationId }: { conversationId: string
         <Badge variant={STATUS_VARIANT[conversation.status]} data-testid="support-status">
           {t(`support.status.${conversation.status}`)}
         </Badge>
+        {conversation.topic ? (
+          <Badge variant="neutral" data-testid="support-topic">
+            {t(`support.topics.${conversation.topic}`)}
+          </Badge>
+        ) : null}
       </div>
       <ol className="flex flex-col gap-3" aria-live="polite">
         {conversation.messages.map((message) => (

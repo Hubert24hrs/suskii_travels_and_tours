@@ -1,5 +1,6 @@
 import {
   flightFormToParams,
+  flightRequestToParams,
   hotelFormToParams,
   type FlightSearchRequest,
   type HotelSearchRequest,
@@ -29,30 +30,8 @@ export function dealSearchHref(deal: FlightDeal): string {
  * traveller can search again with every input preserved.
  */
 export function flightRequestHref(request: FlightSearchRequest): string {
-  const [outbound, back] = request.slices;
-  const common = {
-    travellers: request.passengers,
-    cabinClass: request.cabinClass,
-    directOnly: request.directOnly,
-    flexibleDates: false,
-  };
-  if (!outbound) return '/flights/search';
-  const roundTrip =
-    request.slices.length === 2 &&
-    back?.origin === outbound.destination &&
-    back.destination === outbound.origin;
-  const params =
-    request.slices.length === 1
-      ? flightFormToParams({ ...common, tripType: 'one_way', ...outbound })
-      : roundTrip
-        ? flightFormToParams({
-            ...common,
-            tripType: 'round_trip',
-            ...outbound,
-            returnDate: back.departureDate,
-          })
-        : flightFormToParams({ ...common, tripType: 'multi_city', legs: request.slices });
-  return `/flights/search?${params.toString()}`;
+  const query = flightRequestToParams(request).toString();
+  return query ? `/flights/search?${query}` : '/flights/search';
 }
 
 export function hotelRequestHref(request: HotelSearchRequest): string {
