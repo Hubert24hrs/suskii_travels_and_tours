@@ -26,6 +26,8 @@ export interface TicketDocument {
     type: PassengerType;
     ticketNumber: string | null;
     extraBags: number;
+    /** Chosen seats, one per flight of the trip in order (ADR-094); empty when none was chosen. */
+    seats: string[];
     /** The meal request's industry code (e.g. `VLML`), when one was sent to the airline. */
     mealCode: string | null;
   }[];
@@ -278,9 +280,13 @@ export async function renderTicketPdf(ticket: TicketDocument): Promise<Uint8Arra
     const name = `${passenger.surname}/${passenger.givenNames}${passenger.title ? ` ${passenger.title.toUpperCase()}` : ''}`;
     const bags = passenger.extraBags > 0 ? `, +${passenger.extraBags} bag` : '';
     const meal = passenger.mealCode ? `, meal requested ${passenger.mealCode}` : '';
+    const seats =
+      passenger.seats.length > 0
+        ? `, seat${passenger.seats.length > 1 ? 's' : ''} ${passenger.seats.join(', ')}`
+        : '';
     writer.pair(
       name,
-      `${passenger.ticketNumber ?? 'Ticket pending'} (${passenger.type}${bags}${meal})`,
+      `${passenger.ticketNumber ?? 'Ticket pending'} (${passenger.type}${bags}${seats}${meal})`,
     );
   }
 

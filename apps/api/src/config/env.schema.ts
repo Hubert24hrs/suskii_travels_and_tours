@@ -254,6 +254,11 @@ export const envSchema = z
     HOTEL_SUPPLIERS: csv(z.enum(['mock', 'duffel', 'hotelbeds', 'expedia'])).default(['mock']),
     DUFFEL_API_TOKEN: z.string().min(1).optional(),
     DUFFEL_API_URL: z.url().default('https://api.duffel.com'),
+    /**
+     * Seat maps and seat booking on Duffel flights (ADR-094). Off until one sandbox booking with
+     * a chosen seat confirms the seat map shape; while off, Duffel fares offer no seat choice.
+     */
+    DUFFEL_SEAT_SELECTION: booleanish.default(false),
     /** Hotelbeds APItude; the default is the evaluation host, which books nothing. */
     HOTELBEDS_API_URL: z.url().default('https://api.test.hotelbeds.com'),
     HOTELBEDS_API_KEY: z.string().min(1).optional(),

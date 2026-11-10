@@ -1,6 +1,6 @@
 import { isIP } from 'node:net';
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import {
   BOOKING_TERMS_VERSION,
@@ -40,7 +40,12 @@ import { withCurrentTier } from '../prime/prime-status';
 import { FxService } from '../pricing/fx.service';
 import { PricingService } from '../pricing/pricing.service';
 import type { ClientContext } from '../search/client-context';
-import { offerUnavailable, promoInvalid, quoteExpired } from '../search/search.errors';
+import {
+  offerUnavailable,
+  promoInvalid,
+  quoteExpired,
+  supplierUnavailable,
+} from '../search/search.errors';
 
 import { bookingReference, documentHint } from './booking-codes';
 import {
@@ -70,6 +75,7 @@ import {
   bookingConflict,
   companyBookingUnavailable,
   extrasInvalid,
+  seatsInvalid,
   passengersInvalid,
   priceConsentMismatch,
   termsOutdated,
@@ -81,6 +87,7 @@ import { BookingFundsService } from './booking-funds.service';
 import { busTicketViews } from './bus-tickets';
 import { InhouseFulfilment } from './inhouse-fulfilment';
 import { cancellableFlight } from './flight-cancellation';
+import { FlightSeatsService, SeatChoiceError } from './flight-seats.service';
 import { changeSlices, refundOfferOpen } from './schedule-changes';
 import { cancellationTerms, inhouseItineraryFacts, seatDeparture } from './inhouse-items';
 import { RENTAL_RESERVATION_INCLUDE, rentalReservationView } from './rental-views';
@@ -139,6 +146,8 @@ const earliest = (...dates: Date[]): Date => new Date(Math.min(...dates.map((d) 
  */
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly prisma: PrismaService,
@@ -162,6 +171,7 @@ export class BookingsService {
     private readonly adAttribution: AdAttribution,
     @Inject(FLIGHT_SUPPLIERS) private readonly flightSuppliers: FlightSupplier[],
     @Inject(HOTEL_SUPPLIERS) private readonly hotelSuppliers: HotelSupplier[],
+    private readonly seats: FlightSeatsService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -458,7 +468,10 @@ export class BookingsService {
     }
 
     const passengers = await this.preparePassengers(input, payload, userId);
-    const extras = this.prepareExtras(input, payload, passengers);
+    const extras = [
+      ...this.prepareExtras(input, payload, passengers),
+      ...(await this.prepareSeats(input, payload, passengers)),
+    ];
     const itemId = uuidv7();
     const storedPayload = this.withAddonDetails(input, payload, itemId);
     const seats = isInhouse(payload) ? seatDeparture(payload) : null;
@@ -842,6 +855,31 @@ export class BookingsService {
         weightKg: service.weightKg,
       };
     });
+  }
+
+  /**
+   * Chosen seats as extras (ADR-094): checked against the airline's seat map as it is now, each
+   * with the airline's price. Passenger indexes become booking positions, as for extras.
+   */
+  private async prepareSeats(
+    input: CreateBookingRequest,
+    payload: ItemPayload,
+    passengers: PreparedPassenger[],
+  ): Promise<ExtraSelection[]> {
+    if (input.seats.length === 0) return [];
+    if (payload.kind !== 'flight') throw seatsInvalid('unknown_flight');
+    try {
+      return await this.seats.select(
+        payload.offer,
+        input.seats,
+        passengers.map((passenger) => passenger.position),
+      );
+    } catch (error) {
+      if (error instanceof SeatChoiceError) throw seatsInvalid(error.issue);
+      // The map could not be read: nothing is booked on a seat we could not confirm.
+      this.logger.warn({ reason: (error as Error).name }, 'seat map unavailable at booking');
+      throw supplierUnavailable();
+    }
   }
 
   /** "Save this traveller" at checkout: creates or updates saved travellers (limit permitting). */

@@ -44,6 +44,8 @@ import {
   type SupplierContact,
   type SupplierFlightOffer,
   type SupplierPassenger,
+  type SupplierSeat,
+  type SupplierSeatMap,
 } from '../supplier.types';
 
 import type { DuffelClient } from './duffel.client';
@@ -53,6 +55,7 @@ import {
   duffelOrderCancellationSchema,
   duffelOrderChangesSchema,
   duffelOrderSchema,
+  duffelSeatMapSchema,
   duffelServiceSchema,
   duffelSliceSchema,
   type DuffelOffer,
@@ -261,9 +264,14 @@ export class DuffelFlightSupplier extends FlightSupplier {
   override readonly tracksChanges = true;
   private readonly logger = new Logger(DuffelFlightSupplier.name);
 
+  /**
+   * @param seatSelection whether seat maps are read and seats booked (`DUFFEL_SEAT_SELECTION`,
+   *   ADR-094). Off until the owner's sandbox run confirms the seat map shape and a booked seat.
+   */
   constructor(
     private readonly client: DuffelClient,
     private readonly supplierTimeoutMs: number,
+    private readonly seatSelection = false,
   ) {
     super();
   }
@@ -362,6 +370,135 @@ export class DuffelFlightSupplier extends FlightSupplier {
   }
 
   /**
+   * The seat maps of an offer (ADR-094), one per segment that has one. A seat is offered only
+   * when every traveller with a seat can book it at one price, as bags are (ADR-063); anything
+   * else on the map (galleys, exits, gaps) is a gap. Window and aisle come from the seat's place
+   * in its row; Duffel says nothing structured about legroom.
+   */
+  override async seatMaps(
+    offer: SupplierFlightOffer,
+    signal: AbortSignal,
+  ): Promise<SupplierSeatMap[]> {
+    if (!this.seatSelection) return [];
+    const fresh = await this.freshOffer(
+      offer,
+      offer.passengers.adults + offer.passengers.children + offer.passengers.infants,
+      signal,
+    );
+    return (await this.duffelSeats(fresh, offer, signal)).maps;
+  }
+
+  /** Seat maps in our shape, and the Duffel service that books each seat for each passenger. */
+  private async duffelSeats(
+    fresh: DuffelOffer,
+    offer: SupplierFlightOffer,
+    signal: AbortSignal,
+  ): Promise<{ maps: SupplierSeatMap[]; services: Map<string, string> }> {
+    const response = await this.client.request(
+      'GET',
+      `/air/seat_maps?offer_id=${encodeURIComponent(fresh.id)}`,
+      signal,
+    );
+    const raw = (response as { data?: unknown } | null)?.data;
+    const maps: SupplierSeatMap[] = [];
+    const services = new Map<string, string>();
+    if (!Array.isArray(raw)) return { maps, services };
+
+    const segmentIds = fresh.slices.flatMap((slice) => slice.segments.map((segment) => segment.id));
+    const seated = fresh.passengers
+      .slice(0, offer.passengers.adults + offer.passengers.children)
+      .map((passenger) => passenger.id);
+    for (const candidate of raw) {
+      const parsed = duffelSeatMapSchema.safeParse(candidate);
+      const flight = parsed.success ? segmentIds.indexOf(parsed.data.segment_id) : -1;
+      if (!parsed.success || flight === -1) continue;
+      const rows: SupplierSeatMap['rows'] = [];
+      for (const cabin of parsed.data.cabins) {
+        for (const row of cabin.rows) {
+          const sections = row.sections.map((section, sectionIndex) =>
+            section.elements.map((element, position): SupplierSeat | null => {
+              if (element.type !== 'seat' || !element.designator) return null;
+              const mine = seated.map((id) =>
+                (element.available_services ?? []).find((service) => service.passenger_id === id),
+              );
+              const [first] = mine;
+              const price = first ? amount(first.total_amount, first.total_currency) : null;
+              const available =
+                price !== null &&
+                mine.every(
+                  (service) =>
+                    service !== undefined &&
+                    equals(amount(service.total_amount, service.total_currency), price),
+                );
+              if (available) {
+                mine.forEach((service, passengerIndex) => {
+                  if (service)
+                    services.set(`${flight}|${element.designator}|${passengerIndex}`, service.id);
+                });
+              }
+              const last = position === section.elements.length - 1;
+              const outer =
+                (sectionIndex === 0 && position === 0) ||
+                (sectionIndex === row.sections.length - 1 && last);
+              // Next to an aisle: the inner end of a side block, or either end of a middle one.
+              const besideAisle = row.sections.length > 1 && !outer && (position === 0 || last);
+              return {
+                designator: element.designator,
+                available,
+                price: price ?? zero(fresh.total_currency),
+                features: [
+                  ...(outer ? (['window'] as const) : []),
+                  ...(besideAisle ? (['aisle'] as const) : []),
+                ],
+              };
+            }),
+          );
+          const number = Number.parseInt(
+            sections.flat().find((seat) => seat !== null)?.designator ?? '',
+            10,
+          );
+          if (Number.isInteger(number)) rows.push({ number, sections });
+        }
+      }
+      if (rows.length > 0) maps.push({ flight, cabinClass: offer.cabinClass, rows });
+    }
+    return { maps: maps.sort((a, b) => a.flight - b.flight), services };
+  }
+
+  /**
+   * The Duffel services for the seats the traveller paid for. A seat that is taken, off the map
+   * or at another price than the one paid is refused rather than charged, like a bag.
+   */
+  private async orderSeats(
+    fresh: DuffelOffer,
+    request: FlightBookingRequest,
+    signal: AbortSignal,
+  ): Promise<{ services: { id: string; quantity: number }[]; total: Money }> {
+    const wanted = request.seats ?? [];
+    let total = zero(fresh.total_currency);
+    if (wanted.length === 0) return { services: [], total };
+    if (!this.seatSelection) throw new SupplierRequestError(this.name, 'Seats are not sold');
+    const { maps, services } = await this.duffelSeats(fresh, request.offer, signal);
+    const ordered: { id: string; quantity: number }[] = [];
+    for (const seat of wanted) {
+      const found = maps
+        .find((map) => map.flight === seat.flight)
+        ?.rows.flatMap((row) => row.sections.flat())
+        .find((candidate) => candidate?.designator === seat.designator);
+      const id = services.get(`${seat.flight}|${seat.designator}|${seat.passengerIndex}`);
+      if (!found?.available || !id) {
+        throw new SupplierRequestError(this.name, 'A seat is no longer offered');
+      }
+      if (!equals(found.price, seat.price)) {
+        throw new SupplierRequestError(this.name, 'A seat changed price after payment');
+      }
+      ordered.push({ id, quantity: 1 });
+      total = add(total, found.price);
+    }
+    return { services: ordered, total };
+  }
+
+  /**
    * Creates an instant order paid from the Duffel balance. The offer is fetched again for its
    * passenger ids and extras; a fare or bag price that no longer matches what the traveller paid
    * is refused rather than charged. The payment covers the fare and the bags.
@@ -370,7 +507,12 @@ export class DuffelFlightSupplier extends FlightSupplier {
     const withBags = request.services.length > 0;
     const offer = await this.freshOffer(request.offer, request.passengers.length, signal, withBags);
     const bags = this.orderBags(offer, request);
-    const total = add(amount(offer.total_amount, offer.total_currency), bags.total);
+    const seats = await this.orderSeats(offer, request, signal);
+    const extras = [...bags.services, ...seats.services];
+    const total = add(
+      add(amount(offer.total_amount, offer.total_currency), bags.total),
+      seats.total,
+    );
     // The order may exist after a failure: a retry would search again and buy a second ticket,
     // so anything after sending goes to review.
     const order = await creating(this.name, async () =>
@@ -380,12 +522,12 @@ export class DuffelFlightSupplier extends FlightSupplier {
             type: 'instant',
             selected_offers: [offer.id],
             passengers: this.orderPassengers(offer, request.passengers, request.contact),
-            ...(withBags ? { services: bags.services } : {}),
+            ...(extras.length > 0 ? { services: extras } : {}),
             payments: [
               {
                 type: 'balance',
                 currency: offer.total_currency,
-                amount: withBags ? toDecimalString(total) : offer.total_amount,
+                amount: extras.length > 0 ? toDecimalString(total) : offer.total_amount,
               },
             ],
             metadata: { suskii_booking_item: request.idempotencyKey },

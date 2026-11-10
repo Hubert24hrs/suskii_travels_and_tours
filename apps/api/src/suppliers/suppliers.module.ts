@@ -59,7 +59,11 @@ export const HOTEL_SUPPLIERS = Symbol('HOTEL_SUPPLIERS');
             baseUrl: config.DUFFEL_API_URL,
             token: config.DUFFEL_API_TOKEN ?? '',
           });
-          return new DuffelFlightSupplier(client, config.SUPPLIER_TIMEOUT_MS);
+          return new DuffelFlightSupplier(
+            client,
+            config.SUPPLIER_TIMEOUT_MS,
+            config.DUFFEL_SEAT_SELECTION,
+          );
         }),
     },
     {

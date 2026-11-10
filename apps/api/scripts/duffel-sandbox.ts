@@ -442,7 +442,8 @@ const minutesUntil = (instant: string): string =>
 
 async function flightChecks(env: Env): Promise<void> {
   const { token, client, failures } = env;
-  const supplier = new DuffelFlightSupplier(client, FLIGHT_SEARCH_TIMEOUT_MS);
+  // Seat selection is on here whatever `DUFFEL_SEAT_SELECTION` says: this run is its check (ADR-094).
+  const supplier = new DuffelFlightSupplier(client, FLIGHT_SEARCH_TIMEOUT_MS, true);
   const departure = addDays(localDate(new Date(), 'UTC'), 30);
   const query: FlightSearchQuery = {
     slices: [{ origin: 'LHR', destination: 'JFK', departureDate: departure }],
@@ -553,6 +554,25 @@ async function flightChecks(env: Env): Promise<void> {
     failures.push('Flights: Duffel lists checked bags but the adapter sells none');
   }
 
+  // Seats (ADR-094): the maps for this offer as the adapter reads them.
+  const seatMaps = await attempt(() => supplier.seatMaps(repriced.value ?? target, signal()));
+  const mapped = (seatMaps.value ?? []).flatMap((map) =>
+    map.rows.flatMap((row) =>
+      row.sections.flatMap((section) =>
+        section.flatMap((seat) => (seat ? [{ ...seat, flight: map.flight }] : [])),
+      ),
+    ),
+  );
+  const freeSeats = mapped.filter((seat) => seat.available);
+  say(
+    '- seat maps: ' +
+      (seatMaps.value
+        ? `${seatMaps.value.length.toString()} flight(s), ${freeSeats.length.toString()} of ` +
+          `${mapped.length.toString()} seats can be chosen`
+        : seatMaps.outcome),
+  );
+  if (!seatMaps.value) failures.push(`Flights: reading the seat maps failed: ${seatMaps.outcome}`);
+
   // 3. Error codes for unknown ids.
   say();
   say('### 3. Error codes');
@@ -580,8 +600,9 @@ async function flightChecks(env: Env): Promise<void> {
     say('- skipped (run with --book)');
     return;
   }
-  // With a checked bag when the offer sells one: the payment then covers the fare and the bag.
+  // With a checked bag and a seat when the offer sells them: the payment then covers all three.
   const [firstBag] = sold;
+  const [firstSeat] = freeSeats;
   const booked = await attempt(() =>
     supplier.book(
       {
@@ -589,13 +610,24 @@ async function flightChecks(env: Env): Promise<void> {
         passengers: [PASSENGER],
         contact,
         services: firstBag ? [{ serviceId: firstBag.id, passengerIndex: 0, quantity: 1 }] : [],
+        seats: firstSeat
+          ? [
+              {
+                flight: firstSeat.flight,
+                designator: firstSeat.designator,
+                passengerIndex: 0,
+                price: firstSeat.price,
+              },
+            ]
+          : [],
         idempotencyKey: TAG,
       },
       signal(),
     ),
   );
   say(
-    `- adapter order (paid from the balance${firstBag ? `, one ${firstBag.weightKg.toString()} kg bag` : ''}): ` +
+    `- adapter order (paid from the balance${firstBag ? `, one ${firstBag.weightKg.toString()} kg bag` : ''}` +
+      `${firstSeat ? `, seat ${firstSeat.designator} at ${formatMoney(firstSeat.price, 'en-GB')}` : ''}): ` +
       (booked.value
         ? `booked, airline reference received, ${booked.value.tickets.length.toString()} ticket number(s)`
         : booked.outcome),
@@ -622,8 +654,11 @@ async function flightChecks(env: Env): Promise<void> {
     if (!read.value) failures.push(`Flights: reading the order's changes failed: ${read.outcome}`);
     else if (!sameFlights) failures.push("Flights: the order's flights differ from the offer");
     const supplierTotal = add(
-      offerTotal(bookedOffer),
-      firstBag ? firstBag.price : zero(bookedOffer.price.base.currency),
+      add(
+        offerTotal(bookedOffer),
+        firstBag ? firstBag.price : zero(bookedOffer.price.base.currency),
+      ),
+      firstSeat ? firstSeat.price : zero(bookedOffer.price.base.currency),
     );
     const quote = await attempt(() =>
       supplier.cancellationQuote(

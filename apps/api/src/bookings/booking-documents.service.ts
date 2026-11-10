@@ -36,6 +36,8 @@ import {
   bookingPrice,
   itemPayload,
   itemServices,
+  passengerBags,
+  passengerSeats,
   type BookingRecord,
 } from './booking-presenter';
 import type { BookingPriceDto } from './bookings.schemas';
@@ -234,9 +236,8 @@ export class BookingDocumentsService {
           type: passenger.type,
           ticketNumber:
             tickets.find((entry) => entry.passengerIndex === passenger.position)?.number ?? null,
-          extraBags: services
-            .filter((selection) => selection.passengerIndex === passenger.position)
-            .reduce((acc, selection) => acc + selection.quantity, 0),
+          extraBags: passengerBags(services, passenger.position),
+          seats: passengerSeats(services, passenger.position).map((seat) => seat.designator),
           mealCode: passenger.mealRequest
             ? (MEAL_REQUEST_CODES[passenger.mealRequest as MealRequest] ?? null)
             : null,

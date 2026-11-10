@@ -26,6 +26,7 @@ import {
   hotelSearchRequestSchema,
   localeCodeSchema,
   PASSENGER_ISSUES,
+  MAX_SEAT_SELECTIONS,
   MEAL_REQUESTS,
   PASSENGER_TITLES,
   PASSENGER_TYPES,
@@ -38,12 +39,20 @@ import {
   passengerInputSchema,
   travellerInputSchema,
   marketingAttributionSchema,
+  SEAT_DESIGNATOR_PATTERN,
+  SEAT_FEATURES,
 } from '@suskii/shared';
 
 import { named } from '../contract/contract';
 import { PAYMENT_METHOD_LIST } from '../payments/payment-provider';
 import { moneySchema, priceSchema } from '../pricing/pricing.schemas';
-import { flightOfferSchema, flightSliceSchema, hotelRateSchema } from '../search/search.schemas';
+import {
+  airportPointSchema,
+  carrierSchema,
+  flightOfferSchema,
+  flightSliceSchema,
+  hotelRateSchema,
+} from '../search/search.schemas';
 
 import { PRICE_LINE_CODES } from './cars-breakdown';
 
@@ -544,6 +553,71 @@ export const quoteSchema = named(
 // Create
 // ---------------------------------------------------------------------------
 
+/** A seat on the airline's map, priced for the caller's currency (ADR-094). */
+const flightSeatSchema = z.object({
+  designator: z.string().meta({ description: 'Row and letter, e.g. "12A".' }),
+  available: z.boolean(),
+  price: moneySchema.meta({
+    description: "Per traveller, at the airline's price with no markup; zero for a free seat.",
+  }),
+  features: z.array(z.enum(SEAT_FEATURES)),
+});
+
+export const flightSeatMapsSchema = named(
+  'FlightSeatMaps',
+  z.object({
+    quoteId: z.uuid(),
+    currency: z.string().length(3),
+    seated: z.number().int().meta({
+      description:
+        'Travellers with a seat of their own (adults and children): the first `seated` passengers. Lap infants take no seat.',
+    }),
+    flights: z
+      .array(
+        z.object({
+          flight: z.number().int().meta({
+            description: 'Position among every flight of the trip, in order, from 0.',
+          }),
+          origin: airportPointSchema,
+          destination: airportPointSchema,
+          carrier: carrierSchema,
+          flightNumber: z.string(),
+          departureLocal: z.string(),
+          cabinClass: z.enum(CABIN_CLASSES),
+          rows: z.array(
+            z.object({
+              number: z.number().int(),
+              sections: z.array(z.array(flightSeatSchema.nullable())).meta({
+                description:
+                  'Blocks of seats between aisles, left to right; `null` is a gap where no seat is.',
+              }),
+            }),
+          ),
+        }),
+      )
+      .meta({
+        description:
+          'Empty when the airline sells no seats through us: the traveller gets a seat at check-in.',
+      }),
+  }),
+);
+
+export const seatChoiceSchema = named(
+  'SeatChoice',
+  z.object({
+    flight: z.number().int().min(0).max(11).meta({
+      description: 'Position among every flight of the trip, as in `FlightSeatMaps`.',
+    }),
+    passengerIndex: z
+      .number()
+      .int()
+      .min(0)
+      .max(8)
+      .meta({ description: 'Position in `passengers` as sent.' }),
+    designator: z.string().regex(SEAT_DESIGNATOR_PATTERN),
+  }),
+);
+
 export const extraSelectionSchema = named(
   'ExtraSelection',
   z.object({
@@ -573,6 +647,10 @@ export const createBookingRequestSchema = named(
       .default([])
       .meta({ description: 'Hotels: one lead guest per room, in room order.' }),
     extras: z.array(extraSelectionSchema).max(18).default([]),
+    seats: z.array(seatChoiceSchema).max(MAX_SEAT_SELECTIONS).default([]).meta({
+      description:
+        "Seats chosen from `getQuoteSeatMaps` (ADR-094): at most one per traveller with a seat on each flight. Checked against the airline's map again; 422 `seats-invalid` names the first problem. Like paid extras, not with a hold or installments.",
+    }),
     addonDetails: z
       .object({
         flightNumber: z
@@ -627,17 +705,31 @@ export const bookingExtraSchema = named(
   }),
 );
 
+export const bookingSeatSchema = named(
+  'BookingSeat',
+  z.object({
+    flight: z.number().int(),
+    designator: z.string(),
+    passengerPosition: z.number().int(),
+    amount: moneySchema,
+  }),
+);
+
 export const bookingPriceSchema = named(
   'BookingPrice',
   priceSchema.extend({
     extras: z
       .array(bookingExtraSchema)
       .meta({ description: 'Sold at supplier cost, no discount.' }),
+    seats: z.array(bookingSeatSchema).default([]).meta({
+      description:
+        "Chosen seats at the airline's price, no markup and no discount (ADR-094); inside `total`.",
+    }),
     deposit: moneySchema
       .nullable()
       .meta({ description: 'Rentals: refundable deposit, never marked up or discounted.' }),
     total: moneySchema.meta({
-      description: 'fare + taxes + fees + service taxes - discount + extras + deposit.',
+      description: 'fare + taxes + fees + service taxes - discount + extras + seats + deposit.',
     }),
   }),
 );
@@ -681,6 +773,10 @@ export const bookingPassengerSchema = named(
     document: maskedDocumentSchema.nullable(),
     ticketNumber: z.string().nullable(),
     extraBags: z.number().int(),
+    seats: z
+      .array(z.object({ flight: z.number().int(), designator: z.string() }))
+      .default([])
+      .meta({ description: 'The seat chosen on each flight of the trip (ADR-094), by `flight`.' }),
     meal: z.enum(MEAL_REQUESTS).nullable().meta({
       description:
         'The special meal asked of the airline, where the fare takes requests. A request, never a guarantee.',

@@ -44,6 +44,7 @@ import {
   flightCancellationQuoteSchema,
   paymentSessionSchema,
   priceConsentRequestSchema,
+  flightSeatMapsSchema,
   quoteIdParamsSchema,
   quoteSchema,
   scheduleChangeParamsSchema,
@@ -62,6 +63,7 @@ import { FlightCancellationService } from './flight-cancellation.service';
 import { ManageBookingService } from './manage-booking.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { QuotesService } from './quotes.service';
+import { FlightSeatsService } from './flight-seats.service';
 import { ScheduleChangesService } from './schedule-changes.service';
 
 const TAGS = ['Bookings'];
@@ -86,6 +88,7 @@ export class BookingsController {
     private readonly flightCancellation: FlightCancellationService,
     private readonly manage: ManageBookingService,
     private readonly scheduleChanges: ScheduleChangesService,
+    private readonly seats: FlightSeatsService,
   ) {}
 
   @Get('quotes/:quoteId')
@@ -105,6 +108,22 @@ export class BookingsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<z.infer<typeof quoteSchema>> {
     return this.quotes.get(quoteId, clientContext(request));
+  }
+
+  @Get('quotes/:quoteId/seat-maps')
+  @RateLimit(SEARCH_LIMITS.quoteIp)
+  @Contract({
+    operationId: 'getQuoteSeatMaps',
+    summary: 'The seat map of each flight of a flight quote',
+    description:
+      "Seats as the airline has them now, at the airline's price in the quote's currency with no markup (ADR-094). `flights` is empty when the airline sells no seats through us. Send the chosen seats as `seats` when creating the booking; they are checked against the map again then and right before payment. 404 for a quote that is not a flight; 410 once it expired.",
+    tags: TAGS,
+    params: quoteIdParamsSchema,
+    responses: { 200: flightSeatMapsSchema },
+    errors: [404, 410, 503],
+  })
+  seatMaps(@Param('quoteId') quoteId: string): Promise<z.infer<typeof flightSeatMapsSchema>> {
+    return this.seats.forQuote(quoteId);
   }
 
   @Post('bookings')

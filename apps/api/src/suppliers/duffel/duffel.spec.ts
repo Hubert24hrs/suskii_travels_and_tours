@@ -620,6 +620,179 @@ describe('DuffelFlightSupplier checked bags (ADR-063)', () => {
   });
 });
 
+describe('DuffelFlightSupplier seat selection (ADR-094)', () => {
+  const signal = new AbortController().signal;
+  const offerPassengers = [
+    { id: 'pas_1', type: 'adult' },
+    { id: 'pas_2', type: 'child' },
+    { id: 'pas_3', type: 'infant_without_seat' },
+  ];
+  const withSeats = (fetchImpl: typeof fetch) =>
+    new DuffelFlightSupplier(
+      new DuffelClient({
+        baseUrl: 'https://api.duffel.test',
+        token: 'duffel_test_secret',
+        fetch: fetchImpl,
+      }),
+      10_000,
+      true,
+    );
+  /** The fixture offer with ids on its two segments, as a single offer fetch returns it. */
+  function freshOffer() {
+    const offer = structuredClone(duffelOffer('off_1', { passengers: offerPassengers }));
+    const [slice] = offer.slices;
+    if (!slice) throw new Error('the fixture has a slice');
+    slice.segments.forEach((segment, index) => Object.assign(segment, { id: `seg_${index + 1}` }));
+    return offer;
+  }
+  // Shaped after Duffel's seat map reference: a seat lists one service per passenger.
+  const seat = (designator: string, prices: (string | null)[]) => ({
+    type: 'seat',
+    designator,
+    name: '',
+    disclosures: [],
+    available_services: prices.flatMap((total, index) =>
+      total === null
+        ? []
+        : [
+            {
+              id: `ase_${designator}_${index + 1}`,
+              passenger_id: `pas_${index + 1}`,
+              total_amount: total,
+              total_currency: 'USD',
+            },
+          ],
+    ),
+  });
+  const seatMap = (segment: string, rows: unknown[][][]) => ({
+    id: `sea_${segment}`,
+    segment_id: segment,
+    slice_id: 'sli_1',
+    cabins: [
+      {
+        cabin_class: 'economy',
+        rows: rows.map((sections) => ({
+          sections: sections.map((elements) => ({ elements })),
+        })),
+      },
+    ],
+  });
+  const maps = [
+    seatMap('seg_1', [
+      // An exit marker row has no seat and is left out.
+      [[{ type: 'exit_row' }], [{ type: 'exit_row' }]],
+      [
+        [seat('12A', ['20.00', '20.00']), seat('12B', ['0.00', '0.00']), seat('12C', [])],
+        // 12D costs the child more, 12E is sold to the adult only: neither is offered.
+        [seat('12D', ['20.00', '25.00']), seat('12E', ['20.00', null]), { type: 'empty' }],
+      ],
+    ]),
+    // A map for a segment the offer does not have, and a malformed one, are ignored.
+    seatMap('seg_9', [[[seat('1A', ['0.00', '0.00'])]]]),
+    { segment_id: 'seg_2' },
+  ];
+
+  async function searched() {
+    const [offer] = await supplierWith(
+      fakeFetch(json(201, { data: { offers: [duffelOffer('off_1')] } })).fn,
+    ).search({ ...query, passengers: { adults: 1, children: 1, infants: 1 } }, signal);
+    if (!offer) throw new Error('the fixture maps to an offer');
+    return offer;
+  }
+
+  it('reads no seat map while the setting is off', async () => {
+    const { fn, calls } = fakeFetch();
+    expect(await supplierWith(fn).seatMaps(await searched(), signal)).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('offers a seat only when every traveller with a seat can book it at one price', async () => {
+    const { fn, calls } = fakeFetch(json(200, { data: freshOffer() }), json(200, { data: maps }));
+    const [map, ...others] = await withSeats(fn).seatMaps(await searched(), signal);
+
+    expect(calls[1]?.url).toContain('/air/seat_maps?offer_id=off_1');
+    expect(others).toEqual([]);
+    expect(map).toMatchObject({ flight: 0, cabinClass: 'economy' });
+    expect(map?.rows).toHaveLength(1);
+    expect(map?.rows[0]?.number).toBe(12);
+    expect(map?.rows[0]?.sections).toEqual([
+      [
+        { designator: '12A', available: true, price: money(2_000n, 'USD'), features: ['window'] },
+        { designator: '12B', available: true, price: money(0n, 'USD'), features: [] },
+        { designator: '12C', available: false, price: money(0n, 'USD'), features: ['aisle'] },
+      ],
+      [
+        { designator: '12D', available: false, price: money(2_000n, 'USD'), features: ['aisle'] },
+        { designator: '12E', available: false, price: money(2_000n, 'USD'), features: [] },
+        null,
+      ],
+    ]);
+  });
+
+  it('books the chosen seats with the fare, and refuses one that is gone or repriced', async () => {
+    const offer = await searched();
+    const person = (type: 'adult' | 'child' | 'infant', dateOfBirth: string) => ({
+      type,
+      title: 'ms' as const,
+      gender: 'f' as const,
+      givenNames: 'ADA',
+      surname: 'EZE',
+      dateOfBirth,
+      nationality: 'NG',
+      document: null,
+    });
+    const request = {
+      offer,
+      passengers: [
+        person('adult', '1990-01-01'),
+        person('child', '2018-01-01'),
+        person('infant', '2026-01-01'),
+      ],
+      contact: { email: 'ada@example.com', phone: '+2348012345678' },
+      services: [],
+      seats: [
+        { flight: 0, designator: '12A', passengerIndex: 0, price: money(2_000n, 'USD') },
+        { flight: 0, designator: '12B', passengerIndex: 1, price: money(0n, 'USD') },
+      ],
+      idempotencyKey: 'item-1',
+    };
+    const { fn, calls } = fakeFetch(
+      json(200, { data: freshOffer() }),
+      json(200, { data: maps }),
+      json(201, { data: { id: 'ord_1', booking_reference: 'RZPNX8', documents: [] } }),
+    );
+    await withSeats(fn).book(request, signal);
+    const body = JSON.parse(calls[2]?.init?.body as string) as {
+      data: { services: unknown[]; payments: unknown[] };
+    };
+    // Each traveller's own service for the seat; 812.45 for the fare and 20 for the window seat.
+    expect(body.data.services).toEqual([
+      { id: 'ase_12A_1', quantity: 1 },
+      { id: 'ase_12B_2', quantity: 1 },
+    ]);
+    expect(body.data.payments).toEqual([{ type: 'balance', currency: 'USD', amount: '832.45' }]);
+
+    for (const seats of [
+      // Taken since, at another price than the one paid, and not on the map.
+      [{ flight: 0, designator: '12C', passengerIndex: 0, price: money(0n, 'USD') }],
+      [{ flight: 0, designator: '12A', passengerIndex: 0, price: money(1_500n, 'USD') }],
+      [{ flight: 1, designator: '12A', passengerIndex: 0, price: money(2_000n, 'USD') }],
+    ]) {
+      const refused = fakeFetch(json(200, { data: freshOffer() }), json(200, { data: maps }));
+      await expect(
+        withSeats(refused.fn).book({ ...request, seats }, signal),
+      ).rejects.toBeInstanceOf(SupplierRequestError);
+      // Nothing is ordered without the seat the traveller paid for.
+      expect(refused.calls).toHaveLength(2);
+    }
+    // With the setting off, a seat can never ride along unnoticed.
+    const off = fakeFetch(json(200, { data: freshOffer() }));
+    await expect(supplierWith(off.fn).book(request, signal)).rejects.toBeInstanceOf(
+      SupplierRequestError,
+    );
+  });
+});
+
 describe('DuffelFlightSupplier cancellation (ADR-064)', () => {
   const signal = new AbortController().signal;
   const cancellation = (overrides: Record<string, unknown> = {}) => ({

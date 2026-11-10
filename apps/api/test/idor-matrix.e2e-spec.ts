@@ -44,6 +44,7 @@ const NOT_OWNED: Record<string, string> = {
   listHotels: 'search results in Redis under an unguessable search id',
   quoteHotelRate: 'creates a new quote from a search result; prices only',
   getQuote: 'an anonymous price quote (UUIDv7 with 74 random bits); no personal data',
+  getQuoteSeatMaps: "the airline's seat map for an anonymous quote; no personal data",
   getMockPayment: 'mock provider page (refused in production); the reference is random',
   completeMockPayment: 'mock provider; completes through the signed webhook path',
   receivePaymentWebhook: 'provider callback, authenticated by its signature',

@@ -13,6 +13,7 @@ import { AdminRefundsController } from './admin-refunds.controller';
 import { BookingAccessLinks } from './booking-access-links';
 import { BookingCancellationService } from './booking-cancellation.service';
 import { FlightCancellationService } from './flight-cancellation.service';
+import { FlightSeatsService } from './flight-seats.service';
 import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
 import { BookingNotesService } from './booking-notes.service';
@@ -77,6 +78,7 @@ import { TravellersService } from './travellers.service';
     InhouseFulfilment,
     BookingCancellationService,
     FlightCancellationService,
+    FlightSeatsService,
     ScheduleChangesService,
     BookingNotesService,
     PaymentRiskService,
