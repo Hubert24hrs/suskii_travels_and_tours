@@ -4,6 +4,7 @@ import { PreferencesService } from '../accounts/preferences.service';
 import { BOOKING_INCLUDE } from '../bookings/booking-presenter';
 import { BookingNotesService } from '../bookings/booking-notes.service';
 import { BookingsService, passportContext } from '../bookings/bookings.service';
+import { fromJsonValue } from '../common/json';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import {
   customerIpContext,
@@ -647,7 +648,7 @@ export class DataExportService {
           include: { _count: { select: { photos: true } } },
           orderBy: { createdAt: 'asc' },
         },
-        bookingItem: { select: { bookingId: true } },
+        bookingItem: { select: { bookingId: true, payload: true } },
       },
       orderBy: { pickupAt: 'desc' },
     });
@@ -658,6 +659,9 @@ export class DataExportService {
       pickupAt: iso(row.pickupAt),
       returnAt: iso(row.returnAt),
       chauffeur: row.chauffeur,
+      // The age given for a self-drive rental (ADR-098); null when none was asked or kept.
+      driverAge:
+        fromJsonValue<{ driverAge?: number | null }>(row.bookingItem.payload).driverAge ?? null,
       status: row.status,
       licence: row.licence
         ? {

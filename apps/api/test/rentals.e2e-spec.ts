@@ -467,6 +467,7 @@ describe('rentals (e2e)', () => {
       vehicleId: car.id,
       pickupAtLocal: localIn(4),
       returnAtLocal: localIn(28),
+      driverAge: 34,
       delivery: {
         label: 'Home, 12 Allen Avenue',
         lat: IKEJA_BRANCH.lat + 0.01,
@@ -526,8 +527,13 @@ describe('rentals (e2e)', () => {
     });
     for (const snapshot of [item.payload, item.offer.payload] as {
       delivery: { label: string };
+      driverAge: number | null;
+      request: { driverAge: number | null };
     }[]) {
       expect(snapshot.delivery.label).toBe('Redacted');
+      // The age the renter gave goes too, from the snapshot and the request it echoes.
+      expect(snapshot.driverAge).toBeNull();
+      expect(snapshot.request.driverAge).toBeNull();
     }
     const handovers = await ctx.prisma.rentalHandover.findMany({
       where: { reservationId },
