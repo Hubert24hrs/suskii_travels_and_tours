@@ -240,22 +240,24 @@ finance approvers for refunds, a native speaker each for French, Swahili, Arabic
 
 Nothing waits on these; change them when you want to (each is a setting or a console entry):
 
-| Decision                              | Default today                                       |
-| ------------------------------------- | --------------------------------------------------- |
-| Installment deposit, fees, grace      | 30% deposit, no fee, 24 hours                       |
-| Refund approval                       | Every staff refund needs a second approver          |
-| Company wallet top-ups                | NGN 10,000 to 5,000,000, USD 10 to 5,000, 5 a day   |
-| Package balance due                   | 30 days before departure                            |
-| Visa document retention               | 90 days after closing                               |
-| Financial records of deleted accounts | 7 years                                             |
-| Price alerts                          | Every 6 hours, 5% drop                              |
-| Flexible dates                        | 3 days each side (`FLEXIBLE_DATES_DAYS`, 0 is off)  |
-| Delay alerts                          | From 30 minutes late, again per 15-minute move      |
-| Review window                         | 90 days after the trip                              |
-| Availability promise                  | 99.9% (status page)                                 |
-| Rides and own fleet                   | Off in production (no driver KYC or payouts needed) |
-| Rental driver age                     | 21 unless a car says otherwise; under it is refused |
-| Longest rental                        | 90 days                                             |
+| Decision                              | Default today                                          |
+| ------------------------------------- | ------------------------------------------------------ |
+| Installment deposit, fees, grace      | 30% deposit, no fee, 24 hours                          |
+| Refund approval                       | Every staff refund needs a second approver             |
+| Company wallet top-ups                | NGN 10,000 to 5,000,000, USD 10 to 5,000, 5 a day      |
+| Package balance due                   | 30 days before departure                               |
+| Visa document retention               | 90 days after closing                                  |
+| Financial records of deleted accounts | 7 years                                                |
+| Price alerts                          | Every 6 hours, 5% drop                                 |
+| Flexible dates                        | 3 days each side (`FLEXIBLE_DATES_DAYS`, 0 is off)     |
+| Delay alerts                          | From 30 minutes late, again per 15-minute move         |
+| Review window                         | 90 days after the trip                                 |
+| Availability promise                  | 99.9% (status page)                                    |
+| Rides and own fleet                   | Off in production (no driver KYC or payouts needed)    |
+| Rental driver age                     | 21 unless a car says otherwise; under it is refused    |
+| Longest rental                        | 90 days                                                |
+| Combined trips (trip builder)         | The total is the sum of the parts: no discount, no fee |
+| Unpaid trips per account              | 10                                                     |
 
 If you switch the **own rental fleet** on (ADR-069, ADR-098), enter for each car in the console
 (Rental desk, New car): the daily rate and, if you offer them, the price of a week and of 30
@@ -263,6 +265,11 @@ days; the minimum driver age; the airport code when the branch is at an airport;
 of a child seat, a GPS and an additional driver; the countries the car's insurance lets it enter
 and the flat cross-border fee; and the other branches it may be returned to with each one-way
 fee. Decide who hands over the border papers at pickup.
+
+The **trip builder** (ADR-099) lets a traveller put a flight, a hotel, a rental car, an airport
+transfer and travel insurance together and pay once. It sells what is already on sale: a car
+needs the rental fleet switched on, and transfers and insurance are the add-ons you publish in
+the console (Add-ons). Tell us if a combined trip should get a discount.
 
 ## When you finish a step
 

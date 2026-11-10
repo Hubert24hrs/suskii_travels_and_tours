@@ -6,6 +6,35 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Trip builder: combined trips paid once (2026-11-10)
+
+The owner's combined travel packages (ADR-099, `docs/phases/trip-builder.md`):
+
+#### Added
+
+- **Plan a trip.** Where from and to, the dates, the travellers and the parts wanted: a flight,
+  a hotel, a rental car, an airport transfer and travel insurance, or only one or two of them.
+  On the website at `/trips` (from the homepage and the footer) and in the app from Home.
+- **Choose each part on its ordinary search**, prefilled from the plan. Checkout says the booking
+  will join the trip and adds it instead of taking payment; the traveller can book it on its own.
+- **Review and pay once.** The trip shows a price per part and one total; one hosted checkout
+  pays every part. Each part keeps its own booking, documents, cancellation rules and refund.
+- **Trips API**: `POST /v1/trips`, `GET /v1/me/trips`, `GET` and `DELETE /v1/trips/{tripId}`,
+  `POST /v1/trips/{tripId}/parts`, `DELETE /v1/trips/{tripId}/parts/{bookingId}` and
+  `POST /v1/trips/{tripId}/payments`. New tables `trips` and `trip_payments`; nullable
+  `bookings.trip_id`, `bookings.trip_component` and `payments.trip_payment_id` (expand-only).
+- The webhook settles every booking of a trip payment, refunds a share that cannot be applied
+  and refunds everything when the amount is wrong; reconciliation finds a lost webhook and
+  checks each trip payment against its shares and the provider.
+- Rental cars carry a country; the demo data has London cars and an airport transfer at the
+  destination, so Lagos to London can be built end to end.
+- The data export has a `trips` section; an empty plan is purged after 30 days.
+
+#### Changed
+
+- The booking answer has `trip` (`{ id, reference, component }` or null). Additive: app builds
+  that predate it ignore the field.
+
 ### Feature parity, part 6: car rental rates, airport branches and options (2026-11-10)
 
 Part 6 of `docs/phases/feature-parity.md` (ADR-098):
