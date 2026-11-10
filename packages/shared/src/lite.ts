@@ -360,5 +360,16 @@ export {
   type SeatChoiceIssue,
   type SeatFeature,
 } from './flight-seats';
+export {
+  BEFORE_DEPARTURE_STATES,
+  FINAL_FLIGHT_STATES,
+  FLIGHT_ALERTS,
+  FLIGHT_STATES,
+  delayMinutes,
+  flightAlert,
+  type FlightAlert,
+  type FlightAlertInput,
+  type FlightState,
+} from './flight-status';
 
 export { citySlug } from './slug';
