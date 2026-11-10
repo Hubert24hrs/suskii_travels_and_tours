@@ -169,10 +169,23 @@ test.describe('illustrations', () => {
     expect(art.headers()['content-security-policy']).toContain("default-src 'none'");
     expect(await art.text()).toMatch(/^<svg [^>]*xmlns="http:\/\/www.w3.org\/2000\/svg"/);
     expect((await request.get('/art/cities/Cape%20Town.svg')).status()).toBe(200);
+    // Sample hotel pictures: one per scene, the same picture for the same hotel (ADR-096).
+    const scenes = ['exterior', 'room', 'pool', 'dining'];
+    const drawn = await Promise.all(
+      scenes.map(async (scene) =>
+        (await request.get(`/art/hotels/h3k9abcd12-${scene}.svg`)).text(),
+      ),
+    );
+    for (const picture of drawn) expect(picture).toMatch(/^<svg [^>]*viewBox="0 0 320 240"/);
+    expect(new Set(drawn).size).toBe(scenes.length);
+    expect(await (await request.get('/art/hotels/h3k9abcd12-room.svg')).text()).toBe(drawn[1]);
     for (const path of [
       '/art/routes/LOS-LH%3Cscript%3E.svg',
       '/art/routes/los-lhr.svg',
       '/art/cities/%3Csvg%20onload%3Dalert(1)%3E.svg',
+      '/art/hotels/h3k9abcd12-lobby.svg',
+      '/art/hotels/H3K9-room.svg',
+      '/art/hotels/%3Csvg%20onload%3Dalert(1)%3E-room.svg',
     ])
       expect((await request.get(path)).status(), path).toBe(404);
   });

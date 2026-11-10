@@ -7,6 +7,7 @@ import { HotelResults } from '../../../components/results/hotel-results';
 import { pickResultsMessages } from '../../../components/results/pick-results-messages';
 import { SearchEntry } from '../../../components/search-entry';
 import { getI18n } from '../../../lib/i18n';
+import { imageHosts } from '../../../lib/image-hosts';
 import { getDataSaver } from '../../../lib/preferences';
 import { hotelInitial, type SearchParams } from '../../../lib/search-initial';
 import { pageMetadata } from '../../../lib/seo';
@@ -41,7 +42,13 @@ export default async function HotelSearchPage({
       {form ? (
         <I18nProvider locale={locale} messages={pickResultsMessages(messages)}>
           <Suspense>
-            <HotelResults request={form} currency={currency} pageSize={dataSaver ? 10 : 20} />
+            <HotelResults
+              request={form}
+              currency={currency}
+              pageSize={dataSaver ? 10 : 20}
+              photoHosts={imageHosts()}
+              photos={!dataSaver}
+            />
           </Suspense>
         </I18nProvider>
       ) : null}

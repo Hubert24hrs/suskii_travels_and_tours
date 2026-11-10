@@ -1,7 +1,7 @@
 'use client';
 
 import type { paths } from '@suskii/api-client/schema';
-import type { CurrencyCode } from '@suskii/shared/lite';
+import { PROPERTY_TYPES, type CurrencyCode } from '@suskii/shared/lite';
 import { Button } from '@suskii/ui-web';
 import { SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -51,6 +51,7 @@ function filtersFromParams(params: URLSearchParams): HotelFilterState {
     areas: listParam(params, 'areas').slice(0, 10),
     board: BOARDS.includes(board as Board) ? (board as Board) : undefined,
     maxPrice: numberParam(params, 'maxPrice'),
+    types: listParam(params, 'types', PROPERTY_TYPES),
   };
 }
 
@@ -69,6 +70,7 @@ function filtersToParams(filters: HotelFilterState): Record<string, string | nul
     areas: filters.areas.join(',') || null,
     board: filters.board ?? null,
     maxPrice: filters.maxPrice === undefined ? null : String(filters.maxPrice),
+    types: filters.types.join(',') || null,
   };
 }
 
@@ -86,6 +88,7 @@ function listQuery(filterKey: string, currency: CurrencyCode, pageSize: number):
     ...(filters.areas.length > 0 ? { areas: filters.areas.join(',') } : {}),
     ...(filters.board ? { board: filters.board } : {}),
     ...(filters.maxPrice !== undefined ? { maxPrice: filters.maxPrice } : {}),
+    ...(filters.types.length > 0 ? { types: filters.types.join(',') } : {}),
   };
 }
 
@@ -97,11 +100,17 @@ export function HotelResults({
   request,
   currency,
   pageSize = 20,
+  photoHosts = [],
+  photos = true,
 }: {
   request: SearchRequest;
   currency: CurrencyCode;
   /** Hotels per page: fewer in data-saver mode (ADR-075). */
   pageSize?: number;
+  /** Hosts a supplier's photographs may come from (`IMAGE_REMOTE_HOSTS`). */
+  photoHosts?: readonly string[];
+  /** False under the data saver: cards stay text. */
+  photos?: boolean;
 }) {
   const { t } = useResultsT();
   const [params, updateParams] = useUrlParams();
@@ -254,6 +263,8 @@ export function HotelResults({
         hotel={hotel}
         nights={result.nights}
         href={`/hotels/stay/${encodeURIComponent(hotel.id)}?${query}`}
+        photoHosts={photoHosts}
+        photos={photos}
       />
     </li>
   );
