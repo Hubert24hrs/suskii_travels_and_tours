@@ -13,6 +13,7 @@ import type { SearchParams } from '../../lib/search-initial';
 import { pageMetadata } from '../../lib/seo';
 
 const CATEGORIES = ['economy', 'compact', 'suv', 'luxury', 'van'] as const;
+const TRANSMISSIONS = ['automatic', 'manual'] as const;
 
 interface Props {
   searchParams: Promise<SearchParams>;
@@ -44,6 +45,9 @@ export default async function RentalsPage({ searchParams }: Props) {
         pickupAt: query.pickupAt,
         returnAt: query.returnAt,
         category: query.category,
+        transmission: query.transmission,
+        airport: query.airport ? 'true' : undefined,
+        driverAge: query.driverAge === undefined ? undefined : String(query.driverAge),
         chauffeur: String(query.chauffeur),
       })
     : null;
@@ -52,8 +56,21 @@ export default async function RentalsPage({ searchParams }: Props) {
     return (Array.isArray(raw) ? raw[0] : raw) ?? '';
   };
   const carry = query
-    ? `?pickupAt=${encodeURIComponent(query.pickupAt)}&returnAt=${encodeURIComponent(query.returnAt)}${query.chauffeur ? '&chauffeur=true' : ''}`
+    ? `?pickupAt=${encodeURIComponent(query.pickupAt)}&returnAt=${encodeURIComponent(query.returnAt)}${query.chauffeur ? '&chauffeur=true' : ''}${query.driverAge === undefined ? '' : `&driverAge=${query.driverAge}`}`
     : '';
+  /** "1 week and 3 days": how a rental's days were priced, when a longer rate applied. */
+  const pricedAs = (blocks: { months: number; weeks: number; days: number }): string | null =>
+    blocks.months + blocks.weeks === 0
+      ? null
+      : t('cars.rentals.pricedAs', {
+          parts: format.list(
+            [
+              blocks.months > 0 ? t('cars.rentals.blocks.months', { count: blocks.months }) : '',
+              blocks.weeks > 0 ? t('cars.rentals.blocks.weeks', { count: blocks.weeks }) : '',
+              blocks.days > 0 ? t('cars.rentals.days', { count: blocks.days }) : '',
+            ].filter((part) => part !== ''),
+          ),
+        });
 
   return (
     <Container className="flex flex-col gap-8 pt-8 pb-16">
@@ -69,7 +86,7 @@ export default async function RentalsPage({ searchParams }: Props) {
         <form
           method="get"
           action="/rentals"
-          className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6 lg:items-end"
+          className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4 lg:items-end"
         >
           <Input
             id="rental-city"
@@ -106,6 +123,35 @@ export default async function RentalsPage({ searchParams }: Props) {
               })),
             ]}
             defaultValue={value('category')}
+          />
+          <NativeSelect
+            id="rental-transmission"
+            name="transmission"
+            label={t('cars.rentals.transmission')}
+            options={[
+              { value: '', label: t('cars.rentals.anyTransmission') },
+              ...TRANSMISSIONS.map((transmission) => ({
+                value: transmission,
+                label: t(`cars.rentals.transmissions.${transmission}`),
+              })),
+            ]}
+            defaultValue={value('transmission')}
+          />
+          <Input
+            id="rental-driver-age"
+            name="driverAge"
+            type="number"
+            inputMode="numeric"
+            min={18}
+            max={99}
+            label={t('cars.rentals.driverAge')}
+            defaultValue={value('driverAge')}
+          />
+          <CheckboxField
+            name="airport"
+            value="true"
+            label={t('cars.rentals.airportOnly')}
+            defaultChecked={value('airport') === 'true'}
           />
           <CheckboxField
             name="chauffeur"
@@ -147,17 +193,31 @@ export default async function RentalsPage({ searchParams }: Props) {
                         car.branch.name,
                       ].join(' · ')}
                     </p>
-                    {car.sample ? (
-                      <Badge variant="neutral" className="self-start">
-                        {t('cars.sample')}
-                      </Badge>
-                    ) : null}
+                    <p className="flex flex-wrap gap-2">
+                      {car.sample ? <Badge variant="neutral">{t('cars.sample')}</Badge> : null}
+                      {car.branch.airportCode ? (
+                        <Badge variant="neutral" data-testid="rental-airport">
+                          {t('cars.rentals.atAirport', { code: car.branch.airportCode })}
+                        </Badge>
+                      ) : null}
+                    </p>
+                    <p className="font-body text-caption text-foreground">
+                      {t('cars.rentals.minAge', { age: car.minDriverAge })}
+                    </p>
                     <p className="mt-auto font-body text-body font-bold text-heading">
                       {t('cars.rentals.estimate', {
                         price: format.money(car.estimate.rental),
                         days: t('cars.rentals.days', { count: results.days }),
                       })}
                     </p>
+                    {pricedAs(car.estimate.blocks) ? (
+                      <p
+                        className="font-body text-caption text-foreground"
+                        data-testid="rental-priced-as"
+                      >
+                        {pricedAs(car.estimate.blocks)}
+                      </p>
+                    ) : null}
                     <p className="font-body text-body-sm text-foreground">
                       {t('cars.rentals.deposit', { price: format.money(car.estimate.deposit) })}
                     </p>

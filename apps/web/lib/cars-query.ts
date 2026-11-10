@@ -28,6 +28,11 @@ export interface RentalQuery {
   pickupAt: string;
   returnAt: string;
   category: string | undefined;
+  transmission: 'automatic' | 'manual' | undefined;
+  /** Only cars whose branch is at an airport. */
+  airport: boolean;
+  /** The driver's age for a self-drive rental, when the visitor gave one in range. */
+  driverAge: number | undefined;
   chauffeur: boolean;
 }
 
@@ -42,7 +47,22 @@ export function rentalQuery(params: SearchParams): RentalQuery | null {
   const category =
     categoryInput !== undefined && categoryInput.length > 0 ? categoryInput : undefined;
   if (!LOCAL.test(pickupAt) || !LOCAL.test(returnAt) || returnAt <= pickupAt) return null;
-  return { city, pickupAt, returnAt, category, chauffeur: one(params.chauffeur) === 'true' };
+  const transmissionInput = one(params.transmission);
+  const age = Number(one(params.driverAge) ?? '');
+  return {
+    city,
+    pickupAt,
+    returnAt,
+    category,
+    transmission:
+      transmissionInput === 'automatic' || transmissionInput === 'manual'
+        ? transmissionInput
+        : undefined,
+    airport: one(params.airport) === 'true',
+    // Out of range reads as "not given": the search then shows every car with its minimum.
+    driverAge: Number.isInteger(age) && age >= 18 && age <= 99 ? age : undefined,
+    chauffeur: one(params.chauffeur) === 'true',
+  };
 }
 
 /** `HH:mm` of a local wall time (`YYYY-MM-DDTHH:mm`). */

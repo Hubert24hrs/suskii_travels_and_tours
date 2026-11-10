@@ -130,13 +130,48 @@ export function CarsDetails({
           <Line>
             {rental.delivery
               ? t('booking.cars.rental.delivery', rental.delivery)
-              : t('booking.cars.rental.branch', rental.branch)}
+              : t('booking.cars.rental.branch', {
+                  name: rental.branch.name,
+                  address: rental.branch.address,
+                })}
+            {rental.branch.airportCode
+              ? ` · ${t('booking.cars.rental.airport', { code: rental.branch.airportCode })}`
+              : ''}
           </Line>
           <Line>
             {rental.chauffeur
               ? t('booking.cars.rental.chauffeur')
               : t('booking.cars.rental.selfDrive')}
           </Line>
+          {rental.extras.length > 0 ? (
+            <Line>
+              {format.list(
+                rental.extras.map((extra) =>
+                  t('booking.cars.rental.extra', {
+                    name: t(`booking.cars.rental.extraNames.${extra.code}`),
+                    count: extra.quantity,
+                  }),
+                ),
+              )}
+            </Line>
+          ) : null}
+          {rental.returnBranch ? (
+            <Line>
+              {t('booking.cars.rental.returnTo', {
+                name: rental.returnBranch.name,
+                address: rental.returnBranch.address,
+              })}
+            </Line>
+          ) : null}
+          {rental.crossBorder ? (
+            <Line>
+              {t('booking.cars.rental.crossBorder', {
+                countries: format.list(
+                  rental.crossBorder.countries.map((code) => format.country(code)),
+                ),
+              })}
+            </Line>
+          ) : null}
           {rental.charge.deposit.amountMinor > 0 ? (
             <Line>
               {t('booking.cars.rental.deposit', { deposit: format.money(rental.charge.deposit) })}
