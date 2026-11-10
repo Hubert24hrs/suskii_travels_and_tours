@@ -7,6 +7,7 @@ import {
   createHotelSearchRequestSchema,
   type CabinClass,
   type FlightSearchForm,
+  type FlightSearchRequest,
   type HotelSearchRequest,
   type SearchSchemaOptions,
   type TripType,
@@ -201,6 +202,36 @@ export function flightFormToParams(form: FlightSearchForm): QueryBuilder {
   if (form.directOnly) params.set('direct', '1');
   if (form.flexibleDates) params.set('flex', '1');
   return params;
+}
+
+/**
+ * The search page parameters for an API search request (the `request` of a booking or of an
+ * expired offer), so a traveller can run the same search again. Two slices that mirror each
+ * other are a return trip; anything else with several slices is multi-city.
+ */
+export function flightRequestToParams(request: FlightSearchRequest): QueryBuilder {
+  const [outbound, back] = request.slices;
+  const common = {
+    travellers: request.passengers,
+    cabinClass: request.cabinClass,
+    directOnly: request.directOnly,
+    flexibleDates: false,
+  };
+  if (!outbound) return new QueryBuilder();
+  if (request.slices.length === 1)
+    return flightFormToParams({ ...common, tripType: 'one_way', ...outbound });
+  const roundTrip =
+    request.slices.length === 2 &&
+    back?.origin === outbound.destination &&
+    back.destination === outbound.origin;
+  return roundTrip
+    ? flightFormToParams({
+        ...common,
+        tripType: 'round_trip',
+        ...outbound,
+        returnDate: back.departureDate,
+      })
+    : flightFormToParams({ ...common, tripType: 'multi_city', legs: request.slices });
 }
 
 const LEG_PATTERN = /^([A-Za-z]{3})-([A-Za-z]{3})-(\d{4}-\d{2}-\d{2})$/;

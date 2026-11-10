@@ -6,6 +6,7 @@ import {
   emptyFlightDraft,
   flightFormToDraft,
   flightFormToParams,
+  flightRequestToParams,
   hotelFormToParams,
   parseFlightSearchParams,
   parseHotelSearchParams,
@@ -90,6 +91,25 @@ describe('flight search URLs', () => {
         expect(parsed.draft).toEqual(flightFormToDraft(form));
       }),
     );
+  });
+
+  it('turns an API request back into the search it came from', () => {
+    const passengers = { adults: 2, children: 1, infants: 0 };
+    const base = { passengers, cabinClass: 'business' as const, directOnly: true };
+    const out = { origin: 'LOS', destination: 'LHR', departureDate: '2026-12-10' };
+    expect(flightRequestToParams({ ...base, slices: [out] }).toString()).toBe(
+      'trip=one_way&from=LOS&to=LHR&depart=2026-12-10&adults=2&children=1&cabin=business&direct=1',
+    );
+    const back = { origin: 'LHR', destination: 'LOS', departureDate: '2026-12-17' };
+    expect(flightRequestToParams({ ...base, slices: [out, back] }).toString()).toBe(
+      'trip=round_trip&from=LOS&to=LHR&depart=2026-12-10&return=2026-12-17&adults=2&children=1&cabin=business&direct=1',
+    );
+    // Two slices that do not mirror each other are two flights, not a return.
+    const onward = { origin: 'LHR', destination: 'CDG', departureDate: '2026-12-15' };
+    expect(flightRequestToParams({ ...base, slices: [out, onward] }).toString()).toBe(
+      'trip=multi_city&leg=LOS-LHR-2026-12-10&leg=LHR-CDG-2026-12-15&adults=2&children=1&cabin=business&direct=1',
+    );
+    expect(flightRequestToParams({ ...base, slices: [] }).toString()).toBe('');
   });
 
   it('writes short, stable URLs with defaults omitted', () => {

@@ -170,6 +170,7 @@ export {
   flightDraftToInput,
   flightFormToDraft,
   flightFormToParams,
+  flightRequestToParams,
   hotelDraftToInput,
   hotelFormToParams,
   parseFlightSearchParams,
@@ -253,6 +254,8 @@ export {
   FULL_NAME_MAX_LENGTH,
   GENDERS,
   MAX_SAVED_TRAVELLERS,
+  MEAL_REQUESTS,
+  MEAL_REQUEST_CODES,
   NAME_MAX_LENGTH,
   PASSENGER_ISSUES,
   PASSENGER_TITLES,
@@ -265,6 +268,7 @@ export {
   transliterateName,
   type Gender,
   type ItineraryFacts,
+  type MealRequest,
   type PassengerFacts,
   type PassengerIssue,
   type PassengerTitle,
@@ -614,6 +618,11 @@ export {
   type TravelPolicyInput,
 } from './companies-schemas';
 export {
+  GROUP_MAX_TRAVELLERS,
+  GROUP_MIN_TRAVELLERS,
+  GROUP_NOTES_MAX,
+  GROUP_ORGANISATION_MAX,
+  GROUP_TRIP_TYPES,
   SUPPORT_ASSISTANT_ANSWER_MAX,
   SUPPORT_AUTHORS,
   SUPPORT_CATEGORIES,
@@ -627,6 +636,7 @@ export {
   SUPPORT_REFERENCE_ALPHABET,
   SUPPORT_REFERENCE_PATTERN,
   SUPPORT_STATUSES,
+  SUPPORT_TOPICS,
   WHATSAPP_WINDOW_HOURS,
   isWhatsAppStop,
   supportDeliveryAdvances,
@@ -636,6 +646,7 @@ export {
   supportSlaState,
   whatsappWindowClosesAt,
   whatsappWindowOpen,
+  type GroupTripType,
   type SupportAuthor,
   type SupportCategory,
   type SupportChannel,
@@ -647,6 +658,7 @@ export {
   type SupportStatus,
   type SupportTarget,
   type SupportTargets,
+  type SupportTopic,
 } from './support';
 export {
   SUPPORT_WEEKDAYS,
@@ -690,9 +702,11 @@ export {
   type PrivacyRequestCreateInput,
 } from './privacy-register-schemas';
 export {
+  groupRequestSchema,
   supportMessageTextSchema,
   supportReplySchema,
   supportStartSchema,
+  type GroupRequestInput,
   type SupportReplyInput,
   type SupportStartInput,
 } from './support-schemas';

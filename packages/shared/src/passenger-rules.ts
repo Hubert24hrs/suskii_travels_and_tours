@@ -16,6 +16,34 @@ export type PassengerTitle = (typeof PASSENGER_TITLES)[number];
 export const GENDERS = ['m', 'f'] as const;
 export type Gender = (typeof GENDERS)[number];
 
+/**
+ * Special meals a traveller can ask an airline for, where the supplier passes requests on. Each
+ * maps to the airline industry's request code. A request is never a guarantee: the airline
+ * decides. The choice can reveal a belief or a health condition, so it is treated as sensitive
+ * personal data (docs/security/data-classification.md).
+ */
+export const MEAL_REQUESTS = [
+  'vegetarian',
+  'vegan',
+  'halal',
+  'kosher',
+  'gluten_free',
+  'diabetic',
+  'child',
+] as const;
+export type MealRequest = (typeof MEAL_REQUESTS)[number];
+
+/** IATA special service request codes airlines and reservation systems use. */
+export const MEAL_REQUEST_CODES: Readonly<Record<MealRequest, string>> = {
+  vegetarian: 'VLML',
+  vegan: 'VGML',
+  halal: 'MOML',
+  kosher: 'KSML',
+  gluten_free: 'GFML',
+  diabetic: 'DBML',
+  child: 'CHML',
+};
+
 export const NAME_MAX_LENGTH = 40;
 /** Given names plus surname: fits common airline and GDS name fields. */
 export const FULL_NAME_MAX_LENGTH = 55;
@@ -35,6 +63,10 @@ export const PASSENGER_ISSUES = {
   passportExpired: 'passport_expired',
   passportExpiresSoon: 'passport_expires_soon',
   travellerNotFound: 'traveller_not_found',
+  /** A meal was asked for a lap infant, or a child's meal for an adult. */
+  mealNotForPassenger: 'meal_not_for_passenger',
+  /** The fare's supplier does not pass meal requests on (or the booking is not a flight). */
+  mealUnavailable: 'meal_unavailable',
   /** Visa assistance: every applicant holds the nationality the eligibility was checked for. */
   nationalityMismatch: 'nationality_mismatch',
 } as const;

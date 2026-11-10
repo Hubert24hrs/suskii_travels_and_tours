@@ -5,6 +5,7 @@ import { countryCodeSchema } from './country-code';
 import {
   FULL_NAME_MAX_LENGTH,
   GENDERS,
+  MEAL_REQUESTS,
   NAME_MAX_LENGTH,
   PASSENGER_ISSUES,
   PASSENGER_TITLES,
@@ -72,8 +73,17 @@ export const passengerInputSchema = z
       .default(null),
     travellerId: z.uuid().nullable().default(null),
     saveTraveller: z.boolean().default(false),
+    /** A special meal to ask the airline for; only on fares whose supplier passes requests on. */
+    meal: z.enum(MEAL_REQUESTS).nullable().default(null),
   })
   .refine(fullNameFits, fullNameIssue)
+  .refine(
+    // Lap infants have no meal service of their own; the child's meal is for children.
+    (passenger) =>
+      passenger.meal === null ||
+      (passenger.type !== 'infant' && (passenger.meal !== 'child' || passenger.type === 'child')),
+    { message: PASSENGER_ISSUES.mealNotForPassenger, path: ['meal'] },
+  )
   .refine(
     // No document at all is fine here (checkPassengers decides whether one is required).
     (passenger) => passenger.document?.number !== null || passenger.travellerId !== null,
