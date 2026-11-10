@@ -21,6 +21,9 @@ test('the footer leads to the status page, all working and without a banner', as
     );
   }
   await expect(page.getByText(t('status.noIncidents'))).toBeVisible();
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/status$/);
+  // The homepage's canonical link leaves the head a moment after the status page's arrives.
+  const canonical = page.locator('link[rel="canonical"]');
+  await expect(canonical).toHaveCount(1);
+  await expect(canonical).toHaveAttribute('href', /\/status$/);
   await expectNoAxeViolations(page);
 });
