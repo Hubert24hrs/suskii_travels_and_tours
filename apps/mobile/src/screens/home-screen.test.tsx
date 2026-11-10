@@ -41,6 +41,15 @@ describe('HomeScreen', () => {
     expect(router.push).toHaveBeenCalledWith('/deals');
   });
 
+  it('offers the trip builder: the parts of a trip together, paid once (ADR-099)', async () => {
+    mockApi({
+      'GET /v1/deals/flights': () => json({ currency: 'NGN', origins: [], deals: [] }),
+    });
+    await renderWithApp(<HomeScreen />);
+    await fireEvent.press(await screen.findByTestId('home-trip-builder'));
+    expect(router.push).toHaveBeenCalledWith('/trips/plan');
+  });
+
   it('opens the search behind a deal card', async () => {
     mockApi({
       'GET /v1/deals/flights': () => json({ currency: 'NGN', origins: [], deals: [deal] }),

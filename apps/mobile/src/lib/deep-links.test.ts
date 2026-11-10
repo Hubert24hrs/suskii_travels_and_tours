@@ -60,6 +60,12 @@ describe('resolveIncomingUrl', () => {
 
   it('maps app-scheme paths to their tabs', () => {
     expect(resolveIncomingUrl('suskii://trips', WEB)).toEqual({ path: '/trips' });
+    // A combined trip's payment hands the traveller back to the trip (ADR-099).
+    expect(resolveIncomingUrl(`suskii://trips/built/${ID}`, WEB)).toEqual({
+      path: `/trips/built/${ID}`,
+    });
+    expect(resolveIncomingUrl('suskii://trips/built/not-an-id', WEB)).toEqual({ path: '/' });
+    expect(resolveIncomingUrl(`suskii://trips/built/${ID}/extra`, WEB)).toEqual({ path: '/' });
     expect(resolveIncomingUrl('suskii://deals', WEB)).toEqual({ path: '/deals' });
     expect(resolveIncomingUrl('suskii://account', WEB)).toEqual({ path: '/account' });
     expect(resolveIncomingUrl('suskii://', WEB)).toEqual({ path: '/' });

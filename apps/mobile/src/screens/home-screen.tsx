@@ -160,6 +160,22 @@ export function HomeScreen() {
             </Button>
           </Card>
         ) : null}
+        {/* The trip builder (ADR-099): the parts of a trip put together and paid once. */}
+        <Card className="gap-3 p-4">
+          <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+            {t('sections.teaser.tripTitle')}
+          </Text>
+          <Text className="font-body text-body-sm text-foreground">
+            {t('sections.teaser.tripBody')}
+          </Text>
+          <Button
+            testID="home-trip-builder"
+            variant="secondary"
+            onPress={() => router.push('/trips/plan')}
+          >
+            {t('trips.title')}
+          </Button>
+        </Card>
         {deals.data && deals.data.length > 0 ? (
           <View className="gap-3">
             <Text accessibilityRole="header" className="font-heading text-h3 text-heading">

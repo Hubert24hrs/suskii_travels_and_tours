@@ -39,6 +39,7 @@ import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
 import { problemSlug } from '../lib/api';
 import { attestationHeader } from '../lib/attestation';
 import { openHostedCheckout, startPayment } from '../lib/payment';
+import { activeTrip, quoteTripComponent, useActiveTrip } from '../lib/trip-builder';
 import { followBooking } from '../lib/push';
 import { tripStore } from '../lib/trips';
 import { useApp, useT } from '../providers/app-provider';
@@ -139,7 +140,11 @@ function Checkout({ quote }: { quote: Quote }) {
   const [forCompany, setForCompany] = useState(false);
   // Company wallet (ADR-090): the booker pays the whole trip from the company's balance.
   const [fromCompanyWallet, setFromCompanyWallet] = useState(false);
-  const companyWallet = Boolean(company.data) && forCompany && fromCompanyWallet;
+  // Trip builder (ADR-099): the booking joins the traveller's trip, which takes one payment.
+  // Only the part they went to choose, and only for a signed-in traveller.
+  const building = useActiveTrip();
+  const trip = user && building?.component === quoteTripComponent(quote) ? building : null;
+  const companyWallet = !trip && Boolean(company.data) && forCompany && fromCompanyWallet;
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
@@ -224,7 +229,7 @@ function Checkout({ quote }: { quote: Quote }) {
     ];
   });
   // Reserving and installments are never offered with paid extras, seats or a wallet payment.
-  const chosenPlan: PlanChoiceValue = extrasSelected || companyWallet ? 'full' : plan;
+  const chosenPlan: PlanChoiceValue = extrasSelected || companyWallet || trip ? 'full' : plan;
   const issue = (key: string): string | undefined => {
     const code: CheckoutIssue | undefined = errors[key];
     return code ? t(`checkout.issues.${code}`) : undefined;
@@ -239,6 +244,18 @@ function Checkout({ quote }: { quote: Quote }) {
     }));
 
   const pay = async (booking: { id: string; headers: Record<string, string> }) => {
+    if (trip) {
+      // The booking becomes a part of the trip; the trip's screen takes one payment for all.
+      const added = await api.POST('/v1/trips/{tripId}/parts', {
+        params: { path: { tripId: trip.id } },
+        body: { bookingId: booking.id },
+      });
+      activeTrip.set(null);
+      // A booking the trip cannot take stays a booking of its own, paid from its screen.
+      if (added.data) router.dismissTo(`/trips/built/${trip.id}` as Href);
+      else router.replace(`/trips/${booking.id}` as Href);
+      return;
+    }
     if (chosenPlan !== 'full') {
       const params = {
         path: { bookingId: booking.id },
@@ -402,7 +419,7 @@ function Checkout({ quote }: { quote: Quote }) {
           acceptTerms: true,
           locale,
           turnstileToken: null,
-          ...(company.data && forCompany ? { company: true } : {}),
+          ...(!trip && company.data && forCompany ? { company: true } : {}),
         },
       });
       if (!data) {
@@ -495,8 +512,9 @@ function Checkout({ quote }: { quote: Quote }) {
     setBusy(false);
   };
 
-  const submitLabel =
-    chosenPlan === 'hold'
+  const submitLabel = trip
+    ? t('checkout.tripBuilder.submit')
+    : chosenPlan === 'hold'
       ? t('checkout.plan.reserve')
       : chosenPlan === 'installments'
         ? t('checkout.plan.setUp')
@@ -703,7 +721,7 @@ function Checkout({ quote }: { quote: Quote }) {
           />
         </Card>
 
-        {companyWallet ? null : (
+        {companyWallet || trip ? null : (
           <>
             <PlanChoice
               vertical={quote.vertical}
@@ -816,7 +834,7 @@ function Checkout({ quote }: { quote: Quote }) {
           </Card>
         ) : null}
 
-        {company.data ? (
+        {company.data && !trip ? (
           <View className="gap-1">
             <Checkbox
               testID="checkout-company"
@@ -852,9 +870,20 @@ function Checkout({ quote }: { quote: Quote }) {
             {formError}
           </Text>
         ) : null}
-        <Text className="font-body text-caption text-muted">
-          {t('mobile.checkout.payOnProvider')}
-        </Text>
+        {trip ? (
+          <View testID="trip-banner" className="gap-2 rounded-md bg-primary-subtle p-4">
+            <Text className="font-body text-body-sm text-foreground">
+              {t('checkout.tripBuilder.banner', { reference: trip.reference })}
+            </Text>
+            <Button testID="trip-banner-alone" variant="ghost" onPress={() => activeTrip.set(null)}>
+              {t('checkout.tripBuilder.alone')}
+            </Button>
+          </View>
+        ) : (
+          <Text className="font-body text-caption text-muted">
+            {t('mobile.checkout.payOnProvider')}
+          </Text>
+        )}
         <Button testID="checkout-submit" fullWidth loading={busy} onPress={() => void submit()}>
           {busy ? t('checkout.paying') : submitLabel}
         </Button>
