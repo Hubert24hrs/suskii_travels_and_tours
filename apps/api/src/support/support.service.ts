@@ -12,6 +12,7 @@ import {
   type SupportStartInput,
   type SupportStatus,
   type SupportTargets,
+  type SupportTopic,
 } from '@suskii/shared';
 
 import { AttestationService } from '../attestation/attestation.service';
@@ -145,9 +146,14 @@ export class SupportService {
     private readonly assistant: SupportAssistant,
   ) {}
 
+  /**
+   * `topic` marks a conversation that came from a form of its own (a group booking request). The
+   * after-hours assistant leaves those to the team: no FAQ answers a request for a fare.
+   */
   async start(
     input: SupportStartInput & { turnstileToken: string | null },
     caller: SupportCaller,
+    topic: SupportTopic | null = null,
   ): Promise<z.infer<typeof startedSupportSchema>> {
     const userId = caller.client.userId;
     if (!userId) await this.checkHuman(input.turnstileToken, caller);
@@ -203,6 +209,7 @@ export class SupportService {
           bookingId: booking?.id ?? null,
           channel,
           category: input.category,
+          topic,
           priority,
           status: 'open',
           openedAt: now,
@@ -227,7 +234,7 @@ export class SupportService {
       return created;
     });
     supportConversations.add(1, { channel, category: input.category });
-    this.assistant.consider(id);
+    if (!topic) this.assistant.consider(id);
     return { conversation: await this.present(row, undefined), accessToken: guest?.token ?? null };
   }
 
@@ -354,6 +361,7 @@ export class SupportService {
       id: row.id,
       reference: row.reference,
       category: row.category,
+      topic: (row.topic as SupportTopic | null) ?? null,
       status: row.status,
       booking: row.booking,
       lastMessageAt: lastMessageAt.toISOString(),

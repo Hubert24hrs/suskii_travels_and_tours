@@ -41,6 +41,22 @@ interface AirportRow {
   rank: number;
 }
 
+interface NearbyAirportRow {
+  code: string;
+  name: string;
+  city_name: string | null;
+  country_code: string;
+  distance_km: number;
+}
+
+export interface NearbyAirport {
+  code: string;
+  name: string;
+  cityName: string | null;
+  countryCode: string;
+  distanceKm: number;
+}
+
 interface CityRow {
   id: string;
   name: string;
@@ -219,6 +235,51 @@ export class CatalogService {
       longitude: row.longitude,
       timeZone: row.timezone,
     };
+  }
+
+  /**
+   * Airports with scheduled flights within `radiusKm` of an airport (straight line), nearest
+   * first: other airports of the same city and of cities a traveller could drive to. Null for an
+   * unknown airport. Small airfields are left out.
+   */
+  async nearbyAirports(
+    code: string,
+    radiusKm: number,
+    limit: number,
+  ): Promise<NearbyAirport[] | null> {
+    const origin = await this.prisma.airport.findUnique({
+      where: { iataCode: code },
+      select: { latitude: true, longitude: true },
+    });
+    if (!origin) return null;
+    // One degree of latitude is about 111 km: a cheap band before the exact distance.
+    const band = radiusKm / 111;
+    const rows = await this.prisma.$queryRaw<NearbyAirportRow[]>`
+      SELECT code, name, city_name, country_code, distance_km
+      FROM (
+        SELECT a.iata_code AS code, a.name, ci.name AS city_name, a.country_code,
+               (6371 * 2 * asin(sqrt(
+                 power(sin(radians(a.latitude - ${origin.latitude}) / 2), 2)
+                 + cos(radians(${origin.latitude})) * cos(radians(a.latitude))
+                   * power(sin(radians(a.longitude - ${origin.longitude}) / 2), 2)
+               )))::float8 AS distance_km
+        FROM airports a
+        LEFT JOIN cities ci ON ci.id = a.city_id
+        WHERE a.iata_code <> ${code}
+          AND a.scheduled_service
+          AND a.type IN ('large_airport', 'medium_airport')
+          AND a.latitude BETWEEN ${origin.latitude - band} AND ${origin.latitude + band}
+      ) near
+      WHERE distance_km <= ${radiusKm}
+      ORDER BY distance_km, code
+      LIMIT ${limit}`;
+    return rows.map((row) => ({
+      code: row.code,
+      name: row.name,
+      cityName: row.city_name,
+      countryCode: row.country_code,
+      distanceKm: Math.round(row.distance_km),
+    }));
   }
 
   async countries(): Promise<{ code: string; name: string; continent: string }[]> {

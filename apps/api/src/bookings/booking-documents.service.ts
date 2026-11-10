@@ -1,6 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { daysBetween, fromWire, money, utcToLocal } from '@suskii/shared';
+import {
+  daysBetween,
+  fromWire,
+  MEAL_REQUEST_CODES,
+  money,
+  utcToLocal,
+  type MealRequest,
+} from '@suskii/shared';
 
 import {
   documentDateTime,
@@ -230,6 +237,9 @@ export class BookingDocumentsService {
           extraBags: services
             .filter((selection) => selection.passengerIndex === passenger.position)
             .reduce((acc, selection) => acc + selection.quantity, 0),
+          mealCode: passenger.mealRequest
+            ? (MEAL_REQUEST_CODES[passenger.mealRequest as MealRequest] ?? null)
+            : null,
         })),
         slices: payload.offer.slices.map((slice) => ({
           origin: slice.origin,

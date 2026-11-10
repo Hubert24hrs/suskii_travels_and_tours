@@ -19,6 +19,7 @@ export function ScheduleChange({
   busy,
   onAccept,
   onRefund,
+  onOtherFlights,
 }: {
   change: Change;
   offline: boolean;
@@ -26,6 +27,11 @@ export function ScheduleChange({
   onAccept: () => void;
   /** Opens the confirmation for the full refund. */
   onRefund: () => void;
+  /**
+   * Opens the booked search, so a traveller offered a refund can see what else flies the route
+   * before deciding. Only a search: taking the refund and booking again stay their own steps.
+   */
+  onOtherFlights?: (() => void) | undefined;
 }) {
   const { t } = useT();
   const format = useFormatters();
@@ -105,6 +111,20 @@ export function ScheduleChange({
           <Text className="font-body text-caption text-muted">
             {t('booking.scheduleChange.refundHint')}
           </Text>
+          {onOtherFlights ? (
+            <>
+              <Button
+                testID="schedule-change-other-flights"
+                variant="ghost"
+                onPress={onOtherFlights}
+              >
+                {t('booking.scheduleChange.otherFlights')}
+              </Button>
+              <Text className="font-body text-caption text-muted">
+                {t('booking.scheduleChange.otherFlightsHint')}
+              </Text>
+            </>
+          ) : null}
         </View>
       ) : null}
     </Card>

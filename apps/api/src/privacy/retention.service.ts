@@ -582,6 +582,7 @@ export class RetentionService {
               issuingCountry: null,
               documentExpiry: null,
               travellerId: null,
+              mealRequest: null,
             },
           });
           await tx.bookingDocument.deleteMany({ where: { bookingId: booking.id } });

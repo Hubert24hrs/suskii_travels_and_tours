@@ -72,6 +72,7 @@ const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
     'Contact {number}',
     'Notifications',
     '{hours} h',
+    'Halal',
   ]),
   sw: new Set(['Spa']),
   pt: new Set([
@@ -87,6 +88,8 @@ const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
     'Manual',
     'App',
     '{hours} h',
+    'Halal',
+    'Kosher',
   ]),
   ar: new Set(['you@example.com']),
 };

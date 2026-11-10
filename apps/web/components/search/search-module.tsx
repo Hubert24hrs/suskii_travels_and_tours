@@ -5,7 +5,7 @@ import type { AddonsFormDraft, PackagesFormDraft } from '@suskii/shared';
 import { Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@suskii/ui-web';
 import { BedDouble, FileCheck, Luggage, Map, Palmtree, Plane } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import type { CityOption } from './city-field';
 import { FlightsForm, type DescribeSettings } from './flights-form';
@@ -50,6 +50,8 @@ export interface SearchModuleProps {
   initial?: SearchInitialState | undefined;
   /** Shows the AI trip search box on the flight tab while the API has it on (ADR-061). */
   describe?: DescribeSettings | undefined;
+  /** Server-rendered content under the flight form; it adds no client code (ADR-043). */
+  flightsFooter?: ReactNode;
 }
 
 const TABS: { value: Vertical; icon: React.ReactNode }[] = [
@@ -71,6 +73,7 @@ export function SearchModule({
   citySuggestions,
   initial,
   describe,
+  flightsFooter,
 }: SearchModuleProps) {
   const { t } = useSearchT();
   const [tab, setTab] = useState<Vertical>(defaultTab);
@@ -92,6 +95,7 @@ export function SearchModule({
             pageSize={pageSize}
             initial={initial?.flights}
             describe={describe}
+            footer={flightsFooter}
           />
         </TabsContent>
         <TabsContent value="hotels">

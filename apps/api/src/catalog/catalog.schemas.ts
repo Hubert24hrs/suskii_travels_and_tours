@@ -79,6 +79,31 @@ export const airportSchema = named(
   }),
 );
 
+export const nearbyAirportsQuerySchema = z.object({
+  radiusKm: z.coerce.number().int().min(20).max(300).default(150),
+  limit: z.coerce.number().int().min(1).max(8).default(4),
+});
+
+export const nearbyAirportsSchema = named(
+  'NearbyAirports',
+  z.object({
+    airport: z.string().length(3),
+    radiusKm: z.number().int(),
+    items: z.array(
+      z.object({
+        code: z.string().length(3),
+        name: z.string(),
+        cityName: z.string().nullable(),
+        countryCode: z.string().length(2),
+        distanceKm: z
+          .number()
+          .int()
+          .meta({ description: 'Straight line between the two airports, rounded.' }),
+      }),
+    ),
+  }),
+);
+
 export const airportParamsSchema = z.object({
   iataCode: z
     .string()

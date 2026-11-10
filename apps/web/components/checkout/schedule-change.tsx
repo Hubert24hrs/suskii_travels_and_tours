@@ -6,6 +6,7 @@ import { useId, useState } from 'react';
 
 import { bookingHeaders } from '../../lib/booking-token';
 import { browserApi, idempotencyKey, problemSlug, type Schemas } from '../../lib/browser-api';
+import { AppLink } from '../app-link';
 
 import { useBookingT } from './checkout-messages';
 
@@ -22,10 +23,16 @@ const time = (local: string): string => local.slice(11, 16);
 export function ScheduleChange({
   bookingId,
   change,
+  otherFlightsHref,
   onDone,
 }: {
   bookingId: string;
   change: Change;
+  /**
+   * The booked search, so a traveller offered a refund can see what else flies the route before
+   * deciding. Only a link: taking the refund and booking again stay two steps of their own.
+   */
+  otherFlightsHref?: string | null | undefined;
   onDone: () => void;
 }) {
   const { t } = useBookingT();
@@ -189,6 +196,18 @@ export function ScheduleChange({
             <p className="font-body text-caption text-muted">
               {t('booking.scheduleChange.refundHint')}
             </p>
+            {otherFlightsHref ? (
+              <p className="font-body text-body-sm text-foreground">
+                <AppLink
+                  href={otherFlightsHref}
+                  className="inline-flex min-h-6 items-center font-bold text-primary underline focus-visible:focus-ring"
+                  data-testid="schedule-change-other-flights"
+                >
+                  {t('booking.scheduleChange.otherFlights')}
+                </AppLink>{' '}
+                <span className="text-muted">{t('booking.scheduleChange.otherFlightsHint')}</span>
+              </p>
+            ) : null}
             <Dialog open={confirming} onOpenChange={setConfirming}>
               {confirming ? (
                 <DialogContent

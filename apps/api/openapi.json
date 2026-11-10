@@ -10475,6 +10475,17 @@
             }
           },
           {
+            "name": "topic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "group_booking"
+              ]
+            }
+          },
+          {
             "name": "assignee",
             "in": "query",
             "required": false,
@@ -15981,6 +15992,77 @@
         }
       }
     },
+    "/v1/catalog/airports/{iataCode}/nearby": {
+      "get": {
+        "operationId": "listNearbyAirports",
+        "summary": "Other airports near an airport",
+        "description": "Airports with scheduled flights within the radius (straight line), nearest first, for \"also search from\" suggestions. Small airfields are left out.",
+        "tags": [
+          "Catalog"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "iataCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z]{3}$"
+            }
+          },
+          {
+            "name": "radiusKm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 150,
+              "type": "integer",
+              "minimum": 20,
+              "maximum": 300
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 4,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NearbyAirports"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/catalog/cities/{cityId}": {
       "get": {
         "operationId": "getCity",
@@ -18145,6 +18227,152 @@
           },
           "409": {
             "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/flights/date-prices": {
+      "post": {
+        "operationId": "priceFlightDates",
+        "summary": "The lowest total on each day around a search (\"Flexible dates\")",
+        "description": "For a one-way or return request, searches each day up to `FLEXIBLE_DATES_DAYS` either side (a return trip keeps its length) and answers the lowest total per day, priced as search results are. Each day shares the search cache. Call it only when the traveller asked for flexible dates: every uncached day is a supplier search.",
+        "tags": [
+          "Flights"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "NGN",
+              "type": "string",
+              "enum": [
+                "NGN",
+                "USD",
+                "GBP",
+                "EUR",
+                "GHS",
+                "KES",
+                "ZAR"
+              ]
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlightSearchRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlightDatePrices"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/flights/group-requests": {
+      "post": {
+        "operationId": "requestGroupFlight",
+        "summary": "Ask for a flight for ten travellers or more",
+        "description": "Airlines price groups through their group desks, so this starts a support conversation (topic `group_booking`) with the request as its first message; the team replies there. Bot checks, the guest email and the access token work as for `startSupportConversation`. 400 `validation-failed` for an unknown airport or a date in the past.",
+        "tags": [
+          "Flights",
+          "Support"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "X-Suskii-Attestation",
+            "in": "header",
+            "required": false,
+            "description": "Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupFlightRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedSupportConversation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
           },
           "426": {
             "$ref": "#/components/responses/Problem426"
@@ -32952,6 +33180,19 @@
               "general"
             ]
           },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "group_booking"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "priority": {
             "type": "string",
             "enum": [
@@ -33178,6 +33419,7 @@
           "id",
           "reference",
           "category",
+          "topic",
           "priority",
           "status",
           "channel",
@@ -33237,6 +33479,19 @@
               "payment",
               "documents",
               "general"
+            ]
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "group_booking"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "priority": {
@@ -33459,6 +33714,7 @@
           "id",
           "reference",
           "category",
+          "topic",
           "priority",
           "status",
           "channel",
@@ -35412,6 +35668,25 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "meal": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "vegetarian",
+                  "vegan",
+                  "halal",
+                  "kosher",
+                  "gluten_free",
+                  "diabetic",
+                  "child"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -35424,7 +35699,8 @@
           "roomIndex",
           "document",
           "ticketNumber",
-          "extraBags"
+          "extraBags",
+          "meal"
         ],
         "additionalProperties": false
       },
@@ -38266,6 +38542,26 @@
                 "saveTraveller": {
                   "default": false,
                   "type": "boolean"
+                },
+                "meal": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "vegetarian",
+                        "vegan",
+                        "halal",
+                        "kosher",
+                        "gluten_free",
+                        "diabetic",
+                        "child"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
@@ -41574,6 +41870,88 @@
         ],
         "additionalProperties": false
       },
+      "FlightDatePrices": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "offset": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "departureDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "returnDate": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "priced",
+                    "none",
+                    "unavailable"
+                  ]
+                },
+                "total": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Money"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "offset",
+                "departureDate",
+                "returnDate",
+                "status",
+                "total"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cheapestOffset": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "currency",
+          "days",
+          "cheapestOffset"
+        ],
+        "additionalProperties": false
+      },
       "FlightDeal": {
         "type": "object",
         "properties": {
@@ -42040,6 +42418,9 @@
             ],
             "additionalProperties": false
           },
+          "mealRequests": {
+            "type": "boolean"
+          },
           "services": {
             "type": "array",
             "items": {
@@ -42059,6 +42440,7 @@
           "price",
           "expiresAt",
           "hold",
+          "mealRequests",
           "services"
         ],
         "additionalProperties": false
@@ -42610,6 +42992,98 @@
           "id"
         ],
         "additionalProperties": false
+      },
+      "GroupFlightRequestInput": {
+        "type": "object",
+        "properties": {
+          "tripType": {
+            "type": "string",
+            "enum": [
+              "round_trip",
+              "one_way"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "departureDate": {
+            "type": "string"
+          },
+          "returnDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "travellers": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 500
+          },
+          "cabinClass": {
+            "default": "economy",
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "organisation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "turnstileToken": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "tripType",
+          "origin",
+          "destination",
+          "departureDate",
+          "travellers"
+        ]
       },
       "HealthStatus": {
         "type": "object",
@@ -45989,6 +46463,67 @@
         ],
         "additionalProperties": false
       },
+      "NearbyAirports": {
+        "type": "object",
+        "properties": {
+          "airport": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "radiusKm": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 3
+                },
+                "name": {
+                  "type": "string"
+                },
+                "cityName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "countryCode": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                },
+                "distanceKm": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "code",
+                "name",
+                "cityName",
+                "countryCode",
+                "distanceKm"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "airport",
+          "radiusKm",
+          "items"
+        ],
+        "additionalProperties": false
+      },
       "NewsletterConfirmResponse": {
         "type": "object",
         "properties": {
@@ -47370,6 +47905,8 @@
               "passport_expired",
               "passport_expires_soon",
               "traveller_not_found",
+              "meal_not_for_passenger",
+              "meal_unavailable",
               "nationality_mismatch"
             ]
           }
@@ -54099,6 +54636,19 @@
               "general"
             ]
           },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "group_booking"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -54153,6 +54703,7 @@
           "id",
           "reference",
           "category",
+          "topic",
           "status",
           "booking",
           "lastMessageAt",
@@ -54196,6 +54747,19 @@
               "payment",
               "documents",
               "general"
+            ]
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "group_booking"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "status": {
@@ -54246,6 +54810,7 @@
           "id",
           "reference",
           "category",
+          "topic",
           "status",
           "booking",
           "lastMessageAt",

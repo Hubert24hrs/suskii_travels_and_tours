@@ -775,6 +775,8 @@ export class MockFlightSupplier extends FlightSupplier {
           price: money(domestic ? 1_500_000n : 6_000n, currency),
         },
       ],
+      // International fares take special meal requests; short domestic hops serve no meal.
+      mealRequests: !domestic,
     };
   }
 }

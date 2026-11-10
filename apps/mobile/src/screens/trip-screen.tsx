@@ -3,6 +3,7 @@ import { useFormatters } from '@suskii/i18n/react';
 import {
   BOOKING_IN_PROGRESS_STATUSES,
   DEFAULT_CURRENCY,
+  flightRequestToParams,
   isSupportedCurrency,
   type BookingStatus,
 } from '@suskii/shared';
@@ -252,6 +253,11 @@ export function TripScreen() {
 
   const { booking, offline, savedAt } = query.data;
   const status = booking.status;
+  // The booked search, for "See other flights" beside an airline's refund offer (ADR-093).
+  const otherFlights =
+    booking.flight && !offline
+      ? `/search/flights?${flightRequestToParams(booking.flight.request).toString()}`
+      : null;
   const plan = booking.paymentPlan;
   // Company trips (ADR-078); offline copies saved before this field existed have none.
   const approval = booking.company?.approvalStatus ?? 'not_required';
@@ -636,6 +642,7 @@ export function TripScreen() {
               if (booking.scheduleChange) void acceptScheduleChange(booking.scheduleChange.id);
             }}
             onRefund={() => setRefundingChange(true)}
+            onOtherFlights={otherFlights ? () => router.push(otherFlights) : undefined}
           />
         ) : null}
 
@@ -761,6 +768,18 @@ export function TripScreen() {
               {passenger.document ? (
                 <Text className="font-body text-caption text-muted">
                   {t('booking.passport', { hint: passenger.document.hint })}
+                </Text>
+              ) : null}
+              {passenger.extraBags > 0 ? (
+                <Text className="font-body text-caption text-foreground">
+                  {t('booking.extraBags', { count: passenger.extraBags })}
+                </Text>
+              ) : null}
+              {passenger.meal ? (
+                <Text testID="meal-request" className="font-body text-caption text-foreground">
+                  {t('booking.mealRequest', {
+                    meal: t(`checkout.meal.options.${passenger.meal}`),
+                  })}
                 </Text>
               ) : null}
             </View>

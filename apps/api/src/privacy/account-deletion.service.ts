@@ -335,6 +335,7 @@ export class AccountDeletionService {
         issuingCountry: null,
         documentExpiry: null,
         travellerId: null,
+        mealRequest: null,
       },
     });
     await tx.bookingAccessLink.deleteMany({ where: { bookingId: { in: bookingIds } } });

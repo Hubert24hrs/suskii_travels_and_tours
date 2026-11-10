@@ -311,6 +311,11 @@ describe('TripScreen', () => {
     await renderWithApp(<TripScreen />);
 
     expect(await screen.findByText(m.booking.scheduleChange.significant)).toBeOnTheScreen();
+    // The booked search is one press away, to see what else flies the route before deciding.
+    await fireEvent.press(screen.getByTestId('schedule-change-other-flights'));
+    expect(router.push).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/search\/flights\?trip=one_way&from=LOS&to=ABV&depart=/),
+    );
     // A cancelled flight cannot be accepted, and support is not the only way out.
     expect(screen.queryByTestId('schedule-change-accept')).toBeNull();
     expect(screen.queryByText(m.booking.scheduleChange.support)).toBeNull();
@@ -324,6 +329,20 @@ describe('TripScreen', () => {
     expect(request?.headers.get('Idempotency-Key')).toBeTruthy();
     expect(await request?.json()).toEqual({ refund: amount });
     expect(screen.queryByTestId('schedule-change')).toBeNull();
+  });
+
+  it("shows each traveller's meal request and extra bags", async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    const [traveller] = booking().passengers;
+    if (!traveller) throw new Error('the fixture has a traveller');
+    mockApi({
+      [GET]: () => json(booking({ passengers: [{ ...traveller, meal: 'halal', extraBags: 1 }] })),
+    });
+    await renderWithApp(<TripScreen />);
+
+    expect(await screen.findByTestId('meal-request')).toHaveTextContent(
+      m.booking.mealRequest.replace('{meal}', m.checkout.meal.options.halal),
+    );
   });
 
   it('explains a booking this phone cannot open', async () => {

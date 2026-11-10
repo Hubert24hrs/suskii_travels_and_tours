@@ -27,7 +27,27 @@ describe('passengerInputSchema', () => {
       document: null,
       travellerId: null,
       saveTraveller: false,
+      meal: null,
     });
+  });
+
+  it('takes a meal request for a seated passenger, and the child meal only for a child', () => {
+    expect(passengerInputSchema.parse({ ...adult, meal: 'halal' }).meal).toBe('halal');
+    const child = { ...adult, type: 'child', dateOfBirth: '2020-05-01' };
+    expect(passengerInputSchema.parse({ ...child, meal: 'child' }).meal).toBe('child');
+
+    const refused = [
+      { ...adult, meal: 'child' },
+      { ...adult, type: 'infant', dateOfBirth: '2026-01-01', meal: 'vegetarian' },
+    ].map((input) => passengerInputSchema.safeParse(input));
+    for (const result of refused) {
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]).toMatchObject({
+        path: ['meal'],
+        message: PASSENGER_ISSUES.mealNotForPassenger,
+      });
+    }
+    expect(passengerInputSchema.safeParse({ ...adult, meal: 'steak' }).success).toBe(false);
   });
 
   it('reports names in other scripts and names that are too long', () => {

@@ -447,6 +447,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
             <ScheduleChange
               bookingId={booking.id}
               change={booking.scheduleChange}
+              otherFlightsHref={booking.flight ? searchHref : null}
               onDone={reload}
             />
           ) : null}
@@ -617,6 +618,16 @@ export function BookingView({ bookingId }: { bookingId: string }) {
                     {passenger.extraBags > 0 ? (
                       <p className="font-body text-caption text-foreground">
                         {t('booking.extraBags', { count: passenger.extraBags })}
+                      </p>
+                    ) : null}
+                    {passenger.meal ? (
+                      <p
+                        className="font-body text-caption text-foreground"
+                        data-testid="meal-request"
+                      >
+                        {t('booking.mealRequest', {
+                          meal: t(`checkout.meal.options.${passenger.meal}`),
+                        })}
                       </p>
                     ) : null}
                   </li>

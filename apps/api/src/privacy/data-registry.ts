@@ -248,7 +248,7 @@ export const DATA_REGISTRY = {
     section: 'bookings',
     deletion: 'redact',
     retention: { kind: 'parent', parent: 'Booking' },
-    note: 'Names stay on the financial record; birth date, nationality and passport details are wiped.',
+    note: 'Names stay on the financial record; birth date, nationality, passport details and the meal request are wiped.',
   },
   FlightScheduleChange: {
     section: 'bookings',

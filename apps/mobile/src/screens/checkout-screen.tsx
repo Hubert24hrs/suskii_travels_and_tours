@@ -187,6 +187,7 @@ function Checkout({ quote }: { quote: Quote }) {
   const inhouse = quote.price !== null;
   // A checked bag per traveller with a seat, at the airline's price (no markup, ADR-014).
   const bag = quote.flight?.offer.services[0];
+  const meals = quote.flight?.offer.mealRequests === true;
   const bagCount = bag
     ? draft.passengers.reduce(
         (count, passenger) => count + (passenger.type === 'infant' ? 0 : passenger.bags),
@@ -329,6 +330,8 @@ function Checkout({ quote }: { quote: Quote }) {
                         expiryDate: passenger.passportExpiry,
                       }
                     : null,
+                  // A meal request goes only with a fare that takes one (ADR-093).
+                  ...(meals && passenger.meal ? { meal: passenger.meal } : {}),
                 })),
               }
             : {
@@ -512,9 +515,16 @@ function Checkout({ quote }: { quote: Quote }) {
               warnings={checked.warnings}
               passport={passportMode(quote, facts)}
               bag={passenger.type === 'infant' ? undefined : bag}
+              meals={meals}
             />
           );
         })}
+        {/* Under the travellers, where the meal choice would be: nothing above them moves. */}
+        {quote.flight && !meals ? (
+          <Text testID="meal-unavailable" className="font-body text-body-sm text-muted">
+            {t('checkout.meal.unavailable')}
+          </Text>
+        ) : null}
         {quote.visa && draft.passengers.length > 0 ? (
           <Text className="font-body text-body-sm text-foreground">
             {t('checkout.visaNationality', { country: format.country(quote.visa.nationality) })}

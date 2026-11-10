@@ -20,7 +20,8 @@ test('homepage initial JavaScript stays within budget', async ({ page }) => {
   const total = sizes.reduce((sum, size) => sum + size, 0);
   test.info().annotations.push({
     type: 'homepage-js',
-    description: `${(total / 1024).toFixed(1)} kB gzip in ${sizes.length} scripts`,
+    // The exact figure too: the budget is tight, and 170.0 kB reads the same 50 bytes either side.
+    description: `${(total / 1024).toFixed(1)} kB gzip (${total} bytes) in ${sizes.length} scripts`,
   });
   expect(total).toBeLessThanOrEqual(HOMEPAGE_JS_BUDGET_BYTES);
 });

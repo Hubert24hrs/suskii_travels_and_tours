@@ -3,8 +3,10 @@
 import { useFormatters } from '@suskii/i18n/react';
 import {
   GENDERS,
+  MEAL_REQUESTS,
   PASSENGER_TITLES,
   transliterateName,
+  type MealRequest,
   type CheckoutIssue,
   type FieldIssues,
   type GuestDraft,
@@ -50,6 +52,7 @@ export function PassengerFields({
   countries,
   passport,
   services,
+  meals,
   errors,
   warnings,
 }: {
@@ -61,6 +64,11 @@ export function PassengerFields({
   /** Abroad: required; domestic flights: optional; tours, add-ons, local packages: not asked. */
   passport: 'required' | 'optional' | 'none';
   services: Schemas['FlightService'][];
+  /**
+   * `true`: the fare takes a meal request per seated traveller; `false`: a flight that takes
+   * none through us (say so once); `undefined`: not a flight.
+   */
+  meals?: boolean | undefined;
   errors: FieldIssues;
   warnings: FieldIssues;
 }) {
@@ -74,6 +82,11 @@ export function PassengerFields({
     ...countries.map((country) => ({ value: country.code, label: country.name })),
   ];
   const bag = value.type === 'infant' ? undefined : services[0];
+  // Lap infants have no meal of their own; the child's meal is for children.
+  const mealOptions: readonly MealRequest[] =
+    meals && value.type !== 'infant'
+      ? MEAL_REQUESTS.filter((meal) => meal !== 'child' || value.type === 'child')
+      : [];
 
   return (
     <Card asChild className="flex flex-col gap-4 p-4">
@@ -200,6 +213,24 @@ export function PassengerFields({
                 }),
               }),
             }))}
+          />
+        ) : null}
+        {mealOptions.length > 0 ? (
+          <NativeSelect
+            id={id('meal')}
+            label={t('checkout.meal.label', {
+              name: transliterateName(value.givenNames) ?? label,
+            })}
+            value={value.meal ?? ''}
+            onChange={(event) => onChange({ meal: event.target.value as MealRequest | '' })}
+            error={issue(path('meal'))}
+            options={[
+              { value: '', label: t('checkout.meal.none') },
+              ...mealOptions.map((meal) => ({
+                value: meal,
+                label: t(`checkout.meal.options.${meal}`),
+              })),
+            ]}
           />
         ) : null}
       </fieldset>

@@ -82,6 +82,7 @@ export {
 export {
   FULL_NAME_MAX_LENGTH,
   GENDERS,
+  MEAL_REQUESTS,
   NAME_MAX_LENGTH,
   PASSENGER_ISSUES,
   PASSENGER_TITLES,
@@ -92,6 +93,7 @@ export {
   transliterateName,
   type Gender,
   type ItineraryFacts,
+  type MealRequest,
   type PassengerIssue,
   type PassengerTitle,
   type PassengerType,
@@ -332,12 +334,20 @@ export {
   type MarketingAttribution,
 } from './ad-tracking';
 export {
+  GROUP_MAX_TRAVELLERS,
+  GROUP_MIN_TRAVELLERS,
+  GROUP_NOTES_MAX,
+  GROUP_ORGANISATION_MAX,
+  GROUP_TRIP_TYPES,
   SUPPORT_CATEGORIES,
   SUPPORT_MESSAGE_MAX,
   SUPPORT_STATUSES,
+  SUPPORT_TOPICS,
+  type GroupTripType,
   type SupportAuthor,
   type SupportCategory,
   type SupportStatus,
+  type SupportTopic,
 } from './support';
 
 export { citySlug } from './slug';

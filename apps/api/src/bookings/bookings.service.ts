@@ -644,6 +644,7 @@ export class BookingsService {
       issuingCountry: passport?.issuingCountry ?? null,
       documentExpiry: passport ? dateOnly(passport.expiryDate) : null,
       travellerId: input.travellerId,
+      mealRequest: input.meal,
     };
   }
 
@@ -690,6 +691,12 @@ export class BookingsService {
     }
 
     const issues: PassengerIssue[] = [];
+    // A meal request is taken only when the fare's supplier passes it on to the airline.
+    const takesMeals = payload.kind === 'flight' && payload.offer.mealRequests === true;
+    input.passengers.forEach((passenger, index) => {
+      if (passenger.meal !== null && !takesMeals)
+        issues.push({ index, path: ['meal'], code: PASSENGER_ISSUES.mealUnavailable });
+    });
     const resolved = input.passengers.map((passenger, index) => {
       if (passenger.travellerId === null) {
         const document = passenger.document;

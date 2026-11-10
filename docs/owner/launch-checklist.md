@@ -65,6 +65,9 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 4. Put the **live** token in production's Secret Manager (`DUFFEL_API_TOKEN` in
    `extra_secrets`); `FLIGHT_SUPPLIERS` and `HOTEL_SUPPLIERS` are already `duffel` in the example.
 5. For Nigerian domestic airlines not on Duffel: **IATA accreditation or a consolidator**.
+6. **Special meals** (ADR-093): ask Duffel how its orders take a special meal request and make
+   one sandbox booking with one. Until then travellers on Duffel fares are told to ask the
+   airline, and no meal preference is collected.
 
 ### 1.4 Text messages (sign-in codes, booking and safety alerts)
 
@@ -185,6 +188,9 @@ Travelpayouts' postback URL: `https://<api host>/v1/partners/postbacks/travelpay
    off (`WHATSAPP_PROVIDER = "none"`) and travellers get email, push and texts.
 4. **After-hours assistant**: an Anthropic API key as the repository secret `LLM_API_KEY`, one
    run of `ai-eval.yml` (suite `support-assistant`), your FAQs in the console, and its spend caps.
+5. **Group flights** (ADR-093): requests for 10 travellers or more arrive in the support inbox
+   under the topic "Group booking request". Name who answers them and collect each airline's
+   group desk contact; nothing is priced automatically.
 
 ## 7. AI trip search (optional)
 
@@ -200,7 +206,9 @@ production (`AI_SEARCH_ENABLED`) and its daily caps (defaults $0.05 per person, 
    attestation (`docs/compliance/pci-saq-a.md`).
 3. **Counsel review**: the rows marked "confirm" in `docs/compliance/privacy-obligations.md`; the
    transfer basis for London hosting and each provider; DPIAs for payment risk scoring and the
-   AI features; whether the **company wallet** is stored value under CBN rules.
+   AI features; whether the **company wallet** is stored value under CBN rules; and whether a
+   **special meal request** (halal, kosher, diabetic) is special-category data in each market,
+   with the matching answer on the store forms (`docs/release/data-safety.md`).
 4. **Accessibility**: the support contact and legal text for an accessibility statement; an
    external audit before selling in the EU (optional).
 5. **Suskii Prime** prices per market (console), and the referral rewards (zero until set).
@@ -224,6 +232,7 @@ Nothing waits on these; change them when you want to (each is a setting or a con
 | Visa document retention               | 90 days after closing                               |
 | Financial records of deleted accounts | 7 years                                             |
 | Price alerts                          | Every 6 hours, 5% drop                              |
+| Flexible dates                        | 3 days each side (`FLEXIBLE_DATES_DAYS`, 0 is off)  |
 | Review window                         | 90 days after the trip                              |
 | Availability promise                  | 99.9% (status page)                                 |
 | Rides and own fleet                   | Off in production (no driver KYC or payouts needed) |

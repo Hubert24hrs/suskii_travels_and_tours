@@ -76,7 +76,7 @@ needs them. Optional ones are marked.
 | Personal info            | Phone number                 | Yes       | No       | App functionality, Account management, Fraud prevention and security                           | Sign-in codes, booking contact, ride contact                                                                                                                                                                                                                                                 |
 | Personal info            | User IDs                     | Yes       | No       | App functionality, Account management                                                          | Account id                                                                                                                                                                                                                                                                                   |
 | Personal info            | Address                      | Yes       | Yes      | App functionality                                                                              | Rental delivery address, when chosen                                                                                                                                                                                                                                                         |
-| Personal info            | Other info                   | Yes       | Yes      | App functionality                                                                              | Dates of birth, nationality, gender and passport details that a fare or visa requires; emergency contacts' names and numbers (riders who add them)                                                                                                                                           |
+| Personal info            | Other info                   | Yes       | Yes      | App functionality                                                                              | Dates of birth, nationality, gender and passport details that a fare or visa requires; emergency contacts' names and numbers (riders who add them); a special meal request on a flight, when the traveller chooses one (ADR-093)                                                             |
 | Financial info           | Purchase history             | Yes       | No       | App functionality, Account management, Fraud prevention and security                           | Bookings, payments, refunds, wallet, Suskii Prime, company trips and their approvals (company accounts, ADR-078)                                                                                                                                                                             |
 | Financial info           | Other financial info         | Yes       | Yes      | App functionality                                                                              | A driver's bank account for payouts (drivers only)                                                                                                                                                                                                                                           |
 | Location                 | Precise location             | Yes       | Yes      | App functionality                                                                              | Pick-up and drop-off points the user picks for a ride, and a driver's chosen position while online. Not device location                                                                                                                                                                      |
@@ -103,6 +103,13 @@ needs them. Optional ones are marked.
 - race and ethnicity, political or religious beliefs, sexual orientation;
 - installed apps.
 
+A special meal request on a flight (ADR-093) is declared under "Other info": it is a service
+request passed to the airline, chosen from a short list, not a record of belief or health. A
+halal, kosher or diabetic meal can still suggest either, so the app treats the value as sensitive
+(`docs/security/data-classification.md`). Confirm this answer with counsel before the store
+submission; if counsel reads it as religious belief or health information, declare those types
+as collected, optional, for app functionality, and update the two lines above.
+
 ## App Store: privacy nutrition labels
 
 **Data Used to Track You:** none. The app does not track users across other companies' apps or
@@ -110,23 +117,23 @@ websites, so it does not need App Tracking Transparency.
 
 ### Data Linked to You
 
-| Category       | Data type               | Purposes                                                | Notes                                                                                |
-| -------------- | ----------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Contact Info   | Name                    | App Functionality                                       | Account and travellers                                                               |
-| Contact Info   | Email Address           | App Functionality, Developer's Advertising or Marketing | Marketing only with consent (newsletter, deal alerts)                                |
-| Contact Info   | Phone Number            | App Functionality                                       |                                                                                      |
-| Contact Info   | Physical Address        | App Functionality                                       | Rental delivery address                                                              |
-| Contact Info   | Other User Contact Info | App Functionality                                       | Emergency contacts riders add                                                        |
-| Financial Info | Other Financial Info    | App Functionality                                       | Drivers' payout bank accounts                                                        |
-| Location       | Precise Location        | App Functionality                                       | Chosen pick-up and drop-off points; not device location                              |
-| User Content   | Photos or Videos        | App Functionality                                       | Uploaded documents and selfies                                                       |
-| User Content   | Other User Content      | App Functionality                                       | Visa and driver documents (PDF), ratings comments, trip reviews                      |
-| User Content   | Customer Support        | App Functionality                                       | Conversations with Suskii support (ADR-083)                                          |
-| Identifiers    | User ID                 | App Functionality                                       |                                                                                      |
-| Identifiers    | Device ID               | App Functionality                                       | Push token                                                                           |
-| Purchases      | Purchase History        | App Functionality                                       | Bookings, Prime, wallet, company trips                                               |
-| Usage Data     | Product Interaction     | App Functionality, Analytics                            | Partner offers opened; partners get a random click id only                           |
-| Other Data     | Other Data Types        | App Functionality                                       | Dates of birth, nationality, gender and passport details required by fares and visas |
+| Category       | Data type               | Purposes                                                | Notes                                                                                                                      |
+| -------------- | ----------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Contact Info   | Name                    | App Functionality                                       | Account and travellers                                                                                                     |
+| Contact Info   | Email Address           | App Functionality, Developer's Advertising or Marketing | Marketing only with consent (newsletter, deal alerts)                                                                      |
+| Contact Info   | Phone Number            | App Functionality                                       |                                                                                                                            |
+| Contact Info   | Physical Address        | App Functionality                                       | Rental delivery address                                                                                                    |
+| Contact Info   | Other User Contact Info | App Functionality                                       | Emergency contacts riders add                                                                                              |
+| Financial Info | Other Financial Info    | App Functionality                                       | Drivers' payout bank accounts                                                                                              |
+| Location       | Precise Location        | App Functionality                                       | Chosen pick-up and drop-off points; not device location                                                                    |
+| User Content   | Photos or Videos        | App Functionality                                       | Uploaded documents and selfies                                                                                             |
+| User Content   | Other User Content      | App Functionality                                       | Visa and driver documents (PDF), ratings comments, trip reviews                                                            |
+| User Content   | Customer Support        | App Functionality                                       | Conversations with Suskii support (ADR-083)                                                                                |
+| Identifiers    | User ID                 | App Functionality                                       |                                                                                                                            |
+| Identifiers    | Device ID               | App Functionality                                       | Push token                                                                                                                 |
+| Purchases      | Purchase History        | App Functionality                                       | Bookings, Prime, wallet, company trips                                                                                     |
+| Usage Data     | Product Interaction     | App Functionality, Analytics                            | Partner offers opened; partners get a random click id only                                                                 |
+| Other Data     | Other Data Types        | App Functionality                                       | Dates of birth, nationality, gender and passport details required by fares and visas; a meal request the traveller chooses |
 
 ### Data Not Linked to You
 

@@ -52,6 +52,12 @@ Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`,
 Cars (buses, rides and car rental; task `suskii-cars-v1`, outside the numbered phases): P0 to P11
 done (merged). Plan, decisions and status: `docs/phases/cars.md`; audit: `docs/audits/e2e-audit.md`.
 
+Feature parity (outside the numbered phases; the owner's feature lists for flights, hotels and
+car rental): audit in `docs/audits/feature-parity.md`, six parts in
+`docs/phases/feature-parity.md`. Part 1, flights (flexible-date prices, nearby airports, meal
+requests, group requests, other flights after an airline change; ADR-093), is built; Duffel meal
+requests wait for the owner's sandbox check. Parts 2 to 6 are planned.
+
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
 needs the owner's account, then one run of `partner-sandbox.yml` (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
@@ -691,6 +697,27 @@ Tooling notes for agents:
   shows `partners.disclosure`, and nothing renders while offers are off or empty. Fetch them in the
   browser or the app, never on the server, so the link seals the signed-in traveller.
 
+### Flight extras (apps/api/src/search, catalog, support; ADR-093)
+
+- Flexible dates: `FlightSearchService.datePrices()` runs one ordinary cached search per day
+  (`FLEXIBLE_DATES_DAYS` each side, one-way and return only). Clients call
+  `POST /v1/flights/date-prices` only when the URL has `flex=1` (the form's box or the results'
+  button); never price other days on a plain search, and never store or estimate a day's price.
+- The strip sits above the fares and keeps its space while it loads (`FlexibleDatesLoading`);
+  nearby airports (`GET /v1/catalog/airports/{iataCode}/nearby`) sit under the list. Nothing may
+  move the fares once they are painted (ADR-075).
+- Meal requests: a passenger's `meal` is accepted only when the offer has `mealRequests: true`
+  (the supplier's word), never for a lap infant, and the child's meal only for a child
+  (`passengerSchema`, `BookingsService.preparePassengers`). A new supplier sets `mealRequests`
+  only once its adapter passes the request on. The value is sensitive: no logs, audit metadata,
+  analytics or ad events; deletion and retention clear it with the passenger's details.
+- Group requests are support conversations with `topic = 'group_booking'`
+  (`GroupRequestsService`); a new kind of request is a new `SUPPORT_TOPICS` value on the nullable
+  `topic` column, not a category enum value (expand/contract). The assistant is never consulted
+  on a conversation with a topic.
+- "See other flights" beside a refund offer is only the booked search
+  (`flightRequestToParams()` in `@suskii/shared`); refunding and rebooking stay separate steps.
+
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 
 - Only a confirmed booking item whose trip has ended (the day after `tripFacts` `endDate`, within
@@ -1156,6 +1183,7 @@ Tooling notes for agents:
 - [ADR-090: Company wallet](docs/decisions/ADR-090-company-wallet.md)
 - [ADR-091: Text and exchange-rate providers](docs/decisions/ADR-091-sms-and-exchange-rate-providers.md)
 - [ADR-092: The hosted test server on a schedule](docs/decisions/ADR-092-test-server-on-a-schedule.md)
+- [ADR-093: Flexible dates, nearby airports, meal requests and group requests](docs/decisions/ADR-093-flexible-dates-nearby-airports-meals-and-groups.md)
 
 ## Open questions for the owner
 
@@ -1302,4 +1330,8 @@ and whether top-ups should go through the payment risk review. Added with texts 
 account for numbers outside Nigeria (or one provider for all), an Open Exchange Rates app id and
 plan, whether to pin the naira to the bank's settlement rate (`FX_RATE_OVERRIDES`), approved
 WhatsApp templates before booking messages go by WhatsApp, and one run of `messaging-sandbox.yml`
-with a real phone. Every owner action is listed, step by step, in `docs/owner/launch-checklist.md`.
+with a real phone. Added with flight extras (ADR-093): one Duffel sandbox booking to confirm how
+(or whether) Duffel takes special meal requests, who answers group flight requests and each
+airline's group desk contact, and counsel's view on whether a meal request is special-category
+data (and the matching store form answer). Every owner action is listed, step by step, in
+`docs/owner/launch-checklist.md`.

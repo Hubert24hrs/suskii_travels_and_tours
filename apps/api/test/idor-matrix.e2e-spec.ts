@@ -27,6 +27,7 @@ const PDF = Buffer.from('%PDF-1.7\n% IDOR-MATRIX\n%%EOF\n');
 const NOT_OWNED: Record<string, string> = {
   getAddon: 'published catalog, by slug',
   getAirport: 'reference data',
+  listNearbyAirports: 'reference data',
   getCity: 'reference data',
   getContentPage: 'published CMS page',
   getDealRoute: 'published deal',

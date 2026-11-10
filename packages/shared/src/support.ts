@@ -24,6 +24,21 @@ export type SupportPriority = (typeof SUPPORT_PRIORITIES)[number];
 export const SUPPORT_CHANNELS = ['web', 'app', 'whatsapp'] as const;
 export type SupportChannel = (typeof SUPPORT_CHANNELS)[number];
 
+/**
+ * What a conversation is about when it came from a form of its own rather than the support
+ * page. `group_booking`: a request for a flight for ten travellers or more.
+ */
+export const SUPPORT_TOPICS = ['group_booking'] as const;
+export type SupportTopic = (typeof SUPPORT_TOPICS)[number];
+
+/** A booking takes nine travellers; larger parties ask for a group fare. */
+export const GROUP_MIN_TRAVELLERS = 10;
+export const GROUP_MAX_TRAVELLERS = 500;
+export const GROUP_NOTES_MAX = 1_000;
+export const GROUP_ORGANISATION_MAX = 120;
+export const GROUP_TRIP_TYPES = ['round_trip', 'one_way'] as const;
+export type GroupTripType = (typeof GROUP_TRIP_TYPES)[number];
+
 /** `assistant`: the after-hours assistant (ADR-085), never a person. */
 export const SUPPORT_AUTHORS = ['customer', 'staff', 'system', 'assistant'] as const;
 export type SupportAuthor = (typeof SUPPORT_AUTHORS)[number];

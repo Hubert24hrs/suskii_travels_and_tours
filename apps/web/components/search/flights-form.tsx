@@ -29,7 +29,7 @@ import {
 import type { Route } from 'next';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 
 import { dateToIso, isoToDate, localToday, weekStartsOn } from './dates';
 import type { NaturalSearchResult } from './describe-trip-request';
@@ -94,6 +94,8 @@ export interface FlightsFormProps {
   /** Pre-filled state (from a search URL); otherwise the last search on this device is restored. */
   initial?: FlightFormState | undefined;
   describe?: DescribeSettings | undefined;
+  /** Rendered on the server and shown under the form (the group request link, ADR-093). */
+  footer?: ReactNode;
 }
 
 export function FlightsForm({
@@ -103,6 +105,7 @@ export function FlightsForm({
   pageSize,
   initial,
   describe,
+  footer,
 }: FlightsFormProps) {
   const { t } = useSearchT();
   const router = useRouter();
@@ -430,10 +433,9 @@ export function FlightsForm({
     </form>
   );
 
-  if (!describe) return form;
   return (
     <div className="flex flex-col gap-4">
-      {describing ? (
+      {!describe ? null : describing ? (
         <DescribeTrip locale={locale} maxLength={describe.maxLength} onFill={fill} />
       ) : (
         <Button
@@ -447,6 +449,7 @@ export function FlightsForm({
         </Button>
       )}
       {form}
+      {footer}
     </div>
   );
 }

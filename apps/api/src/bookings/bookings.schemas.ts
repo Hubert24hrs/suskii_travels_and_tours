@@ -26,6 +26,7 @@ import {
   hotelSearchRequestSchema,
   localeCodeSchema,
   PASSENGER_ISSUES,
+  MEAL_REQUESTS,
   PASSENGER_TITLES,
   PASSENGER_TYPES,
   PAYMENT_PLAN_KINDS,
@@ -680,6 +681,10 @@ export const bookingPassengerSchema = named(
     document: maskedDocumentSchema.nullable(),
     ticketNumber: z.string().nullable(),
     extraBags: z.number().int(),
+    meal: z.enum(MEAL_REQUESTS).nullable().meta({
+      description:
+        'The special meal asked of the airline, where the fare takes requests. A request, never a guarantee.',
+    }),
   }),
 );
 

@@ -3467,6 +3467,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalog/airports/{iataCode}/nearby": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Other airports near an airport
+         * @description Airports with scheduled flights within the radius (straight line), nearest first, for "also search from" suggestions. Small airfields are left out.
+         */
+        get: operations["listNearbyAirports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalog/cities/{cityId}": {
         parameters: {
             query?: never;
@@ -4101,6 +4121,46 @@ export interface paths {
         put?: never;
         /** Drive an approved vehicle from now on */
         post: operations["activateDriverVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/flights/date-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The lowest total on each day around a search ("Flexible dates")
+         * @description For a one-way or return request, searches each day up to `FLEXIBLE_DATES_DAYS` either side (a return trip keeps its length) and answers the lowest total per day, priced as search results are. Each day shares the search cache. Call it only when the traveller asked for flexible dates: every uncached day is a supplier search.
+         */
+        post: operations["priceFlightDates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/flights/group-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a flight for ten travellers or more
+         * @description Airlines price groups through their group desks, so this starts a support conversation (topic `group_booking`) with the request as its first message; the team replies there. Bot checks, the guest email and the access token work as for `startSupportConversation`. 400 `validation-failed` for an unknown airport or a date in the past.
+         */
+        post: operations["requestGroupFlight"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7615,6 +7675,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
+            topic: "group_booking" | null;
             /** @enum {string} */
             priority: "urgent" | "prime" | "normal";
             /** @enum {string} */
@@ -7667,6 +7728,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
+            topic: "group_booking" | null;
             /** @enum {string} */
             priority: "urgent" | "prime" | "normal";
             /** @enum {string} */
@@ -8061,6 +8123,7 @@ export interface components {
             } | null;
             ticketNumber: string | null;
             extraBags: number;
+            meal: ("vegetarian" | "vegan" | "halal" | "kosher" | "gluten_free" | "diabetic" | "child") | null;
         };
         BookingPrice: {
             currency: string;
@@ -8659,6 +8722,8 @@ export interface components {
                 travellerId?: string | null;
                 /** @default false */
                 saveTraveller?: boolean;
+                /** @default null */
+                meal?: ("vegetarian" | "vegan" | "halal" | "kosher" | "gluten_free" | "diabetic" | "child") | null;
             }[];
             guests?: {
                 givenNames: string;
@@ -9334,6 +9399,19 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
+        FlightDatePrices: {
+            currency: string;
+            days: {
+                offset: number;
+                /** Format: date */
+                departureDate: string;
+                returnDate: string | null;
+                /** @enum {string} */
+                status: "priced" | "none" | "unavailable";
+                total: components["schemas"]["Money"] | null;
+            }[];
+            cheapestOffset: number | null;
+        };
         FlightDeal: {
             id: string;
             routeSlug: string;
@@ -9427,6 +9505,7 @@ export interface components {
                 available: boolean;
                 paymentRequiredBy: string | null;
             };
+            mealRequests: boolean;
             services: components["schemas"]["FlightService"][];
         };
         FlightQuote: {
@@ -9555,6 +9634,25 @@ export interface components {
         GroundCreated: {
             /** Format: uuid */
             id: string;
+        };
+        GroupFlightRequestInput: {
+            /** @enum {string} */
+            tripType: "round_trip" | "one_way";
+            origin: string;
+            destination: string;
+            departureDate: string;
+            returnDate?: string | null;
+            travellers: number;
+            /**
+             * @default economy
+             * @enum {string}
+             */
+            cabinClass?: "economy" | "premium_economy" | "business" | "first";
+            organisation?: string | null;
+            notes?: string | null;
+            email?: string | null;
+            /** @default null */
+            turnstileToken?: string | null;
         };
         HealthStatus: {
             /** @constant */
@@ -10230,6 +10328,17 @@ export interface components {
             enabled: boolean;
             maxLength: number;
         };
+        NearbyAirports: {
+            airport: string;
+            radiusKm: number;
+            items: {
+                code: string;
+                name: string;
+                cityName: string | null;
+                countryCode: string;
+                distanceKm: number;
+            }[];
+        };
         NewsletterConfirmResponse: {
             /** @constant */
             status: "confirmed";
@@ -10508,7 +10617,7 @@ export interface components {
             index: number | null;
             path: string[];
             /** @enum {string} */
-            code: "name_not_latin" | "name_too_long" | "passenger_count_mismatch" | "passenger_type_mismatch" | "born_after_travel" | "infants_exceed_adults" | "passport_required" | "passport_expired" | "passport_expires_soon" | "traveller_not_found" | "nationality_mismatch";
+            code: "name_not_latin" | "name_too_long" | "passenger_count_mismatch" | "passenger_type_mismatch" | "born_after_travel" | "infants_exceed_adults" | "passport_required" | "passport_expired" | "passport_expires_soon" | "traveller_not_found" | "meal_not_for_passenger" | "meal_unavailable" | "nationality_mismatch";
         };
         PaymentMethodOption: {
             /** @enum {string} */
@@ -11810,6 +11919,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
+            topic: "group_booking" | null;
             /** @enum {string} */
             status: "open" | "waiting" | "resolved";
             booking: {
@@ -11833,6 +11943,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
+            topic: "group_booking" | null;
             /** @enum {string} */
             status: "open" | "waiting" | "resolved";
             booking: {
@@ -17081,6 +17192,7 @@ export interface operations {
                 queue?: "active" | "open" | "waiting" | "resolved";
                 priority?: "urgent" | "prime" | "normal";
                 channel?: "web" | "app" | "whatsapp";
+                topic?: "group_booking";
                 assignee?: "any" | "me" | "unassigned";
                 cursor?: string;
                 limit?: number;
@@ -19682,6 +19794,36 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    listNearbyAirports: {
+        parameters: {
+            query?: {
+                radiusKm?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                iataCode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NearbyAirports"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getCity: {
         parameters: {
             query?: never;
@@ -20749,6 +20891,74 @@ export interface operations {
             401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    priceFlightDates: {
+        parameters: {
+            query?: {
+                currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            };
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlightSearchRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightDatePrices"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    requestGroupFlight: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once. */
+                "X-Suskii-Attestation"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupFlightRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedSupportConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

@@ -4,9 +4,9 @@ import type { paths } from '@suskii/api-client/schema';
 import { useFormatters } from '@suskii/i18n/react';
 import type { CurrencyCode } from '@suskii/shared/lite';
 import { Button } from '@suskii/ui-web';
-import { SlidersHorizontal } from 'lucide-react';
+import { CalendarRange, SlidersHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { trackAd } from '../../lib/ad-events';
 import { browserApi, type Schemas } from '../../lib/browser-api';
@@ -21,10 +21,14 @@ import {
 } from './flight-filters';
 import { FlightOfferCard, type FlightOfferCardProps } from './flight-offer-card';
 import { AfterPaint } from './after-paint';
-import { ResultsLoading, ResultsMessage } from './result-states';
+import { FlexibleDatesLoading, ResultsLoading, ResultsMessage } from './result-states';
 import { useResultsT } from './results-messages';
 import { WatchRoute } from './watch-route';
 import { listParam, numberParam, useUrlParams } from './use-url-params';
+
+// Loaded after the first paint, and only for one-way and return searches (ADR-075, ADR-093).
+const FlexibleDates = lazy(() => import('./flexible-dates'));
+const NearbyAirports = lazy(() => import('./nearby-airports'));
 
 const SORTS = ['best', 'cheapest', 'fastest', 'earliest'] as const;
 /** Cards in the first paint; the rest follow right after it (ADR-075). */
@@ -271,6 +275,54 @@ export function FlightResults({
 
   const changeFilters = (next: FlightFilterState) => updateParams(filtersToParams(next));
 
+  // Ways to a better fare on a one-way or return search (ADR-093): the days around it and the
+  // airports near each end. Fares come first: the strip keeps its space while it loads and the
+  // airports sit under the list, so nothing moves the fares once they are painted.
+  const [outbound, inbound] = request.slices;
+  const simpleTrip =
+    outbound !== undefined &&
+    (request.slices.length === 1 ||
+      (request.slices.length === 2 &&
+        inbound?.origin === outbound.destination &&
+        inbound.destination === outbound.origin));
+  const flexible = simpleTrip && params.get('flex') === '1';
+  const flexibleDates = flexible ? (
+    <Suspense
+      fallback={
+        <FlexibleDatesLoading
+          heading={t('results.flexible.heading')}
+          label={t('results.flexible.loading')}
+        />
+      }
+    >
+      <FlexibleDates request={request} currency={currency} params={params} />
+    </Suspense>
+  ) : null;
+  // Each day is a supplier search unless it is cached, so the strip waits to be asked for.
+  const showFlexible =
+    simpleTrip && !flexible ? (
+      <Button
+        variant="ghost"
+        data-testid="flexible-dates-show"
+        onClick={() => updateParams({ flex: '1' })}
+      >
+        <CalendarRange aria-hidden="true" className="size-4" />
+        {t('results.flexible.show')}
+      </Button>
+    ) : null;
+  const nearbyAirports =
+    simpleTrip && outbound ? (
+      <AfterPaint>
+        <Suspense fallback={null}>
+          <NearbyAirports
+            origin={outbound.origin}
+            destination={outbound.destination}
+            params={params}
+          />
+        </Suspense>
+      </AfterPaint>
+    ) : null;
+
   if (phase.kind === 'searching') return <ResultsLoading label={t('results.flights.searching')} />;
   if (phase.kind === 'error')
     return (
@@ -307,7 +359,15 @@ export function FlightResults({
   );
   const unfiltered = JSON.stringify(filters) === JSON.stringify(EMPTY_FLIGHT_FILTERS);
   if (result.total === 0 && unfiltered)
-    return <ResultsMessage>{t('results.flights.none')}</ResultsMessage>;
+    return (
+      <div className="flex flex-col gap-4">
+        <ResultsMessage>{t('results.flights.none')}</ResultsMessage>
+        {/* No fares on this day: the days around it and the airports nearby are the way on. */}
+        {flexibleDates}
+        {showFlexible ? <div className="flex">{showFlexible}</div> : null}
+        {nearbyAirports}
+      </div>
+    );
 
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-4 lg:items-start lg:gap-6">
@@ -352,7 +412,11 @@ export function FlightResults({
             options={SORTS.map((value) => ({ value, label: t(`results.sort.${value}`) }))}
           />
         </div>
-        <WatchRoute request={request} currency={currency} />
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+          <WatchRoute request={request} currency={currency} />
+          {showFlexible}
+        </div>
+        {flexibleDates}
         {result.offers.some((offer) => offer.supplier === 'mock') ? (
           <p className="font-body text-body-sm text-foreground">{t('results.demoSupplier')}</p>
         ) : null}
@@ -373,6 +437,7 @@ export function FlightResults({
             {t('results.flights.loadMore')}
           </Button>
         ) : null}
+        {nearbyAirports}
       </section>
     </div>
   );

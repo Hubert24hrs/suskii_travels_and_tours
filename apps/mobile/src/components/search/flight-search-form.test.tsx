@@ -78,6 +78,30 @@ describe('FlightSearchForm', () => {
     expect(path).toContain('children=1');
   });
 
+  it('carries direct-only and flexible dates into the search, and links to group requests', async () => {
+    mockApi({ 'GET /v1/catalog/places': places });
+    await renderWithApp(<FlightSearchForm />);
+
+    await pick('search-from', 'Lagos', 'LOS');
+    await pick('search-to', 'Enugu', 'ENU');
+    await fireEvent.press(screen.getByTestId('search-direct'));
+    await fireEvent.press(screen.getByTestId('search-flexible'));
+    await fireEvent.press(screen.getByTestId('search-submit'));
+    const path = jest.mocked(router.push).mock.calls[0]?.[0];
+    expect(path).toContain('direct=1');
+    expect(path).toContain('flex=1');
+
+    // A booking takes up to nine travellers; a larger group is a request to the team.
+    await fireEvent.press(screen.getByTestId('search-group-request'));
+    expect(router.push).toHaveBeenLastCalledWith('/search/groups');
+
+    // A multi-city trip has no strip of nearby days to show.
+    await fireEvent.press(
+      screen.getByRole('radio', { name: m.search.flights.tripTypes.multi_city }),
+    );
+    expect(screen.queryByTestId('search-flexible')).toBeNull();
+  });
+
   it('closes a picker from its close button and from the backdrop', async () => {
     mockApi({});
     await renderWithApp(<FlightSearchForm />);

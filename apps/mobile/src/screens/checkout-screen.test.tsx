@@ -295,6 +295,60 @@ describe('CheckoutScreen', () => {
     expect(body.extras).toEqual([{ serviceId: 'offer-1.bag23', passengerIndex: 0, quantity: 2 }]);
   });
 
+  it('asks for a special meal only where the fare takes one, and sends the choice', async () => {
+    const base = flightQuote();
+    const flight = base.flight;
+    if (!flight) throw new Error('the fixture is a flight');
+    const withMeals = (passengers: typeof flight.offer.passengers) =>
+      flightQuote({
+        flight: { ...flight, offer: { ...flight.offer, passengers, mealRequests: true } },
+      });
+
+    // The fixture's fare takes no meal request: the traveller is told to ask the airline.
+    mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(base),
+      'GET /v1/catalog/countries': () => json(countries),
+    });
+    const plain = await renderWithApp(<CheckoutScreen />);
+    expect(await screen.findByTestId('meal-unavailable')).toHaveTextContent(
+      m.checkout.meal.unavailable,
+    );
+    expect(screen.queryByTestId('passengers.0.meal-halal')).toBeNull();
+    plain.unmount();
+
+    // A child's meal is for children, and a lap infant has no meal of their own.
+    mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(withMeals({ adults: 1, children: 1, infants: 1 })),
+      'GET /v1/catalog/countries': () => json(countries),
+    });
+    const family = await renderWithApp(<CheckoutScreen />);
+    expect(await screen.findByTestId('passengers.0.meal-vegetarian')).toBeOnTheScreen();
+    expect(screen.queryByTestId('passengers.0.meal-child')).toBeNull();
+    expect(screen.getByTestId('passengers.1.meal-child')).toBeOnTheScreen();
+    expect(screen.queryByTestId('passengers.2.meal-none')).toBeNull();
+    expect(screen.queryByTestId('meal-unavailable')).toBeNull();
+    family.unmount();
+
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(withMeals({ adults: 1, children: 0, infants: 0 })),
+      'GET /v1/catalog/countries': () => json(countries),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }), accessToken: TOKEN }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/payments`]: () => json(paymentSession, 201),
+    });
+    await renderWithApp(<CheckoutScreen />);
+    await fillTraveller();
+    await fireEvent.press(screen.getByTestId('passengers.0.meal-halal'));
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/trips/${BOOKING_ID}`));
+    const create = calls.find((request) => request.url.endsWith('/v1/bookings'));
+    const body = (await create?.json()) as { passengers: { meal?: string }[] };
+    expect(body.passengers[0]?.meal).toBe('halal');
+  });
+
   it('shows tax on our service as its own line inside the total (ADR-072)', async () => {
     const tour = inhouseQuote('tour');
     if (!tour.price) throw new Error('the fixture is priced');

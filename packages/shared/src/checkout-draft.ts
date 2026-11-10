@@ -4,6 +4,7 @@ import {
   NAME_MAX_LENGTH,
   transliterateName,
   type ItineraryFacts,
+  type MealRequest,
   type PassengerType,
 } from './passenger-rules';
 import { isValidDate } from './time';
@@ -31,7 +32,9 @@ export type CheckoutIssue =
   | 'infants_exceed_adults'
   | 'passenger_count_mismatch'
   | 'traveller_not_found'
-  | 'nationality_mismatch';
+  | 'nationality_mismatch'
+  | 'meal_not_for_passenger'
+  | 'meal_unavailable';
 
 export interface PassengerDraft {
   type: PassengerType;
@@ -45,6 +48,8 @@ export interface PassengerDraft {
   issuingCountry: string;
   passportExpiry: string;
   bags: number;
+  /** A special meal to ask the airline for; empty for none (and on drafts saved before it existed). */
+  meal?: MealRequest | '';
 }
 
 export interface GuestDraft {
@@ -75,6 +80,7 @@ export const emptyPassenger = (type: PassengerType): PassengerDraft => ({
   issuingCountry: '',
   passportExpiry: '',
   bags: 0,
+  meal: '',
 });
 
 export const normalisePassport = (value: string): string =>

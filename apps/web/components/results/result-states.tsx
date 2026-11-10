@@ -42,3 +42,17 @@ export function ResultsMessage({
     </Card>
   );
 }
+
+/**
+ * The space the flexible-dates strip takes while its code or prices load, so the fares below it
+ * do not move when the prices arrive (ADR-093).
+ */
+export function FlexibleDatesLoading({ heading, label }: { heading: string; label: string }) {
+  return (
+    <div role="status" aria-busy="true" className="flex flex-col gap-2">
+      <p className="font-heading text-h4 font-bold text-heading">{heading}</p>
+      <Skeleton className="h-20 w-full" />
+      <p className="font-body text-caption text-foreground">{label}</p>
+    </div>
+  );
+}
