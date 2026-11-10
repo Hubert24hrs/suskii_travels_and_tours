@@ -352,8 +352,8 @@ export function TripPlanner({
       </Card>
 
       {trips.length > 0 ? (
-        <section aria-labelledby="my-trips-heading" className="flex flex-col gap-4">
-          <h2 id="my-trips-heading" className="font-heading text-h3 font-bold text-heading">
+        <section aria-labelledby="trip-list-heading" className="flex flex-col gap-4">
+          <h2 id="trip-list-heading" className="font-heading text-h3 font-bold text-heading">
             {t('trips.list.heading')}
           </h2>
           <ul className="flex flex-col gap-3">
