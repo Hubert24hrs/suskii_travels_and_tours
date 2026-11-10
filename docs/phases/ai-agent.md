@@ -238,6 +238,23 @@ curl -H "Authorization: Bearer $AGENT_TOOLS_TOKEN" localhost:4000/v1/internal/ag
 - Two contract tests that list every internal operation and every step-up operation needed
   the new routes.
 
+**Test results** (commit `41e799a`, local, 2026-11-10; the commits after it change documents
+only)
+
+| Check                                                      | Result                           |
+| ---------------------------------------------------------- | -------------------------------- |
+| `pnpm lint`                                                | 14 of 14 workspaces              |
+| `pnpm typecheck`                                           | 13 of 13 workspaces              |
+| `pnpm test` (unit, every workspace)                        | 11 of 11 tasks                   |
+| API unit (`test:cov`, with the 80% gates)                  | 65 suites, 719 tests             |
+| API e2e (full, `test:e2e:cov`)                             | 68 suites, 680 tests             |
+| of which `agent-gateway.e2e-spec.ts`                       | 14 tests                         |
+| `@suskii/shared`                                           | 334 tests (10 for the catalogue) |
+| `pnpm check:migrations`, `pnpm security:checklist --check` | pass                             |
+| The routes by hand against the built API                   | answers as described above       |
+
+Baseline before this work (sub-phase A): API unit 707, API e2e 661.
+
 **Open for the owner**: nothing new. The assistant stays off in production.
 
 **Not done here**: no agent runs yet (D), so nothing creates a run or a conversation outside
