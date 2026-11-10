@@ -57,6 +57,9 @@ export const RETENTION_RULES = [
   'ad-conversions',
   // Metasearch landings (ADR-081).
   'metasearch-landings',
+  // Suskii Agent (ADR-105).
+  'agent-conversations',
+  'agent-runs',
   // Support conversations (ADR-083) and WhatsApp contacts (ADR-084).
   'support-conversations',
   'whatsapp-contacts',
@@ -119,6 +122,10 @@ export const RETENTION_DAYS = {
   'metasearch-landings': 400,
   /** After the conversation was resolved and last touched: two years to answer a dispute. */
   'support-conversations': 730,
+  /** After the last message of a conversation with the assistant (ADR-105). */
+  'agent-conversations': 365,
+  /** Runs and their tool calls: 13 months of cost and quality history (ADR-105). */
+  'agent-runs': 400,
   /** After their last WhatsApp message, once none of their conversations is left. */
   'whatsapp-contacts': 30,
   /**
@@ -372,6 +379,17 @@ export class RetentionService {
       'support-conversations': counts(
         await this.prisma.supportConversation.deleteMany({
           where: { status: 'resolved', updatedAt: { lt: before('support-conversations') } },
+        }),
+      ),
+      // The assistant's conversations go with their messages; runs outlive them unlinked.
+      'agent-conversations': counts(
+        await this.prisma.agentConversation.deleteMany({
+          where: { lastMessageAt: { lt: before('agent-conversations') } },
+        }),
+      ),
+      'agent-runs': counts(
+        await this.prisma.agentRun.deleteMany({
+          where: { startedAt: { lt: before('agent-runs') } },
         }),
       ),
       // After the conversations above: a contact goes only once nothing points at it.

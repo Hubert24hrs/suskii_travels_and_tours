@@ -84,6 +84,7 @@ model User {
   companyMembership       CompanyMember?
   companyTopUps           CompanyWalletTopUp[]     @relation("CompanyTopUpRequester")
   supportConversations    SupportConversation[]    @relation("SupportOwner")
+  agentConversations      AgentConversation[]
   assignedSupport         SupportConversation[]    @relation("SupportAssignee")
   supportMessages         SupportMessage[]         @relation("SupportStaffAuthor")
   privacyRequests         PrivacyRequest[]
@@ -1028,6 +1029,7 @@ model Booking {
   partnerClicks        PartnerClick[]
   reviews              Review[]
   supportConversations SupportConversation[]
+  agentConversations   AgentConversation[]
   adConversion         AdConversion?
   company              Company?               @relation(fields: [companyId], references: [id], onDelete: Restrict)
   metasearchLanding    MetasearchLanding?     @relation(fields: [metasearchLandingId], references: [id], onDelete: SetNull)
@@ -3637,11 +3639,12 @@ model SupportConversation {
   createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user            User?            @relation("SupportOwner", fields: [userId], references: [id], onDelete: Cascade)
-  booking         Booking?         @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  assignee        User?            @relation("SupportAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  whatsappContact WhatsAppContact? @relation(fields: [whatsappContactId], references: [id], onDelete: SetNull)
+  user            User?               @relation("SupportOwner", fields: [userId], references: [id], onDelete: Cascade)
+  booking         Booking?            @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  assignee        User?               @relation("SupportAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  whatsappContact WhatsAppContact?    @relation(fields: [whatsappContactId], references: [id], onDelete: SetNull)
   messages        SupportMessage[]
+  agentHandovers  AgentConversation[]
 
   @@index([status, dueAt, id])
   @@index([userId, updatedAt])
@@ -3966,4 +3969,186 @@ model TripPayment {
   @@index([status, expiresAt])
   @@index([status, ledgerCheckedAt])
   @@map("trip_payments")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Suskii Agent (ADR-101 to ADR-107): conversations with the assistant, what each run did and
+// cost, and the settings staff control it with. The agent service never reads these tables: it
+// reaches data only through the tool gateway (ADR-101).
+// ---------------------------------------------------------------------------------------------
+
+enum AgentConversationStatus {
+  open
+  closed
+}
+
+enum AgentMessageRole {
+  user
+  assistant
+  system
+}
+
+/// `waiting`: the run stopped for a person (a confirmation or an approval) and can resume.
+/// `refused`: it never started (paused, over budget, switched off).
+enum AgentRunStatus {
+  running
+  waiting
+  succeeded
+  failed
+  cancelled
+  refused
+}
+
+enum AgentToolCallStatus {
+  ok
+  denied
+  error
+  timeout
+}
+
+enum AgentFeedback {
+  up
+  down
+}
+
+/// A conversation with the assistant. `audience`, `channel` and `agent` names are values of
+/// `@suskii/shared` (`AGENT_AUDIENCES`, `AGENT_CHANNELS`, `AGENT_NAMES`): text, so a new one is
+/// not a type change (expand/contract).
+model AgentConversation {
+  id                     String                  @id @default(uuid(7)) @db.Uuid
+  /// Short code people can quote ("A-7KX2Q9").
+  reference              String                  @unique @db.VarChar(12)
+  userId                 String?                 @map("user_id") @db.Uuid
+  /// HMAC (`agent-access`) of a guest's access token; null for account holders and staff.
+  accessTokenHash        String?                 @unique @map("access_token_hash")
+  audience               String                  @db.VarChar(16)
+  channel                String                  @db.VarChar(16)
+  /// The language the assistant answers in (a `@suskii/i18n` locale).
+  locale                 String                  @db.VarChar(12)
+  currency               String                  @db.Char(3)
+  /// The edge's country at the start (ISO 3166-1 alpha-2), for prices per market; never typed in.
+  country                String?                 @db.Char(2)
+  status                 AgentConversationStatus @default(open)
+  /// A booking the traveller opened the assistant from; tools still load it as its owner.
+  bookingId              String?                 @map("booking_id") @db.Uuid
+  /// The support conversation a handover to people created (ADR-083).
+  handoverConversationId String?                 @map("handover_conversation_id") @db.Uuid
+  messageCount           Int                     @default(0) @map("message_count")
+  lastMessageAt          DateTime                @map("last_message_at") @db.Timestamptz(3)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user     User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking  Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  handover SupportConversation? @relation(fields: [handoverConversationId], references: [id], onDelete: SetNull)
+  messages AgentMessage[]
+  runs     AgentRun[]
+
+  @@index([userId, lastMessageAt])
+  @@index([lastMessageAt])
+  @@index([audience, status, lastMessageAt])
+  @@map("agent_conversations")
+}
+
+/// One message of a conversation, as the person wrote it or as the assistant answered. Bodies
+/// are sealed per message (`agent-message:{id}:body`); the model only ever gets a scrubbed copy
+/// (ADR-105).
+model AgentMessage {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  conversationId String           @map("conversation_id") @db.Uuid
+  role           AgentMessageRole
+  /// Which agent answered (`AGENT_NAMES`); null for the person's own messages.
+  agent          String?          @db.VarChar(32)
+  /// `text`, `handover`, `notice`... (`AGENT_MESSAGE_KINDS`).
+  kind           String           @default("text") @db.VarChar(24)
+  bodyEncrypted  String           @map("body_encrypted")
+  /// What clients draw beside the text: result cards and a confirmation card's id. Ids, public
+  /// trip facts and prices as `Money`; never a name, a contact detail or a document.
+  parts          Json?
+  /// What an answer rested on: tool fact keys and knowledge chunk ids. Never personal data.
+  sources        Json?
+  runId          String?          @map("run_id") @db.Uuid
+  feedback       AgentFeedback?
+  feedbackAt     DateTime?        @map("feedback_at") @db.Timestamptz(3)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  run          AgentRun?         @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, id])
+  @@map("agent_messages")
+}
+
+/// One run of the graph: which agents and model worked, how long, how many tokens, what it cost
+/// and how it ended. Operations data: ids, counts and codes, never what was said. The link to
+/// the conversation is cut when the conversation goes.
+model AgentRun {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  conversationId String?        @map("conversation_id") @db.Uuid
+  audience       String         @db.VarChar(16)
+  channel        String         @db.VarChar(16)
+  /// The agent that took the run (`AGENT_NAMES`); `agents` lists every one that worked on it.
+  agent          String         @db.VarChar(32)
+  agents         String[]       @default([])
+  /// `message`, `resume`, `schedule` or `event`.
+  trigger        String         @db.VarChar(16)
+  status         AgentRunStatus @default(running)
+  /// Why it ended as it did: a short code (`paused`, `budget`, `timeout`, `step_limit`,
+  /// `guard_blocked`, `handover`, `model_error`...). Never free text.
+  outcome        String?        @db.VarChar(40)
+  modelProvider  String?        @map("model_provider") @db.VarChar(32)
+  model          String?        @db.VarChar(64)
+  promptVersion  String?        @map("prompt_version") @db.VarChar(32)
+  inputTokens    Int            @default(0) @map("input_tokens")
+  outputTokens   Int            @default(0) @map("output_tokens")
+  /// Billed cost in millionths of a US dollar.
+  costMicroUsd   BigInt         @default(0) @map("cost_micro_usd")
+  steps          Int            @default(0)
+  toolCallCount  Int            @default(0) @map("tool_call_count")
+  /// The OpenTelemetry trace of the run, to find it in the tracing backend.
+  traceId        String?        @map("trace_id") @db.VarChar(32)
+  startedAt      DateTime       @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime?      @map("finished_at") @db.Timestamptz(3)
+
+  conversation AgentConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  toolCalls    AgentToolCall[]
+  messages     AgentMessage[]
+
+  @@index([conversationId, id])
+  @@index([status, startedAt])
+  @@index([startedAt])
+  @@map("agent_runs")
+}
+
+/// One call through the tool gateway: the tool, its tier, the outcome and the names of the
+/// arguments. Argument values and results are never stored.
+model AgentToolCall {
+  id           String              @id @default(uuid(7)) @db.Uuid
+  runId        String              @map("run_id") @db.Uuid
+  agent        String              @db.VarChar(32)
+  tool         String              @db.VarChar(64)
+  /// `read`, `propose` or `commit` (`AGENT_TOOL_TIERS`).
+  tier         String              @db.VarChar(12)
+  status       AgentToolCallStatus
+  /// Why a call was denied or failed: a short code (`scope`, `autonomy`, `limit`, `invalid`...).
+  reason       String?             @db.VarChar(40)
+  argumentKeys String[]            @default([]) @map("argument_keys")
+  durationMs   Int                 @default(0) @map("duration_ms")
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  run AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, id])
+  @@index([tool, createdAt])
+  @@map("agent_tool_calls")
+}
+
+/// A setting staff control the assistant with (`AGENT_SETTING_KEYS`): the autonomy level of an
+/// agent or a tool. Who changed it is in the audit log.
+model AgentSetting {
+  key       String   @id @db.VarChar(80)
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("agent_settings")
 }

@@ -218,6 +218,9 @@ export class AccountDeletionService {
         await tx.companyMember.deleteMany({ where: { userId } });
         // Support conversations go with their messages (ADR-083).
         await tx.supportConversation.deleteMany({ where: { userId } });
+        // Conversations with the assistant go with their messages; runs stay as unlinked
+        // operations data (ADR-105).
+        await tx.agentConversation.deleteMany({ where: { userId } });
         if (user.email) {
           await tx.newsletterSubscription.deleteMany({ where: { email: user.email } });
         }

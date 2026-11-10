@@ -13,6 +13,7 @@ import {
   driverPayoutContext,
   emergencyContactContext,
   rentalLicenceNumberContext,
+  agentMessageContext,
   supportMessageContext,
 } from '../crypto/encryption-contexts';
 import { FieldEncryption } from '../crypto/field-encryption';
@@ -389,6 +390,7 @@ export class DataExportService {
       support: await this.support(userId),
       privacyRequests: await this.privacyRequests(userId),
       trips: await this.trips(userId),
+      assistant: await this.assistant(userId),
     };
 
     return {
@@ -638,6 +640,30 @@ export class DataExportService {
         from: message.author,
         sentAt: iso(message.createdAt),
         text: this.encryption.decrypt(message.bodyEncrypted, supportMessageContext(message.id)),
+      })),
+    }));
+  }
+
+  /** Conversations with the assistant (ADR-105): what the person and the assistant wrote. */
+  private async assistant(userId: string): Promise<unknown> {
+    const rows = await this.prisma.agentConversation.findMany({
+      where: { userId },
+      include: { messages: { where: { role: { not: 'system' } }, orderBy: { id: 'asc' } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      reference: row.reference,
+      channel: row.channel,
+      language: row.locale,
+      bookingId: row.bookingId,
+      status: row.status,
+      createdAt: iso(row.createdAt),
+      lastMessageAt: iso(row.lastMessageAt),
+      messages: row.messages.map((message) => ({
+        from: message.role === 'user' ? 'you' : 'assistant',
+        sentAt: iso(message.createdAt),
+        text: this.encryption.decrypt(message.bodyEncrypted, agentMessageContext(message.id)),
+        feedback: message.feedback,
       })),
     }));
   }
