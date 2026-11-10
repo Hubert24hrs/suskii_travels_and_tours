@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Suskii Agent, sub-phase A: baseline, plan and decisions (2026-11-10)
+
+The owner's brief for a LangGraph.js agent system and a price-intelligence layer
+(`docs/phases/ai-agent.md`). No product code changes in this step.
+
+#### Added
+
+- The baseline every later sub-phase is measured against, the findings from the codebase and
+  the plan for sub-phases B to H with their gates and evaluation thresholds.
+- Seven decisions: a separate agent service with sealed grants and a tool gateway (ADR-101);
+  price intelligence with sites closed until approved (ADR-102); checkpoints as personal data
+  and a database role that reaches one schema (ADR-103); indicative prices sold only through an
+  assisted quote (ADR-104); the agent's data, memory and knowledge base (ADR-105); models,
+  prompts and evaluation (ADR-106); and what an agent may do (ADR-107).
+
 ### Phone check: the test APK and the website against the online test server (2026-11-10)
 
 How the app is checked before a tester installs it (ADR-100):

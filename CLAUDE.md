@@ -75,6 +75,13 @@ per part with one total and pays once. Built on the API, the website and the app
 check (ADR-100) runs it in the published test APK and on the website against the online test
 server.
 
+Suskii Agent (outside the numbered phases; the owner's LangGraph.js agent system and the
+price-intelligence layer, ADR-101 to ADR-107): sub-phase A (baseline, findings, plan and
+decisions) is done; B to H follow in order (`docs/phases/ai-agent.md`): foundations, the
+price-intelligence engine, the agent service, assisted quotes and staff agents, the console, the
+clients, hardening. Nothing of it runs in production until the owner sets `AGENT_ENABLED` and
+`PRICE_INTEL_ENABLED` and approves each web source.
+
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
 needs the owner's account, then one run of `partner-sandbox.yml` (`docs/phases/partner-supply.md`). Own rides and the own fleet stay off
@@ -1361,6 +1368,13 @@ Tooling notes for agents:
 - [ADR-098: Car rental rates by the week and month, airport branches and rental options](docs/decisions/ADR-098-car-rental-rates-branches-and-options.md)
 - [ADR-099: Combined trips, built from ordinary bookings and paid once](docs/decisions/ADR-099-combined-trips.md)
 - [ADR-100: Phone check, the test APK and the website against the online test server](docs/decisions/ADR-100-phone-check.md)
+- [ADR-101: A separate agent service, sealed grants and the tool gateway](docs/decisions/ADR-101-agent-service-grants-and-tool-gateway.md)
+- [ADR-102: Price intelligence, the source order, source policies and failover](docs/decisions/ADR-102-price-intelligence.md)
+- [ADR-103: Agent checkpoints as personal data, and what the agent reaches in the database](docs/decisions/ADR-103-agent-checkpoints-and-database-access.md)
+- [ADR-104: Indicative prices and assisted quotes](docs/decisions/ADR-104-indicative-prices-and-assisted-quotes.md)
+- [ADR-105: The agent's data: conversations, memory, knowledge and retention](docs/decisions/ADR-105-agent-data-memory-and-knowledge.md)
+- [ADR-106: Agent models, prompts and evaluation](docs/decisions/ADR-106-agent-models-prompts-and-evaluation.md)
+- [ADR-107: What an agent may do: tool tiers, confirmations, approvals and autonomy](docs/decisions/ADR-107-agent-authority.md)
 
 ## Open questions for the owner
 
@@ -1527,5 +1541,12 @@ assistance, an eSIM or lounge access should become parts of a trip, whether the 
 children's ages, one confirmation email for the whole trip, a console view of trips, and paying a
 trip in installments or from a wallet. Added with the phone check (ADR-100): a device farm
 (Firebase Test Lab, BrowserStack or AWS Device Farm) to run the same flows on real phones before
-a store release, and whether the check should run on a schedule. Every owner action is listed,
-step by step, in `docs/owner/launch-checklist.md`.
+a store release, and whether the check should run on a schedule. Added with the Suskii Agent
+(ADR-101 to ADR-107): accounts, keys and budgets for Firecrawl, Apify, Browse AI, Oxylabs and
+Bright Data; Browse AI robots for the chosen sites; counsel's and the owner's approval of each
+web source with its basis (all start in `review`); whether an assisted quote earns a service fee
+or a margin (default: a fee on the verified supplier price); who works the approvals and
+assisted-quote queues and during which hours; whether a meal preference may be remembered
+(counsel, ADR-093); the model for each agent role and one live run of each agent eval with
+`LLM_API_KEY`; and whether to turn the agent and price intelligence on in production. Every
+owner action is listed, step by step, in `docs/owner/launch-checklist.md`.
