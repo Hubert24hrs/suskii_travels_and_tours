@@ -304,8 +304,8 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
       // destination refresh (4), push tokens (1), visa (2), price alerts, reminders and referrals
       // (3), retention (1), ride dispatch and driver document scans (2), ledger reconciliation
       // and driver payouts (2), review invitations (1), ad conversions (1), the agent's tool
-      // gateway (2: the tool list and a tool call).
-      expect(internalOperations).toBe(26);
+      // gateway (2: the tool list and a tool call), the price-intelligence sweep (1).
+      expect(internalOperations).toBe(27);
     });
 
     it('resolves every $ref (generated clients refuse dangling references)', () => {
