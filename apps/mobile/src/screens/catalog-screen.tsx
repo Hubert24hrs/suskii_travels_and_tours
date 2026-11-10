@@ -8,13 +8,25 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Loading, Notice } from '../components/states';
 import { useApp, useT } from '../providers/app-provider';
 
-type Kind = 'package' | 'tour';
-type Product = Schemas['PackageCard'] | Schemas['TourCard'];
+export type CatalogKind = 'package' | 'tour';
+type Kind = CatalogKind;
+export type Product = Schemas['PackageCard'] | Schemas['TourCard'];
 
 const isPackage = (item: Product): item is Schemas['PackageCard'] => 'nights' in item;
 
-/** One product: title, place, length, next date and the "from" price per adult. */
-function ProductRow({ item, kind }: { item: Product; kind: Kind }) {
+/**
+ * One product: title, place, length, next date and the "from" price per adult. Home lists a few
+ * under its own ids (`testIDPrefix`), so a flow never mistakes them for the catalog's rows.
+ */
+export function ProductRow({
+  item,
+  kind,
+  testIDPrefix = 'product',
+}: {
+  item: Product;
+  kind: Kind;
+  testIDPrefix?: string;
+}) {
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
@@ -30,7 +42,7 @@ function ProductRow({ item, kind }: { item: Product; kind: Kind }) {
   ];
   return (
     <Pressable
-      testID={`product-${item.slug}`}
+      testID={`${testIDPrefix}-${item.slug}`}
       accessibilityRole="button"
       accessibilityLabel={`${item.title}. ${t('inhouse.fromPerAdult', { price: format.moneyFrom(item.fromPrice) })}`}
       onPress={() =>
