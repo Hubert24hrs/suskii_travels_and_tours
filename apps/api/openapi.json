@@ -19353,6 +19353,15 @@
             }
           },
           {
+            "name": "types",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z]+(,[a-z]+)*$"
+            }
+          },
+          {
             "name": "maxPrice",
             "in": "query",
             "required": false,
@@ -43945,6 +43954,25 @@
               "type": "string"
             }
           },
+          "propertyType": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "hotel",
+                  "apartment",
+                  "resort",
+                  "guesthouse",
+                  "villa",
+                  "hostel",
+                  "lodge"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "verifiedReviews": {
             "anyOf": [
               {
@@ -43954,6 +43982,18 @@
                 "type": "null"
               }
             ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HotelPhoto"
+            }
           },
           "nights": {
             "type": "integer",
@@ -43980,7 +44020,10 @@
           "cityName",
           "countryCode",
           "amenities",
+          "propertyType",
           "verifiedReviews",
+          "description",
+          "photos",
           "nights",
           "rates"
         ],
@@ -44108,6 +44151,36 @@
               "additionalProperties": false
             }
           },
+          "propertyTypes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "hotel",
+                    "apartment",
+                    "resort",
+                    "guesthouse",
+                    "villa",
+                    "hostel",
+                    "lodge"
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "count"
+              ],
+              "additionalProperties": false
+            }
+          },
           "freeCancellation": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -44120,7 +44193,28 @@
           "amenities",
           "boards",
           "areas",
+          "propertyTypes",
           "freeCancellation"
+        ],
+        "additionalProperties": false
+      },
+      "HotelPhoto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "url",
+          "caption"
         ],
         "additionalProperties": false
       },
@@ -44192,6 +44286,17 @@
           "roomName": {
             "type": "string"
           },
+          "room": {
+            "default": null,
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HotelRoom"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "board": {
             "type": "string",
             "enum": [
@@ -44239,6 +44344,7 @@
         "required": [
           "id",
           "roomName",
+          "room",
           "board",
           "refundable",
           "freeCancellationUntil",
@@ -44246,6 +44352,72 @@
           "pricePerNight",
           "payAtProperty",
           "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "HotelRoom": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "maxGuests": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sizeSqm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "beds": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "single",
+                    "twin",
+                    "double",
+                    "queen",
+                    "king",
+                    "sofa_bed",
+                    "bunk"
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "type",
+                "count"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "description",
+          "maxGuests",
+          "sizeSqm",
+          "beds"
         ],
         "additionalProperties": false
       },
@@ -44520,10 +44692,39 @@
               "type": "string"
             }
           },
+          "propertyType": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "hotel",
+                  "apartment",
+                  "resort",
+                  "guesthouse",
+                  "villa",
+                  "hostel",
+                  "lodge"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "verifiedReviews": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/ReviewSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "photo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HotelPhoto"
               },
               {
                 "type": "null"
@@ -44550,7 +44751,9 @@
           "cityName",
           "countryCode",
           "amenities",
+          "propertyType",
           "verifiedReviews",
+          "photo",
           "cheapestRate",
           "freeCancellationAvailable"
         ],

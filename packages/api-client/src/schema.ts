@@ -9841,7 +9841,10 @@ export interface components {
             cityName: string;
             countryCode: string;
             amenities: string[];
+            propertyType: ("hotel" | "apartment" | "resort" | "guesthouse" | "villa" | "hostel" | "lodge") | null;
             verifiedReviews: components["schemas"]["ReviewSummary"] | null;
+            description: string | null;
+            photos: components["schemas"]["HotelPhoto"][];
             nights: number;
             rates: components["schemas"]["HotelRate"][];
         };
@@ -9868,7 +9871,17 @@ export interface components {
                 area: string;
                 count: number;
             }[];
+            propertyTypes: {
+                /** @enum {string} */
+                type: "hotel" | "apartment" | "resort" | "guesthouse" | "villa" | "hostel" | "lodge";
+                count: number;
+            }[];
             freeCancellation: number;
+        };
+        HotelPhoto: {
+            /** Format: uri */
+            url: string;
+            caption: string | null;
         };
         HotelQuote: {
             /** Format: uuid */
@@ -9888,6 +9901,8 @@ export interface components {
         HotelRate: {
             id: string;
             roomName: string;
+            /** @default null */
+            room: components["schemas"]["HotelRoom"] | null;
             /** @enum {string} */
             board: "room_only" | "breakfast_included" | "half_board" | "full_board";
             refundable: boolean;
@@ -9897,6 +9912,16 @@ export interface components {
             payAtProperty: components["schemas"]["Money"] | null;
             /** Format: date-time */
             expiresAt: string;
+        };
+        HotelRoom: {
+            description: string | null;
+            maxGuests: number | null;
+            sizeSqm: number | null;
+            beds: {
+                /** @enum {string} */
+                type: "single" | "twin" | "double" | "queen" | "king" | "sofa_bed" | "bunk";
+                count: number;
+            }[];
         };
         HotelSearchRequest: {
             destination: {
@@ -9960,7 +9985,9 @@ export interface components {
             cityName: string;
             countryCode: string;
             amenities: string[];
+            propertyType: ("hotel" | "apartment" | "resort" | "guesthouse" | "villa" | "hostel" | "lodge") | null;
             verifiedReviews: components["schemas"]["ReviewSummary"] | null;
+            photo: components["schemas"]["HotelPhoto"] | null;
             cheapestRate: components["schemas"]["HotelRate"];
             freeCancellationAvailable: boolean;
         };
@@ -21456,6 +21483,7 @@ export interface operations {
                 amenities?: string;
                 areas?: string;
                 board?: "room_only" | "breakfast_included" | "half_board" | "full_board";
+                types?: string;
                 maxPrice?: number;
                 cursor?: string;
                 limit?: number;

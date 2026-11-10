@@ -47,7 +47,13 @@ export const HOTEL_SUPPLIERS = Symbol('HOTEL_SUPPLIERS');
           config.MOCK_SCHEDULE_CHANGE_RULES,
         ),
     },
-    { provide: MockHotelSupplier, useFactory: () => new MockHotelSupplier() },
+    {
+      provide: MockHotelSupplier,
+      inject: [APP_CONFIG],
+      // Sample pictures are drawn by the website (`/art/hotels`, ADR-096).
+      useFactory: (config: AppConfig) =>
+        new MockHotelSupplier(() => new Date(), config.WEB_APP_URL.replace(/\/$/, '')),
+    },
     {
       provide: FLIGHT_SUPPLIERS,
       inject: [APP_CONFIG, MockFlightSupplier],

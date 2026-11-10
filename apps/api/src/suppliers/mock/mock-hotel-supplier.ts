@@ -6,6 +6,7 @@ import {
   multiplyRatio,
   percentageOf,
   type Money,
+  type PropertyType,
 } from '@suskii/shared';
 
 import { OfferUnavailableError, SupplierUnavailableError } from '../supplier.errors';
@@ -17,6 +18,8 @@ import {
   type HotelSearchQuery,
   type SupplierHotel,
   type SupplierHotelRate,
+  type SupplierPhoto,
+  type SupplierRoom,
 } from '../supplier.types';
 
 import { SeededRandom, stableCode, stableId } from './random';
@@ -67,13 +70,89 @@ const AMENITIES = [
   'room_service',
   'laundry',
 ];
-const ROOMS: { name: string; factor: number; minStars: number }[] = [
-  { name: 'Standard Room', factor: 1, minStars: 1 },
-  { name: 'Deluxe Room', factor: 1.25, minStars: 3 },
-  { name: 'Executive Room', factor: 1.55, minStars: 4 },
-  { name: 'Family Room', factor: 1.45, minStars: 2 },
-  { name: 'Junior Suite', factor: 2.1, minStars: 4 },
+const ROOMS: { name: string; factor: number; minStars: number; room: SupplierRoom }[] = [
+  {
+    name: 'Standard Room',
+    factor: 1,
+    minStars: 1,
+    room: {
+      description: 'A quiet room with a work desk, a wardrobe and a private bathroom.',
+      maxGuests: 2,
+      sizeSqm: 22,
+      beds: [{ type: 'double', count: 1 }],
+    },
+  },
+  {
+    name: 'Deluxe Room',
+    factor: 1.25,
+    minStars: 3,
+    room: {
+      description: 'A larger room on a higher floor, with a seating corner and a minibar.',
+      maxGuests: 2,
+      sizeSqm: 28,
+      beds: [{ type: 'queen', count: 1 }],
+    },
+  },
+  {
+    name: 'Executive Room',
+    factor: 1.55,
+    minStars: 4,
+    room: {
+      description: 'A corner room with a city view, a sofa and a rain shower.',
+      maxGuests: 2,
+      sizeSqm: 34,
+      beds: [{ type: 'king', count: 1 }],
+    },
+  },
+  {
+    name: 'Family Room',
+    factor: 1.45,
+    minStars: 2,
+    room: {
+      description: 'Room for parents and two children, with a bath and extra storage.',
+      maxGuests: 4,
+      sizeSqm: 40,
+      beds: [
+        { type: 'double', count: 1 },
+        { type: 'single', count: 2 },
+      ],
+    },
+  },
+  {
+    name: 'Junior Suite',
+    factor: 2.1,
+    minStars: 4,
+    room: {
+      description: 'A bedroom and a separate sitting area with a sofa bed and a dining table.',
+      maxGuests: 3,
+      sizeSqm: 48,
+      beds: [
+        { type: 'king', count: 1 },
+        { type: 'sofa_bed', count: 1 },
+      ],
+    },
+  },
 ];
+/** What kind of place each generated name is. */
+const KIND_TYPE: Record<string, PropertyType> = {
+  Hotel: 'hotel',
+  Suites: 'apartment',
+  Resort: 'resort',
+  Inn: 'guesthouse',
+  Residences: 'apartment',
+  Lodge: 'lodge',
+  'Hotel & Spa': 'hotel',
+};
+const AMENITY_WORDS: Record<string, string> = {
+  pool: 'an outdoor pool',
+  gym: 'a gym',
+  spa: 'a spa',
+  restaurant: 'a restaurant',
+  bar: 'a bar',
+  parking: 'free parking',
+  airport_shuttle: 'an airport shuttle',
+  backup_power: 'backup power',
+};
 /** Nightly rate for a double room by star rating: [USD, NGN] whole units. */
 const NIGHTLY_BASE: Record<number, [number, number]> = {
   2: [45, 35_000],
@@ -108,7 +187,9 @@ const DEFAULT_PRICE_LEVEL = 1.3;
  * MOCK hotel supplier: a deterministic, fictional set of hotels around each city (stable per
  * city, prices vary by dates), with star ratings, review scores, amenities, room types, board,
  * refundable and non-refundable rates and tax lines. Nigerian hotels price in NGN with 7.5% VAT;
- * elsewhere USD with 10% tax plus a city tax payable at the property.
+ * elsewhere USD with 10% tax plus a city tax payable at the property. Each hotel also has a
+ * property type, a short description, room details and, when `photoBase` (the website's origin)
+ * is set, drawn sample pictures served by the website's `/art/hotels` route (ADR-096).
  */
 export class MockHotelSupplier extends HotelSupplier {
   readonly name = 'mock';
@@ -118,7 +199,10 @@ export class MockHotelSupplier extends HotelSupplier {
   /** Test hook: this many upcoming `book()` calls fail as if the property were unreachable. */
   failNextBookings = 0;
 
-  constructor(private readonly now: () => Date = () => new Date()) {
+  constructor(
+    private readonly now: () => Date = () => new Date(),
+    private readonly photoBase: string | null = null,
+  ) {
     super();
   }
 
@@ -239,6 +323,7 @@ export class MockHotelSupplier extends HotelSupplier {
               JSON.stringify(query),
             ),
             roomName: room.name,
+            room: room.room,
             board,
             refundable,
             freeCancellationUntil: refundable ? freeCancellationUntil.toISOString() : null,
@@ -257,20 +342,69 @@ export class MockHotelSupplier extends HotelSupplier {
       (city.longitude ?? 0) +
       (radiusKm / (111 * Math.cos(((city.latitude ?? 0) * Math.PI) / 180))) * Math.sin(angle);
 
+    // Drawn in the same order as before the content fields existed: prices and names never move.
+    const reviewCount = cityRandom.int(12, 2400);
+    const area = cityRandom.pick(AREAS);
+    const propertyType = KIND_TYPE[kind] ?? 'hotel';
     return {
       supplier: this.name,
       supplierHotelId,
       name,
       stars,
       reviewScore,
-      reviewCount: cityRandom.int(12, 2400),
+      reviewCount,
       latitude: Math.round(latitude * 1e6) / 1e6,
       longitude: Math.round(longitude * 1e6) / 1e6,
-      area: cityRandom.pick(AREAS),
+      area,
       cityName: city.name,
       countryCode: city.countryCode,
       amenities,
+      propertyType,
+      description: this.description(name, stars, propertyType, area, city.name, amenities),
+      photos: this.photos(supplierHotelId, amenities),
       rates: rates.sort((a, b) => Number(a.price.base.minor - b.price.base.minor)),
     };
+  }
+
+  private description(
+    name: string,
+    stars: number,
+    type: PropertyType,
+    area: string,
+    city: string,
+    amenities: readonly string[],
+  ): string {
+    const has = amenities.flatMap((amenity) => AMENITY_WORDS[amenity] ?? []).slice(0, 4);
+    const list =
+      has.length > 1 ? `${has.slice(0, -1).join(', ')} and ${has.at(-1) ?? ''}` : (has[0] ?? '');
+    return [
+      `${name} is a ${stars}-star ${type} in the ${area.toLowerCase()} of ${city}.`,
+      list ? `It has ${list}.` : '',
+      'Rooms are air-conditioned and have Wi-Fi. This is sample data for testing, not a real property.',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  /** Drawn pictures from the website's art route: an exterior, a room and what the hotel has. */
+  private photos(supplierHotelId: string, amenities: readonly string[]): SupplierPhoto[] {
+    if (!this.photoBase) return [];
+    const seed = stableCode(
+      `photos|${supplierHotelId}`,
+      10,
+      'abcdefghijklmnopqrstuvwxyz0123456789',
+    );
+    const scenes: [string, string][] = [
+      ['exterior', 'The building'],
+      ['room', 'A room'],
+      ...(amenities.includes('pool') ? ([['pool', 'The pool']] as [string, string][]) : []),
+      ...(amenities.includes('restaurant')
+        ? ([['dining', 'The restaurant']] as [string, string][])
+        : []),
+    ];
+    return scenes.map(([scene, caption]) => ({
+      url: `${this.photoBase}/art/hotels/${seed}-${scene}.svg`,
+      caption,
+    }));
   }
 }

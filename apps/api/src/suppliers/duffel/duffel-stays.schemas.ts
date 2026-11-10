@@ -30,6 +30,8 @@ export type DuffelStaysRate = z.output<typeof duffelStaysRateSchema>;
 
 const room = z.looseObject({
   name: z.string(),
+  // "single", "double", "queen", "king" or "sofabed", with how many (ADR-096).
+  beds: z.array(z.looseObject({ type: z.string(), count: z.number() })).nullish(),
   // Each rate is validated on its own, so one odd rate does not hide the room.
   rates: z.array(z.unknown()),
 });
@@ -42,6 +44,8 @@ export const duffelStaysAccommodationSchema = z.looseObject({
   review_score: z.number().nullish(),
   review_count: z.number().nullish(),
   amenities: z.array(z.looseObject({ type: z.string() })).nullish(),
+  description: z.string().nullish(),
+  photos: z.array(z.looseObject({ url: z.string() })).nullish(),
   location: z.looseObject({
     address: z.looseObject({ city_name: z.string(), country_code: z.string().length(2) }),
     geographic_coordinates: z

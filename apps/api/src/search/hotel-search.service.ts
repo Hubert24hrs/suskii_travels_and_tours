@@ -2,11 +2,16 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
 import {
+  HOTEL_DESCRIPTION_MAX,
+  MAX_HOTEL_PHOTOS,
+  ROOM_DESCRIPTION_MAX,
   compare,
   daysBetween,
   equals,
+  isSafePhotoUrl,
   localDate,
   multiplyRatio,
+  plainDescription,
   subtract,
   toWire,
   type HotelSearchRequest,
@@ -29,6 +34,8 @@ import type {
   HotelSupplier,
   SupplierHotel,
   SupplierHotelRate,
+  SupplierPhoto,
+  SupplierRoom,
 } from '../suppliers/supplier.types';
 import { HOTEL_SUPPLIERS } from '../suppliers/suppliers.module';
 
@@ -136,6 +143,7 @@ export function toHotelRateDto(rate: PricedRate, nights: number, fx: Converter):
   return {
     id: rate.id,
     roomName: rate.rate.roomName,
+    room: presentRoom(rate.rate.room),
     board: rate.rate.board,
     refundable: rate.rate.refundable,
     freeCancellationUntil: rate.rate.freeCancellationUntil,
@@ -146,6 +154,36 @@ export function toHotelRateDto(rate: PricedRate, nights: number, fx: Converter):
       : null,
     expiresAt: rate.rate.expiresAt,
   };
+}
+
+/** A room's details with its description as plain text; null when the supplier sent nothing. */
+function presentRoom(room: SupplierRoom | null | undefined): HotelRateDto['room'] {
+  if (!room) return null;
+  return {
+    description: plainDescription(room.description, ROOM_DESCRIPTION_MAX),
+    maxGuests: room.maxGuests,
+    sizeSqm: room.sizeSqm,
+    beds: room.beds.filter((bed) => bed.count > 0).slice(0, 6),
+  };
+}
+
+/**
+ * The photos clients may load (ADR-096): https URLs from the supplier, and the demo supplier's
+ * drawn pictures on our own website (plain http on a developer's machine).
+ */
+export function presentPhotos(
+  photos: readonly SupplierPhoto[] | undefined,
+  webAppUrl: string,
+  max: number,
+): { url: string; caption: string | null }[] {
+  const own = `${webAppUrl.replace(/\/$/, '')}/art/hotels/`;
+  return (photos ?? [])
+    .filter((photo) => isSafePhotoUrl(photo.url) || photo.url.startsWith(own))
+    .slice(0, max)
+    .map((photo) => ({
+      url: photo.url,
+      caption: plainDescription(photo.caption, 120),
+    }));
 }
 
 const hotelBase = (hotel: SupplierHotel, id: string) => ({
@@ -161,6 +199,7 @@ const hotelBase = (hotel: SupplierHotel, id: string) => ({
   cityName: hotel.cityName,
   countryCode: hotel.countryCode,
   amenities: hotel.amenities,
+  propertyType: hotel.propertyType ?? null,
 });
 
 /** Hotel search orchestration, mirroring flights: cache, parallel suppliers, pricing, filters, quotes. */
@@ -275,6 +314,8 @@ export class HotelSearchService {
     return {
       ...hotelBase(item.hotel, item.id),
       verifiedReviews,
+      description: plainDescription(item.hotel.description, HOTEL_DESCRIPTION_MAX),
+      photos: presentPhotos(item.hotel.photos, this.config.WEB_APP_URL, MAX_HOTEL_PHOTOS),
       nights,
       rates: [...priced.rates]
         .sort((a, b) => Number(a.price.total.minor - b.price.total.minor))
@@ -559,6 +600,7 @@ export class HotelSearchService {
       hotels: page.map((item, index) => ({
         ...hotelBase(item.hotel, item.id),
         verifiedReviews: verified[index] ?? null,
+        photo: presentPhotos(item.hotel.photos, this.config.WEB_APP_URL, 1)[0] ?? null,
         cheapestRate: toHotelRateDto(item.cheapest, nights, fx),
         freeCancellationAvailable: item.rates.some(({ rate }) => rate.refundable),
       })),
