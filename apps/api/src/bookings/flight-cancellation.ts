@@ -1,16 +1,26 @@
-import { add, compare, minOf, money, multiply, multiplyRatio, type Money } from '@suskii/shared';
+import {
+  add,
+  compare,
+  fromWire,
+  minOf,
+  money,
+  multiply,
+  multiplyRatio,
+  type Money,
+} from '@suskii/shared';
 
 import type { FlightSupplier } from '../suppliers/supplier.types';
 
 import { itemPayload, itemServices, type BookingRecord } from './booking-presenter';
-import { matchService, type FlightItemPayload } from './booking-pricing';
+import { isSeat, matchService, type FlightItemPayload } from './booking-pricing';
 
 // Pure rules of online flight cancellation (ADR-064), shared by the service and the presenter.
 
-/** What we paid the supplier for the booked flight: the fare and any extra bags. */
+/** What we paid the supplier for the booked flight: the fare, any extra bags and chosen seats. */
 export function supplierPaid(payload: FlightItemPayload, item: { services: unknown }): Money {
   const fare = add(payload.offer.price.base, payload.offer.price.taxes);
   return itemServices(item).reduce((total, selection) => {
+    if (isSeat(selection)) return add(total, fromWire(selection.price));
     const service = matchService(payload.offer.services, selection);
     return service ? add(total, multiply(service.price, selection.quantity)) : total;
   }, fare);

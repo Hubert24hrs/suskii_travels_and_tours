@@ -68,6 +68,10 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 6. **Special meals** (ADR-093): ask Duffel how its orders take a special meal request and make
    one sandbox booking with one. Until then travellers on Duffel fares are told to ask the
    airline, and no meal preference is collected.
+7. **Seats** (ADR-094): run **Duffel sandbox check** with booking on. It reads the seat maps and
+   orders one seat with the test ticket. When it passes, set `DUFFEL_SEAT_SELECTION = "true"`
+   (staging first). Until then travellers on Duffel fares are told the airline sells no seats in
+   advance. Decide whether Suskii adds a fee to seats (none today).
 
 ### 1.4 Text messages (sign-in codes, booking and safety alerts)
 

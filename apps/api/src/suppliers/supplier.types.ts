@@ -5,6 +5,7 @@ import type {
   Money,
   PassengerTitle,
   PassengerType,
+  SeatFeature,
   TravellerCounts,
 } from '@suskii/shared';
 
@@ -205,12 +206,48 @@ export interface SupplierContact {
   phone: string;
 }
 
+/** A seat on one flight of an offer, as the airline's seat map shows it (ADR-094). */
+export interface SupplierSeat {
+  /** Row and letter, e.g. "12A". */
+  designator: string;
+  /** Free to choose for every traveller with a seat, at `price`. */
+  available: boolean;
+  /** Per traveller, in the supplier's currency; zero for a seat that costs nothing. */
+  price: Money;
+  features: SeatFeature[];
+}
+
+/** The seats of one flight (segment) of an offer. */
+export interface SupplierSeatMap {
+  /** Which flight of the offer: every segment of every slice in order, from 0. */
+  flight: number;
+  cabinClass: CabinClass;
+  rows: {
+    number: number;
+    /** Blocks of seats between aisles, left to right; `null` is a gap where no seat is. */
+    sections: (SupplierSeat | null)[][];
+  }[];
+}
+
+/** A seat to assign with the booking, at the price the seat map gave. */
+export interface SeatAssignment {
+  flight: number;
+  designator: string;
+  passengerIndex: number;
+  price: Money;
+}
+
 export interface FlightBookingRequest {
   offer: SupplierFlightOffer;
   /** In the offer's order: adults, then children, then infants. */
   passengers: SupplierPassenger[];
   contact: SupplierContact;
   services: { serviceId: string; passengerIndex: number; quantity: number }[];
+  /**
+   * Chosen seats (ADR-094). The supplier refuses the booking when one is taken or its price has
+   * changed, as for a bag: nothing is booked without what the traveller paid for.
+   */
+  seats?: SeatAssignment[];
   /** Stable per booking item: repeating a request with it never books twice. */
   idempotencyKey: string;
 }
@@ -351,6 +388,14 @@ export abstract class FlightSupplier {
     signal: AbortSignal,
   ): Promise<SupplierFlightOffer> {
     return this.reprice(offer, signal);
+  }
+
+  /**
+   * The seat map of each flight of an offer this supplier quoted (ADR-094). Empty when the
+   * airline sells no seats through the supplier: the traveller then gets a seat at check-in.
+   */
+  seatMaps(_offer: SupplierFlightOffer, _signal: AbortSignal): Promise<SupplierSeatMap[]> {
+    return Promise.resolve([]);
   }
 
   /** Books and tickets a paid offer. Must be idempotent by `request.idempotencyKey`. */

@@ -105,6 +105,47 @@ export const duffelServiceSchema = z.looseObject({
 
 export type DuffelService = z.infer<typeof duffelServiceSchema>;
 
+/**
+ * The seat map of one segment of an offer (`GET /air/seat_maps?offer_id=`). Rows hold sections
+ * (the blocks between aisles) of elements; only `seat` elements can be chosen, and each lists
+ * the service that books it per passenger. Airlines that sell no seats through Duffel return no
+ * maps.
+ */
+export const duffelSeatMapSchema = z.looseObject({
+  segment_id: z.string(),
+  cabins: z.array(
+    z.looseObject({
+      cabin_class: z.string().nullish(),
+      rows: z.array(
+        z.looseObject({
+          sections: z.array(
+            z.looseObject({
+              elements: z.array(
+                z.looseObject({
+                  type: z.string(),
+                  designator: z.string().nullish(),
+                  available_services: z
+                    .array(
+                      z.looseObject({
+                        id: z.string(),
+                        passenger_id: z.string(),
+                        total_amount: decimal,
+                        total_currency: currency,
+                      }),
+                    )
+                    .nullish(),
+                }),
+              ),
+            }),
+          ),
+        }),
+      ),
+    }),
+  ),
+});
+
+export type DuffelSeatMap = z.infer<typeof duffelSeatMapSchema>;
+
 export const duffelOrderSchema = z.looseObject({
   id: z.string(),
   booking_reference: z.string().min(1),

@@ -860,6 +860,43 @@ export const sw: Messages = {
         child: 'Chakula cha mtoto',
       },
     },
+    seats: {
+      heading: 'Viti',
+      intro:
+        'Chagua kiti kwa kila msafiri, au ruka hatua hii na shirika la ndege litakupa viti wakati wa kuingia.',
+      choose: 'Chagua viti',
+      loading: 'Inapakia ramani ya viti…',
+      failed:
+        'Hatukuweza kupakia ramani ya viti. Bado unaweza kuweka nafasi; shirika la ndege litakupa viti wakati wa kuingia.',
+      unavailable:
+        'Shirika hili la ndege hutoa viti wakati wa kuingia. Hakuna kiti kinachoweza kuchaguliwa hapa.',
+      flight: '{origin} hadi {destination} · {flight}',
+      choosingFor: 'Unachagua kwa ajili ya',
+      seatFree: 'Kiti {seat}, {details}, {price}',
+      seatTaken: 'Kiti {seat}, kimechukuliwa',
+      seatYours: 'Kiti {seat}, kimechaguliwa kwa {name}',
+      noCharge: 'bila malipo',
+      standard: 'kiti cha kawaida',
+      features: {
+        window: 'dirishani',
+        aisle: 'njiani',
+        extra_legroom: 'nafasi zaidi ya miguu',
+        exit_row: 'safu ya mlango wa dharura',
+      },
+      legend: {
+        free: 'Kinapatikana',
+        taken: 'Kimechukuliwa',
+        yours: 'Viti vyako',
+      },
+      chosen: '{name}: kiti {seat} ({price})',
+      notChosen: '{name}: hakuna kiti kilichochaguliwa',
+      total: 'Viti',
+      infant: 'Mtoto mchanga hukaa kwenye mapaja ya mtu mzima.',
+      notWithPlans:
+        'Kuhifadhi nafasi na kulipa kwa awamu hakupatikani pamoja na viti vilivyochaguliwa.',
+      row: 'Safu {number}',
+      pricesIn: 'Bei za viti ni kwa kila msafiri, kwa {currency}.',
+    },
     addonDetails: {
       heading: 'Maelezo ya usafiri',
       hint: 'Tunayapeleka kwa dereva au mtoa huduma wako pekee.',
@@ -1003,6 +1040,7 @@ export const sw: Messages = {
       bot: 'Hatukuweza kuthibitisha ombi hili. Onyesha upya ukurasa na ujaribu tena.',
       terms: 'Masharti ya uhifadhi yamebadilika. Onyesha upya ukurasa ili kuyapitia.',
       extras: 'Huduma hizi za ziada hazipatikani tena. Zichague tena.',
+      seats: 'Kimoja cha viti vyako hakipatikani tena. Chagua viti vyako tena.',
       tooMany: 'Majaribio mengi mno. Subiri dakika chache kisha ujaribu tena.',
       holdUnavailable:
         'Shirika la ndege halishikilii nauli hii kwa sasa. Bado unaweza kulipa kikamilifu.',
@@ -1997,6 +2035,7 @@ export const sw: Messages = {
     room: 'Chumba {number}',
     passport: 'Pasipoti inayoishia {hint}',
     mealRequest: 'Ombi la chakula: {meal}',
+    seats: 'Viti: {seats}',
     extraBags: { one: '+mzigo {count} wa ziada', other: '+mizigo {count} ya ziada' },
     paid: 'Jumla iliyolipwa',
     price: 'Bei kamili',

@@ -16,10 +16,10 @@ import {
   type PassengerDraft,
 } from '@suskii/shared/lite';
 import { useFormatters } from '@suskii/i18n/react';
-import { Button, Card, Dialog, DialogContent, Input } from '@suskii/ui-web';
-import { Lock } from 'lucide-react';
+import { Button, Card, Dialog, DialogContent, Input, Skeleton } from '@suskii/ui-web';
+import { Armchair, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { marketingAttribution } from '../../lib/ad-attribution';
 import { trackAd } from '../../lib/ad-events';
@@ -42,7 +42,11 @@ import {
   type PaymentPlanChoice,
   type PaymentMethodName,
 } from './payment-choice';
+import type { PricedSeat } from './seat-picker';
 import { PriceSummary, TripSummary, type PriceLines } from './summaries';
+
+// The seat map and its picker load when the traveller presses "Choose seats" (ADR-094).
+const SeatPicker = lazy(() => import('./seat-picker'));
 
 type Quote = Schemas['Quote'];
 type Money = Schemas['Money'];
@@ -184,6 +188,10 @@ export function Checkout({
   const [promoBusy, setPromoBusy] = useState(false);
   const [priceChange, setPriceChange] = useState<PriceChange | null>(null);
   const [plan, setPlan] = useState<PaymentPlanChoice>('full');
+  // Seat selection (ADR-094): its code and the seat map load only when the traveller asks.
+  const [choosingSeats, setChoosingSeats] = useState(false);
+  const [seats, setSeats] = useState<PricedSeat[]>([]);
+  const [seatMapKey, setSeatMapKey] = useState(0);
   const [method, setMethod] = useState<PaymentMethodName | null>(null);
   const [details, setDetails] = useState<AddonDetailsDraft>(NO_DETAILS);
   // Company accounts (ADR-078): members of an active company may book the trip for it.
@@ -267,11 +275,14 @@ export function Checkout({
       bag && bagCount > 0
         ? { amountMinor: bag.price.amountMinor * bagCount, currency: bag.price.currency }
         : null;
+    // Chosen seats at the airline's price (ADR-094); the API prices them again when it books.
+    const seatMinor = seats.reduce((acc, seat) => acc + seat.price.amountMinor, 0);
     return {
       price,
       extras,
+      seats: seatMinor > 0 ? { amountMinor: seatMinor, currency: price.total.currency } : null,
       total: {
-        amountMinor: price.total.amountMinor + (extras?.amountMinor ?? 0),
+        amountMinor: price.total.amountMinor + (extras?.amountMinor ?? 0) + seatMinor,
         currency: price.total.currency,
       },
       payAtProperty: quote.hotel?.rate.payAtProperty ?? null,
@@ -282,7 +293,7 @@ export function Checkout({
           : null,
       breakdown: quote.priceBreakdown,
     };
-  }, [quote, draft, promo, services]);
+  }, [quote, draft, promo, services, seats]);
 
   const ensureTurnstile = () => {
     if (!turnstileSiteKey || widgetId.current || !widget.current) return;
@@ -351,7 +362,9 @@ export function Checkout({
     else setPromoError(true);
   };
 
-  const extrasSelected = draft.passengers.some((passenger) => passenger.bags > 0);
+  // A chosen seat is an extra too: like a paid bag it is never held or paid in installments.
+  const extrasSelected =
+    seats.length > 0 || draft.passengers.some((passenger) => passenger.bags > 0);
   // Paid extras cannot be held (ADR-018), nor is a wallet payment split: both pay in full.
   const chosenPlan: PaymentPlanChoice = extrasSelected || companyWallet ? 'full' : plan;
 
@@ -498,6 +511,11 @@ export function Checkout({
           ...(quote.flight?.offer.mealRequests && passenger.meal ? { meal: passenger.meal } : {}),
         })),
         guests: draft.guests,
+        seats: seats.map(({ flight, passengerIndex, designator }) => ({
+          flight,
+          passengerIndex,
+          designator,
+        })),
         extras: draft.passengers.flatMap((passenger, index) =>
           services[0] && passenger.bags > 0
             ? [{ serviceId: services[0].id, passengerIndex: index, quantity: passenger.bags }]
@@ -586,7 +604,12 @@ export function Checkout({
       } else if (slug === 'terms-outdated') setFormError(t('checkout.errors.terms'));
       else if (slug === 'bot-check-failed') setFormError(t('checkout.errors.bot'));
       else if (slug === 'extras-invalid') setFormError(t('checkout.errors.extras'));
-      else if (slug === 'promo-invalid') {
+      else if (slug === 'seats-invalid') {
+        // The map has changed: start the choice again from the airline's seats as they are now.
+        setSeats([]);
+        setSeatMapKey((key) => key + 1);
+        setFormError(t('checkout.errors.seats'));
+      } else if (slug === 'promo-invalid') {
         setPromo(null);
         setPromoError(true);
       } else if (response.status === 429) setFormError(t('checkout.errors.tooMany'));
@@ -601,6 +624,16 @@ export function Checkout({
   const errorCount = Object.keys(errors).length;
   const listIssue = errors.passengers ?? errors.guests;
   const travellerNumbers = { adult: 0, child: 0, infant: 0 };
+  // Travellers with a seat of their own, named as typed so far, else "Adult 1".
+  const seatNumbers = { adult: 0, child: 0, infant: 0 };
+  const seatedTravellers = draft.passengers.flatMap((passenger, index) => {
+    seatNumbers[passenger.type] += 1;
+    if (passenger.type === 'infant') return [];
+    const label = t(`checkout.traveller.${passenger.type}`, {
+      number: seatNumbers[passenger.type],
+    });
+    return [{ index, name: passenger.givenNames.trim() || label }];
+  });
 
   return (
     <form
@@ -666,6 +699,42 @@ export function Checkout({
               );
             })}
           </section>
+        ) : null}
+
+        {quote.flight ? (
+          <Card asChild className="flex flex-col gap-3 p-4">
+            <section aria-labelledby="checkout-seats">
+              <h2 id="checkout-seats" className="font-heading text-h3 font-bold text-heading">
+                {t('checkout.seats.heading')}
+              </h2>
+              <p className="font-body text-body-sm text-foreground">
+                {t('checkout.seats.intro')}
+                {quote.flight.offer.passengers.infants > 0 ? ` ${t('checkout.seats.infant')}` : ''}
+              </p>
+              {choosingSeats ? (
+                <Suspense fallback={<Skeleton className="h-20 w-full" />}>
+                  <SeatPicker
+                    key={seatMapKey}
+                    quoteId={quote.quoteId}
+                    travellers={seatedTravellers}
+                    value={seats}
+                    onChange={setSeats}
+                  />
+                </Suspense>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="self-start"
+                  data-testid="choose-seats"
+                  onClick={() => setChoosingSeats(true)}
+                >
+                  <Armchair aria-hidden="true" className="size-5" />
+                  {t('checkout.seats.choose')}
+                </Button>
+              )}
+            </section>
+          </Card>
         ) : null}
 
         {draft.guests.length > 0 ? (
@@ -869,6 +938,7 @@ export function Checkout({
               value={chosenPlan}
               onChange={setPlan}
               extrasSelected={extrasSelected}
+              seatsSelected={seats.length > 0}
             />
             <MethodChoice methods={quote.payment.methods} value={method} onChange={setMethod} />
           </>

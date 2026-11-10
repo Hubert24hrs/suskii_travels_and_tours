@@ -33,6 +33,8 @@ import {
   type FlightSegment,
   type FlightSlice,
   type SupplierFlightOffer,
+  type SupplierSeat,
+  type SupplierSeatMap,
 } from '../supplier.types';
 
 import {
@@ -256,6 +258,10 @@ export class MockFlightSupplier extends FlightSupplier {
   failNextChangeAcceptances = 0;
   /** Test hook: share of what we paid refunded when the traveller declines an airline change. */
   involuntaryRefundBps = 10_000;
+  /** Test hook: false makes every flight one whose airline sells no seats through us. */
+  sellsSeats = true;
+  /** Test hook: seats someone else took after the map was shown, as `<flight>:<designator>`. */
+  readonly takenSeats = new Set<string>();
   /** Held orders by id (in memory: a restart forgets them, like an airline losing a PNR). */
   readonly holds = new Map<
     string,
@@ -360,21 +366,104 @@ export class MockFlightSupplier extends FlightSupplier {
     });
   }
   /**
+   * A seat map per flight, the same every time for the same flight (ADR-094): economy cabins
+   * are three and three across with two exit rows, business and first two and two. About a third
+   * of the seats are taken. Window and aisle seats cost a little, exit rows more, middle seats
+   * and the front cabins nothing, in the fare's currency.
+   */
+  override seatMaps(offer: SupplierFlightOffer, signal: AbortSignal): Promise<SupplierSeatMap[]> {
+    signal.throwIfAborted();
+    if (!this.sellsSeats) return Promise.resolve([]);
+    const currency = offer.price.base.currency;
+    const domestic = currency === 'NGN';
+    const front = offer.cabinClass === 'business' || offer.cabinClass === 'first';
+    const letters = front
+      ? [
+          ['A', 'C'],
+          ['D', 'F'],
+        ]
+      : [
+          ['A', 'B', 'C'],
+          ['D', 'E', 'F'],
+        ];
+    const [firstRow, lastRow] = front ? [1, 6] : [10, 33];
+    const exitRows = front ? [] : [12, 13];
+    const segments = offer.slices.flatMap((slice) => slice.segments);
+    return Promise.resolve(
+      segments.map((segment, flight) => {
+        const random = new SeededRandom(
+          `seats|${segment.marketingCarrier.code}${segment.flightNumber}|${segment.departureUtc}|${offer.cabinClass}`,
+        );
+        const rows: SupplierSeatMap['rows'] = [];
+        for (let number = firstRow; number <= lastRow; number += 1) {
+          const exit = exitRows.includes(number);
+          rows.push({
+            number,
+            sections: letters.map((block, blockIndex) =>
+              block.map((letter, position): SupplierSeat => {
+                const designator = `${number}${letter}`;
+                const window = blockIndex === 0 ? position === 0 : position === block.length - 1;
+                const aisle = blockIndex === 0 ? position === block.length - 1 : position === 0;
+                const taken = random.chance(0.35) || this.takenSeats.has(`${flight}:${designator}`);
+                const minor = front
+                  ? 0n
+                  : exit
+                    ? domestic
+                      ? 750_000n
+                      : 3_500n
+                    : window || aisle
+                      ? domestic
+                        ? 200_000n
+                        : 900n
+                      : 0n;
+                return {
+                  designator,
+                  available: !taken,
+                  price: money(minor, currency),
+                  features: [
+                    ...(window ? (['window'] as const) : []),
+                    ...(aisle ? (['aisle'] as const) : []),
+                    ...(exit ? (['extra_legroom', 'exit_row'] as const) : []),
+                  ],
+                };
+              }),
+            ),
+          });
+        }
+        return { flight, cabinClass: offer.cabinClass, rows };
+      }),
+    );
+  }
+
+  /**
    * Issues deterministic references from the idempotency key, so retrying a booking returns the
    * same PNR and ticket numbers instead of booking twice.
    */
-  book(request: FlightBookingRequest, signal: AbortSignal): Promise<FlightBookingResult> {
+  async book(request: FlightBookingRequest, signal: AbortSignal): Promise<FlightBookingResult> {
     signal.throwIfAborted();
     if (this.failNextBookings > 0) {
       this.failNextBookings -= 1;
-      return Promise.reject(new SupplierUnavailableError(this.name, 'Mock ticketing is down'));
+      throw new SupplierUnavailableError(this.name, 'Mock ticketing is down');
     }
     const firstDeparture = request.offer.slices[0]?.departureUtc;
     if (firstDeparture && Date.parse(firstDeparture) <= this.now().getTime()) {
-      return Promise.reject(new OfferUnavailableError(this.name, 'The flight has departed'));
+      throw new OfferUnavailableError(this.name, 'The flight has departed');
+    }
+    // A chosen seat must still be free at the price shown, or nothing is booked (ADR-094).
+    if (request.seats?.length) {
+      const maps = await this.seatMaps(request.offer, signal);
+      for (const wanted of request.seats) {
+        const seat = maps
+          .find((map) => map.flight === wanted.flight)
+          ?.rows.flatMap((row) => row.sections.flat())
+          .find((candidate) => candidate?.designator === wanted.designator);
+        if (!seat?.available || seat.price.minor !== wanted.price.minor) {
+          throw new OfferUnavailableError(this.name, 'A chosen seat is no longer available');
+        }
+      }
     }
     const seed = `mock-booking|${request.idempotencyKey}`;
-    return Promise.resolve({
+    return {
       supplierReference: stableCode(seed, 6, 'ABCDEFGHJKLMNPQRSTUVWXYZ'),
       orderId: mockOrderId(seed),
       tickets: request.passengers.map((_, passengerIndex) => ({
@@ -386,7 +475,7 @@ export class MockFlightSupplier extends FlightSupplier {
           '0123456789',
         )}`,
       })),
-    });
+    };
   }
 
   /** Holds as the offer promised; the order id is stable per booking item (idempotent). */

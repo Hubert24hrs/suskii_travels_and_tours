@@ -11,6 +11,7 @@ import {
   type HotelSearchRequest,
   type ItineraryFacts,
   type Money,
+  type MoneyWire,
 } from '@suskii/shared';
 
 import type { Converter } from '../pricing/fx.service';
@@ -65,7 +66,32 @@ export interface ExtraSelection {
   /** Stored with the selection so a re-priced offer with new service ids still matches. */
   type?: string;
   weightKg?: number;
+  /**
+   * A chosen seat (`type: 'seat'`, ADR-094): which flight of the trip, the seat, and the
+   * airline's price for it in the supplier's currency as the seat map gave it. Seats are not in
+   * `offer.services`, so the selection carries its own price.
+   */
+  flight?: number;
+  designator?: string;
+  price?: MoneyWire;
 }
+
+export type SeatSelection = ExtraSelection & {
+  type: 'seat';
+  flight: number;
+  designator: string;
+  price: MoneyWire;
+};
+
+export const isSeat = (selection: ExtraSelection): selection is SeatSelection =>
+  selection.type === 'seat' &&
+  selection.flight !== undefined &&
+  selection.designator !== undefined &&
+  selection.price !== undefined;
+
+/** The service id a seat is stored under: unique per flight and seat. */
+export const seatServiceId = (flight: number, designator: string): string =>
+  `seat:${flight}:${designator}`;
 
 export type PromoInput = { data: PromoData; usage: PromoUsage } | null;
 
@@ -161,8 +187,17 @@ export function priceBookingItem(
   const { currency } = result.breakdown;
   const services = payload.kind === 'flight' ? payload.offer.services : [];
 
+  // Seats carry their own price (the airline's, per traveller); like bags they are converted at
+  // supplier cost and never marked up or discounted (ADR-094).
+  const seats = extras.filter(isSeat).map((seat) => ({
+    flight: seat.flight,
+    designator: seat.designator,
+    passengerPosition: seat.passengerIndex,
+    amount: fx.convert(fromWire(seat.price), currency, 'ceil'),
+  }));
   const byService = new Map<string, { service: FlightService; quantity: number }>();
   for (const selection of extras) {
+    if (isSeat(selection)) continue;
     const service = matchService(services, selection);
     if (!service) throw new Error(`Unknown service ${selection.serviceId}`);
     const entry = byService.get(service.id) ?? { service, quantity: 0 };
@@ -180,10 +215,16 @@ export function priceBookingItem(
       : null;
   const total = add(
     add(
-      result.breakdown.total,
+      add(
+        result.breakdown.total,
+        sum(
+          currency,
+          lines.map((line) => line.amount),
+        ),
+      ),
       sum(
         currency,
-        lines.map((line) => line.amount),
+        seats.map((seat) => seat.amount),
       ),
     ),
     deposit ?? zero(currency),
@@ -199,6 +240,7 @@ export function priceBookingItem(
         unitPrice: toWire(line.unit),
         amount: toWire(line.amount),
       })),
+      seats: seats.map((seat) => ({ ...seat, amount: toWire(seat.amount) })),
       deposit: deposit ? toWire(deposit) : null,
       total: toWire(total),
     },

@@ -32,6 +32,17 @@ export const extrasInvalid = (): ProblemDetailsException =>
     'Choose the extras again.',
   );
 
+/** Seat selection (ADR-094): the first seat choice that cannot be booked, by its reason. */
+export const seatsInvalid = (issue: string): ProblemDetailsException =>
+  new ProblemDetailsException(
+    HttpStatus.UNPROCESSABLE_ENTITY,
+    'seats-invalid',
+    'These seats cannot be booked',
+    'Choose the seats again.',
+    // One of SEAT_CHOICE_ISSUES, so clients can say which seat rule failed.
+    { reason: issue },
+  );
+
 /** Add-ons: a detail the product needs is missing, or details were sent for another product. */
 export const addonDetailsInvalid = (missing: string[]): ProblemDetailsException =>
   new ProblemDetailsException(

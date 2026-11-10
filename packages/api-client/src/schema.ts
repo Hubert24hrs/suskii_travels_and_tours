@@ -6098,6 +6098,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/quotes/{quoteId}/seat-maps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The seat map of each flight of a flight quote
+         * @description Seats as the airline has them now, at the airline's price in the quote's currency with no markup (ADR-094). `flights` is empty when the airline sells no seats through us. Send the chosen seats as `seats` when creating the booking; they are checked against the map again then and right before payment. 404 for a quote that is not a flight; 410 once it expired.
+         */
+        get: operations["getQuoteSeatMaps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/rentals/reservations/{reservationId}": {
         parameters: {
             query?: never;
@@ -8123,6 +8143,11 @@ export interface components {
             } | null;
             ticketNumber: string | null;
             extraBags: number;
+            /** @default [] */
+            seats: {
+                flight: number;
+                designator: string;
+            }[];
             meal: ("vegetarian" | "vegan" | "halal" | "kosher" | "gluten_free" | "diabetic" | "child") | null;
         };
         BookingPrice: {
@@ -8152,6 +8177,8 @@ export interface components {
                 provider: string;
             } | null;
             extras: components["schemas"]["BookingExtra"][];
+            /** @default [] */
+            seats: components["schemas"]["BookingSeat"][];
             deposit: components["schemas"]["Money"] | null;
         };
         BookingPriceChange: {
@@ -8187,6 +8214,12 @@ export interface components {
         };
         BookingReviews: {
             items: components["schemas"]["BookingReviewItem"][];
+        };
+        BookingSeat: {
+            flight: number;
+            designator: string;
+            passengerPosition: number;
+            amount: components["schemas"]["Money"];
         };
         BookingSummary: {
             /** Format: uuid */
@@ -8731,6 +8764,8 @@ export interface components {
             }[];
             /** @default [] */
             extras?: components["schemas"]["ExtraSelectionInput"][];
+            /** @default [] */
+            seats?: components["schemas"]["SeatChoiceInput"][];
             /** @default null */
             addonDetails?: {
                 /** @default null */
@@ -9582,6 +9617,31 @@ export interface components {
             nextCursor: string | null;
             offers: components["schemas"]["FlightOffer"][];
             facets: components["schemas"]["FlightFacets"];
+        };
+        FlightSeatMaps: {
+            /** Format: uuid */
+            quoteId: string;
+            currency: string;
+            seated: number;
+            flights: {
+                flight: number;
+                origin: components["schemas"]["AirportPoint"];
+                destination: components["schemas"]["AirportPoint"];
+                carrier: components["schemas"]["Carrier"];
+                flightNumber: string;
+                departureLocal: string;
+                /** @enum {string} */
+                cabinClass: "economy" | "premium_economy" | "business" | "first";
+                rows: {
+                    number: number;
+                    sections: ({
+                        designator: string;
+                        available: boolean;
+                        price: components["schemas"]["Money"];
+                        features: ("window" | "aisle" | "extra_legroom" | "exit_row")[];
+                    } | null)[][];
+                }[];
+            }[];
         };
         FlightSegment: {
             marketingCarrier: components["schemas"]["Carrier"];
@@ -11703,6 +11763,11 @@ export interface components {
             /** Format: date-time */
             dueAt: string;
             amount: components["schemas"]["Money"];
+        };
+        SeatChoiceInput: {
+            flight: number;
+            passengerIndex: number;
+            designator: string;
         };
         ServiceTax: {
             code: string;
@@ -24498,6 +24563,35 @@ export interface operations {
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+        };
+    };
+    getQuoteSeatMaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                quoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightSeatMaps"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            410: components["responses"]["Problem410"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     getRentalReservation: {

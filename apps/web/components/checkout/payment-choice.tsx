@@ -105,6 +105,7 @@ export function PlanChoice({
   value,
   onChange,
   extrasSelected,
+  seatsSelected = false,
 }: {
   /** Packages hold our own places (ADR-028); other in-house products issue a voucher. */
   vertical: Schemas['Quote']['vertical'];
@@ -112,6 +113,8 @@ export function PlanChoice({
   value: PaymentPlanChoice;
   onChange: (plan: PaymentPlanChoice) => void;
   extrasSelected: boolean;
+  /** The extra is a chosen seat (ADR-094), so the note names seats, not bags. */
+  seatsSelected?: boolean;
 }) {
   const { t } = useBookingT();
   const format = useFormatters();
@@ -175,7 +178,7 @@ export function PlanChoice({
         ) : null}
         {extrasSelected ? (
           <p className="font-body text-body-sm text-foreground">
-            {t('checkout.plan.notWithExtras')}
+            {seatsSelected ? t('checkout.seats.notWithPlans') : t('checkout.plan.notWithExtras')}
           </p>
         ) : null}
       </fieldset>

@@ -25,6 +25,7 @@ import {
   isInhouse,
   itineraryFacts,
   totalOf,
+  isSeat,
   type ExtraSelection,
   type FlightItemPayload,
   type ItemPayload,
@@ -66,6 +67,23 @@ export const itemPayload = (item: { payload: unknown }): ItemPayload =>
   fromJsonValue<ItemPayload>(item.payload);
 export const itemServices = (item: { services: unknown }): ExtraSelection[] =>
   fromJsonValue<ExtraSelection[]>(item.services);
+
+/** Extra bags a passenger bought (seats are stored with the extras but are not bags). */
+export const passengerBags = (services: readonly ExtraSelection[], position: number): number =>
+  services
+    .filter((selection) => selection.passengerIndex === position && !isSeat(selection))
+    .reduce((acc, selection) => acc + selection.quantity, 0);
+
+/** A passenger's chosen seats, in flight order (ADR-094). */
+export const passengerSeats = (
+  services: readonly ExtraSelection[],
+  position: number,
+): { flight: number; designator: string }[] =>
+  services
+    .filter(isSeat)
+    .filter((seat) => seat.passengerIndex === position)
+    .map((seat) => ({ flight: seat.flight, designator: seat.designator }))
+    .sort((a, b) => a.flight - b.flight);
 export const bookingPrice = (booking: { price: unknown }): BookingPriceDto =>
   booking.price as BookingPriceDto;
 /**
@@ -289,9 +307,8 @@ export function toBookingDto(
           : null,
       ticketNumber:
         tickets.find((ticket) => ticket.passengerIndex === passenger.position)?.number ?? null,
-      extraBags: services
-        .filter((selection) => selection.passengerIndex === passenger.position)
-        .reduce((acc, selection) => acc + selection.quantity, 0),
+      extraBags: passengerBags(services, passenger.position),
+      seats: passengerSeats(services, passenger.position),
       meal: (passenger.mealRequest as MealRequest | null) ?? null,
     })),
     warnings: passengerWarnings(booking, payload),

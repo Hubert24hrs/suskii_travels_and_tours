@@ -42,6 +42,7 @@ import {
 import {
   bookedRate,
   isInhouse,
+  isSeat,
   matchService,
   priceBookingItem,
   totalOf,
@@ -71,6 +72,7 @@ import {
   PRICE_HOLD_MS,
   type BookingCaller,
 } from './bookings.service';
+import { FlightSeatsService } from './flight-seats.service';
 import { InhouseCatalog } from './inhouse-catalog';
 import { inhouseOfferId } from './inhouse-items';
 import { syncRentalDeposit } from './seat-inventory';
@@ -151,6 +153,7 @@ export class CheckoutService {
     private readonly background: BackgroundTasks,
     private readonly inhouse: InhouseCatalog,
     private readonly hmac: HmacService,
+    private readonly seats: FlightSeatsService,
   ) {}
 
   async startPayment(
@@ -495,7 +498,17 @@ export class CheckoutService {
       );
       throw supplierUnavailable();
     }
-    const services = this.mapExtras(itemServices(item), freshPayload);
+    let services: ExtraSelection[] | null;
+    try {
+      services = await this.mapExtras(itemServices(item), freshPayload);
+    } catch (error) {
+      // The seat map could not be read: nothing is charged for a seat we could not confirm.
+      this.logger.warn(
+        { bookingId: booking.id, reason: (error as Error).name },
+        'seat re-check before payment failed',
+      );
+      throw supplierUnavailable();
+    }
     if (!services) {
       await this.failUnavailable(booking, actor);
       throw offerUnavailable(payload.request);
@@ -787,17 +800,26 @@ export class CheckoutService {
     return { ...payload, hotel: { ...payload.hotel, rates: [rate] } };
   }
 
-  /** Chosen extras against the re-priced offer; null when one is no longer sold. */
-  private mapExtras(selections: ExtraSelection[], fresh: ItemPayload): ExtraSelection[] | null {
+  /**
+   * Chosen extras and seats against the re-priced offer; null when one is no longer sold. Seats
+   * are read from the airline's map as it is now (ADR-094): a taken seat ends the booking like a
+   * sold-out bag, and a seat whose price moved is a price change the traveller agrees to.
+   */
+  private async mapExtras(
+    selections: ExtraSelection[],
+    fresh: ItemPayload,
+  ): Promise<ExtraSelection[] | null> {
     if (selections.length === 0) return [];
     if (fresh.kind !== 'flight') return null;
     const mapped: ExtraSelection[] = [];
     for (const selection of selections) {
+      if (isSeat(selection)) continue;
       const service = matchService(fresh.offer.services, selection);
       if (!service || selection.quantity > service.maxQuantity) return null;
       mapped.push({ ...selection, serviceId: service.id });
     }
-    return mapped;
+    const seats = await this.seats.recheck(selections, fresh.offer);
+    return seats ? [...mapped, ...seats] : null;
   }
 
   private async promoFor(booking: BookingRecord): Promise<PromoInput> {

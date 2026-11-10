@@ -56,7 +56,8 @@ Feature parity (outside the numbered phases; the owner's feature lists for fligh
 car rental): audit in `docs/audits/feature-parity.md`, six parts in
 `docs/phases/feature-parity.md`. Part 1, flights (flexible-date prices, nearby airports, meal
 requests, group requests, other flights after an airline change; ADR-093), is built; Duffel meal
-requests wait for the owner's sandbox check. Parts 2 to 6 are planned.
+requests wait for the owner's sandbox check. Part 2, seat selection at checkout (ADR-094), is
+built; Duffel seats wait for one sandbox run (`DUFFEL_SEAT_SELECTION`). Parts 3 to 6 are planned.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -180,7 +181,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api sessions:revoke`        | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)                 |
 | `pnpm --filter @suskii/api eval:natural-search`    | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model)        |
 | `pnpm --filter @suskii/api eval:support-assistant` | Support assistant eval: 40 conversations, 90% and no unsafe answer (`--recorded`) |
-| `pnpm --filter @suskii/api sandbox:duffel`         | Duffel flights and Stays test-mode check (ADR-062; test token, `--book`)          |
+| `pnpm --filter @suskii/api sandbox:duffel`         | Duffel flights, seats and Stays test-mode check (test token, `--book`)            |
 | `pnpm --filter @suskii/api test:sandbox`           | Our API's booking journey against Duffel test mode (manual workflow only)         |
 | `pnpm --filter @suskii/api privacy:records`        | Regenerate `docs/privacy/records-of-processing.md` (a unit test checks it)        |
 | `pnpm --filter @suskii/api sandbox:partners`       | Hotelbeds, Expedia, Viator and Travelpayouts check (owner keys, read-only)        |
@@ -718,6 +719,28 @@ Tooling notes for agents:
 - "See other flights" beside a refund offer is only the booked search
   (`flightRequestToParams()` in `@suskii/shared`); refunding and rebooking stay separate steps.
 
+### Flight seats (apps/api/src/bookings/flight-seats.service.ts, ADR-094)
+
+- Seat maps come only from `FlightSupplier.seatMaps()` through `FlightSeatsService`; a supplier
+  that does not implement it sells no seats. `GET /v1/quotes/{quoteId}/seat-maps` is a supplier
+  call: clients make it only when the traveller presses "Choose seats". Nothing holds a seat.
+- A chosen seat is an entry in `booking_items.services` with `type: 'seat'` (`isSeat()`,
+  `seatServiceId()`), never in the offer's `services` list (clients read that as the bag). Code
+  that walks `itemServices()` must handle both kinds; `flight` is the segment's index across
+  all slices and `passengerIndex` the booking position.
+- Choices are validated by `seatChoiceIssue()` (`@suskii/shared`) and against a fresh map at
+  booking (`422 seats-invalid` with `reason`); the payment re-check reads the map again
+  (`FlightSeatsService.recheck`) and `book()` gets the seats with the price paid. Never book a
+  different seat in place of one that has gone.
+- Seats are charged at the airline's price with no markup, as `price.seats` lines inside the
+  total, and rule out holds and installments like paid bags. Changing a seat after booking is
+  not built.
+- The Duffel adapter sells seats only with `DUFFEL_SEAT_SELECTION` (off until the sandbox check
+  with `--book` has passed once). The mock's `sellsSeats` and `takenSeats` are test hooks.
+- Clients: the website's picker is a lazy chunk (`components/checkout/seat-picker.tsx`); the
+  app's sits under the traveller cards (nothing may move above the nationality field: Maestro).
+  The map stays left to right in every language.
+
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 
 - Only a confirmed booking item whose trip has ended (the day after `tripFacts` `endDate`, within
@@ -1184,6 +1207,7 @@ Tooling notes for agents:
 - [ADR-091: Text and exchange-rate providers](docs/decisions/ADR-091-sms-and-exchange-rate-providers.md)
 - [ADR-092: The hosted test server on a schedule](docs/decisions/ADR-092-test-server-on-a-schedule.md)
 - [ADR-093: Flexible dates, nearby airports, meal requests and group requests](docs/decisions/ADR-093-flexible-dates-nearby-airports-meals-and-groups.md)
+- [ADR-094: Seat selection on flights](docs/decisions/ADR-094-flight-seat-selection.md)
 
 ## Open questions for the owner
 
@@ -1333,5 +1357,7 @@ WhatsApp templates before booking messages go by WhatsApp, and one run of `messa
 with a real phone. Added with flight extras (ADR-093): one Duffel sandbox booking to confirm how
 (or whether) Duffel takes special meal requests, who answers group flight requests and each
 airline's group desk contact, and counsel's view on whether a meal request is special-category
-data (and the matching store form answer). Every owner action is listed, step by step, in
-`docs/owner/launch-checklist.md`.
+data (and the matching store form answer). Added with seat selection (ADR-094): one run of the
+Duffel sandbox check with booking on (it orders one seat) before `DUFFEL_SEAT_SELECTION=true`,
+and whether Suskii adds a fee to seats (none today). Every owner action is listed, step by
+step, in `docs/owner/launch-checklist.md`.

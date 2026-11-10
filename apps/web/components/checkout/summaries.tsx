@@ -123,6 +123,8 @@ export function TripSummary({ quote }: { quote: Quote }) {
 export interface PriceLines {
   price: Schemas['Price'];
   extras: Money | null;
+  /** Chosen seats at the airline's price (ADR-094). */
+  seats?: Money | null;
   total: Money;
   payAtProperty: Money | null;
   /** In-house products have a price, not a fare, and usually no separate taxes. */
@@ -183,6 +185,12 @@ export function PriceSummary({ lines }: { lines: PriceLines }) {
           <div className="flex justify-between gap-4">
             <dt>{t('checkout.extrasLine')}</dt>
             <dd>{format.money(lines.extras)}</dd>
+          </div>
+        ) : null}
+        {lines.seats ? (
+          <div className="flex justify-between gap-4" data-testid="seats-line">
+            <dt>{t('checkout.seats.total')}</dt>
+            <dd>{format.money(lines.seats)}</dd>
           </div>
         ) : null}
         {price.discount ? (

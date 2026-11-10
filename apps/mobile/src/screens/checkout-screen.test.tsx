@@ -349,6 +349,170 @@ describe('CheckoutScreen', () => {
     expect(body.passengers[0]?.meal).toBe('halal');
   });
 
+  it("offers the airline's seats, adds the chosen one to the total and sends it (ADR-094)", async () => {
+    const base = flightQuote();
+    const held = flightQuote({
+      payment: {
+        ...base.payment,
+        hold: {
+          deadline: '2026-10-04T09:00:00.000Z',
+          total: { amountMinor: 8_500_000, currency: 'NGN' },
+        },
+      },
+    });
+    const seat = (designator: string, available: boolean, amountMinor: number) => ({
+      designator,
+      available,
+      price: { amountMinor, currency: 'NGN' },
+      features: designator.endsWith('A') ? (['window'] as const) : (['aisle'] as const),
+    });
+    const maps = {
+      quoteId: QUOTE_ID,
+      currency: 'NGN',
+      seated: 1,
+      flights: [
+        {
+          flight: 0,
+          origin: { code: 'LOS', name: 'Murtala Muhammed International Airport' },
+          destination: { code: 'ABV', name: 'Nnamdi Azikiwe International Airport' },
+          carrier: { code: 'P4', name: 'Air Peace' },
+          flightNumber: '7120',
+          departureLocal: '2026-12-01T07:00:00',
+          cabinClass: 'economy',
+          rows: [
+            {
+              number: 12,
+              sections: [
+                [seat('12A', true, 750_000), seat('12C', false, 200_000)],
+                [seat('12D', true, 0), null],
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    // An airline that sells no seats in advance: the traveller is told so.
+    mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(base),
+      'GET /v1/catalog/countries': () => json(countries),
+      [`GET /v1/quotes/${QUOTE_ID}/seat-maps`]: () => json({ ...maps, flights: [] }),
+    });
+    const none = await renderWithApp(<CheckoutScreen />);
+    await fireEvent.press(await screen.findByTestId('choose-seats'));
+    expect(await screen.findByTestId('seats-unavailable')).toHaveTextContent(
+      m.checkout.seats.unavailable,
+    );
+    none.unmount();
+
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(held),
+      'GET /v1/catalog/countries': () => json(countries),
+      [`GET /v1/quotes/${QUOTE_ID}/seat-maps`]: () => json(maps),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }), accessToken: TOKEN }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/payments`]: () => json(paymentSession, 201),
+    });
+    await renderWithApp(<CheckoutScreen />);
+    expect(await screen.findByTestId('plan-hold')).toBeOnTheScreen();
+    await fillTraveller();
+    // No seat map is asked for until the traveller wants one.
+    expect(calls.some((request) => request.url.endsWith('/seat-maps'))).toBe(false);
+    await fireEvent.press(screen.getByTestId('choose-seats'));
+
+    // A taken seat cannot be pressed; a free one names its place and price.
+    expect(await screen.findByTestId('seat-0-12C')).toBeDisabled();
+    expect(screen.getByTestId('seat-0-12A')).toHaveAccessibleName(/12A.*window.*7,500/);
+    await fireEvent.press(screen.getByTestId('seat-0-12A'));
+
+    expect(screen.getByTestId('seat-summary')).toHaveTextContent(/12A/);
+    expect(screen.getByTestId('checkout-seats')).toHaveTextContent(/7,500/);
+    expect(screen.getByTestId('checkout-total')).toHaveTextContent(/92,500/);
+    // Seats rule out reserving and installments, as paid bags do.
+    expect(screen.queryByTestId('plan-hold')).toBeNull();
+    expect(screen.getByText(m.checkout.seats.notWithPlans)).toBeOnTheScreen();
+
+    // Another seat for the same traveller replaces the first; their own seat hands it back.
+    await fireEvent.press(screen.getByTestId('seat-0-12D'));
+    expect(screen.queryByTestId('checkout-seats')).toBeNull();
+    expect(screen.getByTestId('checkout-total')).toHaveTextContent(/85,000/);
+    await fireEvent.press(screen.getByTestId('seat-0-12D'));
+    expect(await screen.findByTestId('plan-hold')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('seat-0-12A'));
+
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/trips/${BOOKING_ID}`));
+    const create = calls.find((request) => request.url.endsWith('/v1/bookings'));
+    const body = (await create?.json()) as { seats?: unknown };
+    expect(body.seats).toEqual([{ flight: 0, passengerIndex: 0, designator: '12A' }]);
+  });
+
+  it('asks the traveller to choose again when a chosen seat has gone', async () => {
+    const maps = {
+      quoteId: QUOTE_ID,
+      currency: 'NGN',
+      seated: 1,
+      flights: [
+        {
+          flight: 0,
+          origin: { code: 'LOS', name: 'Murtala Muhammed International Airport' },
+          destination: { code: 'ABV', name: 'Nnamdi Azikiwe International Airport' },
+          carrier: { code: 'P4', name: 'Air Peace' },
+          flightNumber: '7120',
+          departureLocal: '2026-12-01T07:00:00',
+          cabinClass: 'economy',
+          rows: [
+            {
+              number: 12,
+              sections: [
+                [
+                  {
+                    designator: '12A',
+                    available: true,
+                    price: { amountMinor: 0, currency: 'NGN' },
+                    features: ['window'],
+                  },
+                ],
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(flightQuote()),
+      'GET /v1/catalog/countries': () => json(countries),
+      [`GET /v1/quotes/${QUOTE_ID}/seat-maps`]: () => json(maps),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json(
+          {
+            type: 'urn:suskii:problem:seats-invalid',
+            title: 'Seat choice not possible',
+            status: 422,
+            reason: 'seat_taken',
+          },
+          422,
+        ),
+    });
+    await renderWithApp(<CheckoutScreen />);
+    await fillTraveller();
+    await fireEvent.press(screen.getByTestId('choose-seats'));
+    await fireEvent.press(await screen.findByTestId('seat-0-12A'));
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+
+    expect(await screen.findByText(m.checkout.errors.seats)).toBeOnTheScreen();
+    // The choice is dropped and the map is read again.
+    await waitFor(() =>
+      expect(calls.filter((request) => request.url.endsWith('/seat-maps'))).toHaveLength(2),
+    );
+    expect(screen.getByTestId('seat-summary')).not.toHaveTextContent(/12A/);
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
   it('shows tax on our service as its own line inside the total (ADR-072)', async () => {
     const tour = inhouseQuote('tour');
     if (!tour.price) throw new Error('the fixture is priced');

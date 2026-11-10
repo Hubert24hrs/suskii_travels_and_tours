@@ -857,6 +857,43 @@ export const pt: Messages = {
         child: 'Refeição de criança',
       },
     },
+    seats: {
+      heading: 'Lugares',
+      intro:
+        'Escolha um lugar para cada viajante, ou avance e a companhia aérea atribui os lugares no check-in.',
+      choose: 'Escolher lugares',
+      loading: 'A carregar o mapa de lugares…',
+      failed:
+        'Não foi possível carregar o mapa de lugares. Pode reservar na mesma; a companhia aérea atribui os lugares no check-in.',
+      unavailable:
+        'Esta companhia aérea atribui os lugares no check-in. Não é possível escolher lugar aqui.',
+      flight: '{origin} para {destination} · {flight}',
+      choosingFor: 'A escolher para',
+      seatFree: 'Lugar {seat}, {details}, {price}',
+      seatTaken: 'Lugar {seat}, ocupado',
+      seatYours: 'Lugar {seat}, escolhido para {name}',
+      noCharge: 'sem custo',
+      standard: 'lugar normal',
+      features: {
+        window: 'janela',
+        aisle: 'corredor',
+        extra_legroom: 'mais espaço para as pernas',
+        exit_row: 'fila de saída de emergência',
+      },
+      legend: {
+        free: 'Disponível',
+        taken: 'Ocupado',
+        yours: 'Os seus lugares',
+      },
+      chosen: '{name}: lugar {seat} ({price})',
+      notChosen: '{name}: nenhum lugar escolhido',
+      total: 'Lugares',
+      infant: 'Um bebé viaja ao colo de um adulto.',
+      notWithPlans:
+        'Reservar para pagar depois e pagar em prestações não estão disponíveis com lugares escolhidos.',
+      row: 'Fila {number}',
+      pricesIn: 'Os preços dos lugares são por viajante, em {currency}.',
+    },
     addonDetails: {
       heading: 'Detalhes do transfer',
       hint: 'Partilhamos estes dados apenas com o seu motorista ou prestador.',
@@ -1006,6 +1043,7 @@ export const pt: Messages = {
       bot: 'Não foi possível verificar este pedido. Atualize a página e tente novamente.',
       terms: 'As condições da reserva mudaram. Atualize a página para as rever.',
       extras: 'Estes extras já não estão disponíveis. Escolha-os novamente.',
+      seats: 'Um dos seus lugares já não está disponível. Escolha os lugares outra vez.',
       tooMany: 'Demasiadas tentativas. Aguarde alguns minutos e tente novamente.',
       holdUnavailable:
         'A companhia aérea não guarda esta tarifa neste momento. Ainda pode pagar o valor total.',
@@ -2004,6 +2042,7 @@ export const pt: Messages = {
     room: 'Quarto {number}',
     passport: 'Passaporte terminado em {hint}',
     mealRequest: 'Pedido de refeição: {meal}',
+    seats: 'Lugares: {seats}',
     extraBags: { one: '+{count} mala extra', other: '+{count} malas extra' },
     paid: 'Total pago',
     price: 'Preço total',

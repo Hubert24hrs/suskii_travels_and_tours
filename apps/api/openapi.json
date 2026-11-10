@@ -25641,6 +25641,61 @@
         }
       }
     },
+    "/v1/quotes/{quoteId}/seat-maps": {
+      "get": {
+        "operationId": "getQuoteSeatMaps",
+        "summary": "The seat map of each flight of a flight quote",
+        "description": "Seats as the airline has them now, at the airline's price in the quote's currency with no markup (ADR-094). `flights` is empty when the airline sells no seats through us. Send the chosen seats as `seats` when creating the booking; they are checked against the map again then and right before payment. 404 for a quote that is not a flight; 410 once it expired.",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "quoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlightSeatMaps"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem410"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
     "/v1/rentals/reservations/{reservationId}": {
       "get": {
         "operationId": "getRentalReservation",
@@ -35669,6 +35724,28 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "seats": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "flight": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "designator": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "flight",
+                "designator"
+              ],
+              "additionalProperties": false
+            }
+          },
           "meal": {
             "anyOf": [
               {
@@ -35700,6 +35777,7 @@
           "document",
           "ticketNumber",
           "extraBags",
+          "seats",
           "meal"
         ],
         "additionalProperties": false
@@ -35831,6 +35909,13 @@
               "$ref": "#/components/schemas/BookingExtra"
             }
           },
+          "seats": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookingSeat"
+            }
+          },
           "deposit": {
             "anyOf": [
               {
@@ -35853,6 +35938,7 @@
           "memberSaving",
           "fx",
           "extras",
+          "seats",
           "deposit"
         ],
         "additionalProperties": false
@@ -35998,6 +36084,34 @@
         },
         "required": [
           "items"
+        ],
+        "additionalProperties": false
+      },
+      "BookingSeat": {
+        "type": "object",
+        "properties": {
+          "flight": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "designator": {
+            "type": "string"
+          },
+          "passengerPosition": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "flight",
+          "designator",
+          "passengerPosition",
+          "amount"
         ],
         "additionalProperties": false
       },
@@ -38604,6 +38718,14 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ExtraSelectionInput"
+            }
+          },
+          "seats": {
+            "default": [],
+            "maxItems": 108,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeatChoiceInput"
             }
           },
           "addonDetails": {
@@ -42757,6 +42879,144 @@
           "nextCursor",
           "offers",
           "facets"
+        ],
+        "additionalProperties": false
+      },
+      "FlightSeatMaps": {
+        "type": "object",
+        "properties": {
+          "quoteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "seated": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "flights": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "flight": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "origin": {
+                  "$ref": "#/components/schemas/AirportPoint"
+                },
+                "destination": {
+                  "$ref": "#/components/schemas/AirportPoint"
+                },
+                "carrier": {
+                  "$ref": "#/components/schemas/Carrier"
+                },
+                "flightNumber": {
+                  "type": "string"
+                },
+                "departureLocal": {
+                  "type": "string"
+                },
+                "cabinClass": {
+                  "type": "string",
+                  "enum": [
+                    "economy",
+                    "premium_economy",
+                    "business",
+                    "first"
+                  ]
+                },
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "number": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "sections": {
+                        "type": "array",
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "designator": {
+                                    "type": "string"
+                                  },
+                                  "available": {
+                                    "type": "boolean"
+                                  },
+                                  "price": {
+                                    "$ref": "#/components/schemas/Money"
+                                  },
+                                  "features": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "enum": [
+                                        "window",
+                                        "aisle",
+                                        "extra_legroom",
+                                        "exit_row"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "designator",
+                                  "available",
+                                  "price",
+                                  "features"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "number",
+                      "sections"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "flight",
+                "origin",
+                "destination",
+                "carrier",
+                "flightNumber",
+                "departureLocal",
+                "cabinClass",
+                "rows"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "quoteId",
+          "currency",
+          "seated",
+          "flights"
         ],
         "additionalProperties": false
       },
@@ -53597,6 +53857,30 @@
           "amount"
         ],
         "additionalProperties": false
+      },
+      "SeatChoiceInput": {
+        "type": "object",
+        "properties": {
+          "flight": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 11
+          },
+          "passengerIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "designator": {
+            "type": "string",
+            "pattern": "^[1-9]\\d{0,2}[A-Z]$"
+          }
+        },
+        "required": [
+          "flight",
+          "passengerIndex",
+          "designator"
+        ]
       },
       "ServiceTax": {
         "type": "object",

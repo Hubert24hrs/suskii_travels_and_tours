@@ -775,6 +775,13 @@ export function TripScreen() {
                   {t('booking.extraBags', { count: passenger.extraBags })}
                 </Text>
               ) : null}
+              {passenger.seats.length > 0 ? (
+                <Text testID="seats" className="font-body text-caption text-foreground">
+                  {t('booking.seats', {
+                    seats: passenger.seats.map((seat) => seat.designator).join(', '),
+                  })}
+                </Text>
+              ) : null}
               {passenger.meal ? (
                 <Text testID="meal-request" className="font-body text-caption text-foreground">
                   {t('booking.mealRequest', {

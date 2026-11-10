@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 
 import {
+  fromWire,
   money,
   type ContactDetails,
   type Gender,
@@ -44,6 +45,7 @@ import {
 import {
   bookedRate,
   isInhouse,
+  isSeat,
   type ItemPayload,
   type SupplierItemPayload,
 } from './booking-pricing';
@@ -289,11 +291,22 @@ export class TicketingService {
               offer: payload.offer,
               passengers,
               contact,
-              services: itemServices(item).map(({ serviceId, passengerIndex, quantity }) => ({
-                serviceId,
-                passengerIndex,
-                quantity,
-              })),
+              services: itemServices(item)
+                .filter((selection) => !isSeat(selection))
+                .map(({ serviceId, passengerIndex, quantity }) => ({
+                  serviceId,
+                  passengerIndex,
+                  quantity,
+                })),
+              // Chosen seats at the price the traveller paid for them (ADR-094).
+              seats: itemServices(item)
+                .filter(isSeat)
+                .map(({ flight, designator, passengerIndex, price }) => ({
+                  flight,
+                  designator,
+                  passengerIndex,
+                  price: fromWire(price),
+                })),
               idempotencyKey: item.id,
             },
             signal,
