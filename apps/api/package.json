@@ -37,6 +37,7 @@
     "sandbox:duffel": "tsx scripts/duffel-sandbox.ts",
     "sandbox:partners": "tsx scripts/partner-sandbox.ts",
     "sandbox:messaging": "tsx scripts/messaging-sandbox.ts",
+    "sandbox:scrapers": "tsx scripts/scrapers-sandbox.ts",
     "privacy:records": "tsx scripts/records-of-processing.ts"
   },
   "dependencies": {
