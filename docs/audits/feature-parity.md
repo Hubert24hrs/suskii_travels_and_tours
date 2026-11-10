@@ -3,7 +3,8 @@
 Audited on 2026-11-09 against the owner's three feature lists (20 essential features and the
 advanced ones for each product). Each line was checked in the API, the website and the app.
 Statuses are updated as the parts of the build plan land (part 1, flights, on 2026-11-09; parts 2
-to 5, seat selection, live flight status, hotel content and hotel discovery, on 2026-11-10).
+to 6, seat selection, live flight status, hotel content, hotel discovery and car rental options,
+on 2026-11-10).
 
 - **Built**: works today on the API, the website and the app.
 - **Partly**: some of it works; the note says what is missing.
@@ -101,44 +102,44 @@ the own-fleet rental system.
 
 ### Essential
 
-| #   | Feature                                  | Status  | Evidence, or what is missing                                                              |
-| --- | ---------------------------------------- | ------- | ----------------------------------------------------------------------------------------- |
-| 1   | Search by pickup location                | Built   | By city                                                                                   |
-| 2   | Pickup and return dates                  | Built   |                                                                                           |
-| 3   | Pickup and drop-off times                | Built   | Branch local date and time                                                                |
-| 4   | Airport car rentals                      | Missing | A branch is a name and an address; nothing marks or finds airport branches                |
-| 5   | City-based car rentals                   | Built   |                                                                                           |
-| 6   | Compare rental companies                 | Partly  | Partner offers (DiscoverCars, Localrent, Economybookings) on the Cars page, not in search |
-| 7   | Economy vehicles                         | Built   | `RentalCategory`                                                                          |
-| 8   | SUVs                                     | Built   |                                                                                           |
-| 9   | Luxury vehicles                          | Built   |                                                                                           |
-| 10  | Vans and family vehicles                 | Built   | `van`, and the seat count on every car                                                    |
-| 11  | Automatic and manual transmission filter | Partly  | Every car shows its transmission; the search cannot filter by it                          |
-| 12  | Vehicle photographs                      | Built   | `photoUrls`                                                                               |
-| 13  | Daily, weekly and monthly rental rates   | Partly  | Daily only                                                                                |
-| 14  | Mileage allowance                        | Built   | Kilometres per day and the excess charge                                                  |
-| 15  | Fuel policies                            | Built   |                                                                                           |
-| 16  | Insurance information                    | Built   | `insuranceSummary`                                                                        |
-| 17  | Driver age requirements                  | Missing |                                                                                           |
-| 18  | Security deposit information             | Built   | Shown before booking; held and released through the ledger (ADR-051)                      |
-| 19  | Driver's licence requirements            | Built   | Licence upload and review before a self-drive pickup                                      |
-| 20  | Rental booking confirmation              | Built   |                                                                                           |
+| #   | Feature                                  | Status | Evidence, or what is missing                                                                                                   |
+| --- | ---------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Search by pickup location                | Built  | By city                                                                                                                        |
+| 2   | Pickup and return dates                  | Built  |                                                                                                                                |
+| 3   | Pickup and drop-off times                | Built  | Branch local date and time                                                                                                     |
+| 4   | Airport car rentals                      | Built  | A branch names its airport; the search has "Airport branches only" and cards say "At LOS airport" (ADR-098)                    |
+| 5   | City-based car rentals                   | Built  |                                                                                                                                |
+| 6   | Compare rental companies                 | Partly | Partner offers (DiscoverCars, Localrent, Economybookings) on the Cars page, not in search                                      |
+| 7   | Economy vehicles                         | Built  | `RentalCategory`                                                                                                               |
+| 8   | SUVs                                     | Built  |                                                                                                                                |
+| 9   | Luxury vehicles                          | Built  |                                                                                                                                |
+| 10  | Vans and family vehicles                 | Built  | `van`, and the seat count on every car                                                                                         |
+| 11  | Automatic and manual transmission filter | Built  | A transmission filter on the website and in the app (ADR-098)                                                                  |
+| 12  | Vehicle photographs                      | Built  | `photoUrls`                                                                                                                    |
+| 13  | Daily, weekly and monthly rental rates   | Built  | A weekly and a thirty-day rate per car; days are priced in months, weeks and days, never above the next longer block (ADR-098) |
+| 14  | Mileage allowance                        | Built  | Kilometres per day and the excess charge                                                                                       |
+| 15  | Fuel policies                            | Built  |                                                                                                                                |
+| 16  | Insurance information                    | Built  | `insuranceSummary`                                                                                                             |
+| 17  | Driver age requirements                  | Built  | A minimum age per car, shown, filtered on and refused at the quote; the licence review stays the real check (ADR-098)          |
+| 18  | Security deposit information             | Built  | Shown before booking; held and released through the ledger (ADR-051)                                                           |
+| 19  | Driver's licence requirements            | Built  | Licence upload and review before a self-drive pickup                                                                           |
+| 20  | Rental booking confirmation              | Built  |                                                                                                                                |
 
 ### Advanced
 
-| Feature                                     | Status  | Evidence, or what is missing                                             |
-| ------------------------------------------- | ------- | ------------------------------------------------------------------------ |
-| Chauffeur-driven vehicle rentals            | Built   | `chauffeurDaily`, a vetted driver assigned at pickup                     |
-| Self-drive rentals                          | Built   |                                                                          |
-| Airport pickup and drop-off                 | Partly  | Delivery to an address at pickup; no airport branches, no collection     |
-| Cross-border rental options where permitted | Missing |                                                                          |
-| Vehicle delivery to customers               | Built   | Per kilometre, within the branch's radius                                |
-| Corporate fleet rentals                     | Partly  | Company bookings and approvals cover rentals; no fleet or contract rates |
-| Long-term rentals                           | Partly  | Up to 30 days, at the daily rate                                         |
-| Premium vehicle categories                  | Built   | `luxury`                                                                 |
-| Multiple pickup and return locations        | Missing | A car returns to its own branch                                          |
-| Additional driver options                   | Missing |                                                                          |
-| Child seats and GPS add-ons                 | Missing |                                                                          |
+| Feature                                     | Status | Evidence, or what is missing                                                                                                   |
+| ------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Chauffeur-driven vehicle rentals            | Built  | `chauffeurDaily`, a vetted driver assigned at pickup                                                                           |
+| Self-drive rentals                          | Built  |                                                                                                                                |
+| Airport pickup and drop-off                 | Built  | Airport branches for pickup, and a return to an airport branch where the car allows it; delivery to an address stays (ADR-098) |
+| Cross-border rental options where permitted | Built  | The countries a car may enter and a flat fee, chosen at booking; the desk hands over the papers (ADR-098)                      |
+| Vehicle delivery to customers               | Built  | Per kilometre, within the branch's radius                                                                                      |
+| Corporate fleet rentals                     | Partly | Company bookings and approvals cover rentals; no fleet or contract rates                                                       |
+| Long-term rentals                           | Built  | Up to 90 days at the weekly and monthly rates (ADR-098)                                                                        |
+| Premium vehicle categories                  | Built  | `luxury`                                                                                                                       |
+| Multiple pickup and return locations        | Built  | A return to another branch for its one-way fee, where the car allows it (ADR-098)                                              |
+| Additional driver options                   | Built  | An extra per day, not with a chauffeur (ADR-098)                                                                               |
+| Child seats and GPS add-ons                 | Built  | Extras per day and per unit, priced again before payment (ADR-098)                                                             |
 
 ## Totals
 
@@ -146,5 +147,5 @@ the own-fleet rental system.
 | ---------- | ----- | ------ | ------- | ----- |
 | Flights    | 22    | 7      | 0       | 29    |
 | Hotels     | 23    | 5      | 1       | 29    |
-| Car rental | 19    | 6      | 6       | 31    |
-| All        | 64    | 18     | 7       | 89    |
+| Car rental | 29    | 2      | 0       | 31    |
+| All        | 74    | 14     | 1       | 89    |

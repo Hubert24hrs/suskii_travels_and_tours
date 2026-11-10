@@ -254,6 +254,15 @@ Nothing waits on these; change them when you want to (each is a setting or a con
 | Review window                         | 90 days after the trip                              |
 | Availability promise                  | 99.9% (status page)                                 |
 | Rides and own fleet                   | Off in production (no driver KYC or payouts needed) |
+| Rental driver age                     | 21 unless a car says otherwise; under it is refused |
+| Longest rental                        | 90 days                                             |
+
+If you switch the **own rental fleet** on (ADR-069, ADR-098), enter for each car in the console
+(Rental desk, New car): the daily rate and, if you offer them, the price of a week and of 30
+days; the minimum driver age; the airport code when the branch is at an airport; the daily price
+of a child seat, a GPS and an additional driver; the countries the car's insurance lets it enter
+and the flat cross-border fee; and the other branches it may be returned to with each one-way
+fee. Decide who hands over the border papers at pickup.
 
 ## When you finish a step
 
