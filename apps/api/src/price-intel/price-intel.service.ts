@@ -68,6 +68,10 @@ return 0
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex');
 
+/** The order an answer is given in, the same whether it was read now or before. */
+const cheapestFirst = (a: PriceObservation, b: PriceObservation): number =>
+  a.amountMinor === b.amountMinor ? (a.id < b.id ? -1 : 1) : a.amountMinor < b.amountMinor ? -1 : 1;
+
 /** The same question in the same words, whatever order its fields came in. */
 export function canonicalKeyOf(product: PriceProduct, query: PriceQuery): string {
   const entries: [string, string | number][] = [];
@@ -354,7 +358,7 @@ export class PriceIntelService {
       take: 50,
     });
     const newest = rows[0]?.observedAt.getTime();
-    return rows.filter((row) => row.observedAt.getTime() === newest);
+    return rows.filter((row) => row.observedAt.getTime() === newest).sort(cheapestFirst);
   }
 
   async observations(
@@ -538,10 +542,7 @@ export class PriceIntelService {
       });
     }
     await this.prisma.priceObservation.createMany({ data: rows });
-    return this.prisma.priceObservation.findMany({
-      where: { jobId },
-      orderBy: [{ amountMinor: 'asc' }, { id: 'asc' }],
-    });
+    return (await this.prisma.priceObservation.findMany({ where: { jobId } })).sort(cheapestFirst);
   }
 
   private async finish(

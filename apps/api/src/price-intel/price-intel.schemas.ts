@@ -72,7 +72,8 @@ export type PriceQuery = z.infer<typeof priceQuerySchema>;
 
 // --- Sources and their policies ----------------------------------------------------------------
 
-const sourceFields = {
+/** What every site states for itself: there is no sensible default for any of these. */
+const statedFields = {
   name: z.string().trim().min(2).max(120),
   products: z.array(z.enum(PRICE_PRODUCTS)).min(1).max(PRICE_PRODUCTS.length),
   country,
@@ -80,31 +81,55 @@ const sourceFields = {
   locale: z.string().regex(/^[a-z]{2,3}(-[A-Z]{2})?$/),
   urlTemplates: urlTemplatesSchema,
   recipes: recipesSchema,
-  vendorSettings: vendorSettingsSchema.default({}),
-  robots: z.enum(AUTOMATED_ACCESS_FINDINGS).default('unknown'),
-  terms: z.enum(AUTOMATED_ACCESS_FINDINGS).default('unknown'),
   vendors: z.array(z.enum(SCRAPE_VENDORS)).min(1).max(SCRAPE_VENDORS.length),
-  maxProxyClass: z.enum(PROXY_CLASSES).default('none'),
-  requestsPerMinute: z.number().int().min(1).max(600).default(6),
-  maxConcurrency: z.number().int().min(1).max(20).default(1),
-  nightStartHour: z.number().int().min(0).max(23).default(1),
-  nightEndHour: z.number().int().min(0).max(23).default(5),
   timeZone: z.string().max(64).refine(isValidTimeZone, { message: 'unknown time zone' }),
-  freshnessMinutes: freshnessSchema.default({}),
-  active: z.boolean().default(true),
+};
+
+/**
+ * What a new site gets when its creator leaves it out: nothing known about its robots file or
+ * terms, no proxy, a slow rate, one request at a time. The defaults are applied on creation
+ * only. A change must never carry one: it would quietly reset what an approver agreed to.
+ */
+const ruleFields = {
+  vendorSettings: vendorSettingsSchema,
+  robots: z.enum(AUTOMATED_ACCESS_FINDINGS),
+  terms: z.enum(AUTOMATED_ACCESS_FINDINGS),
+  maxProxyClass: z.enum(PROXY_CLASSES),
+  requestsPerMinute: z.number().int().min(1).max(600),
+  maxConcurrency: z.number().int().min(1).max(20),
+  nightStartHour: z.number().int().min(0).max(23),
+  nightEndHour: z.number().int().min(0).max(23),
+  freshnessMinutes: freshnessSchema,
+  active: z.boolean(),
 };
 
 export const priceSourceInputSchema = named(
   'PriceSourceInput',
-  z.object({ domain: z.string().trim().min(4).max(253), ...sourceFields }),
+  z.object({
+    domain: z.string().trim().min(4).max(253),
+    ...statedFields,
+    vendorSettings: ruleFields.vendorSettings.default({}),
+    robots: ruleFields.robots.default('unknown'),
+    terms: ruleFields.terms.default('unknown'),
+    maxProxyClass: ruleFields.maxProxyClass.default('none'),
+    requestsPerMinute: ruleFields.requestsPerMinute.default(6),
+    maxConcurrency: ruleFields.maxConcurrency.default(1),
+    nightStartHour: ruleFields.nightStartHour.default(1),
+    nightEndHour: ruleFields.nightEndHour.default(5),
+    freshnessMinutes: ruleFields.freshnessMinutes.default({}),
+    active: ruleFields.active.default(true),
+  }),
 );
 export type PriceSourceInput = z.infer<typeof priceSourceInputSchema>;
 
-/** Everything but the domain: a site's rules never move to another site. */
+/**
+ * Everything but the domain (a site's rules never move to another site), and only what was
+ * sent: no field has a default here.
+ */
 export const priceSourcePatchSchema = named(
   'PriceSourcePatch',
   z
-    .object(sourceFields)
+    .object({ ...statedFields, ...ruleFields })
     .partial()
     .refine((patch) => Object.keys(patch).length > 0, { message: 'nothing to change' }),
 );
