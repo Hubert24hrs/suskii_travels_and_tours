@@ -20,6 +20,7 @@ import {
   paginate,
   sortFlights,
   stopsBucket,
+  withCollections,
   type PricedFlight,
   type PricedHotel,
 } from './results';
@@ -254,6 +255,53 @@ describe('hotel results', () => {
     ]);
     // Suppliers that send no type add nothing to the facet.
     expect(hotelFacets(items).propertyTypes).toEqual([]);
+  });
+
+  it('marks deals against the star class of the search, and collections by fixed rules (ADR-097)', () => {
+    const priced = (id: string, total: number, patch: Partial<SupplierHotel> = {}): PricedHotel => {
+      const base = hotel(id, null, 8.5);
+      const rates = [{ id: `${id}.r0`, rate: rate(total, true), price: price(total) }];
+      return {
+        ...base,
+        hotel: { ...base.hotel, ...patch },
+        rates,
+        cheapest: rates[0] as PricedHotel['cheapest'],
+      };
+    };
+    const search = withCollections([
+      priced('usual-1', 100_000),
+      priced('usual-2', 104_000),
+      priced('usual-3', 96_000),
+      priced('usual-4', 110_000),
+      // 25% below the usual 100,000 of the five four-star hotels.
+      priced('cheap', 75_000),
+      // Cheap, but guests rate it poorly: not offered as a deal.
+      priced('poor', 60_000, { reviewScore: 5.9, stars: 3 }),
+      priced('grand', 400_000, { stars: 5, amenities: ['wifi', 'spa'] }),
+      priced('flat', 90_000, { stars: 2, propertyType: 'apartment' }),
+    ]);
+    const marked = Object.fromEntries(search.map((item) => [item.id, item]));
+    expect(marked.cheap?.deal).toBe(25);
+    expect(marked.cheap?.collections).toEqual(['deals']);
+    expect(marked['usual-1']?.deal).toBeNull();
+    // One three-star hotel is too few to say what is usual, whatever its price.
+    expect(marked.poor?.deal).toBeNull();
+    expect(marked.grand?.collections).toEqual(['luxury', 'honeymoon']);
+    expect(marked.flat?.collections).toEqual(['long_stay']);
+
+    expect(filterHotels(search, { collection: 'deals' }).map((item) => item.id)).toEqual(['cheap']);
+    expect(filterHotels(search, { collection: 'luxury' }).map((item) => item.id)).toEqual([
+      'grand',
+    ]);
+    // The facet lists the collections this search has hotels for, in the order clients show them.
+    expect(hotelFacets(search).collections).toEqual([
+      { collection: 'deals', count: 1 },
+      { collection: 'luxury', count: 1 },
+      { collection: 'honeymoon', count: 1 },
+      { collection: 'long_stay', count: 1 },
+    ]);
+    // A search that was never marked has no collections.
+    expect(hotelFacets(items).collections).toEqual([]);
   });
 });
 

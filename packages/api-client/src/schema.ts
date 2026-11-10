@@ -9876,6 +9876,11 @@ export interface components {
                 type: "hotel" | "apartment" | "resort" | "guesthouse" | "villa" | "hostel" | "lodge";
                 count: number;
             }[];
+            collections: {
+                /** @enum {string} */
+                collection: "deals" | "family" | "luxury" | "honeymoon" | "long_stay";
+                count: number;
+            }[];
             freeCancellation: number;
         };
         HotelPhoto: {
@@ -9988,6 +9993,10 @@ export interface components {
             propertyType: ("hotel" | "apartment" | "resort" | "guesthouse" | "villa" | "hostel" | "lodge") | null;
             verifiedReviews: components["schemas"]["ReviewSummary"] | null;
             photo: components["schemas"]["HotelPhoto"] | null;
+            deal: {
+                percentBelow: number;
+            } | null;
+            collections: ("deals" | "family" | "luxury" | "honeymoon" | "long_stay")[];
             cheapestRate: components["schemas"]["HotelRate"];
             freeCancellationAvailable: boolean;
         };
@@ -21485,6 +21494,7 @@ export interface operations {
                 board?: "room_only" | "breakfast_included" | "half_board" | "full_board";
                 types?: string;
                 maxPrice?: number;
+                collection?: "deals" | "family" | "luxury" | "honeymoon" | "long_stay";
                 cursor?: string;
                 limit?: number;
             };

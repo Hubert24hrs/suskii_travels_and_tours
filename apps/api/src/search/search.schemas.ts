@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   BED_TYPES,
   CABIN_CLASSES,
+  HOTEL_COLLECTIONS,
   PROPERTY_TYPES,
   currencyCodeSchema,
   DEFAULT_CURRENCY,
@@ -376,6 +377,14 @@ export const hotelSummarySchema = named(
   z.object({
     ...hotelBase,
     photo: hotelPhotoSchema.nullable().meta({ description: 'The first photo, for a card.' }),
+    deal: z.object({ percentBelow: z.number().int() }).nullable().meta({
+      description:
+        'Set when the hotel costs at least 15% less than the usual (median) price of hotels with its star rating in this search, and guests do not rate it poorly (ADR-097).',
+    }),
+    collections: z.array(z.enum(HOTEL_COLLECTIONS)).meta({
+      description:
+        'The collections the hotel belongs to: fixed rules over stars, score, rooms, amenities and type.',
+    }),
     cheapestRate: hotelRateSchema,
     freeCancellationAvailable: z.boolean(),
   }),
@@ -403,6 +412,9 @@ export const hotelFacetsSchema = named(
     boards: z.array(z.object({ board: boardSchema, count: z.number().int() })),
     areas: z.array(z.object({ area: z.string(), count: z.number().int() })),
     propertyTypes: z.array(z.object({ type: z.enum(PROPERTY_TYPES), count: z.number().int() })),
+    collections: z.array(
+      z.object({ collection: z.enum(HOTEL_COLLECTIONS), count: z.number().int() }),
+    ),
     freeCancellation: z.number().int(),
   }),
 );
@@ -447,6 +459,10 @@ export const hotelsQuerySchema = currencyQuerySchema.extend({
     .positive()
     .optional()
     .meta({ description: 'Whole stay, minor units of the display currency.' }),
+  collection: z
+    .enum(HOTEL_COLLECTIONS)
+    .optional()
+    .meta({ description: 'One collection from the `collections` facet.' }),
   cursor: z.string().max(64).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
