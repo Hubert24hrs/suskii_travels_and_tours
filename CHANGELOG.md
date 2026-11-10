@@ -32,6 +32,11 @@ How the app is checked before a tester installs it (ADR-100):
 
 #### Fixed
 
+- **The purchase after a combined trip was held for staff review.** The payment risk review
+  allows five payments a day for an account or a contact (ADR-040) and counted each booking's
+  share of a trip as a payment, so one trip of five parts used up the day and the traveller's
+  next booking stayed "Paid" until finance approved it. A trip payment now counts once; a trip
+  paid over the limit is still held, booking by booking.
 - **The website listed a rental car that had just been booked.** The search for the dates asked
   was cached for a minute and then served once more to the next visitor, so the car was still
   offered and booking it was refused (`not_available`). The check found it on its second run

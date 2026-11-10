@@ -866,6 +866,9 @@ Tooling notes for agents:
   share when the amount is wrong, is flagged and refunded, never applied in part. A booking's
   ledger postings and balance stay its own. Refunds of a share go to the trip payment's provider
   reference (`providerRef()` in `RefundsService`).
+- Code that counts payments per person or address counts a trip payment once, not its shares
+  (`PaymentRiskService.assess`: the velocity signals of ADR-040). A share is still reviewed and
+  held on its own.
 - Code that lists pending payments for a booking must leave trip shares to the trip
   (`tripPaymentId: null` in reconciliation; `abandonOpenPayments` does not close them at the
   provider). Reconciliation covers trip payments on their own (`reconcileTripPayments`,

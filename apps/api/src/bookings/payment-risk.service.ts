@@ -54,17 +54,33 @@ export class PaymentRiskService {
     const day = new Date(now.getTime() - DAY_MS);
     const month = new Date(now.getTime() - 30 * DAY_MS);
     const signals: RiskSignal[] = [];
-    // Other card payments that went through in the last day for the same owner.
+    // A combined trip (ADR-099) is one charge, however many bookings share it: its shares count
+    // as one payment. `exceptTrip` leaves a trip out altogether.
+    const charges = async (
+      where: Prisma.PaymentWhereInput,
+      exceptTrip: string | null = null,
+    ): Promise<number> => {
+      const single = await tx.payment.count({ where: { ...where, tripPaymentId: null } });
+      const shares = await tx.payment.findMany({
+        where: { ...where, tripPaymentId: { not: null } },
+        select: { tripPaymentId: true },
+        distinct: ['tripPaymentId'],
+      });
+      return single + shares.filter((share) => share.tripPaymentId !== exceptTrip).length;
+    };
+    // Other card payments that went through in the last day for the same owner: not this
+    // payment, and not the other shares of its own trip.
     const paidSince = (owner: Prisma.BookingWhereInput) =>
-      tx.payment.count({
-        where: {
+      charges(
+        {
           id: { not: payment.id },
           kind: 'checkout',
           status: 'succeeded',
           succeededAt: { gte: day },
           booking: owner,
         },
-      });
+        payment.tripPaymentId,
+      );
     const max = this.config.PAYMENT_RISK_MAX_PAYMENTS_PER_DAY;
     if (booking.userId && (await paidSince({ userId: booking.userId })) >= max) {
       signals.push('velocity_account');
@@ -73,9 +89,7 @@ export class PaymentRiskService {
       signals.push('velocity_contact');
     }
     if (payment.ipHash) {
-      const started = await tx.payment.count({
-        where: { ipHash: payment.ipHash, createdAt: { gte: day } },
-      });
+      const started = await charges({ ipHash: payment.ipHash, createdAt: { gte: day } });
       if (started > this.config.PAYMENT_RISK_MAX_ATTEMPTS_PER_IP) signals.push('velocity_ip');
     }
     if (payment.cardCountry && payment.ipCountry && payment.cardCountry !== payment.ipCountry) {

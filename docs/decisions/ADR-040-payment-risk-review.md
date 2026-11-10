@@ -28,6 +28,9 @@ capture and fulfilment.
    - At or above `PAYMENT_RISK_REVIEW_SCORE` (60) the payment is held. By default one signal
      alone never holds a payment; two do.
    - Wallet payments are not scored.
+   - A combined trip (ADR-099) is one charge shared by several bookings. For the three velocity
+     signals its shares count as one payment, and a share never counts the other shares of its
+     own trip. Each booking of a trip paid over the limit is still held on its own.
 
 2. **What is stored.** These go on the payment row, and never raw card data:
    - An HMAC of the payer's IP.
