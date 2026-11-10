@@ -40,6 +40,7 @@ const PAGES: [name: string, path: (cityId: string, depart: string, back: string)
   ['deals', () => '/deals'],
   ['route page', () => '/flights/lagos-to-london'],
   ['group flights', () => '/flights/groups'],
+  ['trip builder', () => '/trips'],
   ['suskii prime', () => '/prime'],
   ['cars', () => '/cars'],
   ['buses', () => '/buses'],

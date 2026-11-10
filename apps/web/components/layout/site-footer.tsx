@@ -63,6 +63,11 @@ export async function SiteFooter({ site }: { site: SiteContent | null }) {
             </li>
           ))}
           <li>
+            <AppLink href="/trips" className={linkClass}>
+              {t('footer.tripBuilder')}
+            </AppLink>
+          </li>
+          <li>
             <AppLink href="/deals" className={linkClass}>
               {t('footer.deals')}
             </AppLink>

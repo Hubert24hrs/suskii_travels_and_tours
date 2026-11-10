@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { Container } from '../../../components/layout/container';
 import { OpenApp } from '../../../components/mobile/open-app';
 import { getI18n } from '../../../lib/i18n';
-import { appTripUrl } from '../../../lib/mobile-app';
+import { appBuiltTripUrl, appTripUrl } from '../../../lib/mobile-app';
 import { pageMetadata } from '../../../lib/seo';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,11 +24,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function MobilePaymentReturnPage({
   searchParams,
 }: {
-  searchParams: Promise<{ booking?: string | string[] }>;
+  searchParams: Promise<{ booking?: string | string[]; trip?: string | string[] }>;
 }) {
   const { t } = await getI18n();
-  const { booking } = await searchParams;
-  const href = appTripUrl(Array.isArray(booking) ? booking[0] : booking);
+  const { booking, trip } = await searchParams;
+  const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+  // A combined trip's payment comes back to the trip (ADR-099), a booking's to the booking.
+  const href = one(trip) ? appBuiltTripUrl(one(trip)) : appTripUrl(one(booking));
   return (
     <Container className="pt-8 pb-16">
       <Card className="mx-auto flex w-full max-w-dialog flex-col gap-4 p-6">

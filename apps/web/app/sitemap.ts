@@ -30,6 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/tours',
     '/visa',
     '/travel-add-ons',
+    '/trips',
     '/deals',
     '/prime',
     '/support',

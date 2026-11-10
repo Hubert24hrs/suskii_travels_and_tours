@@ -28,6 +28,12 @@ import { bookingHeaders, saveBookingToken } from '../../lib/booking-token';
 import { browserApi, idempotencyKey, problemSlug, type Schemas } from '../../lib/browser-api';
 import { searchAgainHref } from '../../lib/search-links';
 import { hasSession } from '../../lib/session';
+import {
+  clearActiveTrip,
+  quoteTripComponent,
+  readActiveTrip,
+  type ActiveTrip,
+} from '../../lib/trip-builder';
 import { AppLink } from '../app-link';
 import { loadTurnstile } from '../home/turnstile';
 import { ResultsLoading } from '../results/result-states';
@@ -199,7 +205,9 @@ export function Checkout({
   const [forCompany, setForCompany] = useState(false);
   // Company wallet (ADR-090): the booker pays the whole trip from the company's balance.
   const [fromCompanyWallet, setFromCompanyWallet] = useState(false);
-  const companyWallet = company !== null && forCompany && fromCompanyWallet;
+  // Trip builder (ADR-099): the booking joins the traveller's trip, which takes one payment.
+  const [trip, setTrip] = useState<ActiveTrip | null>(null);
+  const companyWallet = !trip && company !== null && forCompany && fromCompanyWallet;
   const booking = useRef<{ id: string } | null>(null);
   const createKey = useRef<{ body: string; key: string } | null>(null);
   const token = useRef<string | null>(turnstileSiteKey ? null : DEVELOPMENT_TOKEN);
@@ -232,6 +240,9 @@ export function Checkout({
         if (data) {
           setPhase({ kind: 'ready', quote: data });
           setDraft(draftFor(data));
+          // Only the part the traveller went to choose, and only for a signed-in traveller.
+          const active = hasSession() ? readActiveTrip() : null;
+          setTrip(active?.component === quoteTripComponent(data) ? active : null);
           const price = data.flight?.offer.price ?? data.hotel?.rate.price ?? data.price;
           trackAd('InitiateCheckout', {
             ...(price ? adValue(price.total) : {}),
@@ -366,7 +377,7 @@ export function Checkout({
   const extrasSelected =
     seats.length > 0 || draft.passengers.some((passenger) => passenger.bags > 0);
   // Paid extras cannot be held (ADR-018), nor is a wallet payment split: both pay in full.
-  const chosenPlan: PaymentPlanChoice = extrasSelected || companyWallet ? 'full' : plan;
+  const chosenPlan: PaymentPlanChoice = extrasSelected || companyWallet || trip ? 'full' : plan;
 
   /** Shared handling of the answers a payment or plan request can give. */
   const handleProblem = (bookingId: string, error: unknown, status: number) => {
@@ -442,8 +453,23 @@ export function Checkout({
     handleProblem(bookingId, error, response.status);
   };
 
+  /** The booking becomes a part of the trip; the trip page takes one payment for all of them. */
+  const addToTrip = async (bookingId: string, active: ActiveTrip) => {
+    const { data } = await browserApi().POST('/v1/trips/{tripId}/parts', {
+      params: { path: { tripId: active.id } },
+      body: { bookingId },
+    });
+    clearActiveTrip();
+    // A booking the trip cannot take stays a booking of its own, paid from its page.
+    router.push(data ? `/trips/${active.id}` : `/bookings/${bookingId}`);
+  };
+
   const proceed = (bookingId: string) =>
-    chosenPlan === 'full' ? startPayment(bookingId) : startPlan(bookingId, chosenPlan);
+    trip
+      ? addToTrip(bookingId, trip)
+      : chosenPlan === 'full'
+        ? startPayment(bookingId)
+        : startPlan(bookingId, chosenPlan);
 
   const acceptPrice = async () => {
     const bookingId = booking.current?.id;
@@ -537,7 +563,7 @@ export function Checkout({
         acceptTerms: true as const,
         locale,
         turnstileToken: token.current,
-        ...(company !== null && forCompany ? { company: true } : {}),
+        ...(!trip && company !== null && forCompany ? { company: true } : {}),
         // Only with marketing consent; the API re-checks the recorded choice (ADR-079).
         ...withMarketing(),
       };
@@ -643,6 +669,26 @@ export function Checkout({
       className="flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start lg:gap-8"
     >
       <div className="flex flex-col gap-6 lg:col-span-2">
+        {trip ? (
+          <Card
+            role="status"
+            data-testid="trip-banner"
+            className="flex flex-col items-start gap-2 p-4"
+          >
+            <p className="font-body text-body-sm text-foreground">
+              {t('checkout.tripBuilder.banner', { reference: trip.reference })}
+            </p>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                clearActiveTrip();
+                setTrip(null);
+              }}
+            >
+              {t('checkout.tripBuilder.alone')}
+            </Button>
+          </Card>
+        ) : null}
         <div ref={summaryRef} tabIndex={-1} className="focus-visible:focus-ring">
           {errorCount > 0 || formError ? (
             <p
@@ -860,7 +906,7 @@ export function Checkout({
           </section>
         </Card>
 
-        {company ? (
+        {company && !trip ? (
           <Card asChild className="flex flex-col gap-2 p-4">
             <section aria-label={t('checkout.company.label', { company: company.name })}>
               <CheckboxField
@@ -930,7 +976,7 @@ export function Checkout({
           </section>
         </Card>
 
-        {companyWallet ? null : (
+        {companyWallet || trip ? null : (
           <>
             <PlanChoice
               vertical={quote.vertical}
@@ -966,11 +1012,13 @@ export function Checkout({
           <Button type="submit" fullWidth="mobile" loading={submitting}>
             {submitting
               ? t('checkout.paying')
-              : chosenPlan === 'hold'
-                ? t('checkout.plan.reserve')
-                : chosenPlan === 'installments'
-                  ? t('checkout.plan.setUp')
-                  : t('checkout.pay')}
+              : trip
+                ? t('checkout.tripBuilder.submit')
+                : chosenPlan === 'hold'
+                  ? t('checkout.plan.reserve')
+                  : chosenPlan === 'installments'
+                    ? t('checkout.plan.setUp')
+                    : t('checkout.pay')}
           </Button>
           <p className="flex items-center gap-2 font-body text-caption text-foreground">
             <Lock aria-hidden="true" className="size-4" />

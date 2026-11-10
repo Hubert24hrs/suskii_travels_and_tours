@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { forgetBookingTokens } from '../../lib/booking-token';
+import { forgetTripBuilder } from '../../lib/trip-builder';
 import { forgetSupportTokens } from '../../lib/support-token';
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { forgetSession } from '../../lib/session';
@@ -121,6 +122,7 @@ function DeleteCard({ requirements }: { requirements: Requirements }) {
     if (data) {
       forgetSession();
       forgetBookingTokens();
+      forgetTripBuilder();
       forgetSupportTokens();
       setDeleted(true);
       setTimeout(() => {
