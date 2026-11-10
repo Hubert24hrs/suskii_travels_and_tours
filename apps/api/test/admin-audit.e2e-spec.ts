@@ -1103,6 +1103,19 @@ describe('admin audit coverage (e2e)', () => {
     await audited('adminClosePrivacyBreach', { id }, (r) => r.send({}));
   });
 
+  it('assistant: pause, release and autonomy', async () => {
+    const paused = await audited('adminPauseAgent', {}, (request) =>
+      request.send({ reason: 'maintenance' }),
+    );
+    expect(paused.body).toMatchObject({ paused: true, reason: 'maintenance', known: true });
+    const released = await audited('adminResumeAgent', {}, none);
+    expect(released.body).toMatchObject({ paused: false, reason: null });
+    const level = await audited('adminSetAgentAutonomy', {}, (request) =>
+      request.send({ subject: 'agent', name: 'concierge', level: 'manual' }),
+    );
+    expect(level.body).toEqual({ subject: 'agent', name: 'concierge', level: 'manual', set: true });
+  });
+
   it('covered every admin mutation', () => {
     const missing = MUTATIONS.map((op) => op.operationId).filter((id) => !covered.has(id));
     expect(missing).toEqual([]);

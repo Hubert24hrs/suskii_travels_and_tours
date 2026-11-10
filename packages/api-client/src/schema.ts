@@ -143,6 +143,83 @@ export interface paths {
         patch: operations["adminUpdateAddon"];
         trace?: never;
     };
+    "/v1/admin/ai/autonomy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set how far an agent or a tool goes without a person
+         * @description `manual`: advice only. `supervised` (the default): prepares, a person approves. `autonomous`: approved low-risk tools within limits. A call runs at the stricter of its agent's and its tool's level; a `commit` still needs the traveller's tap at every level.
+         */
+        put: operations["adminSetAgentAutonomy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The assistant at a glance
+         * @description Whether it is on, configured and paused, today's model spend against the daily cap, run counts, the autonomy level of every agent and tool, and the tools the gateway serves.
+         */
+        get: operations["adminGetAgentOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause the assistant everywhere
+         * @description Takes effect within seconds: no run starts and no tool runs. Clients fall back to the ordinary screens. Needs no second check, so it is one press in an incident.
+         */
+        post: operations["adminPauseAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release the pause */
+        post: operations["adminResumeAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/audit-logs": {
         parameters: {
             query?: never;
@@ -2559,6 +2636,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agent/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the assistant can be offered
+         * @description Clients show the assistant only while `available` is true and hide it when this cannot be read. Search, booking and payment never depend on it.
+         */
+        get: operations["getAgentStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/attestation/challenges": {
         parameters: {
             query?: never;
@@ -4407,6 +4504,46 @@ export interface paths {
         put?: never;
         /** Send paid bookings' Purchase events to the configured ad networks */
         post: operations["runAdConversions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/agent-tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The tools the gateway serves
+         * @description Name, description, tier, scope, the agents that may call each tool and the JSON Schema of its arguments. The agent service builds its tool list from this answer.
+         */
+        get: operations["listAgentTools"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/agent-tools/{tool}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run one tool for the caller of a sealed grant
+         * @description Decided in order: the assistant is on and not paused, the grant is valid for a running run, the run has calls left, the tool is this agent's, the grant opens its scope, the tier may run, the arguments fit. A refusal is a 200 with `status` and a `reason` code, so the model can react; a `commit` tool is always refused with `confirmation_required`.
+         */
+        post: operations["callAgentTool"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6926,6 +7063,36 @@ export interface components {
             /** Format: uuid */
             bookingId: string;
         };
+        AdminAgentOverview: {
+            enabled: boolean;
+            priceIntelEnabled: boolean;
+            serviceConfigured: boolean;
+            pause: {
+                paused: boolean;
+                reason: ("incident" | "cost" | "quality" | "maintenance" | "other") | null;
+                since: string | null;
+                known: boolean;
+            };
+            spend: {
+                todayMicroUsd: number;
+                dailyCapMicroUsd: number;
+            };
+            runs: {
+                today: number;
+                waiting: number;
+                failedToday: number;
+            };
+            autonomy: components["schemas"]["AgentAutonomySetting"][];
+            tools: {
+                name: string;
+                description: string;
+                /** @enum {string} */
+                tier: "read" | "propose" | "commit";
+                /** @enum {string} */
+                scope: "catalog" | "search" | "quotes" | "account" | "support" | "ops" | "finance" | "marketing" | "reports" | "datasources";
+                agents: ("concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive")[];
+            }[];
+        };
         AdminBookingContact: {
             email: string;
             phone: string;
@@ -8088,6 +8255,63 @@ export interface components {
         AdminUserPage: {
             items: components["schemas"]["AdminUser"][];
             nextCursor: string | null;
+        };
+        AgentAutonomyInputInput: {
+            /** @enum {string} */
+            subject: "agent" | "tool";
+            name: string;
+            /** @enum {string} */
+            level: "manual" | "supervised" | "autonomous";
+        };
+        AgentAutonomySetting: {
+            /** @enum {string} */
+            subject: "agent" | "tool";
+            name: string;
+            /** @enum {string} */
+            level: "manual" | "supervised" | "autonomous";
+            set: boolean;
+        };
+        AgentPauseInputInput: {
+            /** @enum {string} */
+            reason: "incident" | "cost" | "quality" | "maintenance" | "other";
+        };
+        AgentStatus: {
+            enabled: boolean;
+            paused: boolean;
+            available: boolean;
+        };
+        AgentToolAnswer: {
+            /** @enum {string} */
+            status: "ok" | "denied" | "error" | "timeout";
+            reason: ("disabled" | "paused" | "grant" | "unknown_tool" | "agent" | "scope" | "autonomy" | "confirmation_required" | "limit" | "invalid" | "not_found" | "refused" | "failed" | "timeout") | null;
+            result: unknown;
+            issues?: {
+                path: string;
+                code: string;
+            }[];
+        };
+        AgentToolCallInput: {
+            grant: string;
+            agent: string;
+            /** @default {} */
+            arguments?: {
+                [key: string]: unknown;
+            };
+        };
+        AgentToolDescription: {
+            name: string;
+            description: string;
+            /** @enum {string} */
+            tier: "read" | "propose" | "commit";
+            /** @enum {string} */
+            scope: "catalog" | "search" | "quotes" | "account" | "support" | "ops" | "finance" | "marketing" | "reports" | "datasources";
+            agents: ("concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive")[];
+            parameters: {
+                [key: string]: unknown;
+            };
+        };
+        AgentToolList: {
+            tools: components["schemas"]["AgentToolDescription"][];
         };
         Airport: {
             code: string;
@@ -11880,6 +12104,8 @@ export interface components {
             trips: number;
             "ad-conversions": number;
             "metasearch-landings": number;
+            "agent-conversations": number;
+            "agent-runs": number;
             "support-conversations": number;
             "whatsapp-contacts": number;
             "supplier-customer-ip": number;
@@ -13457,6 +13683,141 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminSetAgentAutonomy: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentAutonomyInputInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentAutonomySetting"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentOverview"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminPauseAgent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentPauseInputInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        paused: boolean;
+                        reason: ("incident" | "cost" | "quality" | "maintenance" | "other") | null;
+                        since: string | null;
+                        known: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminResumeAgent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        paused: boolean;
+                        reason: ("incident" | "cost" | "quality" | "maintenance" | "other") | null;
+                        since: string | null;
+                        known: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -18809,6 +19170,30 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getAgentStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentStatus"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     createAttestationChallenge: {
         parameters: {
             query?: never;
@@ -21996,6 +22381,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdConversionRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    listAgentTools: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentToolList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    callAgentTool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tool: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentToolCallInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentToolAnswer"];
                 };
             };
             400: components["responses"]["Problem400"];

@@ -32,7 +32,8 @@ export const STAFF_AGENTS = [
 
 export const AGENT_NAMES = [...CUSTOMER_AGENTS, ...STAFF_AGENTS] as const;
 export type AgentName = (typeof AGENT_NAMES)[number];
-export type AgentAudience = 'customer' | 'staff';
+export const AGENT_AUDIENCES = ['customer', 'staff'] as const;
+export type AgentAudience = (typeof AGENT_AUDIENCES)[number];
 
 export const agentAudience = (agent: AgentName): AgentAudience =>
   (CUSTOMER_AGENTS as readonly string[]).includes(agent) ? 'customer' : 'staff';
@@ -141,3 +142,88 @@ export const AGENT_OPEN_CONVERSATION_LIMIT = 20;
 
 /** `S-…` is support (ADR-083) and `T-…` a trip (ADR-099); an agent conversation is `A-…`. */
 export const AGENT_REFERENCE_PATTERN = /^A-[A-Z0-9]{6}$/;
+
+/**
+ * A tool's name: an area, a dot and what it does (`catalog.places`, `bookings.read`). The name
+ * is all the model sees of a tool's identity, so it is fixed in shape.
+ */
+export const AGENT_TOOL_NAME_PATTERN = /^[a-z][a-z_]{1,30}\.[a-z][a-z_]{1,30}$/;
+
+/**
+ * What is never a tool (ADR-107): approving or sending a refund, capturing or charging, paying
+ * out, posting to the ledger, changing a price rule, signing a supplier contract, confirming a
+ * booking or deciding an approval. A name that says so fails the registry and its test.
+ */
+const NEVER_TOOLS: readonly RegExp[] = [
+  /refund.*\.(approve|send|pay|issue|settle)|\.(approve|send|issue|settle)_refund/,
+  /\.(capture|charge|collect)(_|$)|payments?\.(capture|charge|settle|mark_paid)/,
+  /payouts?\.|\.(pay_out|payout)(_|$)/,
+  /ledger\.|\.(post|post_entry|adjust_balance)(_|$)/,
+  /(pricing|price_rules?|markups?|fees?|tax_rules?|promos?)\.(create|update|set|change|delete)/,
+  /contracts?\.|\.(sign|accept_terms)(_|$)/,
+  /bookings?\.(confirm|ticket|mark_confirmed|mark_paid)/,
+  /approvals?\.(approve|decide|reject)|\.(approve|decide)(_|$)/,
+];
+
+/** True for a name no agent tool may have. */
+export const isForbiddenAgentTool = (name: string): boolean =>
+  NEVER_TOOLS.some((pattern) => pattern.test(name));
+
+/** Why the gateway refused or failed a call; the model and the run record see the code only. */
+export const AGENT_TOOL_DENIALS = [
+  // The assistant is switched off or paused.
+  'disabled',
+  'paused',
+  // The grant is missing, altered, expired, or its run has ended.
+  'grant',
+  // No such tool, or not one of this agent's.
+  'unknown_tool',
+  'agent',
+  // The grant does not open the tool's part of the platform.
+  'scope',
+  // The agent or the tool is set to advice only.
+  'autonomy',
+  // A commit: only a person's tap on a confirmation runs it.
+  'confirmation_required',
+  // The run has used its tool calls.
+  'limit',
+  // The arguments do not fit the tool.
+  'invalid',
+  // What the tool asked for does not exist for this caller.
+  'not_found',
+  // The tool's own service refused or failed.
+  'refused',
+  'failed',
+  'timeout',
+] as const;
+export type AgentToolDenial = (typeof AGENT_TOOL_DENIALS)[number];
+
+/** Why staff paused the assistant. A code, never free text (it is shown and audited). */
+export const AGENT_PAUSE_REASONS = ['incident', 'cost', 'quality', 'maintenance', 'other'] as const;
+export type AgentPauseReason = (typeof AGENT_PAUSE_REASONS)[number];
+
+/** What an autonomy setting is about. */
+export const AGENT_AUTONOMY_SUBJECTS = ['agent', 'tool'] as const;
+export type AgentAutonomySubject = (typeof AGENT_AUTONOMY_SUBJECTS)[number];
+
+/** The `agent_settings` key of an autonomy level. */
+export const agentAutonomyKey = (subject: AgentAutonomySubject, name: string): string =>
+  `autonomy.${subject}.${name}`;
+
+/**
+ * The level a call runs at: the stricter of the tool's and the agent's, each the default when
+ * staff set none. A tool set to `manual` stays manual whatever its agent is allowed.
+ */
+export function effectiveAutonomy(
+  agent: AgentAutonomy | undefined,
+  tool: AgentAutonomy | undefined,
+): AgentAutonomy {
+  const rank = (level: AgentAutonomy): number => AGENT_AUTONOMY_LEVELS.indexOf(level);
+  const a = agent ?? DEFAULT_AGENT_AUTONOMY;
+  const t = tool ?? DEFAULT_AGENT_AUTONOMY;
+  return rank(a) <= rank(t) ? a : t;
+}
+
+/** Raising a level gives an agent more room, so it needs a fresh authenticator check. */
+export const raisesAutonomy = (from: AgentAutonomy, to: AgentAutonomy): boolean =>
+  AGENT_AUTONOMY_LEVELS.indexOf(to) > AGENT_AUTONOMY_LEVELS.indexOf(from);

@@ -487,6 +487,340 @@
         ]
       }
     },
+    "/v1/admin/ai/autonomy": {
+      "put": {
+        "operationId": "adminSetAgentAutonomy",
+        "summary": "Set how far an agent or a tool goes without a person",
+        "description": "`manual`: advice only. `supervised` (the default): prepares, a person approves. `autonomous`: approved low-risk tools within limits. A call runs at the stricter of its agent's and its tool's level; a `commit` still needs the traveller's tap at every level.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentAutonomyInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAutonomySetting"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:manage"
+        ],
+        "x-audit": [
+          "agent.autonomy_changed"
+        ],
+        "x-step-up": true
+      }
+    },
+    "/v1/admin/ai/overview": {
+      "get": {
+        "operationId": "adminGetAgentOverview",
+        "summary": "The assistant at a glance",
+        "description": "Whether it is on, configured and paused, today's model spend against the daily cap, run counts, the autonomy level of every agent and tool, and the tools the gateway serves.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAgentOverview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      }
+    },
+    "/v1/admin/ai/pause": {
+      "post": {
+        "operationId": "adminPauseAgent",
+        "summary": "Pause the assistant everywhere",
+        "description": "Takes effect within seconds: no run starts and no tool runs. Clients fall back to the ordinary screens. Needs no second check, so it is one press in an incident.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentPauseInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "paused": {
+                      "type": "boolean"
+                    },
+                    "reason": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "incident",
+                            "cost",
+                            "quality",
+                            "maintenance",
+                            "other"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "since": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "known": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "paused",
+                    "reason",
+                    "since",
+                    "known"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:manage"
+        ],
+        "x-audit": [
+          "agent.paused"
+        ]
+      }
+    },
+    "/v1/admin/ai/resume": {
+      "post": {
+        "operationId": "adminResumeAgent",
+        "summary": "Release the pause",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "paused": {
+                      "type": "boolean"
+                    },
+                    "reason": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "incident",
+                            "cost",
+                            "quality",
+                            "maintenance",
+                            "other"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "since": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "known": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "paused",
+                    "reason",
+                    "since",
+                    "known"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:manage"
+        ],
+        "x-audit": [
+          "agent.resumed"
+        ],
+        "x-step-up": true
+      }
+    },
     "/v1/admin/audit-logs": {
       "get": {
         "operationId": "adminListAuditLogs",
@@ -13057,6 +13391,42 @@
         ]
       }
     },
+    "/v1/agent/status": {
+      "get": {
+        "operationId": "getAgentStatus",
+        "summary": "Whether the assistant can be offered",
+        "description": "Clients show the assistant only while `available` is true and hide it when this cannot be read. Search, booking and payment never depend on it.",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/attestation/challenges": {
       "post": {
         "operationId": "createAttestationChallenge",
@@ -19870,6 +20240,119 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AdConversionRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/internal/agent-tools": {
+      "get": {
+        "operationId": "listAgentTools",
+        "summary": "The tools the gateway serves",
+        "description": "Name, description, tier, scope, the agents that may call each tool and the JSON Schema of its arguments. The agent service builds its tool list from this answer.",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentToolList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/internal/agent-tools/{tool}": {
+      "post": {
+        "operationId": "callAgentTool",
+        "summary": "Run one tool for the caller of a sealed grant",
+        "description": "Decided in order: the assistant is on and not paused, the grant is valid for a running run, the run has calls left, the tool is this agent's, the grant opens its scope, the tier may run, the arguments fit. A refusal is a 200 with `status` and a `reason` code, so the model can react; a `commit` tool is always refused with `confirmation_required`.",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tool",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 64
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentToolCallInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentToolAnswer"
                 }
               }
             }
@@ -29394,6 +29877,198 @@
           "bookingId"
         ]
       },
+      "AdminAgentOverview": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "priceIntelEnabled": {
+            "type": "boolean"
+          },
+          "serviceConfigured": {
+            "type": "boolean"
+          },
+          "pause": {
+            "type": "object",
+            "properties": {
+              "paused": {
+                "type": "boolean"
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "incident",
+                      "cost",
+                      "quality",
+                      "maintenance",
+                      "other"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "since": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "known": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "paused",
+              "reason",
+              "since",
+              "known"
+            ],
+            "additionalProperties": false
+          },
+          "spend": {
+            "type": "object",
+            "properties": {
+              "todayMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "dailyCapMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "todayMicroUsd",
+              "dailyCapMicroUsd"
+            ],
+            "additionalProperties": false
+          },
+          "runs": {
+            "type": "object",
+            "properties": {
+              "today": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "waiting": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "failedToday": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "today",
+              "waiting",
+              "failedToday"
+            ],
+            "additionalProperties": false
+          },
+          "autonomy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentAutonomySetting"
+            }
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "propose",
+                    "commit"
+                  ]
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "catalog",
+                    "search",
+                    "quotes",
+                    "account",
+                    "support",
+                    "ops",
+                    "finance",
+                    "marketing",
+                    "reports",
+                    "datasources"
+                  ]
+                },
+                "agents": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "concierge",
+                      "flights",
+                      "hotels",
+                      "cars",
+                      "tours",
+                      "trip_builder",
+                      "bookings",
+                      "payments",
+                      "support",
+                      "disruption",
+                      "price_intel",
+                      "operations",
+                      "finance_prep",
+                      "marketing",
+                      "business_intelligence",
+                      "executive"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "description",
+                "tier",
+                "scope",
+                "agents"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "priceIntelEnabled",
+          "serviceConfigured",
+          "pause",
+          "spend",
+          "runs",
+          "autonomy",
+          "tools"
+        ],
+        "additionalProperties": false
+      },
       "AdminBookingContact": {
         "type": "object",
         "properties": {
@@ -35519,6 +36194,289 @@
         "required": [
           "items",
           "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "AgentAutonomyInputInput": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "tool"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "supervised",
+              "autonomous"
+            ]
+          }
+        },
+        "required": [
+          "subject",
+          "name",
+          "level"
+        ]
+      },
+      "AgentAutonomySetting": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "tool"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "supervised",
+              "autonomous"
+            ]
+          },
+          "set": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "subject",
+          "name",
+          "level",
+          "set"
+        ],
+        "additionalProperties": false
+      },
+      "AgentPauseInputInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "incident",
+              "cost",
+              "quality",
+              "maintenance",
+              "other"
+            ]
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "AgentStatus": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "available": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "paused",
+          "available"
+        ],
+        "additionalProperties": false
+      },
+      "AgentToolAnswer": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "denied",
+              "error",
+              "timeout"
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "disabled",
+                  "paused",
+                  "grant",
+                  "unknown_tool",
+                  "agent",
+                  "scope",
+                  "autonomy",
+                  "confirmation_required",
+                  "limit",
+                  "invalid",
+                  "not_found",
+                  "refused",
+                  "failed",
+                  "timeout"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {},
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "code"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "AgentToolCallInput": {
+        "type": "object",
+        "properties": {
+          "grant": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "agent": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "arguments": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "grant",
+          "agent"
+        ]
+      },
+      "AgentToolDescription": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "read",
+              "propose",
+              "commit"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "catalog",
+              "search",
+              "quotes",
+              "account",
+              "support",
+              "ops",
+              "finance",
+              "marketing",
+              "reports",
+              "datasources"
+            ]
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "concierge",
+                "flights",
+                "hotels",
+                "cars",
+                "tours",
+                "trip_builder",
+                "bookings",
+                "payments",
+                "support",
+                "disruption",
+                "price_intel",
+                "operations",
+                "finance_prep",
+                "marketing",
+                "business_intelligence",
+                "executive"
+              ]
+            }
+          },
+          "parameters": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "tier",
+          "scope",
+          "agents",
+          "parameters"
+        ],
+        "additionalProperties": false
+      },
+      "AgentToolList": {
+        "type": "object",
+        "properties": {
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentToolDescription"
+            }
+          }
+        },
+        "required": [
+          "tools"
         ],
         "additionalProperties": false
       },
@@ -54802,6 +55760,16 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "agent-conversations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "agent-runs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "support-conversations": {
             "type": "integer",
             "minimum": 0,
@@ -54866,6 +55834,8 @@
           "trips",
           "ad-conversions",
           "metasearch-landings",
+          "agent-conversations",
+          "agent-runs",
           "support-conversations",
           "whatsapp-contacts",
           "supplier-customer-ip",

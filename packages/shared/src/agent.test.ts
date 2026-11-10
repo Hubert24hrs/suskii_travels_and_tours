@@ -3,12 +3,17 @@ import { describe, expect, it } from 'vitest';
 import {
   AGENT_NAMES,
   AGENT_SCOPES,
+  AGENT_TOOL_NAME_PATTERN,
   CUSTOMER_AGENTS,
   STAFF_AGENTS,
   STAFF_SCOPE_PERMISSIONS,
   agentAudience,
+  agentAutonomyKey,
   agentScopesFor,
   agentsFor,
+  effectiveAutonomy,
+  isForbiddenAgentTool,
+  raisesAutonomy,
   tierRuns,
 } from './agent';
 import { PERMISSIONS } from './rbac';
@@ -78,5 +83,65 @@ describe('agentScopesFor', () => {
       expect(AGENT_SCOPES).toContain(scope);
       expect(Object.keys(PERMISSIONS)).toContain(permission);
     }
+  });
+
+  it('refuses the names of things an agent never does (ADR-107)', () => {
+    for (const name of [
+      'refunds.approve',
+      'finance.approve_refund',
+      'refunds.send',
+      'payments.capture',
+      'payments.charge',
+      'bookings.capture_payment',
+      'payouts.send',
+      'drivers.pay_out',
+      'ledger.post',
+      'finance.post_entry',
+      'pricing.update',
+      'markups.create',
+      'fees.set',
+      'tax_rules.change',
+      'contracts.sign',
+      'suppliers.accept_terms',
+      'bookings.confirm',
+      'bookings.mark_paid',
+      'approvals.approve',
+      'quotes.approve',
+    ]) {
+      expect([name, isForbiddenAgentTool(name)]).toEqual([name, true]);
+    }
+    for (const name of [
+      'catalog.places',
+      'platform.status',
+      'flights.search',
+      'bookings.read',
+      'bookings.request_cancellation',
+      'refunds.draft_request',
+      'quotes.request_assisted',
+      'payments.explain',
+      'support.hand_over',
+      'pricing.read',
+    ]) {
+      expect([name, isForbiddenAgentTool(name)]).toEqual([name, false]);
+      expect(AGENT_TOOL_NAME_PATTERN.test(name)).toBe(true);
+    }
+    expect(AGENT_TOOL_NAME_PATTERN.test('Bookings.read')).toBe(false);
+    expect(AGENT_TOOL_NAME_PATTERN.test('read')).toBe(false);
+    expect(AGENT_TOOL_NAME_PATTERN.test('a.b.c')).toBe(false);
+  });
+
+  it('runs a call at the stricter of the agent and the tool level', () => {
+    expect(effectiveAutonomy(undefined, undefined)).toBe('supervised');
+    expect(effectiveAutonomy('autonomous', undefined)).toBe('supervised');
+    expect(effectiveAutonomy('autonomous', 'autonomous')).toBe('autonomous');
+    expect(effectiveAutonomy('autonomous', 'manual')).toBe('manual');
+    expect(effectiveAutonomy('manual', 'autonomous')).toBe('manual');
+    expect(raisesAutonomy('manual', 'supervised')).toBe(true);
+    expect(raisesAutonomy('supervised', 'autonomous')).toBe(true);
+    expect(raisesAutonomy('autonomous', 'supervised')).toBe(false);
+    expect(raisesAutonomy('supervised', 'supervised')).toBe(false);
+    expect(agentAutonomyKey('tool', 'quotes.request_assisted')).toBe(
+      'autonomy.tool.quotes.request_assisted',
+    );
   });
 });

@@ -45,6 +45,11 @@ export const supportEmailContext = (conversationId: string): string =>
 
 // Suskii Agent (ADR-105): what a person wrote to the assistant and what it answered.
 export const agentMessageContext = (messageId: string): string => `agent-message:${messageId}:body`;
+/**
+ * A run's grant (ADR-101): never stored, so one fixed context. It only has to make sure no other
+ * ciphertext opens as a grant.
+ */
+export const agentGrantContext = (): string => 'agent-grant';
 export const whatsappPhoneContext = (contactId: string): string =>
   `whatsapp-contact:${contactId}:phone`;
 export const whatsappBsuidContext = (contactId: string): string =>
