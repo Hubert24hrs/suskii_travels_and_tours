@@ -436,6 +436,9 @@ Tooling notes for agents:
 
 - Pages render per request (nonce CSP, ADR-010); cache API reads through `lib/api.ts`
   (`revalidate` + tags). Never read `localStorage` during render; restore it in an effect.
+- An answer one booking can change for the next visitor (which rental cars are free on the dates
+  asked, a bus trip's seat map) is read with `revalidate: 0`. A cached list keeps offering what
+  was just taken, also to the first visitor after the cache has expired.
 - Node and browsers ship different CLDR data, so `Intl` text in a server-rendered client component
   can differ at hydration. Render it in an element with `suppressHydrationWarning` (as
   `FieldButton` and `NativeSelect` do) and switch browser-only values (the visitor's time zone)

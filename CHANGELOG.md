@@ -30,6 +30,13 @@ How the app is checked before a tester installs it (ADR-100):
   download instead of 85 MB, unpacked at install. The emulator that checks it can only run phone
   code from unpacked libraries.
 
+#### Fixed
+
+- **The website listed a rental car that had just been booked.** The search for the dates asked
+  was cached for a minute and then served once more to the next visitor, so the car was still
+  offered and booking it was refused (`not_available`). The check found it on its second run
+  against the same server. The search is now read fresh; the API always answered correctly.
+
 ### Trip builder: combined trips paid once (2026-11-10)
 
 The owner's combined travel packages (ADR-099, `docs/phases/trip-builder.md`):

@@ -196,9 +196,11 @@ test.describe('car rental', () => {
     const cars = page.getByTestId('rental-cars');
     await expect(cars.getByText(t('cars.rentals.days', { count: 2 })).first()).toBeVisible();
     await expectNoAxeViolations(page);
+    const results = page.url();
     await cars.getByRole('link').first().click();
 
     await page.waitForURL(/\/rentals\/sample-/);
+    const chosen = new URL(page.url()).pathname;
     await expect(page.locator('#book-pickup')).toHaveValue(pickupAt);
     await expectNoAxeViolations(page);
     // A self-drive rental asks for the driver's age before anything is quoted (ADR-098).
@@ -240,6 +242,12 @@ test.describe('car rental', () => {
       { timeout: 15_000 },
     );
     await expectNoAxeViolations(page);
+
+    // The car is taken for those days now: the same search no longer offers it, while the other
+    // cars stay listed.
+    await page.goto(results);
+    await expect(page.getByTestId('rental-cars').getByRole('link').first()).toBeVisible();
+    await expect(page.locator(`[data-testid="rental-cars"] a[href^="${chosen}?"]`)).toHaveCount(0);
   });
 
   test('finds airport cars, prices ten days by the week and books extras, another return branch and cross-border cover', async ({

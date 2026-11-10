@@ -203,10 +203,11 @@ export const api = {
       tags: ['cars'],
       query: { city },
     }),
+  // Which cars are free on the dates asked. One booking takes a car off the list, so the answer
+  // is read fresh: a cached list would still offer the car, and booking it is then refused.
   rentalSearch: (query: Record<string, string | undefined>) =>
     apiGet<Schemas['RentalSearchResult']>('/v1/rentals/vehicles', {
-      revalidate: ONE_MINUTE,
-      tags: ['cars'],
+      revalidate: 0,
       query,
     }),
   rentalVehicle: (slug: string) =>
