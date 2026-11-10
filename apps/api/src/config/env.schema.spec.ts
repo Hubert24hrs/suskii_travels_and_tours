@@ -1,4 +1,9 @@
-import { DEFAULT_COMPANY_TOPUP_LIMITS, LOCAL_INTERNAL_TOKEN_PREFIX, parseEnv } from './env.schema';
+import {
+  DEFAULT_COMPANY_TOPUP_LIMITS,
+  DEFAULT_SCRAPE_COSTS,
+  LOCAL_INTERNAL_TOKEN_PREFIX,
+  parseEnv,
+} from './env.schema';
 
 const base = {
   DATABASE_URL: 'postgresql://suskii:pw@localhost:5432/suskii',
@@ -453,6 +458,68 @@ describe('parseEnv', () => {
         AGENT_RUN_TOKEN: `${LOCAL_INTERNAL_TOKEN_PREFIX}agent-run-token-change-me`,
       }),
     ).toContain('AGENT_RUN_TOKEN: the local development token is not allowed in production');
+  });
+
+  it('needs a key for every web-data vendor it names, and refuses the mock in production (ADR-102)', () => {
+    const env = parseEnv(base);
+    expect(env.PRICE_INTEL_VENDORS).toEqual(['mock']);
+    expect(env.PRICE_INTEL_COSTS).toEqual(DEFAULT_SCRAPE_COSTS);
+    expect(env.PRICE_INTEL_MAX_ATTEMPTS).toBe(6);
+    const parse = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({ ...base, ...overrides });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    const named = parse({
+      PRICE_INTEL_VENDORS: 'firecrawl,apify,browse_ai,oxylabs,bright_data,direct',
+    });
+    for (const key of [
+      'FIRECRAWL_API_KEY',
+      'APIFY_TOKEN',
+      'BROWSE_AI_API_KEY',
+      'OXYLABS_USERNAME',
+      'BRIGHT_DATA_API_KEY',
+    ]) {
+      expect(named).toContain(key);
+    }
+    expect(parse({ PRICE_INTEL_VENDORS: 'scrapy' })).toContain('PRICE_INTEL_VENDORS');
+    expect(
+      parse({
+        PRICE_INTEL_VENDORS: 'bright_data',
+        BRIGHT_DATA_API_KEY: 'k'.repeat(24),
+      }),
+    ).toContain('BRIGHT_DATA_ZONE');
+
+    // The owner's plan prices replace the estimate for that vendor and class only.
+    const costs = parseEnv({
+      ...base,
+      PRICE_INTEL_COSTS: 'firecrawl:unblocker=4000,apify:residential=9000',
+    }).PRICE_INTEL_COSTS;
+    expect(costs.firecrawl).toEqual({ datacenter: 1_000, unblocker: 4_000 });
+    expect(costs.apify).toEqual({ datacenter: 2_000, residential: 9_000 });
+    expect(costs.direct).toEqual({ none: 0 });
+    expect(parse({ PRICE_INTEL_COSTS: 'firecrawl:unblocker=1.5' })).toContain('PRICE_INTEL_COSTS');
+    expect(parse({ PRICE_INTEL_COSTS: 'firecrawl:warp=10' })).toContain('PRICE_INTEL_COSTS');
+
+    // Production: off asks for nothing; on refuses the mock and an unnamed fetcher.
+    expect(parse({ NODE_ENV: 'production' })).not.toContain('PRICE_INTEL');
+    expect(parse({ NODE_ENV: 'production', PRICE_INTEL_ENABLED: 'true' })).toContain(
+      'PRICE_INTEL_VENDORS: the mock vendor reads nothing',
+    );
+    expect(
+      parse({ NODE_ENV: 'production', PRICE_INTEL_ENABLED: 'true', PRICE_INTEL_VENDORS: 'direct' }),
+    ).toContain('PRICE_INTEL_BOT_URL: is required in production');
+    expect(
+      parse({
+        NODE_ENV: 'production',
+        PRICE_INTEL_ENABLED: 'true',
+        PRICE_INTEL_VENDORS: 'direct',
+        PRICE_INTEL_BOT_URL: 'https://www.example.com/bot',
+      }),
+    ).not.toContain('PRICE_INTEL');
   });
 
   it('takes company wallet top-up limits per currency, replacing the defaults (ADR-090)', () => {

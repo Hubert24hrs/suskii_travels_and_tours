@@ -24,5 +24,8 @@ docs/security/checklist.md
 # Generated from apps/api/src/privacy/processing-records.ts (`pnpm --filter @suskii/api privacy:records`)
 docs/privacy/records-of-processing.md
 
+# Generated from the site registry (`pnpm --filter @suskii/api price-intel:register`)
+docs/legal/scraping-register.md
+
 # Helm templates are Go templates, not YAML (checked with helm lint and kubeconform in CI)
 infra/helm/*/templates/

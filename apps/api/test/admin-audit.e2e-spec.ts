@@ -1116,6 +1116,63 @@ describe('admin audit coverage (e2e)', () => {
     expect(level.body).toEqual({ subject: 'agent', name: 'concierge', level: 'manual', set: true });
   });
 
+  it('price intelligence: a site, its decisions, a read, a switch and a budget', async () => {
+    const domain = 'audit-hotels.example.com';
+    const created = await audited('adminCreatePriceSource', {}, (request) =>
+      request.send({
+        domain,
+        name: 'Audit Hotels',
+        products: ['hotel'],
+        country: 'NG',
+        currency: 'NGN',
+        locale: 'en-NG',
+        urlTemplates: { hotel: `https://${domain}/search?city={place}&in={from}` },
+        recipes: {
+          hotel: {
+            version: 'hotel-v1',
+            methods: [{ method: 'structured_data', types: ['Hotel'] }],
+          },
+        },
+        vendors: ['mock'],
+        timeZone: 'Africa/Lagos',
+      }),
+    );
+    const sourceId = (created.body as { id: string }).id;
+    expect(created.body).toMatchObject({ status: 'review', readable: 'review_mock_only' });
+    await audited('adminUpdatePriceSource', { sourceId }, (request) =>
+      request.send({ robots: 'allowed', terms: 'silent' }),
+    );
+    const approved = await audited('adminApprovePriceSource', { sourceId }, (request) =>
+      request.send({ basis: 'public_data_assessment', basisReference: 'Legal file PI-2026-014' }),
+    );
+    expect(approved.body).toMatchObject({ status: 'approved', basis: 'public_data_assessment' });
+    const read = await audited('adminReadPriceSource', { sourceId }, (request) =>
+      request.send({ product: 'hotel', query: { place: 'Lagos', from: inDays(30) } }),
+    );
+    expect(read.body).toMatchObject({ state: 'read', failure: null });
+    await audited('adminBlockPriceSource', { sourceId }, none);
+    const reviewed = await audited('adminReviewPriceSource', { sourceId }, none);
+    expect(reviewed.body).toMatchObject({ status: 'review', basis: null });
+
+    const stopped = await audited('adminStopPriceIntel', {}, (request) =>
+      request.send({ scope: 'domain', subject: domain }),
+    );
+    expect(stopped.body).toEqual({ items: [{ scope: 'domain', subject: domain }] });
+    const released = await audited('adminReleasePriceIntel', {}, (request) =>
+      request.send({ scope: 'domain', subject: domain }),
+    );
+    expect(released.body).toEqual({ items: [] });
+    const budget = await audited('adminSetPriceIntelBudget', {}, (request) =>
+      request.send({
+        scope: 'domain',
+        subject: domain,
+        dailyCapMicroUsd: 5_000,
+        monthlyCapMicroUsd: 100_000,
+      }),
+    );
+    expect(budget.body).toMatchObject({ dailyCapMicroUsd: 5_000, set: true });
+  });
+
   it('covered every admin mutation', () => {
     const missing = MUTATIONS.map((op) => op.operationId).filter((id) => !covered.has(id));
     expect(missing).toEqual([]);

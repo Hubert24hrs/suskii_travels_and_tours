@@ -45,6 +45,16 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   capturing a payment, paying out, posting to the ledger, changing a price rule and confirming a
   booking cannot be registered as tools at all (`isForbiddenAgentTool`; the API refuses to
   start). `test/agent-gateway.e2e-spec.ts` covers each refusal.
+- **Price intelligence** (`/v1/admin/data-sources`, ADR-102): seeing sites, reads, observations
+  and the register needs `ai:read`; listing, changing, deciding and reading a site, the
+  switches and the budgets need `datasources:manage`. Approving a site, switching reading back
+  on and changing a budget also need step-up; switching off does not. An approval is refused
+  until someone recorded what the site's robots file and terms say, and takes only a licence
+  or a permission when either disallows automated access. Changing what an approver agreed to
+  (vendors, proxy class, findings, page addresses, rate) sends the site back to review. The
+  sweep (`/v1/internal/price-intel/sweep`) takes only the worker's token. The agent service has
+  no route here and holds no vendor key: it will reach prices only through tools.
+  `test/price-intel.e2e-spec.ts` covers each rule.
 - **Internal routes** (`/v1/internal`) accept only the worker's service token. Behind
   Cloudflare the edge also blocks them, and blocks the console and `/v1/admin` from addresses
   outside `admin_allowed_ips` (ADR-059).
@@ -96,6 +106,7 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Privacy registers (`/v1/admin/privacy`)                                                          | Staff with `privacy:manage` (privacy officers, super admins): rights requests (email shown masked) and breaches (details only on the breach itself); every change audited with ids and outcomes only (ADR-089)                                                                                                                                                          |
 | The assistant's switches (`/v1/admin/ai`)                                                        | Staff with `ai:read` (operations, finance, support, super admins) see the overview: whether it is on and paused, the day's model spend, run counts, autonomy levels and the tools. Pausing needs `ai:manage` (super admins) and nothing more; releasing the pause and changing an autonomy level also need step-up. Each change is audited with codes only (ADR-107)    |
 | Conversations with the assistant                                                                 | Their owner's session (a guest's token, stored as an HMAC, when the chat routes arrive); the agent service never reads the tables and reaches a person's data only through the tool gateway with that person's grant (ADR-101)                                                                                                                                          |
+| Price sources, their policies, reads and observations (`/v1/admin/data-sources`)                 | Staff with `ai:read` see them; staff with `datasources:manage` (super admins today; no other role holds it) list, change, decide and read a site, switch reading off and set budgets; approving, switching back on and raising a budget also need step-up. They hold no personal data: a read records places, dates and head counts, never who asked (ADR-102)          |
 
 Anything a caller may not access answers **404**, never 403, so ids cannot be probed. Ownership
 is checked in the service that loads the record (`BookingsService.load()` and the like), not in

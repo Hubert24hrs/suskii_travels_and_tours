@@ -60,6 +60,10 @@ export const RETENTION_RULES = [
   // Suskii Agent (ADR-105).
   'agent-conversations',
   'agent-runs',
+  // Price intelligence (ADR-102).
+  'scrape-jobs',
+  'price-observations',
+  'price-snapshots',
   // Support conversations (ADR-083) and WhatsApp contacts (ADR-084).
   'support-conversations',
   'whatsapp-contacts',
@@ -126,6 +130,12 @@ export const RETENTION_DAYS = {
   'agent-conversations': 365,
   /** Runs and their tool calls: 13 months of cost and quality history (ADR-105). */
   'agent-runs': 400,
+  /** What was asked of which site and how it ended: three months of operations history. */
+  'scrape-jobs': 90,
+  /** Prices seen on sites: 13 months, as fare history is kept (ADR-080). */
+  'price-observations': 400,
+  /** A page that could not be read into a price: a week to see why (ADR-102). */
+  'price-snapshots': 7,
   /** After their last WhatsApp message, once none of their conversations is left. */
   'whatsapp-contacts': 30,
   /**
@@ -154,6 +164,9 @@ export const RETENTION_DAYS = {
   >,
   number
 >;
+
+/** Stored pages removed per sweep: a backlog drains over a few runs, never in one long one. */
+const SNAPSHOT_PRUNE_BATCH = 500;
 
 /** Bookings that will not change again: their money is settled and nothing is due. */
 const CLOSED_STATUSES: BookingStatus[] = [
@@ -199,6 +212,34 @@ export class RetentionService {
     private readonly audit: AuditService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  /**
+   * Removes pages kept for diagnosis (ADR-102) once they are older than the cut-off: the object
+   * first, then the key, so a failed delete is tried again on the next run.
+   */
+  private async pruneSnapshots(cutoff: Date): Promise<number> {
+    const attempts = await this.prisma.scrapeAttempt.findMany({
+      where: { snapshotKey: { not: null }, createdAt: { lt: cutoff } },
+      select: { id: true, snapshotKey: true },
+      orderBy: { createdAt: 'asc' },
+      take: SNAPSHOT_PRUNE_BATCH,
+    });
+    let removed = 0;
+    for (const attempt of attempts) {
+      if (!attempt.snapshotKey) continue;
+      try {
+        await this.storage.delete(attempt.snapshotKey);
+      } catch {
+        continue;
+      }
+      await this.prisma.scrapeAttempt.update({
+        where: { id: attempt.id },
+        data: { snapshotKey: null },
+      });
+      removed += 1;
+    }
+    return removed;
+  }
 
   async run(now = new Date()): Promise<RetentionRun> {
     const before = (rule: keyof typeof RETENTION_DAYS) =>
@@ -390,6 +431,18 @@ export class RetentionService {
       'agent-runs': counts(
         await this.prisma.agentRun.deleteMany({
           where: { startedAt: { lt: before('agent-runs') } },
+        }),
+      ),
+      // Unread pages first, so a job that goes below leaves no object behind.
+      'price-snapshots': await this.pruneSnapshots(before('price-snapshots')),
+      'scrape-jobs': counts(
+        await this.prisma.scrapeJob.deleteMany({
+          where: { startedAt: { lt: before('scrape-jobs') } },
+        }),
+      ),
+      'price-observations': counts(
+        await this.prisma.priceObservation.deleteMany({
+          where: { observedAt: { lt: before('price-observations') } },
         }),
       ),
       // After the conversations above: a contact goes only once nothing points at it.

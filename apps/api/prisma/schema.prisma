@@ -4152,3 +4152,208 @@ model AgentSetting {
 
   @@map("agent_settings")
 }
+
+// ---------------------------------------------------------------------------------------------
+// Price intelligence (ADR-102): public prices read from websites no supplier covers. A site is
+// read only under its policy, which starts closed. Nothing here is a price Suskii sells at
+// (ADR-104), and nothing here is about a person: questions hold places, dates and head counts,
+// observations hold public facts of what was priced.
+// ---------------------------------------------------------------------------------------------
+
+enum SourcePolicyStatus {
+  review
+  approved
+  blocked
+}
+
+enum ScrapeJobStatus {
+  running
+  succeeded
+  exhausted
+  denied
+  failed
+}
+
+enum PriceObservationStatus {
+  verified
+  unverified
+  rejected
+}
+
+/// A website whose public prices may be read: its market, what it sells, how a question becomes
+/// a page address and how a price is read from the page. Vendor names, products, proxy classes
+/// and methods are values of `@suskii/shared` (text, so a new one is not a type change).
+model PriceSource {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  /// Lower case, without scheme, port or `www.` (`normaliseDomain`).
+  domain         String   @unique @db.VarChar(253)
+  name           String   @db.VarChar(120)
+  /// `PRICE_PRODUCTS` values.
+  products       String[]
+  /// The market its prices are for: the proxy exit and the expected currency.
+  country        String   @db.Char(2)
+  currency       String   @db.Char(3)
+  locale         String   @db.VarChar(12)
+  /// Per product, the page address of a question, with placeholders such as `{origin}`.
+  urlTemplates   Json     @map("url_templates")
+  /// Per product, the versioned recipe that reads a price from the page.
+  recipes        Json
+  /// Per vendor, what only that vendor needs (an actor and its input, a robot id). Never a key.
+  vendorSettings Json     @map("vendor_settings")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  policy       SourcePolicy?
+  jobs         ScrapeJob[]
+  observations PriceObservation[]
+
+  @@map("price_sources")
+}
+
+/// The rules for reading one site (ADR-102). `review` is the default and reads nothing in
+/// production; `blocked` reads nothing anywhere. Who decided is in the audit log.
+model SourcePolicy {
+  sourceId          String             @id @map("source_id") @db.Uuid
+  status            SourcePolicyStatus @default(review)
+  /// Why reading is allowed (`SOURCE_POLICY_BASES`), set when the site is approved.
+  basis             String?            @db.VarChar(32)
+  /// Where the basis is written down: a document reference, never a person's contact details.
+  basisReference    String?            @map("basis_reference") @db.VarChar(200)
+  /// What the robots file and the terms say about automated access
+  /// (`AUTOMATED_ACCESS_FINDINGS`).
+  robots            String             @default("unknown") @db.VarChar(16)
+  terms             String             @default("unknown") @db.VarChar(16)
+  /// The vendors that may read the site, in order (`SCRAPE_VENDORS`).
+  vendors           String[]
+  /// The highest proxy class the approver allowed (`PROXY_CLASSES`); the router never passes it.
+  maxProxyClass     String             @default("none") @map("max_proxy_class") @db.VarChar(16)
+  requestsPerMinute Int                @default(6) @map("requests_per_minute")
+  maxConcurrency    Int                @default(1) @map("max_concurrency")
+  /// Scheduled reads run only between these hours of the site's local day.
+  nightStartHour    Int                @default(1) @map("night_start_hour") @db.SmallInt
+  nightEndHour      Int                @default(5) @map("night_end_hour") @db.SmallInt
+  timeZone          String             @map("time_zone") @db.VarChar(64)
+  /// Per product, how many minutes an observation counts as fresh.
+  freshnessMinutes  Json               @map("freshness_minutes")
+  decidedAt         DateTime?          @map("decided_at") @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  source PriceSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("source_policies")
+}
+
+/// One question put to one site: which vendors were tried, what it cost and how it ended.
+model ScrapeJob {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  sourceId         String          @map("source_id") @db.Uuid
+  product          String          @db.VarChar(16)
+  /// SHA-256 of the product and the normalised question: the same question shares one read.
+  canonicalKey     String          @map("canonical_key") @db.VarChar(64)
+  /// Places, dates and head counts. Never a name, a contact or an account.
+  query            Json
+  /// `agent`, `schedule` or `staff`.
+  trigger          String          @db.VarChar(16)
+  status           ScrapeJobStatus @default(running)
+  /// The last failure (`SCRAPE_FAILURE_CLASSES`) when the job did not succeed.
+  failureClass     String?         @map("failure_class") @db.VarChar(24)
+  attemptCount     Int             @default(0) @map("attempt_count")
+  /// Estimated vendor cost in millionths of a US dollar.
+  costMicroUsd     BigInt          @default(0) @map("cost_micro_usd")
+  observationCount Int             @default(0) @map("observation_count")
+  startedAt        DateTime        @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt       DateTime?       @map("finished_at") @db.Timestamptz(3)
+
+  source       PriceSource        @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  attempts     ScrapeAttempt[]
+  observations PriceObservation[]
+
+  @@index([sourceId, startedAt])
+  @@index([canonicalKey, startedAt])
+  @@index([startedAt])
+  @@map("scrape_jobs")
+}
+
+/// One try with one vendor at one proxy class. A page that could not be read into a price is
+/// kept for a week (`snapshotKey`) so staff can see why; no other page is kept.
+model ScrapeAttempt {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  jobId        String   @map("job_id") @db.Uuid
+  vendor       String   @db.VarChar(16)
+  proxyClass   String   @map("proxy_class") @db.VarChar(16)
+  /// `ok`, or the failure class.
+  outcome      String   @db.VarChar(24)
+  /// The site's own HTTP status, when the vendor reports it.
+  httpStatus   Int?     @map("http_status")
+  rendered     Boolean  @default(false)
+  durationMs   Int      @default(0) @map("duration_ms")
+  costMicroUsd BigInt   @default(0) @map("cost_micro_usd")
+  snapshotKey  String?  @map("snapshot_key") @db.VarChar(200)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  job ScrapeJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, id])
+  @@index([vendor, createdAt])
+  @@index([snapshotKey, createdAt])
+  @@map("scrape_attempts")
+}
+
+/// A price seen on a site at a moment: indicative, never bookable by itself (ADR-104). `item`
+/// holds public facts of what was priced (a hotel's name and stars, a fare's carrier and times,
+/// a car class); it has no field for a person and a test keeps it so.
+model PriceObservation {
+  id            String                 @id @default(uuid(7)) @db.Uuid
+  sourceId      String                 @map("source_id") @db.Uuid
+  jobId         String?                @map("job_id") @db.Uuid
+  product       String                 @db.VarChar(16)
+  canonicalKey  String                 @map("canonical_key") @db.VarChar(64)
+  /// What makes two observations the same thing within a question (a hotel, a fare, a car class).
+  itemKey       String                 @map("item_key") @db.VarChar(64)
+  country       String                 @db.Char(2)
+  currency      String                 @db.Char(3)
+  amountMinor   BigInt                 @map("amount_minor")
+  /// Whether taxes and fees are inside the amount; null when the page does not say.
+  taxesIncluded Boolean?               @map("taxes_included")
+  availability  String                 @default("unknown") @db.VarChar(16)
+  item          Json
+  vendor        String                 @db.VarChar(16)
+  proxyClass    String                 @map("proxy_class") @db.VarChar(16)
+  method        String                 @db.VarChar(20)
+  parserVersion String                 @map("parser_version") @db.VarChar(32)
+  confidence    Int                    @db.SmallInt
+  status        PriceObservationStatus
+  flags         String[]               @default([])
+  /// SHA-256 of the page the price was read from.
+  snapshotHash  String                 @map("snapshot_hash") @db.VarChar(64)
+  observedAt    DateTime               @map("observed_at") @db.Timestamptz(3)
+  /// After this it is shown as stale, or not at all.
+  freshUntil    DateTime               @map("fresh_until") @db.Timestamptz(3)
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  source PriceSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  job    ScrapeJob?  @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([canonicalKey, observedAt])
+  @@index([sourceId, product, itemKey, observedAt])
+  @@index([observedAt])
+  @@map("price_observations")
+}
+
+/// What reading may cost per UTC day and month, per vendor or per site. Spend is counted in
+/// Redis; a missing row means the default cap from settings.
+model ProviderBudget {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  /// `vendor` or `domain`.
+  scope              String   @db.VarChar(8)
+  /// The vendor's name or the site's domain.
+  subject            String   @db.VarChar(253)
+  dailyCapMicroUsd   BigInt   @map("daily_cap_micro_usd")
+  monthlyCapMicroUsd BigInt   @map("monthly_cap_micro_usd")
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([scope, subject])
+  @@map("provider_budgets")
+}

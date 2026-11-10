@@ -20,6 +20,7 @@ import { DriversModule } from './drivers/drivers.module';
 import { RentalsModule } from './rentals/rentals.module';
 import { TripsModule } from './trips/trips.module';
 import { AgentModule } from './agent/agent.module';
+import { PriceIntelModule } from './price-intel/price-intel.module';
 import { PlanningModule } from './planning/planning.module';
 import { PartnersModule } from './partners/partners.module';
 import { MetasearchModule } from './metasearch/metasearch.module';
@@ -125,6 +126,7 @@ export class AppModule implements NestModule {
         SupportModule,
         StatusModule,
         AgentModule,
+        PriceIntelModule,
         HealthModule,
         TelemetryModule,
       ],

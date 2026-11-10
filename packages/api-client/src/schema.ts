@@ -534,6 +534,249 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/data-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The sites price intelligence may read, each with its policy */
+        get: operations["adminListPriceSources"];
+        put?: never;
+        /**
+         * List a site
+         * @description The site starts in review: only the mock vendor answers for it, and in production nothing is read until it is approved.
+         */
+        post: operations["adminCreatePriceSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/{sourceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a site's details, recipes or policy
+         * @description Changing the vendors, the proxy limit, the rate, the page addresses or the robots and terms findings of an approved site sends it back to review. Changing a recipe closes its parser drift incident.
+         */
+        patch: operations["adminUpdatePriceSource"];
+        trace?: never;
+    };
+    "/v1/admin/data-sources/{sourceId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a site for reading, with the basis for it
+         * @description Needs the robots file and the terms to have been read. When either disallows automated access, only the site's own licence or permission is a basis.
+         */
+        post: operations["adminApprovePriceSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/{sourceId}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Block a site: never read, by any vendor, in any environment */
+        post: operations["adminBlockPriceSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/{sourceId}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What a site was seen to charge, newest first */
+        get: operations["adminListPriceObservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/{sourceId}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read a site now for one question
+         * @description For checking a recipe. The policy applies as for any read: a site in review is answered by the mock vendor only, a blocked one by nobody.
+         */
+        post: operations["adminReadPriceSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/{sourceId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a site back to review */
+        post: operations["adminReviewPriceSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set what a vendor or a site may cost per day and month
+         * @description In millionths of a US dollar. At a cap nothing more is read until the period ends.
+         */
+        put: operations["adminSetPriceIntelBudget"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent reads with every attempt */
+        get: operations["adminListScrapeJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vendors, switches, budgets and site counts
+         * @description Each enabled vendor with whether its key works, what is switched off, spend today and this month against each cap, and how many sites are in review, approved and blocked.
+         */
+        get: operations["adminGetPriceIntelOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The register of sites: status, basis and what each site says about automated access */
+        get: operations["adminGetScrapingRegister"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/switches/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Switch back on */
+        post: operations["adminReleasePriceIntel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/switches/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch off everything, one vendor or one site
+         * @description Takes effect within seconds, on every instance. Needs no second check.
+         */
+        post: operations["adminStopPriceIntel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/deal-routes": {
         parameters: {
             query?: never;
@@ -4768,6 +5011,26 @@ export interface paths {
         put?: never;
         /** Check due price alerts and notify drops */
         post: operations["runPriceAlerts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/price-intel/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-read stale answers inside each approved site's local night
+         * @description For approved sites whose local hour is inside their night window, re-reads the questions asked of them in the last week whose observations are stale. Bounded per site and per call; answers zeros while price intelligence is off.
+         */
+        post: operations["sweepPriceIntel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11389,6 +11652,340 @@ export interface components {
         PriceConsentRequestInput: {
             total: components["schemas"]["MoneyInput"];
         };
+        PriceIntelBudget: {
+            /** @enum {string} */
+            scope: "vendor" | "domain";
+            subject: string;
+            dailyCapMicroUsd: number;
+            monthlyCapMicroUsd: number;
+            spentTodayMicroUsd: number;
+            spentThisMonthMicroUsd: number;
+            set: boolean;
+        };
+        PriceIntelBudgetInputInput: {
+            /** @enum {string} */
+            scope: "vendor" | "domain";
+            subject: string;
+            dailyCapMicroUsd: number;
+            monthlyCapMicroUsd: number;
+        };
+        PriceIntelOverview: {
+            enabled: boolean;
+            vendors: {
+                /** @enum {string} */
+                vendor: "firecrawl" | "apify" | "browse_ai" | "oxylabs" | "bright_data" | "direct" | "mock";
+                ok: boolean | null;
+                remaining: number | null;
+                proxyClasses: ("none" | "datacenter" | "residential" | "unblocker")[];
+                render: boolean;
+            }[];
+            switches: {
+                /** @enum {string} */
+                scope: "global" | "vendor" | "domain";
+                subject: string | null;
+            }[];
+            budgets: components["schemas"]["PriceIntelBudget"][];
+            sources: {
+                review: number;
+                approved: number;
+                blocked: number;
+            };
+        };
+        PriceIntelSweep: {
+            sources: number;
+            read: number;
+            failed: number;
+        };
+        PriceIntelSwitchInputInput: {
+            /** @enum {string} */
+            scope: "global" | "vendor" | "domain";
+            /** @default null */
+            subject?: string | null;
+        };
+        PriceIntelSwitchList: {
+            items: {
+                /** @enum {string} */
+                scope: "global" | "vendor" | "domain";
+                subject: string | null;
+            }[];
+        };
+        PriceObservation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            sourceId: string;
+            domain: string;
+            /** @enum {string} */
+            product: "flight" | "hotel" | "car" | "transfer" | "tour";
+            price: components["schemas"]["Money"];
+            taxesIncluded: boolean | null;
+            /** @enum {string} */
+            availability: "available" | "limited" | "sold_out" | "unknown";
+            item: {
+                [key: string]: string | number;
+            };
+            confidence: number;
+            /** @enum {string} */
+            status: "verified" | "unverified" | "rejected";
+            flags: ("currency_mismatch" | "outlier_low" | "outlier_high" | "no_history" | "sources_disagree" | "low_confidence_method" | "taxes_unknown")[];
+            /** Format: date-time */
+            observedAt: string;
+            /** Format: date-time */
+            freshUntil: string;
+            stale: boolean;
+            /** @constant */
+            indicative: true;
+        };
+        PriceObservationList: {
+            items: components["schemas"]["PriceObservation"][];
+        };
+        PriceQueryInput: {
+            origin?: string;
+            destination?: string;
+            place?: string;
+            from: string;
+            to?: string;
+            /** @default 1 */
+            adults?: number;
+            /** @default 0 */
+            children?: number;
+            /** @default 1 */
+            rooms?: number;
+        };
+        PriceReadInputInput: {
+            /** @enum {string} */
+            product: "flight" | "hotel" | "car" | "transfer" | "tour";
+            query: components["schemas"]["PriceQueryInput"];
+        };
+        PriceReadResult: {
+            /** @enum {string} */
+            state: "fresh" | "read" | "stale" | "exhausted" | "denied";
+            failure: ("blocked" | "timeout" | "provider_error" | "quota_exhausted" | "empty_or_unrendered" | "parse_failed" | "policy_denied") | null;
+            reason: string | null;
+            jobId: string | null;
+            observations: components["schemas"]["PriceObservation"][];
+        };
+        PriceSource: {
+            /** Format: uuid */
+            id: string;
+            domain: string;
+            name: string;
+            products: ("flight" | "hotel" | "car" | "transfer" | "tour")[];
+            country: string;
+            currency: string;
+            locale: string;
+            urlTemplates: {
+                [key: string]: string;
+            };
+            recipes: {
+                [key: string]: {
+                    version: string;
+                    methods: ({
+                        /** @constant */
+                        method: "structured_data";
+                        types: string[];
+                    } | {
+                        /** @constant */
+                        method: "selectors";
+                        item: string;
+                        fields: {
+                            [key: string]: string | {
+                                selector: string;
+                                attribute: string;
+                            };
+                        };
+                    } | {
+                        /** @constant */
+                        method: "vendor_fields";
+                        fields: {
+                            [key: string]: string;
+                        };
+                    })[];
+                    /** @default null */
+                    taxesIncluded: boolean | null;
+                };
+            };
+            vendorSettings: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            active: boolean;
+            /** @enum {string} */
+            status: "review" | "approved" | "blocked";
+            basis: ("licence" | "permission" | "public_data_assessment" | "counsel_note") | null;
+            basisReference: string | null;
+            /** @enum {string} */
+            robots: "allowed" | "silent" | "disallowed" | "unknown";
+            /** @enum {string} */
+            terms: "allowed" | "silent" | "disallowed" | "unknown";
+            vendors: ("firecrawl" | "apify" | "browse_ai" | "oxylabs" | "bright_data" | "direct" | "mock")[];
+            /** @enum {string} */
+            maxProxyClass: "none" | "datacenter" | "residential" | "unblocker";
+            requestsPerMinute: number;
+            maxConcurrency: number;
+            nightStartHour: number;
+            nightEndHour: number;
+            timeZone: string;
+            freshnessMinutes: {
+                [key: string]: number;
+            };
+            decidedAt: string | null;
+            drift: {
+                /** Format: date-time */
+                since: string;
+                parserVersion: string;
+            } | null;
+            /** @enum {string} */
+            readable: "yes" | "review_mock_only" | "blocked" | "inactive" | "switched_off";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PriceSourceApprovalInput: {
+            /** @enum {string} */
+            basis: "licence" | "permission" | "public_data_assessment" | "counsel_note";
+            basisReference: string;
+        };
+        PriceSourceInputInput: {
+            domain: string;
+            name: string;
+            products: ("flight" | "hotel" | "car" | "transfer" | "tour")[];
+            country: string;
+            currency: string;
+            locale: string;
+            urlTemplates: {
+                [key: string]: string;
+            };
+            recipes: {
+                [key: string]: {
+                    version: string;
+                    methods: ({
+                        /** @constant */
+                        method: "structured_data";
+                        types: string[];
+                    } | {
+                        /** @constant */
+                        method: "selectors";
+                        item: string;
+                        fields: {
+                            [key: string]: string | {
+                                selector: string;
+                                attribute: string;
+                            };
+                        };
+                    } | {
+                        /** @constant */
+                        method: "vendor_fields";
+                        fields: {
+                            [key: string]: string;
+                        };
+                    })[];
+                    /** @default null */
+                    taxesIncluded?: boolean | null;
+                };
+            };
+            vendors: ("firecrawl" | "apify" | "browse_ai" | "oxylabs" | "bright_data" | "direct" | "mock")[];
+            timeZone: string;
+            /** @default {} */
+            vendorSettings?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /**
+             * @default unknown
+             * @enum {string}
+             */
+            robots?: "allowed" | "silent" | "disallowed" | "unknown";
+            /**
+             * @default unknown
+             * @enum {string}
+             */
+            terms?: "allowed" | "silent" | "disallowed" | "unknown";
+            /**
+             * @default none
+             * @enum {string}
+             */
+            maxProxyClass?: "none" | "datacenter" | "residential" | "unblocker";
+            /** @default 6 */
+            requestsPerMinute?: number;
+            /** @default 1 */
+            maxConcurrency?: number;
+            /** @default 1 */
+            nightStartHour?: number;
+            /** @default 5 */
+            nightEndHour?: number;
+            /** @default {} */
+            freshnessMinutes?: {
+                [key: string]: number;
+            };
+            /** @default true */
+            active?: boolean;
+        };
+        PriceSourceList: {
+            items: components["schemas"]["PriceSource"][];
+        };
+        PriceSourcePatchInput: {
+            name?: string;
+            products?: ("flight" | "hotel" | "car" | "transfer" | "tour")[];
+            country?: string;
+            currency?: string;
+            locale?: string;
+            urlTemplates?: {
+                [key: string]: string;
+            };
+            recipes?: {
+                [key: string]: {
+                    version: string;
+                    methods: ({
+                        /** @constant */
+                        method: "structured_data";
+                        types: string[];
+                    } | {
+                        /** @constant */
+                        method: "selectors";
+                        item: string;
+                        fields: {
+                            [key: string]: string | {
+                                selector: string;
+                                attribute: string;
+                            };
+                        };
+                    } | {
+                        /** @constant */
+                        method: "vendor_fields";
+                        fields: {
+                            [key: string]: string;
+                        };
+                    })[];
+                    /** @default null */
+                    taxesIncluded?: boolean | null;
+                };
+            };
+            vendors?: ("firecrawl" | "apify" | "browse_ai" | "oxylabs" | "bright_data" | "direct" | "mock")[];
+            timeZone?: string;
+            vendorSettings?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /** @enum {string} */
+            robots?: "allowed" | "silent" | "disallowed" | "unknown";
+            /** @enum {string} */
+            terms?: "allowed" | "silent" | "disallowed" | "unknown";
+            /** @enum {string} */
+            maxProxyClass?: "none" | "datacenter" | "residential" | "unblocker";
+            requestsPerMinute?: number;
+            maxConcurrency?: number;
+            nightStartHour?: number;
+            nightEndHour?: number;
+            freshnessMinutes?: {
+                [key: string]: number;
+            };
+            active?: boolean;
+        };
         PrimeBenefitsView: {
             memberFares: boolean;
             waivedFeeCodes: string[];
@@ -12106,6 +12703,9 @@ export interface components {
             "metasearch-landings": number;
             "agent-conversations": number;
             "agent-runs": number;
+            "scrape-jobs": number;
+            "price-observations": number;
+            "price-snapshots": number;
             "support-conversations": number;
             "whatsapp-contacts": number;
             "supplier-customer-ip": number;
@@ -12376,6 +12976,64 @@ export interface components {
             /** Format: date-time */
             dueAt: string;
             amount: components["schemas"]["Money"];
+        };
+        ScrapeJob: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            sourceId: string;
+            domain: string;
+            /** @enum {string} */
+            product: "flight" | "hotel" | "car" | "transfer" | "tour";
+            query: {
+                [key: string]: unknown;
+            };
+            trigger: string;
+            /** @enum {string} */
+            status: "running" | "succeeded" | "exhausted" | "denied" | "failed";
+            failureClass: string | null;
+            costMicroUsd: number;
+            observationCount: number;
+            /** Format: date-time */
+            startedAt: string;
+            finishedAt: string | null;
+            attempts: {
+                /** @enum {string} */
+                vendor: "firecrawl" | "apify" | "browse_ai" | "oxylabs" | "bright_data" | "direct" | "mock";
+                /** @enum {string} */
+                proxyClass: "none" | "datacenter" | "residential" | "unblocker";
+                outcome: string;
+                httpStatus: number | null;
+                rendered: boolean;
+                durationMs: number;
+                costMicroUsd: number;
+                hasSnapshot: boolean;
+            }[];
+        };
+        ScrapeJobList: {
+            items: components["schemas"]["ScrapeJob"][];
+        };
+        ScrapingRegister: {
+            /** Format: date-time */
+            generatedAt: string;
+            rows: {
+                domain: string;
+                name: string;
+                /** @enum {string} */
+                status: "review" | "approved" | "blocked";
+                basis: ("licence" | "permission" | "public_data_assessment" | "counsel_note") | null;
+                basisReference: string | null;
+                /** @enum {string} */
+                robots: "allowed" | "silent" | "disallowed" | "unknown";
+                /** @enum {string} */
+                terms: "allowed" | "silent" | "disallowed" | "unknown";
+                products: ("flight" | "hotel" | "car" | "transfer" | "tour")[];
+                vendors: ("firecrawl" | "apify" | "browse_ai" | "oxylabs" | "bright_data" | "direct" | "mock")[];
+                /** @enum {string} */
+                maxProxyClass: "none" | "datacenter" | "residential" | "unblocker";
+                requestsPerMinute: number;
+                decidedAt: string | null;
+            }[];
         };
         SeatChoiceInput: {
             flight: number;
@@ -14396,6 +15054,460 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListPriceSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceSourceList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCreatePriceSource: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceSourceInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceSource"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminUpdatePriceSource: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                sourceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceSourcePatchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceSource"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminApprovePriceSource: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                sourceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceSourceApprovalInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceSource"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminBlockPriceSource: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                sourceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceSource"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListPriceObservations: {
+        parameters: {
+            query?: {
+                product?: "flight" | "hotel" | "car" | "transfer" | "tour";
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                sourceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceObservationList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReadPriceSource: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                sourceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceReadInputInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceReadResult"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReviewPriceSource: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                sourceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceSource"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminSetPriceIntelBudget: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceIntelBudgetInputInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceIntelBudget"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListScrapeJobs: {
+        parameters: {
+            query?: {
+                sourceId?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScrapeJobList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetPriceIntelOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceIntelOverview"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetScrapingRegister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScrapingRegister"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminReleasePriceIntel: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceIntelSwitchInputInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceIntelSwitchList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminStopPriceIntel: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceIntelSwitchInputInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceIntelSwitchList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -22781,6 +23893,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PriceAlertRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    sweepPriceIntel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceIntelSweep"];
                 };
             };
             400: components["responses"]["Problem400"];

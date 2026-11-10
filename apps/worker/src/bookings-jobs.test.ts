@@ -6,6 +6,7 @@ import {
   ACCOUNT_JOB,
   BOOKING_JOB,
   FINANCE_JOB,
+  PRICE_INTEL_JOB,
   processBookingJob,
   VISA_JOB,
 } from './bookings-jobs.js';
@@ -31,6 +32,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   runReferrals: vi.fn(() => Promise.resolve({ qualified: 1, review: 1, rewarded: 1 })),
   runReviewInvitations: vi.fn(() => Promise.resolve({ planned: 3, sent: 2, skipped: 1 })),
   runAdConversions: vi.fn(() => Promise.resolve({ sent: 2, retried: 1, failed: 1, withdrawn: 0 })),
+  sweepPriceIntel: vi.fn(() => Promise.resolve({ sources: 2, read: 3, failed: 1 })),
   runRetention: vi.fn(() =>
     Promise.resolve({
       sessions: 3,
@@ -73,6 +75,9 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
       trips: 0,
       'agent-conversations': 0,
       'agent-runs': 0,
+      'scrape-jobs': 0,
+      'price-observations': 0,
+      'price-snapshots': 0,
     }),
   ),
   reconcileLedger: vi.fn(() => Promise.resolve({ checked: 12, discrepancies: 1, unconfirmed: 2 })),
@@ -189,6 +194,32 @@ describe('account sweeps', () => {
       'ad conversions sent',
     );
     expect(log.warn).toHaveBeenCalledWith({ failed: 1 }, 'ad conversions given up after retries');
+  });
+
+  it('re-reads stale price answers and warns when reads failed (ADR-102)', async () => {
+    const log = logger();
+    await expect(
+      processBookingJob({ name: PRICE_INTEL_JOB.sweep }, { api: fakeApi(), logger: log }),
+    ).resolves.toEqual({ sources: 2, read: 3, failed: 1 });
+    expect(log.info).toHaveBeenCalledWith(
+      { sources: 2, read: 3, failed: 1 },
+      'stale price answers re-read',
+    );
+    expect(log.warn).toHaveBeenCalledWith({ failed: 1 }, 'scheduled price reads failed');
+
+    // Outside every site's night, or with the feature off, there is nothing to say.
+    const quiet = logger();
+    await processBookingJob(
+      { name: PRICE_INTEL_JOB.sweep },
+      {
+        api: fakeApi({
+          sweepPriceIntel: vi.fn(() => Promise.resolve({ sources: 0, read: 0, failed: 0 })),
+        }),
+        logger: quiet,
+      },
+    );
+    expect(quiet.info).not.toHaveBeenCalled();
+    expect(quiet.warn).not.toHaveBeenCalled();
   });
 
   it('stops on a final failure until the next tick', async () => {

@@ -1,4 +1,13 @@
-import { isValidTimeZone, parseDsn, parseSupportHours, type SupportTargets } from '@suskii/shared';
+import {
+  isValidTimeZone,
+  parseDsn,
+  parseSupportHours,
+  PROXY_CLASSES,
+  SCRAPE_VENDORS,
+  type ProxyClass,
+  type ScrapeVendor,
+  type SupportTargets,
+} from '@suskii/shared';
 import { z } from 'zod';
 
 const booleanish = z
@@ -50,6 +59,24 @@ export type CompanyTopUpLimits = Readonly<Record<string, { minMinor: number; max
 export const DEFAULT_COMPANY_TOPUP_LIMITS: CompanyTopUpLimits = {
   NGN: { minMinor: 1_000_000, maxMinor: 500_000_000 },
   USD: { minMinor: 1_000, maxMinor: 500_000 },
+};
+
+/** What one page costs per vendor and proxy class, in millionths of a US dollar. */
+export type ScrapeCosts = Readonly<Record<ScrapeVendor, Partial<Record<ProxyClass, number>>>>;
+
+/**
+ * Estimates for budgeting until PRICE_INTEL_COSTS carries the owner's plan prices (ADR-102).
+ * They decide when a budget stops reading, never what anyone is charged. A class a vendor has
+ * no price for is a class the router does not use with it.
+ */
+export const DEFAULT_SCRAPE_COSTS: ScrapeCosts = {
+  firecrawl: { datacenter: 1_000, unblocker: 5_000 },
+  apify: { datacenter: 2_000, residential: 8_000 },
+  browse_ai: { unblocker: 10_000 },
+  oxylabs: { unblocker: 2_500 },
+  bright_data: { unblocker: 1_500 },
+  direct: { none: 0 },
+  mock: { none: 100, datacenter: 200, residential: 800, unblocker: 1_500 },
 };
 
 /** Prefix of the local development internal token in .env.example; refused in production. */
@@ -477,6 +504,68 @@ export const envSchema = z
     AGENT_USER_DAILY_MICROUSD: z.coerce.number().int().min(0).default(500_000),
     AGENT_GUEST_DAILY_MICROUSD: z.coerce.number().int().min(0).default(120_000),
     AGENT_GLOBAL_DAILY_MICROUSD: z.coerce.number().int().min(0).default(50_000_000),
+    /**
+     * Price intelligence (ADR-102). The vendors that may fetch a page at all; each site's policy
+     * picks among them, in its own order. `direct` is our own plain request and `mock` answers
+     * from memory (tests and local development; refused in production).
+     */
+    PRICE_INTEL_VENDORS: csv(z.enum(SCRAPE_VENDORS)).default(['mock']),
+    FIRECRAWL_API_KEY: z.string().min(8).optional(),
+    APIFY_TOKEN: z.string().min(8).optional(),
+    BROWSE_AI_API_KEY: z.string().min(8).optional(),
+    OXYLABS_USERNAME: z.string().min(1).optional(),
+    OXYLABS_PASSWORD: z.string().min(8).optional(),
+    BRIGHT_DATA_API_KEY: z.string().min(8).optional(),
+    /** The Web Unlocker zone requests go through. */
+    BRIGHT_DATA_ZONE: z
+      .string()
+      .regex(/^[A-Za-z0-9_]{1,64}$/)
+      .optional(),
+    /**
+     * A public page saying who the `direct` fetcher is and how a site can reach us. It goes in
+     * its User-Agent, so a site can tell who is reading and ask us to stop.
+     */
+    PRICE_INTEL_BOT_URL: z.url({ protocol: /^https$/ }).optional(),
+    /** Hard limits of one read: tries across all vendors, wall time and estimated cost. */
+    PRICE_INTEL_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(12).default(6),
+    PRICE_INTEL_JOB_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300_000).default(60_000),
+    PRICE_INTEL_ATTEMPT_TIMEOUT_MS: z.coerce.number().int().min(500).max(120_000).default(30_000),
+    PRICE_INTEL_JOB_MAX_MICROUSD: z.coerce.number().int().min(0).default(50_000),
+    /** Spend caps per UTC day and month, per vendor and per site, unless a budget row says more. */
+    PRICE_INTEL_VENDOR_DAILY_MICROUSD: z.coerce.number().int().min(0).default(5_000_000),
+    PRICE_INTEL_VENDOR_MONTHLY_MICROUSD: z.coerce.number().int().min(0).default(50_000_000),
+    PRICE_INTEL_DOMAIN_DAILY_MICROUSD: z.coerce.number().int().min(0).default(2_000_000),
+    PRICE_INTEL_DOMAIN_MONTHLY_MICROUSD: z.coerce.number().int().min(0).default(20_000_000),
+    /**
+     * What a page costs on the owner's plans, `vendor:class=microUsd`
+     * (`firecrawl:unblocker=4000,apify:residential=9000`). Entries replace the estimate for that
+     * vendor and class only.
+     */
+    PRICE_INTEL_COSTS: csv(
+      z
+        .string()
+        .regex(/^[a-z_]+:[a-z]+=\d{1,9}$/, 'use vendor:class=microUsd')
+        .transform((rule) => {
+          const [target = '', cost = '0'] = rule.split('=');
+          const [vendor = '', proxy = ''] = target.split(':');
+          return [vendor, proxy, Number(cost)] as const;
+        })
+        .refine(
+          ([vendor, proxy]) =>
+            (SCRAPE_VENDORS as readonly string[]).includes(vendor) &&
+            (PROXY_CLASSES as readonly string[]).includes(proxy),
+          { message: 'unknown vendor or proxy class' },
+        ),
+    )
+      .transform((rules): ScrapeCosts => {
+        const costs: Record<string, Partial<Record<ProxyClass, number>>> = {};
+        for (const vendor of SCRAPE_VENDORS) costs[vendor] = { ...DEFAULT_SCRAPE_COSTS[vendor] };
+        for (const [vendor, proxy, cost] of rules) {
+          (costs[vendor] ??= {})[proxy as ProxyClass] = cost;
+        }
+        return costs as ScrapeCosts;
+      })
+      .default(DEFAULT_SCRAPE_COSTS),
     /**
      * Partner offers and affiliate tracking (ADR-069, ADR-070): on outside production, off in
      * production unless set. The mock network and mock activities only outside production unless
@@ -955,6 +1044,18 @@ export const envSchema = z
       env.SMS_PROVIDER,
       ...env.SMS_ROUTES.map(([, provider]) => provider),
     ]);
+    // A web-data vendor that is named needs its credentials too (ADR-102).
+    const scrapeVendors = new Set<ScrapeVendor>(env.PRICE_INTEL_VENDORS);
+    if (scrapeVendors.has('firecrawl') && !env.FIRECRAWL_API_KEY)
+      require('FIRECRAWL_API_KEY', 'is required when PRICE_INTEL_VENDORS includes firecrawl');
+    if (scrapeVendors.has('apify') && !env.APIFY_TOKEN)
+      require('APIFY_TOKEN', 'is required when PRICE_INTEL_VENDORS includes apify');
+    if (scrapeVendors.has('browse_ai') && !env.BROWSE_AI_API_KEY)
+      require('BROWSE_AI_API_KEY', 'is required when PRICE_INTEL_VENDORS includes browse_ai');
+    if (scrapeVendors.has('oxylabs') && !(env.OXYLABS_USERNAME && env.OXYLABS_PASSWORD))
+      require('OXYLABS_USERNAME', 'and OXYLABS_PASSWORD are required when PRICE_INTEL_VENDORS includes oxylabs');
+    if (scrapeVendors.has('bright_data') && !(env.BRIGHT_DATA_API_KEY && env.BRIGHT_DATA_ZONE))
+      require('BRIGHT_DATA_API_KEY', 'and BRIGHT_DATA_ZONE are required when PRICE_INTEL_VENDORS includes bright_data');
     if (smsProviders.has('termii')) {
       if (!env.TERMII_API_KEY) require('TERMII_API_KEY', 'is required when Termii sends texts');
       if (!env.TERMII_SENDER_ID) require('TERMII_SENDER_ID', 'is required when Termii sends texts');
@@ -1092,6 +1193,13 @@ export const envSchema = z
       }
       if (env.AGENT_RUN_TOKEN && env.AGENT_RUN_TOKEN === env.AGENT_TOOLS_TOKEN)
         require('AGENT_TOOLS_TOKEN', 'must differ from AGENT_RUN_TOKEN');
+    }
+    // Price intelligence is off in production unless set (ADR-102); when on it reads for real.
+    if (env.PRICE_INTEL_ENABLED) {
+      if (!env.ALLOW_MOCK_PROVIDERS && env.PRICE_INTEL_VENDORS.includes('mock'))
+        require('PRICE_INTEL_VENDORS', 'the mock vendor reads nothing; it is not allowed in production');
+      if (env.PRICE_INTEL_VENDORS.includes('direct') && !env.PRICE_INTEL_BOT_URL)
+        require('PRICE_INTEL_BOT_URL', 'is required in production when PRICE_INTEL_VENDORS includes direct: the fetcher must say who it is');
     }
     // Partner offers are off in production unless set (ADR-070); when on they need real partners.
     if (env.PARTNER_OFFERS_ENABLED && !env.ALLOW_MOCK_PROVIDERS) {

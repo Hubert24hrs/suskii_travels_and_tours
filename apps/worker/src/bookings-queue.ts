@@ -7,6 +7,7 @@ import {
   BOOKING_JOB,
   BOOKINGS_QUEUE,
   FINANCE_JOB,
+  PRICE_INTEL_JOB,
   processBookingJob,
   VISA_JOB,
 } from './bookings-jobs.js';
@@ -88,6 +89,11 @@ export function createBookingsQueue(
         ACCOUNT_JOB.adConversions,
         { every: config.AD_CONVERSION_SWEEP_MINUTES * 60_000, immediately: true },
         { name: ACCOUNT_JOB.adConversions, opts },
+      );
+      await activeQueue.upsertJobScheduler(
+        PRICE_INTEL_JOB.sweep,
+        { every: config.PRICE_INTEL_SWEEP_MINUTES * 60_000, immediately: true },
+        { name: PRICE_INTEL_JOB.sweep, opts },
       );
       await activeQueue.upsertJobScheduler(
         FINANCE_JOB.reconcileLedger,

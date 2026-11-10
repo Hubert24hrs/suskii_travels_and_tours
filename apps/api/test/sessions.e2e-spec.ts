@@ -181,6 +181,11 @@ describe('sessions: limits, staff lifetimes and step-up (e2e)', () => {
         // Pausing itself needs no second check: stopping must be one press.
         'adminResumeAgent',
         'adminSetAgentAutonomy',
+        // Opening a site to reading, switching reading back on and raising what it may cost
+        // (ADR-102). Blocking a site and switching off need no second check.
+        'adminApprovePriceSource',
+        'adminReleasePriceIntel',
+        'adminSetPriceIntelBudget',
       ].sort(),
     );
   });

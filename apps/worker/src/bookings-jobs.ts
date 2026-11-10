@@ -9,6 +9,7 @@ import {
   type LedgerReconciliationRun,
   type PaymentRun,
   type PlanRun,
+  type PriceIntelSweepRun,
   type ReferralRun,
   type RefundRun,
   type ReminderRun,
@@ -76,6 +77,15 @@ export const ACCOUNT_JOB = {
   adConversions: 'accounts-ad-conversions',
 } as const;
 
+/**
+ * Price intelligence (ADR-102): the API re-reads stale answers of approved sites inside each
+ * site's local night. The worker only keeps the clock; while the feature is off the API answers
+ * zeros.
+ */
+export const PRICE_INTEL_JOB = {
+  sweep: 'price-intel-sweep',
+} as const;
+
 export interface BookingJobDeps {
   api: BookingsApi;
   logger: Logger;
@@ -111,6 +121,7 @@ export async function processBookingJob(
   | RetentionRun
   | ReviewInvitationRun
   | AdConversionRun
+  | PriceIntelSweepRun
   | LedgerReconciliationRun
   | DriverPayoutRun
 > {
@@ -212,6 +223,14 @@ export async function processBookingJob(
       if (result.sent > 0 || result.withdrawn > 0) deps.logger.info(result, 'ad conversions sent');
       if (result.failed > 0)
         deps.logger.warn({ failed: result.failed }, 'ad conversions given up after retries');
+      return result;
+    }
+    case PRICE_INTEL_JOB.sweep: {
+      const result = await sweep(() => deps.api.sweepPriceIntel());
+      if (result.read > 0) deps.logger.info(result, 'stale price answers re-read');
+      if (result.failed > 0) {
+        deps.logger.warn({ failed: result.failed }, 'scheduled price reads failed');
+      }
       return result;
     }
     case ACCOUNT_JOB.retention: {

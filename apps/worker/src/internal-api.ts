@@ -21,6 +21,7 @@ export type ReferralRun = components['schemas']['ReferralRun'];
 export type ReminderRun = components['schemas']['ReminderRun'];
 export type ReviewInvitationRun = components['schemas']['ReviewInvitationRun'];
 export type AdConversionRun = components['schemas']['AdConversionRun'];
+export type PriceIntelSweepRun = components['schemas']['PriceIntelSweep'];
 export type RetentionRun = components['schemas']['RetentionRun'];
 export type RideDispatchRun = components['schemas']['RideDispatchRun'];
 export type DriverDocumentScanRun = components['schemas']['DriverDocumentScanRun'];
@@ -82,6 +83,8 @@ export interface BookingsApi {
   /** Review invitations after finished trips (ADR-077). */
   readonly runReviewInvitations: () => Promise<ReviewInvitationRun>;
   readonly runAdConversions: () => Promise<AdConversionRun>;
+  /** Stale price answers re-read inside each approved site's local night (ADR-102). */
+  readonly sweepPriceIntel: () => Promise<PriceIntelSweepRun>;
   /** Records past their retention period are purged; long-closed bookings anonymised (ADR-039). */
   readonly runRetention: () => Promise<RetentionRun>;
   /** Compares captured payments, refunds and payouts with the ledger (ADR-051). */
@@ -111,6 +114,8 @@ const MONEY_SWEEP_TIMEOUT_MS = 90_000;
 const RETENTION_TIMEOUT_MS = 300_000;
 /** A batch of price alerts runs a search per distinct route and date (cache hits are quick). */
 const PRICE_ALERT_TIMEOUT_MS = 300_000;
+/** The API starts no read after 200 s of a sweep and a read is bounded: it answers within this. */
+const PRICE_INTEL_TIMEOUT_MS = 300_000;
 
 /** A dispatch run is database work only; anything slower than this is stuck. */
 const DISPATCH_TIMEOUT_MS = 20_000;
@@ -255,6 +260,12 @@ export function createInternalApi(
     runAdConversions: () =>
       call('runAdConversions', (signal, headers) =>
         client.POST('/v1/internal/ad-conversions/run', { signal, headers }),
+      ),
+    sweepPriceIntel: () =>
+      call(
+        'sweepPriceIntel',
+        (signal, headers) => client.POST('/v1/internal/price-intel/sweep', { signal, headers }),
+        PRICE_INTEL_TIMEOUT_MS,
       ),
     runRetention: () =>
       call(

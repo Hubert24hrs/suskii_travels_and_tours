@@ -232,7 +232,19 @@ export type AuditAction =
   // Suskii Agent (ADR-107)
   | 'agent.paused'
   | 'agent.resumed'
-  | 'agent.autonomy_changed';
+  | 'agent.autonomy_changed'
+  // Price intelligence (ADR-102)
+  | 'price_intel.source_created'
+  | 'price_intel.source_updated'
+  | 'price_intel.source_approved'
+  | 'price_intel.source_blocked'
+  | 'price_intel.source_reviewed'
+  | 'price_intel.read_requested'
+  | 'price_intel.switched_off'
+  | 'price_intel.switched_on'
+  | 'price_intel.budget_changed'
+  | 'price_intel.budget_alert'
+  | 'price_intel.drift_detected';
 
 export interface AuditEvent {
   action: AuditAction;

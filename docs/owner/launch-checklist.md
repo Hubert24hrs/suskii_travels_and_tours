@@ -217,6 +217,47 @@ Travelpayouts' postback URL: `https://<api host>/v1/partners/postbacks/travelpay
 Same `LLM_API_KEY`; run `ai-eval.yml` (suite `natural-search`); decide whether to offer it in
 production (`AI_SEARCH_ENABLED`) and its daily caps (defaults $0.05 per person, $20 in total).
 
+### 7.1 Prices from other websites (optional)
+
+Where no supplier has a price, the platform can read one from a public web page and show it
+as indicative ("Seen on ... We confirm the live price before you pay"). It is built and off.
+Nothing is read until you have done all of this:
+
+1. **Decide with counsel which sites.** For each one, read its robots file and its terms. If
+   either disallows automated access, you need the site's own licence or written permission;
+   an assessment or a note cannot overrule the site. Never accept a site's or a vendor's terms
+   without reading them: only you can agree to them.
+2. **Open the vendor accounts you want** (any subset; each is used only where a site's policy
+   names it), in your company's name, with a spending limit on the vendor's side:
+
+   | Vendor      | What you need                                          | Where it goes                                             |
+   | ----------- | ------------------------------------------------------ | --------------------------------------------------------- |
+   | Firecrawl   | An API key                                             | Secret `FIRECRAWL_API_KEY`                                |
+   | Apify       | An API token; the actor you will run for each site     | Secret `APIFY_TOKEN`                                      |
+   | Browse AI   | An API key; a robot you train on each site, in its app | Secret `BROWSE_AI_API_KEY`                                |
+   | Oxylabs     | A Web Scraper API user                                 | Variable `OXYLABS_USERNAME`, secret `OXYLABS_PASSWORD`    |
+   | Bright Data | An API key and a Web Unlocker zone                     | Secret `BRIGHT_DATA_API_KEY`, variable `BRIGHT_DATA_ZONE` |
+
+3. **Check the keys**: GitHub, Actions, **Web-data vendor check**, Run workflow. Leave the
+   page empty to check the keys only; give a page of **your own website** to have each vendor
+   read it once. The adapters were written from the vendors' published SDKs, not from a live
+   account, so a green run with a page is what confirms each one. Do not point it at anyone
+   else's site.
+4. **Turn it on per environment**: `PRICE_INTEL_ENABLED = "true"` and
+   `PRICE_INTEL_VENDORS = "firecrawl,oxylabs"` (the ones you opened) in `api_env`, the keys in
+   Secret Manager, and `PRICE_INTEL_BOT_URL` (a public page saying who reads and how to reach
+   you) when `direct` is among the vendors. Set what each vendor charges you in
+   `PRICE_INTEL_COSTS` so the budgets count in your prices.
+5. **List and approve each site in the console** (Data sources): its page addresses, its
+   recipe, what its robots file and terms say, the vendors in order and the highest proxy
+   class you allow. Approval asks for your authenticator and a basis with where it is written
+   down. The register for counsel: `pnpm --filter @suskii/api price-intel:register`.
+6. **Budgets**: defaults are $5 a day and $50 a month per vendor, $2 and $20 per site. Change
+   them in the console; you are told at 50, 80 and 100%.
+
+If a site asks you to stop: Data sources, the site, **Block**
+(`docs/runbooks/price-intelligence.md`).
+
 ## 8. Legal and compliance
 
 1. **Data protection registration**: the NDPC (Nigeria), and the ODPC (Kenya) and the

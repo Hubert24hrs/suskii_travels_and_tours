@@ -133,3 +133,38 @@ A person approves recipes; nothing approves itself.
   locally and in tests.
 - New outbound destinations, listed in `docs/security/external-communications.md` with the SSRF
   exception.
+
+## Amendments made while building it (sub-phase C, 2026-11-10)
+
+- **A site in review is answered by the mock vendor only.** Outside production a newly listed
+  site can be tried end to end (its page address, its recipe) without a fetch: the mock reads
+  nothing real. Production refuses the mock, so there a site in `review` reads nothing, as
+  decided above.
+- **Proxy classes are `none`, `datacenter`, `residential` and `unblocker`.** A vendor's
+  managed-access product (Oxylabs Web Scraper API, Bright Data Web Unlocker, a trained Browse
+  AI robot, Firecrawl's stealth proxy) counts as `unblocker`, the highest. A new policy allows
+  `none`, and the router uses only classes the owner's price list (`PRICE_INTEL_COSTS`) prices.
+- **A page is kept only when nothing could be read from it**, for 7 days, so a person can
+  write a recipe for it. A page that was read leaves only its hash on the observation.
+- **What sends an approved site back to review**: a change to its vendors, highest proxy
+  class, robots or terms finding, page addresses, rate or concurrency. A recipe change does
+  not, because a recipe can only read the fixed list of public fields; it is still a staff
+  action in the audit log, and it closes an open drift incident.
+- **A change carries only what was sent.** Defaults (findings unknown, no proxy, six requests
+  a minute, one at a time) apply when a site is created and never when it is changed.
+- **Model-assisted reading is not built.** Extraction is structured data, then selector
+  recipes, then fields a vendor extracted itself (an Apify actor's items, a Browse AI robot's
+  captures, Oxylabs parsing instructions). If a model ever helps read a page, the rules above
+  for it stand; today no page text reaches any model.
+- **Drift** is counted per site and recipe version over a day in Redis: five or more reads
+  that found no price, and at least half of the reads, open an incident, tell staff once and
+  start reads at the recipe's second method until a person changes the recipe (or 14 days
+  pass, when the count starts again).
+- **The vendors' request and answer shapes came from their own published SDKs** (Firecrawl
+  `firecrawl` 4.52.0, Apify `apify-client` 2.26.0, Bright Data `@brightdata/sdk` 1.2.0, Oxylabs
+  `oxylabs` 3.0.0) and, for Browse AI, which publishes none, from the open-source Pipedream
+  and Activepieces integrations. No vendor account existed, so the contract fixtures were
+  written from those shapes, not recorded from a live answer. `sandbox:scrapers` with the
+  owner's keys is the check that confirms each adapter before its vendor is enabled.
+- **The register** is rendered by `price-intel:register` from one environment's registry; the
+  repository keeps the page of an empty one.

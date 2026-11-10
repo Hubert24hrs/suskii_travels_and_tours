@@ -141,7 +141,18 @@ api_env = {
   # neither equal to INTERNAL_API_TOKEN), and the owner decides:
   # AGENT_ENABLED       = "true"
   # AGENT_URL           = "https://REPLACE"
+  # Price intelligence reads only sites approved in the console, through the vendors named
+  # here; each vendor's key goes in extra_secrets (FIRECRAWL_API_KEY, APIFY_TOKEN,
+  # BROWSE_AI_API_KEY, OXYLABS_PASSWORD, BRIGHT_DATA_API_KEY). The mock vendor is refused in
+  # production, and `direct` needs PRICE_INTEL_BOT_URL. Run scrapers-sandbox.yml first
+  # (docs/owner/launch-checklist.md, section 7.1).
   # PRICE_INTEL_ENABLED = "true"
+  # PRICE_INTEL_VENDORS = "firecrawl,oxylabs"
+  # OXYLABS_USERNAME    = "REPLACE"
+  # BRIGHT_DATA_ZONE    = "REPLACE"
+  # PRICE_INTEL_BOT_URL = "https://REPLACE/price-bot"
+  # What each vendor charges, in millionths of a US dollar per page (vendor:class=cost):
+  # PRICE_INTEL_COSTS   = "firecrawl:datacenter=1000,oxylabs:unblocker=2500"
   # Company wallet top-ups (ADR-090) default to NGN 10,000 to 5,000,000 and USD 10 to 5,000,
   # five a day per company. To change them (minor units, CUR=min/max), uncomment:
   # COMPANY_WALLET_TOPUP_LIMITS   = "NGN=1000000/500000000,USD=1000/500000"
