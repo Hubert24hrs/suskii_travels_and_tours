@@ -238,7 +238,7 @@ export class RentalsCatalogService {
         airportCode: vehicle.airportCode,
       },
       cityName: vehicle.cityName,
-      countryCode: 'NG',
+      countryCode: vehicle.countryCode,
       timeZone: vehicle.timeZone,
       pickupAtLocal: input.pickupAtLocal,
       returnAtLocal: input.returnAtLocal,

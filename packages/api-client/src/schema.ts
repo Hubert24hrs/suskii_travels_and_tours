@@ -5712,6 +5712,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's trips, newest first */
+        get: operations["listMyTrips"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/wallet": {
         parameters: {
             query?: never;
@@ -6599,6 +6616,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a trip from a plan
+         * @description The plan names where from and to, the dates, the travellers and the parts wanted (any of flight, hotel, car, transfer, insurance). Nothing is booked or priced here: each part is added as a booking with `addTripPart`. 409 `too-many-trips` when the account already has ten trips with nothing paid.
+         */
+        post: operations["createTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{tripId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A trip: its parts, a price per part and the total
+         * @description Poll while `state` is `awaiting_payment` or a part is `paid` (ticketing). Each part carries its booking summary, what it still costs and a price change waiting for consent, if any.
+         */
+        get: operations["getTrip"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{tripId}/parts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add one of the caller's unpaid bookings to the trip
+         * @description The booking becomes the part it sells: a flight, a hotel stay, a rental car, an airport transfer or travel insurance. 422 `trip-part-invalid` with `code` when it is something else, in another currency, on a payment plan, booked for a company, not waiting for payment, in another trip, or a part the plan does not ask for. An unpaid part of the same kind gives way to the new one; a paid one answers 409 `trip-part-paid`.
+         */
+        post: operations["addTripPart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{tripId}/parts/{bookingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take an unpaid booking out of the trip
+         * @description The booking is not cancelled: it stays an ordinary unpaid booking and expires on its own. 409 `trip-part-paid` for a paid part.
+         */
+        delete: operations["removeTripPart"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{tripId}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-check every part and open one hosted checkout for the whole trip
+         * @description Re-prices each unpaid part with its supplier first. A changed total answers 409 `price-changed` with that booking's `priceChange`: accept it with the booking's `price-consent`, then call this again. A part that sold out answers 410 and leaves the total. When every part holds, one checkout opens for the sum; the provider's webhook then settles each booking. 409 `trip-nothing-to-pay` when no part is waiting for payment.
+         */
+        post: operations["startTripPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/visa/documents/{documentId}/content": {
         parameters: {
             query?: never;
@@ -6800,6 +6917,10 @@ export interface components {
         };
         AddonList: {
             addons: components["schemas"]["AddonCard"][];
+        };
+        AddTripPartRequestInput: {
+            /** Format: uuid */
+            bookingId: string;
         };
         AdminBookingContact: {
             email: string;
@@ -8167,6 +8288,13 @@ export interface components {
                 policyFindings: ("cabin_above_policy" | "hotel_above_cap" | "too_late")[];
                 approvalRejectReason: ("over_budget" | "not_needed" | "cheaper_option" | "wrong_details" | "other") | null;
             } | null;
+            trip: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+                /** @enum {string} */
+                component: "flight" | "hotel" | "car" | "transfer" | "insurance";
+            } | null;
         };
         BookingExpiryRun: {
             expired: number;
@@ -9032,6 +9160,34 @@ export interface components {
                 daysBefore: number;
                 refundBps: number;
             }[];
+        };
+        CreateTripRequestInput: {
+            plan: {
+                origin: {
+                    code: string;
+                    name: string;
+                    cityName: string | null;
+                    countryCode: string;
+                };
+                destination: {
+                    code: string;
+                    name: string;
+                    cityName: string | null;
+                    countryCode: string;
+                    cityId: string | null;
+                };
+                departDate: string;
+                returnDate: string;
+                adults: number;
+                /** @default 0 */
+                children?: number;
+                components: ("flight" | "hotel" | "car" | "transfer" | "insurance")[];
+            };
+            /**
+             * @default NGN
+             * @enum {string}
+             */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
         };
         CreateVisaProductInput: {
             slug: string;
@@ -11307,7 +11463,7 @@ export interface components {
             /** @enum {string} */
             kind: "ledger_missing" | "ledger_amount" | "provider_status" | "provider_amount" | "orphan_ledger";
             /** @enum {string} */
-            subjectType: "payment" | "refund" | "payout" | "company_topup";
+            subjectType: "payment" | "refund" | "payout" | "company_topup" | "trip_payment";
             /** Format: uuid */
             subjectId: string;
             bookingId: string | null;
@@ -11717,6 +11873,7 @@ export interface components {
             "rejected-reviews": number;
             "company-invitations": number;
             "company-top-ups": number;
+            trips: number;
             "ad-conversions": number;
             "metasearch-landings": number;
             "support-conversations": number;
@@ -12142,6 +12299,12 @@ export interface components {
             /** @default null */
             turnstileToken?: string | null;
         };
+        StartTripPaymentRequestInput: {
+            /** @default null */
+            provider?: ("mock" | "paystack" | "flutterwave" | "stripe") | null;
+            /** @default null */
+            method?: ("card" | "bank_transfer" | "ussd" | "mobile_money" | "apple_google_pay" | "agent") | null;
+        };
         StatusIncident: {
             /** Format: uuid */
             id: string;
@@ -12438,9 +12601,80 @@ export interface components {
                 expiryDate: string;
             } | null;
         };
+        Trip: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** Format: date-time */
+            createdAt: string;
+            plan: {
+                origin: {
+                    code: string;
+                    name: string;
+                    cityName: string | null;
+                    countryCode: string;
+                };
+                destination: {
+                    code: string;
+                    name: string;
+                    cityName: string | null;
+                    countryCode: string;
+                    cityId: string | null;
+                };
+                departDate: string;
+                returnDate: string;
+                adults: number;
+                /** @default 0 */
+                children: number;
+                components: ("flight" | "hotel" | "car" | "transfer" | "insurance")[];
+            };
+            currency: string;
+            /** @enum {string} */
+            state: "empty" | "open" | "awaiting_payment" | "paid" | "closed";
+            parts: {
+                /** @enum {string} */
+                component: "flight" | "hotel" | "car" | "transfer" | "insurance";
+                /** @enum {string} */
+                state: "to_pay" | "paying" | "paid" | "confirmed" | "closed";
+                /** @enum {string} */
+                status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+                booking: components["schemas"]["BookingSummary"];
+                due: components["schemas"]["Money"];
+                priceChange: components["schemas"]["BookingPriceChange"] | null;
+            }[];
+            missing: ("flight" | "hotel" | "car" | "transfer" | "insurance")[];
+            total: components["schemas"]["Money"];
+            due: components["schemas"]["Money"];
+            payment: {
+                providers: components["schemas"]["PaymentProviderOption"][];
+                methods: components["schemas"]["PaymentMethodOption"][];
+                open: {
+                    /** Format: uuid */
+                    id: string;
+                    checkoutUrl: string;
+                    amount: components["schemas"]["Money"];
+                    /** Format: date-time */
+                    expiresAt: string;
+                } | null;
+            };
+        };
         TripCancelled: {
             refundedBookings: number;
             releasedBookings: number;
+        };
+        TripList: {
+            trips: components["schemas"]["Trip"][];
+        };
+        TripPaymentSession: {
+            /** Format: uuid */
+            paymentId: string;
+            /** @constant */
+            status: "pending";
+            checkoutUrl: string;
+            amount: components["schemas"]["Money"];
+            parts: number;
+            /** Format: date-time */
+            expiresAt: string;
         };
         TripsScheduled: {
             created: number;
@@ -16806,6 +17040,8 @@ export interface operations {
                     /** @default null */
                     artKey?: string | null;
                     cityName: string;
+                    /** @default NG */
+                    countryCode?: string;
                     branchName: string;
                     branchAddress: string;
                     lat: number;
@@ -16917,6 +17153,7 @@ export interface operations {
                     photoUrls?: string[];
                     artKey?: string | null;
                     cityName?: string;
+                    countryCode?: string;
                     branchName?: string;
                     branchAddress?: string;
                     lat?: number;
@@ -24156,6 +24393,31 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    listMyTrips: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     getWallet: {
         parameters: {
             query?: never;
@@ -25733,6 +25995,181 @@ export interface operations {
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
+        };
+    };
+    createTrip: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTripRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getTrip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    addTripPart: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddTripPartRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    removeTripPart: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                tripId: string;
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    startTripPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once. */
+                "X-Suskii-Attestation"?: string;
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartTripPaymentRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripPaymentSession"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            410: components["responses"]["Problem410"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
         };
     };
     getVisaDocumentContent: {

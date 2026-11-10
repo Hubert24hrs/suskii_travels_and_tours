@@ -373,7 +373,7 @@ interface RentalSeed {
   daily: number;
   chauffeur: number | null;
   deposit: number;
-  branch: 'ikeja' | 'lekki' | 'airport';
+  branch: 'ikeja' | 'lekki' | 'airport' | 'heathrow' | 'paddington';
   features: string[];
 }
 
@@ -490,6 +490,36 @@ const RENTALS: RentalSeed[] = [
     branch: 'ikeja',
     features: ['air_conditioning'],
   },
+  // Two cars in London, so a sample trip abroad (ADR-099) can take a car at its destination.
+  // Priced in naira like the rest of the sample fleet: one trip is paid in one currency.
+  {
+    slug: 'sample-london-vauxhall-corsa',
+    make: 'Vauxhall',
+    model: 'Corsa',
+    year: 2022,
+    category: 'economy',
+    transmission: 'manual',
+    seats: 5,
+    daily: 95_000,
+    chauffeur: null,
+    deposit: 300_000,
+    branch: 'heathrow',
+    features: ['air_conditioning', 'bluetooth'],
+  },
+  {
+    slug: 'sample-london-nissan-qashqai',
+    make: 'Nissan',
+    model: 'Qashqai',
+    year: 2023,
+    category: 'suv',
+    transmission: 'automatic',
+    seats: 5,
+    daily: 140_000,
+    chauffeur: null,
+    deposit: 400_000,
+    branch: 'paddington',
+    features: ['air_conditioning', 'bluetooth', 'navigation'],
+  },
 ];
 
 const BRANCHES = {
@@ -512,10 +542,41 @@ const BRANCHES = {
     lng: 3.321,
     airportCode: 'LOS',
   },
+  heathrow: {
+    name: 'Heathrow airport branch (sample)',
+    address: 'Northern Perimeter Road, Heathrow Airport, London',
+    lat: 51.4816,
+    lng: -0.4482,
+    airportCode: 'LHR',
+    city: 'London',
+    countryCode: 'GB',
+    timeZone: 'Europe/London',
+  },
+  paddington: {
+    name: 'Paddington branch (sample)',
+    address: 'Praed Street, Paddington, London',
+    lat: 51.5154,
+    lng: -0.1755,
+    city: 'London',
+    countryCode: 'GB',
+    timeZone: 'Europe/London',
+  },
 } as const;
 
+/** The branches of one city: a car is returned in the city it was collected in. */
+const CITY_BRANCHES: Record<string, readonly (keyof typeof BRANCHES)[]> = {
+  Lagos: ['ikeja', 'lekki', 'airport'],
+  London: ['heathrow', 'paddington'],
+};
+
 /** Where a sample car may be returned instead of its own branch, with the one-way fee. */
-const RETURN_FEES = { ikeja: 5_000, lekki: 10_000, airport: 8_000 } as const;
+const RETURN_FEES = {
+  ikeja: 5_000,
+  lekki: 10_000,
+  airport: 8_000,
+  heathrow: 20_000,
+  paddington: 20_000,
+} as const;
 
 async function seedBuses(prisma: PrismaClient): Promise<void> {
   const operators = new Map<string, string>();
@@ -756,6 +817,7 @@ async function seedDrivers(prisma: PrismaClient): Promise<void> {
 async function seedRentals(prisma: PrismaClient): Promise<void> {
   for (const [index, seed] of RENTALS.entries()) {
     const branch = BRANCHES[seed.branch];
+    const city = 'city' in branch ? branch.city : 'Lagos';
     const data = {
       status: 'published' as const,
       sample: true,
@@ -768,13 +830,14 @@ async function seedRentals(prisma: PrismaClient): Promise<void> {
       plate: `SMP-R${String(index + 1).padStart(2, '0')}-LA`,
       features: seed.features,
       artKey: null,
-      cityName: 'Lagos',
+      cityName: city,
+      countryCode: 'countryCode' in branch ? branch.countryCode : 'NG',
       branchName: branch.name,
       branchAddress: branch.address,
       lat: branch.lat,
       lng: branch.lng,
       airportCode: 'airportCode' in branch ? branch.airportCode : null,
-      timeZone: LAGOS_ZONE,
+      timeZone: 'timeZone' in branch ? branch.timeZone : LAGOS_ZONE,
       currency: 'NGN',
       dailyMinor: naira(seed.daily),
       // Sample rates (ADR-098): a week for the price of six days, a month for twenty-two.
@@ -788,10 +851,10 @@ async function seedRentals(prisma: PrismaClient): Promise<void> {
       ],
       // SUVs and luxury cars may go to the neighbours on the coastal road, for a flat fee.
       crossBorder:
-        seed.category === 'suv' || seed.category === 'luxury'
+        city === 'Lagos' && (seed.category === 'suv' || seed.category === 'luxury')
           ? { countries: ['BJ', 'TG', 'GH'], feeMinor: Number(naira(50_000)) }
           : Prisma.DbNull,
-      returnBranches: (Object.keys(BRANCHES) as (keyof typeof BRANCHES)[])
+      returnBranches: (CITY_BRANCHES[city] ?? [])
         .filter((key) => key !== seed.branch)
         .map((key) => {
           const other = BRANCHES[key];
@@ -807,9 +870,10 @@ async function seedRentals(prisma: PrismaClient): Promise<void> {
         }),
       chauffeurDailyMinor: seed.chauffeur === null ? null : naira(seed.chauffeur),
       depositMinor: naira(seed.deposit),
-      // Delivery within 25 km at NGN 500 a kilometre; 200 km a day included, NGN 150 per extra km.
-      deliveryPerKmMinor: naira(500),
-      deliveryMaxKm: 25,
+      // Delivery within 25 km at NGN 500 a kilometre (Lagos, where we know the places); 200 km a
+      // day included, NGN 150 per extra km.
+      deliveryPerKmMinor: city === 'Lagos' ? naira(500) : null,
+      deliveryMaxKm: city === 'Lagos' ? 25 : null,
       mileageKmPerDay: seed.category === 'luxury' ? 150 : 200,
       excessKmMinor: naira(150),
       fuelPolicy: 'full_to_full',

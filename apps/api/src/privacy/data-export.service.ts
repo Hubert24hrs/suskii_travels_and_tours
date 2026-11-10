@@ -388,6 +388,7 @@ export class DataExportService {
       company: await this.company(userId),
       support: await this.support(userId),
       privacyRequests: await this.privacyRequests(userId),
+      trips: await this.trips(userId),
     };
 
     return {
@@ -573,6 +574,35 @@ export class DataExportService {
    * Support conversations (ADR-083): what the traveller and staff wrote to each other. Internal
    * notes and which staff member answered stay out.
    */
+  /**
+   * Combined trips (ADR-099): the plan the traveller entered and which of their bookings are its
+   * parts. The bookings and each one's share of a trip payment are in their own sections.
+   */
+  private async trips(userId: string): Promise<unknown> {
+    const rows = await this.prisma.trip.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        bookings: {
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, reference: true, tripComponent: true },
+        },
+      },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      reference: row.reference,
+      plan: row.plan,
+      currency: row.currency,
+      createdAt: iso(row.createdAt),
+      parts: row.bookings.map((booking) => ({
+        component: booking.tripComponent,
+        bookingId: booking.id,
+        bookingReference: booking.reference,
+      })),
+    }));
+  }
+
   /** The person's own data rights requests: what, how, when and the outcome (ADR-089). */
   private async privacyRequests(userId: string): Promise<unknown> {
     const rows = await this.prisma.privacyRequest.findMany({

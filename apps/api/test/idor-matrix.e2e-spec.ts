@@ -80,7 +80,7 @@ const NOT_OWNED: Record<string, string> = {
 };
 
 /** Owned resources that only accounts can have: anonymous callers get 401, as on `/v1/me`. */
-const ACCOUNT_ONLY = /^\/v1\/(me|rides|rentals\/reservations)\//;
+const ACCOUNT_ONLY = /^\/v1\/(me|rides|rentals\/reservations|trips)\//;
 
 interface Fixture {
   flightBookingId: string;
@@ -106,6 +106,9 @@ interface Fixture {
   companyTopUpId: string;
   /** Support conversations (ADR-083): the owner's own. */
   supportConversationId: string;
+  /** Combined trips (ADR-099): the owner's trip and the unpaid flight in it. */
+  tripId: string;
+  tripBookingId: string;
 }
 
 interface Case {
@@ -243,6 +246,13 @@ const CASES: Record<string, Case> = {
     path: (f) => `/v1/rentals/reservations/${f.reservationId}/licence/document`,
     raw: { contentType: 'image/png', bytes: PNG },
   },
+  getTrip: { path: (f) => `/v1/trips/${f.tripId}` },
+  addTripPart: {
+    path: (f) => `/v1/trips/${f.tripId}/parts`,
+    body: (f) => ({ bookingId: f.tripBookingId }),
+  },
+  removeTripPart: { path: (f) => `/v1/trips/${f.tripId}/parts/${f.tripBookingId}` },
+  startTripPayment: { path: (f) => `/v1/trips/${f.tripId}/payments`, body: () => ({}) },
 };
 
 interface Operation {
@@ -605,7 +615,45 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       .send({ category: 'booking_change', message: 'Can I change my flight?' })
       .expect(201);
 
+    // A trip with one unpaid flight in it.
+    const combined = await ctx
+      .http()
+      .post('/v1/trips')
+      .set(auth)
+      .send({
+        plan: {
+          origin: {
+            code: 'LOS',
+            name: 'Murtala Muhammed International Airport',
+            cityName: 'Lagos',
+            countryCode: 'NG',
+          },
+          destination: {
+            code: 'ABV',
+            name: 'Nnamdi Azikiwe International Airport',
+            cityName: 'Abuja',
+            countryCode: 'NG',
+            cityId: null,
+          },
+          departDate: inDays(30),
+          returnDate: inDays(33),
+          adults: 1,
+          children: 0,
+          components: ['flight', 'hotel'],
+        },
+      })
+      .expect(201);
+    const tripFlight = await createFlightBooking(owner);
+    await ctx
+      .http()
+      .post(`/v1/trips/${combined.body.id as string}/parts`)
+      .set(auth)
+      .send({ bookingId: tripFlight.bookingId })
+      .expect(200);
+
     return {
+      tripId: combined.body.id as string,
+      tripBookingId: tripFlight.bookingId,
       supportConversationId: conversation.body.conversation.id as string,
       companyBookingId: companyTrip.bookingId,
       companyMemberId: members.body.members[0].id as string,
@@ -725,6 +773,12 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
     });
     expect(support).toMatchObject({ status: 'open', messageCount: 1 });
     await ctx.http().get('/v1/me').set(auth).expect(200);
+    // The trip still holds its flight, and nobody started a payment for it.
+    const trip = await ctx.http().get(`/v1/trips/${fixture.tripId}`).set(auth).expect(200);
+    expect(trip.body.parts).toEqual([
+      expect.objectContaining({ component: 'flight', state: 'to_pay' }),
+    ]);
+    expect(await ctx.prisma.tripPayment.count({ where: { tripId: fixture.tripId } })).toBe(0);
 
     // Nothing was attached to the owner's bookings either.
     expect(

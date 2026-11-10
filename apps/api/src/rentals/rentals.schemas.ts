@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   CATALOG_STATUSES,
   cancellationPolicySchema,
+  countryCodeSchema,
   currencyCodeSchema,
   handoverInputSchema,
   licenceNumberSchema,
@@ -260,6 +261,7 @@ const vehicleFields = z.object({
   photoUrls: z.array(httpsUrl).max(10),
   artKey: z.string().max(80).nullable(),
   cityName: z.string().trim().min(2).max(80),
+  countryCode: countryCodeSchema,
   branchName: z.string().trim().min(2).max(120),
   branchAddress: z.string().trim().min(2).max(300),
   lat: z.number().min(-90).max(90),
@@ -289,6 +291,7 @@ export const vehicleBodySchema = vehicleFields.extend({
   features: vehicleFields.shape.features.default([]),
   photoUrls: vehicleFields.shape.photoUrls.default([]),
   artKey: vehicleFields.shape.artKey.default(null),
+  countryCode: vehicleFields.shape.countryCode.default('NG'),
   airportCode: vehicleFields.shape.airportCode.default(null),
   weeklyMinor: vehicleFields.shape.weeklyMinor.default(null),
   monthlyMinor: vehicleFields.shape.monthlyMinor.default(null),

@@ -257,6 +257,20 @@ async function seedAddons(prisma: PrismaClient): Promise<void> {
       cancellationPolicy: TOUR_POLICY,
     },
     {
+      // Anywhere: a sample trip abroad (ADR-099) can add a transfer at its destination.
+      slug: 'sample-destination-airport-transfer',
+      type: 'airport_transfer',
+      title: 'Airport transfer at your destination (sample)',
+      summary: 'Private car from the airport to where you stay, and back.',
+      description: SAMPLE_NOTE,
+      countryCodes: [],
+      pricingBasis: 'per_booking',
+      price: ngn(60_000),
+      maxTravellers: 4,
+      requiredDetails: ['flight_number', 'arrival_time', 'pickup_address'],
+      cancellationPolicy: TOUR_POLICY,
+    },
+    {
       slug: 'sample-travel-esim',
       type: 'esim',
       title: 'Travel eSIM (sample)',

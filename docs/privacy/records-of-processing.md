@@ -42,7 +42,7 @@ Create and protect accounts: sign-in, MFA, sessions, devices, staff roles and th
 
 ### Bookings and trip fulfilment
 
-Quote, book, ticket and change flights, hotels, packages, tours and add-ons; send documents; handle airline changes and cancellations.
+Quote, book, ticket and change flights, hotels, packages, tours and add-ons, alone or put together as one trip; send documents; handle airline changes and cancellations.
 
 - **Lawful basis:** Contract: needed for the service the person asked for
 - **People:** Travellers with an account; Guests who book without an account, and the passengers they name
@@ -64,6 +64,7 @@ Quote, book, ticket and change flights, hotels, packages, tours and add-ons; sen
 | `BookingAccessLink` | Retention sweep `booking-access-links`: 30 days after the event | delete |
 | `Traveller` | While the account exists; deletion applies its treatment | delete |
 | `PromoRedemption` | With its Booking | retain |
+| `Trip` | Retention sweep `trips` (period from settings) | retain |
 
 ### Payments, refunds, wallet and fraud checks
 
@@ -77,6 +78,7 @@ Take payments through hosted checkout, run installment plans, refund, keep the d
 | Table | Retention | On account deletion |
 | --- | --- | --- |
 | `Payment` | With its Booking | retain |
+| `TripPayment` | With its Trip | retain |
 | `WebhookEvent` | Retention sweep `webhook-events`: 90 days after the event | retain |
 | `LedgerAccount` | Kept: append-only, ids, amounts and reasons only | retain |
 | `LedgerTransaction` | Kept: append-only, ids, amounts and reasons only | retain |
@@ -299,5 +301,5 @@ Who receives personal data, where it processes it and the basis for sending it a
 
 ## Coverage
 
-All 75 tables that hold personal data belong to an activity above;
+All 77 tables that hold personal data belong to an activity above;
 the other 49 hold reference or operational data only.

@@ -1,12 +1,13 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { z } from 'zod';
 
-import { money, toWire, type Money } from '@suskii/shared';
+import { allocate, equals, money, toWire, type Money } from '@suskii/shared';
 
+import { AuditService } from '../audit/audit.service';
 import { BackgroundTasks } from '../common/background-tasks';
 import { CompanyTopUps } from '../companies/company-top-ups';
 import { APP_CONFIG, type AppConfig } from '../config/config';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma, type Booking, type Payment } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 import { MockPaymentProvider } from '../payments/mock-payment-provider';
 import {
@@ -23,7 +24,7 @@ import { BookingPaymentsService } from './booking-payments.service';
 import { BookingTransitions, WEBHOOK_ACTOR } from './booking-transitions';
 import { invalidWebhook, paymentClosed, paymentProviderDown } from './booking.errors';
 import type { mockPaymentResultSchema, mockPaymentSchema } from './bookings.schemas';
-import { companyTopUpReturnUrl, paymentReturnUrl } from './booking-urls';
+import { companyTopUpReturnUrl, paymentReturnUrl, tripPaymentReturnUrl } from './booking-urls';
 import { RefundsService } from './refunds.service';
 import { TicketingService } from './ticketing.service';
 import { paymentWebhooks, payments } from '../telemetry/metrics';
@@ -32,12 +33,15 @@ type Tx = Prisma.TransactionClient;
 
 interface Processed {
   outcome: string;
-  paidBookingId: string | null;
+  /** Bookings paid in full by this event: ticketing starts for each. */
+  paidBookingIds: string[];
   refundIds: string[];
   settledRefundId: string | null;
+  /** Payments held for a risk review (ADR-040), by their own reference: operations hear of each. */
+  heldReferences: string[];
 }
 
-const NOTHING = { paidBookingId: null, refundIds: [], settledRefundId: null };
+const NOTHING = { paidBookingIds: [], refundIds: [], settledRefundId: null, heldReferences: [] };
 
 /**
  * Payment and refund webhooks, the source of truth for money (ADR-014, ADR-016). Events are
@@ -61,6 +65,7 @@ export class PaymentEventsService {
     private readonly background: BackgroundTasks,
     private readonly notifications: BookingNotifications,
     private readonly topUps: CompanyTopUps,
+    private readonly audit: AuditService,
   ) {}
 
   async receive(
@@ -151,10 +156,10 @@ export class PaymentEventsService {
       { provider, type: event.type, outcome: processed.outcome },
       'payment event processed',
     );
-    const paid = processed.paidBookingId;
-    if (paid) this.background.run('ticketing', () => this.ticketing.process(paid));
-    if (processed.outcome === 'held_for_review' && event.providerReference) {
-      const reference = event.providerReference;
+    for (const paid of processed.paidBookingIds) {
+      this.background.run('ticketing', () => this.ticketing.process(paid));
+    }
+    for (const reference of processed.heldReferences) {
       this.background.run('risk-review-alert', () => this.alertReview(reference));
     }
     if (processed.refundIds.length > 0) this.refunds.executeLater(processed.refundIds);
@@ -183,37 +188,23 @@ export class PaymentEventsService {
       ? await tx.payment.findUnique({ where: { providerReference: event.providerReference } })
       : null;
     if (!found) {
-      // Not a booking payment: a company wallet top-up (ADR-090), or nothing we know.
+      // Not a booking payment: one checkout for a whole trip (ADR-099), a company wallet top-up
+      // (ADR-090), or nothing we know.
+      const trip = await this.processTripPayment(tx, provider, event);
+      if (trip) return trip;
       const topUp = await this.topUps.applyProviderEvent(tx, provider, event);
       return { ...NOTHING, outcome: topUp ?? 'unknown_payment' };
     }
-    if (found.provider !== provider) return { ...NOTHING, outcome: 'unknown_payment' };
-    // One payment event at a time per booking.
-    await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${found.bookingId}::uuid FOR UPDATE`;
-    const booking = await tx.booking.findUniqueOrThrow({ where: { id: found.bookingId } });
-    const payment = await tx.payment.findUniqueOrThrow({ where: { id: found.id } });
+    // A share of a trip checkout has no events of its own: the provider knows only the trip's.
+    if (found.provider !== provider || found.tripPaymentId) {
+      return { ...NOTHING, outcome: 'unknown_payment' };
+    }
+    const { booking, payment } = await this.lockForPayment(tx, found);
 
     if (event.type === 'payment.failed' || event.type === 'checkout.expired') {
-      if (payment.status !== 'pending') return { ...NOTHING, outcome: 'ignored' };
       const failed = event.type === 'payment.failed';
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: failed ? 'failed' : 'expired',
-          failureReason: event.failureReason ?? (failed ? 'failed' : 'expired'),
-        },
-      });
-      const latest = await tx.payment.findFirst({
-        where: { bookingId: booking.id },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true },
-      });
-      if (booking.status === 'AWAITING_PAYMENT' && latest?.id === payment.id) {
-        await this.transitions.apply(tx, booking, 'payment_abandoned', WEBHOOK_ACTOR, {
-          reason: failed ? 'payment_failed' : 'checkout_expired',
-        });
-      }
-      return { ...NOTHING, outcome: failed ? 'failed' : 'expired' };
+      const closed = await this.closeUnpaid(tx, booking, payment, failed, event.failureReason);
+      return { ...NOTHING, outcome: closed ? (failed ? 'failed' : 'expired') : 'ignored' };
     }
 
     const amount = event.amount ?? money(payment.amountMinor, payment.currency);
@@ -231,7 +222,190 @@ export class PaymentEventsService {
       { kind: 'psp', provider, currency: amount.currency },
       WEBHOOK_ACTOR,
     );
-    return { ...NOTHING, ...result };
+    return {
+      ...NOTHING,
+      outcome: result.outcome,
+      paidBookingIds: result.paidBookingId ? [result.paidBookingId] : [],
+      refundIds: result.refundIds,
+      heldReferences: result.outcome === 'held_for_review' ? [payment.providerReference] : [],
+    };
+  }
+
+  /** One payment event at a time per booking: the booking's row lock, then both rows fresh. */
+  private async lockForPayment(
+    tx: Tx,
+    found: { id: string; bookingId: string },
+  ): Promise<{ booking: Booking; payment: Payment }> {
+    await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${found.bookingId}::uuid FOR UPDATE`;
+    const booking = await tx.booking.findUniqueOrThrow({ where: { id: found.bookingId } });
+    const payment = await tx.payment.findUniqueOrThrow({ where: { id: found.id } });
+    return { booking, payment };
+  }
+
+  /**
+   * A checkout that failed or ran out: the pending payment closes, and a booking waiting on it
+   * (and on no newer one) goes back to PRICED. False when the payment was no longer pending.
+   */
+  private async closeUnpaid(
+    tx: Tx,
+    booking: Booking,
+    payment: Payment,
+    failed: boolean,
+    failureReason: string | null,
+  ): Promise<boolean> {
+    if (payment.status !== 'pending') return false;
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: failed ? 'failed' : 'expired',
+        failureReason: failureReason ?? (failed ? 'failed' : 'expired'),
+      },
+    });
+    const latest = await tx.payment.findFirst({
+      where: { bookingId: booking.id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    if (booking.status === 'AWAITING_PAYMENT' && latest?.id === payment.id) {
+      await this.transitions.apply(tx, booking, 'payment_abandoned', WEBHOOK_ACTOR, {
+        reason: failed ? 'payment_failed' : 'checkout_expired',
+      });
+    }
+    return true;
+  }
+
+  /**
+   * An event for the one checkout of a trip (ADR-099), or null when the reference is not a trip
+   * payment of this provider. The provider charged once; here every booking in the checkout
+   * gets its share, each under its own row lock and through the same `applyReceived` a single
+   * payment takes, so the ledger, the risk review, ticketing and refunds stay per booking.
+   *
+   * When the provider charged something else than the trip's total, no share is applied: the
+   * money is split across the bookings in proportion and every part is refunded, as a single
+   * payment of the wrong amount is.
+   */
+  private async processTripPayment(
+    tx: Tx,
+    provider: string,
+    event: PaymentEvent,
+  ): Promise<Processed | null> {
+    if (!event.providerReference) return null;
+    const found = await tx.tripPayment.findUnique({
+      where: { providerReference: event.providerReference },
+      select: { id: true, provider: true },
+    });
+    if (found?.provider !== provider) return null;
+    // One event at a time per trip payment.
+    await tx.$queryRaw`SELECT id FROM trip_payments WHERE id = ${found.id}::uuid FOR UPDATE`;
+    const tripPayment = await tx.tripPayment.findUniqueOrThrow({ where: { id: found.id } });
+    // Bookings are locked in one order everywhere, so two trip events never deadlock.
+    const shares = await tx.payment.findMany({
+      where: { tripPaymentId: tripPayment.id },
+      orderBy: { bookingId: 'asc' },
+      select: { id: true, bookingId: true },
+    });
+
+    if (event.type === 'payment.failed' || event.type === 'checkout.expired') {
+      if (tripPayment.status !== 'pending') return { ...NOTHING, outcome: 'ignored' };
+      const failed = event.type === 'payment.failed';
+      await tx.tripPayment.update({
+        where: { id: tripPayment.id },
+        data: {
+          status: failed ? 'failed' : 'expired',
+          failureReason: event.failureReason ?? (failed ? 'failed' : 'expired'),
+        },
+      });
+      for (const share of shares) {
+        const { booking, payment } = await this.lockForPayment(tx, share);
+        await this.closeUnpaid(tx, booking, payment, failed, event.failureReason);
+      }
+      return { ...NOTHING, outcome: failed ? 'trip_failed' : 'trip_expired' };
+    }
+    if (event.type !== 'payment.succeeded') return { ...NOTHING, outcome: 'ignored' };
+    if (tripPayment.status === 'succeeded') return { ...NOTHING, outcome: 'already_succeeded' };
+
+    const requested = money(tripPayment.amountMinor, tripPayment.currency);
+    const received = event.amount ?? requested;
+    const exact = equals(received, requested);
+    await tx.tripPayment.update({
+      where: { id: tripPayment.id },
+      data: {
+        status: 'succeeded',
+        succeededAt: new Date(event.occurredAt),
+        providerTransactionId: event.providerTransactionId ?? tripPayment.providerTransactionId,
+        method: event.method ?? tripPayment.method,
+        failureReason: null,
+        ...(exact ? {} : { receivedMinor: received.minor, receivedCurrency: received.currency }),
+      },
+    });
+
+    const processed: Processed = { ...NOTHING, outcome: 'trip_paid' };
+    const paid: string[] = [];
+    const refunds: string[] = [];
+    const held: string[] = [];
+    const locked = [];
+    for (const share of shares) locked.push(await this.lockForPayment(tx, share));
+    // What each booking receives: its own share, or its proportion of a wrong total.
+    const amounts = exact
+      ? locked.map(({ payment }) => money(payment.amountMinor, payment.currency))
+      : locked.length > 0
+        ? allocate(
+            received,
+            locked.map(({ payment }) => payment.amountMinor),
+          )
+        : [];
+    let settled = 0;
+    for (const [index, { booking, payment }] of locked.entries()) {
+      const amount = amounts[index] ?? money(payment.amountMinor, payment.currency);
+      const result = await this.payments.applyReceived(
+        tx,
+        booking,
+        payment,
+        {
+          amount,
+          providerTransactionId: event.providerTransactionId,
+          method: event.method,
+          occurredAt: new Date(event.occurredAt),
+          card: event.card ?? null,
+          unexpected: !exact,
+        },
+        { kind: 'psp', provider, currency: amount.currency },
+        WEBHOOK_ACTOR,
+      );
+      if (result.paidBookingId) paid.push(result.paidBookingId);
+      refunds.push(...result.refundIds);
+      if (result.outcome === 'held_for_review') held.push(payment.providerReference);
+      if (result.outcome === 'paid' || result.outcome === 'held_for_review') settled += 1;
+    }
+    if (!exact) {
+      await this.audit.record(
+        {
+          action: 'trip.payment_amount_mismatch',
+          actorType: 'system',
+          targetType: 'trip',
+          targetId: tripPayment.tripId,
+          metadata: {
+            tripPaymentId: tripPayment.id,
+            expectedMinor: requested.minor.toString(),
+            expectedCurrency: requested.currency,
+            receivedMinor: received.minor.toString(),
+            receivedCurrency: received.currency,
+          },
+        },
+        tx,
+      );
+    }
+    return {
+      ...processed,
+      outcome: !exact
+        ? 'trip_amount_mismatch'
+        : settled === locked.length
+          ? 'trip_paid'
+          : 'trip_partly_applied',
+      paidBookingIds: paid,
+      refundIds: refunds,
+      heldReferences: held,
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -271,7 +445,10 @@ export class PaymentEventsService {
     return { status: after.status, returnUrl: after.returnUrl };
   }
 
-  /** What the mock page charges for: a booking payment or a company wallet top-up (ADR-090). */
+  /**
+   * What the mock page charges for: a booking payment, the one checkout of a trip (ADR-099) or
+   * a company wallet top-up (ADR-090).
+   */
   private async mockTarget(reference: string): Promise<{
     label: string;
     amount: Money;
@@ -292,6 +469,20 @@ export class PaymentEventsService {
         status: payment.status,
         expiresAt: payment.expiresAt,
         returnUrl: paymentReturnUrl(this.config, payment.bookingId, payment.booking.channel),
+      };
+    }
+    const tripPayment = await this.prisma.tripPayment.findUnique({
+      where: { providerReference: reference },
+      include: { trip: { select: { reference: true } } },
+    });
+    if (tripPayment) {
+      if (tripPayment.provider !== this.mock.name) throw new NotFoundException();
+      return {
+        label: tripPayment.trip.reference,
+        amount: money(tripPayment.amountMinor, tripPayment.currency),
+        status: tripPayment.status,
+        expiresAt: tripPayment.expiresAt,
+        returnUrl: tripPaymentReturnUrl(this.config, tripPayment.tripId, tripPayment.channel),
       };
     }
     const topUp = await this.prisma.companyWalletTopUp.findUnique({

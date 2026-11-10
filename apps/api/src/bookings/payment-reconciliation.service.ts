@@ -40,6 +40,8 @@ export class PaymentReconciliationService {
       where: {
         status: 'pending',
         kind: 'checkout',
+        // A share of a trip checkout (ADR-099) is settled through its trip payment, below.
+        tripPaymentId: null,
         provider: { in: this.providers.all().map((provider) => provider.name) },
         OR: [{ expiresAt: { lt: now } }, { createdAt: { lt: staleBefore } }],
         AND: [
@@ -102,8 +104,95 @@ export class PaymentReconciliationService {
         );
       }
     }
+    const trips = await this.reconcileTripPayments(now, staleBefore, stopStartingAt);
     const topUps = await this.reconcileTopUps(now, staleBefore, stopStartingAt);
-    return { checked: checked + topUps.checked, settled: settled + topUps.settled };
+    return {
+      checked: checked + trips.checked + topUps.checked,
+      settled: settled + trips.settled + topUps.settled,
+    };
+  }
+
+  /**
+   * Trip checkouts (ADR-099) whose webhook never came: verified with the provider at the trip's
+   * total and fed through the pipeline under the trip payment's own reference, which settles
+   * every booking's share at once.
+   */
+  private async reconcileTripPayments(
+    now: Date,
+    staleBefore: Date,
+    stopStartingAt: number,
+  ): Promise<{ checked: number; settled: number }> {
+    const tripPayments = await this.prisma.tripPayment.findMany({
+      where: {
+        status: 'pending',
+        provider: { in: this.providers.all().map((provider) => provider.name) },
+        OR: [{ expiresAt: { lt: now } }, { createdAt: { lt: staleBefore } }],
+        AND: [
+          {
+            OR: [
+              { reconciledAt: null },
+              { reconciledAt: { lt: new Date(now.getTime() - RECHECK_AFTER_MS) } },
+            ],
+          },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
+      take: BATCH,
+    });
+    let checked = 0;
+    let settled = 0;
+    for (const tripPayment of tripPayments) {
+      if (Date.now() > stopStartingAt) break;
+      checked += 1;
+      const provider = this.providers.find(tripPayment.provider);
+      if (!provider) continue;
+      try {
+        const verified = await provider.verifyPayment({
+          providerReference: tripPayment.providerReference,
+          providerTransactionId: tripPayment.providerTransactionId,
+          amount: money(tripPayment.amountMinor, tripPayment.currency),
+        });
+        await this.prisma.tripPayment.update({
+          where: { id: tripPayment.id },
+          data: { reconciledAt: now },
+        });
+        if (verified.status === 'pending') {
+          if (tripPayment.expiresAt.getTime() < now.getTime() - GIVE_UP_AFTER_MS) {
+            // A payment after this still arrives by webhook: each share is taken or refunded.
+            await this.prisma.$transaction([
+              this.prisma.tripPayment.updateMany({
+                where: { id: tripPayment.id, status: 'pending' },
+                data: { status: 'expired', failureReason: 'never_completed' },
+              }),
+              this.prisma.payment.updateMany({
+                where: { tripPaymentId: tripPayment.id, status: 'pending' },
+                data: { status: 'expired', failureReason: 'never_completed' },
+              }),
+            ]);
+          }
+          continue;
+        }
+        const outcome = await this.events.apply(provider.name, {
+          eventId: `reconcile:${tripPayment.providerReference}:${verified.status}`,
+          type: verified.status === 'succeeded' ? 'payment.succeeded' : 'payment.failed',
+          providerReference: tripPayment.providerReference,
+          providerTransactionId: verified.providerTransactionId,
+          providerRefundId: null,
+          refundId: null,
+          amount: verified.amount,
+          method: verified.method,
+          occurredAt: now.toISOString(),
+          failureReason: verified.failureReason,
+        });
+        if (outcome !== 'duplicate') settled += 1;
+      } catch (error) {
+        this.logger.warn(
+          { tripPaymentId: tripPayment.id, reason: (error as Error).name },
+          'trip payment reconciliation failed',
+        );
+      }
+    }
+    return { checked, settled };
   }
 
   private async reconcileTopUps(

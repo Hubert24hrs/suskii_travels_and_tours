@@ -289,7 +289,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
     id: 'bookings',
     name: 'Bookings and trip fulfilment',
     purpose:
-      'Quote, book, ticket and change flights, hotels, packages, tours and add-ons; send documents; handle airline changes and cancellations.',
+      'Quote, book, ticket and change flights, hotels, packages, tours and add-ons, alone or put together as one trip; send documents; handle airline changes and cancellations.',
     basis: ['contract'],
     subjects: ['travellers', 'guests'],
     categories: ['identity', 'contact', 'travel_documents', 'trips'],
@@ -307,6 +307,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'BookingAccessLink',
       'Traveller',
       'PromoRedemption',
+      'Trip',
     ],
     recipients: [...hosting, 'duffel', 'hotelbeds', 'expedia', 'email_relay', 'expo_push'],
   },
@@ -320,6 +321,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
     categories: ['contact', 'payments'],
     models: [
       'Payment',
+      'TripPayment',
       'WebhookEvent',
       'LedgerAccount',
       'LedgerTransaction',

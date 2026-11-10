@@ -51,6 +51,8 @@ export const RETENTION_RULES = [
   'company-invitations',
   // Company wallet top-ups (ADR-090).
   'company-top-ups',
+  // Combined trips (ADR-099).
+  'trips',
   // Server-side ad conversions (ADR-079).
   'ad-conversions',
   // Metasearch landings (ADR-081).
@@ -141,6 +143,7 @@ export const RETENTION_DAYS = {
     | 'rental-photos'
     | 'partner-conversions'
     | 'company-top-ups'
+    | 'trips'
   >,
   number
 >;
@@ -157,6 +160,8 @@ const REDACTED_NAME = 'REDACTED';
 const DAY_MS = 86_400_000;
 /** Top-ups that were never paid are kept this long, to answer a company about them. */
 const UNPAID_TOP_UP_DAYS = 90;
+/** A trip nobody added a booking to is an abandoned plan: it goes after this long. */
+const EMPTY_TRIP_DAYS = 30;
 const BATCH = 200;
 
 const daysBefore = (now: Date, days: number): Date => new Date(now.getTime() - days * DAY_MS);
@@ -328,6 +333,22 @@ export class RetentionService {
               },
               {
                 status: 'succeeded',
+                createdAt: {
+                  lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS),
+                },
+              },
+            ],
+          },
+        }),
+      ),
+      // Plans nobody filled after 30 days; trips with bookings stay as long as financial
+      // records do, then go (their bookings and payments keep their own rows and rules).
+      trips: counts(
+        await this.prisma.trip.deleteMany({
+          where: {
+            OR: [
+              { bookings: { none: {} }, createdAt: { lt: daysBefore(now, EMPTY_TRIP_DAYS) } },
+              {
                 createdAt: {
                   lt: yearsBefore(now, this.config.FINANCIAL_RECORDS_RETENTION_YEARS),
                 },
