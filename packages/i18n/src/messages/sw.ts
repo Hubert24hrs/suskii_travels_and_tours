@@ -54,6 +54,7 @@ export const sw: Messages = {
     cars: 'Mabasi na magari',
   },
   footer: {
+    tripBuilder: 'Panga safari',
     company: 'Kampuni',
     explore: 'Gundua',
     support: 'Msaada',
@@ -137,6 +138,8 @@ export const sw: Messages = {
       addonsName: 'Hujaza jina lako la ukoo unapotafuta huduma za ziada za uhifadhi.',
       companyInvite:
         'Huhifadhi mwaliko wa kampuni unapoingia ili kuukubali, kwenye kichupo hiki tu.',
+      tripBuilder:
+        'Huhifadhi safari unayopanga wakati unachagua kila sehemu, kwenye kichupo hiki pekee.',
       socialSignIn:
         'Hurudisha kuingia kwa Google au Apple kwenye tovuti hii, katika kichupo hiki pekee.',
       turnstile:
@@ -402,6 +405,9 @@ export const sw: Messages = {
         'Chaguo hutegemea shirika la ndege, hoteli au huduma na huonyeshwa kabla ya kulipa.',
     },
     teaser: {
+      tripTitle: 'Panga safari yako mwenyewe',
+      tripBody:
+        'Ndege, hoteli, gari, usafiri wa uwanja wa ndege na bima pamoja, au sehemu unazotaka tu. Malipo mara moja.',
       heading: 'Vifurushi vya likizo na ziara',
       packagesTitle: 'Vifurushi vya likizo',
       packagesBody:
@@ -873,6 +879,11 @@ export const sw: Messages = {
     },
   },
   checkout: {
+    tripBuilder: {
+      banner: 'Hii itaongezwa kwenye safari yako {reference}. Utalipia safari nzima mwishoni.',
+      alone: 'Hifadhi peke yake badala yake',
+      submit: 'Ongeza kwenye safari yangu',
+    },
     company: {
       label: 'Weka kwa niaba ya {company}',
       help: 'Sera ya usafiri ya kampuni inatumika. Safari ikihitaji idhini, utalipa mara mwidhinishaji akikubali.',
@@ -3256,6 +3267,132 @@ export const sw: Messages = {
     unavailable:
       'Hatuwezi kupakia hali ya huduma sasa hivi. Kama kitu hakifanyi kazi, wasiliana na msaada.',
     bannerLink: 'Angalia hali ya huduma',
+  },
+  trips: {
+    title: 'Panga safari yako',
+    metaDescription:
+      'Unganisha ndege, hoteli, gari la kukodi, usafiri wa uwanja wa ndege na bima ya safari, au sehemu unazotaka tu, kisha ulipe kila kitu mara moja.',
+    intro:
+      'Unganisha ndege, hoteli, gari la kukodi, usafiri wa uwanja wa ndege na bima ya safari, au sehemu unazotaka tu. Unaona bei ya kila sehemu na jumla moja, kisha unalipa mara moja.',
+    components: {
+      flight: 'Ndege',
+      hotel: 'Hoteli',
+      car: 'Gari la kukodi',
+      transfer: 'Usafiri wa uwanja wa ndege',
+      insurance: 'Bima ya safari',
+    },
+    route: '{from} hadi {to}',
+    adults: {
+      one: 'mtu mzima {count}',
+      other: 'watu wazima {count}',
+    },
+    children: {
+      one: 'mtoto {count}',
+      other: 'watoto {count}',
+    },
+    plan: {
+      heading: 'Wapi na lini',
+      from: 'Kutoka',
+      to: 'Kwenda',
+      dates: 'Tarehe',
+      datesPlaceholder: 'Kuondoka na kurudi',
+      adults: 'Watu wazima',
+      children: 'Watoto',
+      childrenHint: 'Miaka 2 hadi 11',
+      addAdult: 'Ongeza mtu mzima',
+      removeAdult: 'Ondoa mtu mzima',
+      addChild: 'Ongeza mtoto',
+      removeChild: 'Ondoa mtoto',
+      parts: 'Unahitaji nini?',
+      partsHint: 'Chagua moja au zaidi. Unaweza kuacha sehemu baadaye.',
+      submit: 'Anza safari yangu',
+      signIn: 'Ingia ili kupanga safari, ili sehemu zote zibaki pamoja kwenye akaunti yako.',
+      signInAction: 'Ingia',
+      errors: {
+        origin: 'Chagua unakotoka.',
+        destination: 'Chagua unakokwenda.',
+        same: 'Chagua mahali tofauti na unakotoka.',
+        dates: 'Chagua siku ya kuondoka na siku ya kurudi.',
+        tooLong: 'Safari inaweza kuwa hadi usiku {nights}.',
+        parts: 'Chagua angalau sehemu moja.',
+        tooMany: 'Una safari kumi ambazo hazijalipiwa chochote. Futa moja ili kuanza nyingine.',
+        generic: 'Hatukuweza kuanza safari yako. Jaribu tena.',
+      },
+    },
+    list: {
+      heading: 'Safari zako',
+      open: 'Fungua',
+      parts: {
+        one: 'sehemu {count} imeongezwa',
+        other: 'sehemu {count} zimeongezwa',
+      },
+      none: 'Hakuna kilichoongezwa bado',
+    },
+    states: {
+      empty: 'Haijaanza',
+      open: 'Ya kulipa',
+      awaiting_payment: 'Malipo yameanza',
+      paid: 'Imelipwa',
+      closed: 'Imefungwa',
+    },
+    partStates: {
+      to_pay: 'Ya kulipa',
+      paying: 'Malipo yameanza',
+      paid: 'Imelipwa',
+      confirmed: 'Imethibitishwa',
+      closed: 'Imeghairiwa au muda umeisha',
+    },
+    page: {
+      title: 'Safari yako',
+      back: 'Safari zote',
+      reference: 'Safari {reference}',
+      partsHeading: 'Sehemu za safari yako',
+      notAdded: 'Bado haijaongezwa',
+      choose: {
+        flight: 'Chagua ndege',
+        hotel: 'Chagua hoteli',
+        car: 'Chagua gari',
+        transfer: 'Ongeza usafiri wa uwanja wa ndege',
+        insurance: 'Ongeza bima ya safari',
+      },
+      change: 'Badilisha',
+      remove: 'Ondoa',
+      removeLabel: 'Ondoa kwenye safari: {part}',
+      changeLabel: 'Badilisha: {part}',
+      viewBooking: 'Angalia uhifadhi',
+      viewLabel: 'Angalia uhifadhi {reference}',
+      flightLine: '{from} hadi {to}, {airline}',
+      priceChanged: 'Bei imebadilika kutoka {previous} hadi {current}.',
+      acceptPrice: 'Kubali bei mpya',
+      reviewHeading: 'Kagua na ulipe',
+      total: 'Jumla ya safari',
+      due: 'Ya kulipa sasa',
+      pay: 'Lipa {amount}',
+      payNote:
+        'Malipo moja hulipia kila sehemu. Kila sehemu hubaki na uhifadhi wake, kwa hiyo unaweza kubadilisha au kughairi moja bila kugusa nyingine.',
+      continuePayment: 'Endelea kwenye malipo',
+      waiting: 'Tunasubiri malipo yako. Ukurasa huu hujisasisha wenyewe.',
+      paid: 'Safari yako imelipwa. Kila sehemu ina uhifadhi na uthibitisho wake.',
+      closed: 'Kila sehemu ya safari hii imeghairiwa au muda wake umeisha.',
+      nothingYet: 'Ongeza sehemu ili kuona jumla yako.',
+      delete: 'Futa safari hii',
+      deleteConfirm: 'Ufute safari hii? Uhifadhi uliomo utabaki kama uhifadhi wa kujitegemea.',
+      deleteYes: 'Ndiyo, ifute',
+      deleteNo: 'Ibaki',
+      missing: 'Hatuwezi kupata safari hii. Ingia kwa akaunti iliyoiunda.',
+      loadError: 'Hatukuweza kupakia safari yako.',
+      retry: 'Jaribu tena',
+      errors: {
+        priceChanged: 'Bei imebadilika. Kubali bei mpya hapo juu, kisha ulipe.',
+        nothingToPay: 'Hakuna cha kulipa kwenye safari hii.',
+        unavailable: 'Sehemu moja haipatikani tena. Ichague upya.',
+        provider: 'Malipo hayapatikani kwa sasa. Jaribu tena baada ya dakika chache.',
+        tooMany: 'Majaribio ni mengi mno. Subiri dakika moja kisha ujaribu tena.',
+        partPaid: 'Sehemu hii imeshalipwa. Ighairi kutoka kwenye uhifadhi wake.',
+        hasPayments: 'Safari yenye malipo haiwezi kufutwa.',
+        generic: 'Hitilafu imetokea. Jaribu tena.',
+      },
+    },
   },
   seo: {
     homeTitle: '{brand}: safari za ndege nafuu, hoteli, likizo na msaada wa viza',

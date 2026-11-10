@@ -54,6 +54,7 @@ export const fr: Messages = {
     cars: 'Bus et voitures',
   },
   footer: {
+    tripBuilder: 'Composer un voyage',
     company: 'Entreprise',
     explore: 'Explorer',
     support: 'Assistance',
@@ -133,6 +134,8 @@ export const fr: Messages = {
         'Remplit votre nom de famille quand vous cherchez des options pour une réservation.',
       companyInvite:
         "Garde une invitation d'entreprise le temps de vous connecter pour l'accepter, dans cet onglet uniquement.",
+      tripBuilder:
+        'Garde le voyage que vous composez pendant que vous choisissez chaque élément, dans cet onglet uniquement.',
       socialSignIn:
         'Ramène une connexion Google ou Apple vers ce site, dans cet onglet uniquement.',
       turnstile:
@@ -407,6 +410,9 @@ export const fr: Messages = {
         "Les options dépendent de la compagnie, de l'hôtel ou du produit, et sont affichées avant le paiement.",
     },
     teaser: {
+      tripTitle: 'Composez votre voyage',
+      tripBody:
+        'Un vol, un hôtel, une voiture, un transfert aéroport et une assurance réunis, ou seulement ce dont vous avez besoin. Un seul paiement.',
       heading: 'Séjours et excursions',
       packagesTitle: 'Séjours vacances',
       packagesBody: 'Vols, hôtels et extras organisés ensemble, avec paiement échelonné possible.',
@@ -879,6 +885,12 @@ export const fr: Messages = {
     },
   },
   checkout: {
+    tripBuilder: {
+      banner:
+        'Cet élément sera ajouté à votre voyage {reference}. Vous payez tout le voyage à la fin.',
+      alone: 'Le réserver séparément',
+      submit: 'Ajouter à mon voyage',
+    },
     company: {
       label: 'Réserver pour {company}',
       help: "La politique de voyage de l'entreprise s'applique. Si le voyage doit être validé, vous payez une fois la validation donnée.",
@@ -3295,6 +3307,136 @@ export const fr: Messages = {
     unavailable:
       "Impossible de charger l'état du service pour le moment. Si quelque chose ne fonctionne pas, contactez l'assistance.",
     bannerLink: "Voir l'état du service",
+  },
+  trips: {
+    title: 'Composez votre voyage',
+    metaDescription:
+      'Réunissez un vol, un hôtel, une voiture de location, un transfert aéroport et une assurance voyage, ou seulement ce dont vous avez besoin, et payez le tout en une fois.',
+    intro:
+      'Réunissez un vol, un hôtel, une voiture de location, un transfert aéroport et une assurance voyage, ou seulement ce dont vous avez besoin. Vous voyez un prix pour chaque élément et un total, et vous payez une seule fois.',
+    components: {
+      flight: 'Vol',
+      hotel: 'Hôtel',
+      car: 'Voiture de location',
+      transfer: 'Transfert aéroport',
+      insurance: 'Assurance voyage',
+    },
+    route: '{from} – {to}',
+    adults: {
+      one: '{count} adulte',
+      other: '{count} adultes',
+    },
+    children: {
+      one: '{count} enfant',
+      other: '{count} enfants',
+    },
+    plan: {
+      heading: 'Où et quand',
+      from: 'Départ',
+      to: 'Destination',
+      dates: 'Dates',
+      datesPlaceholder: 'Aller et retour',
+      adults: 'Adultes',
+      children: 'Enfants',
+      childrenHint: 'De 2 à 11 ans',
+      addAdult: 'Ajouter un adulte',
+      removeAdult: 'Retirer un adulte',
+      addChild: 'Ajouter un enfant',
+      removeChild: 'Retirer un enfant',
+      parts: 'De quoi avez-vous besoin ?',
+      partsHint:
+        'Choisissez un ou plusieurs éléments. Vous pourrez en laisser un de côté plus tard.',
+      submit: 'Commencer mon voyage',
+      signIn:
+        'Connectez-vous pour composer un voyage : tous ses éléments restent réunis dans votre compte.',
+      signInAction: 'Se connecter',
+      errors: {
+        origin: 'Choisissez votre lieu de départ.',
+        destination: 'Choisissez votre destination.',
+        same: 'Choisissez une destination différente du lieu de départ.',
+        dates: 'Choisissez le jour du départ et le jour du retour.',
+        tooLong: 'Un voyage peut durer jusqu’à {nights} nuits.',
+        parts: 'Choisissez au moins un élément.',
+        tooMany:
+          'Vous avez dix voyages sans aucun paiement. Supprimez-en un pour en commencer un autre.',
+        generic: 'Nous n’avons pas pu commencer votre voyage. Réessayez.',
+      },
+    },
+    list: {
+      heading: 'Vos voyages',
+      open: 'Ouvrir',
+      parts: {
+        one: '{count} élément ajouté',
+        other: '{count} éléments ajoutés',
+      },
+      none: 'Rien d’ajouté pour l’instant',
+    },
+    states: {
+      empty: 'Pas commencé',
+      open: 'À payer',
+      awaiting_payment: 'Paiement commencé',
+      paid: 'Payé',
+      closed: 'Clos',
+    },
+    partStates: {
+      to_pay: 'À payer',
+      paying: 'Paiement commencé',
+      paid: 'Payé',
+      confirmed: 'Confirmé',
+      closed: 'Annulé ou expiré',
+    },
+    page: {
+      title: 'Votre voyage',
+      back: 'Tous les voyages',
+      reference: 'Voyage {reference}',
+      partsHeading: 'Éléments de votre voyage',
+      notAdded: 'Pas encore ajouté',
+      choose: {
+        flight: 'Choisir un vol',
+        hotel: 'Choisir un hôtel',
+        car: 'Choisir une voiture',
+        transfer: 'Ajouter un transfert aéroport',
+        insurance: 'Ajouter une assurance voyage',
+      },
+      change: 'Modifier',
+      remove: 'Retirer',
+      removeLabel: 'Retirer du voyage : {part}',
+      changeLabel: 'Modifier : {part}',
+      viewBooking: 'Voir la réservation',
+      viewLabel: 'Voir la réservation {reference}',
+      flightLine: '{from} – {to}, {airline}',
+      priceChanged: 'Le prix est passé de {previous} à {current}.',
+      acceptPrice: 'Accepter le nouveau prix',
+      reviewHeading: 'Vérifier et payer',
+      total: 'Total du voyage',
+      due: 'À payer maintenant',
+      pay: 'Payer {amount}',
+      payNote:
+        'Un seul paiement couvre tous les éléments. Chacun garde sa propre réservation : vous pouvez en modifier ou en annuler un sans toucher aux autres.',
+      continuePayment: 'Continuer vers le paiement',
+      waiting: 'Nous attendons votre paiement. Cette page se met à jour toute seule.',
+      paid: 'Votre voyage est payé. Chaque élément a sa propre réservation et sa confirmation.',
+      closed: 'Tous les éléments de ce voyage ont été annulés ou ont expiré.',
+      nothingYet: 'Ajoutez un élément pour voir votre total.',
+      delete: 'Supprimer ce voyage',
+      deleteConfirm: 'Supprimer ce voyage ? Ses réservations sont conservées séparément.',
+      deleteYes: 'Oui, le supprimer',
+      deleteNo: 'Le garder',
+      missing: 'Nous ne trouvons pas ce voyage. Connectez-vous avec le compte qui l’a créé.',
+      loadError: 'Nous n’avons pas pu charger votre voyage.',
+      retry: 'Réessayer',
+      errors: {
+        priceChanged: 'Un prix a changé. Acceptez le nouveau prix ci-dessus, puis payez.',
+        nothingToPay: 'Il n’y a rien à payer pour ce voyage.',
+        unavailable: 'Un élément n’est plus disponible. Choisissez-le à nouveau.',
+        provider:
+          'Le paiement n’est pas disponible pour le moment. Réessayez dans quelques minutes.',
+        tooMany: 'Trop de tentatives. Patientez une minute, puis réessayez.',
+        partPaid: 'Cet élément est déjà payé. Annulez-le depuis sa réservation.',
+        hasPayments: 'Un voyage avec un paiement ne peut pas être supprimé.',
+        generic: 'Une erreur s’est produite. Réessayez.',
+      },
+    },
   },
   seo: {
     homeTitle: '{brand} : vols pas chers, hôtels, vacances et aide au visa',
