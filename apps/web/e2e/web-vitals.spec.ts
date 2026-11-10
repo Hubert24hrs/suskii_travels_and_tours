@@ -3,12 +3,18 @@ import { WEB_VITAL_NAMES } from '@suskii/shared/lite';
 
 import { expect, test } from './fixtures';
 
-/** Pretends the tab went to the background, which is when the page sends its report. */
+/**
+ * Pretends the tab went to the background for a moment, which is when the page sends its report.
+ * The page reads "visible" again straight after: the reporter's code loads on demand, and a
+ * library that starts while the page still reads "hidden" takes it for a tab opened in the
+ * background and never reports FCP or LCP (the test then waited for metrics that could not come).
+ */
 async function hidePage(page: Page): Promise<void> {
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
     // Browsers fire it at the document and let it bubble to window.
     document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
   });
 }
 
