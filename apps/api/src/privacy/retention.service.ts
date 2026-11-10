@@ -9,6 +9,7 @@ import { ObjectStorage } from '../documents/object-storage';
 import type { BookingStatus } from '../generated/prisma/client';
 import { PrismaService } from '../infra/prisma.service';
 
+import { AgentThreads } from './agent-threads';
 import { redactCarsBooking } from './cars-redaction';
 
 /**
@@ -60,6 +61,8 @@ export const RETENTION_RULES = [
   // Suskii Agent (ADR-105).
   'agent-conversations',
   'agent-runs',
+  // The assistant's working state, outside Prisma (ADR-103).
+  'agent-threads',
   // Price intelligence (ADR-102).
   'scrape-jobs',
   'price-observations',
@@ -130,6 +133,8 @@ export const RETENTION_DAYS = {
   'agent-conversations': 365,
   /** Runs and their tool calls: 13 months of cost and quality history (ADR-105). */
   'agent-runs': 400,
+  /** A thread's checkpoints, after the conversation's last message (ADR-103). */
+  'agent-threads': 30,
   /** What was asked of which site and how it ended: three months of operations history. */
   'scrape-jobs': 90,
   /** Prices seen on sites: 13 months, as fare history is kept (ADR-080). */
@@ -210,6 +215,7 @@ export class RetentionService {
     private readonly encryption: FieldEncryption,
     private readonly storage: ObjectStorage,
     private readonly audit: AuditService,
+    private readonly threads: AgentThreads,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -422,6 +428,9 @@ export class RetentionService {
           where: { status: 'resolved', updatedAt: { lt: before('support-conversations') } },
         }),
       ),
+      // Before the conversations: a thread without a conversation is purged too, so one deleted
+      // below loses its checkpoints on this run or the next.
+      'agent-threads': await this.threads.purgeIdle(before('agent-threads')),
       // The assistant's conversations go with their messages; runs outlive them unlinked.
       'agent-conversations': counts(
         await this.prisma.agentConversation.deleteMany({

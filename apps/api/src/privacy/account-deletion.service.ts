@@ -16,6 +16,7 @@ import type { BookingStatus, Prisma, RideStatus } from '../generated/prisma/clie
 import { PrismaService } from '../infra/prisma.service';
 import { driverEarningsPrefix } from '../ledger/ledger-accounts';
 
+import { AgentThreads } from './agent-threads';
 import { redactCarsBooking } from './cars-redaction';
 
 type Tx = Prisma.TransactionClient;
@@ -79,6 +80,7 @@ export class AccountDeletionService {
     private readonly storage: ObjectStorage,
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
+    private readonly threads: AgentThreads,
   ) {}
 
   async blockers(
@@ -218,8 +220,17 @@ export class AccountDeletionService {
         await tx.companyMember.deleteMany({ where: { userId } });
         // Support conversations go with their messages (ADR-083).
         await tx.supportConversation.deleteMany({ where: { userId } });
-        // Conversations with the assistant go with their messages; runs stay as unlinked
-        // operations data (ADR-105).
+        // Conversations with the assistant go with their messages and with the agent
+        // service's checkpoints of them (ADR-103); runs stay as unlinked operations data
+        // (ADR-105).
+        const conversations = await tx.agentConversation.findMany({
+          where: { userId },
+          select: { id: true },
+        });
+        await this.threads.delete(
+          conversations.map((conversation) => conversation.id),
+          tx,
+        );
         await tx.agentConversation.deleteMany({ where: { userId } });
         if (user.email) {
           await tx.newsletterSubscription.deleteMany({ where: { email: user.email } });

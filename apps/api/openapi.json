@@ -58580,6 +58580,11 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "agent-threads": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "scrape-jobs": {
             "type": "integer",
             "minimum": 0,
@@ -58661,6 +58666,7 @@
           "metasearch-landings",
           "agent-conversations",
           "agent-runs",
+          "agent-threads",
           "scrape-jobs",
           "price-observations",
           "price-snapshots",

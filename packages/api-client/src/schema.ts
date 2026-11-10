@@ -12703,6 +12703,7 @@ export interface components {
             "metasearch-landings": number;
             "agent-conversations": number;
             "agent-runs": number;
+            "agent-threads": number;
             "scrape-jobs": number;
             "price-observations": number;
             "price-snapshots": number;
