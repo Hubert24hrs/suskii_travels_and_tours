@@ -55,7 +55,10 @@ export default async function HotelStayPage({
         {t('results.hotels.backToResults')}
       </AppLink>
       <TrackAd event="ViewContent" params={{ contentIds: ['hotels'] }} />
-      <I18nProvider locale={locale} messages={pickResultsMessages(messages)}>
+      <I18nProvider
+        locale={locale}
+        messages={{ ...pickResultsMessages(messages), partners: messages.partners }}
+      >
         <Suspense>
           <HotelRooms
             hotelId={decodeURIComponent(hotelId)}

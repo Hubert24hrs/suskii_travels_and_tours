@@ -29,5 +29,7 @@ export function writeStored(
 export const STORAGE_KEYS = {
   lastFlightSearch: 'suskii:search:flights:v1',
   recentPlaces: 'suskii:search:recent-places:v1',
+  /** The last hotel searches: city, dates and rooms (ADR-097). */
+  recentHotelSearches: 'suskii:search:hotels:recent:v1',
   addonsLastName: 'suskii:addons:last-name',
 } as const;

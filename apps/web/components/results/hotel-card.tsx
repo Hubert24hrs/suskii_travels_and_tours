@@ -95,6 +95,11 @@ export function HotelCard({
             {hotel.supplier === 'mock' ? (
               <Badge variant="neutral">{t('results.demoBadge')}</Badge>
             ) : null}
+            {hotel.deal ? (
+              <Badge variant="promo" data-testid="hotel-deal">
+                {t('results.collections.deal', { percent: hotel.deal.percentBelow })}
+              </Badge>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Stars count={hotel.stars} />
