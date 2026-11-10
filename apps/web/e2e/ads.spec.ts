@@ -184,7 +184,13 @@ test.describe('ads with consent', () => {
     expect(scripts(home)).toContain("'strict-dynamic'");
     expect(home).toContain('https://connect.facebook.net');
 
-    for (const path of ['/checkout/0190f6a2-0000-7000-8000-000000000001', '/bookings/unknown']) {
+    // A trip's page takes one payment for all its parts (ADR-099); the plan form starts none.
+    expect(scripts(await policy('/trips'))).toContain("'strict-dynamic'");
+    for (const path of [
+      '/checkout/0190f6a2-0000-7000-8000-000000000001',
+      '/bookings/unknown',
+      '/trips/0190f6a2-0000-7000-8000-000000000002',
+    ]) {
       const csp = await policy(path);
       expect(scripts(csp), path).not.toContain("'strict-dynamic'");
       expect(scripts(csp), path).toMatch(
