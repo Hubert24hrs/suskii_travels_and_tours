@@ -11,9 +11,17 @@ name: Mobile test APK
 # also allows plain http, so the app can talk to a stack on the tester's own network instead
 # (Account, Test server; ADR-054). `api_url` is only the fallback when neither is set. Mock
 # attestation; not for production.
+#
+# The APK is published only after the phone check (phone-check.yml, ADR-100) has installed this
+# very file on an emulator and run it against the online test server, so a test server must be
+# running (one starts every four hours).
 on:
   workflow_dispatch:
     inputs:
+      publish:
+        description: Publish the APK when the phone check passes (off builds and checks only)
+        type: boolean
+        default: true
       api_url:
         description: API base URL the app calls (http allowed for a local stack)
         default: http://localhost:4000
@@ -44,12 +52,9 @@ env:
 
 jobs:
   apk:
-    name: Build and publish the test APK
+    name: Build the test APK
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    permissions:
-      # Only to replace the `mobile-test-apk` pre-release.
-      contents: write
     steps:
       - name: Free disk space
         run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
@@ -94,13 +99,16 @@ jobs:
         run: pnpm exec expo prebuild --platform android --clean --no-install
 
       # Same memory and download settings as the CI build (mobile.yml); phone CPUs instead of the
-      # emulator's.
+      # emulator's. Native libraries are compressed in the APK and unpacked at install
+      # (`expo.useLegacyPackaging`): the download is about a third smaller, and the phone check's
+      # emulator, which translates phone code, only finds libraries that are unpacked (ADR-100).
       - name: Build the release APK (arm64-v8a, armeabi-v7a)
         working-directory: apps/mobile/android
         timeout-minutes: 60
         run: >-
           ./gradlew assembleRelease -x lintVitalRelease
           -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+          -Pexpo.useLegacyPackaging=true
           --no-daemon "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -XX:+UseParallelGC"
           "-Pkotlin.daemon.jvmargs=-Xmx3g"
           -Dorg.gradle.internal.http.connectionTimeout=60000
@@ -131,6 +139,35 @@ jobs:
             ${{ env.APK_NAME }}.sha256
           retention-days: 14
 
+  # The file just built, on an emulator against the online test server, before anyone downloads it.
+  check:
+    name: Phone check
+    needs: apk
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/phone-check.yml
+    with:
+      artifact: suskii-travels-test-apk
+
+  publish:
+    name: Publish the test APK
+    needs: [apk, check]
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # Only to replace the `mobile-test-apk` pre-release.
+      contents: write
+      actions: read
+    steps:
+      - name: Download the checked APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name suskii-travels-test-apk
+          sha256sum --check --strict "$APK_NAME.sha256"
+
       # Replaced on every run so the download URL (and any QR code pointing at it) stays the same.
       - name: Publish the pre-release
         env:
@@ -140,5 +177,5 @@ jobs:
           gh release create "$RELEASE_TAG" "$APK_NAME" "$APK_NAME.sha256" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
             --title "Android test build (${GITHUB_SHA::7})" \
-            --notes "Test APK from ${GITHUB_SHA::7} on ${GITHUB_REF_NAME}. Signed with the debug key, mock attestation, API ${EXPO_PUBLIC_API_BASE_URL}. Not for production."
+            --notes "Test APK from ${GITHUB_SHA::7} on ${GITHUB_REF_NAME}. Signed with the debug key, mock attestation, API ${EXPO_PUBLIC_API_BASE_URL}. It passed the phone check against the online test server before it was published. Not for production."
           echo "Download: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${APK_NAME}" >> "$GITHUB_STEP_SUMMARY"
