@@ -41,6 +41,8 @@ const REQUIRED_FORMS: Record<string, readonly string[]> = {
  */
 const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
   fr: new Set([
+    // A satellite navigation unit is "GPS" in French, Swahili and Portuguese too.
+    'GPS',
     // Property words French shares with English.
     'Villa',
     'Lodge',
@@ -83,8 +85,12 @@ const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
     '{hours} h',
     'Halal',
   ]),
-  sw: new Set(['Spa']),
+  sw: new Set(['Spa', 'GPS']),
   pt: new Set([
+    // Rental extras: Portuguese uses the same words.
+    'GPS',
+    'Extras',
+    'Extras {amount}',
     // Property words Portuguese shares with English.
     'Hotel',
     'Resort',
