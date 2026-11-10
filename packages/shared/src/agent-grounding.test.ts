@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  asksForSecrets,
   checkGrounding,
   figuresIn,
   leaksInstructions,
@@ -176,6 +177,65 @@ describe('how something is paid is not a payment', () => {
       'The fee was paid at 10:25 today.',
     ]) {
       expect([claim, outcomeClaims(claim)]).toEqual([claim, ['paid']]);
+    }
+  });
+});
+
+describe('what the assistant never does or asks', () => {
+  it('reads "I have booked, paid, refunded, cancelled" as a claim only a status can support', () => {
+    const cases: [string, string][] = [
+      ['I have booked your flight to London.', 'confirmed'],
+      ["I've just confirmed the hotel for you.", 'confirmed'],
+      ['I have sent NGN 500,000.00 to that account.', 'paid'],
+      ['I have charged your card.', 'paid'],
+      ['I have approved your refund.', 'refunded'],
+      ['I have refunded the fare.', 'refunded'],
+      ['I have cancelled the booking.', 'cancelled'],
+      ["J'ai annulé votre réservation.", 'cancelled'],
+      ["J'ai remboursé le billet.", 'refunded'],
+      ['Cancelei a sua reserva.', 'cancelled'],
+      ['Reembolsei o valor.', 'refunded'],
+    ];
+    for (const [answer, claim] of cases) {
+      expect([answer, outcomeClaims(answer)]).toEqual([answer, [claim]]);
+      expect(unsupportedOutcomes(answer, [])).toEqual([claim]);
+    }
+    // What it may say about itself.
+    for (const answer of [
+      'I have checked your booking.',
+      'I have not booked anything.',
+      'I have sent you the options below.',
+      'I cannot cancel a booking myself.',
+    ]) {
+      expect([answer, outcomeClaims(answer)]).toEqual([answer, []]);
+    }
+  });
+
+  it('catches a request for card details, codes, passwords and document numbers', () => {
+    for (const answer of [
+      'Sure, please send your card number, expiry date and CVV.',
+      'Tell me the one-time code you received so I can verify you.',
+      'What is your password? I will log in for you.',
+      'I need your passport number to continue.',
+      'Please type your OTP here.',
+      'Envoyez-moi le numéro de carte et le code de sécurité.',
+      'Digite a sua senha para continuar.',
+      'أرسل رقم البطاقة من فضلك',
+    ]) {
+      expect([answer, asksForSecrets(answer)]).toEqual([answer, true]);
+    }
+  });
+
+  it('lets advice against sharing them, and ordinary questions, through', () => {
+    for (const answer of [
+      'I never take card details in chat. You can pay on the booking page.',
+      'Never share your OTP or your password with anyone, including us.',
+      'Do not send your card number here.',
+      'You enter your passport details yourself at checkout.',
+      'Which date would you like to fly?',
+      'Ne communiquez jamais votre mot de passe.',
+    ]) {
+      expect([answer, asksForSecrets(answer)]).toEqual([answer, false]);
     }
   });
 });

@@ -89,6 +89,10 @@ const CLAIM_PATTERNS: Readonly<Record<AgentOutcomeClaim, readonly RegExp[]>> = {
     /\b(?:foi|foram|está|estão)\s+(?:confirmad[oa]s?|reservad[oa]s?|emitid[oa]s?)\b/gi,
     /\b(?:imethibitishwa|umethibitishwa|zimethibitishwa)\b/gi,
     /(?:تم|تمّ)\s*(?:تأكيد|حجز|إصدار)/g,
+    // The assistant saying it did it itself: it never does (ADR-107).
+    /\bI(?:['’]ve|\s+have)?(?:\s+(?:just|now|already))*\s+(?:booked|reserved|confirmed|ticketed|issued)\b/gi,
+    /\bj['’]ai\s+(?:bien\s+)?(?:réservé|confirmé|émis)(?![\p{L}])/giu,
+    /\b(?:reservei|confirmei|emiti)\b/gi,
   ],
   paid: [
     /\b(?:is|are|was|were|been|now|don)\s+(?:successfully\s+|fully\s+)?(?:paid|charged|received)\b/gi,
@@ -97,6 +101,9 @@ const CLAIM_PATTERNS: Readonly<Record<AgentOutcomeClaim, readonly RegExp[]>> = {
     /\b(?:foi|foram|está|estão)\s+(?:pag[oa]s?|recebid[oa]s?)\b/gi,
     /\b(?:imelipwa|umelipwa|yamepokelewa|limepokelewa)\b/gi,
     /(?:تم|تمّ)\s*(?:الدفع|دفع|استلام)/g,
+    /\bI(?:['’]ve|\s+have)?(?:\s+(?:just|now|already))*\s+(?:paid|charged|transferred|sent\s+(?:the\s+|your\s+)?(?:money|payment|funds|[A-Z]{3}\s?\d|[₦$€£]|\d))/gi,
+    /\bj['’]ai\s+(?:bien\s+)?(?:payé|débité|viré|transféré)(?![\p{L}])/giu,
+    /\b(?:paguei|cobrei|transferi)\b/gi,
   ],
   refunded: [
     /\b(?:is|are|was|were|been|now|don)\s+(?:successfully\s+|fully\s+)?refunded\b/gi,
@@ -105,6 +112,9 @@ const CLAIM_PATTERNS: Readonly<Record<AgentOutcomeClaim, readonly RegExp[]>> = {
     /\b(?:foi|foram|está|estão)\s+reembolsad[oa]s?\b/gi,
     /\b(?:imerejeshwa|zimerejeshwa|umerejeshewa)\b/gi,
     /(?:تم|تمّ)\s*(?:استرداد|رد المبلغ)/g,
+    /\bI(?:['’]ve|\s+have)?(?:\s+(?:just|now|already))*\s+(?:refunded|(?:approved|issued|sent|processed)\s+(?:a|the|your)\s+refund)/gi,
+    /\bj['’]ai\s+(?:bien\s+)?(?:remboursé|approuvé\s+(?:le|votre)\s+remboursement)(?![\p{L}])/giu,
+    /\b(?:reembolsei|aprovei\s+o\s+reembolso)\b/gi,
   ],
   cancelled: [
     /\b(?:is|are|was|were|been|now|don)\s+(?:successfully\s+)?cancell?ed\b/gi,
@@ -112,6 +122,9 @@ const CLAIM_PATTERNS: Readonly<Record<AgentOutcomeClaim, readonly RegExp[]>> = {
     /\b(?:foi|foram|está|estão)\s+cancelad[oa]s?\b/gi,
     /\b(?:imeghairiwa|umeghairiwa|zimeghairiwa)\b/gi,
     /(?:تم|تمّ)\s*إلغاء/g,
+    /\bI(?:['’]ve|\s+have)?(?:\s+(?:just|now|already))*\s+cancell?ed\b/gi,
+    /\bj['’]ai\s+(?:bien\s+)?annulé(?![\p{L}])/giu,
+    /\bcancelei\b/gi,
   ],
 };
 
@@ -234,4 +247,32 @@ export function namedTools(answer: string, tools: readonly string[]): string[] {
     const name = tool.toLowerCase();
     return text.includes(name) || text.includes(name.replace('.', '__'));
   });
+}
+
+/** What nobody types into a chat: card details, codes, passwords and document numbers. */
+const SECRET =
+  '(?:card\\s+(?:number|details|pin)|cvv|cvc|security\\s+code|expiry\\s+date|\\bpin\\b|\\botp\\b|one[- ]time\\s+(?:code|password|pin)|verification\\s+code|password|passport\\s+number|bvn|\\bnin\\b|numéro\\s+de\\s+(?:carte|passeport)|code\\s+(?:de\\s+sécurité|à\\s+usage\\s+unique)|mot\\s+de\\s+passe|número\\s+d[oe]\\s+(?:cartão|passaporte)|palavra-passe|senha|código\\s+de\\s+(?:segurança|verificação)|رقم\\s+(?:البطاقة|جواز)|كلمة\\s+(?:المرور|السر)|رمز\\s+التحقق|namba\\s+ya\\s+kadi|nenosiri)';
+const ASKING =
+  "(?:send|share|give|tell|provide|enter|type|write|confirm|read\\s+out|what(?:['’]s|\\s+is)|i\\s+(?:need|will\\s+need)|envoyez|donnez|indiquez|communiquez|envie|informe|digite|diga|أرسل|أدخل|اكتب|tuma|andika|nipe)";
+const ASKS_FOR_SECRET = new RegExp(`${ASKING}[^.?!\\n]{0,60}?${SECRET}`, 'giu');
+/** "Never share your password": advice against, not a request. */
+const ADVICE_AGAINST =
+  /(?:\bnever|\bdo\s+not|\bdon['’]t|\bnot\b|\bno\s+need\s+to|\bwithout|ne\s+\S+\s+(?:jamais|pas)|\bjamais|\bnunca|\bnão|لا|usi)\s*(?:\S+\s+){0,3}$/iu;
+
+/**
+ * True when an answer asks the traveller for a card number, a code, a password or a document
+ * number (ADR-107): the assistant takes no payment and no such detail in chat, in any language.
+ */
+export function asksForSecrets(answer: string): boolean {
+  for (const match of answer.matchAll(ASKS_FOR_SECRET)) {
+    const start = match.index;
+    const before = answer.slice(Math.max(0, start - 40), start);
+    if (
+      !ADVICE_AGAINST.test(before) &&
+      !/\b(?:never|not|don['’]t|jamais|nunca|não)\b/i.test(match[0])
+    ) {
+      return true;
+    }
+  }
+  return false;
 }

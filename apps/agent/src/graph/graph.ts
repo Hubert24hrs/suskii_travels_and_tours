@@ -9,6 +9,7 @@ import {
 import {
   AGENT_ANSWER_MAX,
   CUSTOMER_AGENTS,
+  asksForSecrets,
   checkGrounding,
   leaksInstructions,
   namedTools,
@@ -564,7 +565,10 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
         deps.tools.map((tool) => tool.name),
       ).length > 0;
 
-    if (grounding.ok && outcomes.length === 0 && !tooLong && !disclosed) {
+    // A card number, a code or a password is never asked for in chat.
+    const secrets = asksForSecrets(draft);
+
+    if (grounding.ok && outcomes.length === 0 && !tooLong && !disclosed && !secrets) {
       const answer: AgentAnswer = {
         kind: turn.handover ? 'handover' : 'text',
         text: draft,
@@ -599,6 +603,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
                   contact: grounding.issues.includes('contact'),
                   outcomes,
                   disclosed,
+                  secrets,
                 }),
           },
         ],

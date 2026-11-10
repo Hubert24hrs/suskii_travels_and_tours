@@ -89,6 +89,7 @@ export {
 export {
   AGENT_OUTCOME_CLAIMS,
   INSTRUCTION_LEAK_WORDS,
+  asksForSecrets,
   checkGrounding,
   figuresIn,
   leaksInstructions,
