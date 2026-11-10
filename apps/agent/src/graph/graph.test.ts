@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { MOCK_SPECIALIST_ANSWER, ROUTE_TOOL, scripted } from '../model/mock-model.js';
+import {
+  MOCK_SPECIALIST_ANSWER,
+  MOCK_STATUS_ANSWER,
+  ROUTE_TOOL,
+  scripted,
+} from '../model/mock-model.js';
 import { GRANT, checkpointText, denied, harness, ok, tool } from '../test/harness.js';
 
 const CONFIRMATION = '0193a000-0000-7000-8000-0000000c0f1a';
@@ -95,6 +100,25 @@ describe('routing (ADR-106)', () => {
     });
     expect(broken.end).toMatchObject({ agent: 'concierge', outcome: 'answered' });
     expect(broken.end.answer?.text).toBe(MOCK_SPECIALIST_ANSWER);
+  });
+});
+
+describe('the sample assistant (ADR-106)', () => {
+  it('reads the status page through the gateway when asked, and claims nothing from it', async () => {
+    const h = harness([tool('platform.status', ['concierge'])], {
+      'platform.status': () => ok({ state: 'operational', components: [], openIncidents: [] }),
+    });
+    const answered = await h.send('What is the status of the website right now?');
+    expect(answered.end).toMatchObject({ outcome: 'answered', agent: 'concierge' });
+    expect(answered.end.answer).toMatchObject({
+      text: MOCK_STATUS_ANSWER,
+      sources: ['platform.status#1'],
+    });
+    expect(h.gateway.calls.map((entry) => entry.tool)).toEqual(['platform.status']);
+    // Anything else gets the one fixed sentence and no tool call.
+    const plain = await h.send('What does Suskii sell?');
+    expect(plain.end.answer?.text).toBe(MOCK_SPECIALIST_ANSWER);
+    expect(h.gateway.calls).toHaveLength(1);
   });
 });
 

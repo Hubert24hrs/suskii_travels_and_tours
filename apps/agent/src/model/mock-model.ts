@@ -28,13 +28,21 @@ export type MockScript = (request: ModelRequest, model: string) => RecordedTurn 
 export const MOCK_SPECIALIST_ANSWER =
   'This is the sample assistant. No language model is connected in this environment, so I cannot answer questions yet.';
 
+/** What it says after reading the status page, so a local stack shows a whole tool round trip. */
+export const MOCK_STATUS_ANSWER =
+  'This is the sample assistant. It read the status page through the tool gateway; no language model is connected in this environment.';
+
 /** The tool the router is forced to call. */
 export const ROUTE_TOOL = 'route';
+/** The one tool the sample assistant calls by itself: public, read-only and free. */
+const STATUS_TOOL = 'platform__status';
 
 /**
  * The model used locally and in tests (ADR-106): it replays turns a script hands it and calls
  * no vendor. Without a script it routes by the pre-router's keywords and answers with one fixed
- * sentence, so a local stack runs end to end and nobody mistakes it for a model.
+ * sentence, so a local stack runs end to end and nobody mistakes it for a model. Asked about the
+ * platform's "status", it calls the status tool once first: the only way to see the service, the
+ * gateway and a grant work together without a model.
  */
 export class MockAgentModel extends AgentModel {
   readonly provider = 'mock';
@@ -86,8 +94,15 @@ const sizeOf = (request: ModelRequest): number =>
   );
 
 function sample(request: ModelRequest): RecordedTurn {
-  if (request.role !== 'router') return { text: MOCK_SPECIALIST_ANSWER };
   const last = [...request.messages].reverse().find((message) => message.role === 'user');
+  if (request.role !== 'router') {
+    const answered = request.messages.some((message) => message.role === 'tool');
+    if (answered) return { text: MOCK_STATUS_ANSWER };
+    const offered = request.tools.some((tool) => tool.name === STATUS_TOOL);
+    return offered && last && /\bstatus\b/i.test(last.text)
+      ? { toolCalls: [{ name: STATUS_TOOL, arguments: {} }] }
+      : { text: MOCK_SPECIALIST_ANSWER };
+  }
   const allowed = routable(request);
   const guess = last ? obviousAgent(last.text) : null;
   const agent: AgentName = guess && allowed.includes(guess) ? guess : (allowed[0] ?? 'concierge');
