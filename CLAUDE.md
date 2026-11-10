@@ -506,6 +506,10 @@ Tooling notes for agents:
 
 - Screens live in `src/screens`; files under `app/` only re-export them (typed routes). Copy comes
   from `useT()` (the full catalog, bundled with the app); there are no hard-coded strings.
+- Home's lists follow the chosen tab (`HomeSection` in `components/home-sections.tsx`): flight
+  deals under Flights only, hotel destinations under Hotels, cars to rent under Cars, the first
+  packages and tours under theirs. A tab with nothing to list stays empty; never fill it with
+  another product's content, and fetch a tab's list only while that tab is shown.
 - Talk to the API through `useApp().api` (bearer token from memory, one refresh-and-retry on a
   401, `X-Suskii-Client: mobile-<os>/<version>`); never call `fetch` directly. Reads (GET, HEAD)
   give up after `READ_TIMEOUT_MS` (20 s) as a `NetworkError`, so screens fall back to saved
