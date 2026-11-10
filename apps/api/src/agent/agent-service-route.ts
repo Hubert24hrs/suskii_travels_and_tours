@@ -15,7 +15,11 @@ import { Public } from '../auth/decorators';
 import { ProblemDetailsException } from '../common/problem-details';
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { safeEqual } from '../crypto/random';
-import { IS_INTERNAL } from '../internal/internal-route';
+import {
+  INTERNAL_SECURITY,
+  IS_INTERNAL,
+  type InternalSecurityScheme,
+} from '../internal/internal-route';
 
 import { agentEnabled } from './agent-flags';
 
@@ -47,4 +51,9 @@ export class AgentToolsTokenGuard implements CanActivate {
 
 /** Not user-authenticated; requires the agent service's own token. */
 export const AgentServiceRoute = (): ClassDecorator & MethodDecorator =>
-  applyDecorators(Public(), SetMetadata(IS_INTERNAL, true), UseGuards(AgentToolsTokenGuard));
+  applyDecorators(
+    Public(),
+    SetMetadata(IS_INTERNAL, true),
+    SetMetadata(INTERNAL_SECURITY, 'agentToolsToken' satisfies InternalSecurityScheme),
+    UseGuards(AgentToolsTokenGuard),
+  );

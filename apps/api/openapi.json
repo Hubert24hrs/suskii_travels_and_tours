@@ -20275,7 +20275,7 @@
         ],
         "security": [
           {
-            "internalToken": []
+            "agentToolsToken": []
           }
         ],
         "parameters": [],
@@ -20321,7 +20321,7 @@
         ],
         "security": [
           {
-            "internalToken": []
+            "agentToolsToken": []
           }
         ],
         "parameters": [
@@ -61953,6 +61953,11 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Service token for /v1/internal routes (worker only, ADR-011)."
+      },
+      "agentToolsToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Service token of the agent service for /v1/internal/agent-tools (ADR-101). A token of its own: the worker token opens nothing there."
       }
     },
     "responses": {

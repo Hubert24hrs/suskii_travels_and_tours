@@ -284,7 +284,11 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
           const internal = path.startsWith('/v1/internal/');
           if (internal) {
             internalOperations += 1;
-            expect([path, operation.security]).toEqual([path, [{ internalToken: [] }]]);
+            // The agent service's tool gateway takes a token of its own (ADR-101).
+            const scheme = path.startsWith('/v1/internal/agent-tools')
+              ? { agentToolsToken: [] }
+              : { internalToken: [] };
+            expect([path, operation.security]).toEqual([path, [scheme]]);
           }
           if (!operation.security || internal)
             expect([path, method, operation.responses['401']]).toEqual([
@@ -299,8 +303,9 @@ describe('platform: headers, CORS, limits, idempotency, readiness, contract (e2e
       // Bookings and money (5), airline schedule changes (1), live flight status (1), deal and
       // destination refresh (4), push tokens (1), visa (2), price alerts, reminders and referrals
       // (3), retention (1), ride dispatch and driver document scans (2), ledger reconciliation
-      // and driver payouts (2), review invitations (1), ad conversions (1).
-      expect(internalOperations).toBe(24);
+      // and driver payouts (2), review invitations (1), ad conversions (1), the agent's tool
+      // gateway (2: the tool list and a tool call).
+      expect(internalOperations).toBe(26);
     });
 
     it('resolves every $ref (generated clients refuse dangling references)', () => {
