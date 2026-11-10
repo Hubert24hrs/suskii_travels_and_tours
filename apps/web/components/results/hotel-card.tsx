@@ -8,6 +8,7 @@ import { useId } from 'react';
 import type { Schemas } from '../../lib/browser-api';
 import { AppLink } from '../app-link';
 
+import { HotelThumb } from './hotel-photos';
 import { useResultsT } from './results-messages';
 
 type Hotel = Schemas['HotelSummary'];
@@ -57,7 +58,21 @@ export function VerifiedScore({ summary }: { summary: Hotel['verifiedReviews'] }
   );
 }
 
-export function HotelCard({ hotel, nights, href }: { hotel: Hotel; nights: number; href: string }) {
+export function HotelCard({
+  hotel,
+  nights,
+  href,
+  photoHosts = [],
+  photos = true,
+}: {
+  hotel: Hotel;
+  nights: number;
+  href: string;
+  /** Hosts a supplier's photographs may come from (`IMAGE_REMOTE_HOSTS`). */
+  photoHosts?: readonly string[];
+  /** False under the data saver (ADR-075): cards stay text. */
+  photos?: boolean;
+}) {
   const { t } = useResultsT();
   const format = useFormatters();
   const headingId = useId();
@@ -66,10 +81,13 @@ export function HotelCard({ hotel, nights, href }: { hotel: Hotel; nights: numbe
     <Card asChild interactive>
       <article
         aria-labelledby={headingId}
-        className="flex flex-col gap-4 p-4 md:flex-row md:justify-between"
+        className="flex flex-col gap-4 p-4 md:flex-row"
         data-testid="hotel-result"
       >
-        <div className="flex flex-col gap-2">
+        {photos ? (
+          <HotelThumb photo={hotel.photo} hosts={photoHosts} className="md:w-1/4 md:shrink-0" />
+        ) : null}
+        <div className="flex flex-col gap-2 md:flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 id={headingId} className="font-heading text-h4 font-bold text-heading">
               {hotel.name}
@@ -78,7 +96,14 @@ export function HotelCard({ hotel, nights, href }: { hotel: Hotel; nights: numbe
               <Badge variant="neutral">{t('results.demoBadge')}</Badge>
             ) : null}
           </div>
-          <Stars count={hotel.stars} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Stars count={hotel.stars} />
+            {hotel.propertyType ? (
+              <span className="font-body text-body-sm text-foreground">
+                {t(`results.propertyTypes.${hotel.propertyType}`)}
+              </span>
+            ) : null}
+          </div>
           <p className="flex items-center gap-1 font-body text-body-sm text-foreground">
             <MapPin aria-hidden="true" className="size-4" />
             {[hotel.area, hotel.cityName].filter(Boolean).join(', ')}

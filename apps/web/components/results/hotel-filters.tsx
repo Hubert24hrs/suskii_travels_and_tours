@@ -21,6 +21,8 @@ export interface HotelFilterState {
   areas: string[];
   board: Board | undefined;
   maxPrice: number | undefined;
+  /** Property types (hotel, apartment, resort...), any of them. */
+  types: string[];
 }
 
 export const EMPTY_HOTEL_FILTERS: HotelFilterState = {
@@ -31,6 +33,7 @@ export const EMPTY_HOTEL_FILTERS: HotelFilterState = {
   areas: [],
   board: undefined,
   maxPrice: undefined,
+  types: [],
 };
 
 function priceSteps(range: { min: Schemas['Money']; max: Schemas['Money'] }): number[] {
@@ -95,6 +98,23 @@ export function HotelFilters({
               label={`${t('results.filters.starOption', { count: entry.stars })} · ${format.money(entry.minPrice)}`}
               checked={value.stars.includes(String(entry.stars))}
               onChange={() => set({ stars: toggle(value.stars, String(entry.stars)) })}
+            />
+          ))}
+        </fieldset>
+      ) : null}
+
+      {facets.propertyTypes.length > 1 ? (
+        <fieldset className="flex flex-col gap-1">
+          <legend className="mb-1 font-heading text-body font-bold text-heading">
+            {t('results.filters.propertyType')}
+          </legend>
+          {facets.propertyTypes.map((entry) => (
+            <CheckboxField
+              key={entry.type}
+              name="types"
+              label={`${t(`results.propertyTypes.${entry.type}`)} (${entry.count})`}
+              checked={value.types.includes(entry.type)}
+              onChange={() => set({ types: toggle(value.types, entry.type) })}
             />
           ))}
         </fieldset>

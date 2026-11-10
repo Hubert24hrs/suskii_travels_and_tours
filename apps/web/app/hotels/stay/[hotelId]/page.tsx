@@ -9,6 +9,8 @@ import { HotelRooms } from '../../../../components/results/hotel-rooms';
 import { pickResultsMessages } from '../../../../components/results/pick-results-messages';
 import { TrackAd } from '../../../../components/marketing/ad-tags';
 import { getI18n } from '../../../../lib/i18n';
+import { imageHosts } from '../../../../lib/image-hosts';
+import { getDataSaver } from '../../../../lib/preferences';
 import type { SearchParams } from '../../../../lib/search-initial';
 import { pageMetadata } from '../../../../lib/seo';
 
@@ -59,6 +61,8 @@ export default async function HotelStayPage({
             hotelId={decodeURIComponent(hotelId)}
             currency={currency}
             backHref={backHref}
+            photoHosts={imageHosts()}
+            photos={!(await getDataSaver())}
           />
         </Suspense>
       </I18nProvider>

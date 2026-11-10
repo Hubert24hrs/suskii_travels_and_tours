@@ -1,6 +1,15 @@
 import { Logger } from '@nestjs/common';
 
-import { add, compare, equals, money, parseMoney, subtract, type Money } from '@suskii/shared';
+import {
+  add,
+  compare,
+  equals,
+  money,
+  parseMoney,
+  subtract,
+  type BedType,
+  type Money,
+} from '@suskii/shared';
 
 import type { SupplierPrice } from '../../pricing/pricing-engine';
 import {
@@ -18,6 +27,7 @@ import {
   type HotelSearchQuery,
   type SupplierHotel,
   type SupplierHotelRate,
+  type SupplierRoom,
 } from '../supplier.types';
 
 import type { DuffelClient } from './duffel.client';
@@ -298,6 +308,9 @@ export class DuffelHotelSupplier extends HotelSupplier {
             .filter((amenity): amenity is string => amenity !== undefined),
         ),
       ],
+      // Duffel does not say what kind of place a property is: the type is left out (ADR-096).
+      description: accommodation.description ?? null,
+      photos: (accommodation.photos ?? []).map((photo) => ({ url: photo.url, caption: null })),
       rates: rates.length > 0 ? rates : [this.cheapestRate(result, query)],
     };
   }
@@ -337,7 +350,7 @@ export class DuffelHotelSupplier extends HotelSupplier {
       for (const raw of room.rates) {
         const parsed = duffelStaysRateSchema.safeParse(raw);
         const rate = parsed.success ? this.toRate(room.name, parsed.data, now) : null;
-        if (rate) rates.push(rate);
+        if (rate) rates.push({ ...rate, room: roomDetails(room) });
         else skipped += 1;
       }
     }
@@ -387,4 +400,21 @@ export class DuffelHotelSupplier extends HotelSupplier {
       expiresAt: instant(rate.expires_at),
     };
   }
+}
+
+const BEDS: Record<string, BedType> = {
+  single: 'single',
+  double: 'double',
+  queen: 'queen',
+  king: 'king',
+  sofabed: 'sofa_bed',
+};
+
+/** The beds Duffel lists for a room; null when it lists none we know. */
+function roomDetails(room: DuffelStaysRoom): SupplierRoom | null {
+  const beds = (room.beds ?? []).flatMap((bed) => {
+    const type = BEDS[bed.type];
+    return type && Number.isInteger(bed.count) && bed.count > 0 ? [{ type, count: bed.count }] : [];
+  });
+  return beds.length > 0 ? { description: null, maxGuests: null, sizeSqm: null, beds } : null;
 }

@@ -1,4 +1,4 @@
-import { money } from '@suskii/shared';
+import { money, type PropertyType } from '@suskii/shared';
 
 import type { PriceBreakdown } from '../pricing/pricing-engine';
 import type {
@@ -235,6 +235,25 @@ describe('hotel results', () => {
       { area: 'Victoria Island', count: 2 },
       { area: 'Ikeja', count: 1 },
     ]);
+  });
+
+  it('filters and counts by property type, leaving out hotels whose type is unknown', () => {
+    const typed = (item: PricedHotel, propertyType: PropertyType | null): PricedHotel => ({
+      ...item,
+      hotel: { ...item.hotel, propertyType },
+    });
+    const [a, b, c, d] = items as [PricedHotel, PricedHotel, PricedHotel, PricedHotel];
+    const mixed = [typed(a, 'hotel'), typed(b, 'apartment'), typed(c, 'hotel'), typed(d, null)];
+    expect(filterHotels(mixed, { types: ['apartment', 'villa'] }).map((item) => item.id)).toEqual([
+      'b',
+    ]);
+    expect(filterHotels(mixed, { types: ['hotel'] }).map((item) => item.id)).toEqual(['a', 'c']);
+    expect(hotelFacets(mixed).propertyTypes).toEqual([
+      { type: 'hotel', count: 2 },
+      { type: 'apartment', count: 1 },
+    ]);
+    // Suppliers that send no type add nothing to the facet.
+    expect(hotelFacets(items).propertyTypes).toEqual([]);
   });
 });
 

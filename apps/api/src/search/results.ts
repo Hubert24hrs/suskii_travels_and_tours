@@ -1,4 +1,4 @@
-import { compare, maxOf, minOf, type Money } from '@suskii/shared';
+import { compare, maxOf, minOf, type Money, type PropertyType } from '@suskii/shared';
 
 import type { PriceBreakdown } from '../pricing/pricing-engine';
 import type {
@@ -270,6 +270,8 @@ export interface HotelFilters {
   areas?: string[] | undefined;
   board?: BoardType | undefined;
   maxPrice?: number | undefined;
+  /** Property types (any of them); a hotel whose type the supplier did not give never matches. */
+  types?: string[] | undefined;
 }
 
 /** Applies rate-level filters first (board, free cancellation), then hotel-level ones. */
@@ -280,6 +282,8 @@ export function filterHotels(items: readonly PricedHotel[], filters: HotelFilter
     if (filters.stars && !filters.stars.includes(String(hotel.stars))) continue;
     if (filters.minRating !== undefined && (hotel.reviewScore ?? 0) < filters.minRating) continue;
     if (filters.areas && (hotel.area === null || !filters.areas.includes(hotel.area))) continue;
+    if (filters.types && !(hotel.propertyType && filters.types.includes(hotel.propertyType)))
+      continue;
     if (
       filters.amenities &&
       !filters.amenities.every((amenity) => hotel.amenities.includes(amenity))
@@ -327,8 +331,11 @@ export function hotelFacets(items: readonly PricedHotel[]) {
   const amenities = new Map<string, number>();
   const boards = new Map<BoardType, number>();
   const areas = new Map<string, number>();
+  const types = new Map<PropertyType, number>();
   for (const item of items) {
     if (item.hotel.area) areas.set(item.hotel.area, (areas.get(item.hotel.area) ?? 0) + 1);
+    const type = item.hotel.propertyType;
+    if (type) types.set(type, (types.get(type) ?? 0) + 1);
     const entry = stars.get(item.hotel.stars);
     if (entry) {
       entry.count += 1;
@@ -355,6 +362,9 @@ export function hotelFacets(items: readonly PricedHotel[]) {
     areas: [...areas]
       .map(([area, count]) => ({ area, count }))
       .sort((a, b) => b.count - a.count || a.area.localeCompare(b.area)),
+    propertyTypes: [...types]
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type)),
     freeCancellation: items.filter((item) => item.rates.some(({ rate }) => rate.refundable)).length,
   };
 }

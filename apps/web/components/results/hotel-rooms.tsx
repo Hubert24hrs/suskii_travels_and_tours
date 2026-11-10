@@ -11,6 +11,7 @@ import { browserApi, type Schemas } from '../../lib/browser-api';
 import { AppLink } from '../app-link';
 
 import { ReviewScore, Stars, VerifiedScore } from './hotel-card';
+import { PhotoGallery } from './hotel-photos';
 import { ResultsLoading, ResultsMessage } from './result-states';
 import { useResultsT } from './results-messages';
 
@@ -26,15 +27,48 @@ type Notice =
   | { rateId: string; kind: 'gone' }
   | { rateId: string; kind: 'priceChanged'; previous: string; current: string; quoteId: string };
 
+/** What the supplier says of the room: who it sleeps, its size and beds, and a description. */
+function RoomDetails({ room }: { room: NonNullable<Rate['room']> }) {
+  const { t } = useResultsT();
+  const format = useFormatters();
+  const facts = [
+    room.maxGuests ? t('results.stayContent.sleeps', { count: room.maxGuests }) : null,
+    room.sizeSqm ? t('results.stayContent.size', { size: format.number(room.sizeSqm) }) : null,
+    ...room.beds.map((bed) =>
+      t('results.stayContent.bed', {
+        count: bed.count,
+        type: t(`results.stayContent.bedTypes.${bed.type}`),
+      }),
+    ),
+  ].filter((fact): fact is string => fact !== null);
+  if (facts.length === 0 && !room.description) return null;
+  return (
+    <div className="flex flex-col gap-1" data-testid="room-details">
+      {facts.length > 0 ? (
+        <p className="font-body text-body-sm text-foreground">{facts.join(' · ')}</p>
+      ) : null}
+      {room.description ? (
+        <p className="font-body text-body-sm text-muted">{room.description}</p>
+      ) : null}
+    </div>
+  );
+}
+
 /** One hotel of a search with every rate, cancellation terms and charges paid at the hotel. */
 export function HotelRooms({
   hotelId,
   currency,
   backHref,
+  photoHosts = [],
+  photos = true,
 }: {
   hotelId: string;
   currency: CurrencyCode;
   backHref: string;
+  /** Hosts a supplier's photographs may come from (`IMAGE_REMOTE_HOSTS`). */
+  photoHosts?: readonly string[];
+  /** False under the data saver (ADR-075): the page stays text. */
+  photos?: boolean;
 }) {
   const { t } = useResultsT();
   const format = useFormatters();
@@ -143,7 +177,14 @@ export function HotelRooms({
             <Badge variant="neutral">{t('results.demoBadge')}</Badge>
           ) : null}
         </div>
-        <Stars count={hotel.stars} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Stars count={hotel.stars} />
+          {hotel.propertyType ? (
+            <span className="font-body text-body-sm text-foreground" data-testid="property-type">
+              {t(`results.propertyTypes.${hotel.propertyType}`)}
+            </span>
+          ) : null}
+        </div>
         <p className="flex items-center gap-1 font-body text-body text-foreground">
           <MapPin aria-hidden="true" className="size-4" />
           {[hotel.area, hotel.cityName].filter(Boolean).join(', ')}
@@ -151,6 +192,24 @@ export function HotelRooms({
         <ReviewScore score={hotel.reviewScore} count={hotel.reviewCount} />
         <VerifiedScore summary={hotel.verifiedReviews} />
       </header>
+      {photos ? (
+        <PhotoGallery
+          hotel={hotel.name}
+          photos={hotel.photos}
+          hosts={photoHosts}
+          sample={hotel.supplier === 'mock'}
+        />
+      ) : null}
+      {hotel.description ? (
+        <section aria-labelledby="hotel-about" className="flex flex-col gap-2">
+          <h2 id="hotel-about" className="font-heading text-h4 font-bold text-heading">
+            {t('results.stayContent.about')}
+          </h2>
+          <p className="font-body text-body text-foreground" data-testid="hotel-description">
+            {hotel.description}
+          </p>
+        </section>
+      ) : null}
       {hotel.amenities.length > 0 ? (
         <section aria-labelledby="hotel-amenities" className="flex flex-col gap-2">
           <h2 id="hotel-amenities" className="font-heading text-h4 font-bold text-heading">
@@ -189,6 +248,7 @@ export function HotelRooms({
                       <p className="font-body text-body-sm text-foreground">
                         {t(`results.boards.${rate.board}`)}
                       </p>
+                      {rate.room ? <RoomDetails room={rate.room} /> : null}
                       {rate.refundable ? (
                         <Badge variant="success" className="self-start">
                           {rate.freeCancellationUntil

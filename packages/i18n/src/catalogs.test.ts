@@ -41,6 +41,11 @@ const REQUIRED_FORMS: Record<string, readonly string[]> = {
  */
 const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
   fr: new Set([
+    // Property words French shares with English.
+    'Villa',
+    'Lodge',
+    'Photos',
+    '{size} m²',
     // Units and airport words that French and Portuguese share with English.
     '{minutes} min',
     '{hours} h {minutes} min',
@@ -80,6 +85,12 @@ const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
   ]),
   sw: new Set(['Spa']),
   pt: new Set([
+    // Property words Portuguese shares with English.
+    'Hotel',
+    'Resort',
+    'Hostel',
+    'Lodge',
+    '{size} m²',
     // Units and airport words that French and Portuguese share with English.
     '{minutes} min',
     '{hours} h {minutes} min',

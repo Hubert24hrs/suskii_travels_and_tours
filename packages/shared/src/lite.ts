@@ -371,5 +371,17 @@ export {
   type FlightAlertInput,
   type FlightState,
 } from './flight-status';
+export {
+  BED_TYPES,
+  HOTEL_DESCRIPTION_MAX,
+  MAX_HOTEL_PHOTOS,
+  MAX_ROOM_PHOTOS,
+  PROPERTY_TYPES,
+  ROOM_DESCRIPTION_MAX,
+  isSafePhotoUrl,
+  plainDescription,
+  type BedType,
+  type PropertyType,
+} from './hotel-content';
 
 export { citySlug } from './slug';

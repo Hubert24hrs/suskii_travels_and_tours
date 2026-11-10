@@ -123,3 +123,24 @@ mock, the worker's job tests, the app's trip test, the website's `flight-status.
 Both audit lines stay "partly": the feature is built and waits for a flight-data provider. Left
 for the owner: the provider and plan, whether alerts also go by text or WhatsApp, and the delay
 worth telling (`docs/owner/launch-checklist.md`).
+
+### Part 4: hotel photos, property types and room details (ADR-096)
+
+Built on the API, the website and the app:
+
+- **Content from suppliers.** Hotels carry a property type, a description and photos; rates
+  carry room details (guests, size, beds). Duffel Stays sends descriptions, photos and beds; the
+  demo supplier has everything, with pictures drawn by the website's `/art/hotels` route.
+- **Shown safely.** Descriptions are plain text (`plainDescription()`), photo URLs are https
+  only, the website shows a supplier's photograph only from a host in `IMAGE_REMOTE_HOSTS` and
+  through its image optimiser, and nothing loads under the data saver.
+- **Filters.** A property type filter and facet; the app has the website's hotel filters
+  (price, stars, type, meals, amenities, area) in a sheet.
+
+Tests: API e2e in `search.e2e-spec.ts`, unit tests for the demo supplier, the Duffel mapping,
+the filter and the text rules, the app's `hotel-screens.test.tsx` (5), the website's
+`hotel-content.spec.ts` (3) and the art route in `seo.spec.ts`.
+
+The audit now reads 16 built, 7 partly and 6 missing for hotels. Left for the owner: each
+supplier's photo host in `IMAGE_REMOTE_HOSTS`; Hotelbeds and Expedia content needs their content
+APIs. No supplier sends videos.

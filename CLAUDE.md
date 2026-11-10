@@ -59,7 +59,9 @@ requests, group requests, other flights after an airline change; ADR-093), is bu
 requests wait for the owner's sandbox check. Part 2, seat selection at checkout (ADR-094), is
 built; Duffel seats wait for one sandbox run (`DUFFEL_SEAT_SELECTION`). Part 3, live flight
 status and delay alerts (ADR-095), is built and waits for the owner's flight-data provider
-(`FLIGHT_STATUS_PROVIDER`). Parts 4 to 6 are planned.
+(`FLIGHT_STATUS_PROVIDER`). Part 4, hotel photos, property types, room details and the app's
+hotel filters (ADR-096), is built; supplier photo hosts go in `IMAGE_REMOTE_HOSTS`. Parts 5 and
+6 are planned.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -769,6 +771,25 @@ Tooling notes for agents:
   not finished; nothing renders before a flight is followed. The e2e stack follows flights
   within 72 hours and delays Lagos to Kano by 45 minutes (`MOCK_FLIGHT_STATUS_RULES`).
 
+### Hotel content (apps/api/src/search, suppliers; ADR-096)
+
+- A property's type, description, photos and room details come only from its supplier
+  (`SupplierHotel.propertyType`/`description`/`photos`, `SupplierHotelRate.room`), every part
+  optional. An adapter maps what its calls already return and never invents content; only the
+  demo supplier makes its own, from a random sequence of its own so names and prices never move.
+- Text reaches clients through `plainDescription()` (`@suskii/shared`) and is rendered as text;
+  photo URLs through `presentPhotos()` (https with a host and no credentials, or our own
+  `/art/hotels` drawings). Never pass a supplier's HTML or an unchecked URL to a client.
+- The website shows a supplier's photograph only from a host in `IMAGE_REMOTE_HOSTS` and through
+  `next/image` (`shownPhotos()` in `components/results/hotel-photos.tsx`, hosts from
+  `lib/image-hosts.ts`); our drawings load from this origin by path. The app loads photographs
+  over https and drawings from `appConfig.webBaseUrl` (`photoSource()`). Both leave photos out
+  under the data saver. Card pictures are decorative; gallery pictures are named.
+- The `types` filter matches only hotels whose supplier gave a type; the `propertyTypes` facet
+  counts only those. Both clients show the filter only when the facet has more than one type.
+- The app's hotel filters live in a sheet and are applied on the API; the list keeps its place
+  while a filter loads (`keepPreviousData`).
+
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 
 - Only a confirmed booking item whose trip has ended (the day after `tripFacts` `endDate`, within
@@ -1237,6 +1258,7 @@ Tooling notes for agents:
 - [ADR-093: Flexible dates, nearby airports, meal requests and group requests](docs/decisions/ADR-093-flexible-dates-nearby-airports-meals-and-groups.md)
 - [ADR-094: Seat selection on flights](docs/decisions/ADR-094-flight-seat-selection.md)
 - [ADR-095: Live flight status and delay alerts](docs/decisions/ADR-095-live-flight-status-and-delay-alerts.md)
+- [ADR-096: Hotel photos, property types and room details](docs/decisions/ADR-096-hotel-photos-property-types-and-room-details.md)
 
 ## Open questions for the owner
 
@@ -1390,5 +1412,7 @@ data (and the matching store form answer). Added with seat selection (ADR-094): 
 Duffel sandbox check with booking on (it orders one seat) before `DUFFEL_SEAT_SELECTION=true`,
 and whether Suskii adds a fee to seats (none today). Added with live flight status (ADR-095):
 a flight-data provider and plan (then its adapter), whether delay alerts also go by text or
-WhatsApp, and the delay worth telling (default 30 minutes). Every owner action is listed, step
-by step, in `docs/owner/launch-checklist.md`.
+WhatsApp, and the delay worth telling (default 30 minutes). Added with hotel content (ADR-096):
+each supplier's photo host for `IMAGE_REMOTE_HOSTS`, and Hotelbeds and Expedia content (photos,
+descriptions, categories) once those accounts exist. Every owner action is listed, step by
+step, in `docs/owner/launch-checklist.md`.

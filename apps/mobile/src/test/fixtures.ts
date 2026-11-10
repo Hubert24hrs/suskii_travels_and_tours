@@ -370,6 +370,7 @@ export function hotelQuote(): Schemas['Quote'] {
       rate: {
         id: 'rate-1',
         roomName: 'Deluxe double',
+        room: null,
         board: 'breakfast_included',
         refundable: true,
         freeCancellationUntil: null,

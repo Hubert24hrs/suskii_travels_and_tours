@@ -60,6 +60,11 @@ const accommodation = (overrides: Record<string, unknown> = {}) => ({
     },
     geographic_coordinates: { latitude: 6.4281, longitude: 3.4219 },
   },
+  description: 'On the <b>waterfront</b>, ten minutes from the island.',
+  photos: [
+    { url: 'https://assets.duffel.test/eko/1.jpg' },
+    { url: 'https://assets.duffel.test/eko/2.jpg' },
+  ],
   rooms: [],
   ...overrides,
 });
@@ -167,7 +172,15 @@ describe('DuffelHotelSupplier', () => {
       cityName: 'Lagos',
       countryCode: 'NG',
       amenities: ['wifi', 'pool', '24h_front_desk'],
+      // The supplier's own text and photos, as sent: the API cleans them before they are shown.
+      description: 'On the <b>waterfront</b>, ten minutes from the island.',
+      photos: [
+        { url: 'https://assets.duffel.test/eko/1.jpg', caption: null },
+        { url: 'https://assets.duffel.test/eko/2.jpg', caption: null },
+      ],
     });
+    // Duffel does not say whether a property is a hotel, an apartment or a resort.
+    expect(hotel?.propertyType).toBeUndefined();
     expect(hotel?.rates).toEqual([
       {
         supplierRateId: 'cheapest:srr_1',
@@ -218,6 +231,11 @@ describe('DuffelHotelSupplier', () => {
     const rooms = [
       {
         name: 'Deluxe King',
+        beds: [
+          { type: 'king', count: 1 },
+          { type: 'sofabed', count: 1 },
+          { type: 'waterbed', count: 1 },
+        ],
         rates: [
           duffelRate('rat_free'),
           duffelRate('rat_partial', {
@@ -254,6 +272,16 @@ describe('DuffelHotelSupplier', () => {
       {
         supplierRateId: 'rat_free',
         roomName: 'Deluxe King',
+        // The beds Duffel lists, in our words; a kind we do not know is left out.
+        room: {
+          description: null,
+          maxGuests: null,
+          sizeSqm: null,
+          beds: [
+            { type: 'king', count: 1 },
+            { type: 'sofa_bed', count: 1 },
+          ],
+        },
         board: 'breakfast_included',
         refundable: true,
         freeCancellationUntil: '2099-01-01T00:00:00.000Z',

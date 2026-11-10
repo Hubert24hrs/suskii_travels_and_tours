@@ -1,10 +1,12 @@
 import type {
+  BedType,
   CabinClass,
   Gender,
   MealRequest,
   Money,
   PassengerTitle,
   PassengerType,
+  PropertyType,
   SeatFeature,
   TravellerCounts,
 } from '@suskii/shared';
@@ -150,9 +152,25 @@ export interface HotelSearchQuery {
 
 export type BoardType = 'room_only' | 'breakfast_included' | 'half_board' | 'full_board';
 
+/** A photo of a property or a room, as the supplier hosts it (ADR-096). */
+export interface SupplierPhoto {
+  url: string;
+  caption: string | null;
+}
+
+/** What the supplier says of a room, beyond its name (ADR-096). Every part may be unknown. */
+export interface SupplierRoom {
+  description: string | null;
+  maxGuests: number | null;
+  sizeSqm: number | null;
+  beds: { type: BedType; count: number }[];
+}
+
 export interface SupplierHotelRate {
   supplierRateId: string;
   roomName: string;
+  /** Room details, when the supplier sends them. */
+  room?: SupplierRoom | null;
   board: BoardType;
   refundable: boolean;
   /** Free cancellation until this instant (UTC), when refundable. */
@@ -177,6 +195,11 @@ export interface SupplierHotel {
   cityName: string;
   countryCode: string;
   amenities: string[];
+  /** Hotel, apartment, resort...: left out when the supplier does not say (ADR-096). */
+  propertyType?: PropertyType | null;
+  /** The supplier's own text about the property; may hold markup, cleaned before it is shown. */
+  description?: string | null;
+  photos?: SupplierPhoto[];
   rates: SupplierHotelRate[];
   /**
    * False when search returned only some rates (Duffel Stays sends the cheapest); the hotel page

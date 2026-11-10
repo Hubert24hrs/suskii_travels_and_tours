@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 import {
+  BED_TYPES,
   CABIN_CLASSES,
+  PROPERTY_TYPES,
   currencyCodeSchema,
   DEFAULT_CURRENCY,
   flightSearchRequestSchema,
@@ -306,11 +308,35 @@ export const flightQuoteSchema = named(
 
 const boardSchema = z.enum(['room_only', 'breakfast_included', 'half_board', 'full_board']);
 
+export const hotelPhotoSchema = named(
+  'HotelPhoto',
+  z.object({
+    url: z.url().meta({
+      description:
+        "The supplier's photo over https, or a drawn sample picture from the website's `/art/hotels` for demo data. Show it only from hosts the client allows.",
+    }),
+    caption: z.string().nullable(),
+  }),
+);
+
+export const hotelRoomSchema = named(
+  'HotelRoom',
+  z.object({
+    description: z.string().nullable(),
+    maxGuests: z.number().int().nullable(),
+    sizeSqm: z.number().nullable(),
+    beds: z.array(z.object({ type: z.enum(BED_TYPES), count: z.number().int() })),
+  }),
+);
+
 export const hotelRateSchema = named(
   'HotelRate',
   z.object({
     id: z.string(),
     roomName: z.string(),
+    room: hotelRoomSchema.nullable().default(null).meta({
+      description: 'What the supplier says of the room; null when it sends only a name.',
+    }),
     board: boardSchema,
     refundable: z.boolean(),
     freeCancellationUntil: timestamp.nullable(),
@@ -336,6 +362,9 @@ const hotelBase = {
   cityName: z.string(),
   countryCode: z.string().length(2),
   amenities: z.array(z.string()),
+  propertyType: z.enum(PROPERTY_TYPES).nullable().meta({
+    description: 'Hotel, apartment, resort...; null when the supplier does not say.',
+  }),
   verifiedReviews: reviewSummarySchema.nullable().meta({
     description:
       "Suskii's own score from travellers who stayed through us (ADR-077); `reviewScore` is the supplier's. Null until a review is published.",
@@ -344,12 +373,25 @@ const hotelBase = {
 
 export const hotelSummarySchema = named(
   'HotelSummary',
-  z.object({ ...hotelBase, cheapestRate: hotelRateSchema, freeCancellationAvailable: z.boolean() }),
+  z.object({
+    ...hotelBase,
+    photo: hotelPhotoSchema.nullable().meta({ description: 'The first photo, for a card.' }),
+    cheapestRate: hotelRateSchema,
+    freeCancellationAvailable: z.boolean(),
+  }),
 );
 
 export const hotelDetailSchema = named(
   'HotelDetail',
-  z.object({ ...hotelBase, nights: z.number().int(), rates: z.array(hotelRateSchema) }),
+  z.object({
+    ...hotelBase,
+    description: z.string().nullable().meta({
+      description: "The supplier's text about the property, as plain text.",
+    }),
+    photos: z.array(hotelPhotoSchema),
+    nights: z.number().int(),
+    rates: z.array(hotelRateSchema),
+  }),
 );
 
 export const hotelFacetsSchema = named(
@@ -360,6 +402,7 @@ export const hotelFacetsSchema = named(
     amenities: z.array(z.object({ amenity: z.string(), count: z.number().int() })),
     boards: z.array(z.object({ board: boardSchema, count: z.number().int() })),
     areas: z.array(z.object({ area: z.string(), count: z.number().int() })),
+    propertyTypes: z.array(z.object({ type: z.enum(PROPERTY_TYPES), count: z.number().int() })),
     freeCancellation: z.number().int(),
   }),
 );
@@ -395,6 +438,9 @@ export const hotelsQuerySchema = currencyQuerySchema.extend({
     .optional()
     .meta({ description: 'Comma-separated area names from the `areas` facet (any of them).' }),
   board: boardSchema.optional(),
+  types: csvParam(/^[a-z]+(,[a-z]+)*$/)
+    .optional()
+    .meta({ description: 'Property types from the `propertyTypes` facet (any of them).' }),
   maxPrice: z.coerce
     .number()
     .int()

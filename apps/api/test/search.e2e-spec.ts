@@ -1,4 +1,4 @@
-import { addDays, localDate } from '@suskii/shared';
+import { PROPERTY_TYPES, addDays, localDate } from '@suskii/shared';
 
 import { PricingService } from '../src/pricing/pricing.service';
 import { MockFlightSupplier } from '../src/suppliers/mock/mock-flight-supplier';
@@ -449,6 +449,78 @@ describe('search (e2e): mock suppliers end to end', () => {
         .post(`/v1/hotels/rates/${detail.body.rates[0].id as string}/quote`)
         .expect(201);
       expect(quote.body).toMatchObject({ nights: 3, priceChange: null, hotel: { id: first.id } });
+    });
+
+    it('shows what a property is: its type, photos, a description and room details (ADR-096)', async () => {
+      const cityId = await lagosCity();
+      const search = await ctx
+        .http()
+        .post('/v1/hotels/searches')
+        .send(hotelSearch(cityId))
+        .expect(200);
+      const hotels = search.body.hotels as {
+        id: string;
+        propertyType: string | null;
+        photo: { url: string; caption: string | null } | null;
+      }[];
+      // A card carries one picture and the property's type; the demo supplier draws its own.
+      for (const hotel of hotels) {
+        expect(PROPERTY_TYPES).toContain(hotel.propertyType);
+        expect(hotel.photo?.url).toMatch(
+          /^https:\/\/web\.suskii\.test\/art\/hotels\/[a-z0-9]{10}-exterior\.svg$/,
+        );
+      }
+      const facet = search.body.facets.propertyTypes as { type: string; count: number }[];
+      expect(facet.length).toBeGreaterThan(1);
+      expect(facet.reduce((sum, entry) => sum + entry.count, 0)).toBe(search.body.total);
+
+      // The type filter takes any of the listed types.
+      const [commonest, second] = facet;
+      const only = await ctx
+        .http()
+        .get(`/v1/hotels/searches/${search.body.searchId as string}/hotels`)
+        .query({ types: second?.type, limit: 50 })
+        .expect(200);
+      expect(only.body.total).toBe(second?.count);
+      expect(
+        (only.body.hotels as { propertyType: string }[]).every(
+          (hotel) => hotel.propertyType === second?.type,
+        ),
+      ).toBe(true);
+      const both = await ctx
+        .http()
+        .get(`/v1/hotels/searches/${search.body.searchId as string}/hotels`)
+        .query({ types: `${commonest?.type ?? ''},${second?.type ?? ''}` })
+        .expect(200);
+      expect(both.body.total).toBe((commonest?.count ?? 0) + (second?.count ?? 0));
+      await ctx
+        .http()
+        .get(`/v1/hotels/searches/${search.body.searchId as string}/hotels`)
+        .query({ types: 'Hotel;drop' })
+        .expect(400);
+
+      // The hotel page has every photo, the description as plain text and each room's details.
+      const detail = await ctx
+        .http()
+        .get(`/v1/hotels/results/${hotels[0]?.id ?? ''}`)
+        .expect(200);
+      expect(detail.body.photos.length).toBeGreaterThanOrEqual(2);
+      expect(detail.body.photos[0]).toEqual(hotels[0]?.photo);
+      expect(detail.body.description).toContain('sample data');
+      expect(detail.body.description).not.toMatch(/[<>]/);
+      for (const rate of detail.body.rates as {
+        room: { maxGuests: number; sizeSqm: number; beds: { type: string; count: number }[] };
+      }[]) {
+        expect(rate.room.maxGuests).toBeGreaterThanOrEqual(2);
+        expect(rate.room.sizeSqm).toBeGreaterThan(10);
+        expect(rate.room.beds[0]?.count).toBeGreaterThan(0);
+      }
+      // A quote carries the room too, so checkout can show it.
+      const quote = await ctx
+        .http()
+        .post(`/v1/hotels/rates/${detail.body.rates[0].id as string}/quote`)
+        .expect(201);
+      expect(quote.body.rate.room).toEqual(detail.body.rates[0].room);
     });
 
     it('rejects unknown cities and impossible stays', async () => {

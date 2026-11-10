@@ -1,4 +1,4 @@
-import { daysBetween, utcToLocal } from '@suskii/shared';
+import { PROPERTY_TYPES, daysBetween, utcToLocal } from '@suskii/shared';
 
 import type { AirportInfo } from '../../catalog/catalog.service';
 import {
@@ -575,6 +575,42 @@ describe('MockHotelSupplier', () => {
     }
     const longer = await supplier.search(hotelQuery({ checkOut: '2026-11-26' }), signal);
     expect(longer[0]?.rates[0]?.price.base.minor).not.toEqual(a[0]?.rates[0]?.price.base.minor);
+  });
+
+  it('describes each hotel: its type, a description, room details and sample pictures', async () => {
+    const withPhotos = new MockHotelSupplier(() => NOW, 'https://www.suskii.test');
+    const hotels = await withPhotos.search(hotelQuery(), signal);
+    for (const hotel of hotels) {
+      expect(PROPERTY_TYPES).toContain(hotel.propertyType);
+      expect(hotel.description).toContain(hotel.name);
+      expect(hotel.description).toContain('sample data');
+      // An exterior and a room always; a pool or a restaurant only where the hotel has one.
+      const scenes = (hotel.photos ?? []).map((photo) => /-([a-z]+)\.svg$/.exec(photo.url)?.[1]);
+      expect(scenes.slice(0, 2)).toEqual(['exterior', 'room']);
+      expect(scenes.includes('pool')).toBe(hotel.amenities.includes('pool'));
+      expect(scenes.includes('dining')).toBe(hotel.amenities.includes('restaurant'));
+      for (const photo of hotel.photos ?? []) {
+        expect(photo.url).toMatch(
+          /^https:\/\/www\.suskii\.test\/art\/hotels\/[a-z0-9]{10}-(exterior|room|pool|dining)\.svg$/,
+        );
+        expect(photo.caption).not.toBeNull();
+      }
+      for (const rate of hotel.rates) {
+        expect(rate.room?.maxGuests).toBeGreaterThanOrEqual(2);
+        expect(rate.room?.beds.length).toBeGreaterThan(0);
+      }
+    }
+    // A name ending in "Resort" is a resort, "Residences" an apartment.
+    const resort = hotels.find((hotel) => hotel.name.endsWith('Resort'));
+    if (resort) expect(resort.propertyType).toBe('resort');
+    expect(new Set(hotels.map((hotel) => hotel.propertyType)).size).toBeGreaterThan(1);
+
+    // Without a website to draw them there are no pictures, and nothing else changes: the
+    // content fields never move a name, a place or a price.
+    const plain = await supplier.search(hotelQuery(), signal);
+    expect(plain.every((hotel) => hotel.photos?.length === 0)).toBe(true);
+    const strip = (list: typeof hotels) => list.map(({ photos: _photos, ...rest }) => rest);
+    expect(strip(plain)).toEqual(strip(hotels));
   });
 
   it('filters to free cancellation and prices extra guests', async () => {
