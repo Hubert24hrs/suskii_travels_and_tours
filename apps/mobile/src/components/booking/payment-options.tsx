@@ -101,6 +101,7 @@ export function PlanChoice({
   value,
   onChange,
   extrasSelected,
+  seatsSelected = false,
 }: {
   /** Packages hold our own places (ADR-028); other in-house products issue a voucher. */
   vertical?: Schemas['Quote']['vertical'];
@@ -108,6 +109,8 @@ export function PlanChoice({
   value: PlanChoiceValue;
   onChange: (value: PlanChoiceValue) => void;
   extrasSelected: boolean;
+  /** Chosen seats (ADR-094): they rule out reserving and installments, as bags do. */
+  seatsSelected?: boolean;
 }) {
   const { t } = useT();
   const format = useFormatters();
@@ -160,7 +163,7 @@ export function PlanChoice({
       ) : null}
       {extrasSelected ? (
         <Text className="font-body text-body-sm text-foreground">
-          {t('checkout.plan.notWithExtras')}
+          {t(seatsSelected ? 'checkout.seats.notWithPlans' : 'checkout.plan.notWithExtras')}
         </Text>
       ) : null}
     </Card>

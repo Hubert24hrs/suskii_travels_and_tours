@@ -331,17 +331,25 @@ describe('TripScreen', () => {
     expect(screen.queryByTestId('schedule-change')).toBeNull();
   });
 
-  it("shows each traveller's meal request and extra bags", async () => {
+  it("shows each traveller's meal request, seats and extra bags", async () => {
     await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
     const [traveller] = booking().passengers;
     if (!traveller) throw new Error('the fixture has a traveller');
+    const seats = [
+      { flight: 0, designator: '12A' },
+      { flight: 1, designator: '14C' },
+    ];
     mockApi({
-      [GET]: () => json(booking({ passengers: [{ ...traveller, meal: 'halal', extraBags: 1 }] })),
+      [GET]: () =>
+        json(booking({ passengers: [{ ...traveller, meal: 'halal', extraBags: 1, seats }] })),
     });
     await renderWithApp(<TripScreen />);
 
     expect(await screen.findByTestId('meal-request')).toHaveTextContent(
       m.booking.mealRequest.replace('{meal}', m.checkout.meal.options.halal),
+    );
+    expect(screen.getByTestId('seats')).toHaveTextContent(
+      m.booking.seats.replace('{seats}', '12A, 14C'),
     );
   });
 

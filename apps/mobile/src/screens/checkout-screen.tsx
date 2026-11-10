@@ -16,7 +16,7 @@ import {
   type PassengerDraft,
 } from '@suskii/shared';
 import { Button, Card, Input, Modal } from '@suskii/ui-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { randomUUID } from 'expo-crypto';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -24,6 +24,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 
 import { Checkbox } from '../components/booking/form-controls';
 import { GuestForm, PassengerForm } from '../components/booking/passenger-form';
+import { SeatPicker, type PricedSeat } from '../components/booking/seat-picker';
 import {
   chosenMethod,
   MethodChoice,
@@ -125,6 +126,7 @@ function passportMode(
 
 function Checkout({ quote }: { quote: Quote }) {
   const { api, user, locale } = useApp();
+  const queryClient = useQueryClient();
   // Company accounts (ADR-078): members of an active company may book the trip for it.
   const company = useQuery({
     queryKey: ['company', user?.id ?? null],
@@ -144,6 +146,9 @@ function Checkout({ quote }: { quote: Quote }) {
   const [draft, setDraft] = useState<CheckoutDraft>(() => draftFor(quote));
   const [errors, setErrors] = useState<FieldIssues>({});
   const [plan, setPlan] = useState<PlanChoiceValue>('full');
+  // Seat selection (ADR-094): the seat map loads only when the traveller asks for it.
+  const [choosingSeats, setChoosingSeats] = useState(false);
+  const [seats, setSeats] = useState<PricedSeat[]>([]);
   const [method, setMethod] = useState<PaymentMethodName | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -198,8 +203,28 @@ function Checkout({ quote }: { quote: Quote }) {
     bag && bagCount > 0
       ? { amountMinor: bag.price.amountMinor * bagCount, currency: bag.price.currency }
       : null;
-  // Reserving and installments are never offered with paid extras or a wallet payment.
-  const chosenPlan: PlanChoiceValue = extras || companyWallet ? 'full' : plan;
+  // Chosen seats at the airline's price (ADR-094); the API prices them again when it books.
+  const seatMinor = seats.reduce((sum, seat) => sum + seat.price.amountMinor, 0);
+  const extrasSelected = extras !== null || seats.length > 0;
+  const due = {
+    amountMinor: price ? price.total.amountMinor + (extras?.amountMinor ?? 0) + seatMinor : 0,
+    currency: price?.total.currency ?? quote.currency,
+  };
+  // Travellers with a seat of their own, named as typed so far, else "Adult 1".
+  const seatedTravellers = draft.passengers.flatMap((passenger, index) => {
+    if (passenger.type === 'infant') return [];
+    const number = draft.passengers
+      .slice(0, index + 1)
+      .filter((item) => item.type === passenger.type).length;
+    return [
+      {
+        index,
+        name: passenger.givenNames.trim() || t(`checkout.traveller.${passenger.type}`, { number }),
+      },
+    ];
+  });
+  // Reserving and installments are never offered with paid extras, seats or a wallet payment.
+  const chosenPlan: PlanChoiceValue = extrasSelected || companyWallet ? 'full' : plan;
   const issue = (key: string): string | undefined => {
     const code: CheckoutIssue | undefined = errors[key];
     return code ? t(`checkout.issues.${code}`) : undefined;
@@ -340,6 +365,15 @@ function Checkout({ quote }: { quote: Quote }) {
                   surname: guest.surname.trim(),
                 })),
               }),
+          ...(seats.length > 0
+            ? {
+                seats: seats.map(({ flight, passengerIndex, designator }) => ({
+                  flight,
+                  passengerIndex,
+                  designator,
+                })),
+              }
+            : {}),
           ...(bag && extras
             ? {
                 extras: draft.passengers.flatMap((passenger, index) =>
@@ -410,6 +444,11 @@ function Checkout({ quote }: { quote: Quote }) {
           setFormError(t('checkout.errors.soldOut'));
         } else if (slug === 'extras-invalid') {
           setFormError(t('checkout.errors.extras'));
+        } else if (slug === 'seats-invalid') {
+          // The map has changed: choose again from the airline's seats as they are now.
+          setSeats([]);
+          await queryClient.invalidateQueries({ queryKey: ['seat-maps', quote.quoteId] });
+          setFormError(t('checkout.errors.seats'));
         } else if (slug === 'terms-outdated') {
           setFormError(t('checkout.errors.terms'));
         } else if (slug === 'bot-check-failed') {
@@ -519,6 +558,33 @@ function Checkout({ quote }: { quote: Quote }) {
             />
           );
         })}
+        {quote.flight ? (
+          <Card className="gap-3 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('checkout.seats.heading')}
+            </Text>
+            <Text className="font-body text-body-sm text-foreground">
+              {t('checkout.seats.intro')}
+              {quote.flight.offer.passengers.infants > 0 ? ` ${t('checkout.seats.infant')}` : ''}
+            </Text>
+            {choosingSeats ? (
+              <SeatPicker
+                quoteId={quote.quoteId}
+                travellers={seatedTravellers}
+                value={seats}
+                onChange={setSeats}
+              />
+            ) : (
+              <Button
+                testID="choose-seats"
+                variant="secondary"
+                onPress={() => setChoosingSeats(true)}
+              >
+                {t('checkout.seats.choose')}
+              </Button>
+            )}
+          </Card>
+        ) : null}
         {/* Under the travellers, where the meal choice would be: nothing above them moves. */}
         {quote.flight && !meals ? (
           <Text testID="meal-unavailable" className="font-body text-body-sm text-muted">
@@ -644,7 +710,8 @@ function Checkout({ quote }: { quote: Quote }) {
               options={quote.payment}
               value={chosenPlan}
               onChange={setPlan}
-              extrasSelected={extras !== null}
+              extrasSelected={extrasSelected}
+              seatsSelected={seats.length > 0}
             />
             <MethodChoice methods={quote.payment.methods} value={method} onChange={setMethod} />
           </>
@@ -717,17 +784,20 @@ function Checkout({ quote }: { quote: Quote }) {
                 </Text>
               </View>
             ) : null}
+            {seatMinor > 0 ? (
+              <View testID="checkout-seats" className="flex-row justify-between">
+                <Text className="font-body text-body-sm text-foreground">
+                  {t('checkout.seats.total')}
+                </Text>
+                <Text className="font-body text-body-sm text-foreground">
+                  {format.money({ amountMinor: seatMinor, currency: due.currency })}
+                </Text>
+              </View>
+            ) : null}
             <View className="flex-row justify-between border-t border-border pt-2">
               <Text className="font-body-bold text-body text-heading">{t('checkout.total')}</Text>
               <Text testID="checkout-total" className="font-heading text-h4 text-heading">
-                {format.money(
-                  extras
-                    ? {
-                        amountMinor: price.total.amountMinor + extras.amountMinor,
-                        currency: price.total.currency,
-                      }
-                    : price.total,
-                )}
+                {format.money(due)}
               </Text>
             </View>
             {quote.rental && quote.rental.charge.deposit.amountMinor > 0 ? (
