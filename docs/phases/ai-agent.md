@@ -105,7 +105,7 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
 ### C. Price-intelligence engine
 
 - `apps/api/src/price-intel`: `SourcePolicy` registry, `ScrapeProvider` adapters (Firecrawl,
-  Apify, Browse AI, Oxylabs, Bright Data, `direct`, `mock`) with recorded-fixture contract tests,
+  Apify, Browse AI, Oxylabs, Bright Data, `direct`, `mock`) with fixture contract tests,
   `ProviderRouter` (failure classes, proxy ladder, health order, shared breakers, caps),
   per-domain throttle, single flight, cache, budgets, kill switches, the SSRF guard, the
   normaliser and `PriceObservation`, drift detection, admin and internal routes, worker jobs in
@@ -259,3 +259,94 @@ Baseline before this work (sub-phase A): API unit 707, API e2e 661.
 
 **Not done here**: no agent runs yet (D), so nothing creates a run or a conversation outside
 tests; `ai:approve` and `datasources:manage` have no route until C and E.
+
+### C. Price-intelligence engine (2026-11-10)
+
+**Built**
+
+- `@suskii/shared` (`price-intel.ts`): products, policy statuses and bases, `basisIssue()`,
+  vendors, proxy classes and their ladder, failure classes with one reaction each, the
+  observation rules (`judgeObservation()`), price and currency reading from text, domain
+  checks, the budget alert levels and the night window.
+- Six tables in one expand-only migration (`price_sources`, `source_policies`, `scrape_jobs`,
+  `scrape_attempts`, `price_observations`, `provider_budgets`) with database checks, each in the
+  data registry with a retention rule (jobs and attempts 90 days, observations 400, kept pages
+  7). None holds personal data.
+- `apps/api/src/price-intel`: the site registry and its decisions, seven `ScrapeProvider`
+  adapters (Firecrawl, Apify, Browse AI, Oxylabs, Bright Data, `direct`, `mock`), the router
+  (failover, proxy ladder, health order, hard caps), breakers, the per-site throttle, budgets
+  with alerts, kill switches, the SSRF guard, extraction (structured data, selector recipes,
+  vendor fields), observations judged against history and other sites, parser drift, single
+  flight, the scheduled sweep and the scraping register.
+- Routes: `/v1/admin/data-sources` (list, overview, register, reads, create, change, approve,
+  block, review, read, observations, switches, budgets) and
+  `POST /v1/internal/price-intel/sweep`. A worker job calls the sweep every 30 minutes; a site
+  is read only inside its own night.
+- For the owner: `sandbox:scrapers` with `scrapers-sandbox.yml`, `price-intel:register`,
+  `docs/legal/scraping-register.md`, section 7.1 of the launch checklist and
+  `docs/runbooks/price-intelligence.md`.
+
+**How to try it** (local stack; the mock vendor answers and nothing is fetched)
+
+1. Sign in to the API as a super admin and create a site: `POST /v1/admin/data-sources` with a
+   domain, a page address template, a recipe, `vendors: ["mock"]` and a time zone
+   (`apps/api/test/price-intel.e2e-spec.ts` has a complete body).
+2. Read it while it is in review: `POST /v1/admin/data-sources/{id}/read` with
+   `{"product":"hotel","query":{"place":"Lagos","from":"2027-01-10","to":"2027-01-12"}}`.
+   Three indicative hotel prices come back; the same question again answers `fresh` without
+   another read.
+3. Record what the robots file and the terms say (`PATCH`), approve with a basis
+   (`POST .../approve`, which asks for step-up), then block it and read again: `denied`.
+4. `GET /v1/admin/data-sources/overview`, `/jobs` and `/register` show the vendors, the
+   budgets, each read with its tries, and the register.
+
+**What changed from the plan**
+
+- Contract fixtures were written from the vendors' published SDKs, not recorded: no vendor
+  account exists and the vendors' documentation hosts are not reachable from the build
+  environment. `sandbox:scrapers` is the live check, and it is the owner's to run.
+- A site in review is answered by the mock vendor outside production, so a new site's
+  addresses and recipe can be tried before anyone approves it. Production has no mock.
+- A page is kept only when nothing could be read from it; a page that was read leaves a hash.
+- Model-assisted reading of pages is not built: no page text reaches a model.
+- The amendments are recorded at the end of ADR-102.
+
+**Found by the gate and fixed**
+
+- A change to one field of a site reset its other rules to their defaults (Zod applies a
+  default inside an optional field) and sent an approved site back to review. Defaults now
+  apply on creation only; a unit test and the end-to-end suite hold it.
+- An answer read now and the same answer given again from observations came in different
+  orders; both are cheapest first.
+- Two contract tests that list every internal operation and every step-up operation needed
+  the new routes; the worker's retention fixture needed the new rules.
+
+**Test results** (commit `0c42ada`, local, 2026-11-10; the commits after it change
+documents only)
+
+| Check                                                      | Result                                |
+| ---------------------------------------------------------- | ------------------------------------- |
+| `pnpm lint`                                                | 14 of 14 workspaces                   |
+| `pnpm typecheck`                                           | 13 of 13 workspaces                   |
+| `pnpm test` (unit, every workspace)                        | 11 of 11 tasks                        |
+| API unit (`test:cov`, with the 80% gates)                  | 71 suites, 788 tests                  |
+| of which `src/price-intel`                                 | 6 suites, 68 tests                    |
+| API e2e (full, `test:e2e:cov`)                             | 69 suites, 716 tests                  |
+| of which `price-intel.e2e-spec.ts`                         | 21 tests                              |
+| `@suskii/shared`                                           | 354 tests (20 for price intelligence) |
+| `@suskii/worker`                                           | 52 tests                              |
+| `pnpm check:migrations`, `pnpm security:checklist --check` | pass                                  |
+| `pnpm format:check`, `pnpm test:scripts`                   | pass                                  |
+
+Before this sub-phase: API unit 719, API e2e 680.
+
+**Not run, and why**: no vendor was called. The five adapters have never met a live account;
+`sandbox:scrapers` printed "No vendor had its keys set" here, as it should.
+
+**Open for the owner** (`docs/owner/launch-checklist.md`, section 7.1): the vendor accounts,
+keys and spending limits; one run of `scrapers-sandbox.yml` with a page of Suskii's own site;
+counsel's and the owner's approval of each site with its basis; whether to turn price
+intelligence on in production.
+
+**Not done here**: nothing shows an indicative price to a traveller yet. The agent's price
+tools come in D, assisted quotes in E, the console screens in F.
