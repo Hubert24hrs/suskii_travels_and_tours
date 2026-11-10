@@ -21,6 +21,19 @@ The owner's brief for a LangGraph.js agent system and a price-intelligence layer
   assisted quote (ADR-104); the agent's data, memory and knowledge base (ADR-105); models,
   prompts and evaluation (ADR-106); and what an agent may do (ADR-107).
 
+### App Home: each tab shows its own content (2026-11-10)
+
+The owner saw "Flight deals" under every tab of the app's Home screen.
+
+#### Changed
+
+- **Flight deals show under Flights only.** Under Hotels the app now lists the top hotel
+  destinations with a nightly "from" price (one opens the search for it); under Cars, cars free
+  to rent for the days the rental search starts with (one opens the car); under Packages and
+  Tours, the first three on sale with the way to the rest. A tab with nothing to list stays
+  empty. Each list is asked for only while its tab is shown, and the wording already existed in
+  every language.
+
 ### Phone check: the test APK and the website against the online test server (2026-11-10)
 
 How the app is checked before a tester installs it (ADR-100):

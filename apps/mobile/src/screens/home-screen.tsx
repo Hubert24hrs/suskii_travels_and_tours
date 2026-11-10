@@ -6,7 +6,8 @@ import { Image, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import logo from '../../assets/logo.png';
-import { DealList, useDeals } from '../components/deal-list';
+import { useDeals } from '../components/deal-list';
+import { HomeSection, type HomeVertical } from '../components/home-sections';
 import { FlightSearchForm } from '../components/search/flight-search-form';
 import { HotelSearchForm } from '../components/search/hotel-search-form';
 import { ServerUnreachable } from '../components/server-unreachable';
@@ -14,7 +15,7 @@ import { StatusBanner } from '../components/status-banner';
 import { anyCarsProduct, useCarsFeaturesQuery, type CarsFeatures } from '../lib/cars';
 import { useT } from '../providers/app-provider';
 
-type Vertical = 'flights' | 'hotels' | 'packages' | 'tours' | 'cars';
+type Vertical = HomeVertical;
 
 /** Packages and tours are browsed rather than searched: a short pitch and the way in. */
 function Browse({ vertical }: { vertical: 'packages' | 'tours' }) {
@@ -68,9 +69,10 @@ function CarsProducts({ features }: { features: CarsFeatures | null }) {
 }
 
 /**
- * Home: the search card (flights, hotels, packages, tours and Cars), the Cars products and the
- * freshest deals. The Cars tab shows while a product is on, and while the API cannot be reached,
- * so it is never silently missing; its card links the Cars hub.
+ * Home: the search card (flights, hotels, packages, tours and Cars), the trip builder, and under
+ * them what belongs to the chosen tab (`HomeSection`): flight deals only under Flights. The Cars
+ * tab shows while a product is on, and while the API cannot be reached, so it is never silently
+ * missing; its card links the Cars hub.
  */
 export function HomeScreen() {
   const { t } = useT();
@@ -176,17 +178,11 @@ export function HomeScreen() {
             {t('trips.title')}
           </Button>
         </Card>
-        {deals.data && deals.data.length > 0 ? (
-          <View className="gap-3">
-            <Text accessibilityRole="header" className="font-heading text-h3 text-heading">
-              {t('mobile.home.dealsHeading')}
-            </Text>
-            <DealList deals={deals.data} />
-            <Button variant="ghost" onPress={() => router.push('/deals')}>
-              {t('mobile.home.seeAllDeals')}
-            </Button>
-          </View>
-        ) : null}
+        <HomeSection
+          vertical={current}
+          deals={deals.data}
+          rentals={carsFeatures?.rentals ?? true}
+        />
       </ScrollView>
     </SafeAreaView>
   );
