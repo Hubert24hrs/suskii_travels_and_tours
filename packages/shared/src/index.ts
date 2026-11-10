@@ -747,3 +747,13 @@ export {
 } from './status-page-schemas';
 
 export { citySlug } from './slug';
+export {
+  MAX_SEAT_SELECTIONS,
+  SEAT_CHOICE_ISSUES,
+  SEAT_DESIGNATOR_PATTERN,
+  SEAT_FEATURES,
+  seatChoiceIssue,
+  type SeatChoice,
+  type SeatChoiceIssue,
+  type SeatFeature,
+} from './flight-seats';
