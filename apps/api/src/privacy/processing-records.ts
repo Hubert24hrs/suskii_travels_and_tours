@@ -159,11 +159,11 @@ export const RECIPIENTS = {
     name: 'Anthropic Messages API',
     role: 'processor',
     receives:
-      'Scrubbed trip descriptions (AI trip search) and scrubbed support messages with booking facts but no names, contacts or references (ADR-061, ADR-085)',
+      'Scrubbed trip descriptions (AI trip search), scrubbed support messages and scrubbed conversations with the assistant, with booking facts but no names, contacts or references (ADR-061, ADR-085, ADR-105)',
     location: 'United States',
     transfer: 'processor_terms',
     status: 'optional',
-    setting: 'AI_SEARCH_ENABLED, SUPPORT_ASSISTANT_ENABLED',
+    setting: 'AI_SEARCH_ENABLED, SUPPORT_ASSISTANT_ENABLED, AGENT_ENABLED',
   },
   sentry: {
     name: 'Sentry',
@@ -477,6 +477,17 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
     subjects: ['travellers', 'guests'],
     categories: ['trips'],
     models: [],
+    recipients: [...hosting, 'anthropic'],
+  },
+  {
+    id: 'assistant',
+    name: 'The assistant (Suskii Agent)',
+    purpose:
+      'Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change (ADR-101, ADR-105, ADR-107).',
+    basis: ['contract', 'legitimate_interests'],
+    subjects: ['travellers', 'guests', 'staff'],
+    categories: ['communications', 'trips', 'preferences'],
+    models: ['AgentConversation', 'AgentMessage', 'AgentRun', 'AgentToolCall'],
     recipients: [...hosting, 'anthropic'],
   },
   {

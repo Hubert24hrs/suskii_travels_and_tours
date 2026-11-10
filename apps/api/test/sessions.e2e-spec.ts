@@ -177,6 +177,10 @@ describe('sessions: limits, staff lifetimes and step-up (e2e)', () => {
         'adminUpdateMarkupRule',
         'adminUpdatePrimePlan',
         'adminVerifyTrustSignal',
+        // Releasing the assistant's pause and giving an agent or a tool more room (ADR-107).
+        // Pausing itself needs no second check: stopping must be one press.
+        'adminResumeAgent',
+        'adminSetAgentAutonomy',
       ].sort(),
     );
   });

@@ -228,7 +228,11 @@ export type AuditAction =
   | 'privacy.request_closed'
   | 'privacy.breach_opened'
   | 'privacy.breach_notice_recorded'
-  | 'privacy.breach_closed';
+  | 'privacy.breach_closed'
+  // Suskii Agent (ADR-107)
+  | 'agent.paused'
+  | 'agent.resumed'
+  | 'agent.autonomy_changed';
 
 export interface AuditEvent {
   action: AuditAction;

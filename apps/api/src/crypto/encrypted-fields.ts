@@ -20,6 +20,7 @@ import {
   rentalLicenceNumberContext,
   rentalPhotoKeyContext,
   ridePinContext,
+  agentMessageContext,
   supportEmailContext,
   supportMessageContext,
   voucherContext,
@@ -132,6 +133,13 @@ export const ENCRYPTED_FIELDS: readonly EncryptedField[] = [
     contextColumn: 'id',
     context: supportEmailContext,
     purpose: "A guest's email for support reply notices",
+  },
+  {
+    table: 'agent_messages',
+    column: 'body_encrypted',
+    contextColumn: 'id',
+    context: agentMessageContext,
+    purpose: 'Message in a conversation with the assistant (the person or the assistant)',
   },
   {
     table: 'whatsapp_contacts',

@@ -45,6 +45,7 @@ export const EXPORT_SECTIONS = [
   'support',
   'privacyRequests',
   'trips',
+  'assistant',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -68,7 +69,14 @@ export type Retention =
   | {
       kind: 'parent';
       parent:
-        'Session' | 'Booking' | 'SupportConversation' | 'StatusIncident' | 'PrivacyBreach' | 'Trip';
+        | 'Session'
+        | 'Booking'
+        | 'SupportConversation'
+        | 'StatusIncident'
+        | 'PrivacyBreach'
+        | 'Trip'
+        | 'AgentConversation'
+        | 'AgentRun';
     }
   | { kind: 'append-only' };
 
@@ -690,6 +698,34 @@ export const DATA_REGISTRY = {
     retention: { kind: 'parent', parent: 'PrivacyBreach' },
     note: 'What one regulator was told about a breach, when it was due and their reference.',
   },
+  // --- Suskii Agent (ADR-101 to ADR-107) ----------------------------------------------------
+  AgentConversation: {
+    section: 'assistant',
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'agent-conversations' },
+    note: "A conversation with the assistant: channel, language, currency, the edge's country, the booking it was opened from and a guest's token HMAC. Deleted with the account or by the person; purged a year after its last message.",
+  },
+  AgentMessage: {
+    section: 'assistant',
+    deletion: 'delete',
+    retention: { kind: 'parent', parent: 'AgentConversation' },
+    note: 'Messages of a conversation with the assistant (bodies encrypted per message), the result cards shown beside them and the sources of an answer. The export holds what the person and the assistant wrote.',
+  },
+  AgentRun: {
+    section: null,
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'agent-runs' },
+    note: 'One run of the assistant: agents, model, prompt version, tokens, cost, timings and an outcome code; never what was said. Deleting the conversation or the account cuts its link to a person; purged after 400 days.',
+  },
+  AgentToolCall: {
+    section: null,
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'AgentRun' },
+    note: 'A call through the tool gateway: tool, tier, outcome code, duration and the names of its arguments; never their values or the result.',
+  },
+  AgentSetting: reference(
+    'Autonomy levels of agents and tools (ADR-107). Who changed one is in the audit log.',
+  ),
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 
 export type RegisteredModel = keyof typeof DATA_REGISTRY;

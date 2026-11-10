@@ -6,7 +6,11 @@ import { z } from 'zod';
 import { IS_ADMIN_ROUTE, IS_PUBLIC, REQUIRED_PERMISSIONS, STEP_UP } from '../auth/decorators';
 import { BEACON_PATHS } from '../common/beacon-body.middleware';
 import { CONTRACT, fileResponses, schemaRegistry, type RouteContract } from '../contract/contract';
-import { IS_INTERNAL } from '../internal/internal-route';
+import {
+  INTERNAL_SECURITY,
+  IS_INTERNAL,
+  type InternalSecurityScheme,
+} from '../internal/internal-route';
 
 import { PROBLEM_DETAILS_SCHEMA } from './problem.schema';
 
@@ -181,6 +185,7 @@ function operation(
   contract: RouteContract,
   method: string,
   access: Access,
+  internalScheme: InternalSecurityScheme = 'internalToken',
 ): OperationObject {
   const isPublic = access === 'public';
   const responses: Record<string, ResponseObject> = {};
@@ -246,7 +251,7 @@ function operation(
     ...(contract.description ? { description: contract.description } : {}),
     tags: contract.tags,
     ...(isPublic ? { security: [] } : {}),
-    ...(access === 'internal' ? { security: [{ internalToken: [] }] } : {}),
+    ...(access === 'internal' ? { security: [{ [internalScheme]: [] }] } : {}),
     parameters: [
       ...parameters(collector, contract.params, 'path'),
       ...parameters(collector, contract.query, 'query'),
@@ -377,11 +382,17 @@ export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
         reflector.get<boolean | undefined>(IS_INTERNAL, metatype) === true ||
         reflector.get<boolean | undefined>(IS_INTERNAL, handler) === true;
       const access: Access = isInternal ? 'internal' : isPublic ? 'public' : 'user';
+      const internalScheme =
+        reflector.get<InternalSecurityScheme | undefined>(INTERNAL_SECURITY, handler) ??
+        reflector.get<InternalSecurityScheme | undefined>(INTERNAL_SECURITY, metatype);
       const admin = adminMetadata(reflector, [handler, metatype], path, method, contract);
       if (contract.beacon === true) beaconPaths.add(path);
       paths[path] = {
         ...paths[path],
-        [method]: { ...operation(collector, contract, method, access), ...admin },
+        [method]: {
+          ...operation(collector, contract, method, access, internalScheme),
+          ...admin,
+        },
       };
     }
   }
@@ -432,6 +443,12 @@ export function buildOpenApiDocument(app: INestApplication): OpenApiDocument {
           type: 'http',
           scheme: 'bearer',
           description: 'Service token for /v1/internal routes (worker only, ADR-011).',
+        },
+        agentToolsToken: {
+          type: 'http',
+          scheme: 'bearer',
+          description:
+            'Service token of the agent service for /v1/internal/agent-tools (ADR-101). A token of its own: the worker token opens nothing there.',
         },
       },
       responses: problemResponses,

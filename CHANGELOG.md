@@ -6,6 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Suskii Agent, sub-phase B: foundations (2026-11-10)
+
+What the assistant stands on before any agent exists (ADR-101, ADR-105, ADR-107). Nothing a
+traveller sees changes, and nothing runs in production until the owner turns it on.
+
+#### Added
+
+- **The agent catalogue** in `@suskii/shared`: the ten traveller agents and six staff agents,
+  channels, tool tiers, autonomy levels, scopes and the names a tool may never have. Staff get
+  the permissions `ai:read`, `ai:manage`, `ai:approve` and `datasources:manage`.
+- **Sealed grants and the tool gateway.** The agent service will reach the platform only through
+  `POST /v1/internal/agent-tools/{tool}` with a token of its own. A call runs for a grant the API
+  sealed for a running run, for a tool that is the calling agent's, inside the grant's scopes, at
+  an autonomy level that lets its tier run and within the run's call limit. A commit never runs
+  there; only what a tool's output schema names goes back; every call is recorded without
+  argument values. Two tools ship: `catalog.places` and `platform.status`.
+- **The stop button.** `POST /v1/admin/ai/pause` stops every run and tool within seconds and
+  needs no second check; releasing it and changing an autonomy level need step-up. All three are
+  audited. `GET /v1/admin/ai/overview` shows the switches, the day's model spend, run counts,
+  autonomy levels and tools; `GET /v1/agent/status` tells clients whether to offer the assistant.
+- **Spend caps** per signed-in person, per guest and in total, reserved before a run and settled
+  to the billed cost.
+- **Five tables** for conversations, messages (sealed per message), runs, tool calls and
+  settings, each with its place in the export, account deletion, retention (a year after the
+  last message; runs 400 days) and the records of processing.
+
+#### Changed
+
+- Settings `AGENT_*` and `PRICE_INTEL_ENABLED`. Production refuses to turn the assistant on
+  without its address and two tokens that differ from each other and from the worker's.
+
 ### Suskii Agent, sub-phase A: baseline, plan and decisions (2026-11-10)
 
 The owner's brief for a LangGraph.js agent system and a price-intelligence layer

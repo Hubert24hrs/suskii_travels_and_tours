@@ -234,3 +234,20 @@ export const supportAssistantCost = meter.createCounter('suskii.support.assistan
 export const supportAssistantTokens = meter.createCounter('suskii.support.assistant.tokens', {
   description: 'After-hours assistant tokens by kind (input, output, cache_read, cache_write)',
 });
+
+// Suskii Agent (ADR-101 to ADR-107).
+
+/** Calls through the tool gateway by tool, tier and outcome (`ok` or the refusal code). */
+export const agentToolCalls = meter.createCounter('suskii.agent.tool_calls', {
+  description: 'Agent tool gateway calls by tool, tier and outcome',
+});
+
+export const agentToolDuration = meter.createHistogram('suskii.agent.tool_duration', {
+  unit: 'ms',
+  description: 'How long a tool took once the gateway let it run, by tool',
+});
+
+/** Pauses and releases of the assistant by reason. */
+export const agentPauses = meter.createCounter('suskii.agent.pauses', {
+  description: 'Times staff paused or released the assistant, by change and reason',
+});

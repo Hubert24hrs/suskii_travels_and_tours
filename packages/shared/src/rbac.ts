@@ -51,6 +51,12 @@ export const PERMISSIONS = {
   'audit:read': 'View the audit log',
   'privacy:manage': 'Record data rights requests and personal data breaches, and their notices',
   'ground:manage': 'Manage bus operators, routes and trips, ride fares and the rental fleet',
+  // Suskii Agent (ADR-107): reading runs and costs, the settings and the stop button, and the
+  // approvals queue are three different things to hold.
+  'ai:read': 'View agent runs, conversations (masked), usage and cost',
+  'ai:manage': 'Pause agents, set autonomy and limits, and manage the knowledge base',
+  'ai:approve': 'Decide items in the agent approvals queue (never your own requests)',
+  'datasources:manage': 'Approve web price sources, set their budgets and use their kill switches',
   'drivers:review': 'Review driver applications, documents and vehicles',
   'safety:manage': 'Handle SOS alerts and ride safety incidents',
   driving: 'Go online, accept and drive rides (approved drivers)',
@@ -77,6 +83,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'drivers:review',
     'safety:manage',
     'status:manage',
+    'ai:read',
+    'ai:approve',
   ],
   finance: [
     'profile:manage',
@@ -88,6 +96,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'pricing:manage',
     'referrals:review',
     'reports:read',
+    'ai:read',
+    'ai:approve',
   ],
   support: [
     'profile:manage',
@@ -98,6 +108,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'safety:manage',
     'reviews:moderate',
     'status:manage',
+    'ai:read',
+    'ai:approve',
   ],
   // Regulated claims (IATA, traveller counts) are verified by super admins only.
   content_manager: [

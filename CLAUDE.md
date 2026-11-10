@@ -77,10 +77,12 @@ server.
 
 Suskii Agent (outside the numbered phases; the owner's LangGraph.js agent system and the
 price-intelligence layer, ADR-101 to ADR-107): sub-phase A (baseline, findings, plan and
-decisions) is done; B to H follow in order (`docs/phases/ai-agent.md`): foundations, the
-price-intelligence engine, the agent service, assisted quotes and staff agents, the console, the
-clients, hardening. Nothing of it runs in production until the owner sets `AGENT_ENABLED` and
-`PRICE_INTEL_ENABLED` and approves each web source.
+decisions) and B (foundations: the agent catalogue and permissions, the conversation, run and
+settings tables, sealed grants, the tool gateway, the pause switch and the spend caps) are done;
+C to H follow in order (`docs/phases/ai-agent.md`): the price-intelligence engine, the agent
+service, assisted quotes and staff agents, the console, the clients, hardening. Nothing of it
+runs in production until the owner sets `AGENT_ENABLED` and `PRICE_INTEL_ENABLED` and approves
+each web source.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -645,7 +647,7 @@ Tooling notes for agents:
 - Cookie-authenticated admin calls must come from an `ADMIN_ORIGINS` origin (every method);
   bearer tokens are not origin-checked but still need staff, MFA and the permission.
 - The riskiest admin mutations (roles, disable, MFA reset, refund approval, trust-signal verify,
-  markups, fees, tax rules, Prime plans, driver approval and reinstatement, company suspension, metasearch partner keys) also carry `@StepUp()`: an authenticator check within
+  markups, fees, tax rules, Prime plans, driver approval and reinstatement, company suspension, metasearch partner keys, releasing the assistant's pause and its autonomy levels) also carry `@StepUp()`: an authenticator check within
   `STEP_UP_WINDOW_MINUTES` (sign-in or `POST /v1/me/mfa/step-up`), else 403 `step-up-required`.
   The console's API client prompts and repeats the write itself (ADR-037).
 - Staff sessions are short (`STAFF_SESSION_*`) and every account has a device cap; end sessions
@@ -898,6 +900,44 @@ Tooling notes for agents:
   `useSensitiveScreen()`.
 - The booking answer's `trip` field is additive; fields added to a trip answer stay optional for
   older app builds.
+
+### Suskii Agent (apps/api/src/agent, packages/shared agent; ADR-101 to ADR-107)
+
+- The agents run in a separate service and reach the platform only through the tool gateway
+  (`POST /v1/internal/agent-tools/{tool}`, the agent service's own `AGENT_TOOLS_TOKEN`). Never
+  give the agent service a database connection to `public`, another route or the worker's token.
+- A run acts for the caller in its sealed grant (`AgentGrants`, context `agent-grant`): user,
+  roles, channel, audience and scopes from `agentScopesFor()`. Never take a user id, an owner, a
+  role or a scope from a model, a tool argument or the agent service.
+- A tool is an `AgentTool` registered in `src/agent/tools` by a provider of `AgentModule`: a
+  name `area.action`, a tier (`read`, `propose`, `commit`), a scope, the agents that may call
+  it, a Zod `input` and a Zod `output`. It calls the ordinary services as the grant's caller
+  (`BookingsService.load()` and the like) and returns facts under keys: only fields the output
+  schema names reach a model, so never put a name, a contact detail, a document, a ticket
+  number, a confirmation code or a payment detail in one. Throw `AgentToolError('not_found')`
+  for another person's record, as the API answers 404.
+- What an agent never does is never a tool (`isForbiddenAgentTool`: approving or sending a
+  refund, capturing, paying out, posting to the ledger, changing a price rule, confirming a
+  booking, deciding an approval). The registry refuses such a name and the API does not start.
+  A `commit` tool never runs from the gateway: it becomes a confirmation a person taps.
+- The agent module depends on the domain modules whose services its tools call, never the
+  other way round: nothing in search, booking or payment may import from `src/agent` or ask
+  whether the assistant is on.
+- The gateway decides in a fixed order (on, grant, paused, the run's call limit, tool, agent,
+  scope, tier and autonomy, arguments) and records every call in `agent_tool_calls` with
+  argument names only. Refusals are codes from `AGENT_TOOL_DENIALS`; never return or log why a
+  tool failed in words.
+- The pause switch is `AgentPause` (Redis key `agent:pause`, fails closed). Check it before a
+  run starts and before a tool runs; never cache it. Pausing needs `ai:manage` only; releasing
+  it and changing autonomy (`AgentSettingsService`) carry `@StepUp()`.
+- Spend goes through `AgentBudget` (the `agent` scope of `AiSearchBudget`): reserve before the
+  first model call of a run, settle to the billed cost.
+- Messages are sealed per message (`agent-message:{id}:body`); runs and tool calls hold ids,
+  counts and codes, never what was said. A new agent table joins `DATA_REGISTRY`, the export,
+  account deletion, retention and the records of processing in the same change, and
+  `resetState` in the e2e helpers.
+- Clients read `GET /v1/agent/status` and offer the assistant only while `available` is true;
+  an answer they cannot read hides it. Search, booking and payment never depend on it.
 
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 

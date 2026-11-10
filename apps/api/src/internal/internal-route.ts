@@ -17,6 +17,13 @@ import { APP_CONFIG, type AppConfig } from '../config/config';
 import { safeEqual } from '../crypto/random';
 
 export const IS_INTERNAL = 'suskii:internal-route';
+/**
+ * The OpenAPI security scheme of a service route that takes another token than the worker's
+ * (the agent service's tool gateway, ADR-101). Unset means `internalToken`.
+ */
+export const INTERNAL_SECURITY = 'suskii:internal-security';
+export const INTERNAL_SECURITY_SCHEMES = ['internalToken', 'agentToolsToken'] as const;
+export type InternalSecurityScheme = (typeof INTERNAL_SECURITY_SCHEMES)[number];
 
 /**
  * Service-to-service authentication for `/v1/internal` (the worker, ADR-011): a bearer token

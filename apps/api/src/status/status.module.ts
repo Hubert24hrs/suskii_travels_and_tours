@@ -8,5 +8,6 @@ import { StatusService } from './status.service';
 @Module({
   controllers: [StatusController, AdminStatusController],
   providers: [StatusService, StatusAdminService],
+  exports: [StatusService],
 })
 export class StatusModule {}

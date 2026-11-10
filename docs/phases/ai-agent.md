@@ -86,14 +86,19 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
 ### B. Foundations
 
 - Flags `AGENT_ENABLED` and `PRICE_INTEL_ENABLED` (on outside production, off in production
-  unless set), settings groups `AGENT_*` and `PRICE_INTEL_*` in the env schema and `.env.example`
-  with production checks.
-- Prisma models and expand-only migrations (ADR-105), each in `DATA_REGISTRY`; the `agent`
-  schema and role (ADR-103).
-- `AgentGrants` (sealed, short-lived), the tool gateway skeleton at
-  `/v1/internal/agent-tools` with tiers and scopes, the agent service token, rate-limit
-  policies, the cost budget scope, the pause switch (Redis), audit actions and the permissions
-  `ai:read`, `ai:manage`, `ai:approve`, `datasources:manage`.
+  unless set) and the `AGENT_*` settings in the env schema and `.env.example`, with production
+  checks.
+- The agent catalogue in `@suskii/shared` (agents, channels, tiers, autonomy, scopes, tool names
+  that can never exist) and the permissions `ai:read`, `ai:manage`, `ai:approve`,
+  `datasources:manage`.
+- Prisma models for conversations, messages, runs, tool calls and settings with an expand-only
+  migration, each in `DATA_REGISTRY`, the export, account deletion, retention and the records of
+  processing. A table arrives with the code that writes it: memory, approvals, confirmations,
+  the knowledge base, price intelligence and assisted quotes come in C, D and E.
+- `AgentGrants` (sealed, short-lived), the tool gateway at `/v1/internal/agent-tools` with
+  tiers, scopes, autonomy and the per-run call limit, the agent service's own token, the cost
+  budget scope, the pause switch (Redis), audit actions, `GET /v1/agent/status` and the first
+  console routes under `/v1/admin/ai`.
 - Files: `apps/api/src/agent/*`, `apps/api/prisma/*`, `packages/shared/src/agent*.ts`,
   `packages/shared/src/rbac.ts`.
 
@@ -113,7 +118,12 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
 - New workspace `apps/agent` (Node ESM, Vitest): model factory, prompt registry, the supervisor
   graph with a rule-based pre-router, customer specialists as subgraphs, the Postgres
   checkpointer, interrupts, retries, limits, the response guard, run and tool-call records.
-- API: `/v1/agent/*` (chat as SSE and as polls, conversations, confirmations, feedback, status).
+- The `agent` schema and the `suskii_agent` role with the checkpoint tables as a checked-in
+  migration (ADR-103). It moved here from B: the tables are copied from the pinned library, so
+  they arrive with the workspace that depends on it and with the test that `setup()` changes
+  nothing.
+- API: `/v1/agent/*` (chat as SSE and as polls, conversations, confirmations, feedback) with
+  their rate-limit policies, and the tools the customer agents call.
 - Recorded evals `eval:agent-routing`, `eval:agent-grounding`, `eval:agent-safety` and a
   workflow modelled on `ai-eval.yml`.
 
@@ -177,3 +187,75 @@ added to `docs/owner/launch-checklist.md` as its sub-phase lands.
 ### A. Inspection and decisions (2026-11-10)
 
 The baseline above, the findings, ADR-101 to ADR-107 and this plan. No product code changed.
+
+### B. Foundations (2026-11-10)
+
+**Built**
+
+- `@suskii/shared`: the agent catalogue (ten traveller agents, six staff agents, channels, tool
+  tiers, autonomy levels, scopes, `agentScopesFor()`, the names a tool may never have, refusal
+  codes, pause reasons) and the permissions `ai:read`, `ai:manage`, `ai:approve`,
+  `datasources:manage`.
+- Settings `AGENT_ENABLED`, `PRICE_INTEL_ENABLED`, `AGENT_URL`, `AGENT_RUN_TOKEN`,
+  `AGENT_TOOLS_TOKEN`, the grant lifetime, the run limits and the spend caps. Production refuses
+  to turn the assistant on without its address and two tokens that differ from each other and
+  from `INTERNAL_API_TOKEN`.
+- Five tables (`agent_conversations`, `agent_messages`, `agent_runs`, `agent_tool_calls`,
+  `agent_settings`) in one expand-only migration, with their place in the data registry, the
+  export (`assistant` section), account deletion, retention (`agent-conversations` 365 days,
+  `agent-runs` 400 days) and the records of processing.
+- `apps/api/src/agent`: sealed grants, the tool registry, the tool gateway
+  (`GET` and `POST /v1/internal/agent-tools`), the pause switch, the autonomy settings, the
+  spend budget, `GET /v1/agent/status`, and the console's first routes
+  (`GET /v1/admin/ai/overview`, `POST /v1/admin/ai/pause`, `POST /v1/admin/ai/resume`,
+  `PUT /v1/admin/ai/autonomy`). Two tools: `catalog.places` and `platform.status`.
+
+**How to try it** (local stack, `pnpm infra:up`, `pnpm --filter @suskii/api dev`)
+
+- `GET /v1/agent/status` answers whether the assistant can be offered.
+- `GET /v1/internal/agent-tools` with the agent service's token lists the tools. A tool call
+  needs a grant, which only the API can seal: `apps/api/test/agent-gateway.e2e-spec.ts` shows
+  every path.
+
+```sh
+curl localhost:4000/v1/agent/status
+curl -H "Authorization: Bearer $AGENT_TOOLS_TOKEN" localhost:4000/v1/internal/agent-tools
+```
+
+**What changed from the plan**
+
+- The `agent` schema, the `suskii_agent` role and the checkpoint tables moved to D: they are
+  copied from the pinned library and arrive with the workspace that depends on it.
+- Memory, approvals and confirmations get their tables in D and E, with the code that writes
+  them, so no table exists without its export and deletion.
+- The rate-limit policies for chat come in D with the chat routes.
+- The gateway got an OpenAPI security scheme of its own (`agentToolsToken`): the first draft
+  documented the worker's, which does not open it.
+
+**Found by the gate and fixed**
+
+- The worker's retention fixture did not know the two new rules (type error).
+- Two contract tests that list every internal operation and every step-up operation needed
+  the new routes.
+
+**Test results** (commit `41e799a`, local, 2026-11-10; the commits after it change documents
+only)
+
+| Check                                                      | Result                           |
+| ---------------------------------------------------------- | -------------------------------- |
+| `pnpm lint`                                                | 14 of 14 workspaces              |
+| `pnpm typecheck`                                           | 13 of 13 workspaces              |
+| `pnpm test` (unit, every workspace)                        | 11 of 11 tasks                   |
+| API unit (`test:cov`, with the 80% gates)                  | 65 suites, 719 tests             |
+| API e2e (full, `test:e2e:cov`)                             | 68 suites, 680 tests             |
+| of which `agent-gateway.e2e-spec.ts`                       | 14 tests                         |
+| `@suskii/shared`                                           | 334 tests (10 for the catalogue) |
+| `pnpm check:migrations`, `pnpm security:checklist --check` | pass                             |
+| The routes by hand against the built API                   | answers as described above       |
+
+Baseline before this work (sub-phase A): API unit 707, API e2e 661.
+
+**Open for the owner**: nothing new. The assistant stays off in production.
+
+**Not done here**: no agent runs yet (D), so nothing creates a run or a conversation outside
+tests; `ai:approve` and `datasources:manage` have no route until C and E.

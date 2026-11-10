@@ -260,6 +260,22 @@ Turn a described trip into the flight form; nothing is stored and the text is sc
 
 Nothing is stored.
 
+### The assistant (Suskii Agent)
+
+Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change (ADR-101, ADR-105, ADR-107).
+
+- **Lawful basis:** Contract: needed for the service the person asked for; Legitimate interests: security, fraud prevention and service quality
+- **People:** Travellers with an account; Guests who book without an account, and the passengers they name; Suskii staff
+- **Data:** Support messages and notifications; Itineraries, bookings, tickets and vouchers; Settings, consent choices and alerts
+- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Anthropic Messages API
+
+| Table | Retention | On account deletion |
+| --- | --- | --- |
+| `AgentConversation` | Retention sweep `agent-conversations`: 365 days after the event | delete |
+| `AgentMessage` | With its AgentConversation | delete |
+| `AgentRun` | Retention sweep `agent-runs`: 400 days after the event | retain |
+| `AgentToolCall` | With its AgentRun | retain |
+
 ### Data rights requests and breach records
 
 Record each rights request and its answer, and each personal data breach and its regulator notices (ADR-089).
@@ -292,7 +308,7 @@ Who receives personal data, where it processes it and the basis for sending it a
 | Expo push service (to FCM and APNs) | processor | Push token and the notification text (in-app paths only, no booking details) | United States | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | live |
 | Meta WhatsApp Cloud API | processor | The traveller's WhatsApp number and support messages (ADR-084) | United States and Ireland | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | not contracted (`WHATSAPP_SUPPORT_PROVIDER`) |
 | Meta Conversions API, TikTok Events API | independent controller | SHA-256 of the normalised email and phone, click ids and the Purchase value, only with marketing consent | United States and Ireland (Meta); Singapore, United States and Ireland (TikTok) | Consent recorded before anything is sent (marketing consent, ADR-079) | not contracted (`AD_CONVERSIONS`) |
-| Anthropic Messages API | processor | Scrubbed trip descriptions (AI trip search) and scrubbed support messages with booking facts but no names, contacts or references (ADR-061, ADR-085) | United States | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | optional (`AI_SEARCH_ENABLED, SUPPORT_ASSISTANT_ENABLED`) |
+| Anthropic Messages API | processor | Scrubbed trip descriptions (AI trip search), scrubbed support messages and scrubbed conversations with the assistant, with booking facts but no names, contacts or references (ADR-061, ADR-085, ADR-105) | United States | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | optional (`AI_SEARCH_ENABLED, SUPPORT_ASSISTANT_ENABLED, AGENT_ENABLED`) |
 | Sentry | processor | Error events with ids and scrubbed messages; no IP addresses (ADR-046) | United States or Germany (the data region the owner picks) | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | not contracted (`SENTRY_DSN`) |
 | Apple App Attest, Google Play Integrity | independent controller | Attestation tokens from the app (no account data from us) | United States | No personal data is sent | live |
 | Driver identity check (KYC) provider | processor | A driver's NIN, licence number and photo | Depends on the provider the owner picks | Processor terms with transfer safeguards (the provider's data processing terms, signed by the owner) | off in production (`CARS_RIDES_ENABLED (ADR-069)`) |
@@ -301,5 +317,5 @@ Who receives personal data, where it processes it and the basis for sending it a
 
 ## Coverage
 
-All 77 tables that hold personal data belong to an activity above;
-the other 49 hold reference or operational data only.
+All 81 tables that hold personal data belong to an activity above;
+the other 50 hold reference or operational data only.

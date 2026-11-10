@@ -45,8 +45,9 @@ ADR-107).
 - `thread_id` is the conversation id. Deleting a conversation, deleting the account or the
   retention sweep deletes the thread's rows in every checkpoint table. The API does this as
   `suskii_app`, which is granted `DELETE` on those tables and nothing more in that schema.
-- A thread ends after `AGENT_THREAD_IDLE_DAYS` without a message (default 30) and is purged;
-  the conversation's own messages follow the conversation's retention (ADR-105).
+- A thread ends after 30 days without a message and is purged (the retention rule
+  `agent-threads`); the conversation's own messages follow the conversation's retention
+  (ADR-105).
 - The export gives the conversation from the API's tables, which hold the same words; checkpoint
   rows are working state and are not exported twice.
 - Tables outside Prisma get the registry Prisma models have: `UNMANAGED_TABLES` names each table
