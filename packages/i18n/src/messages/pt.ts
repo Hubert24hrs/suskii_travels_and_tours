@@ -230,6 +230,7 @@ export const pt: Messages = {
       cabin: 'Classe',
       directOnly: 'Apenas voos diretos',
       flexibleDates: 'Datas flexíveis (± 3 dias)',
+      groupLink: '10 viajantes ou mais? Peça uma tarifa de grupo',
       submit: 'Pesquisar voos',
     },
     describe: {
@@ -689,6 +690,25 @@ export const pt: Messages = {
       half_board: 'Meia pensão',
       full_board: 'Pensão completa',
     },
+    flexible: {
+      heading: 'Preços nos dias próximos',
+      note: 'O total mais baixo para todos os viajantes em cada dia. Os preços podem mudar até reservar.',
+      returnNote: 'A sua data de regresso desloca-se o mesmo número de dias.',
+      show: 'Ver preços nos dias próximos',
+      loading: 'A verificar os preços nos dias próximos…',
+      lowest: 'Mais baixo',
+      yourDate: 'A sua data',
+      none: 'Sem voos',
+      check: 'Ver preço',
+      failed: 'Não foi possível carregar os preços dos dias próximos.',
+      dayLabel: '{date}: {price}',
+    },
+    nearby: {
+      heading: 'Aeroportos próximos',
+      from: 'Partir de',
+      to: 'Chegar a',
+      airport: '{name} ({code}), a {distance} km',
+    },
     demoBadge: 'Demonstração',
     demoSupplier:
       'Resultados de demonstração de um fornecedor de teste: não são voos nem hotéis reais.',
@@ -821,6 +841,22 @@ export const pt: Messages = {
       one: '{count} mala (+{price})',
       other: '{count} malas (+{price})',
     },
+    meal: {
+      label: 'Pedido de refeição para {name}',
+      none: 'Sem refeição especial',
+      help: 'Enviamos o pedido à companhia aérea. Uma refeição especial é um pedido, não uma garantia.',
+      unavailable:
+        'Nesta tarifa não podemos enviar pedidos de refeição especial. Peça à companhia aérea com a sua referência de reserva depois de comprar.',
+      options: {
+        vegetarian: 'Vegetariana',
+        vegan: 'Vegana',
+        halal: 'Halal',
+        kosher: 'Kosher',
+        gluten_free: 'Sem glúten',
+        diabetic: 'Para diabéticos',
+        child: 'Refeição de criança',
+      },
+    },
     addonDetails: {
       heading: 'Detalhes do transfer',
       hint: 'Partilhamos estes dados apenas com o seu motorista ou prestador.',
@@ -885,6 +921,8 @@ export const pt: Messages = {
       infants_exceed_adults: 'Cada bebé tem de viajar com um adulto',
       passenger_count_mismatch: 'Os viajantes não correspondem à tarifa escolhida',
       traveller_not_found: 'Este viajante guardado já não está disponível',
+      meal_not_for_passenger: 'Esta refeição não pode ser pedida para este viajante',
+      meal_unavailable: 'Esta tarifa não aceita pedidos de refeição',
       nationality_mismatch:
         'Cada requerente tem de ter a nacionalidade para a qual verificou o visto',
       terms: 'Aceite as condições da reserva para continuar',
@@ -1965,6 +2003,7 @@ export const pt: Messages = {
     guests: 'Hóspedes',
     room: 'Quarto {number}',
     passport: 'Passaporte terminado em {hint}',
+    mealRequest: 'Pedido de refeição: {meal}',
     extraBags: { one: '+{count} mala extra', other: '+{count} malas extra' },
     paid: 'Total pago',
     price: 'Preço total',
@@ -2054,6 +2093,8 @@ export const pt: Messages = {
       refundConfirm: 'Cancelar e reembolsar',
       refundKeep: 'Manter a minha reserva',
       refunded: 'Os seus voos foram cancelados. O reembolso de {amount} está a caminho.',
+      otherFlights: 'Ver outros voos nesta rota',
+      otherFlightsHint: 'Prefere outro voo? Aceite o reembolso e depois reserve o voo que quiser.',
       refundUnavailable:
         'O reembolso não pode ser pedido online para esta alteração. A nossa equipa vai contactá-lo sobre as suas opções.',
       refundChanged: 'O valor do reembolso mudou. Recarregue a página para o ver.',
@@ -2899,12 +2940,43 @@ export const pt: Messages = {
       },
     },
   },
+  groups: {
+    title: 'Voos de grupo',
+    description:
+      'Viajam 10 pessoas ou mais? Fale-nos da viagem e a nossa equipa responde com tarifas de grupo.',
+    heading: 'Viajam 10 pessoas ou mais?',
+    body: 'As companhias aéreas definem os preços de grupo à parte. Fale-nos da viagem e a nossa equipa responde com as tarifas e como reservar.',
+    tripType: 'Viagem',
+    roundTrip: 'Ida e volta',
+    oneWay: 'Só ida',
+    from: 'Partida de',
+    to: 'Chegada a',
+    departure: 'Data de partida',
+    return: 'Data de regresso',
+    travellers: 'Número de viajantes',
+    travellersHint: 'De {min} a {max} viajantes.',
+    cabin: 'Classe',
+    organisation: 'Organização (opcional)',
+    notes: 'Mais alguma coisa que devamos saber? (opcional)',
+    notesHint:
+      'Por exemplo, datas flexíveis ou viajantes que partem de outra cidade. Até 1 000 caracteres.',
+    email: 'O seu e-mail',
+    emailHint: 'Enviamos um e-mail quando respondermos.',
+    submit: 'Enviar pedido',
+    errors: {
+      travellers: 'Introduza um número de {min} a {max}',
+      unknownAirport: 'Não conhecemos este aeroporto',
+    },
+  },
   support: {
     heading: 'Ajuda e apoio',
     intro:
       'Tem uma pergunta antes ou depois de reservar? Escreva-nos e a nossa equipa responde aqui, por e-mail e na aplicação.',
     faqHeading: 'Perguntas frequentes',
     link: 'Ajuda',
+    topics: {
+      group_booking: 'Pedido de reserva de grupo',
+    },
     getHelp: 'Obter ajuda com esta reserva',
     start: {
       heading: 'Escreva-nos',

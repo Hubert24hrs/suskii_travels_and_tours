@@ -233,6 +233,7 @@ export const fr: Messages = {
       cabin: 'Classe',
       directOnly: 'Vols directs uniquement',
       flexibleDates: 'Dates flexibles (± 3 jours)',
+      groupLink: '10 voyageurs ou plus ? Demandez un tarif de groupe',
       submit: 'Rechercher des vols',
     },
     describe: {
@@ -693,6 +694,25 @@ export const fr: Messages = {
       half_board: 'Demi-pension',
       full_board: 'Pension complète',
     },
+    flexible: {
+      heading: 'Prix des jours voisins',
+      note: 'Le total le plus bas pour tous les voyageurs, jour par jour. Les prix peuvent changer jusqu’à la réservation.',
+      returnNote: 'Votre date de retour se décale du même nombre de jours.',
+      show: 'Voir les prix des jours voisins',
+      loading: 'Recherche des prix des jours voisins…',
+      lowest: 'Le plus bas',
+      yourDate: 'Votre date',
+      none: 'Aucun vol',
+      check: 'Voir le prix',
+      failed: 'Impossible de charger les prix des jours voisins.',
+      dayLabel: '{date} : {price}',
+    },
+    nearby: {
+      heading: 'Aéroports proches',
+      from: 'Partir de',
+      to: 'Arriver à',
+      airport: '{name} ({code}), à {distance} km',
+    },
     demoBadge: 'Démo',
     demoSupplier:
       "Résultats de démonstration d'un fournisseur de test : ni vrais vols ni vrais hôtels.",
@@ -828,6 +848,22 @@ export const fr: Messages = {
       one: '{count} bagage (+{price})',
       other: '{count} bagages (+{price})',
     },
+    meal: {
+      label: 'Repas demandé pour {name}',
+      none: 'Pas de repas spécial',
+      help: 'Nous transmettons la demande à la compagnie. Un repas spécial est une demande, pas une garantie.',
+      unavailable:
+        'Pour ce tarif, nous ne pouvons pas transmettre de demande de repas spécial. Demandez-le à la compagnie avec votre référence de réservation après l’achat.',
+      options: {
+        vegetarian: 'Végétarien',
+        vegan: 'Végétalien',
+        halal: 'Halal',
+        kosher: 'Casher',
+        gluten_free: 'Sans gluten',
+        diabetic: 'Diabétique',
+        child: 'Repas enfant',
+      },
+    },
     addonDetails: {
       heading: 'Détails du transfert',
       hint: 'Nous les transmettons uniquement à votre chauffeur ou prestataire.',
@@ -892,6 +928,8 @@ export const fr: Messages = {
       infants_exceed_adults: 'Chaque bébé doit voyager avec un adulte',
       passenger_count_mismatch: 'Les voyageurs ne correspondent pas au tarif choisi',
       traveller_not_found: "Ce voyageur enregistré n'est plus disponible",
+      meal_not_for_passenger: 'Ce repas ne peut pas être demandé pour ce voyageur',
+      meal_unavailable: 'Ce tarif n’accepte pas de demande de repas',
       nationality_mismatch:
         'Chaque demandeur doit avoir la nationalité pour laquelle vous avez vérifié le visa',
       terms: 'Acceptez les conditions de réservation pour continuer',
@@ -1975,6 +2013,7 @@ export const fr: Messages = {
     guests: 'Voyageurs',
     room: 'Chambre {number}',
     passport: 'Passeport se terminant par {hint}',
+    mealRequest: 'Repas demandé : {meal}',
     extraBags: { one: '+{count} bagage supplémentaire', other: '+{count} bagages supplémentaires' },
     paid: 'Total payé',
     price: 'Prix total',
@@ -2065,6 +2104,9 @@ export const fr: Messages = {
       refundConfirm: 'Annuler et rembourser',
       refundKeep: 'Garder ma réservation',
       refunded: 'Vos vols sont annulés. Votre remboursement de {amount} est en route.',
+      otherFlights: 'Voir d’autres vols sur ce trajet',
+      otherFlightsHint:
+        'Vous préférez un autre vol ? Acceptez le remboursement, puis réservez le vol de votre choix.',
       refundUnavailable:
         'Le remboursement ne peut pas être demandé en ligne pour cette modification. Notre équipe vous contactera pour vos options.',
       refundChanged: 'Le montant du remboursement a changé. Rechargez la page pour le voir.',
@@ -2919,12 +2961,43 @@ export const fr: Messages = {
       },
     },
   },
+  groups: {
+    title: 'Vols de groupe',
+    description:
+      'Vous voyagez à 10 personnes ou plus ? Décrivez votre voyage et notre équipe vous répond avec des tarifs de groupe.',
+    heading: 'Vous voyagez à 10 ou plus ?',
+    body: 'Les compagnies fixent les prix des groupes à part. Décrivez votre voyage et notre équipe vous répondra avec les tarifs et la marche à suivre.',
+    tripType: 'Trajet',
+    roundTrip: 'Aller-retour',
+    oneWay: 'Aller simple',
+    from: 'Départ de',
+    to: 'Arrivée à',
+    departure: 'Date de départ',
+    return: 'Date de retour',
+    travellers: 'Nombre de voyageurs',
+    travellersHint: 'De {min} à {max} voyageurs.',
+    cabin: 'Classe',
+    organisation: 'Organisation (facultatif)',
+    notes: 'Autre chose à savoir ? (facultatif)',
+    notesHint:
+      'Par exemple, des dates flexibles ou des voyageurs partant d’une autre ville. 1 000 caractères maximum.',
+    email: 'Votre e-mail',
+    emailHint: 'Nous vous écrivons par e-mail quand nous répondons.',
+    submit: 'Envoyer la demande',
+    errors: {
+      travellers: 'Saisissez un nombre de {min} à {max}',
+      unknownAirport: 'Nous ne connaissons pas cet aéroport',
+    },
+  },
   support: {
     heading: 'Aide et assistance',
     intro:
       'Une question avant ou après votre réservation ? Écrivez-nous : notre équipe vous répond ici, par e-mail et dans l’application.',
     faqHeading: 'Questions fréquentes',
     link: 'Aide',
+    topics: {
+      group_booking: 'Demande de réservation de groupe',
+    },
     getHelp: 'Obtenir de l’aide pour cette réservation',
     start: {
       heading: 'Écrivez-nous',

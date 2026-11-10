@@ -232,6 +232,7 @@ export const sw: Messages = {
       cabin: 'Daraja',
       directOnly: 'Safari za moja kwa moja tu',
       flexibleDates: 'Tarehe zinazobadilika (± siku 3)',
+      groupLink: 'Wasafiri 10 au zaidi? Omba nauli ya kikundi',
       submit: 'Tafuta safari za ndege',
     },
     describe: {
@@ -688,6 +689,25 @@ export const sw: Messages = {
       half_board: 'Milo miwili',
       full_board: 'Milo yote',
     },
+    flexible: {
+      heading: 'Bei za siku za karibu',
+      note: 'Jumla ya chini kabisa kwa wasafiri wote kila siku. Bei zinaweza kubadilika hadi utakapoweka nafasi.',
+      returnNote: 'Tarehe yako ya kurudi husogea kwa idadi ileile ya siku.',
+      show: 'Tazama bei za siku za karibu',
+      loading: 'Tunaangalia bei za siku za karibu…',
+      lowest: 'Ya chini kabisa',
+      yourDate: 'Tarehe yako',
+      none: 'Hakuna ndege',
+      check: 'Angalia bei',
+      failed: 'Hatukuweza kupakia bei za siku za karibu.',
+      dayLabel: '{date}: {price}',
+    },
+    nearby: {
+      heading: 'Viwanja vya ndege vya karibu',
+      from: 'Ondoka kutoka',
+      to: 'Fika',
+      airport: '{name} ({code}), km {distance}',
+    },
     demoBadge: 'Majaribio',
     demoSupplier:
       'Matokeo ya majaribio kutoka kwa mtoa huduma wa majaribio: si safari za ndege wala hoteli halisi.',
@@ -824,6 +844,22 @@ export const sw: Messages = {
       one: 'Mzigo {count} (+{price})',
       other: 'Mizigo {count} (+{price})',
     },
+    meal: {
+      label: 'Ombi la chakula kwa {name}',
+      none: 'Hakuna chakula maalum',
+      help: 'Tunatuma ombi kwa shirika la ndege. Chakula maalum ni ombi, si hakikisho.',
+      unavailable:
+        'Kwa nauli hii hatuwezi kutuma ombi la chakula maalum. Liombe shirika la ndege kwa kutumia namba yako ya nafasi baada ya kununua.',
+      options: {
+        vegetarian: 'Bila nyama',
+        vegan: 'Mboga pekee',
+        halal: 'Halali',
+        kosher: 'Kosha',
+        gluten_free: 'Bila gluteni',
+        diabetic: 'Cha wenye kisukari',
+        child: 'Chakula cha mtoto',
+      },
+    },
     addonDetails: {
       heading: 'Maelezo ya usafiri',
       hint: 'Tunayapeleka kwa dereva au mtoa huduma wako pekee.',
@@ -886,6 +922,8 @@ export const sw: Messages = {
       infants_exceed_adults: 'Kila mtoto mchanga lazima asafiri na mtu mzima',
       passenger_count_mismatch: 'Wasafiri hawalingani na nauli iliyochaguliwa',
       traveller_not_found: 'Msafiri huyu aliyehifadhiwa hapatikani tena',
+      meal_not_for_passenger: 'Chakula hiki hakiwezi kuombwa kwa msafiri huyu',
+      meal_unavailable: 'Nauli hii haipokei maombi ya chakula',
       nationality_mismatch: 'Kila mwombaji lazima awe na uraia ulioangalia viza yake',
       terms: 'Kubali masharti ya uhifadhi ili kuendelea',
     },
@@ -1958,6 +1996,7 @@ export const sw: Messages = {
     guests: 'Wageni',
     room: 'Chumba {number}',
     passport: 'Pasipoti inayoishia {hint}',
+    mealRequest: 'Ombi la chakula: {meal}',
     extraBags: { one: '+mzigo {count} wa ziada', other: '+mizigo {count} ya ziada' },
     paid: 'Jumla iliyolipwa',
     price: 'Bei kamili',
@@ -2045,6 +2084,9 @@ export const sw: Messages = {
       refundConfirm: 'Ghairi na urejeshewe',
       refundKeep: 'Baki na uhifadhi wangu',
       refunded: 'Safari zako za ndege zimeghairiwa. Marejesho yako ya {amount} yako njiani.',
+      otherFlights: 'Tazama ndege nyingine za njia hii',
+      otherFlightsHint:
+        'Unapendelea ndege nyingine? Chukua marejesho, kisha weka nafasi ya ndege unayotaka.',
       refundUnavailable:
         'Marejesho hayawezi kuchukuliwa mtandaoni kwa mabadiliko haya. Timu yetu itawasiliana nawe kuhusu chaguo zako.',
       refundChanged: 'Kiasi cha marejesho kimebadilika. Pakia upya ukurasa ili kukiona.',
@@ -2880,12 +2922,43 @@ export const sw: Messages = {
       },
     },
   },
+  groups: {
+    title: 'Ndege za vikundi',
+    description:
+      'Mnasafiri watu 10 au zaidi? Tuambie kuhusu safari yenu na timu yetu itawajibu na nauli za kikundi.',
+    heading: 'Mnasafiri watu 10 au zaidi?',
+    body: 'Mashirika ya ndege hupanga bei za vikundi kando. Tuambie kuhusu safari yenu na timu yetu itawajibu na nauli na jinsi ya kuweka nafasi.',
+    tripType: 'Safari',
+    roundTrip: 'Kwenda na kurudi',
+    oneWay: 'Kwenda tu',
+    from: 'Kuondoka kutoka',
+    to: 'Kwenda',
+    departure: 'Tarehe ya kuondoka',
+    return: 'Tarehe ya kurudi',
+    travellers: 'Idadi ya wasafiri',
+    travellersHint: 'Wasafiri {min} hadi {max}.',
+    cabin: 'Daraja',
+    organisation: 'Shirika (si lazima)',
+    notes: 'Kuna jambo lingine tunalopaswa kujua? (si lazima)',
+    notesHint:
+      'Kwa mfano, tarehe zinazobadilika au wasafiri wanaoondoka mji mwingine. Hadi herufi 1,000.',
+    email: 'Barua pepe yako',
+    emailHint: 'Tutakutumia barua pepe tutakapojibu.',
+    submit: 'Tuma ombi',
+    errors: {
+      travellers: 'Weka namba kuanzia {min} hadi {max}',
+      unknownAirport: 'Hatukijui kiwanja hiki cha ndege',
+    },
+  },
   support: {
     heading: 'Msaada na usaidizi',
     intro:
       'Una swali kabla au baada ya kuhifadhi? Tuandikie na timu yetu itakujibu hapa, kwa barua pepe na kwenye programu.',
     faqHeading: 'Maswali ya kawaida',
     link: 'Msaada',
+    topics: {
+      group_booking: 'Ombi la nafasi ya kikundi',
+    },
     getHelp: 'Pata msaada kuhusu uhifadhi huu',
     start: {
       heading: 'Tuandikie',
