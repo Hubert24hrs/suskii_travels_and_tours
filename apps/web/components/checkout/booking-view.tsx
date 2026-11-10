@@ -620,6 +620,13 @@ export function BookingView({ bookingId }: { bookingId: string }) {
                         {t('booking.extraBags', { count: passenger.extraBags })}
                       </p>
                     ) : null}
+                    {passenger.seats.length > 0 ? (
+                      <p className="font-body text-caption text-foreground" data-testid="seats">
+                        {t('booking.seats', {
+                          seats: passenger.seats.map((seat) => seat.designator).join(', '),
+                        })}
+                      </p>
+                    ) : null}
                     {passenger.meal ? (
                       <p
                         className="font-body text-caption text-foreground"
