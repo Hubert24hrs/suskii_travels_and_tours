@@ -56,6 +56,7 @@ Quote, book, ticket and change flights, hotels, packages, tours and add-ons; sen
 | `BookingItem` | Retention sweep `supplier-customer-ip`: 7 days after the event | retain |
 | `BookingPassenger` | With its Booking | redact |
 | `FlightScheduleChange` | With its Booking | retain |
+| `FlightStatus` | With its Booking | retain |
 | `BookingStatusHistory` | With its Booking | retain |
 | `BookingNote` | With its Booking | delete |
 | `BookingDocument` | With its Booking | delete |
@@ -298,5 +299,5 @@ Who receives personal data, where it processes it and the basis for sending it a
 
 ## Coverage
 
-All 74 tables that hold personal data belong to an activity above;
+All 75 tables that hold personal data belong to an activity above;
 the other 49 hold reference or operational data only.

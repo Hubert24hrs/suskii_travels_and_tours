@@ -99,3 +99,27 @@ tests, the app's checkout and trip tests, the website's `flight-seats.spec.ts` (
 The audit now reads 22 built, 7 partly and none missing for flights. Left for the owner: one
 Duffel sandbox run with booking on, then `DUFFEL_SEAT_SELECTION=true`; whether to add a fee to
 seats. Changing a seat after booking is not built (it needs the airline's order change API).
+
+### Part 3: live flight status and delay alerts (ADR-095)
+
+Built on the API, the worker, the website and the app:
+
+- **Following.** Ticketing books the first reading a day before a flight leaves
+  (`booking_items.next_status_check_at`); the worker's sweep reads the trips that are due every
+  minute and books the next reading every 15 minutes until the flight has landed.
+- **Status.** `GET /v1/bookings/{bookingId}/flight-status` answers each flight's state, expected
+  times, delay, terminal, gate and baggage belt, cached for two minutes. The booking page and
+  the trip screen show a "Flight status" card once a flight is followed.
+- **Alerts.** An email and a push, once each: a delay of 30 minutes or more, a move of that delay
+  by 15 minutes (later or earlier), back on time, a new gate, a cancellation, a diversion. The
+  rules are `flightAlert()` in `@suskii/shared`.
+- **Provider.** `FlightStatusProvider` with the mock (`MOCK_FLIGHT_STATUS_RULES` makes a route
+  late or cancelled). `FLIGHT_STATUS_PROVIDER` is `none` by default: production shows booked
+  times and sends nothing until the owner has a flight-data account.
+
+Tests: API e2e `flight-status.e2e-spec.ts` (5), unit tests for the rules, the window and the
+mock, the worker's job tests, the app's trip test, the website's `flight-status.spec.ts` (2).
+
+Both audit lines stay "partly": the feature is built and waits for a flight-data provider. Left
+for the owner: the provider and plan, whether alerts also go by text or WhatsApp, and the delay
+worth telling (`docs/owner/launch-checklist.md`).

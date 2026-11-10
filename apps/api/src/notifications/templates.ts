@@ -384,8 +384,98 @@ export function scheduleChangedTemplate(details: ScheduleChangeDetails): Templat
   };
 }
 
+/** What a live status alert tells the traveller about one flight (ADR-095). */
+export interface FlightStatusAlertDetails {
+  reference: string;
+  alert: 'delayed' | 'earlier' | 'back_on_time' | 'cancelled' | 'diverted' | 'gate_changed';
+  /** "P4 7120 from Lagos (LOS) to Abuja (ABV)". */
+  flight: string;
+  /** Local wall times at the origin, already formatted; null when unknown. */
+  scheduled: string;
+  expected: string | null;
+  delayMinutes: number;
+  gate: string | null;
+  terminal: string | null;
+  bookingUrl: string;
+}
+
+const durationText = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const h = hours === 1 ? '1 hour' : `${hours} hours`;
+  const m = rest === 1 ? '1 minute' : `${rest} minutes`;
+  return hours === 0 ? m : rest === 0 ? h : `${h} ${m}`;
+};
+
+const FLIGHT_ALERT_SUBJECT: Record<FlightStatusAlertDetails['alert'], string> = {
+  delayed: 'Your flight is delayed',
+  earlier: 'Your flight now leaves earlier',
+  back_on_time: 'Your flight is back on time',
+  cancelled: 'Your flight has been cancelled',
+  diverted: 'Your flight has been diverted',
+  gate_changed: 'Your departure gate has changed',
+};
+
+/** A delay, cancellation, diversion or gate change on the day of travel (ADR-095). */
+export function flightStatusTemplate(details: FlightStatusAlertDetails): Template {
+  const heading = FLIGHT_ALERT_SUBJECT[details.alert];
+  const where =
+    details.gate === null
+      ? null
+      : `Gate ${details.gate}${details.terminal ? `, terminal ${details.terminal}` : ''}.`;
+  const lines: string[] = [];
+  switch (details.alert) {
+    case 'delayed':
+    case 'earlier':
+      lines.push(
+        `Flight ${details.flight} is now expected to leave at ${details.expected ?? 'a later time'} (local time), ${durationText(details.delayMinutes)} after the scheduled ${details.scheduled}.`,
+        details.alert === 'earlier'
+          ? 'This is earlier than we last told you. Please be at the airport in time for the new departure.'
+          : 'Check-in and boarding times may move with it. Keep an eye on the airport screens.',
+      );
+      break;
+    case 'back_on_time':
+      lines.push(
+        `Flight ${details.flight} is expected to leave on time again, at ${details.scheduled} (local time).`,
+        'Please be at the airport in time for the scheduled departure.',
+      );
+      break;
+    case 'cancelled':
+      lines.push(
+        `The airline has cancelled flight ${details.flight}, scheduled for ${details.scheduled} (local time).`,
+        'Open your booking to see your options, or contact us and we will help you with other flights or a refund.',
+      );
+      break;
+    case 'diverted':
+      lines.push(
+        `Flight ${details.flight} has been diverted to another airport.`,
+        "The airline's staff will tell travellers what happens next. Contact us if you need help.",
+      );
+      break;
+    case 'gate_changed':
+      lines.push(`Flight ${details.flight} now leaves from another gate.`);
+      break;
+  }
+  if (where && details.alert !== 'cancelled' && details.alert !== 'diverted') lines.push(where);
+  const note =
+    'Times come from live flight data and can change again. The airline and the airport screens have the final word.';
+  return {
+    template: 'flight-status',
+    subject: `${heading}: ${details.reference}`,
+    text: [...lines, note, details.bookingUrl].join('\n\n'),
+    html: layout(heading, [...lines, note], { label: 'View booking', url: details.bookingUrl }),
+  };
+}
+
 export type PushKind =
-  'confirmed' | 'payment-due' | 'refund-started' | 'refund-completed' | 'schedule-changed';
+  | 'confirmed'
+  | 'payment-due'
+  | 'refund-started'
+  | 'refund-completed'
+  | 'schedule-changed'
+  | 'flight-delayed'
+  | 'flight-cancelled'
+  | 'flight-update';
 
 /**
  * Lock-screen text for pushes (ADR-022): the booking reference and the event only, never names,
@@ -417,6 +507,21 @@ export function pushText(kind: PushKind, reference: string): { title: string; bo
       return {
         title: `The airline changed booking ${reference}`,
         body: 'Open the app to see the new flight times.',
+      };
+    case 'flight-delayed':
+      return {
+        title: `Flight delay on booking ${reference}`,
+        body: 'Open the app for the new departure time.',
+      };
+    case 'flight-cancelled':
+      return {
+        title: `Flight cancelled on booking ${reference}`,
+        body: 'Open the app to see your options.',
+      };
+    case 'flight-update':
+      return {
+        title: `Flight update for booking ${reference}`,
+        body: 'Open the app for the latest departure details.',
       };
   }
 }

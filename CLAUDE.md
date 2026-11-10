@@ -57,7 +57,9 @@ car rental): audit in `docs/audits/feature-parity.md`, six parts in
 `docs/phases/feature-parity.md`. Part 1, flights (flexible-date prices, nearby airports, meal
 requests, group requests, other flights after an airline change; ADR-093), is built; Duffel meal
 requests wait for the owner's sandbox check. Part 2, seat selection at checkout (ADR-094), is
-built; Duffel seats wait for one sandbox run (`DUFFEL_SEAT_SELECTION`). Parts 3 to 6 are planned.
+built; Duffel seats wait for one sandbox run (`DUFFEL_SEAT_SELECTION`). Part 3, live flight
+status and delay alerts (ADR-095), is built and waits for the owner's flight-data provider
+(`FLIGHT_STATUS_PROVIDER`). Parts 4 to 6 are planned.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -238,6 +240,9 @@ Tooling notes for agents:
   paid tour and visa bookings; the API refuses a TOTP code twice, so never sign the same persona
   in from two tests. The audit project runs after the journeys. The stack sets
   `RATE_LIMIT_ENABLED=false` because every persona signs in from one IP within a minute.
+- `MOCK_FLIGHT_STATUS_RULES=LOS-KAN:delayed:45` (or `:cancelled`) makes the mock flight data
+  report a route late or cancelled; with `FLIGHT_STATUS_PROVIDER=mock`, book a flight that
+  leaves within `FLIGHT_STATUS_WINDOW_HOURS` to see the status card and get the alert.
 - `MOCK_SCHEDULE_CHANGE_RULES=LOS-ABV:90` makes the mock move the first flight of ticketed
   orders on that route on their first schedule-change check (set `next_change_check_at` in the
   past, or wait `SCHEDULE_CHANGE_CHECK_HOURS`). The change lives in memory: a restart forgets it.
@@ -741,6 +746,29 @@ Tooling notes for agents:
   app's sits under the traveller cards (nothing may move above the nationality field: Maestro).
   The map stays left to right in every language.
 
+### Live flight status (apps/api/src/flight-status, bookings/flight-status.service.ts, ADR-095)
+
+- Flight data comes only through `FlightStatusProvider` (`FLIGHT_STATUS`, null while
+  `FLIGHT_STATUS_PROVIDER=none`). A query holds the airline, the flight number, the airports,
+  the day and the scheduled times: never send a provider a traveller, a booking or a contact
+  detail (the e2e test asserts the keys). A real adapter keeps the vendor's payloads to itself,
+  joins the enum, gets a boot check, a row in the outbound hosts and, if it receives personal
+  data after all, a recipient in the records of processing.
+- A flight is followed only through `FlightStatusService`: ticketing books the first reading
+  (`next_status_check_at`), `checkDue()` (the worker's sweep) and `forBooking()` (a traveller's
+  read, cached `FLIGHT_STATUS_CACHE_SECONDS`) both go through `refresh()`, which stores the
+  reading and decides the alert under a lock on the booking item. Never write `flight_statuses`
+  or send a status alert elsewhere.
+- What the traveller is told comes from `flightAlert()` in `@suskii/shared` (thresholds from
+  `FLIGHT_DELAY_ALERT_*`): once per cancellation or diversion, once per delay and per move of
+  it, never after departure. Emails name the flight and times; pushes say only that something
+  changed (ADR-022).
+- A day-of cancellation is information only. Refund offers still come from the airline's
+  change on the order (`ScheduleChangesService`, ADR-073).
+- Clients show the card only for flights with `checkedAt` and poll once a minute while one has
+  not finished; nothing renders before a flight is followed. The e2e stack follows flights
+  within 72 hours and delays Lagos to Kano by 45 minutes (`MOCK_FLIGHT_STATUS_RULES`).
+
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 
 - Only a confirmed booking item whose trip has ended (the day after `tripFacts` `endDate`, within
@@ -1208,6 +1236,7 @@ Tooling notes for agents:
 - [ADR-092: The hosted test server on a schedule](docs/decisions/ADR-092-test-server-on-a-schedule.md)
 - [ADR-093: Flexible dates, nearby airports, meal requests and group requests](docs/decisions/ADR-093-flexible-dates-nearby-airports-meals-and-groups.md)
 - [ADR-094: Seat selection on flights](docs/decisions/ADR-094-flight-seat-selection.md)
+- [ADR-095: Live flight status and delay alerts](docs/decisions/ADR-095-live-flight-status-and-delay-alerts.md)
 
 ## Open questions for the owner
 
@@ -1359,5 +1388,7 @@ with a real phone. Added with flight extras (ADR-093): one Duffel sandbox bookin
 airline's group desk contact, and counsel's view on whether a meal request is special-category
 data (and the matching store form answer). Added with seat selection (ADR-094): one run of the
 Duffel sandbox check with booking on (it orders one seat) before `DUFFEL_SEAT_SELECTION=true`,
-and whether Suskii adds a fee to seats (none today). Every owner action is listed, step by
-step, in `docs/owner/launch-checklist.md`.
+and whether Suskii adds a fee to seats (none today). Added with live flight status (ADR-095):
+a flight-data provider and plan (then its adapter), whether delay alerts also go by text or
+WhatsApp, and the delay worth telling (default 30 minutes). Every owner action is listed, step
+by step, in `docs/owner/launch-checklist.md`.

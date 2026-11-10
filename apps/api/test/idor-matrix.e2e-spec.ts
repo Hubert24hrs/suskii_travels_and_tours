@@ -132,6 +132,7 @@ const CASES: Record<string, Case> = {
     path: (f) => `/v1/bookings/${f.flightBookingId}/cancellation-quote`,
   },
   getBookingReviews: { path: (f) => `/v1/bookings/${f.flightBookingId}/reviews` },
+  getBookingFlightStatus: { path: (f) => `/v1/bookings/${f.flightBookingId}/flight-status` },
   writeReview: {
     path: (f) => `/v1/bookings/${f.flightBookingId}/items/${f.flightItemId}/review`,
     body: () => ({ rating: 8, tripType: 'solo', showName: false }),

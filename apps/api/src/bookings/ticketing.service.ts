@@ -55,6 +55,7 @@ import { BookingTransitions, SYSTEM_ACTOR } from './booking-transitions';
 import { BookingsService, passportContext } from './bookings.service';
 import { bookingUrl } from './booking-urls';
 import { RefundsService } from './refunds.service';
+import { FlightStatusService } from './flight-status.service';
 import { ScheduleChangesService } from './schedule-changes.service';
 import { ticketingAttempts } from '../telemetry/metrics';
 
@@ -128,6 +129,7 @@ export class TicketingService {
     private readonly notifications: BookingNotifications,
     private readonly fulfilment: InhouseFulfilment,
     private readonly scheduleChanges: ScheduleChangesService,
+    private readonly flightStatus: FlightStatusService,
   ) {}
 
   /** One ticketing attempt for a booking, if it is due. Safe to call concurrently. */
@@ -223,6 +225,10 @@ export class TicketingService {
             // Ticketed orders are then watched for airline schedule changes (ADR-065).
             ...(payload.kind === 'flight' && (result.orderId ?? item.supplierOrderId)
               ? { nextChangeCheckAt: this.scheduleChanges.firstCheckAt(item.supplier) }
+              : {}),
+            // Its live status is read from a day before each flight leaves (ADR-095).
+            ...(payload.kind === 'flight'
+              ? { nextStatusCheckAt: this.flightStatus.firstCheckAt(payload.offer.slices) }
               : {}),
           },
         });

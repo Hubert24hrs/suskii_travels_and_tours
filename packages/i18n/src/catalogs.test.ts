@@ -41,6 +41,10 @@ const REQUIRED_FORMS: Record<string, readonly string[]> = {
  */
 const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
   fr: new Set([
+    // Units and airport words that French and Portuguese share with English.
+    '{minutes} min',
+    '{hours} h {minutes} min',
+    'Terminal {terminal}',
     'Visa',
     'Conversation {reference}',
     'Menu',
@@ -76,6 +80,10 @@ const SAME_AS_ENGLISH: Record<string, ReadonlySet<string>> = {
   ]),
   sw: new Set(['Spa']),
   pt: new Set([
+    // Units and airport words that French and Portuguese share with English.
+    '{minutes} min',
+    '{hours} h {minutes} min',
+    'Terminal {terminal}',
     '{count} hotel',
     'Menu',
     'Marketing',

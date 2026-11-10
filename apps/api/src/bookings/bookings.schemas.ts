@@ -9,6 +9,7 @@ import {
   BOOKING_STATUSES,
   BUS_TICKET_STATUSES,
   CABIN_CLASSES,
+  FLIGHT_STATES,
   RENTAL_CATEGORIES,
   RENTAL_STATUSES,
   RIDE_CATEGORIES,
@@ -1239,6 +1240,59 @@ export const scheduleChangeRunSchema = named(
 );
 
 export const scheduleChangeParamsSchema = z.object({ bookingId: z.uuid(), changeId: z.uuid() });
+
+// ---------------------------------------------------------------------------
+// Live flight status (ADR-095)
+// ---------------------------------------------------------------------------
+
+export const flightStatusSchema = named(
+  'FlightStatus',
+  z.object({
+    live: z.boolean().meta({
+      description:
+        'Whether the booking is confirmed and flight status is on. When false every flight shows its booked times.',
+    }),
+    flights: z.array(
+      z.object({
+        flight: z.number().int().meta({
+          description: 'Position among every flight of the trip, in order, from 0.',
+        }),
+        carrier: carrierSchema,
+        flightNumber: z.string(),
+        origin: airportPointSchema,
+        destination: airportPointSchema,
+        scheduledDepartureLocal: z.string(),
+        scheduledArrivalLocal: z.string(),
+        state: z.enum(FLIGHT_STATES).meta({
+          description:
+            '`delayed` is a flight that has not left and is expected to leave late. A flight that is not followed yet reads `scheduled` with `checkedAt` null.',
+        }),
+        estimatedDepartureLocal: z.string().nullable().meta({
+          description: 'Expected or actual departure, local wall time at the origin.',
+        }),
+        estimatedArrivalLocal: z.string().nullable().meta({
+          description: 'Expected or actual arrival, local wall time at the destination.',
+        }),
+        delayMinutes: z.number().int().meta({
+          description: 'Minutes the departure is expected (or was) late; 0 when on time.',
+        }),
+        departureTerminal: z.string().nullable(),
+        departureGate: z.string().nullable(),
+        arrivalTerminal: z.string().nullable(),
+        arrivalGate: z.string().nullable(),
+        baggageBelt: z.string().nullable(),
+        checkedAt: z.iso.datetime().nullable().meta({
+          description: 'When the flight was last read; null while it is not followed.',
+        }),
+      }),
+    ),
+  }),
+);
+
+export const flightStatusRunSchema = named(
+  'FlightStatusRun',
+  z.object({ checked: z.number().int(), alerts: z.number().int(), failed: z.number().int() }),
+);
 
 // ---------------------------------------------------------------------------
 // Admin refunds (ADR-019)

@@ -22,6 +22,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   checkScheduleChanges: vi.fn(() =>
     Promise.resolve({ checked: 4, detected: 1, resolved: 0, failed: 1 }),
   ),
+  checkFlightStatus: vi.fn(() => Promise.resolve({ checked: 5, alerts: 2, failed: 1 })),
   scanDueVisaDocuments: vi.fn(() =>
     Promise.resolve({ scanned: 3, clean: 1, infected: 1, failed: 1 }),
   ),
@@ -293,6 +294,20 @@ describe('booking jobs', () => {
       'airline schedule changes found',
     );
     expect(log.warn).toHaveBeenCalledWith({ failed: 1 }, 'airline schedule change checks failed');
+  });
+
+  it('reads the live status of flights that are due and warns about failed readings', async () => {
+    const api = fakeApi();
+    const log = logger();
+    await expect(
+      processBookingJob({ name: BOOKING_JOB.flightStatus }, { api, logger: log }),
+    ).resolves.toEqual({ checked: 5, alerts: 2, failed: 1 });
+    expect(api.checkFlightStatus).toHaveBeenCalledTimes(1);
+    expect(log.info).toHaveBeenCalledWith(
+      { checked: 5, alerts: 2, failed: 1 },
+      'flight status alerts sent',
+    );
+    expect(log.warn).toHaveBeenCalledWith({ failed: 1 }, 'flight status readings failed');
   });
 
   it('rescans lost visa document scans and prunes documents past retention', async () => {

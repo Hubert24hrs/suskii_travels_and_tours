@@ -299,6 +299,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'BookingItem',
       'BookingPassenger',
       'FlightScheduleChange',
+      'FlightStatus',
       'BookingStatusHistory',
       'BookingNote',
       'BookingDocument',

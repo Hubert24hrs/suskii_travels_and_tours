@@ -556,6 +556,25 @@ export const envSchema = z
     SCHEDULE_CHANGE_CHECK_HOURS: z.coerce.number().int().min(1).max(48).default(6),
     SCHEDULE_CHANGE_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
     /**
+     * Live flight status on the day of travel (ADR-095). `none` turns it off: nothing is read
+     * and no delay alert is sent. `mock` only outside production unless ALLOW_MOCK_PROVIDERS.
+     * A ticketed flight is followed from FLIGHT_STATUS_WINDOW_HOURS before it leaves until six
+     * hours after it should land, read every FLIGHT_STATUS_CHECK_MINUTES by the sweep (at most
+     * FLIGHT_STATUS_BATCH_SIZE trips a run, one provider call each) and no more often than every
+     * FLIGHT_STATUS_CACHE_SECONDS when a traveller looks.
+     */
+    FLIGHT_STATUS_PROVIDER: z.enum(['none', 'mock']).default('none'),
+    FLIGHT_STATUS_WINDOW_HOURS: z.coerce.number().int().min(1).max(72).default(24),
+    FLIGHT_STATUS_CHECK_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
+    FLIGHT_STATUS_CACHE_SECONDS: z.coerce.number().int().min(30).max(900).default(120),
+    FLIGHT_STATUS_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(25),
+    /**
+     * A flight expected to leave this many minutes late is worth telling the traveller, and
+     * again each time the expected delay moves by the step (later or earlier).
+     */
+    FLIGHT_DELAY_ALERT_MINUTES: z.coerce.number().int().min(10).max(240).default(30),
+    FLIGHT_DELAY_ALERT_STEP_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
+    /**
      * A change moving a flight by this many hours (within one country, or otherwise) entitles the
      * traveller to a full refund (ADR-073; the US DOT thresholds).
      */
@@ -777,6 +796,29 @@ export const envSchema = z
     )
       .transform((rules) => new Map(rules))
       .default(new Map()),
+    /**
+     * Mock flight status only: what a route's flights report, e.g. `LOS-ABV:delayed:45` (minutes
+     * late) or `LOS-LHR:cancelled`, so delay alerts can be walked through locally (ADR-095).
+     */
+    MOCK_FLIGHT_STATUS_RULES: csv(
+      z
+        .string()
+        .regex(
+          /^[A-Z]{3}-[A-Z]{3}:(delayed:\d{1,4}|cancelled|diverted)$/,
+          'use ORIGIN-DESTINATION:delayed:minutes, :cancelled or :diverted',
+        )
+        .transform((rule) => {
+          const [route = '', state = '', minutes = '0'] = rule.split(':');
+          return [
+            route,
+            state === 'delayed'
+              ? { delayMinutes: Number(minutes) }
+              : { state: state as 'cancelled' | 'diverted' },
+          ] as const;
+        }),
+    )
+      .transform((rules) => new Map(rules))
+      .default(new Map()),
   })
   .superRefine((env, ctx) => {
     const require = (key: keyof typeof env, message: string): void => {
@@ -957,6 +999,8 @@ export const envSchema = z
       require('LLM_PROVIDER', 'the mock model is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.WHATSAPP_SUPPORT_PROVIDER === 'mock')
       require('WHATSAPP_SUPPORT_PROVIDER', 'the mock answers nobody on WhatsApp; it is not allowed in production');
+    if (!env.ALLOW_MOCK_PROVIDERS && env.FLIGHT_STATUS_PROVIDER === 'mock')
+      require('FLIGHT_STATUS_PROVIDER', 'the mock invents flight times; it is not allowed in production');
     if (!env.ALLOW_MOCK_PROVIDERS && env.AD_CONVERSIONS.includes('mock'))
       require('AD_CONVERSIONS', 'the mock sends nothing to any network; it is not allowed in production');
     // Real providers must be called over TLS with their production hosts' defaults or overrides.

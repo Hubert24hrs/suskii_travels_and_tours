@@ -28,6 +28,7 @@ import { hasCarsItem } from './cars-details';
 import { InhouseDetails, inhouseKind } from './inhouse-details';
 import { chosenMethod, MethodChoice, type PaymentMethodName } from './payment-choice';
 import { PlanPanel, RefundList } from './plan-panel';
+import { FlightStatus } from './flight-status';
 import { ScheduleChange } from './schedule-change';
 import { TripPlanning } from './trip-planning';
 import { TripReviews } from './trip-reviews';
@@ -435,6 +436,9 @@ export function BookingView({ bookingId }: { bookingId: string }) {
 
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
         <div className="flex flex-col gap-6 lg:col-span-2">
+          {status === 'CONFIRMED' && booking.flight ? (
+            <FlightStatus bookingId={booking.id} />
+          ) : null}
           {status === 'CONFIRMED' ? <TripReviews bookingId={booking.id} /> : null}
           <AppLink
             href={`/support?booking=${booking.id}`}

@@ -13,6 +13,7 @@ export type PaymentRun = components['schemas']['PaymentReconciliationRun'];
 export type PlanRun = components['schemas']['PaymentPlanRun'];
 export type RefundRun = components['schemas']['RefundRun'];
 export type ScheduleChangeRun = components['schemas']['ScheduleChangeRun'];
+export type FlightStatusRun = components['schemas']['FlightStatusRun'];
 export type VisaScanRun = components['schemas']['VisaScanRun'];
 export type VisaPruneRun = components['schemas']['VisaPruneRun'];
 export type PriceAlertRun = components['schemas']['PriceAlertRun'];
@@ -68,6 +69,8 @@ export interface BookingsApi {
   readonly processDueRefunds: () => Promise<RefundRun>;
   /** Ticketed flights due a check for airline schedule changes (ADR-065). */
   readonly checkScheduleChanges: () => Promise<ScheduleChangeRun>;
+  /** Ticketed flights due a live status reading, and their delay alerts (ADR-095). */
+  readonly checkFlightStatus: () => Promise<FlightStatusRun>;
   /** Visa documents whose background virus scan did not finish (ADR-026). */
   readonly scanDueVisaDocuments: () => Promise<VisaScanRun>;
   /** Visa documents past their retention period. */
@@ -209,6 +212,14 @@ export function createInternalApi(
         'checkScheduleChanges',
         (signal, headers) =>
           client.POST('/v1/internal/bookings/schedule-changes-due', { signal, headers }),
+        MONEY_SWEEP_TIMEOUT_MS,
+      ),
+    // One flight-data call per trip: the API stops starting readings after 20 s.
+    checkFlightStatus: () =>
+      call(
+        'checkFlightStatus',
+        (signal, headers) =>
+          client.POST('/v1/internal/bookings/flight-status-due', { signal, headers }),
         MONEY_SWEEP_TIMEOUT_MS,
       ),
     scanDueVisaDocuments: () =>

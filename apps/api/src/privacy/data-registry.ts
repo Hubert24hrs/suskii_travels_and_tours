@@ -256,6 +256,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'parent', parent: 'Booking' },
     note: 'Airline changes to a booked flight: flight times and numbers, no personal data (ADR-065).',
   },
+  FlightStatus: {
+    section: 'bookings',
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'Booking' },
+    note: 'The last live reading of a booked flight (times, terminal, gate) and the delay the traveller was last told about; no personal data (ADR-095).',
+  },
   BookingStatusHistory: {
     section: 'bookings',
     deletion: 'retain',

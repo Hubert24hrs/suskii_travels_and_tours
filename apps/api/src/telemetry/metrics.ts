@@ -53,6 +53,15 @@ export const scheduleChangeChecks = meter.createCounter('suskii.schedule_change.
   description: 'Airline change checks of ticketed flights by outcome (checked, stopped, failed)',
 });
 
+export const flightStatusChecks = meter.createCounter('suskii.flight_status.checks', {
+  description: 'Live status readings of ticketed flights by outcome (checked, stopped, failed)',
+});
+
+export const flightStatusAlerts = meter.createCounter('suskii.flight_status.alerts', {
+  description:
+    'Status alerts sent to travellers by kind (delayed, earlier, back_on_time, cancelled, diverted, gate_changed)',
+});
+
 export const refundAttempts = meter.createCounter('suskii.refunds', {
   description: 'Refund executions by outcome (succeeded, processing, failed, needs_review)',
 });

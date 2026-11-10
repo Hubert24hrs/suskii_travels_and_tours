@@ -34,6 +34,7 @@ import { BookingDocumentsService } from './booking-documents.service';
 import {
   BOOKING_TOKEN_HEADER,
   bookingIdParamsSchema,
+  flightStatusSchema,
   bookingLinkAcceptedSchema,
   bookingLinkRequestSchema,
   bookingSchema,
@@ -64,6 +65,7 @@ import { ManageBookingService } from './manage-booking.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { QuotesService } from './quotes.service';
 import { FlightSeatsService } from './flight-seats.service';
+import { FlightStatusService } from './flight-status.service';
 import { ScheduleChangesService } from './schedule-changes.service';
 
 const TAGS = ['Bookings'];
@@ -89,6 +91,7 @@ export class BookingsController {
     private readonly manage: ManageBookingService,
     private readonly scheduleChanges: ScheduleChangesService,
     private readonly seats: FlightSeatsService,
+    private readonly flightStatus: FlightStatusService,
   ) {}
 
   @Get('quotes/:quoteId')
@@ -344,6 +347,25 @@ export class BookingsController {
       caller(request),
       body.refund ? fromWire(body.refund) : null,
     );
+  }
+
+  @Get('bookings/:bookingId/flight-status')
+  @Contract({
+    operationId: 'getBookingFlightStatus',
+    summary: "Live status of a booking's flights on the day of travel",
+    description:
+      'Every flight of the booking with what is known of it now: state, expected times, delay, terminal, gate and baggage belt (ADR-095). A flight is followed from a day before it leaves until it has landed; before that it reads `scheduled` with `checkedAt` null. Readings are cached for a short time, so polling once a minute is enough. 404 for a booking without flights.',
+    tags: TAGS,
+    params: bookingIdParamsSchema,
+    headers: [BOOKING_TOKEN_HEADER],
+    responses: { 200: flightStatusSchema },
+    errors: [404],
+  })
+  getFlightStatus(
+    @Param('bookingId') bookingId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof flightStatusSchema>> {
+    return this.flightStatus.forBooking(bookingId, caller(request));
   }
 
   @Post('bookings/:bookingId/schedule-changes/:changeId/accept')

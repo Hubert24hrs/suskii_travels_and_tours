@@ -123,6 +123,8 @@ api_env = {
   # Seat selection on Duffel flights (ADR-094) is off unless set. Run the Duffel sandbox check
   # with booking on first (it orders one seat), then uncomment:
   # DUFFEL_SEAT_SELECTION = "true"
+  # Live flight status and delay alerts (ADR-095) are off unless set: FLIGHT_STATUS_PROVIDER
+  # takes a real flight-data provider once its adapter exists (the mock is refused here).
   # AI trip search (ADR-061) is off unless set. To offer it, add "LLM_API_KEY" to extra_secrets,
   # set its value in Secret Manager, run the eval (ai-eval.yml) and uncomment:
   # AI_SEARCH_ENABLED = "true"

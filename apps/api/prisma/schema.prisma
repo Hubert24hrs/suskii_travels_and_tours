@@ -1076,6 +1076,9 @@ model BookingItem {
   /// A ticketed flight is next asked for airline changes at this instant; null once it has
   /// departed or its supplier does not report changes (ADR-065).
   nextChangeCheckAt    DateTime?       @map("next_change_check_at") @db.Timestamptz(3)
+  /// A ticketed flight's live status is next read at this instant: a day before each flight
+  /// leaves, then every few minutes until it has landed; null otherwise (ADR-095).
+  nextStatusCheckAt    DateTime?       @map("next_status_check_at") @db.Timestamptz(3)
   /// The traveller's IP from checkout, encrypted (`booking-item:{id}:customer-ip`), for a supplier
   /// that requires it on its booking call (Expedia, ADR-086); cleared once booked or after 7 days.
   customerIpEncrypted  String?         @map("customer_ip_encrypted")
@@ -1091,13 +1094,51 @@ model BookingItem {
   ride             Ride?
   rental           RentalReservation?
   scheduleChanges  FlightScheduleChange[]
+  flightStatuses   FlightStatus[]
   review           Review?
 
   @@index([bookingId])
   @@index([packageDepartureId])
   @@index([tourDepartureId])
   @@index([nextChangeCheckAt])
+  @@index([nextStatusCheckAt])
   @@map("booking_items")
+}
+
+/// The last live reading of one flight of a ticketed booking on the day of travel (ADR-095):
+/// times, terminal and gate from the flight-status provider, and what the traveller was last
+/// told, so an alert is sent once. No personal data.
+model FlightStatus {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  bookingItemId       String    @map("booking_item_id") @db.Uuid
+  /// The flight's place among all flights of the trip, from 0 (as for seats).
+  flight              Int
+  /// The booked flight this reading is for; a reading for another flight is replaced.
+  carrierCode         String    @map("carrier_code")
+  flightNumber        String    @map("flight_number")
+  scheduledDeparture  DateTime  @map("scheduled_departure") @db.Timestamptz(3)
+  scheduledArrival    DateTime  @map("scheduled_arrival") @db.Timestamptz(3)
+  provider            String
+  /// scheduled, delayed, boarding, departed, landed, cancelled or diverted.
+  state               String
+  estimatedDeparture  DateTime? @map("estimated_departure") @db.Timestamptz(3)
+  estimatedArrival    DateTime? @map("estimated_arrival") @db.Timestamptz(3)
+  delayMinutes        Int       @default(0) @map("delay_minutes")
+  departureTerminal   String?   @map("departure_terminal")
+  departureGate       String?   @map("departure_gate")
+  arrivalTerminal     String?   @map("arrival_terminal")
+  arrivalGate         String?   @map("arrival_gate")
+  baggageBelt         String?   @map("baggage_belt")
+  checkedAt           DateTime  @map("checked_at") @db.Timestamptz(3)
+  /// The delay and the state (cancelled, diverted) the traveller was last told about.
+  alertedDelayMinutes Int?      @map("alerted_delay_minutes")
+  alertedState        String?   @map("alerted_state")
+  alertedAt           DateTime? @map("alerted_at") @db.Timestamptz(3)
+
+  bookingItem BookingItem @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingItemId, flight])
+  @@map("flight_statuses")
 }
 
 /// open: waiting for the traveller (or support); the others say how it was resolved.

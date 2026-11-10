@@ -14194,6 +14194,64 @@
         }
       }
     },
+    "/v1/bookings/{bookingId}/flight-status": {
+      "get": {
+        "operationId": "getBookingFlightStatus",
+        "summary": "Live status of a booking's flights on the day of travel",
+        "description": "Every flight of the booking with what is known of it now: state, expected times, delay, terminal, gate and baggage belt (ADR-095). A flight is followed from a day before it leaves until it has landed; before that it reads `scheduled` with `checkedAt` null. Readings are cached for a short time, so polling once a minute is enough. 404 for a booking without flights.",
+        "tags": [
+          "Bookings"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Booking-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guest bookings: the access token returned when the booking was created. Account bookings use the session instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlightStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/bookings/{bookingId}/hold": {
       "post": {
         "operationId": "holdBooking",
@@ -19493,6 +19551,51 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BookingExpiryRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/internal/bookings/flight-status-due": {
+      "post": {
+        "operationId": "checkFlightStatus",
+        "summary": "Read the live status of ticketed flights that are due, and send delay alerts",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlightStatusRun"
                 }
               }
             }
@@ -43226,6 +43329,166 @@
           "fareBrand",
           "segments",
           "layovers"
+        ],
+        "additionalProperties": false
+      },
+      "FlightStatus": {
+        "type": "object",
+        "properties": {
+          "live": {
+            "type": "boolean"
+          },
+          "flights": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "flight": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "carrier": {
+                  "$ref": "#/components/schemas/Carrier"
+                },
+                "flightNumber": {
+                  "type": "string"
+                },
+                "origin": {
+                  "$ref": "#/components/schemas/AirportPoint"
+                },
+                "destination": {
+                  "$ref": "#/components/schemas/AirportPoint"
+                },
+                "scheduledDepartureLocal": {
+                  "type": "string"
+                },
+                "scheduledArrivalLocal": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "scheduled",
+                    "delayed",
+                    "boarding",
+                    "departed",
+                    "landed",
+                    "cancelled",
+                    "diverted"
+                  ]
+                },
+                "estimatedDepartureLocal": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "estimatedArrivalLocal": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "delayMinutes": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "departureTerminal": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "departureGate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "arrivalTerminal": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "arrivalGate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "baggageBelt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "checkedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "flight",
+                "carrier",
+                "flightNumber",
+                "origin",
+                "destination",
+                "scheduledDepartureLocal",
+                "scheduledArrivalLocal",
+                "state",
+                "estimatedDepartureLocal",
+                "estimatedArrivalLocal",
+                "delayMinutes",
+                "departureTerminal",
+                "departureGate",
+                "arrivalTerminal",
+                "arrivalGate",
+                "baggageBelt",
+                "checkedAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "live",
+          "flights"
+        ],
+        "additionalProperties": false
+      },
+      "FlightStatusRun": {
+        "type": "object",
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "alerts": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "checked",
+          "alerts",
+          "failed"
         ],
         "additionalProperties": false
       },
