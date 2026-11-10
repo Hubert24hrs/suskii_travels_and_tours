@@ -51,3 +51,9 @@ export function deviceLocalTime(instant: string | undefined): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+/** A driver's age as typed, when it is a whole number a rental can take (18 to 99). */
+export function driverAgeOf(text: string): number | null {
+  const age = Number(text);
+  return /^\d{2}$/.test(text.trim()) && age >= 18 && age <= 99 ? age : null;
+}

@@ -8,19 +8,26 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Checkbox, ChoiceChips } from '../components/booking/form-controls';
 import { Loading, Notice } from '../components/states';
-import { LOCAL_DATE_TIME, routeParam } from '../lib/cars';
+import { driverAgeOf, LOCAL_DATE_TIME, routeParam } from '../lib/cars';
 import { daysFromToday } from '../lib/dates';
 import { useApp, useT } from '../providers/app-provider';
 
 type Car = Schemas['RentalSearchResult']['vehicles'][number];
 const CATEGORIES = ['economy', 'compact', 'suv', 'luxury', 'van'] as const;
 type Category = (typeof CATEGORIES)[number];
+const TRANSMISSIONS = ['automatic', 'manual'] as const;
+type Transmission = (typeof TRANSMISSIONS)[number];
 interface Search {
   /** Only from a prefilled link; the form itself searches every city. */
   city?: string;
   pickupAt: string;
   returnAt: string;
   category: Category | 'any';
+  transmission: Transmission | 'any';
+  /** Only cars whose branch is at an airport (ADR-098). */
+  airport: boolean;
+  /** The driver's age for a self-drive rental; null when not given. */
+  driverAge: number | null;
   chauffeur: boolean;
 }
 
@@ -41,6 +48,9 @@ function prefilledSearch(params: {
     pickupAt,
     returnAt,
     category: 'any',
+    transmission: 'any',
+    airport: false,
+    driverAge: null,
     chauffeur: false,
   };
 }
@@ -49,7 +59,21 @@ function CarCard({ car, search, days }: { car: Car; search: Search; days: number
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
-  const query = `pickupAt=${encodeURIComponent(search.pickupAt)}&returnAt=${encodeURIComponent(search.returnAt)}${search.chauffeur ? '&chauffeur=true' : ''}`;
+  const query = `pickupAt=${encodeURIComponent(search.pickupAt)}&returnAt=${encodeURIComponent(search.returnAt)}${search.chauffeur ? '&chauffeur=true' : ''}${search.driverAge === null ? '' : `&driverAge=${search.driverAge}`}`;
+  const { blocks } = car.estimate;
+  // "1 week and 3 days": shown only when a weekly or monthly rate made the price.
+  const pricedAs =
+    blocks.months + blocks.weeks === 0
+      ? null
+      : t('cars.rentals.pricedAs', {
+          parts: format.list(
+            [
+              blocks.months > 0 ? t('cars.rentals.blocks.months', { count: blocks.months }) : '',
+              blocks.weeks > 0 ? t('cars.rentals.blocks.weeks', { count: blocks.weeks }) : '',
+              blocks.days > 0 ? t('cars.rentals.days', { count: blocks.days }) : '',
+            ].filter((part) => part !== ''),
+          ),
+        });
   return (
     <Pressable
       testID={`rental-car-${car.slug}`}
@@ -62,6 +86,11 @@ function CarCard({ car, search, days }: { car: Car; search: Search; days: number
           {car.make} {car.model} ({car.year})
         </Text>
         {car.sample ? <Badge variant="neutral">{t('cars.sample')}</Badge> : null}
+        {car.branch.airportCode ? (
+          <Badge variant="neutral">
+            {t('cars.rentals.atAirport', { code: car.branch.airportCode })}
+          </Badge>
+        ) : null}
       </View>
       <Text className="font-body text-body-sm text-foreground">
         {[
@@ -74,7 +103,15 @@ function CarCard({ car, search, days }: { car: Car; search: Search; days: number
         {car.branch.name}, {car.cityName}
       </Text>
       <Text className="font-body text-body-sm text-foreground">
-        {t('cars.rentals.perDay', { price: format.money(car.daily) })}
+        {[
+          t('cars.rentals.perDay', { price: format.money(car.daily) }),
+          car.weekly ? t('cars.rentals.perWeek', { price: format.money(car.weekly) }) : '',
+        ]
+          .filter((part) => part !== '')
+          .join(' · ')}
+      </Text>
+      <Text className="font-body text-caption text-muted">
+        {t('cars.rentals.minAge', { age: car.minDriverAge })}
       </Text>
       <Text className="font-heading text-h4 text-heading">
         {t('cars.rentals.estimate', {
@@ -82,6 +119,11 @@ function CarCard({ car, search, days }: { car: Car; search: Search; days: number
           days: t('cars.rentals.days', { count: days }),
         })}
       </Text>
+      {pricedAs ? (
+        <Text testID="rental-priced-as" className="font-body text-caption text-muted">
+          {pricedAs}
+        </Text>
+      ) : null}
       {car.deposit.amountMinor > 0 ? (
         <Text className="font-body text-caption text-muted">
           {t('cars.rentals.deposit', { price: format.money(car.deposit) })}
@@ -103,6 +145,9 @@ export function RentalSearchScreen() {
   const [pickupAt, setPickupAt] = useState(() => prefill?.pickupAt ?? `${daysFromToday(5)}T10:00`);
   const [returnAt, setReturnAt] = useState(() => prefill?.returnAt ?? `${daysFromToday(7)}T10:00`);
   const [category, setCategory] = useState<Category | 'any'>('any');
+  const [transmission, setTransmission] = useState<Transmission | 'any'>('any');
+  const [airport, setAirport] = useState(false);
+  const [driverAge, setDriverAge] = useState('');
   const [chauffeur, setChauffeur] = useState(false);
   const [search, setSearch] = useState<Search | null>(prefill);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +165,9 @@ export function RentalSearchScreen() {
             pickupAt: search.pickupAt,
             returnAt: search.returnAt,
             ...(search.category === 'any' ? {} : { category: search.category }),
+            ...(search.transmission === 'any' ? {} : { transmission: search.transmission }),
+            ...(search.airport ? { airport: 'true' as const } : {}),
+            ...(search.driverAge === null ? {} : { driverAge: search.driverAge }),
             ...(search.chauffeur ? { chauffeur: 'true' as const } : {}),
           },
         },
@@ -144,6 +192,9 @@ export function RentalSearchScreen() {
       pickupAt,
       returnAt,
       category,
+      transmission,
+      airport,
+      driverAge: driverAgeOf(driverAge),
       chauffeur,
     });
   };
@@ -188,6 +239,33 @@ export function RentalSearchScreen() {
           ]}
           value={category}
           onChange={setCategory}
+        />
+        <ChoiceChips
+          testID="rental-transmission"
+          label={t('cars.rentals.transmission')}
+          options={[
+            { value: 'any' as const, label: t('cars.rentals.anyTransmission') },
+            ...TRANSMISSIONS.map((value) => ({
+              value,
+              label: t(`cars.rentals.transmissions.${value}`),
+            })),
+          ]}
+          value={transmission}
+          onChange={setTransmission}
+        />
+        <Input
+          testID="rental-driver-age"
+          label={t('cars.rentals.driverAge')}
+          value={driverAge}
+          onChangeText={setDriverAge}
+          keyboardType="number-pad"
+          maxLength={2}
+        />
+        <Checkbox
+          testID="rental-airport-only"
+          label={t('cars.rentals.airportOnly')}
+          checked={airport}
+          onChange={setAirport}
         />
         <Checkbox
           testID="rental-chauffeur"
