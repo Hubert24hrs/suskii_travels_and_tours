@@ -412,3 +412,22 @@ export {
 } from './hotel-collections';
 
 export { citySlug } from './slug';
+export {
+  TRIP_COMPONENTS,
+  TRIP_MAX_ADULTS,
+  TRIP_MAX_CHILDREN,
+  TRIP_MAX_NIGHTS,
+  TRIP_MAX_OPEN,
+  TRIP_PART_STATES,
+  TRIP_STATES,
+  tripComponentOf,
+  tripPartState,
+  tripState,
+  tripTitle,
+  type TripComponent,
+  type TripDestination,
+  type TripPartState,
+  type TripPlace,
+  type TripPlan,
+  type TripState,
+} from './trips';
