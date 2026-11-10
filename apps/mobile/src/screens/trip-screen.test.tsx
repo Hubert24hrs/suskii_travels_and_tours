@@ -1,5 +1,5 @@
 import { getMessages } from '@suskii/i18n';
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { File } from 'expo-file-system';
 import { router, useLocalSearchParams } from 'expo-router';
 import { shareAsync } from 'expo-sharing';
@@ -351,6 +351,90 @@ describe('TripScreen', () => {
     expect(screen.getByTestId('seats')).toHaveTextContent(
       m.booking.seats.replace('{seats}', '12A, 14C'),
     );
+  });
+
+  it('shows the live status of a followed flight, and nothing before it is followed', async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    const flight = {
+      flight: 0,
+      carrier: { code: 'P4', name: 'Air Peace' },
+      flightNumber: '7120',
+      origin: {
+        code: 'LOS',
+        name: 'Murtala Muhammed International Airport',
+        cityName: 'Lagos',
+        countryCode: 'NG',
+        timeZone: 'Africa/Lagos',
+      },
+      destination: {
+        code: 'ABV',
+        name: 'Nnamdi Azikiwe International Airport',
+        cityName: 'Abuja',
+        countryCode: 'NG',
+        timeZone: 'Africa/Lagos',
+      },
+      scheduledDepartureLocal: '2026-12-01T07:00',
+      scheduledArrivalLocal: '2026-12-01T08:15',
+      state: 'scheduled',
+      estimatedDepartureLocal: null,
+      estimatedArrivalLocal: null,
+      delayMinutes: 0,
+      departureTerminal: null,
+      departureGate: null,
+      arrivalTerminal: null,
+      arrivalGate: null,
+      baggageBelt: null,
+      checkedAt: null,
+    };
+    const STATUS = `GET /v1/bookings/${BOOKING_ID}/flight-status`;
+
+    // Weeks before the flight nothing is followed: the trip looks as it always did.
+    const early = mockApi({
+      [GET]: () => json(booking()),
+      [STATUS]: () => json({ live: true, flights: [flight] }),
+    });
+    const first = await renderWithApp(<TripScreen />);
+    await screen.findByTestId('trip');
+    await waitFor(() =>
+      expect(early.calls.some((request) => request.url.endsWith('/flight-status'))).toBe(true),
+    );
+    expect(screen.queryByTestId('flight-status')).toBeNull();
+    first.unmount();
+
+    const { calls } = mockApi({
+      [GET]: () => json(booking()),
+      [STATUS]: () =>
+        json({
+          live: true,
+          flights: [
+            {
+              ...flight,
+              state: 'delayed',
+              estimatedDepartureLocal: '2026-12-01T07:45',
+              estimatedArrivalLocal: '2026-12-01T09:00',
+              delayMinutes: 45,
+              departureTerminal: '2',
+              departureGate: 'B4',
+              checkedAt: '2026-12-01T04:30:00.000Z',
+            },
+          ],
+        }),
+    });
+    await renderWithApp(<TripScreen />);
+
+    const card = await screen.findByTestId('flight-status-0');
+    expect(card).toHaveTextContent(/P4 7120 · LOS to ABV/);
+    expect(screen.getByTestId('flight-state')).toHaveTextContent(
+      m.booking.flightStatus.states.delayed,
+    );
+    expect(screen.getByTestId('flight-departure')).toHaveTextContent(
+      /Now expected 07:45 · 45 min late · Scheduled 07:00/,
+    );
+    expect(screen.getByTestId('flight-gate')).toHaveTextContent('Terminal 2 · Gate B4');
+    expect(screen.getByText(new RegExp(m.booking.flightStatus.note))).toBeOnTheScreen();
+    // The guest's token goes with the read.
+    const read = calls.find((request) => request.url.endsWith('/flight-status'));
+    expect(read?.headers.get('X-Booking-Token')).toBe(TOKEN);
   });
 
   it('explains a booking this phone cannot open', async () => {

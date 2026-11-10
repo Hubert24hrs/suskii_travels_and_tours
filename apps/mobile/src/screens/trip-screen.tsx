@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { PlanPanel, RefundList } from '../components/booking/plan-panel';
+import { FlightStatus } from '../components/booking/flight-status';
 import { ScheduleChange } from '../components/booking/schedule-change';
 import { BoardingPasses } from '../components/cars/boarding-passes';
 import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
@@ -631,6 +632,10 @@ export function TripScreen() {
               );
             })}
           </Card>
+        ) : null}
+
+        {!offline && status === 'CONFIRMED' && booking.flight ? (
+          <FlightStatus bookingId={booking.id} />
         ) : null}
 
         {booking.scheduleChange ? (
