@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from './zod-setup';
 
 import {
   AGENT_ANSWER_MAX,
