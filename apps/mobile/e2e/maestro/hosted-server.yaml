@@ -1,0 +1,22 @@
+# The test build against the online test server (ADR-066): a freshly installed app reads the
+# published address at launch and uses it, with nothing typed in. SERVER_URL is the address
+# test-server.yml published (run-hosted.sh reads it from the same file the app does).
+appId: com.suskii.travels.e2e
+name: Hosted test server
+tags:
+  - hosted
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/dismiss-system-dialogs.yaml
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 90000
+- tapOn:
+    id: tab-account
+- scrollUntilVisible:
+    element:
+      id: test-server-hosted
+    timeout: 30000
+- assertVisible: 'In use: ${SERVER_URL}'

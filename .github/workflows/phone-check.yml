@@ -1,0 +1,131 @@
+name: Phone check
+
+# The downloadable test APK, exactly as published (mobile-test-apk.yml), installed on an Android
+# emulator and run against the online test server (test-server.yml) over the internet, as a
+# tester's phone does (ADR-100). It checks the download against its published checksum, that the
+# app finds the server by itself, that a guest can book and pay for a flight, and that an account
+# can build a combined trip and pay for it once (ADR-099). Mock suppliers and payments only.
+#
+# Run it after publishing a new test APK or when a tester reports the app cannot reach the
+# server: Actions, Phone check, Run workflow. It needs a running test server (one starts every
+# four hours; Actions, Test server, Run workflow starts one sooner). Pull requests that change
+# the check or its flows run it against whatever is published at the time.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/phone-check.yml
+      - apps/mobile/e2e/run-hosted.sh
+      - apps/mobile/e2e/device.sh
+      - apps/mobile/e2e/maestro/hosted-server.yaml
+      - apps/mobile/e2e/maestro/critical-path.yaml
+      - apps/mobile/e2e/maestro/trip-builder.yaml
+      - apps/mobile/e2e/maestro/subflows/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phone-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  MAESTRO_VERSION: 2.11.0
+  MAESTRO_SHA256: 5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a
+  APK_NAME: suskii-travels-test.apk
+  APK_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/mobile-test-apk/suskii-travels-test.apk
+  SERVER_FILE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/download/test-server/test-server.json
+
+jobs:
+  phone:
+    name: Published APK against the online test server
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The same file the QR code points at, checked against the checksum published beside it.
+      - name: Download the published APK
+        run: |
+          mkdir -p phone-check && cd phone-check
+          curl -sSfL --retry 3 -o "$APK_NAME" "$APK_URL"
+          curl -sSfL --retry 3 -o "$APK_NAME.sha256" "$APK_URL.sha256"
+          sha256sum --check --strict "$APK_NAME.sha256"
+          {
+            echo "## Phone check"
+            echo
+            echo "- APK: \`$(cut -d' ' -f1 "$APK_NAME.sha256")\` ($(stat -c %s "$APK_NAME") bytes), checksum matches"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The address file the app reads at launch. The check needs the server for about half an
+      # hour, so one about to stop does not count.
+      - name: Find the online test server
+        id: server
+        run: |
+          curl -sSfL --retry 3 -o test-server.json "$SERVER_FILE_URL"
+          url=$(jq -r '.api // empty' test-server.json)
+          state=$(jq -r '.status // empty' test-server.json)
+          expires=$(jq -r '.expiresAt // empty' test-server.json)
+          commit=$(jq -r '.commit // empty' test-server.json)
+          if [ "$state" != running ] || ! [[ "$url" =~ ^https://[a-z0-9-]+\.trycloudflare\.com$ ]]; then
+            echo "::error::No test server is running. Start one (Actions, Test server, Run workflow) and run this again."
+            exit 1
+          fi
+          if [ "$(date -u -d "$expires" +%s)" -lt "$(date -u -d '+30 minutes' +%s)" ]; then
+            echo "::error::The test server stops at $expires. Start a new one (Actions, Test server, Run workflow) and run this again."
+            exit 1
+          fi
+          curl -fsS -m 20 --retry 3 "$url/ready" > /dev/null
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "- Test server: $url (commit \`$commit\`, until $expires), answers from here" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install Maestro
+        run: |
+          # A pinned release checked against its SHA-256 (no install script piped to a shell).
+          curl -sSfL -o maestro.zip \
+            "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum --check --strict
+          rm -rf "$HOME/.maestro" && mkdir -p "$HOME/.maestro"
+          unzip -q maestro.zip -d "$HOME/.maestro" && mv "$HOME/.maestro/maestro"/* "$HOME/.maestro/"
+          "$HOME/.maestro/bin/maestro" --version
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The same emulator as the build's own run (mobile.yml). Its image runs the APK's arm64
+      # code through translation, so it is slower than a phone.
+      - name: Run the published APK on an Android emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          SERVER_URL: ${{ steps.server.outputs.url }}
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 3
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash apps/mobile/e2e/run-hosted.sh "phone-check/$APK_NAME" "$SERVER_URL" maestro-report
+
+      - name: Report
+        run: echo "- The app found the server, a guest booked and paid for a flight, and an account built a trip of three parts and paid once" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the Maestro report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: phone-check
+          path: |
+            maestro-report/
+            test-server.json
+          if-no-files-found: ignore
+          retention-days: 14
