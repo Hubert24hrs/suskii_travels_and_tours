@@ -1,0 +1,22 @@
+# The contact details and the terms at the end of a checkout screen.
+appId: com.suskii.travels.e2e
+---
+- scrollUntilVisible:
+    element:
+      id: contact-email
+- tapOn:
+    id: contact-email
+- inputText: maestro.trip@example.com
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: contact-phone
+- tapOn:
+    id: contact-phone
+- inputText: '+2348030000002'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: accept-terms
+- tapOn:
+    id: accept-terms

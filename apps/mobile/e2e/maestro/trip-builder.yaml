@@ -1,0 +1,288 @@
+# A combined trip on the phone (ADR-099): sign up, plan Lagos to London, choose a flight and a
+# hotel on the ordinary search screens and travel insurance on the trip's own screen, see a price
+# for each part with one total, pay for everything once on the provider's hosted page (the mock
+# provider) and come back to a paid trip whose parts are each confirmed.
+# Two values come from the runner with `-e` (run-android.sh, run-hosted.sh): TRIP_EMAIL, the
+# account's address (new on every run against a server that keeps its data), and PASSPORT_EXPIRY,
+# a day years ahead.
+appId: com.suskii.travels.e2e
+name: Trip builder
+tags:
+  - trips
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/dismiss-system-dialogs.yaml
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 60000
+
+# A trip belongs to an account: sign up with Google (the stack's mock provider, ADR-067).
+- tapOn:
+    id: tab-account
+- tapOn:
+    id: account-register
+- extendedWaitUntil:
+    visible:
+      id: social-google
+    timeout: 15000
+- tapOn:
+    id: social-google
+- extendedWaitUntil:
+    visible:
+      id: social-mock-email
+    timeout: 15000
+- tapOn:
+    id: social-mock-email
+- inputText: ${TRIP_EMAIL}
+# Enter ends the field and closes the keyboard; Back (hideKeyboard) could close the dialog.
+- pressKey: Enter
+- tapOn:
+    id: social-mock-name
+- inputText: Ada Maestro
+- pressKey: Enter
+- tapOn:
+    id: social-mock-submit
+- runFlow:
+    when:
+      visible:
+        id: fingerprint-offer
+    commands:
+      - tapOn:
+          id: fingerprint-not-now
+- extendedWaitUntil:
+    visible: 'Signed in as .*'
+    timeout: 20000
+
+# The plan, from Home: where from and to, the form's dates (two weeks out, for a week), one
+# adult, and three of the five parts.
+- tapOn:
+    id: tab-home
+- extendedWaitUntil:
+    visible:
+      id: flight-search-form
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: home-trip-builder
+- tapOn:
+    id: home-trip-builder
+- extendedWaitUntil:
+    visible:
+      id: trip-plan
+    timeout: 30000
+- tapOn:
+    id: plan-from
+- inputText: Lagos
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: plan-from-option-LOS
+- tapOn:
+    id: plan-from-option-LOS
+- scrollUntilVisible:
+    element:
+      id: plan-to
+- tapOn:
+    id: plan-to
+- inputText: London Heathrow
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: plan-to-option-LHR
+- tapOn:
+    id: plan-to-option-LHR
+- scrollUntilVisible:
+    element:
+      id: plan-part-car
+- tapOn:
+    id: plan-part-car
+- scrollUntilVisible:
+    element:
+      id: plan-part-transfer
+- tapOn:
+    id: plan-part-transfer
+- scrollUntilVisible:
+    element:
+      id: plan-submit
+- tapOn:
+    id: plan-submit
+- extendedWaitUntil:
+    visible:
+      id: built-trip
+    timeout: 30000
+- assertVisible: Lagos to London
+
+# 1. The flight: the ordinary results for the plan's places and dates. A flight abroad asks for
+# the passport.
+- scrollUntilVisible:
+    element:
+      id: trip-choose-flight
+- tapOn:
+    id: trip-choose-flight
+- extendedWaitUntil:
+    visible:
+      id: select-offer
+    timeout: 60000
+- tapOn:
+    id: select-offer
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: checkout
+    timeout: 30000
+- runFlow: subflows/traveller.yaml
+- scrollUntilVisible:
+    element:
+      id: passengers.0.passportNumber
+- tapOn:
+    id: passengers.0.passportNumber
+- inputText: B1234567
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.issuingCountry
+- tapOn:
+    id: passengers.0.issuingCountry
+- inputText: Nigeria
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: passengers.0.issuingCountry-option-NG
+- tapOn:
+    id: passengers.0.issuingCountry-option-NG
+- scrollUntilVisible:
+    element:
+      id: passengers.0.passportExpiry
+- tapOn:
+    id: passengers.0.passportExpiry
+- inputText: ${PASSPORT_EXPIRY}
+- hideKeyboard
+- runFlow: subflows/contact-and-terms.yaml
+- runFlow: subflows/add-to-trip.yaml
+- scrollUntilVisible:
+    element:
+      id: trip-price-flight
+
+# 2. The hotel: the destination's city for the trip's dates, then a room.
+- scrollUntilVisible:
+    element:
+      id: trip-choose-hotel
+- tapOn:
+    id: trip-choose-hotel
+- extendedWaitUntil:
+    visible:
+      id: hotel-result
+    timeout: 60000
+- tapOn:
+    id: hotel-result
+    index: 0
+# The rooms load under the hotel's photos and description.
+- scrollUntilVisible:
+    element:
+      text: 'Select.*'
+    timeout: 60000
+- tapOn:
+    text: 'Select.*'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: checkout
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: guests.0.givenNames
+- tapOn:
+    id: guests.0.givenNames
+- inputText: Ada
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: guests.0.surname
+- tapOn:
+    id: guests.0.surname
+- inputText: Okafor
+- hideKeyboard
+- runFlow: subflows/contact-and-terms.yaml
+- runFlow: subflows/add-to-trip.yaml
+- scrollUntilVisible:
+    element:
+      id: trip-price-hotel
+
+# 3. Travel insurance, chosen on the trip's own screen for the trip's days.
+- scrollUntilVisible:
+    element:
+      id: trip-choose-insurance
+- tapOn:
+    id: trip-choose-insurance
+- scrollUntilVisible:
+    element:
+      id: trip-addon-sample-travel-insurance
+    timeout: 30000
+- tapOn:
+    id: trip-addon-sample-travel-insurance
+- extendedWaitUntil:
+    visible:
+      id: checkout
+    timeout: 30000
+- runFlow: subflows/traveller.yaml
+- runFlow: subflows/contact-and-terms.yaml
+- runFlow: subflows/add-to-trip.yaml
+- scrollUntilVisible:
+    element:
+      id: trip-price-insurance
+
+# The review: one total for the three parts, and one payment for all of them.
+- scrollUntilVisible:
+    element:
+      id: trip-total
+- scrollUntilVisible:
+    element:
+      id: trip-pay
+- tapOn:
+    id: trip-pay
+- runFlow: subflows/chrome-first-run.yaml
+- extendedWaitUntil:
+    visible: 'Pay .*'
+    timeout: 60000
+- tapOn: 'Pay .*'
+# The return page hands control back to the app; Chrome may want a tap on its button first. The
+# trip's screen is where it was left, at its total.
+- extendedWaitUntil:
+    visible: 'Open the Suskii app|Trip total'
+    timeout: 60000
+- runFlow:
+    when:
+      visible: Open the Suskii app
+    commands:
+      - tapOn: Open the Suskii app
+- extendedWaitUntil:
+    visible:
+      id: built-trip
+    timeout: 60000
+
+# The verified webhook settles every booking; each part is then confirmed on its own.
+- scrollUntilVisible:
+    element:
+      id: built-trip-paid
+    direction: UP
+    timeout: 120000
+- scrollUntilVisible:
+    element:
+      text: Confirmed
+      childOf:
+        id: trip-part-flight
+    timeout: 120000
+- scrollUntilVisible:
+    element:
+      text: Confirmed
+      childOf:
+        id: trip-part-hotel
+    timeout: 120000
+- scrollUntilVisible:
+    element:
+      text: Confirmed
+      childOf:
+        id: trip-part-insurance
+    timeout: 120000

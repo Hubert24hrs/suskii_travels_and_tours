@@ -1,0 +1,16 @@
+# Checkout while a part of a combined trip is being chosen (ADR-099): the screen says the booking
+# joins the trip, takes no payment, and returns to the trip, where the part now has a price.
+appId: com.suskii.travels.e2e
+---
+- scrollUntilVisible:
+    element:
+      id: trip-banner
+- scrollUntilVisible:
+    element:
+      id: checkout-submit
+- tapOn:
+    id: checkout-submit
+- extendedWaitUntil:
+    visible:
+      id: built-trip
+    timeout: 60000
