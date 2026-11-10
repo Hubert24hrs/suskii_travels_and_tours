@@ -62,15 +62,15 @@ payment, and never an instruction (ADR-107).
 
 ### Retention
 
-| Data                                         | Kept                                                                                                          |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Conversations and messages                   | `AGENT_CONVERSATION_RETENTION_DAYS` after the last message (default 365), or until the traveller deletes them |
-| Checkpoints                                  | until the thread has been idle 30 days (ADR-103)                                                              |
-| Runs and tool calls                          | 400 days                                                                                                      |
-| Scrape jobs and attempts                     | 90 days                                                                                                       |
-| Price observations                           | 400 days, as fare history is (ADR-080)                                                                        |
-| Page snapshots in object storage             | 7 days                                                                                                        |
-| Approvals and assisted quotes with a booking | with the financial records                                                                                    |
+| Data                                         | Kept                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------- |
+| Conversations and messages                   | 365 days after the last message, or until the traveller deletes them |
+| Checkpoints                                  | until the thread has been idle 30 days (ADR-103)                     |
+| Runs and tool calls                          | 400 days                                                             |
+| Scrape jobs and attempts                     | 90 days                                                              |
+| Price observations                           | 400 days, as fare history is (ADR-080)                               |
+| Page snapshots in object storage             | 7 days                                                               |
+| Approvals and assisted quotes with a booking | with the financial records                                           |
 
 ## Rejected
 

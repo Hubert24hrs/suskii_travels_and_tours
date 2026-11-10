@@ -452,6 +452,32 @@ export const envSchema = z
     AI_SEARCH_USER_DAILY_MICROUSD: z.coerce.number().int().min(0).default(50_000),
     AI_SEARCH_GLOBAL_DAILY_MICROUSD: z.coerce.number().int().min(0).default(20_000_000),
     /**
+     * Suskii Agent (ADR-101 to ADR-107) and price intelligence (ADR-102): on outside production,
+     * off in production unless set. Ordinary search and booking never depend on either.
+     */
+    AGENT_ENABLED: booleanish.optional(),
+    PRICE_INTEL_ENABLED: booleanish.optional(),
+    /** Where the API reaches the agent service; unset means the agent is unavailable. */
+    AGENT_URL: z.url().optional(),
+    /** A private network only: allows an http AGENT_URL in production (ADR-038). */
+    AGENT_ALLOW_PLAINTEXT: booleanish.default(false),
+    /** The API's token to the agent service, and the agent's token to the tool gateway. */
+    AGENT_RUN_TOKEN: z.string().min(32).optional(),
+    AGENT_TOOLS_TOKEN: z.string().min(32).optional(),
+    /** A grant lives for one run: the run's time limit and a margin. */
+    AGENT_GRANT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
+    AGENT_RUN_TIMEOUT_MS: z.coerce.number().int().min(5000).max(600_000).default(120_000),
+    /** Tool calls one run may make through the gateway. */
+    AGENT_RUN_MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(100).default(24),
+    /**
+     * Spend in micro-dollars: reserved for a run before it starts, and the daily caps per
+     * signed-in traveller, per guest address and for everyone together (the ADR-061 pattern).
+     */
+    AGENT_RUN_RESERVE_MICROUSD: z.coerce.number().int().min(0).default(60_000),
+    AGENT_USER_DAILY_MICROUSD: z.coerce.number().int().min(0).default(500_000),
+    AGENT_GUEST_DAILY_MICROUSD: z.coerce.number().int().min(0).default(120_000),
+    AGENT_GLOBAL_DAILY_MICROUSD: z.coerce.number().int().min(0).default(50_000_000),
+    /**
      * Partner offers and affiliate tracking (ADR-069, ADR-070): on outside production, off in
      * production unless set. The mock network and mock activities only outside production unless
      * ALLOW_MOCK_PROVIDERS.
@@ -1049,6 +1075,24 @@ export const envSchema = z
     // AI trip search is off in production unless set (ADR-061); when on it needs a real model.
     if (env.AI_SEARCH_ENABLED && !env.ALLOW_MOCK_PROVIDERS && env.LLM_PROVIDER === 'mock')
       require('LLM_PROVIDER', 'the mock model is not allowed in production');
+    // The agent is off in production unless set (ADR-101). When on, the API needs the service's
+    // address over TLS and two tokens that open nothing else.
+    if (env.AGENT_ENABLED) {
+      if (!env.AGENT_URL)
+        require('AGENT_URL', 'is required in production while AGENT_ENABLED is set');
+      else if (!env.AGENT_ALLOW_PLAINTEXT && !env.AGENT_URL.startsWith('https://'))
+        require('AGENT_URL', 'must use https in production; AGENT_ALLOW_PLAINTEXT is only for a private network');
+      for (const key of ['AGENT_RUN_TOKEN', 'AGENT_TOOLS_TOKEN'] as const) {
+        const token = env[key];
+        if (!token) require(key, 'is required in production while AGENT_ENABLED is set');
+        else if (token.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
+          require(key, 'the local development token is not allowed in production');
+        else if (token === env.INTERNAL_API_TOKEN)
+          require(key, "must differ from INTERNAL_API_TOKEN: the worker's token must not open agent routes");
+      }
+      if (env.AGENT_RUN_TOKEN && env.AGENT_RUN_TOKEN === env.AGENT_TOOLS_TOKEN)
+        require('AGENT_TOOLS_TOKEN', 'must differ from AGENT_RUN_TOKEN');
+    }
     // Partner offers are off in production unless set (ADR-070); when on they need real partners.
     if (env.PARTNER_OFFERS_ENABLED && !env.ALLOW_MOCK_PROVIDERS) {
       if (env.AFFILIATE_NETWORK === 'mock')

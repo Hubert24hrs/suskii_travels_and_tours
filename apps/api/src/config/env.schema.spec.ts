@@ -400,6 +400,61 @@ describe('parseEnv', () => {
     ).toThrow(/INTERNAL_API_TOKEN: the local development token is not allowed in production/);
   });
 
+  it('leaves the agent off in production, and needs its address and two tokens of its own when on (ADR-101)', () => {
+    const env = parseEnv(base);
+    expect(env.AGENT_ENABLED).toBeUndefined();
+    expect(env.PRICE_INTEL_ENABLED).toBeUndefined();
+    expect(env.AGENT_GRANT_TTL_SECONDS).toBe(600);
+    expect(env.AGENT_RUN_MAX_TOOL_CALLS).toBe(24);
+    const production = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({ ...base, NODE_ENV: 'production', ...overrides });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    // Off: nothing about the agent is asked for.
+    expect(production({})).not.toContain('AGENT_');
+    const on = production({ AGENT_ENABLED: 'true' });
+    expect(on).toContain('AGENT_URL: is required in production while AGENT_ENABLED is set');
+    expect(on).toContain('AGENT_RUN_TOKEN: is required in production while AGENT_ENABLED is set');
+    expect(on).toContain('AGENT_TOOLS_TOKEN: is required in production while AGENT_ENABLED is set');
+
+    const worker = 'w'.repeat(40);
+    const configured = {
+      AGENT_ENABLED: 'true',
+      AGENT_URL: 'https://agent.internal.example',
+      AGENT_RUN_TOKEN: 'r'.repeat(40),
+      AGENT_TOOLS_TOKEN: 't'.repeat(40),
+      INTERNAL_API_TOKEN: worker,
+    };
+    expect(production(configured)).not.toContain('AGENT_');
+    expect(production({ ...configured, AGENT_URL: 'http://agent.internal.example' })).toContain(
+      'AGENT_URL: must use https in production',
+    );
+    expect(
+      production({
+        ...configured,
+        AGENT_URL: 'http://agent.internal.example',
+        AGENT_ALLOW_PLAINTEXT: 'true',
+      }),
+    ).not.toContain('AGENT_URL');
+    // The worker's token must not open agent routes, and one token must not do both jobs.
+    expect(production({ ...configured, AGENT_TOOLS_TOKEN: worker })).toContain(
+      'AGENT_TOOLS_TOKEN: must differ from INTERNAL_API_TOKEN',
+    );
+    expect(production({ ...configured, AGENT_TOOLS_TOKEN: configured.AGENT_RUN_TOKEN })).toContain(
+      'AGENT_TOOLS_TOKEN: must differ from AGENT_RUN_TOKEN',
+    );
+    expect(
+      production({
+        ...configured,
+        AGENT_RUN_TOKEN: `${LOCAL_INTERNAL_TOKEN_PREFIX}agent-run-token-change-me`,
+      }),
+    ).toContain('AGENT_RUN_TOKEN: the local development token is not allowed in production');
+  });
+
   it('takes company wallet top-up limits per currency, replacing the defaults (ADR-090)', () => {
     expect(parseEnv(base).COMPANY_WALLET_TOPUP_LIMITS).toEqual(DEFAULT_COMPANY_TOPUP_LIMITS);
     expect(
