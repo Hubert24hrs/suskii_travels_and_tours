@@ -394,13 +394,15 @@ export function priceFromText(text: string, marketCurrency: string): Money | nul
 export function normaliseDomain(input: string): string | null {
   const text = input.trim().toLowerCase();
   if (text.length === 0 || text.length > 253) return null;
-  let host: string;
-  try {
-    host = new URL(text.includes('://') ? text : `https://${text}`).hostname;
-  } catch {
-    return null;
-  }
-  host = host.replace(/\.$/, '').replace(/^www\./, '');
+  // No `URL` here: this package runs where there is none (no DOM or Node library types).
+  let host = text.replace(/^[a-z][a-z0-9+.-]*:\/\//, '');
+  host = host.split(/[/?#]/)[0] ?? '';
+  // Credentials in a host are never part of a domain.
+  if (host.includes('@')) return null;
+  host = host
+    .replace(/:\d{1,5}$/, '')
+    .replace(/\.$/, '')
+    .replace(/^www\./, '');
   // A registrable name: labels of letters, digits and hyphens, at least one dot, no IP address.
   if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/.test(host)) return null;
   return host;

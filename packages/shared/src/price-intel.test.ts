@@ -60,6 +60,7 @@ describe('source policies (ADR-102)', () => {
       'example-hotels.com',
     );
     expect(normaliseDomain('fares.example.co.uk.')).toBe('fares.example.co.uk');
+    expect(normaliseDomain('user:secret@example.com')).toBeNull();
     for (const bad of [
       '',
       'localhost',
