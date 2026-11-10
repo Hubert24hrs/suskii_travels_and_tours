@@ -27,6 +27,7 @@ import { daysFromToday, fromIso, toIso } from '../../lib/dates';
 import { toFieldErrors, type FieldErrors } from '../../lib/form-issues';
 import { useNaturalSearchStatus, type NaturalSearchResult } from '../../lib/natural-search';
 import { useT } from '../../providers/app-provider';
+import { Checkbox } from '../booking/form-controls';
 
 import { DescribeTrip } from './describe-trip';
 import { PlaceField, type PlaceOption } from './place-field';
@@ -293,8 +294,33 @@ export function FlightSearchForm({ initial }: { initial?: FlightFormDraft }) {
           onValueChange={(cabinClass) => update({ cabinClass })}
         />
       </ScrollView>
+      <View>
+        <Checkbox
+          testID="search-direct"
+          label={t('search.flights.directOnly')}
+          checked={draft.directOnly}
+          onChange={(directOnly) => update({ directOnly })}
+        />
+        {/* Prices on the days around the search (ADR-093); a multi-city trip has no such strip. */}
+        {draft.tripType === 'multi_city' ? null : (
+          <Checkbox
+            testID="search-flexible"
+            label={t('search.flights.flexibleDates')}
+            checked={draft.flexibleDates}
+            onChange={(flexibleDates) => update({ flexibleDates })}
+          />
+        )}
+      </View>
       <Button testID="search-submit" fullWidth onPress={submit}>
         {t('search.flights.submit')}
+      </Button>
+      {/* A booking takes up to nine travellers; larger groups are a request (ADR-093). */}
+      <Button
+        testID="search-group-request"
+        variant="ghost"
+        onPress={() => router.push('/search/groups')}
+      >
+        {t('search.flights.groupLink')}
       </Button>
     </View>
   );

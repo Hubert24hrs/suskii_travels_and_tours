@@ -333,10 +333,13 @@ export function SupportConversationScreen() {
           title: t('support.conversation.title', { reference: conversation.reference }),
         }}
       />
-      <View testID="support-status">
+      <View testID="support-status" className="flex-row flex-wrap items-center gap-2">
         <Badge variant={STATUS_VARIANT[conversation.status]}>
           {t(`support.status.${conversation.status}`)}
         </Badge>
+        {conversation.topic ? (
+          <Badge variant="neutral">{t(`support.topics.${conversation.topic}`)}</Badge>
+        ) : null}
       </View>
       {conversation.messages.map((message) => (
         <View

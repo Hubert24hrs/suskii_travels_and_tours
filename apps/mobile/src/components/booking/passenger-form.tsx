@@ -2,11 +2,13 @@ import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
 import {
   GENDERS,
+  MEAL_REQUESTS,
   PASSENGER_TITLES,
   transliterateName,
   type CheckoutIssue,
   type FieldIssues,
   type GuestDraft,
+  type MealRequest,
   type PassengerDraft,
 } from '@suskii/shared';
 import { Card, Input } from '@suskii/ui-native';
@@ -34,6 +36,7 @@ export function PassengerForm({
   warnings,
   passport,
   bag,
+  meals,
 }: {
   index: number;
   label: string;
@@ -45,10 +48,17 @@ export function PassengerForm({
   passport: 'required' | 'optional' | 'none';
   /** The flight's checked bag, price per bag in the display currency; none for lap infants. */
   bag?: Schemas['FlightService'] | undefined;
+  /** The fare takes a meal request per traveller with a seat (`{testID}.meal-{value}`). */
+  meals?: boolean | undefined;
 }) {
   const { t } = useT();
   const format = useFormatters();
   const prefix = `passengers.${index}`;
+  // Lap infants have no meal of their own; the child's meal is for children.
+  const mealOptions: readonly MealRequest[] =
+    meals && passenger.type !== 'infant'
+      ? MEAL_REQUESTS.filter((meal) => meal !== 'child' || passenger.type === 'child')
+      : [];
   const error = (field: string) => issueText(t, errors[`${prefix}.${field}`]);
   const given = transliterateName(passenger.givenNames);
   const surname = transliterateName(passenger.surname);
@@ -178,6 +188,27 @@ export function PassengerForm({
             onChange={(count) => onChange({ bags: Number(count) })}
             testID={`${prefix}.bags`}
           />
+        ) : null}
+        {mealOptions.length > 0 ? (
+          <View className="gap-1">
+            <ChoiceChips<MealRequest | 'none'>
+              label={t('checkout.meal.label', { name: given ?? label })}
+              options={[
+                { value: 'none', label: t('checkout.meal.none') },
+                ...mealOptions.map((meal) => ({
+                  value: meal,
+                  label: t(`checkout.meal.options.${meal}`),
+                })),
+              ]}
+              value={
+                passenger.meal === undefined || passenger.meal === '' ? 'none' : passenger.meal
+              }
+              onChange={(meal) => onChange({ meal: meal === 'none' ? '' : meal })}
+              error={error('meal')}
+              testID={`${prefix}.meal`}
+            />
+            <Text className="font-body text-caption text-muted">{t('checkout.meal.help')}</Text>
+          </View>
         ) : null}
       </Card>
     </View>

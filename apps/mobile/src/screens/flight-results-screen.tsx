@@ -8,7 +8,9 @@ import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { FlexibleDates } from '../components/results/flexible-dates';
 import { FlightOfferCard } from '../components/results/flight-offer-card';
+import { NearbyAirports } from '../components/results/nearby-airports';
 import { WatchRoute } from '../components/results/watch-route';
 import { Loading, Notice } from '../components/states';
 import { useApp, useT } from '../providers/app-provider';
@@ -90,10 +92,10 @@ export function FlightResultsScreen() {
     null,
   );
 
-  const request = useMemo(() => {
-    const { form } = parseFlightSearchParams(params);
-    return form ? toFlightSearchRequest(form) : null;
-  }, [params]);
+  const form = useMemo(() => parseFlightSearchParams(params).form, [params]);
+  const request = useMemo(() => (form ? toFlightSearchRequest(form) : null), [form]);
+  // Flexible dates and nearby airports move a one-way or return search; multi-city has neither.
+  const route = form && form.tripType !== 'multi_city' ? form : null;
   const travellers = request
     ? request.passengers.adults + request.passengers.children + request.passengers.infants
     : 1;
@@ -243,15 +245,39 @@ export function FlightResultsScreen() {
             {first?.status === 'partial' ? (
               <Text className="font-body text-body-sm text-foreground">{t('results.partial')}</Text>
             ) : null}
-            <WatchRoute request={request} currency={currency} />
+            {/* Fares come first: one row of actions here, nearby airports under the list. */}
+            <View className="flex-row flex-wrap items-start gap-2">
+              <WatchRoute request={request} currency={currency} />
+              {route && !route.flexibleDates ? (
+                <Button
+                  testID="flexible-dates-show"
+                  variant="ghost"
+                  onPress={() => router.setParams({ flex: '1' })}
+                >
+                  {t('results.flexible.show')}
+                </Button>
+              ) : null}
+            </View>
+            {route?.flexibleDates ? (
+              <FlexibleDates
+                request={request}
+                currency={currency}
+                onChoose={(day) =>
+                  router.setParams({
+                    depart: day.departureDate,
+                    ...(day.returnDate ? { return: day.returnDate } : {}),
+                  })
+                }
+              />
+            ) : null}
           </View>
         }
         ListEmptyComponent={
           <Notice body={filtered ? t('mobile.search.noResults') : t('results.flights.none')} />
         }
         ListFooterComponent={
-          offers.hasNextPage ? (
-            <View className="p-4">
+          <View className="gap-4 p-4">
+            {offers.hasNextPage ? (
               <Button
                 variant="ghost"
                 loading={offers.isFetchingNextPage}
@@ -259,8 +285,15 @@ export function FlightResultsScreen() {
               >
                 {t('results.flights.loadMore')}
               </Button>
-            </View>
-          ) : null
+            ) : null}
+            {route ? (
+              <NearbyAirports
+                origin={route.origin}
+                destination={route.destination}
+                onChoose={(change) => router.setParams(change)}
+              />
+            ) : null}
+          </View>
         }
         renderItem={({ item }) => (
           <FlightOfferCard

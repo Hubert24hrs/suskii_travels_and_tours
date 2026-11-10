@@ -35,6 +35,7 @@ const conversation = (
   id: ID,
   reference: 'S-7Q2M4K',
   category: 'booking_change',
+  topic: null,
   status: 'open',
   booking: null,
   lastMessageAt: '2026-10-28T09:00:00.000Z',
