@@ -79,6 +79,12 @@ Check: `pnpm smoke --api https://<api host> --web https://<web host> --admin htt
 9. **Hotel photos** (ADR-096): after the Duffel Stays sandbox run, add the host its photo URLs
    use to the website's `IMAGE_REMOTE_HOSTS` (GitHub environment variable). Without it the
    website shows Duffel hotels without photographs; the app shows them either way.
+10. **Hotel map and deals** (ADR-097): the map view shows hotels as pins without streets and
+    links to the traveller's maps app. For a street map, choose a **tile provider** (MapTiler,
+    Mapbox, Google Maps Platform or a self-hosted server) and tell Claude; it must also be named
+    in the privacy policy. Confirm the deal rule (15% below the usual price of the star class,
+    at least five hotels to compare, guest score 7 or more). "Things to do" on hotel pages
+    shows once Viator is connected (section 4).
 
 ### 1.4 Text messages (sign-in codes, booking and safety alerts)
 

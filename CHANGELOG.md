@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Feature parity, part 5: hotel collections, deals, a map and recent searches (2026-11-10)
+
+Part 5 of `docs/phases/feature-parity.md` (ADR-097):
+
+#### Added
+
+- **Collections.** Deals, Family, Luxury, Honeymoon and Long stays as chips over hotel results on
+  the website and in the app. Each is a fixed rule over what the supplier says about a property,
+  and the rule is printed when a collection is chosen.
+- **Deals.** A hotel at least 15% below the usual (median) price of its star class in the search
+  carries "{percent}% below similar hotels". It needs five hotels of the class to compare with
+  and a guest score of 7 or more.
+- **Map view.** The results as pins placed by their coordinates; choosing a pin shows the hotel
+  and "Open in maps". No map tiles are loaded and nothing is sent to a map provider.
+- **Things to do** in the hotel's city on the hotel page, from the activities partner.
+- **Continue your search.** The last three hotel searches, kept on the device only, with "Clear".
+- **Last-minute deals.** "Tonight in {city}" on the website's hotels page.
+- Hotel responses gain `deal`, `collections` and the facet `collections`; the hotel results
+  query takes `collection`.
+
+#### Fixed
+
+- The status page test waited on a canonical link that briefly exists twice after a client
+  navigation.
+
 ### Feature parity, part 4: hotel photos, property types and room details (2026-11-10)
 
 Part 4 of `docs/phases/feature-parity.md` (ADR-096):
