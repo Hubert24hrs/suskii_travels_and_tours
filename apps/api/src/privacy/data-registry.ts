@@ -726,6 +726,34 @@ export const DATA_REGISTRY = {
   AgentSetting: reference(
     'Autonomy levels of agents and tools (ADR-107). Who changed one is in the audit log.',
   ),
+  // --- Price intelligence (ADR-102): public prices, nothing about a person -------------------
+  PriceSource: reference(
+    'A website whose public prices may be read: its market, products, page addresses and recipes. No personal data.',
+  ),
+  SourcePolicy: reference(
+    'The rules for reading one site: status, basis and its document reference, vendors, proxy limit, rate and night window. Who decided is in the audit log.',
+  ),
+  ProviderBudget: reference(
+    'Daily and monthly spend caps per vendor or site, in micro-dollars. No personal data.',
+  ),
+  ScrapeJob: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'scrape-jobs' },
+    note: 'One question put to one site (places, dates and head counts; never a person), how it ended and what it cost. Purged after 90 days.',
+  },
+  ScrapeAttempt: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'price-snapshots' },
+    note: 'One try with one vendor: proxy class, outcome code, timing and cost; the row goes with its job. A page that could not be read into a price is kept in object storage for 7 days and then removed by this rule.',
+  },
+  PriceObservation: {
+    section: null,
+    deletion: 'none',
+    retention: { kind: 'rule', rule: 'price-observations' },
+    note: 'A price seen on a site: amount, currency, public facts of what was priced, a confidence score and a hash of the page. No field for a person. Purged after 400 days, as fare history is.',
+  },
 } as const satisfies Record<Prisma.ModelName, DataTreatment>;
 
 export type RegisteredModel = keyof typeof DATA_REGISTRY;
