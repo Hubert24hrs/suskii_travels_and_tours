@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkGrounding, figuresIn, outcomeClaims, unsupportedOutcomes } from './agent-grounding';
+import {
+  checkGrounding,
+  figuresIn,
+  leaksInstructions,
+  namedTools,
+  outcomeClaims,
+  unsupportedOutcomes,
+} from './agent-grounding';
 
 describe('figures', () => {
   it('reads grouped amounts, dates and times as plain numbers', () => {
@@ -100,5 +107,75 @@ describe('outcomes only the records may state (ADR-107)', () => {
     expect(
       unsupportedOutcomes('It was refunded.', [{ key: 'refund.status', value: 'succeeded' }]),
     ).toEqual([]);
+  });
+});
+
+describe('disclosure', () => {
+  const RULES = [
+    'You are the flights specialist of SUSKII T&T: you help travellers find flights, compare options and understand fares, bags and seats.',
+    'You cannot book, pay, refund, cancel, change or confirm anything, and you never take payment or card details in chat. Never say that something was booked, paid, refunded, cancelled or confirmed unless the status in a tool result says so.',
+  ];
+
+  it('catches instructions read back word for word, in any case and punctuation', () => {
+    expect(
+      leaksInstructions(
+        'Sure! My instructions say: "You are the flights specialist of SUSKII T&T: you help travellers find flights, compare options and understand fares".',
+        RULES,
+      ),
+    ).toBe(true);
+    expect(
+      leaksInstructions(
+        'NEVER SAY THAT SOMETHING WAS BOOKED PAID REFUNDED CANCELLED OR CONFIRMED UNLESS THE STATUS SAYS SO',
+        RULES,
+      ),
+    ).toBe(true);
+  });
+
+  it('lets an honest answer about its limits through', () => {
+    // Nine words in a row with the rule it paraphrases: not a leak.
+    expect(
+      leaksInstructions(
+        'I cannot book, pay, refund, cancel, change or confirm anything myself, but I can show you where to do it.',
+        RULES,
+      ),
+    ).toBe(false);
+    expect(leaksInstructions('I help travellers find flights.', RULES)).toBe(false);
+    expect(leaksInstructions('', RULES)).toBe(false);
+    expect(leaksInstructions('Anything at all, as long as you like it to be.', [])).toBe(false);
+  });
+
+  it('finds the tools an answer names, as the registry or as a model writes them', () => {
+    const tools = ['flights.search', 'bookings.get', 'support.handover'];
+    expect(namedTools('I can call flights.search and bookings__get for you.', tools)).toEqual([
+      'flights.search',
+      'bookings.get',
+    ]);
+    expect(namedTools('I can search flights and look at your bookings.', tools)).toEqual([]);
+  });
+});
+
+describe('how something is paid is not a payment', () => {
+  it('reads a rule about where or how a fee is paid as no claim', () => {
+    for (const rule of [
+      'The government fee is paid separately.',
+      'The balance is paid at the hotel when you arrive.',
+      'City tax is paid on arrival.',
+      'The deposit is paid directly to the branch.',
+      'La taxe de séjour est payée sur place.',
+    ]) {
+      expect([rule, outcomeClaims(rule)]).toEqual([rule, []]);
+    }
+  });
+
+  it('still reads a payment that is said to have arrived as one', () => {
+    for (const claim of [
+      'Your booking is paid.',
+      'It is paid in full.',
+      'Your payment was received.',
+      'Votre réservation est payée.',
+      'The fee was paid at 10:25 today.',
+    ]) {
+      expect([claim, outcomeClaims(claim)]).toEqual([claim, ['paid']]);
+    }
   });
 });

@@ -88,8 +88,11 @@ export {
 } from './agent';
 export {
   AGENT_OUTCOME_CLAIMS,
+  INSTRUCTION_LEAK_WORDS,
   checkGrounding,
   figuresIn,
+  leaksInstructions,
+  namedTools,
   outcomeClaims,
   unsupportedOutcomes,
   type AgentOutcomeClaim,

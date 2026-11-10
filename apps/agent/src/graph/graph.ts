@@ -10,6 +10,8 @@ import {
   AGENT_ANSWER_MAX,
   CUSTOMER_AGENTS,
   checkGrounding,
+  leaksInstructions,
+  namedTools,
   unsupportedOutcomes,
   type AgentAnswer,
   type AgentCard,
@@ -71,6 +73,12 @@ export interface TurnState {
   prompts: string[];
   /** This turn as the model sees it: the traveller's words, tool calls and their results. */
   messages: ModelMessage[];
+  /**
+   * What the traveller wrote in this turn, and nothing else: an answer may rest on it. The
+   * model's own drafts and the guard's notes to the model are in `messages` and never here, or
+   * a refused answer would become its own source.
+   */
+  said: string[];
   steps: number;
   usage: AgentModelUsage[];
   /** What tools returned in this turn, as the model read it: what an answer may rest on. */
@@ -92,6 +100,7 @@ const emptyTurn = (): TurnState => ({
   agents: [],
   prompts: [],
   messages: [],
+  said: [],
   steps: 0,
   usage: [],
   sources: [],
@@ -261,7 +270,10 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
   // --- begin: a new message starts a turn ------------------------------------------------------
   const begin = (state: AgentStateValue): Partial<AgentStateValue> => {
     const text = state.input ?? '';
-    return { input: null, turn: { ...emptyTurn(), messages: [{ role: 'user', text }] } };
+    return {
+      input: null,
+      turn: { ...emptyTurn(), messages: [{ role: 'user', text }], said: [text] },
+    };
   };
 
   // --- route: which specialist answers ---------------------------------------------------------
@@ -511,6 +523,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
       turn: {
         ...turn,
         messages,
+        said: resumed.next ? [...turn.said, resumed.next] : turn.said,
         pending: null,
         result: null,
         draft: null,
@@ -527,9 +540,12 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
     const { turn } = state;
     const draft = turn.draft ?? '';
     emit({ type: 'status', agent: turn.agent, phase: 'checking' });
-    const spoken = [...state.history, ...turn.messages].flatMap((message) =>
-      message.role === 'tool' ? [] : [message.text],
-    );
+    // Earlier turns hold the traveller's words and answers that passed this check; of this
+    // turn, only what the traveller wrote counts.
+    const spoken = [
+      ...state.history.flatMap((message) => (message.role === 'tool' ? [] : [message.text])),
+      ...turn.said,
+    ];
     const grounding = checkGrounding(draft, [
       ...turn.sources.map((source) => source.text),
       ...spoken,
@@ -537,8 +553,18 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
     ]);
     const outcomes = unsupportedOutcomes(draft, turn.statuses);
     const tooLong = draft.length > AGENT_ANSWER_MAX;
+    // Its own instructions read back, or its tools by name: not something a traveller is told.
+    const disclosed =
+      leaksInstructions(draft, [
+        ROUTER_PROMPT.render(context),
+        promptFor(turn.agent).render(context),
+      ]) ||
+      namedTools(
+        draft,
+        deps.tools.map((tool) => tool.name),
+      ).length > 0;
 
-    if (grounding.ok && outcomes.length === 0 && !tooLong) {
+    if (grounding.ok && outcomes.length === 0 && !tooLong && !disclosed) {
       const answer: AgentAnswer = {
         kind: turn.handover ? 'handover' : 'text',
         text: draft,
@@ -572,6 +598,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
                   figures: grounding.figures,
                   contact: grounding.issues.includes('contact'),
                   outcomes,
+                  disclosed,
                 }),
           },
         ],
@@ -597,7 +624,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
     return {
       history: history[0]?.role === 'assistant' ? history.slice(1) : history,
       lastAgent: turn.agent,
-      turn: { ...turn, messages: [], sources: [], draft: null },
+      turn: { ...turn, messages: [], said: [], sources: [], draft: null },
     };
   };
 

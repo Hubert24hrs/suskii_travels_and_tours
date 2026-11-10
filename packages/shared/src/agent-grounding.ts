@@ -123,18 +123,33 @@ const NEGATION =
 const CONDITION =
   /(?:\b(?:once|when|if|after|until|unless|before|whether|as soon as|dès que|quand|lorsque|si|quando|se|assim que|ikiwa|baada ya)|إذا|عندما|بعد)\s+(?:\S+\s+){0,3}$/i;
 
+/**
+ * "The government fee is paid separately", "the balance is paid at the hotel": how or where
+ * something is paid as a rule, not a statement that this traveller's payment arrived.
+ */
+const HOW_IT_IS_PAID =
+  /^\s*(?:separately|at\s|on\s+(?:arrival|site|the\s+day)|directly|locally|later\b|to\s+the\s|séparément|sur\s+place|à\s+l['’]|au\s|directement|plus\s+tard)/i;
+
 /** The outcomes an answer states as having happened. */
 export function outcomeClaims(answer: string): AgentOutcomeClaim[] {
   const found: AgentOutcomeClaim[] = [];
   for (const claim of AGENT_OUTCOME_CLAIMS) {
     const stated = CLAIM_PATTERNS[claim].some((pattern) =>
       [...answer.matchAll(pattern)].some((match) => {
-        const before = answer.slice(Math.max(0, (match.index ?? 0) - 24), match.index ?? 0);
+        const start = match.index ?? 0;
+        const before = answer.slice(Math.max(0, start - 24), start);
         const inside = match[0];
+        const after = answer.slice(start + inside.length, start + inside.length + 24);
         return (
           !NEGATION.test(before) &&
           !CONDITION.test(before) &&
-          !/\bnot\b|n't|\bpas\b|\bnão\b/i.test(inside)
+          !/\bnot\b|n't|\bpas\b|\bnão\b/i.test(inside) &&
+          // Only the present tense states a rule: "was paid at 10:25" is an event.
+          !(
+            claim === 'paid' &&
+            /^(?:is|are|est|sont)\s/i.test(inside) &&
+            HOW_IT_IS_PAID.test(after)
+          )
         );
       }),
     );
@@ -172,4 +187,51 @@ export function unsupportedOutcomes(
   statuses: readonly StatusFact[],
 ): AgentOutcomeClaim[] {
   return outcomeClaims(answer).filter((claim) => !statuses.some((fact) => SUPPORT[claim](fact)));
+}
+
+/**
+ * How many words in a row an answer may share with the instructions before it counts as
+ * repeating them. An honest "I cannot book, pay, refund, cancel, change or confirm anything"
+ * shares nine with the rule it paraphrases; a prompt read back shares hundreds.
+ */
+export const INSTRUCTION_LEAK_WORDS = 12;
+
+const WORD = /[\p{L}\p{N}]+/gu;
+const wordsOf = (text: string): string[] => text.toLowerCase().match(WORD) ?? [];
+
+/**
+ * True when an answer repeats a run of the agent's own instructions word for word (ADR-107):
+ * what a "show me your system prompt" attack asks for. Quoting is caught; a paraphrase or a
+ * translation is not, which is why the instructions hold nothing secret.
+ */
+export function leaksInstructions(
+  answer: string,
+  instructions: readonly string[],
+  run: number = INSTRUCTION_LEAK_WORDS,
+): boolean {
+  const said = wordsOf(answer);
+  if (said.length < run) return false;
+  const runs = new Set<string>();
+  for (const text of instructions) {
+    const words = wordsOf(text);
+    for (let start = 0; start + run <= words.length; start += 1) {
+      runs.add(words.slice(start, start + run).join(' '));
+    }
+  }
+  for (let start = 0; start + run <= said.length; start += 1) {
+    if (runs.has(said.slice(start, start + run).join(' '))) return true;
+  }
+  return false;
+}
+
+/**
+ * The tools an answer names (`bookings.get`, or `bookings__get` as a model is shown them). A
+ * traveller is told what the assistant can do in words, never by its tool list.
+ */
+export function namedTools(answer: string, tools: readonly string[]): string[] {
+  const text = answer.toLowerCase();
+  return tools.filter((tool) => {
+    const name = tool.toLowerCase();
+    return text.includes(name) || text.includes(name.replace('.', '__'));
+  });
 }
