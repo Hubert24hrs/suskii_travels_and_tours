@@ -70,6 +70,11 @@ const envSchema = z
     REVIEW_INVITATION_SWEEP_MINUTES: minutes(60),
     /** Server-side ad conversions of paid, consented bookings (ADR-079). */
     AD_CONVERSION_SWEEP_MINUTES: minutes(5),
+    /**
+     * How often the API is asked to re-read stale price answers (ADR-102). Each site is only
+     * read inside its own night window, so most ticks read nothing.
+     */
+    PRICE_INTEL_SWEEP_MINUTES: minutes(30),
     /** How often records past their retention period are purged (ADR-039). */
     RETENTION_SWEEP_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
 

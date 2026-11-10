@@ -59,6 +59,11 @@ const SNAPSHOT_MAX_CHARS = 512 * 1024;
 /** Questions one sweep re-reads per site, and in all. */
 const SWEEP_PER_SOURCE = 10;
 const SWEEP_TOTAL = 40;
+/**
+ * A sweep starts no read after this long, so with one read's own limit on top it answers the
+ * worker inside its five minutes. What is left waits for the next sweep.
+ */
+const SWEEP_BUDGET_MS = 200_000;
 
 /** Deletes a single-flight key only while it still holds our token. */
 const RELEASE = `
@@ -387,12 +392,15 @@ export class PriceIntelService {
       include: { policy: true },
     });
     const today = now.toISOString().slice(0, 10);
+    const started = Date.now();
+    const spent = (): boolean =>
+      read + failed >= SWEEP_TOTAL || Date.now() - started >= SWEEP_BUDGET_MS;
     let inWindow = 0;
     let read = 0;
     let failed = 0;
     for (const source of sources) {
       const policy = source.policy;
-      if (!policy || read + failed >= SWEEP_TOTAL) break;
+      if (!policy || spent()) break;
       const hour = Number(utcToLocal(now, policy.timeZone).slice(11, 13));
       if (!inNightWindow(hour, policy.nightStartHour, policy.nightEndHour)) continue;
       inWindow += 1;
@@ -408,7 +416,7 @@ export class PriceIntelService {
       });
       const seen = new Set<string>();
       for (const job of recent) {
-        if (seen.size >= SWEEP_PER_SOURCE || read + failed >= SWEEP_TOTAL) break;
+        if (seen.size >= SWEEP_PER_SOURCE || spent()) break;
         if (seen.has(job.canonicalKey)) continue;
         const query = job.query as PriceQuery;
         // A question about a day that has passed is nobody's question any more.
