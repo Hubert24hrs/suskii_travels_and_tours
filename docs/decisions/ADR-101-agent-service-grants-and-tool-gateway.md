@@ -101,3 +101,28 @@ assistant. Search, checkout, payment and the console never call the agent servic
 - Every action an agent can take is listed in one registry, with a test that the registry holds
   no tool for refunds, captures, payouts, ledger postings or price rules.
 - A new route prefix under `/v1/internal`, which the edge already blocks.
+
+## Amendments made while building it
+
+- **Chat answers 202 and the stream is a GET.** `POST /v1/agent/chat` stores the message, starts
+  the run in the background and answers `202` with the run id and the stored message. The
+  events are read from `GET /v1/agent/runs/{runId}/stream` (server-sent events, resumable with
+  `Last-Event-ID` or `?after=`) or polled from `GET /v1/agent/runs/{runId}?after=`; both read
+  the same log. A write that streams cannot carry an `Idempotency-Key` answer or be retried
+  safely, and the app's fetch does not stream a POST body's answer; a GET can be resumed by any
+  client.
+- **No words are streamed before they are checked.** The wire between the agent service and the
+  API has two events: `status` (which agent, which phase, which tool) and one `end`. An answer
+  reaches the API, and a traveller, only after the guard has passed it (ADR-107), so there are
+  no text deltas to take back. Clients show the status lines while they wait.
+- **What the assistant says without a model is a code.** A greeting, a limit, a timeout, a
+  pause and "cannot answer" are notices (`AGENT_NOTICES`); the clients hold the words in their
+  catalogs, in the traveller's language. The agent service writes no copy.
+- **`AGENT_SERVICE=mock`** runs an assistant inside the API that says one fixed sentence, for
+  tests and for a stack without the agent service; production refuses it unless mocks are
+  allowed. With it the API needs no `AGENT_URL` and no run token.
+- **A run whose answer cannot be stored is closed as failed** and its last event sent, so a
+  conversation never looks busy until the time limit; its spend reservation stands, since the
+  model may have been billed.
+- **The service has no route for a caller without the API's token**: it answers 404, as the
+  API does for a route that is switched off.

@@ -14,6 +14,7 @@ and travel add-ons, with flexible payment. It ships as:
 - `apps/admin`: Next.js admin console (RBAC, MFA mandatory)
 - `apps/api`: **one** NestJS API shared by all three clients (PostgreSQL + Redis)
 - `apps/worker`: BullMQ workers (fare refresh, deals, ticketing reconciliation, notifications, installments)
+- `apps/agent`: the assistant's agents (LangGraph.js); reaches the platform only through the API's tool gateway
 
 Primary market: Nigeria, then wider Africa, then global. Default currency `NGN`, default locale `en-NG`.
 
@@ -81,11 +82,15 @@ decisions), B (foundations: the agent catalogue and permissions, the conversatio
 settings tables, sealed grants, the tool gateway, the pause switch and the spend caps) and C
 (the price-intelligence engine: sites that start closed and are approved with a basis, the
 Firecrawl, Apify, Browse AI, Oxylabs and Bright Data adapters with our own fetcher and the mock,
-failover, budgets, kill switches, parser drift, observations and the register) are done; D to H
-follow in order (`docs/phases/ai-agent.md`): the agent service, assisted quotes and staff
-agents, the console, the clients, hardening. The vendor adapters wait for one run of
-`scrapers-sandbox.yml` with the owner's keys. Nothing of it runs in production until the owner
-sets `AGENT_ENABLED` and `PRICE_INTEL_ENABLED` and approves each web source.
+failover, budgets, kill switches, parser drift, observations and the register) and D (the
+agent service `apps/agent`: a supervisor graph with ten customer specialists, a guard in code
+on every answer, checkpoints in a schema of their own; the chat routes; sixteen tools for the
+customer agents; routing, grounding and safety evals on recorded answers) are done; E to H
+follow in order (`docs/phases/ai-agent.md`): assisted quotes, confirmations and staff agents,
+the console, the clients, hardening. No client offers the assistant yet. The vendor adapters
+wait for one run of `scrapers-sandbox.yml` with the owner's keys, and the agents for one run of
+`agent-eval.yml` with `LLM_API_KEY`. Nothing of it runs in production until the owner sets
+`AGENT_ENABLED` and `PRICE_INTEL_ENABLED` and approves each web source.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -145,6 +150,7 @@ at the owner's request while phase 12's acceptance still waits for accounts.
 apps/
   api/        NestJS 12 API (CJS output, URI versioning /v1, Jest), Prisma 7, openapi.json
   worker/     Node ESM worker process (Vitest)
+  agent/      Node ESM agent service: LangGraph 1.7 graphs, model adapters, evals (Vitest)
   web/        Next.js 16 App Router (nonce CSP, Playwright e2e + Lighthouse in e2e/)
   admin/      Next.js 16 App Router staff console (noindex, RBAC + MFA, Playwright e2e in e2e/)
   mobile/     Expo SDK 57 + Expo Router + NativeWind 4 (Jest)
@@ -210,6 +216,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api sessions:revoke`        | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)                 |
 | `pnpm --filter @suskii/api eval:natural-search`    | AI trip search eval: 50 messages, fails below 95% (`--recorded`: no model)        |
 | `pnpm --filter @suskii/api eval:support-assistant` | Support assistant eval: 40 conversations, 90% and no unsafe answer (`--recorded`) |
+| `pnpm --filter @suskii/agent eval:agent-routing`   | Agent evals (also `-grounding`, `-safety`): `--recorded`, or the model with a key |
 | `pnpm --filter @suskii/api sandbox:duffel`         | Duffel flights, seats and Stays test-mode check (test token, `--book`)            |
 | `pnpm --filter @suskii/api test:sandbox`           | Our API's booking journey against Duffel test mode (manual workflow only)         |
 | `pnpm --filter @suskii/api privacy:records`        | Regenerate `docs/privacy/records-of-processing.md` (a unit test checks it)        |
@@ -226,7 +233,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `docker compose --profile s3 up -d s3`             | S3-compatible store for `OBJECT_STORAGE=s3` locally (ADR-057)                     |
 | `pnpm --filter @suskii/api dev`                    | Run a single workspace                                                            |
 
-Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, Expo Metro `8081`,
+Local ports: web `3000`, admin `3001`, API `4000`, worker health `4100`, agent `4200`, Expo Metro `8081`,
 Postgres `5432`, Redis `6379`, Mailpit SMTP `1025` and UI `8025`. Docker ports bind to `127.0.0.1` only.
 
 Tooling notes for agents:
@@ -943,6 +950,52 @@ Tooling notes for agents:
   `resetState` in the e2e helpers.
 - Clients read `GET /v1/agent/status` and offer the assistant only while `available` is true;
   an answer they cannot read hides it. Search, booking and payment never depend on it.
+- Chat (`src/agent/chat`): `POST /v1/agent/chat` stores the message (sealed), starts the run in
+  the background and answers 202; events are read from the run's log in Redis as a stream
+  (`GET /v1/agent/runs/{id}/stream`) or by polling. One run per conversation
+  (`AgentChatService`); spend is reserved before the run and settled to the usage the models
+  reported at `AGENT_MODEL_PRICES`. The agent service gets a `scrubQuery()` copy of the words
+  and never the original. `AGENT_SERVICE=mock` answers inside the API (tests, a stack without
+  the service); in e2e tests script it with `MockAgentClient.use()`.
+- A tool's result is shaped for the guard (`src/agent/tools/tool-support.ts`): money as
+  `{ amountMinor, currency }`, lengths and times as text (`durationText`, `wallTime`,
+  `utcTime`) so a model never calculates, counts the model may say (`found`, `nights`), a
+  status under a key ending in `Status` with a value the outcome check knows (`statuses()` in
+  `account-tools.ts`), and `cards` built by `card()` with a path inside the site. Why nothing
+  came back is `problems`: codes from `problemCodes()` and `issueCodes()`, never a sentence.
+  Wrap a service call that can refuse in `guarded()`. Price for the caller with
+  `AgentToolCallers.client(grant)`; a supplier's names go through `supplierText()`; demo
+  inventory is marked `sample`.
+- After adding or changing a tool, refresh the agent's snapshot of the registry
+  (`UPDATE_AGENT_TOOLS_FIXTURE=1` on `agent-tools.e2e-spec.ts` writes
+  `apps/agent/evals/tools.json`) and re-run the agent's tests.
+- A handover is `support.handover`: an ordinary support conversation (ADR-083) under the topic
+  `assistant_handover`, whose first message is the traveller's own last messages, never a
+  model's words. A new topic is a `SUPPORT_TOPICS` value with a label in every catalog.
+
+### The agent service (apps/agent; ADR-101, ADR-103, ADR-106, ADR-107)
+
+- It holds no database connection to `public`, no API route but the tool gateway, and no copy:
+  what it says without a model is a notice code (`AGENT_NOTICES`) the clients put into words.
+- The graph (`src/graph/graph.ts`) is built per run, with the grant and the limits in a closure
+  (`RunDeps`). Never put the grant, or anything a checkpoint must not hold, in the state or in
+  a run's `configurable`: LangGraph copies those into checkpoint metadata.
+- An answer is shown only after the `check` node passed it: figures and contacts against the
+  turn's tool results and `turn.said` (the traveller's own words), outcomes against the
+  statuses the tools returned, no instructions read back, no tool named, no request for a
+  secret. The rules are in `@suskii/shared` (`agent-grounding.ts`). The model's drafts and the
+  guard's notes live in `turn.messages` and are never sources. One rewrite, then a notice.
+- Model vendors stay in `src/model/<vendor>-model.ts` behind `AgentModel`; the SDK retries
+  nothing and hosted tracing is refused at start-up. `MockAgentModel` replays scripted turns
+  (`scripted()`), and unscripted says one fixed sentence (asked about the "status" it calls
+  `platform.status` once).
+- A prompt is a versioned record (`src/prompts/prompts.ts`): change its text and its version
+  together. A change to a prompt, a tool or a model keeps the three evals passing on recorded
+  answers (`src/evals/*.test.ts`, fixtures in `evals/`) and is re-run against the model
+  (`agent-eval.yml`) before it answers travellers. A recorded answer that is wrong on purpose
+  stays wrong: the tests name them.
+- `apps/api/test/agent-service.e2e-spec.ts` starts this service from source (tsx) beside the
+  API and runs the whole chain; it needs no build of this workspace.
 
 ### Price intelligence (apps/api/src/price-intel, packages/shared price-intel; ADR-102)
 
@@ -1648,5 +1701,10 @@ web source with its basis (all start in `review`); whether an assisted quote ear
 or a margin (default: a fee on the verified supplier price); who works the approvals and
 assisted-quote queues and during which hours; whether a meal preference may be remembered
 (counsel, ADR-093); the model for each agent role and one live run of each agent eval with
-`LLM_API_KEY`; and whether to turn the agent and price intelligence on in production. Every
-owner action is listed, step by step, in `docs/owner/launch-checklist.md`.
+`LLM_API_KEY`; and whether to turn the agent and price intelligence on in production. Added
+with the agent service (sub-phase D): one run of `agent-eval.yml` with `LLM_API_KEY` before the
+assistant answers travellers; the provider's data retention terms for conversations; the price
+of each model in `AGENT_MODEL_PRICES` when the provider's list changes; the help articles the
+assistant answers rules from; who answers a handover and when; whether guests may use the
+assistant or only signed-in travellers; and its spend caps. Every owner action is listed, step
+by step, in `docs/owner/launch-checklist.md`.

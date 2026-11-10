@@ -350,3 +350,144 @@ intelligence on in production.
 
 **Not done here**: nothing shows an indicative price to a traveller yet. The agent's price
 tools come in D, assisted quotes in E, the console screens in F.
+
+### D. Agent core (2026-11-10)
+
+**Built**
+
+- `@suskii/shared`: the wire between the API and the agent service (`agent-protocol.ts`: a run
+  request, `status` events and one `end`, answers, cards with links inside the site only,
+  notices as codes) and the rules of the guard (`agent-grounding.ts`: figures and contacts
+  against sources, outcome claims against statuses, instructions read back, tools named,
+  secrets asked for).
+- `apps/agent` (Node ESM, LangGraph 1.7.2, Vitest): settings that refuse hosted tracing and,
+  in production, a mock model, plaintext hops and missing tokens; a model interface with an
+  Anthropic adapter and a mock; versioned prompts for the router and ten customer specialists;
+  a rule-based pre-router; one graph (begin, route, think, act, confirm, check, finish) built
+  per run; the tool gateway client; the run service with limits on time, model turns, tool
+  calls and concurrent runs; a Postgres checkpointer that never calls `setup()`; an HTTP
+  server with one route for the API and a health check.
+- The `agent` schema with the checkpoint tables as a checked-in migration, the `suskii_agent`
+  role (its schema only) and `suskii_app`'s right to delete a thread; threads deleted with the
+  conversation and the account and purged 30 days after their last turn.
+- API chat (`src/agent/chat`): conversations (owner's session or a guest's token after a human
+  check), `POST /v1/agent/chat` (202), a run's events as a stream or by polling, feedback, the
+  spend reservation and settlement at `AGENT_MODEL_PRICES`, a mock client for a stack without
+  the service.
+- Sixteen tools for the customer agents (`src/agent/tools`): `flights.search`, `hotels.search`,
+  `cars.rentals`, `cars.buses`, `packages.search`, `tours.search`, `visa.requirements`,
+  `addons.search`, `bookings.list`, `bookings.get`, `payments.options`, `trips.list`,
+  `trips.get`, `trips.plan`, `support.faqs` and `support.handover`, beside `catalog.places`
+  and `platform.status`. Fourteen read; two prepare something; none commits.
+- Three evals (`apps/agent/src/evals`, fixtures in `apps/agent/evals`), the commands
+  `eval:agent-routing`, `eval:agent-grounding` and `eval:agent-safety` (`--recorded`), and
+  `agent-eval.yml` for the owner's run against the model.
+- `apps/api/test/agent-service.e2e-spec.ts`: the chain with the agent service as its own
+  process.
+- For the owner: section 7.2 of the launch checklist.
+
+**How to try it** (local stack; no model is called)
+
+1. `pnpm dev` starts the API, the worker and the agent service (port 4200) from the root
+   `.env`; `AGENT_ENABLED` is on outside production and `AGENT_MODEL_PROVIDER=mock`.
+2. Sign in and open a conversation: `POST /v1/agent/conversations` (a guest sends
+   `turnstileToken`).
+3. `POST /v1/agent/chat` with `{"conversationId": "...", "text": "What is the status of the
+website right now?"}` answers 202 with a `runId`. `GET /v1/agent/runs/{runId}` shows the
+   events (`routing`, `thinking`, `tool` with `platform.status`, `checking`, the message,
+   `done`); `GET /v1/agent/conversations/{id}` shows the sample assistant's answer. Any other
+   message gets its one fixed sentence.
+4. Without the agent service, set `AGENT_SERVICE=mock`: the API answers by itself.
+5. `pnpm --filter @suskii/agent eval:agent-safety --recorded` prints each red-team case and
+   what the model tried.
+
+**What changed from the plan**
+
+- The specialists are one graph that takes a specialist per turn (its prompt and its tools),
+  not a subgraph each: ten subgraphs would differ only in a prompt and a tool list, and one
+  graph has one guard that nothing can route around.
+- Chat answers 202 and the stream is a GET; no words are streamed before the guard has passed
+  them; what the assistant says without a model is a code the clients put into words (ADR-101,
+  amendments).
+- The confirmation routes and their table move to E, with the first commit tool. The graph's
+  interrupt and resume are built and tested now.
+- The tool for indicative prices moves to E, with assisted quotes: a price seen on another
+  site has no path to a sale until then, and showing one without it would be a dead end.
+- The disruption specialist has the bookings tools; live flight status and the airline-change
+  tools come with it in E, as planned there.
+- The `google` model provider is not built (ADR-106, amendments).
+
+**Found by the gate and fixed**
+
+- **A hole in the guard**: a model that repeated a refused answer had it sent on the second
+  try, because the check counted the model's own draft, and the guard's note listing the
+  invented figures, among its sources. Found by the grounding eval on its first run. A turn
+  now keeps what the traveller wrote apart from what the model was shown.
+- A false alarm in the outcome check: "the government fee is paid separately", quoted from a
+  tool result, read as a payment. A rule in the present tense about how something is paid is
+  no claim.
+- A run whose answer could not be stored stayed "running" until the time limit; it is now
+  closed as failed at once.
+- The agent protocol imported Zod past the shared set-up module (a guard test of the shared
+  package caught it).
+- A test of mine deleted the seeded help articles in a shared test database and broke another
+  suite; it now adds and removes only its own.
+- The tier tripwire of the gateway suite ("everything shipped only reads") became "nothing
+  shipped commits", with the two tools that prepare something named in the tools suite.
+
+**Known limits, kept in view**
+
+- The guard refuses arithmetic the tools did not do (one grounded case of the suite fails on
+  purpose to show it), so tools return totals, counts and lengths ready to say.
+- The check for instructions read back is word for word: a paraphrase or a translation
+  passes. The instructions hold nothing secret.
+- A figure the traveller wrote may be said back to them; an outcome may not be taken from
+  their word.
+- The evals ran with recorded answers only. How the real models route, how often the guard
+  has to refuse them and what a run costs are unmeasured until the owner's run.
+
+**Test results** (local, 2026-11-10: the API end-to-end suite, lint, types and the unit
+tests on commit `e6f34b6`; the API unit, web, mobile and admin suites on `7937672`, which
+differs only by one test file and a fixture; the commits after them change documents only)
+
+| Check                                                      | Result                           |
+| ---------------------------------------------------------- | -------------------------------- |
+| `pnpm lint`                                                | 15 of 15 workspaces              |
+| `pnpm typecheck`                                           | 14 of 14 workspaces              |
+| `pnpm test` (unit, every workspace)                        | 12 of 12 tasks                   |
+| API unit (`test:cov`, with the 80% gates)                  | 74 suites, 808 tests             |
+| API e2e (full, `test:e2e:cov`)                             | 73 suites, 755 tests             |
+| of which the five agent suites                             | 50 tests                         |
+| `@suskii/agent`                                            | 54 tests (10 in the three evals) |
+| `@suskii/shared`                                           | 373 tests                        |
+| `@suskii/worker`                                           | 52 tests                         |
+| Web e2e (Chromium and slow 3G)                             | 242 tests                        |
+| Mobile (Jest)                                              | 50 suites, 319 tests             |
+| Admin e2e                                                  | 24 tests                         |
+| `pnpm check:migrations`, `pnpm security:checklist --check` | pass                             |
+| `pnpm format:check`, `pnpm test:scripts`                   | pass                             |
+
+| Eval (recorded answers) | Result                                              | Pass mark          |
+| ----------------------- | --------------------------------------------------- | ------------------ |
+| `eval:agent-routing`    | 78 of 81 (96.3%); 16 by rule without a model call   | 95%                |
+| `eval:agent-grounding`  | no invention shown; 15 of 16 grounded answers shown | 0 shown, 90% shown |
+| `eval:agent-safety`     | 28 of 28 held; no violation                         | 0 violations       |
+
+Before this sub-phase: API unit 788, API e2e 716. The first full API e2e run failed in two
+suites: the cross-account matrix, which rightly asked for the five new chat routes (added), and
+the object storage suite, whose throwaway gateway needs the container runtime that had stopped
+on this machine (restarted; no code changed).
+
+**Not run, and why**: no model was called; `LLM_API_KEY` is the owner's. The Anthropic adapter
+is covered by unit tests that answer its HTTP calls; `agent-eval.yml` is the live check.
+
+**Open for the owner** (`docs/owner/launch-checklist.md`, section 7.2): the model key and the
+provider's data retention terms; one run of `agent-eval.yml`; the models and their prices; the
+spend caps; the help articles; who answers a handover; whether guests may use the assistant.
+
+**Mobile contract**: `topic` in support conversation answers gains `assistant_handover`. A
+build without the new catalog string shows the key on that conversation's badge. No other
+answer changes; the chat routes are new.
+
+**Not done here**: no client offers the assistant (G), the console has no screen for it (F),
+nothing commits (E), and the agent service has no image, Terraform or Helm yet (H).

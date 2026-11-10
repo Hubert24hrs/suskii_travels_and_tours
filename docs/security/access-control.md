@@ -45,6 +45,19 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   capturing a payment, paying out, posting to the ledger, changing a price rule and confirming a
   booking cannot be registered as tools at all (`isForbiddenAgentTool`; the API refuses to
   start). `test/agent-gateway.e2e-spec.ts` covers each refusal.
+- **The tools themselves** (ADR-107): sixteen for the customer agents, every one calling the
+  ordinary service as the grant's caller (`BookingsService.load()`, `TripsService.get()`,
+  `SupportService.start()`), so another person's booking, trip or conversation is `not_found`,
+  as the API answers 404. Fourteen only read. Two prepare something and are the only ones that
+  write: `trips.plan` starts a combined trip for the signed-in traveller (it books and holds
+  nothing) and `support.handover` opens one support conversation with the traveller's own last
+  messages. None commits. A guest's grant carries no `account` scope, so the bookings, payments
+  and trips tools are refused before they run. `test/agent-tools.e2e-spec.ts` covers each tool,
+  and `test/agent-service.e2e-spec.ts` the chain with the agent service as its own process.
+- **The assistant's chat routes** (`/v1/agent/*`): a conversation opens to its owner's session,
+  or to a guest's token shown once after a human check and stored as an HMAC (`agent-access`);
+  a run, its events and a thumb on an answer belong to the conversation they are part of.
+  Anyone else gets 404. The routes answer 404 while `AGENT_ENABLED` is off.
 - **Price intelligence** (`/v1/admin/data-sources`, ADR-102): seeing sites, reads, observations
   and the register needs `ai:read`; listing, changing, deciding and reading a site, the
   switches and the budgets need `datasources:manage`. Approving a site, switching reading back
@@ -105,7 +118,7 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Metasearch partners (`/v1/admin/metasearch/partners`)                                            | Staff with `reports:read` see partners and the 30-day report (key hint only); `pricing:manage` adds partners and replaces keys with step-up, and changes limits or access; all audited                                                                                                                                                                                  |
 | Privacy registers (`/v1/admin/privacy`)                                                          | Staff with `privacy:manage` (privacy officers, super admins): rights requests (email shown masked) and breaches (details only on the breach itself); every change audited with ids and outcomes only (ADR-089)                                                                                                                                                          |
 | The assistant's switches (`/v1/admin/ai`)                                                        | Staff with `ai:read` (operations, finance, support, super admins) see the overview: whether it is on and paused, the day's model spend, run counts, autonomy levels and the tools. Pausing needs `ai:manage` (super admins) and nothing more; releasing the pause and changing an autonomy level also need step-up. Each change is audited with codes only (ADR-107)    |
-| Conversations with the assistant                                                                 | Their owner's session (a guest's token, stored as an HMAC, when the chat routes arrive); the agent service never reads the tables and reaches a person's data only through the tool gateway with that person's grant (ADR-101)                                                                                                                                          |
+| Conversations with the assistant                                                                 | Their owner's session, or a guest's `X-Agent-Token` (shown once, stored as an HMAC); a run's events and a message's feedback go with the conversation. The agent service never reads the tables and reaches a person's data only through the tool gateway with that person's grant (ADR-101); its own role sees only the `agent` schema (ADR-103)                       |
 | Price sources, their policies, reads and observations (`/v1/admin/data-sources`)                 | Staff with `ai:read` see them; staff with `datasources:manage` (super admins today; no other role holds it) list, change, decide and read a site, switch reading off and set budgets; approving, switching back on and raising a budget also need step-up. They hold no personal data: a read records places, dates and head counts, never who asked (ADR-102)          |
 
 Anything a caller may not access answers **404**, never 403, so ids cannot be probed. Ownership

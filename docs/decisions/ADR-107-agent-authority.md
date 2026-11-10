@@ -98,3 +98,33 @@ input.
   one would act. That is the design.
 - Every state change by an agent or by staff through the agent has an audit record.
 - Raising autonomy is possible later, one tool at a time, with evidence from the evals.
+
+## Amendments made while building it
+
+- **Confirmation cards arrive with the first commit tool** (sub-phase E): the table, the
+  confirm route and the card. The graph's side is built and tested now: a commit call becomes
+  an interrupt, the run ends as `confirmation`, and a resume carries only what the API's records
+  say after the tap. No commit tool is registered yet, and a test fails if one is.
+- **What the guard checks before an answer is shown**, all in code and in every language the
+  assistant answers in: figures, links, email addresses and phone numbers against the turn's
+  tool results and the traveller's own words; "confirmed", "paid", "refunded" and "cancelled",
+  also as "I have booked, paid, refunded, cancelled", against the statuses the tools returned;
+  its own instructions read back word for word; a tool named; a request for a card number, a
+  code, a password or a document number; and length. One rewrite, then a notice.
+- **A refused draft is never a source.** A turn keeps what the traveller wrote apart from what
+  the model was shown, so neither the model's rejected answer nor the guard's note about it can
+  ground the next try. The grounding eval found this hole; a test holds it shut.
+- **A rule about how something is paid is not a payment**: "the government fee is paid
+  separately" passes; "your booking is paid" needs a status.
+- **Two tools prepare something**: `trips.plan` starts a combined trip (ADR-099) for the
+  signed-in traveller, which books and holds nothing, and `support.handover` opens one support
+  conversation (ADR-083) with the traveller's own last messages as its first one, never a
+  model's account of them, under the topic `assistant_handover`, on which the after-hours
+  assistant is not consulted. A second handover while one is open returns the open one. A guest
+  is shown the support page, which starts a conversation with a human check and an address to
+  answer to.
+- **A refusal reaches the model as a code** (`date_in_past`, `unknown_airport`, `not_offered`,
+  a problem's slug), never a sentence, and a supplier that is down is `failed` without an error
+  report: it is not a fault of ours.
+- **A supplier's names** (hotel, area, room) reach a model without links, addresses or markup,
+  because an answer may quote a contact a tool returned.

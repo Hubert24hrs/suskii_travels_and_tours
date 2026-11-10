@@ -258,6 +258,42 @@ Nothing is read until you have done all of this:
 If a site asks you to stop: Data sources, the site, **Block**
 (`docs/runbooks/price-intelligence.md`).
 
+### 7.2 The assistant (optional)
+
+A chat assistant that helps travellers search, plan a trip, understand a booking or a payment
+and reach your support team. It never books, pays, refunds, cancels or confirms anything: it
+shows options, opens the ordinary pages and brings in a person. It is built and off, and no
+website or app screen offers it yet (that comes with the client work). What is yours to do
+before it answers anyone:
+
+1. **The model key.** The same `LLM_API_KEY` as the after-hours assistant (an Anthropic API
+   key), as a repository secret:
+   <https://github.com/Hubert24hrs/suskii_travels_and_tours/settings/secrets/actions>. Read the
+   provider's data retention terms with counsel and choose zero data retention if your
+   agreement offers it. Only you can accept those terms.
+2. **Measure it against the real model.** GitHub, Actions, **Agent eval**, Run workflow
+   (<https://github.com/Hubert24hrs/suskii_travels_and_tours/actions/workflows/agent-eval.yml>),
+   suite `all`. It costs a few cents. It passes when routing reaches 95%, no invented figure,
+   date, contact or outcome is shown and 90% of grounded answers are, and no red-team case
+   breaks through. Until that run is green the assistant has only been checked with recorded
+   answers, and must not be switched on for travellers.
+3. **Choose the models.** Defaults: a small one to route (`claude-haiku-5-5`) and a stronger
+   one to answer (`claude-sonnet-5-5`). If you change one, run the eval again with it and set
+   its price in `AGENT_MODEL_PRICES`; update that setting whenever the provider's price list
+   changes, because the spend caps count in it.
+4. **Spend caps.** Defaults: 6 cents reserved per answer, 50 cents a day per signed-in
+   traveller, 12 cents a day per guest address and $50 a day in total. Over a cap the assistant
+   says it has reached the day's limit and the ordinary screens still work.
+5. **Help articles.** The assistant answers questions about rules (refunds, changes, bags,
+   documents) only from the help articles you publish in the console, and says it does not
+   know when none fits. Three are seeded; write yours before it goes live.
+6. **Who answers a handover.** When a traveller asks for a person, a support conversation
+   appears in the inbox under the topic "From the assistant" with the traveller's own words.
+   Name who answers them and during which hours.
+7. **Switching it on** (`AGENT_ENABLED`) needs the agent service deployed, which comes with the
+   last part of this work. Staff with the `ai:manage` permission can pause it everywhere within
+   seconds from the console.
+
 ## 8. Legal and compliance
 
 1. **Data protection registration**: the NDPC (Nigeria), and the ODPC (Kenya) and the

@@ -6,6 +6,58 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Suskii Agent, sub-phase D: the agent service (2026-11-10)
+
+The assistant's own service, the chat routes and the tools the customer agents call (ADR-101,
+ADR-103, ADR-106, ADR-107). Built and off: nothing answers in production until the owner sets
+`AGENT_ENABLED`, and no website or app screen offers the assistant yet.
+
+#### Added
+
+- **`apps/agent`**, a third service (LangGraph.js 1.7): a supervisor that sends a message to
+  one of ten customer specialists (a rule answers a greeting and the plainest requests without
+  a model call), one model turn at a time with the tools of that specialist, and a guard in
+  code between the model's words and the traveller. It reaches the platform only through the
+  API's tool gateway, with a grant it cannot read.
+- **A guard on every answer.** Each figure, link, email address and phone number must appear in
+  what the tools returned in that turn or in the traveller's own words; "confirmed", "paid",
+  "refunded" and "cancelled", also as "I have booked ...", need a status that says so; an
+  answer may not read the instructions back, name a tool or ask for a card number, a code, a
+  password or a document number. One rewrite, then a notice. In English with Nigerian Pidgin,
+  French, Portuguese, Swahili and Arabic.
+- **Chat routes**: `/v1/agent/conversations`, `POST /v1/agent/chat` (202; the run goes on in
+  the background), a run's events as a resumable stream or by polling, and a thumb on an
+  answer. Guests get a token once after a human check. One run per conversation; spend is
+  reserved before a run and settled to the usage the models reported.
+- **Sixteen tools for the customer agents**, each calling the ordinary service as the
+  traveller the run is for: flight and hotel search at that person's prices, rental cars,
+  buses, packages, tours, visa rules, add-ons, the traveller's own bookings, payments and
+  trips, help articles, starting a combined trip (it books nothing) and bringing in the support
+  team with the traveller's own words. No tool commits, and none gives a model a name, a
+  contact, a reference, a code or a payment link.
+- **Checkpoints in a schema of their own** (`agent`), migrated from the pinned library and
+  reachable only by the `suskii_agent` role; a thread is deleted with its conversation, with
+  the account and 30 days after its last turn.
+- **Three evals** on recorded answers in every test run, and against the model with the
+  owner's key (`eval:agent-routing`, `eval:agent-grounding`, `eval:agent-safety`,
+  `agent-eval.yml`): 81 messages routed (78, three wrong on purpose), 33 answers of which no
+  invention is shown and 15 of 16 grounded ones are, and 28 red-team cases against a model
+  that gives in, none of which breaks through.
+- A support topic, `assistant_handover`, with its label in every catalog.
+
+#### Fixed
+
+- The guard counted a model's own refused draft, and its note about it, among the sources of
+  the next try, so a model that repeated an invention had it sent. Found by the grounding eval.
+- The agent protocol imported Zod directly, past the shared set-up module the homepage's
+  guard test protects.
+
+#### Mobile contract
+
+`topic` in support conversation answers gains the value `assistant_handover`. A build without
+the new catalog string shows the key on the badge of such a conversation; the conversation
+itself works. Such conversations exist only once the assistant is offered to travellers.
+
 ### Suskii Agent, sub-phase C: price intelligence (2026-11-10)
 
 Prices read from public web pages where no supplier has one (ADR-102). Built and off: nothing

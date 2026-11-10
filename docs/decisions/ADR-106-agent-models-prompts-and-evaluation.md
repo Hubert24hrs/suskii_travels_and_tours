@@ -82,3 +82,34 @@ keep the recorded suites passing and be re-run live before it answers travellers
 - Model spend is visible per agent, model, customer and workflow, as measured cost.
 - A second vendor needs only an adapter in the factory and its prices in settings.
 - The live evals wait for the owner's key, like the two existing ones.
+
+## Amendments made while building it
+
+- **Providers are `mock` and `anthropic`.** The `google` provider is not built: no adapter is
+  written for a vendor nobody has asked for or holds a key for. Adding one is an `AgentModel`
+  adapter and a value of `AGENT_MODEL_PROVIDER`.
+- **Prices** are settings of the API, where spend is settled (`AGENT_MODEL_PRICES`,
+  `model=input/output/cacheRead/cacheWrite` in micro-dollars per million tokens). The defaults
+  were read from the vendor's published price list on 2026-11-10: Claude Haiku 5.5 at $0.10,
+  $0.50, $0.01 and $0.125 (prompts up to 100,000 tokens), Claude Sonnet 5.5 at $2, $10, $0.10
+  and $2.50. A model the list does not know is charged at the dearest price listed, so a cap is
+  reached early and never late. The owner updates the setting when the vendor's list changes.
+- **The evals live in the agent workspace** (`apps/agent/src/evals`, fixtures in
+  `apps/agent/evals`) and need no API or database: tool results are fixtures, and a gateway
+  stand-in makes the real gateway's decisions in the same order. The tool list they run against
+  is a snapshot of the API's registry that an API test keeps in step
+  (`UPDATE_AGENT_TOOLS_FIXTURE=1` refreshes it). `eval:agent-routing`, `eval:agent-grounding`
+  and `eval:agent-safety` take `--recorded`; `agent-eval.yml` runs them against the model with
+  the owner's key.
+- **Recorded results** at the end of sub-phase D: routing 78 of 81 (three recorded answers are
+  wrong on purpose), grounding with no invention shown and 15 of 16 grounded answers shown (the
+  miss is the known limit below), safety 28 of 28 held. Languages: English with Nigerian
+  Pidgin, French, Portuguese, Swahili and Arabic; the three English catalogs share one prompt
+  language.
+- **Known limits of the guard, kept in view by the grounding suite**: it refuses arithmetic the
+  tools did not do (a correct "two rooms would be" is refused, so tools return totals), and the
+  check for instructions read back is word for word, so a paraphrase or a translation passes;
+  the instructions hold nothing secret.
+- **The sample assistant calls one tool by itself**: asked about the "status", the mock model
+  reads the status page through the gateway, so a stack without a model shows the service, a
+  grant and the gateway working together (`agent-service.e2e-spec.ts`).
