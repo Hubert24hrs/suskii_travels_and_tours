@@ -100,8 +100,9 @@ jobs:
 
       # Same memory and download settings as the CI build (mobile.yml); phone CPUs instead of the
       # emulator's. Native libraries are compressed in the APK and unpacked at install
-      # (`expo.useLegacyPackaging`): the download is about a third smaller, and the phone check's
-      # emulator, which translates phone code, only finds libraries that are unpacked (ADR-100).
+      # (`expo.useLegacyPackaging`): the download is a little over half the size (48 MB, not
+      # 85 MB), and the phone check's emulator, which translates phone code, only finds libraries
+      # that are unpacked (ADR-100).
       - name: Build the release APK (arm64-v8a, armeabi-v7a)
         working-directory: apps/mobile/android
         timeout-minutes: 60

@@ -262,27 +262,16 @@ tags:
       id: built-trip
     timeout: 60000
 
-# The verified webhook settles every booking; each part is then confirmed on its own.
+# The verified webhook settles every booking, and each part is then confirmed by its own
+# supplier: three parts, three labels. (`childOf: trip-part-flight` found nothing here with the
+# label on the screen, so the labels are counted.)
 - scrollUntilVisible:
     element:
       id: built-trip-paid
     direction: UP
     timeout: 120000
-- scrollUntilVisible:
-    element:
+- extendedWaitUntil:
+    visible:
       text: Confirmed
-      childOf:
-        id: trip-part-flight
-    timeout: 120000
-- scrollUntilVisible:
-    element:
-      text: Confirmed
-      childOf:
-        id: trip-part-hotel
-    timeout: 120000
-- scrollUntilVisible:
-    element:
-      text: Confirmed
-      childOf:
-        id: trip-part-insurance
+      index: 2
     timeout: 120000

@@ -26,9 +26,9 @@ How the app is checked before a tester installs it (ADR-100):
 - **The test APK is published only after the phone check passes** on the file just built
   (`mobile-test-apk.yml`; `publish: false` builds and checks only). Publishing needs a running
   test server.
-- **The test APK compresses its native libraries** (`expo.useLegacyPackaging`): a smaller
-  download, unpacked at install. The emulator that checks it can only run phone code from
-  unpacked libraries.
+- **The test APK compresses its native libraries** (`expo.useLegacyPackaging`): 48 MB to
+  download instead of 85 MB, unpacked at install. The emulator that checks it can only run phone
+  code from unpacked libraries.
 
 ### Trip builder: combined trips paid once (2026-11-10)
 

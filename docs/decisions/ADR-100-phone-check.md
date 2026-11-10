@@ -67,8 +67,9 @@ libraries inside the APK, where there are only phone (arm64, armv7) ones. The em
 can run arm64 code through translation, but only from libraries unpacked at install.
 
 The test APK is now built with `-Pexpo.useLegacyPackaging=true`: libraries are compressed in the
-APK and unpacked when it is installed. For a tester the download is about a third smaller; the
-installed app takes more space. Store builds (EAS, `mobile-release.yml`) are not changed.
+APK and unpacked when it is installed. For a tester the download is a little over half the size
+(48 MB instead of 85 MB); the installed app takes more space. Store builds (EAS,
+`mobile-release.yml`) are not changed.
 
 Rejected:
 
