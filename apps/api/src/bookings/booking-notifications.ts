@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { money, type Money } from '@suskii/shared';
+import { money, utcToLocal, type FlightAlert, type Money } from '@suskii/shared';
 
 import { APP_CONFIG, type AppConfig } from '../config/config';
 import { documentDateTime, documentMoney } from '../documents/booking-pdf';
@@ -17,6 +17,7 @@ import {
   pushText,
   refundCompletedTemplate,
   refundStartedTemplate,
+  flightStatusTemplate,
   scheduleChangedTemplate,
   type PlanClosedDetails,
   type PushKind,
@@ -233,6 +234,51 @@ export class BookingNotifications {
         }),
       });
       await this.push(booking, 'schedule-changed');
+    });
+  }
+
+  /**
+   * A live status alert for one flight of a booking (ADR-095): email to the booking contact
+   * and a push to its devices. The email names the flight and its times; the push only says
+   * that something changed.
+   */
+  async flightStatus(bookingId: string, flight: number, alert: FlightAlert): Promise<void> {
+    await this.safely('flight-status', async () => {
+      const booking = await this.bookings.reload(bookingId);
+      const item = booking.items.find((candidate) => itemPayload(candidate).kind === 'flight');
+      const payload = item ? itemPayload(item) : null;
+      if (!item || payload?.kind !== 'flight' || booking.status !== 'CONFIRMED') return;
+      const segment = payload.offer.slices.flatMap((slice) => slice.segments)[flight];
+      const status = await this.prisma.flightStatus.findUnique({
+        where: { bookingItemId_flight: { bookingItemId: item.id, flight } },
+      });
+      if (!segment || !status) return;
+      const place = (point: { code: string; cityName: string | null }): string =>
+        `${point.cityName ?? point.code} (${point.code})`;
+      await this.email.send({
+        to: this.bookings.contact(booking).email,
+        ...flightStatusTemplate({
+          reference: booking.reference,
+          alert,
+          flight: `${segment.marketingCarrier.code} ${segment.flightNumber} from ${place(segment.origin)} to ${place(segment.destination)}`,
+          scheduled: documentDateTime(segment.departureLocal),
+          expected: status.estimatedDeparture
+            ? documentDateTime(utcToLocal(status.estimatedDeparture, segment.origin.timeZone))
+            : null,
+          delayMinutes: status.delayMinutes,
+          gate: status.departureGate,
+          terminal: status.departureTerminal,
+          bookingUrl: await this.link(booking, 'flight-status', new Date(segment.arrivalUtc)),
+        }),
+      });
+      await this.push(
+        booking,
+        alert === 'cancelled'
+          ? 'flight-cancelled'
+          : alert === 'delayed' || alert === 'earlier'
+            ? 'flight-delayed'
+            : 'flight-update',
+      );
     });
   }
 

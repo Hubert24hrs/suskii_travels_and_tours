@@ -3021,6 +3021,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{bookingId}/flight-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live status of a booking's flights on the day of travel
+         * @description Every flight of the booking with what is known of it now: state, expected times, delay, terminal, gate and baggage belt (ADR-095). A flight is followed from a day before it leaves until it has landed; before that it reads `scheduled` with `checkedAt` null. Readings are cached for a short time, so polling once a minute is enough. 404 for a booking without flights.
+         */
+        get: operations["getBookingFlightStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{bookingId}/hold": {
         parameters: {
             query?: never;
@@ -4404,6 +4424,23 @@ export interface paths {
         put?: never;
         /** Expire unpaid bookings past their payment deadline */
         post: operations["expireDueBookings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/bookings/flight-status-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read the live status of ticketed flights that are due, and send delay alerts */
+        post: operations["checkFlightStatus"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9687,6 +9724,34 @@ export interface components {
                 durationMinutes: number;
                 warnings: ("short_connection" | "airport_change" | "overnight" | "long_layover")[];
             }[];
+        };
+        FlightStatus: {
+            live: boolean;
+            flights: {
+                flight: number;
+                carrier: components["schemas"]["Carrier"];
+                flightNumber: string;
+                origin: components["schemas"]["AirportPoint"];
+                destination: components["schemas"]["AirportPoint"];
+                scheduledDepartureLocal: string;
+                scheduledArrivalLocal: string;
+                /** @enum {string} */
+                state: "scheduled" | "delayed" | "boarding" | "departed" | "landed" | "cancelled" | "diverted";
+                estimatedDepartureLocal: string | null;
+                estimatedArrivalLocal: string | null;
+                delayMinutes: number;
+                departureTerminal: string | null;
+                departureGate: string | null;
+                arrivalTerminal: string | null;
+                arrivalGate: string | null;
+                baggageBelt: string | null;
+                checkedAt: string | null;
+            }[];
+        };
+        FlightStatusRun: {
+            checked: number;
+            alerts: number;
+            failed: number;
         };
         ForgotPasswordRequestInput: {
             email: string;
@@ -19057,6 +19122,36 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getBookingFlightStatus: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+            };
+            path: {
+                bookingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightStatus"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     holdBooking: {
         parameters: {
             query?: never;
@@ -21468,6 +21563,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingExpiryRun"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    checkFlightStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlightStatusRun"];
                 };
             };
             400: components["responses"]["Problem400"];

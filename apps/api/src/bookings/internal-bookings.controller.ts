@@ -9,10 +9,12 @@ import {
   paymentRunSchema,
   planRunSchema,
   refundRunSchema,
+  flightStatusRunSchema,
   scheduleChangeRunSchema,
   ticketingRunSchema,
 } from './bookings.schemas';
 import { CheckoutService } from './checkout.service';
+import { FlightStatusService } from './flight-status.service';
 import { PaymentPlansService } from './payment-plans.service';
 import { PaymentReconciliationService } from './payment-reconciliation.service';
 import { RefundsService } from './refunds.service';
@@ -35,6 +37,7 @@ export class InternalBookingsController {
     private readonly plans: PaymentPlansService,
     private readonly refunds: RefundsService,
     private readonly scheduleChanges: ScheduleChangesService,
+    private readonly flightStatus: FlightStatusService,
   ) {}
 
   @Post('expire-due')
@@ -114,5 +117,18 @@ export class InternalBookingsController {
   })
   scheduleChangesDue(): Promise<z.infer<typeof scheduleChangeRunSchema>> {
     return this.scheduleChanges.checkDue();
+  }
+
+  @Post('flight-status-due')
+  @HttpCode(HttpStatus.OK)
+  @Contract({
+    operationId: 'checkFlightStatus',
+    summary: 'Read the live status of ticketed flights that are due, and send delay alerts',
+    tags: TAGS,
+    responses: { 200: flightStatusRunSchema },
+    errors: [401, 404],
+  })
+  flightStatusDue(): Promise<z.infer<typeof flightStatusRunSchema>> {
+    return this.flightStatus.checkDue();
   }
 }

@@ -5,6 +5,7 @@ import { CompanyApprovalNotices, CompanyPolicyEvaluator } from '../companies/com
 import { CompanyTopUps } from '../companies/company-top-ups';
 import { AdAttribution } from '../marketing/ad-attribution';
 import { DocumentsModule } from '../documents/documents.module';
+import { FlightStatusModule } from '../flight-status/flight-status.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { SearchModule } from '../search/search.module';
 import { SuppliersModule } from '../suppliers/suppliers.module';
@@ -14,6 +15,7 @@ import { BookingAccessLinks } from './booking-access-links';
 import { BookingCancellationService } from './booking-cancellation.service';
 import { FlightCancellationService } from './flight-cancellation.service';
 import { FlightSeatsService } from './flight-seats.service';
+import { FlightStatusService } from './flight-status.service';
 import { BookingDocumentsService } from './booking-documents.service';
 import { BookingFundsService } from './booking-funds.service';
 import { BookingNotesService } from './booking-notes.service';
@@ -47,7 +49,14 @@ import { TravellersService } from './travellers.service';
  * (phases 5 and 6).
  */
 @Module({
-  imports: [AuthModule, SearchModule, SuppliersModule, PaymentsModule, DocumentsModule],
+  imports: [
+    AuthModule,
+    SearchModule,
+    SuppliersModule,
+    PaymentsModule,
+    DocumentsModule,
+    FlightStatusModule,
+  ],
   controllers: [
     BookingsController,
     PaymentsController,
@@ -79,6 +88,7 @@ import { TravellersService } from './travellers.service';
     BookingCancellationService,
     FlightCancellationService,
     FlightSeatsService,
+    FlightStatusService,
     ScheduleChangesService,
     BookingNotesService,
     PaymentRiskService,
