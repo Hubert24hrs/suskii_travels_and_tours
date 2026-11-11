@@ -1229,12 +1229,10 @@ flows run in CI, not here; no phone was used.
 | 9   | Routing and grounding evals pass their thresholds                                          | The table below, on recorded answers; the live run needs the owner's key                                                                                                                                                                                                                                                              |
 
 **Test results** (local, 2026-11-11). The long suites ran on commit `fcd3072`, the last one
-that changes what the API, the website, the console and the agent service do. Three commits
-followed it, each to a test or to the code a test traced (below), and each was run on its
-own. The pull request's checks run everything once more on the head, with what could not
+that changes what the agent service and the assistant's own code do. A few commits followed
+it, each a test or a small fix that these checks or a look at the console traced (below), and
+each was run on its own. The pull request's checks run everything once more on the head, with what could not
 run here: `terraform validate`, TFLint and the kind rehearsal.
-
-<!-- H-RESULTS-TABLE -->
 
 | Check                                                              | Result                                                                        | On                           |
 | ------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ---------------------------- |
@@ -1247,11 +1245,13 @@ run here: `terraform validate`, TFLint and the kind rehearsal.
 | `@suskii/agent`                                                    | 72 tests (13 in the three evals)                                              | `fcd3072`                    |
 | `@suskii/worker`                                                   | 53 tests, 1 skipped (it needs a Redis address)                                | `fcd3072`                    |
 | `@suskii/i18n`                                                     | 34 tests                                                                      | `fcd3072`                    |
-| Web e2e (Chromium and slow 3G)                                     | still running when this was committed                                         | `fcd3072`                    |
+| Web e2e (Chromium and slow 3G)                                     | 255 tests, 1 skipped (the off-mode case)                                      | `fcd3072`                    |
 | the indicative price card's new test, with the note test           | 2 of 2 tests                                                                  | `e7a8644`                    |
-| Web e2e with the assistant off (`E2E_AGENT=off`)                   | runs after the suite above                                                    | head                         |
-| Mobile (Jest)                                                      | 53 suites, 351 tests before the timer's fix; the full run on the head follows | `7052846`                    |
-| Admin e2e                                                          | still running when this was committed                                         | `fcd3072`                    |
+| Web e2e with the assistant off (`E2E_AGENT=off`)                   | 22 tests, 5 skipped (the cases that need it on)                               | head                         |
+| Mobile (Jest)                                                      | 53 suites, 352 tests; no worker left running                                  | head                         |
+| Admin e2e                                                          | 32 tests                                                                      | `fcd3072`                    |
+| Admin e2e again, with the console's two changes                    | 32 tests                                                                      | head                         |
+| the price intelligence suite, with the rule for blocked sites      | 22 of 22 tests                                                                | head                         |
 | `pnpm check:migrations` (51 migrations)                            | pass                                                                          | `fcd3072`                    |
 | `pnpm security:checklist --check`, `pnpm format:check`             | pass                                                                          | `fcd3072`                    |
 | `pnpm test:scripts`                                                | 17 tests                                                                      | `fcd3072`                    |
@@ -1267,9 +1267,7 @@ run here: `terraform validate`, TFLint and the kind rehearsal.
 | `eval:agent-grounding`  | no invention shown; 15 of 16 grounded answers shown | 0 shown, 90% shown |
 | `eval:agent-safety`     | 39 of 39 held; no violation                         | 0 violations       |
 
-The website, app and console suites were still running when this was committed; their rows are completed in the commit that follows.
-
-<!-- /H-RESULTS-TABLE -->
+Before this sub-phase: API e2e 80 suites and 856 tests, API unit 76 suites and 818 tests, web e2e 254 tests, mobile 53 suites and 351 tests, admin e2e 31 tests, `@suskii/shared` 390 tests, `@suskii/agent` 58 tests. Not run here: `terraform validate`, TFLint and the kind rehearsal (they run in the pull request's checks); the Maestro flows (CI); no model, no vendor, no supplier and no Meta account was called; no phone was used.
 
 Found by this regression, and fixed:
 
@@ -1286,6 +1284,12 @@ Found by this regression, and fixed:
   was answered by another case's `fetch`); it was tightened and a case for a report that
   never leaves was added (`dbc4276`).
 - **The website's indicative price card had no test of its own.** It has one now (`e7a8644`).
+- **The console offered "Approve" on a blocked site, and the API accepted it.** The runbook
+  says a blocked site comes back in two steps (back to review, then a new approval). Seen on
+  the Data sources page while taking pictures of the console for the owner. The API now
+  refuses the direct step (409 `price-source-blocked`, with a case in the price intelligence
+  suite) and the console no longer offers it. The same pictures showed two buttons whose
+  labels broke over two lines beside a long introduction; they stay on one line now.
 
 **Decisions needed from the owner**
 
@@ -1344,8 +1348,8 @@ requests 76 to 82 and this one), all behind switches that are off in production.
 
 ### Files and dependencies
 
-Since the commit before sub-phase A (`c5fa81c`): 276 files created and 180 existing files
-modified, in 103 commits (merges not counted), before this report's own commit. The largest
+Since the commit before sub-phase A (`c5fa81c`): 276 files created and 183 existing files
+modified, in 110 commits (merges not counted), this report's own included. The largest
 existing files touched are generated (`apps/api/openapi.json`, the API client's schema) or
 catalogs.
 

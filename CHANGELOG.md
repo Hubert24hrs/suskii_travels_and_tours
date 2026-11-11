@@ -68,6 +68,11 @@ has been called. The assistant stays off in production until the owner switches 
   `approvalStatus: pending`, and the answer guard refuses an answer that says the thing was
   approved while such a status is in the turn, in each language the assistant answers in.
   Found by the safety eval: a staff agent could say "the recipe is approved" and be shown.
+- **A blocked site goes back to review before it can be approved again**: the API refuses
+  the direct step (409 `price-source-blocked`) and the console no longer offers "Approve" on a
+  blocked site. The runbook already described two steps; the code now enforces them.
+- The console's action buttons keep their labels on one line beside a long introduction.
+- The app clears the timer behind a fatal error's report once the report has left.
 - The agent service answers `/ready` (its checkpoint store) as well as `/health`; the image's
   health check and the platform's start-up probe use `/ready`.
 - CI installs Playwright's system packages with a script that goes on when the runner's
