@@ -4011,6 +4011,17 @@ enum AgentFeedback {
   down
 }
 
+/// `pending` until the traveller taps; `confirmed` once the action ran; `declined` by the
+/// traveller; `expired` when they wrote something else or the time ran out; `failed` when the
+/// ordinary service refused the action at the tap.
+enum AgentConfirmationStatus {
+  pending
+  confirmed
+  declined
+  expired
+  failed
+}
+
 /// A conversation with the assistant. `audience`, `channel` and `agent` names are values of
 /// `@suskii/shared` (`AGENT_AUDIENCES`, `AGENT_CHANNELS`, `AGENT_NAMES`): text, so a new one is
 /// not a type change (expand/contract).
@@ -4038,11 +4049,12 @@ model AgentConversation {
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user     User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  booking  Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  handover SupportConversation? @relation(fields: [handoverConversationId], references: [id], onDelete: SetNull)
-  messages AgentMessage[]
-  runs     AgentRun[]
+  user          User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking       Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  handover      SupportConversation? @relation(fields: [handoverConversationId], references: [id], onDelete: SetNull)
+  messages      AgentMessage[]
+  runs          AgentRun[]
+  confirmations AgentConfirmation[]
 
   @@index([userId, lastMessageAt])
   @@index([lastMessageAt])
@@ -4122,6 +4134,41 @@ model AgentRun {
 
 /// One call through the tool gateway: the tool, its tier, the outcome and the names of the
 /// arguments. Argument values and results are never stored.
+/// What a traveller is asked to confirm before a commit runs (ADR-107). An agent can only ask
+/// for one: the card is built by the API from its own records, and only the traveller's tap,
+/// with their own session, runs the action through the ordinary service.
+model AgentConfirmation {
+  id             String                  @id @default(uuid(7)) @db.Uuid
+  conversationId String                  @map("conversation_id") @db.Uuid
+  /// The run that asked. Not a foreign key: runs are purged on their own schedule.
+  runId          String                  @map("run_id") @db.Uuid
+  /// Who must tap: the conversation's owner when it was asked for.
+  userId         String                  @map("user_id") @db.Uuid
+  agent          String                  @db.VarChar(32)
+  tool           String                  @db.VarChar(64)
+  /// The tool's validated input: ids and choices, never a person's words.
+  arguments      Json
+  /// What the card shows: a kind, a title, lines, an amount as `Money` and the record it is
+  /// about. Trip facts and prices; never a name, a contact detail or a document.
+  card           Json
+  /// What the tool is given again at the tap so it does what was shown (a quoted refund).
+  expected       Json?
+  status         AgentConfirmationStatus @default(pending)
+  /// Why it failed, as a code (`AGENT_TOOL_DENIALS`); null otherwise.
+  reason         String?                 @db.VarChar(40)
+  /// What the records said after the tap, as facts under keys: all an agent may say about it.
+  result         Json?
+  expiresAt      DateTime                @map("expires_at") @db.Timestamptz(3)
+  decidedAt      DateTime?               @map("decided_at") @db.Timestamptz(3)
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, id])
+  @@index([userId, status])
+  @@map("agent_confirmations")
+}
+
 model AgentToolCall {
   id           String              @id @default(uuid(7)) @db.Uuid
   runId        String              @map("run_id") @db.Uuid

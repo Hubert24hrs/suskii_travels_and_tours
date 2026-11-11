@@ -648,7 +648,10 @@ export class DataExportService {
   private async assistant(userId: string): Promise<unknown> {
     const rows = await this.prisma.agentConversation.findMany({
       where: { userId },
-      include: { messages: { where: { role: { not: 'system' } }, orderBy: { id: 'asc' } } },
+      include: {
+        messages: { where: { role: { not: 'system' } }, orderBy: { id: 'asc' } },
+        confirmations: { orderBy: { id: 'asc' } },
+      },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((row) => ({
@@ -664,6 +667,14 @@ export class DataExportService {
         sentAt: iso(message.createdAt),
         text: this.encryption.decrypt(message.bodyEncrypted, agentMessageContext(message.id)),
         feedback: message.feedback,
+      })),
+      // What the assistant asked to be confirmed, and the answer (ADR-107).
+      confirmations: row.confirmations.map((confirmation) => ({
+        action: confirmation.tool,
+        shown: confirmation.card,
+        status: confirmation.status,
+        askedAt: iso(confirmation.createdAt),
+        answeredAt: confirmation.decidedAt ? iso(confirmation.decidedAt) : null,
       })),
     }));
   }

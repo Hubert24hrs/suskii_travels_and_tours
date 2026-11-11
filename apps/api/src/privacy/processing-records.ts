@@ -487,7 +487,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
     basis: ['contract', 'legitimate_interests'],
     subjects: ['travellers', 'guests', 'staff'],
     categories: ['communications', 'trips', 'preferences'],
-    models: ['AgentConversation', 'AgentMessage', 'AgentRun', 'AgentToolCall'],
+    models: ['AgentConversation', 'AgentMessage', 'AgentConfirmation', 'AgentRun', 'AgentToolCall'],
     recipients: [...hosting, 'anthropic'],
   },
   {

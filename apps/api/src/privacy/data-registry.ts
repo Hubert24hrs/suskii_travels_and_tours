@@ -711,6 +711,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'parent', parent: 'AgentConversation' },
     note: 'Messages of a conversation with the assistant (bodies encrypted per message), the result cards shown beside them and the sources of an answer. The export holds what the person and the assistant wrote.',
   },
+  AgentConfirmation: {
+    section: 'assistant',
+    deletion: 'delete',
+    retention: { kind: 'parent', parent: 'AgentConversation' },
+    note: 'What the assistant asked the person to confirm (ADR-107): the action, the card they saw (trip facts and money, no names or contacts), their answer and what the records held afterwards. Goes with its conversation.',
+  },
   AgentRun: {
     section: null,
     deletion: 'retain',

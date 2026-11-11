@@ -273,6 +273,7 @@ Answer travellers and staff in a conversation: find, compare, plan, quote and ex
 | --- | --- | --- |
 | `AgentConversation` | Retention sweep `agent-conversations`: 365 days after the event | delete |
 | `AgentMessage` | With its AgentConversation | delete |
+| `AgentConfirmation` | With its AgentConversation | delete |
 | `AgentRun` | Retention sweep `agent-runs`: 400 days after the event | retain |
 | `AgentToolCall` | With its AgentRun | retain |
 
@@ -317,5 +318,5 @@ Who receives personal data, where it processes it and the basis for sending it a
 
 ## Coverage
 
-All 81 tables that hold personal data belong to an activity above;
+All 82 tables that hold personal data belong to an activity above;
 the other 56 hold reference or operational data only.

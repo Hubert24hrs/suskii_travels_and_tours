@@ -14416,6 +14416,200 @@
         }
       }
     },
+    "/v1/agent/confirmations/{confirmationId}": {
+      "get": {
+        "operationId": "getAgentConfirmation",
+        "summary": "What the assistant asks the traveller to confirm",
+        "description": "The card is built by the API from its own records: what will be done, to which booking or trip, and the money it moves. `status` is `pending` until the traveller answers or 15 minutes pass.",
+        "tags": [
+          "Assistant"
+        ],
+        "parameters": [
+          {
+            "name": "confirmationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfirmation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/agent/confirmations/{confirmationId}/confirm": {
+      "post": {
+        "operationId": "confirmAgentConfirmation",
+        "summary": "The traveller's tap: do what the card says",
+        "description": "Runs the action through the ordinary service as the signed-in traveller, exactly as the card showed it (a refund that changed since is refused, and `status` becomes `failed` with a `reason`). The assistant then says what the records hold in the run named by `runId`. 409 `confirmation-decided` or `confirmation-expired` when it is no longer waiting.",
+        "tags": [
+          "Assistant"
+        ],
+        "parameters": [
+          {
+            "name": "confirmationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecidedAgentConfirmation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/agent/confirmations/{confirmationId}/decline": {
+      "post": {
+        "operationId": "declineAgentConfirmation",
+        "summary": "The traveller says no",
+        "description": "Nothing is done. The assistant is told and answers in the run named by `runId`. 409 when the confirmation is no longer waiting.",
+        "tags": [
+          "Assistant"
+        ],
+        "parameters": [
+          {
+            "name": "confirmationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecidedAgentConfirmation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
     "/v1/agent/conversations": {
       "post": {
         "operationId": "startAgentConversation",
@@ -37817,6 +38011,173 @@
         ],
         "additionalProperties": false
       },
+      "AgentConfirmation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "declined",
+              "expired",
+              "failed"
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "disabled",
+                  "paused",
+                  "grant",
+                  "unknown_tool",
+                  "agent",
+                  "scope",
+                  "autonomy",
+                  "confirmation_required",
+                  "limit",
+                  "invalid",
+                  "not_found",
+                  "refused",
+                  "failed",
+                  "timeout"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "card": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "flight",
+                  "hotel",
+                  "car",
+                  "transfer",
+                  "tour",
+                  "package",
+                  "visa",
+                  "booking",
+                  "trip",
+                  "price",
+                  "link"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "lines": {
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "amounts": {
+                "default": [],
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "refund",
+                        "kept"
+                      ]
+                    },
+                    "amount": {
+                      "$ref": "#/components/schemas/Money"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "amount"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "ref": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "booking",
+                      "trip",
+                      "support"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "kind",
+              "title",
+              "lines",
+              "amounts"
+            ],
+            "additionalProperties": false
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "conversationId",
+          "action",
+          "status",
+          "reason",
+          "card",
+          "expiresAt",
+          "decidedAt"
+        ],
+        "additionalProperties": false
+      },
       "AgentConversation": {
         "type": "object",
         "properties": {
@@ -44922,6 +45283,30 @@
         },
         "required": [
           "routes"
+        ],
+        "additionalProperties": false
+      },
+      "DecidedAgentConfirmation": {
+        "type": "object",
+        "properties": {
+          "confirmation": {
+            "$ref": "#/components/schemas/AgentConfirmation"
+          },
+          "runId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "confirmation",
+          "runId"
         ],
         "additionalProperties": false
       },

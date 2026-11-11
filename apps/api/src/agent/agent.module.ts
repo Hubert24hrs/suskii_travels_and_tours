@@ -32,9 +32,12 @@ import { AgentChatService } from './chat/agent-chat.service';
 import { AGENT_CLIENT, HttpAgentClient, MockAgentClient } from './chat/agent-client';
 import { AgentConversationsService } from './chat/agent-conversations.service';
 import { AgentRunLog } from './chat/agent-run-log';
+import { AgentConfirmationsController } from './confirmations/agent-confirmations.controller';
+import { AgentConfirmationsService } from './confirmations/agent-confirmations.service';
 import { InternalAgentToolsController } from './internal-agent-tools.controller';
 import { AccountTools } from './tools/account-tools';
 import { CatalogTools } from './tools/catalog-tools';
+import { CommitTools } from './tools/commit-tools';
 import { PlatformTools } from './tools/platform-tools';
 import { ProductTools } from './tools/product-tools';
 import { SearchTools } from './tools/search-tools';
@@ -67,6 +70,7 @@ import { AgentToolCallers } from './tools/tool-support';
   controllers: [
     AgentController,
     AgentChatController,
+    AgentConfirmationsController,
     AdminAgentController,
     InternalAgentToolsController,
   ],
@@ -86,9 +90,11 @@ import { AgentToolCallers } from './tools/tool-support';
     SearchTools,
     ProductTools,
     AccountTools,
+    CommitTools,
     SupportTools,
     AgentConversationsService,
     AgentChatService,
+    AgentConfirmationsService,
     AgentRunLog,
     MockAgentClient,
     {

@@ -140,6 +140,28 @@ export const AGENT_CONVERSATION_MESSAGE_LIMIT = 200;
 /** Open conversations one account may have. */
 export const AGENT_OPEN_CONVERSATION_LIMIT = 20;
 
+/**
+ * How a confirmation ended (ADR-107): `pending` until the traveller taps, `confirmed` once the
+ * action ran, `declined` by them, `expired` when they wrote something else or the time ran
+ * out, `failed` when the ordinary service refused the action at the tap.
+ */
+export const AGENT_CONFIRMATION_STATUSES = [
+  'pending',
+  'confirmed',
+  'declined',
+  'expired',
+  'failed',
+] as const;
+export type AgentConfirmationStatus = (typeof AGENT_CONFIRMATION_STATUSES)[number];
+/** How long a confirmation waits for the tap. */
+export const AGENT_CONFIRMATION_MINUTES = 15;
+/**
+ * What an amount on a confirmation card is, as a code the clients put into words: what comes
+ * back to the traveller, and what is kept under the terms they booked on.
+ */
+export const AGENT_CONFIRMATION_AMOUNTS = ['refund', 'kept'] as const;
+export type AgentConfirmationAmount = (typeof AGENT_CONFIRMATION_AMOUNTS)[number];
+
 /** `S-…` is support (ADR-083) and `T-…` a trip (ADR-099); an agent conversation is `A-…`. */
 export const AGENT_REFERENCE_PATTERN = /^A-[A-Z0-9]{6}$/;
 

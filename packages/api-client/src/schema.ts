@@ -2899,6 +2899,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agent/confirmations/{confirmationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the assistant asks the traveller to confirm
+         * @description The card is built by the API from its own records: what will be done, to which booking or trip, and the money it moves. `status` is `pending` until the traveller answers or 15 minutes pass.
+         */
+        get: operations["getAgentConfirmation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agent/confirmations/{confirmationId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The traveller's tap: do what the card says
+         * @description Runs the action through the ordinary service as the signed-in traveller, exactly as the card showed it (a refund that changed since is refused, and `status` becomes `failed` with a `reason`). The assistant then says what the records hold in the run named by `runId`. 409 `confirmation-decided` or `confirmation-expired` when it is no longer waiting.
+         */
+        post: operations["confirmAgentConfirmation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agent/confirmations/{confirmationId}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The traveller says no
+         * @description Nothing is done. The assistant is told and answers in the run named by `runId`. 409 when the confirmation is no longer waiting.
+         */
+        post: operations["declineAgentConfirmation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/agent/conversations": {
         parameters: {
             query?: never;
@@ -8672,6 +8732,37 @@ export interface components {
             runId: string;
             message: components["schemas"]["AgentMessage"];
         };
+        AgentConfirmation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            conversationId: string;
+            action: string;
+            /** @enum {string} */
+            status: "pending" | "confirmed" | "declined" | "expired" | "failed";
+            reason: ("disabled" | "paused" | "grant" | "unknown_tool" | "agent" | "scope" | "autonomy" | "confirmation_required" | "limit" | "invalid" | "not_found" | "refused" | "failed" | "timeout") | null;
+            card: {
+                /** @enum {string} */
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link";
+                title: string;
+                lines: string[];
+                /** @default [] */
+                amounts: {
+                    /** @enum {string} */
+                    code: "refund" | "kept";
+                    amount: components["schemas"]["Money"];
+                }[];
+                ref?: {
+                    /** @enum {string} */
+                    type: "booking" | "trip" | "support";
+                    /** Format: uuid */
+                    id: string;
+                };
+            };
+            /** Format: date-time */
+            expiresAt: string;
+            decidedAt: string | null;
+        };
         AgentConversation: {
             /** Format: uuid */
             id: string;
@@ -10094,6 +10185,10 @@ export interface components {
                     countryCode: string;
                 };
             }[];
+        };
+        DecidedAgentConfirmation: {
+            confirmation: components["schemas"]["AgentConfirmation"];
+            runId: string | null;
         };
         DeleteAccountRequestInput: {
             password?: string;
@@ -20559,6 +20654,102 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    getAgentConfirmation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                confirmationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentConfirmation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    confirmAgentConfirmation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                confirmationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecidedAgentConfirmation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    declineAgentConfirmation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                confirmationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecidedAgentConfirmation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];

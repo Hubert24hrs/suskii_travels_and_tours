@@ -187,7 +187,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the customer tools with their tiers: two prepare something, none commits', async () => {
+  it('ships the customer tools with their tiers: two prepare something, three ask for a tap', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -197,11 +197,14 @@ describe('customer agent tools (e2e)', () => {
       .tools;
     expect(tools.map((tool) => tool.name)).toEqual([
       'addons.search',
+      'bookings.cancel',
       'bookings.get',
       'bookings.list',
       'cars.buses',
       'cars.rentals',
       'catalog.places',
+      'changes.accept',
+      'changes.take_refund_offer',
       'flights.search',
       'hotels.search',
       'packages.search',
@@ -219,7 +222,12 @@ describe('customer agent tools (e2e)', () => {
       'support.handover',
       'trips.plan',
     ]);
-    expect(tools.filter((tool) => tool.tier === 'commit')).toEqual([]);
+    // What changes a booking: each only ever becomes a card the traveller confirms.
+    expect(tools.filter((tool) => tool.tier === 'commit').map((tool) => tool.name)).toEqual([
+      'bookings.cancel',
+      'changes.accept',
+      'changes.take_refund_offer',
+    ]);
     // Places and the status page are for every agent; the rest are the customer agents' only.
     const staffAgents = ['price_intel', 'operations', 'finance_prep', 'marketing', 'executive'];
     for (const tool of tools) {
@@ -876,6 +884,11 @@ describe('customer agent tools (e2e)', () => {
       author: 'customer',
       text: 'My flight to Abuja was moved by the airline.\n\nI need a person to rebook me please.',
     });
+
+    // The assistant's conversation says which support conversation took it over.
+    expect(
+      await ctx.prisma.agentConversation.findUniqueOrThrow({ where: { id: conversationId } }),
+    ).toMatchObject({ handoverConversationId: conversation.id });
 
     // Asking again opens nothing new.
     const again = await call<{ alreadyOpen: boolean }>(

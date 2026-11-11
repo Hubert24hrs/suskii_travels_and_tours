@@ -21,7 +21,7 @@ import { ProblemDetailsException } from '../../common/problem-details';
 import { uuidv7 } from '../../common/uuid';
 import { APP_CONFIG, type AppConfig } from '../../config/config';
 import { HmacService } from '../../crypto/hmac.service';
-import type { AgentConversation, AgentRunStatus } from '../../generated/prisma/client';
+import type { AgentConversation, AgentRunStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma.service';
 import { REDIS } from '../../infra/redis';
 import { agentCost, agentRunDuration, agentRuns } from '../../telemetry/metrics';
@@ -141,71 +141,24 @@ export class AgentChatService {
       );
     }
 
-    const runId = uuidv7();
-    // One run per conversation at a time: two would write the same thread and lose a turn.
-    const locked = await this.redis.set(
-      busyKey(conversation.id),
-      runId,
-      'PX',
-      this.config.AGENT_RUN_TIMEOUT_MS + LOCK_MARGIN_MS,
-      'NX',
+    const { runId, reservation } = await this.begin(
+      conversation,
+      conversation.userId
+        ? { userId: conversation.userId }
+        : { guestKey: this.hmac.digest('agent-guest', caller.context.ip) },
     );
-    if (locked !== 'OK') {
-      throw problem(
-        HttpStatus.CONFLICT,
-        'agent-busy',
-        'The assistant is still answering',
-        'Wait for the answer to your last message.',
-      );
-    }
-
-    let reservation: BudgetReservation;
-    try {
-      // A run the API lost (a restart) must not keep the conversation looking busy.
-      await this.prisma.agentRun.updateMany({
-        where: {
-          conversationId: conversation.id,
-          status: 'running',
-          startedAt: {
-            lt: new Date(Date.now() - this.config.AGENT_RUN_TIMEOUT_MS - LOCK_MARGIN_MS),
-          },
-        },
-        data: { status: 'failed', outcome: 'timeout', finishedAt: new Date() },
-      });
-      const reserved = await this.budget.reserve(
-        conversation.userId
-          ? { userId: conversation.userId }
-          : { guestKey: this.hmac.digest('agent-guest', caller.context.ip) },
-      );
-      if (typeof reserved === 'string') {
-        throw problem(
-          HttpStatus.TOO_MANY_REQUESTS,
-          'agent-budget',
-          "The assistant has reached today's limit",
-          'Use the ordinary screens, or try again tomorrow.',
-        );
-      }
-      reservation = reserved;
-    } catch (error) {
-      await this.release(conversation.id, runId);
-      throw error;
-    }
 
     const messageId = uuidv7();
     const now = new Date();
     let stored;
     try {
       stored = await this.prisma.$transaction(async (tx) => {
-        await tx.agentRun.create({
-          data: {
-            id: runId,
-            conversationId: conversation.id,
-            audience: conversation.audience,
-            channel: conversation.channel,
-            agent: 'concierge',
-            trigger: 'message',
-          },
+        // The traveller wrote instead of tapping: what waited for their tap is over.
+        await tx.agentConfirmation.updateMany({
+          where: { conversationId: conversation.id, status: 'pending' },
+          data: { status: 'expired', decidedAt: now },
         });
+        await this.openRun(tx, runId, conversation, 'message');
         const message = await tx.agentMessage.create({
           data: {
             id: messageId,
@@ -228,9 +181,117 @@ export class AgentChatService {
       throw error;
     }
 
-    const request = this.request(runId, conversation, text, roles, now);
+    // The model never gets what the traveller wrote: only a copy without contact details
+    // and document-like numbers (ADR-105).
+    const request = this.request(
+      runId,
+      conversation,
+      { kind: 'message', text: scrubQuery(text) || SCRUBBED_AWAY },
+      roles,
+      now,
+    );
     this.background.run('agent-run', () => this.execute(request, conversation, reservation));
     return { runId, message: this.conversations.message(stored) };
+  }
+
+  /**
+   * Continues a turn that waited for the traveller's tap (ADR-107): the assistant is told how
+   * the confirmation ended and what the records hold, and answers in a run of its own.
+   */
+  async resume(
+    conversation: AgentConversation,
+    roles: readonly Role[],
+    input: Extract<AgentRunRequest['input'], { kind: 'resume' }>,
+  ): Promise<string> {
+    await this.available();
+    if (!conversation.userId) throw new NotFoundException();
+    const { runId, reservation } = await this.begin(conversation, {
+      userId: conversation.userId,
+    });
+    const now = new Date();
+    try {
+      await this.prisma.$transaction((tx) => this.openRun(tx, runId, conversation, 'resume'));
+    } catch (error) {
+      await this.budget.settle(reservation, 0).catch(() => undefined);
+      await this.release(conversation.id, runId);
+      throw error;
+    }
+    const request = this.request(runId, conversation, input, roles, now);
+    this.background.run('agent-run', () => this.execute(request, conversation, reservation));
+    return runId;
+  }
+
+  /** Takes the conversation's turn and reserves the run's spend, or says why not. */
+  private async begin(
+    conversation: AgentConversation,
+    payer: { userId: string } | { guestKey: string },
+  ): Promise<{ runId: string; reservation: BudgetReservation }> {
+    const runId = uuidv7();
+    // One run per conversation at a time: two would write the same thread and lose a turn.
+    const locked = await this.redis.set(
+      busyKey(conversation.id),
+      runId,
+      'PX',
+      this.config.AGENT_RUN_TIMEOUT_MS + LOCK_MARGIN_MS,
+      'NX',
+    );
+    if (locked !== 'OK') {
+      throw problem(
+        HttpStatus.CONFLICT,
+        'agent-busy',
+        'The assistant is still answering',
+        'Wait for the answer to your last message.',
+      );
+    }
+    try {
+      // A run the API lost (a restart) must not keep the conversation looking busy.
+      await this.prisma.agentRun.updateMany({
+        where: {
+          conversationId: conversation.id,
+          status: 'running',
+          startedAt: {
+            lt: new Date(Date.now() - this.config.AGENT_RUN_TIMEOUT_MS - LOCK_MARGIN_MS),
+          },
+        },
+        data: { status: 'failed', outcome: 'timeout', finishedAt: new Date() },
+      });
+      const reserved = await this.budget.reserve(payer);
+      if (typeof reserved === 'string') {
+        throw problem(
+          HttpStatus.TOO_MANY_REQUESTS,
+          'agent-budget',
+          "The assistant has reached today's limit",
+          'Use the ordinary screens, or try again tomorrow.',
+        );
+      }
+      return { runId, reservation: reserved };
+    } catch (error) {
+      await this.release(conversation.id, runId);
+      throw error;
+    }
+  }
+
+  /** The run's row; a run that waited for a tap has done its part once the next one starts. */
+  private async openRun(
+    tx: Prisma.TransactionClient,
+    runId: string,
+    conversation: AgentConversation,
+    trigger: 'message' | 'resume',
+  ): Promise<void> {
+    await tx.agentRun.updateMany({
+      where: { conversationId: conversation.id, status: 'waiting' },
+      data: { status: 'succeeded' },
+    });
+    await tx.agentRun.create({
+      data: {
+        id: runId,
+        conversationId: conversation.id,
+        audience: conversation.audience,
+        channel: conversation.channel,
+        agent: 'concierge',
+        trigger,
+      },
+    });
   }
 
   /** The events of a run after number `after`, for the caller whose conversation it answers. */
@@ -298,7 +359,7 @@ export class AgentChatService {
   private request(
     runId: string,
     conversation: AgentConversation,
-    text: string,
+    input: AgentRunRequest['input'],
     roles: readonly Role[],
     now: Date,
   ): AgentRunRequest {
@@ -338,9 +399,7 @@ export class AgentChatService {
         timeoutMs: this.config.AGENT_RUN_TIMEOUT_MS,
         maxOutputTokens: this.config.AGENT_MAX_OUTPUT_TOKENS,
       },
-      // The model never gets what the traveller wrote: only a copy without contact details
-      // and document-like numbers (ADR-105).
-      input: { kind: 'message', text: scrubQuery(text) || SCRUBBED_AWAY },
+      input,
     };
   }
 

@@ -39,6 +39,29 @@
       }
     },
     {
+      "name": "bookings.cancel",
+      "description": "Asks the signed-in traveller to confirm cancelling one of their own bookings. Nothing is cancelled when you call it: the traveller gets a card with what comes back and what is kept, and only their tap cancels. Call it only after they said they want to cancel, and read bookings.get first. 'refused' means it cannot be cancelled online: offer the support team.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "bookings",
+        "disruption"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
       "name": "bookings.get",
       "description": "One of the signed-in traveller's own bookings: its status, what was paid and what is due, the trip itself (places, local times, bags, room, cancellation terms), open airline changes, documents ready and refunds. Quote only what the facts say; the booking page holds the tickets and the actions.",
       "tier": "read",
@@ -265,6 +288,52 @@
         },
         "required": [
           "query"
+        ]
+      }
+    },
+    {
+      "name": "changes.accept",
+      "description": "Asks the signed-in traveller to confirm accepting the new flights after the airline changed a booking of theirs. Nothing is accepted when you call it: the traveller gets a card with the new times, and only their tap tells the airline. Call it only after they said they accept, and read bookings.get first. 'refused' means it cannot be accepted online: offer the support team.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "disruption",
+        "bookings"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
+      "name": "changes.take_refund_offer",
+      "description": "Asks the signed-in traveller to confirm taking the full refund the airline's change entitles them to, instead of the new flights. Nothing happens when you call it: the traveller gets a card with the amount, and only their tap cancels the flights with the airline and starts the refund. Call it only when bookings.get says a full refund is offered and the traveller said they want it. 'refused' means it cannot be taken online: offer the support team.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "disruption",
+        "bookings"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
         ]
       }
     },
