@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { BOOKING_TERMS_VERSION, type AgentScope } from '@suskii/shared';
+import { BOOKING_TERMS_VERSION, STAFF_AGENTS, type AgentScope } from '@suskii/shared';
 
 import { AgentGrants, type AgentGrant } from '../src/agent/agent-grants';
 import { AssistedQuotesService } from '../src/assisted-quotes/assisted-quotes.service';
@@ -190,7 +190,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the customer tools with their tiers: three prepare something, five ask for a tap', async () => {
+  it('ships the tools with their tiers: five prepare something, five ask for a tap, and the staff tools are staff only', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -212,15 +212,23 @@ describe('customer agent tools (e2e)', () => {
       'changes.accept',
       'changes.get',
       'changes.take_refund_offer',
+      'finance.booking_payments',
+      'finance.draft_refund_request',
+      'finance.overview',
       'flights.search',
       'flights.status',
       'hotels.search',
+      'marketing.draft_promo',
+      'marketing.promos',
+      'ops.queues',
       'packages.search',
       'payments.options',
       'platform.status',
       'prices.indicative',
       'quotes.list',
       'quotes.request',
+      'reports.sales',
+      'sources.overview',
       'support.faqs',
       'support.handover',
       'tours.search',
@@ -230,6 +238,8 @@ describe('customer agent tools (e2e)', () => {
       'visa.requirements',
     ]);
     expect(tools.filter((tool) => tool.tier === 'propose').map((tool) => tool.name)).toEqual([
+      'finance.draft_refund_request',
+      'marketing.draft_promo',
       'quotes.request',
       'support.handover',
       'trips.plan',
@@ -242,15 +252,25 @@ describe('customer agent tools (e2e)', () => {
       'changes.accept',
       'changes.take_refund_offer',
     ]);
-    // Places and the status page are for every agent; the rest are the customer agents' only.
-    const staffAgents = ['price_intel', 'operations', 'finance_prep', 'marketing', 'executive'];
+    // Places and the status page are for every agent. Every other tool is either the customer
+    // agents' or the staff agents', never both; and a staff tool reads or prepares, no more.
+    const staffAgents = [...STAFF_AGENTS] as string[];
+    const staffTools = /^(ops|reports|finance|marketing|sources)\./;
     for (const tool of tools) {
       const general = tool.name === 'catalog.places' || tool.name === 'platform.status';
+      const staffTool = staffTools.test(tool.name);
       expect([tool.name, tool.agents.some((agent) => staffAgents.includes(agent))]).toEqual([
         tool.name,
-        general,
+        general || staffTool,
       ]);
+      if (!staffTool) continue;
+      expect([tool.name, tool.agents.every((agent) => staffAgents.includes(agent))]).toEqual([
+        tool.name,
+        true,
+      ]);
+      expect([tool.name, tool.tier === 'commit']).toEqual([tool.name, false]);
     }
+    expect(tools.filter((tool) => staffTools.test(tool.name))).toHaveLength(8);
     // Every customer agent can bring in a person.
     const handover = tools.find((tool) => tool.name === 'support.handover');
     expect(handover?.agents).toHaveLength(10);

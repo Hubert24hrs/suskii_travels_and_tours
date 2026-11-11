@@ -1,6 +1,7 @@
 import { addDays, BOOKING_TERMS_VERSION, localDate } from '@suskii/shared';
 import type { Response } from 'supertest';
 
+import { AgentApprovalsService } from '../src/agent/approvals/agent-approvals.service';
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider';
 
 import {
@@ -86,6 +87,9 @@ describe('admin audit coverage (e2e)', () => {
       // Only the risk review case sends a card: a foreign card holds its payments (ADR-040).
       CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
       PAYMENT_RISK_REVIEW_SCORE: 30,
+      // The staff agents answer from the mock inside the API.
+      AGENT_ENABLED: true,
+      AGENT_SERVICE: 'mock',
     });
     await ctx.background.drain();
     await resetState(ctx);
@@ -1114,6 +1118,63 @@ describe('admin audit coverage (e2e)', () => {
       request.send({ subject: 'agent', name: 'concierge', level: 'manual' }),
     );
     expect(level.body).toEqual({ subject: 'agent', name: 'concierge', level: 'manual', set: true });
+  });
+
+  it('staff agents: a conversation, a question and the approvals queue', async () => {
+    const conversation = await audited('adminStartAgentConversation', {}, (request) =>
+      request.send({ locale: 'en-NG' }),
+    );
+    const conversationId = (conversation.body as { id: string }).id;
+    const asked = await audited('adminSendAgentMessage', {}, (request) =>
+      request.send({ conversationId, text: 'What is waiting for a person today?' }),
+    );
+    await ctx.background.drain();
+    const runId = (asked.body as { runId: string }).runId;
+
+    /** What an agent prepared for the admin: decided by the other super admin, never by them. */
+    const proposed = async (code: string): Promise<string> => {
+      const made = await ctx.app.get(AgentApprovalsService).propose({
+        kind: 'promo_code',
+        requestedBy: admin.userId,
+        agent: 'marketing',
+        runId,
+        conversationId,
+        subject: null,
+        payload: {
+          code,
+          description: null,
+          type: 'percentage',
+          value: 1000,
+          currency: null,
+          maxDiscountMinor: null,
+          minSpendMinor: null,
+          verticals: [],
+          validFrom: null,
+          validTo: null,
+          maxRedemptions: null,
+          maxRedemptionsPerUser: null,
+          requiresAccount: true,
+          active: true,
+        },
+      });
+      if (!('id' in made)) throw new Error('The proposal was refused');
+      return made.id;
+    };
+    const approved = await audited(
+      'adminApproveAgentApproval',
+      { approvalId: await proposed('E2EAGENT10') },
+      none,
+      approver,
+    );
+    expect(approved.body).toMatchObject({ status: 'approved', result: { type: 'promo_code' } });
+    const promo = await ctx.prisma.promoCode.findUniqueOrThrow({ where: { code: 'E2EAGENT10' } });
+    expect(promo.active).toBe(false);
+    await audited(
+      'adminRejectAgentApproval',
+      { approvalId: await proposed('E2EAGENT20') },
+      (request) => request.send({ reason: 'not_needed' }),
+      approver,
+    );
   });
 
   it('price intelligence: a site, its decisions, a read, a switch and a budget', async () => {

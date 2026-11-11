@@ -724,6 +724,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'parent', parent: 'AgentConversation' },
     note: 'What the assistant asked the person to confirm (ADR-107): the action, the card they saw (trip facts and money, no names or contacts), their answer and what the records held afterwards. Goes with its conversation.',
   },
+  AgentApproval: {
+    section: null,
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'agent-approvals' },
+    note: 'What a staff agent prepared for a person to decide (ADR-107): its kind, exactly what would be done (ids, amounts and codes), which staff member asked and who decided. Staff ids only; nothing about a traveller beyond a booking id. Purged 400 days after it was made.',
+  },
   AgentRun: {
     section: null,
     deletion: 'retain',

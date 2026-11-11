@@ -1,6 +1,13 @@
 import { Readable } from 'node:stream';
 
-import { HttpStatus, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Redis } from 'ioredis';
 
 import {
@@ -9,6 +16,9 @@ import {
   DEFAULT_SEARCH_TIME_ZONE,
   agentScopesFor,
   localDate,
+  staffAgentsFor,
+  type AgentAudience,
+  type AgentChannel,
   type AgentRunEnd,
   type AgentRunRequest,
   type Role,
@@ -125,6 +135,59 @@ export class AgentChatService {
   ): Promise<{ runId: string; message: AgentMessageDto }> {
     await this.available();
     const conversation = await this.conversations.load(conversationId, caller);
+    return this.post(
+      conversation,
+      text,
+      conversation.userId
+        ? { userId: conversation.userId }
+        : { guestKey: this.hmac.digest('agent-guest', caller.context.ip) },
+      roles,
+    );
+  }
+
+  /**
+   * A staff member's message to the staff agents (ADR-107). Which agents answer follows from
+   * that person's own permissions: someone whose roles open none of them has nobody to ask.
+   */
+  async sendForStaff(
+    conversationId: string,
+    text: string,
+    staff: { userId: string; roles: readonly Role[] },
+  ): Promise<{ runId: string; message: AgentMessageDto }> {
+    await this.available();
+    const conversation = await this.conversations.loadForStaff(conversationId, staff.userId);
+    const scopes = agentScopesFor({
+      userId: staff.userId,
+      roles: [...staff.roles],
+      channel: 'console',
+    });
+    if (staffAgentsFor(scopes).length === 0) throw new ForbiddenException();
+    return this.post(conversation, text, { userId: staff.userId }, staff.roles);
+  }
+
+  /** The events of a staff member's own run. */
+  async eventsForStaff(
+    runId: string,
+    after: number,
+    userId: string,
+  ): Promise<{ runId: string; status: AgentRunStatus; done: boolean; events: LoggedEvent[] }> {
+    const run = await this.prisma.agentRun.findUnique({
+      where: { id: runId },
+      select: { id: true, status: true, conversationId: true },
+    });
+    if (!run?.conversationId) throw new NotFoundException();
+    await this.conversations.loadForStaff(run.conversationId, userId);
+    const events = await this.log.read(runId, after);
+    return { runId, status: run.status, done: run.status !== 'running', events };
+  }
+
+  /** Stores the message, starts the run in the background and answers at once. */
+  private async post(
+    conversation: AgentConversation,
+    text: string,
+    payer: { userId: string } | { guestKey: string },
+    roles: readonly Role[],
+  ): Promise<{ runId: string; message: AgentMessageDto }> {
     if (conversation.status !== 'open') {
       throw problem(
         HttpStatus.CONFLICT,
@@ -141,12 +204,7 @@ export class AgentChatService {
       );
     }
 
-    const { runId, reservation } = await this.begin(
-      conversation,
-      conversation.userId
-        ? { userId: conversation.userId }
-        : { guestKey: this.hmac.digest('agent-guest', caller.context.ip) },
-    );
+    const { runId, reservation } = await this.begin(conversation, payer);
 
     const messageId = uuidv7();
     const now = new Date();
@@ -288,7 +346,7 @@ export class AgentChatService {
         conversationId: conversation.id,
         audience: conversation.audience,
         channel: conversation.channel,
-        agent: 'concierge',
+        agent: conversation.audience === 'staff' ? 'executive' : 'concierge',
         trigger,
       },
     });
@@ -363,8 +421,16 @@ export class AgentChatService {
     roles: readonly Role[],
     now: Date,
   ): AgentRunRequest {
-    const channel = conversation.channel === 'app' ? 'app' : 'web';
+    // A staff conversation lives in the console; a traveller's on the website or in the app.
+    const staff = conversation.audience === 'staff';
+    const channel: AgentChannel = staff
+      ? 'console'
+      : conversation.channel === 'app'
+        ? 'app'
+        : 'web';
+    const audience: AgentAudience = staff ? 'staff' : 'customer';
     const signedIn = conversation.userId !== null;
+    const scopes = agentScopesFor({ userId: conversation.userId, roles: [...roles], channel });
     return {
       runId,
       threadId: conversation.id,
@@ -375,9 +441,9 @@ export class AgentChatService {
           userId: conversation.userId,
           // A guest has no roles, whatever the request carried.
           roles: signedIn ? [...roles] : [],
-          audience: 'customer',
+          audience,
           channel,
-          scopes: agentScopesFor({ userId: conversation.userId, roles: [...roles], channel }),
+          scopes,
           locale: conversation.locale,
           currency: conversation.currency,
           country: conversation.country,
@@ -385,12 +451,13 @@ export class AgentChatService {
         now.getTime(),
       ),
       context: {
-        audience: 'customer',
+        audience,
         channel,
         locale: conversation.locale,
         currency: conversation.currency,
         country: conversation.country,
-        agents: [...CUSTOMER_AGENTS],
+        // A staff member reaches the agents their own permissions open, and no others.
+        agents: staff ? staffAgentsFor(scopes) : [...CUSTOMER_AGENTS],
         signedIn,
         today: localDate(now, DEFAULT_SEARCH_TIME_ZONE),
       },

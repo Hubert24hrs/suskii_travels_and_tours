@@ -456,6 +456,92 @@
       }
     },
     {
+      "name": "finance.booking_payments",
+      "description": "The payments of one booking, by its id, for preparing a refund request: each payment received with its amount and what of it was already refunded or is being refunded, and what is still refundable. It names no traveller.",
+      "tier": "read",
+      "scope": "finance",
+      "agents": [
+        "finance_prep"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
+      "name": "finance.draft_refund_request",
+      "description": "Prepares a refund request for a person to decide: which payment of which booking, how much (in minor units of the payment currency, never above what is still refundable) and why, as one of the reasons. It refunds nothing and requests nothing: the draft waits in the approvals queue, someone other than the person you are working for approves or rejects it, and an approved one becomes an ordinary refund request with its own second approver. Read finance.booking_payments first.",
+      "tier": "propose",
+      "scope": "finance",
+      "agents": [
+        "finance_prep"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "customer_cancellation",
+              "goodwill",
+              "supplier_cancellation",
+              "ticketing_failed",
+              "duplicate_payment",
+              "other"
+            ]
+          },
+          "cancelBooking": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bookingId",
+          "paymentId",
+          "amountMinor",
+          "reason"
+        ]
+      }
+    },
+    {
+      "name": "finance.overview",
+      "description": "What finance has open right now: refunds awaiting a second approver and refunds needing review, reconciliation discrepancies still open by kind, driver payouts not yet settled, and refund requests an agent prepared that wait for approval.",
+      "tier": "read",
+      "scope": "finance",
+      "agents": [
+        "finance_prep",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
       "name": "flights.search",
       "description": "Search flights for given airports, dates and travellers, with the price the traveller would pay now. Use IATA codes from catalog.places. Leave returnDate out for a one-way trip. Prices are for every traveller together, taxes and fees included. Offers marked sample are demo fares, not real ones.",
       "tier": "read",
@@ -653,6 +739,133 @@
           "checkIn",
           "checkOut"
         ]
+      }
+    },
+    {
+      "name": "marketing.draft_promo",
+      "description": "Prepares a promo code for a person to decide: the code (4 to 20 letters and digits), a percentage in basis points (1000 is 10%) or a fixed amount in minor units of a currency, where it applies, its dates and how often it may be used. It creates nothing: the draft waits in the approvals queue, someone other than the person you are working for approves or rejects it, and an approved one is created switched off for a person to switch on.",
+      "tier": "propose",
+      "scope": "marketing",
+      "agents": [
+        "marketing"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 20
+          },
+          "internalNote": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "gives": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "maxDiscountMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "minSpendMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "products": {
+            "default": [],
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flights",
+                "hotels",
+                "packages",
+                "tours",
+                "visa",
+                "travel_addons",
+                "prime",
+                "buses",
+                "rides",
+                "rentals",
+                "assisted"
+              ]
+            }
+          },
+          "validFrom": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "validTo": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "usesAllowed": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "usesPerAccount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "needsAnAccount": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "gives",
+          "value"
+        ]
+      }
+    },
+    {
+      "name": "marketing.promos",
+      "description": "The promo codes that are switched on: each code, what it gives (basis points for a percentage, minor units for a fixed amount), where it applies, until when, and how often it was used.",
+      "tier": "read",
+      "scope": "marketing",
+      "agents": [
+        "marketing",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "ops.queues",
+      "description": "What is waiting for a person in operations right now, as counts: assisted quotes to verify, paid bookings to book by hand, bookings whose ticketing is retrying or stuck, payments held for a risk review, refunds needing review, airline changes still open (and how many are significant), support conversations past their reply time, visa applications and referrals in review.",
+      "tier": "read",
+      "scope": "ops",
+      "agents": [
+        "operations",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
       }
     },
     {
@@ -914,6 +1127,44 @@
           "destination",
           "startDate"
         ]
+      }
+    },
+    {
+      "name": "reports.sales",
+      "description": "Bookings and money for a period, from the ledger: bookings made, by status and by product, money received, paid from wallets and refunded per currency (never converted), accounts created, active Suskii Prime members and the most booked flight routes. At most a year at a time.",
+      "tier": "read",
+      "scope": "reports",
+      "agents": [
+        "business_intelligence",
+        "executive",
+        "marketing"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "First UTC day; 30 days back by default.",
+            "type": "string"
+          },
+          "to": {
+            "description": "Last UTC day, inclusive; today by default.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "sources.overview",
+      "description": "How price intelligence stands: whether it is switched on, each vendor and whether its key works, what is switched off, what reading has cost today and this month against each cap, and how many sites are in review, approved and blocked. Approving a site is a person's decision in the console.",
+      "tier": "read",
+      "scope": "datasources",
+      "agents": [
+        "price_intel",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
       }
     },
     {

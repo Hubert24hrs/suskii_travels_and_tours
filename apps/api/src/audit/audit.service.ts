@@ -233,6 +233,11 @@ export type AuditAction =
   | 'agent.paused'
   | 'agent.resumed'
   | 'agent.autonomy_changed'
+  | 'agent.approval_proposed'
+  | 'agent.approval_approved'
+  | 'agent.approval_rejected'
+  | 'agent.staff_conversation_started'
+  | 'agent.staff_message_sent'
   // Assisted quotes (ADR-104)
   | 'assisted_quote.offered'
   | 'assisted_quote.closed'

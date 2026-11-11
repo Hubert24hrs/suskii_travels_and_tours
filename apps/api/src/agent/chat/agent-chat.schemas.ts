@@ -41,6 +41,15 @@ export const startAgentConversationSchema = named(
 );
 export type StartAgentConversation = z.infer<typeof startAgentConversationSchema>;
 
+/**
+ * A staff member's conversation with the staff agents: only the language is theirs to choose,
+ * and the console states it (a request without it starts nothing).
+ */
+export const startStaffAgentConversationSchema = named(
+  'StartStaffAgentConversationRequest',
+  z.object({ locale: localeCodeSchema }),
+);
+
 export const agentMessageSchema = named(
   'AgentMessage',
   z.object({

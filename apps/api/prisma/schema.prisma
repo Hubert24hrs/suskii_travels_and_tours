@@ -4251,6 +4251,50 @@ model AgentConfirmation {
   @@map("agent_confirmations")
 }
 
+/// `pending` waits for a person; `approved` was carried out by the ordinary service; `failed`
+/// that service refused it at approval; `rejected` and `expired` did nothing.
+enum AgentApprovalStatus {
+  pending
+  approved
+  rejected
+  expired
+  failed
+}
+
+/// Something a staff agent prepared for a person to decide (ADR-107): a refund request, a promo
+/// code. It changes nothing until someone other than the person who asked approves it, and
+/// approving runs the ordinary service as that approver. `kind` and `agent` are values of
+/// `@suskii/shared`: text, so a new one is not a type change (expand/contract).
+model AgentApproval {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  kind           String              @db.VarChar(32)
+  /// The staff member whose question to an agent produced it. They cannot decide it.
+  requestedBy    String              @map("requested_by") @db.Uuid
+  agent          String              @db.VarChar(32)
+  /// The run that proposed it. Not a foreign key: runs are purged on their own schedule.
+  runId          String              @map("run_id") @db.Uuid
+  conversationId String?             @map("conversation_id") @db.Uuid
+  /// The record it is about (a booking), when it has one.
+  subjectType    String?             @map("subject_type") @db.VarChar(32)
+  subjectId      String?             @map("subject_id") @db.Uuid
+  /// What would be done, as the kind's own schema: ids, amounts and codes.
+  payload        Json
+  status         AgentApprovalStatus @default(pending)
+  decidedBy      String?             @map("decided_by") @db.Uuid
+  decidedAt      DateTime?           @map("decided_at") @db.Timestamptz(3)
+  /// Why it was rejected or failed, as a code.
+  reason         String?             @db.VarChar(40)
+  /// What approving it created: a refund, a promo code.
+  resultType     String?             @map("result_type") @db.VarChar(32)
+  resultId       String?             @map("result_id") @db.Uuid
+  expiresAt      DateTime            @map("expires_at") @db.Timestamptz(3)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@index([requestedBy, status])
+  @@map("agent_approvals")
+}
+
 model AgentToolCall {
   id           String              @id @default(uuid(7)) @db.Uuid
   runId        String              @map("run_id") @db.Uuid

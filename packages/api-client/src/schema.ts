@@ -143,6 +143,83 @@ export interface paths {
         patch: operations["adminUpdateAddon"];
         trace?: never;
     };
+    "/v1/admin/ai/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What agents prepared for a person to decide, oldest first
+         * @description `alsoWaiting` counts the assisted quotes to verify and the paid bookings to book by hand, which are decided on their own page (`/v1/admin/assisted-quotes`).
+         */
+        get: operations["adminListAgentApprovals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/approvals/{approvalId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One proposal, with exactly what approving it would do */
+        get: operations["adminGetAgentApproval"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/approvals/{approvalId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve: the ordinary service carries it out as the approver
+         * @description A refund request is created as the approver's (it then waits for its own second approver, as every staff refund does); a promo code is created switched off. Needs the kind's own permission besides `ai:approve` (403), and someone other than the person who asked (403 `own-approval`). If the ordinary service refuses it, the proposal ends as `failed` and nothing changed. 409 `approval-decided` once it was decided or lapsed.
+         */
+        post: operations["adminApproveAgentApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/approvals/{approvalId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject: nothing is done
+         * @description Needs the kind's own permission besides `ai:approve`, and someone other than the person who asked, as approving does.
+         */
+        post: operations["adminRejectAgentApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ai/autonomy": {
         parameters: {
             query?: never;
@@ -156,6 +233,60 @@ export interface paths {
          * @description `manual`: advice only. `supervised` (the default): prepares, a person approves. `autonomous`: approved low-risk tools within limits. A call runs at the stricter of its agent's and its tool's level; a `commit` still needs the traveller's tap at every level.
          */
         put: operations["adminSetAgentAutonomy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the staff agents something
+         * @description Answers 202 with the run to read (`GET /v1/admin/ai/runs/{runId}`). The agents that may answer are the ones whose part of the platform the caller's own permissions open; with none, 403. What an agent prepares (a refund request, a promo code) waits in the approvals queue for someone else to decide.
+         */
+        post: operations["adminSendAgentMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a conversation with the staff agents */
+        post: operations["adminStartAgentConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of the staff member's own conversations, with its messages */
+        get: operations["adminGetAgentConversation"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -214,6 +345,23 @@ export interface paths {
         put?: never;
         /** Release the pause */
         post: operations["adminResumeAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The events of one of the staff member's own runs */
+        get: operations["adminGetAgentRun"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8967,6 +9115,46 @@ export interface components {
             items: components["schemas"]["AdminUser"][];
             nextCursor: string | null;
         };
+        AgentApproval: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "refund_request" | "promo_code";
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "expired" | "failed";
+            /** @enum {string} */
+            agent: "concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive";
+            /** Format: uuid */
+            requestedBy: string;
+            mayDecide: boolean;
+            subject: {
+                type: string;
+                /** Format: uuid */
+                id: string;
+            } | null;
+            payload: {
+                [key: string]: unknown;
+            };
+            reason: string | null;
+            decidedBy: string | null;
+            decidedAt: string | null;
+            result: {
+                type: string;
+                /** Format: uuid */
+                id: string;
+            } | null;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AgentApprovalList: {
+            approvals: components["schemas"]["AgentApproval"][];
+            alsoWaiting: {
+                assistedQuotesToVerify: number;
+                assistedBookingsToBook: number;
+            };
+        };
         AgentAutonomyInputInput: {
             /** @enum {string} */
             subject: "agent" | "tool";
@@ -13074,6 +13262,10 @@ export interface components {
             referralCode?: string;
             turnstileToken?: string;
         };
+        RejectAgentApprovalInput: {
+            /** @enum {string} */
+            reason: "not_needed" | "wrong_amount" | "wrong_details" | "duplicate" | "other";
+        };
         RejectPaymentReviewRequestInput: {
             /** @enum {string} */
             reason: "confirmed_fraud" | "customer_unverified" | "card_reported" | "other";
@@ -13418,6 +13610,7 @@ export interface components {
             "assisted-quotes": number;
             "agent-conversations": number;
             "agent-runs": number;
+            "agent-approvals": number;
             "agent-threads": number;
             "scrape-jobs": number;
             "price-observations": number;
@@ -13907,6 +14100,10 @@ export interface components {
             useWallet?: boolean;
             /** @default false */
             useCompanyWallet?: boolean;
+        };
+        StartStaffAgentConversationRequestInput: {
+            /** @enum {string} */
+            locale: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
         };
         StartSupportConversationRequestInput: {
             /** @enum {string} */
@@ -15080,6 +15277,134 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminListAgentApprovals: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected" | "expired" | "failed";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentApprovalList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approvalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentApproval"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminApproveAgentApproval: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                approvalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentApproval"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRejectAgentApproval: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                approvalId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectAgentApprovalInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentApproval"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminSetAgentAutonomy: {
         parameters: {
             query?: never;
@@ -15110,6 +15435,106 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminSendAgentMessage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentChatRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentChatStarted"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    adminStartAgentConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartStaffAgentConversationRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -15210,6 +15635,37 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentRun: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunEvents"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

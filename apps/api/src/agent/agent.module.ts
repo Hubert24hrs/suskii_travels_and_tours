@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AdminModule } from '../admin/admin.module';
 import { AiSearchModule } from '../ai-search/ai-search.module';
 import { AlertsModule } from '../alerts/alerts.module';
 import { AssistedQuotesModule } from '../assisted-quotes/assisted-quotes.module';
@@ -30,6 +31,9 @@ import { AgentSettingsService } from './agent-settings.service';
 import { AgentToolRegistry } from './agent-tool';
 import { AgentToolGateway } from './agent-tool-gateway.service';
 import { AgentController } from './agent.controller';
+import { AdminAgentApprovalsController } from './approvals/admin-agent-approvals.controller';
+import { AgentApprovalsService } from './approvals/agent-approvals.service';
+import { AdminAgentChatController } from './chat/admin-agent-chat.controller';
 import { AgentChatController } from './chat/agent-chat.controller';
 import { AgentChatService } from './chat/agent-chat.service';
 import { AGENT_CLIENT, HttpAgentClient, MockAgentClient } from './chat/agent-client';
@@ -46,6 +50,7 @@ import { PlatformTools } from './tools/platform-tools';
 import { ProductTools } from './tools/product-tools';
 import { QuoteTools } from './tools/quote-tools';
 import { SearchTools } from './tools/search-tools';
+import { StaffTools } from './tools/staff-tools';
 import { SupportTools } from './tools/support-tools';
 import { AgentToolCallers } from './tools/tool-support';
 import { WatchTools } from './tools/watch-tools';
@@ -58,6 +63,7 @@ import { WatchTools } from './tools/watch-tools';
  */
 @Module({
   imports: [
+    AdminModule,
     AiSearchModule,
     AlertsModule,
     AssistedQuotesModule,
@@ -81,6 +87,8 @@ import { WatchTools } from './tools/watch-tools';
     AgentChatController,
     AgentConfirmationsController,
     AdminAgentController,
+    AdminAgentChatController,
+    AdminAgentApprovalsController,
     InternalAgentToolsController,
   ],
   providers: [
@@ -103,6 +111,8 @@ import { WatchTools } from './tools/watch-tools';
     DisruptionTools,
     WatchTools,
     QuoteTools,
+    AgentApprovalsService,
+    StaffTools,
     SupportTools,
     AgentConversationsService,
     AgentChatService,
