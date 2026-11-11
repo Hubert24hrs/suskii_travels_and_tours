@@ -137,11 +137,26 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
 
 - "AI Control Center" and "Data Sources" pages in `apps/admin`, with step-up on pause release,
   autonomy raises, budget increases and policy approvals.
+- Read against section 10 of the brief when F started, the console also owes: live runs and
+  their history with the tool-call trace; a conversation monitor (masked, permissioned,
+  audited); cost by agent, model, channel and account, with a month-end forecast; quality
+  (thumbs, answers the guard refused, handover rate, prompt versions); switching one agent off;
+  the limits in force; the knowledge base (ADR-105: upload, scan, full-text search, a tool that
+  cites what it used); and, for data sources, each vendor's success and refusal rate, latency,
+  cost per price read and breaker state. Each needs its admin route first.
 
 ### G. Clients
 
 - Website chat behind a lazy-loaded button (homepage stays within 170 kB), the app's assistant
   screens with a Maestro flow, WhatsApp, strings in all seven catalogs.
+- What a traveller sees of E: confirmation cards, assisted quotes (request, offer, the page
+  the messages link to), indicative prices with their source and time.
+- From section 12 of the brief, with the client that shows each: consented memory of
+  preferences (ADR-105: a table, the traveller's own page to see, change and erase it, a tool
+  that reads it and one that asks to remember); a fare trend from the fare history, labelled
+  as a trend; a shareable PDF of a plan or a quote with its validity, sources and the "to be
+  confirmed" wording; company travel policy in the trip builder's answers; a handover that says
+  when an answer is expected; a satisfaction question after a conversation.
 
 ### H. Hardening and delivery
 
@@ -149,6 +164,8 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
   new service (not applied), cost estimate, final regression run and the final report.
 - Staff cases in the routing and safety evals (the staff agents arrived in E with unit and
   end-to-end tests but no eval of their own).
+- Shadow mode (section 12 of the brief): a prompt version that runs beside the live one, is
+  never shown, and is compared before it may answer.
 
 ## Evaluation thresholds
 
