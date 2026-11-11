@@ -55,7 +55,7 @@ interface Confirmation {
 interface ToolAnswer {
   status: string;
   reason: string | null;
-  result: { confirmationId?: string } | null;
+  result: ({ confirmationId?: string } & Record<string, unknown>) | null;
 }
 interface Booking {
   id: string;
@@ -237,16 +237,18 @@ describe('assistant confirmations (e2e)', () => {
   async function ask(
     conversationId: string,
     tool: string,
-    bookingId: string,
+    about: string | Record<string, unknown>,
     session: TokenSession = ada,
+    as_: 'bookings' | 'flights' = 'bookings',
   ): Promise<{ runId: string; answer: ToolAnswer }> {
     let answer: ToolAnswer | null = null;
+    const args = typeof about === 'string' ? { bookingId: about } : about;
     agent.use(async (request, emit) => {
       const response = await ctx
         .http()
         .post(`/v1/internal/agent-tools/${tool}`)
         .set('Authorization', `Bearer ${TOOLS_TOKEN}`)
-        .send({ grant: request.grant, agent: 'bookings', arguments: { bookingId } });
+        .send({ grant: request.grant, agent: as_, arguments: args });
       answer = response.body as ToolAnswer;
       const confirmationId = answer.result?.confirmationId ?? null;
       await emit(
@@ -603,7 +605,7 @@ describe('assistant confirmations (e2e)', () => {
     // The new times, as the airline now has them.
     expect(shown.card.lines).toHaveLength(1);
     expect(shown.card.lines[0]).toMatch(
-      /^Lagos \(LOS\) \d{4}-\d{2}-\d{2} \d{2}:\d{2} → Abuja \(ABV\) \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
+      /^Lagos \(LOS\) \d{4}-\d{2}-\d{2} \d{2}:\d{2} \u2192 Abuja \(ABV\) \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
     );
     expect((await booking(bookingId)).scheduleChange?.status).toBe('open');
 
@@ -678,6 +680,201 @@ describe('assistant confirmations (e2e)', () => {
     const after = await booking(bookingId);
     expect(after.status).toBe('CONFIRMED');
     expect(after.refunds).toEqual([]);
+  });
+
+  it('reads how a booked flight runs and what the airline changed, and acts on neither', async () => {
+    const bookingId = await flight({ refundable: false });
+    const paid = (await booking(bookingId)).paid;
+    const conversationId = await conversationOf();
+
+    // Live status is off here: the booked times, said to be so.
+    const status = (await ask(conversationId, 'flights.status', bookingId)).answer;
+    expect(status).toMatchObject({
+      status: 'ok',
+      result: {
+        bookingId,
+        followed: false,
+        flights: [
+          {
+            from: 'Lagos (LOS)',
+            to: 'Abuja (ABV)',
+            flightState: 'scheduled',
+            expectedDeparture: null,
+            departureDelay: null,
+            lastChecked: null,
+          },
+        ],
+      },
+    });
+    const [running] = status.result?.flights as { flight: string; scheduledDeparture: string }[];
+    expect(running?.flight).toMatch(/ [A-Z0-9]{2}\d{1,4}$/);
+    expect(running?.scheduledDeparture).toMatch(new RegExp(`^${DEPARTS} \\d{2}:\\d{2}$`));
+
+    const none = (await ask(conversationId, 'changes.get', bookingId)).answer;
+    expect(none.result).toMatchObject({
+      bookingStatus: 'confirmed',
+      changeIsOpen: false,
+      changeState: 'none',
+      fullRefundOnOffer: null,
+      flightsAsBooked: [],
+      flightsNow: [],
+    });
+
+    // Four hours later on a domestic flight: significant, so everything paid is on offer.
+    await airlineMoves(bookingId, 240);
+    const changed = (await ask(conversationId, 'changes.get', bookingId)).answer;
+    expect(changed.result).toMatchObject({
+      changeIsOpen: true,
+      changeState: 'open',
+      significant: true,
+      canBeAcceptedOnline: true,
+      fullRefundOnOffer: paid,
+    });
+    const result = changed.result as {
+      flightsAsBooked: { from: string; to: string; departs: string; stops: number }[];
+      flightsNow: { departs: string }[];
+      cards: { kind: string; href?: string }[];
+    };
+    expect(result.flightsAsBooked).toEqual([
+      expect.objectContaining({ from: 'Lagos (LOS)', to: 'Abuja (ABV)', stops: 0 }),
+    ]);
+    expect(result.flightsNow).toHaveLength(1);
+    expect(result.flightsNow[0]?.departs).not.toBe(result.flightsAsBooked[0]?.departs);
+    // The booked search again, for a traveller who wants to look first.
+    expect(result.cards.map((entry) => entry.kind)).toEqual(['booking', 'flight']);
+    expect(result.cards[1]?.href).toBe(
+      `/flights/search?trip=one_way&from=LOS&to=ABV&depart=${DEPARTS}&adults=1`,
+    );
+    const reference = (await booking(bookingId)).reference;
+    expect(JSON.stringify([status, changed])).not.toMatch(
+      new RegExp(`Adaeze|Okafor|example\\.com|${reference}`),
+    );
+
+    // Reading changed nothing and asked for no tap.
+    expect((await booking(bookingId)).scheduleChange?.status).toBe('open');
+    expect(await ctx.prisma.agentConfirmation.count()).toBe(0);
+    // Someone else's booking is not there to be read.
+    const theirs = await conversationOf(bola);
+    for (const tool of ['flights.status', 'changes.get']) {
+      expect((await ask(theirs, tool, bookingId, bola)).answer).toEqual({
+        status: 'error',
+        reason: 'not_found',
+        result: null,
+      });
+    }
+  });
+
+  it('watches a price only once the traveller taps, and stops watching the same way', async () => {
+    const conversationId = await conversationOf();
+    const month = addDays(today, 45).slice(0, 7);
+    const watch = (
+      args: Record<string, unknown>,
+      session: TokenSession = ada,
+      id = conversationId,
+    ) => ask(id, 'alerts.watch', args, session, 'flights');
+
+    expect((await ask(conversationId, 'alerts.list', {}, ada, 'flights')).answer.result).toEqual({
+      found: 0,
+      watches: [],
+    });
+    // Nothing to watch: a date and a month together, the same airport twice, an unknown one.
+    for (const args of [
+      { origin: 'LOS', destination: 'LHR', departureMonth: month, departureDate: `${month}-15` },
+      { origin: 'LOS', destination: 'LOS', departureMonth: month },
+      { origin: 'LOS', destination: 'QQQ', departureMonth: month },
+    ]) {
+      expect((await watch(args)).answer).toEqual({
+        status: 'error',
+        reason: 'refused',
+        result: null,
+      });
+    }
+
+    const { answer } = await watch({
+      origin: 'LOS',
+      destination: 'LHR',
+      departureMonth: month,
+      tellMeBelowMinor: 85_000_000,
+    });
+    expect(answer).toMatchObject({ status: 'denied', reason: 'confirmation_required' });
+    const confirmationId = answer.result?.confirmationId ?? '';
+    const shown = (await read(confirmationId).expect(200)).body as Confirmation;
+    expect(shown).toMatchObject({
+      action: 'alerts.watch',
+      card: {
+        kind: 'flight',
+        title: 'Lagos (LOS) \u2192 London (LHR)',
+        lines: [month, 'economy'],
+        // The conversation's currency, never one a model named.
+        amounts: [{ code: 'target', amount: { amountMinor: 85_000_000, currency: 'NGN' } }],
+      },
+    });
+    expect(await ctx.prisma.priceAlert.count()).toBe(0);
+
+    let heard = listen();
+    expect((await tap(confirmationId, 'confirm')).status).toBe(202);
+    await ctx.background.drain();
+    const alert = await ctx.prisma.priceAlert.findFirstOrThrow({ where: { userId: ada.userId } });
+    expect(alert).toMatchObject({
+      origin: 'LOS',
+      destination: 'LHR',
+      departureMonth: month,
+      currency: 'NGN',
+      targetMinor: 85_000_000n,
+      active: true,
+    });
+    expect(heard.requests[0]?.input).toMatchObject({
+      decision: 'confirmed',
+      facts: { watchStatus: 'active', watch: { alertId: alert.id, watchState: 'active' } },
+    });
+
+    const listed = (await ask(conversationId, 'alerts.list', {}, ada, 'flights')).answer.result;
+    expect(listed).toMatchObject({
+      found: 1,
+      watches: [
+        {
+          alertId: alert.id,
+          from: 'Lagos (LOS)',
+          to: 'London (LHR)',
+          departureMonth: month,
+          tellMeBelow: { amountMinor: 85_000_000, currency: 'NGN' },
+        },
+      ],
+    });
+    // The same watch twice is refused at the tap, by the service that owns alerts.
+    const twice = (
+      await watch({
+        origin: 'LOS',
+        destination: 'LHR',
+        departureMonth: month,
+        tellMeBelowMinor: 85_000_000,
+      })
+    ).answer.result?.confirmationId;
+    heard = listen();
+    const refused = await tap(twice ?? '', 'confirm');
+    expect((refused.body as { confirmation: Confirmation }).confirmation).toMatchObject({
+      status: 'failed',
+      reason: 'refused',
+    });
+    await ctx.background.drain();
+    expect(await ctx.prisma.priceAlert.count()).toBe(1);
+
+    // Someone else cannot stop it; its owner can, with a tap.
+    const theirs = await conversationOf(bola);
+    expect(
+      (await ask(theirs, 'alerts.stop', { alertId: alert.id }, bola, 'flights')).answer,
+    ).toEqual({ status: 'error', reason: 'not_found', result: null });
+    const stop = (await ask(conversationId, 'alerts.stop', { alertId: alert.id }, ada, 'flights'))
+      .answer.result?.confirmationId;
+    expect(await ctx.prisma.priceAlert.count()).toBe(1);
+    heard = listen();
+    expect((await tap(stop ?? '', 'confirm')).status).toBe(202);
+    await ctx.background.drain();
+    expect(await ctx.prisma.priceAlert.count()).toBe(0);
+    expect(heard.requests[0]?.input).toMatchObject({
+      decision: 'confirmed',
+      facts: { alertId: alert.id, watchStatus: 'ended' },
+    });
   });
 
   it('prepares nothing at advice only, and takes no tap while the assistant is paused', async () => {

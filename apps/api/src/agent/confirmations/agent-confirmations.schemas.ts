@@ -19,7 +19,10 @@ export const confirmationCardSchema = z.object({
   kind: z.enum(AGENT_CARD_KINDS),
   title: z.string().min(1).max(160),
   lines: z.array(z.string().min(1).max(200)).max(6),
-  /** `refund`: what comes back to the traveller; `kept`: what the terms they booked on keep. */
+  /**
+   * `refund`: what comes back to the traveller; `kept`: what the terms they booked on keep;
+   * `target`: a price they asked to be told about.
+   */
   amounts: z
     .array(z.object({ code: z.enum(AGENT_CONFIRMATION_AMOUNTS), amount: moneySchema }))
     .max(4)

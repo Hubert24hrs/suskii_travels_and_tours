@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AiSearchModule } from '../ai-search/ai-search.module';
+import { AlertsModule } from '../alerts/alerts.module';
 import { AuthModule } from '../auth/auth.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { BusesModule } from '../buses/buses.module';
@@ -38,11 +39,13 @@ import { InternalAgentToolsController } from './internal-agent-tools.controller'
 import { AccountTools } from './tools/account-tools';
 import { CatalogTools } from './tools/catalog-tools';
 import { CommitTools } from './tools/commit-tools';
+import { DisruptionTools } from './tools/disruption-tools';
 import { PlatformTools } from './tools/platform-tools';
 import { ProductTools } from './tools/product-tools';
 import { SearchTools } from './tools/search-tools';
 import { SupportTools } from './tools/support-tools';
 import { AgentToolCallers } from './tools/tool-support';
+import { WatchTools } from './tools/watch-tools';
 
 /**
  * Suskii Agent on the API side (ADR-101 to ADR-107): the switches, sealed grants, the tool
@@ -53,6 +56,7 @@ import { AgentToolCallers } from './tools/tool-support';
 @Module({
   imports: [
     AiSearchModule,
+    AlertsModule,
     AuthModule,
     BookingsModule,
     BusesModule,
@@ -91,6 +95,8 @@ import { AgentToolCallers } from './tools/tool-support';
     ProductTools,
     AccountTools,
     CommitTools,
+    DisruptionTools,
+    WatchTools,
     SupportTools,
     AgentConversationsService,
     AgentChatService,

@@ -39,6 +39,100 @@
       }
     },
     {
+      "name": "alerts.list",
+      "description": "The signed-in traveller's own price watches on flight routes: the route, the date or month, the price they asked to be told below, the last price seen and whether the watch still runs.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "concierge",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "alerts.stop",
+      "description": "Asks the signed-in traveller to confirm ending one of their own price watches. Nothing ends when you call it: only their tap on the card does. Use the alertId from alerts.list.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "concierge",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "alertId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "alertId"
+        ]
+      }
+    },
+    {
+      "name": "alerts.watch",
+      "description": "Asks the signed-in traveller to confirm watching the price of a flight route for one date or one month. Nothing is watched when you call it: the traveller gets a card and only their tap starts the watch, after which they are told when the price drops. Call it only after they asked to be told about a price.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "concierge",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "description": "IATA code of the departure airport."
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "description": "IATA code of the arrival airport."
+          },
+          "departureDate": {
+            "description": "One departure date (YYYY-MM-DD). Give this or departureMonth.",
+            "type": "string"
+          },
+          "departureMonth": {
+            "description": "A whole month (YYYY-MM). Give this or departureDate.",
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          },
+          "cabinClass": {
+            "default": "economy",
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "tellMeBelowMinor": {
+            "description": "A price in minor units of the conversation's currency: only prices at or below it are announced. Leave out to hear of every drop.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 1000000000000
+          }
+        },
+        "required": [
+          "origin",
+          "destination"
+        ]
+      }
+    },
+    {
       "name": "bookings.cancel",
       "description": "Asks the signed-in traveller to confirm cancelling one of their own bookings. Nothing is cancelled when you call it: the traveller gets a card with what comes back and what is kept, and only their tap cancels. Call it only after they said they want to cancel, and read bookings.get first. 'refused' means it cannot be cancelled online: offer the support team.",
       "tier": "commit",
@@ -315,6 +409,30 @@
       }
     },
     {
+      "name": "changes.get",
+      "description": "What the airline changed on one of the signed-in traveller's own ticketed bookings: the flights as booked and as they are now, whether the change is significant, whether it can be accepted online, and the full refund on offer when there is one. Read it before changes.accept or changes.take_refund_offer. With no open change it says so. The card opens the same search again, for a traveller who wants to look at other flights first; refunding and rebooking are separate steps.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "disruption",
+        "bookings",
+        "support"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
       "name": "changes.take_refund_offer",
       "description": "Asks the signed-in traveller to confirm taking the full refund the airline's change entitles them to, instead of the new flights. Nothing happens when you call it: the traveller gets a card with the amount, and only their tap cancels the flights with the airline and starts the refund. Call it only when bookings.get says a full refund is offered and the traveller said they want it. 'refused' means it cannot be taken online: offer the support team.",
       "tier": "commit",
@@ -423,6 +541,30 @@
           "origin",
           "destination",
           "departDate"
+        ]
+      }
+    },
+    {
+      "name": "flights.status",
+      "description": "How the flights of one of the signed-in traveller's own bookings are running: on time, delayed (by how long, with the new times), cancelled, diverted, departed or landed, with terminal, gate and baggage belt when known. 'followed: false' means live status is not on for this booking and the booked times are shown. A cancelled flight here is information: any refund comes from changes.get, never from you.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "disruption",
+        "bookings",
+        "support"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
         ]
       }
     },

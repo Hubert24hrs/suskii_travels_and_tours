@@ -52,7 +52,7 @@ const expectedMoney = z.object({
 
 /** "Lagos (LOS) 2026-12-01 08:15 to Abuja (ABV) 09:30": a flight as the airline now has it. */
 const sliceLine = (slice: Slice): string =>
-  `${placeText(slice.origin)} ${wallTime(slice.departureLocal)} → ${placeText(slice.destination)} ${wallTime(slice.arrivalLocal)}`;
+  `${placeText(slice.origin)} ${wallTime(slice.departureLocal)} \u2192 ${placeText(slice.destination)} ${wallTime(slice.arrivalLocal)}`;
 
 const refundsOut = z.array(z.object({ amount: moneyOut, refundStatus: z.string() }));
 
@@ -241,7 +241,7 @@ export class CommitTools implements OnModuleInit {
       booking,
       title: summary ? bookingLine(summary) : booking.vertical,
       dates: summary
-        ? [summary.endsOn ? `${summary.startsOn} → ${summary.endsOn}` : summary.startsOn]
+        ? [summary.endsOn ? `${summary.startsOn} \u2192 ${summary.endsOn}` : summary.startsOn]
         : [],
     };
   }

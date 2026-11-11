@@ -109,6 +109,7 @@ import { TravellersService } from './travellers.service';
     BookingsService,
     BookingCancellationService,
     FlightCancellationService,
+    FlightStatusService,
     ScheduleChangesService,
     BookingTransitions,
     InhouseCatalog,

@@ -157,9 +157,10 @@ export type AgentConfirmationStatus = (typeof AGENT_CONFIRMATION_STATUSES)[numbe
 export const AGENT_CONFIRMATION_MINUTES = 15;
 /**
  * What an amount on a confirmation card is, as a code the clients put into words: what comes
- * back to the traveller, and what is kept under the terms they booked on.
+ * back to the traveller, what is kept under the terms they booked on, and a price they asked
+ * to be told about.
  */
-export const AGENT_CONFIRMATION_AMOUNTS = ['refund', 'kept'] as const;
+export const AGENT_CONFIRMATION_AMOUNTS = ['refund', 'kept', 'target'] as const;
 export type AgentConfirmationAmount = (typeof AGENT_CONFIRMATION_AMOUNTS)[number];
 
 /** `S-…` is support (ADR-083) and `T-…` a trip (ADR-099); an agent conversation is `A-…`. */

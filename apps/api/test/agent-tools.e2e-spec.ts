@@ -187,7 +187,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the customer tools with their tiers: two prepare something, three ask for a tap', async () => {
+  it('ships the customer tools with their tiers: two prepare something, five ask for a tap', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -197,6 +197,9 @@ describe('customer agent tools (e2e)', () => {
       .tools;
     expect(tools.map((tool) => tool.name)).toEqual([
       'addons.search',
+      'alerts.list',
+      'alerts.stop',
+      'alerts.watch',
       'bookings.cancel',
       'bookings.get',
       'bookings.list',
@@ -204,8 +207,10 @@ describe('customer agent tools (e2e)', () => {
       'cars.rentals',
       'catalog.places',
       'changes.accept',
+      'changes.get',
       'changes.take_refund_offer',
       'flights.search',
+      'flights.status',
       'hotels.search',
       'packages.search',
       'payments.options',
@@ -224,6 +229,8 @@ describe('customer agent tools (e2e)', () => {
     ]);
     // What changes a booking: each only ever becomes a card the traveller confirms.
     expect(tools.filter((tool) => tool.tier === 'commit').map((tool) => tool.name)).toEqual([
+      'alerts.stop',
+      'alerts.watch',
       'bookings.cancel',
       'changes.accept',
       'changes.take_refund_offer',

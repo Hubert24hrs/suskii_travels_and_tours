@@ -8749,7 +8749,7 @@ export interface components {
                 /** @default [] */
                 amounts: {
                     /** @enum {string} */
-                    code: "refund" | "kept";
+                    code: "refund" | "kept" | "target";
                     amount: components["schemas"]["Money"];
                 }[];
                 ref?: {

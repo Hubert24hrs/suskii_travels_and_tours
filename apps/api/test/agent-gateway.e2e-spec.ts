@@ -226,7 +226,13 @@ describe('agent tool gateway (e2e)', () => {
       tools
         .filter((entry) => entry.tier === 'commit' && !entry.name.startsWith('testing.'))
         .map((entry) => entry.name),
-    ).toEqual(['bookings.cancel', 'changes.accept', 'changes.take_refund_offer']);
+    ).toEqual([
+      'alerts.stop',
+      'alerts.watch',
+      'bookings.cancel',
+      'changes.accept',
+      'changes.take_refund_offer',
+    ]);
   });
 
   it('runs a read tool for the grant and records the call without its values', async () => {

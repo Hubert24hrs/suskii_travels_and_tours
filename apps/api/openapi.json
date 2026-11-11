@@ -38105,7 +38105,8 @@
                       "type": "string",
                       "enum": [
                         "refund",
-                        "kept"
+                        "kept",
+                        "target"
                       ]
                     },
                     "amount": {
