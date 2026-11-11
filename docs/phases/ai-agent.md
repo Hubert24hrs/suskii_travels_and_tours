@@ -164,17 +164,59 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
 
 ### H. Hardening and delivery
 
-- Security review, a k6 chat scenario, runbook, legal register, guides, Terraform and CI for the
-  new service (not applied), cost estimate, final regression run and the final report.
-- Staff cases in the routing and safety evals (the staff agents arrived in E with unit and
-  end-to-end tests but no eval of their own), and cases for G's tools: a fare trend is never
-  worded as a forecast, a meal or a health need is never offered to be remembered, and a
-  passport reminder is never a decision about entry.
-- Shadow mode (section 12 of the brief): a prompt version that runs beside the live one, is
-  never shown, and is compared before it may answer.
-- Left by F, from sections 10 and 12 of the brief: a recipe proposal when a site's pages stop
-  yielding prices, decided in Approvals; the results of the evals in the console (they are in
-  CI today); an alert when the month's forecast passes a threshold.
+In the order built. Each step ends with its own tests green before the next starts.
+
+1. **Notes that do not depend on a model's wording** (ADR-107). A tool whose facts must be
+   read with a caveat returns a card of the kind `note` whose title is a code (`fare_trend`,
+   `passport_reminder`); the graph never drops one, and the website, the app and WhatsApp put
+   it into words in the traveller's language. So "a trend, not a forecast" and "a reminder,
+   not a decision about entry" are shown whatever the model wrote.
+   **Evals for what E and G added** (`apps/agent/src/evals`, `apps/agent/evals/*.json`).
+   Staff cases in the routing eval (a staff run, routed by `STAFF_ROUTER_PROMPT`, to the staff
+   agents) and in the safety eval (a staff agent asked to approve, refund, post or name a
+   traveller). Cases for G's tools: a fare trend is never worded as a forecast, a meal or a
+   health need is never offered to be remembered, a passport reminder is never a decision about
+   entry. The eval commands gain `--json <file>`: counts, the ids of failed cases, the model,
+   the commit; never a message or an answer.
+2. **Shadow mode** (ADR-106). A candidate prompt is a versioned record beside the live one
+   (`CANDIDATE_PROMPTS`). The API names the candidates a run may shadow (`AGENT_SHADOW_PROMPTS`,
+   a sample of runs `AGENT_SHADOW_SAMPLE_PERCENT`, its own daily cap). After the live run's
+   `end` the agent service runs the same turn again with the candidates, on the history the
+   live turn started from, in memory, with a gateway that only replays what the live turn's
+   tools returned: a shadow run cannot call a tool, store a checkpoint or reach a traveller.
+   It reports one `shadow` line after `end`: prompts, the agent it chose, whether the guard
+   passed its answer, tool calls replayed and missed, tokens. The API stores it
+   (`agent_shadow_runs`: codes and counts) and the console compares candidate and live.
+   Risks: the stream gains a line after `end` (the client must finish the live run at `end`
+   and never wait for the shadow); a shadow run must not hold the thread; spend is capped apart.
+3. **Eval results in the console.** `agent_eval_results` (suite, mode, model, commit, counts,
+   passed, when, who recorded it), `POST /v1/admin/ai/evals` (`ai:manage`, audited) takes the
+   JSON the eval command or `agent-eval.yml` wrote, `GET /v1/admin/ai/evals` lists the latest
+   per suite; a section on "Assistant cost and quality".
+4. **A recipe proposal for a site in drift** (ADR-102, §5.6 of the brief). From the page kept
+   when nothing could be read: the schema.org types on it that carry a price and that the
+   site's recipe does not read. Deterministic; no model reads a fetched page. The data-sources
+   staff agent prepares it (`sources.propose_recipe`), it waits in Approvals as the kind
+   `source_recipe`, and another person with `datasources:manage` applies it through
+   `PriceSourcesService`. Nothing changes a recipe by itself.
+5. **The forecast alert** (cost governor). `AGENT_COST_ALERT_USD`: when the month's forecast
+   passes it, operations are told once a month (the worker's sweep, an internal route, the ops
+   alert), with a gauge and a ticket-level alert rule that names the runbook.
+6. **Delivery, not applied.** `apps/agent/Dockerfile` (as the worker's), the agent in
+   `docker-compose.release.yml` and the release rehearsal (the database step creates its role;
+   a chat run through the whole chain with the mock model), Terraform (`module "agent"`,
+   internal ingress, its own service account and secrets, scaling, tfvars examples), the Helm
+   chart, CI and the release and deploy workflows.
+7. **Load.** A k6 scenario for chat on the e2e stack (`AGENT_SERVICE=mock`): start, send, poll.
+8. **Security review.** The threat model, external communications, the checklist mapping; the
+   cross-customer matrix and the money-safety tests named in the brief's section 13, checked
+   to exist and pass.
+9. **Documents.** `docs/runbooks/ai-agent.md` (pause, rollback, provider outage, budget
+   exhaustion, drift, prompt rollback), the guides "adding an agent" and "adding a scrape
+   provider or a source", the register for counsel regenerated, README, the cost estimate at
+   5,000 and 20,000 monthly customers (estimates, with their assumptions), the owner checklist.
+10. **Final regression** on the last commit, the pull request, the merge, a new test APK with
+    its QR code, and the final report (section 16 of the brief).
 
 ## Evaluation thresholds
 
