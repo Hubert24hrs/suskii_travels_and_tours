@@ -343,6 +343,71 @@ async function companyAccount(api: Api, owner: Persona): Promise<{ name: string 
   return { name };
 }
 
+/** The quote traveller asks for a price to be confirmed: it waits in the staff queue. */
+async function assistedQuoteRequest(
+  api: Api,
+  traveller: Persona,
+): Promise<{ id: string; reference: string }> {
+  const session = await signIn(api, traveller.email, traveller.password);
+  if (!session.accessToken) throw new Error('The quote traveller should not have MFA');
+  return api.call<{ id: string; reference: string }>('POST', '/v1/quotes/assisted', {
+    headers: { ...bearer(session.accessToken), 'Idempotency-Key': randomUUID() },
+    body: {
+      product: 'hotel',
+      title: 'Lagoon View Hotel, sea view room',
+      request: {
+        destination: 'Lagos',
+        startDate: isoDaysFromToday(30),
+        endDate: isoDaysFromToday(33),
+        adults: 2,
+      },
+      currency: 'NGN',
+    },
+  });
+}
+
+/**
+ * A promo code a staff agent prepared for the asker. Only the agent service can put one in the
+ * queue (through the tool gateway, with a grant of a running run), so the row is written as the
+ * API would have written it.
+ */
+async function preparedPromo(
+  runSql: RunSql,
+  asker: Persona,
+): Promise<{ id: string; code: string }> {
+  const id = randomUUID();
+  const code = 'E2EASSIST10';
+  await runSql([
+    {
+      sql: `INSERT INTO agent_approvals (id, kind, requested_by, agent, run_id, payload, expires_at)
+            VALUES ($1::uuid, 'promo_code', $2::uuid, 'marketing', $3::uuid, $4::jsonb,
+                    now() + interval '7 days')`,
+      params: [
+        id,
+        asker.id,
+        randomUUID(),
+        JSON.stringify({
+          code,
+          description: null,
+          type: 'percentage',
+          value: 1000,
+          currency: null,
+          maxDiscountMinor: null,
+          minSpendMinor: null,
+          verticals: ['flights'],
+          validFrom: null,
+          validTo: null,
+          maxRedemptions: 100,
+          maxRedemptionsPerUser: 1,
+          requiresAccount: true,
+          active: false,
+        }),
+      ],
+    },
+  ]);
+  return { id, code };
+}
+
 export async function provision(
   apiUrl: string,
   root: { email: string; password: string },
@@ -426,6 +491,8 @@ export async function provision(
   const applicationId = await waitForApplication(api, rootToken, visaBooking.reference);
   const driver = await applyToDrive(api, rootToken, personas.applicant);
   const company = await companyAccount(api, personas.companyOwner);
+  const assistedQuote = await assistedQuoteRequest(api, personas.quoteTraveller);
+  const approval = await preparedPromo(runSql, personas.assistantAsker);
 
   return {
     personas,
@@ -436,5 +503,7 @@ export async function provision(
     driver,
     review: { ...review, subject: detail.title },
     company,
+    assistedQuote,
+    approval,
   };
 }

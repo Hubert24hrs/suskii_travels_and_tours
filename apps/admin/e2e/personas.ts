@@ -62,6 +62,18 @@ export const PERSONAS = {
   statusAgent: { roles: ['operations'], enrolled: true },
   /** Records a data rights request and a breach with its regulator notices (ADR-089). */
   privacyOfficer: { roles: ['privacy_officer'], enrolled: true },
+  /** Pauses the assistant, releases it with a fresh code and sets a level (ADR-107). */
+  aiManager: { roles: ['super_admin'], enrolled: true },
+  /** Asks the staff assistant; the proposal prepared for them is someone else's to decide. */
+  assistantAsker: { roles: ['operations'], enrolled: true },
+  /** Approves what the assistant prepared for another person. */
+  approvalDecider: { roles: ['operations'], enrolled: true },
+  /** Verifies an assisted quote and books the paid booking by hand (ADR-104). */
+  quoteDesk: { roles: ['operations'], enrolled: true },
+  /** A traveller who asked for a price to be confirmed. */
+  quoteTraveller: { roles: [], enrolled: false },
+  /** Lists a site, approves it with a basis, reads it and switches it off (ADR-102). */
+  sourceManager: { roles: ['super_admin'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
@@ -90,6 +102,10 @@ export interface StackState {
   review: { bookingReference: string; subject: string };
   /** A company the company owner created (ADR-078). */
   company: { name: string };
+  /** The quote traveller's request for a confirmed price, waiting for staff (ADR-104). */
+  assistedQuote: { id: string; reference: string };
+  /** A promo code the assistant prepared for the assistant asker (ADR-107). */
+  approval: { id: string; code: string };
   /** The run's own database, for the few states a browser cannot reach (an aged session). */
   databaseUrl: string;
 }

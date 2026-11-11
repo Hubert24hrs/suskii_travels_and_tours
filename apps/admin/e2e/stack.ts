@@ -238,6 +238,8 @@ export async function startStack(): Promise<Stack> {
       CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
       PAYMENT_RISK_REVIEW_SCORE: '30',
       WHATSAPP_SUPPORT_PROVIDER: 'mock',
+      // The staff assistant answers from the mock inside the API: no agent service, no model.
+      AGENT_SERVICE: 'mock',
       WHATSAPP_APP_SECRET,
       WHATSAPP_VERIFY_TOKEN: 'admin-e2e-whatsapp-verify-token',
     });
