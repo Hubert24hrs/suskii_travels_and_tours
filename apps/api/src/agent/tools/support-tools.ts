@@ -122,7 +122,7 @@ export class SupportTools implements OnModuleInit {
       agentTool({
         name: 'support.handover',
         description:
-          'Bring in a person from the support team: opens a support conversation for the signed-in traveller with their own last messages, attached to a booking of theirs when you name one. Use it when the traveller asks for a person, or when you cannot resolve what they need. A guest gets the support page instead. After it, tell the traveller the team will answer in that conversation; never promise a time.',
+          'Bring in a person from the support team: opens a support conversation for the signed-in traveller with their own last messages, attached to a booking of theirs when you name one. Use it when the traveller asks for a person, or when you cannot resolve what they need. A guest gets the support page instead; on WhatsApp the team answers in the same chat. After it, tell the traveller the team will answer in that conversation; never promise a time.',
         tier: 'propose',
         scope: 'support',
         agents: [
@@ -159,6 +159,17 @@ export class SupportTools implements OnModuleInit {
             needsTheSupportPage: true,
             cards: card('link', 'Support', [], { href: '/support' }),
           });
+          // On WhatsApp the chat is a support conversation already (ADR-084): nothing is
+          // opened, and the API marks the thread for people when this run ends.
+          if (grant.channel === 'whatsapp') {
+            return {
+              problems: [],
+              handedOver: true,
+              alreadyOpen: true,
+              needsTheSupportPage: false,
+              cards: [],
+            };
+          }
           // A guest has no account for staff to answer in: the support page starts one.
           if (!grant.userId || !grant.conversationId) return page([]);
 

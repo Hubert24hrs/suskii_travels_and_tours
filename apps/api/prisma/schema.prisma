@@ -3649,7 +3649,8 @@ model SupportConversation {
   assignee        User?               @relation("SupportAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   whatsappContact WhatsAppContact?    @relation(fields: [whatsappContactId], references: [id], onDelete: SetNull)
   messages        SupportMessage[]
-  agentHandovers  AgentConversation[]
+  agentHandovers  AgentConversation[] @relation("AgentHandover")
+  agentThread     AgentConversation?  @relation("AgentWhatsAppThread")
 
   @@index([status, dueAt, id])
   @@index([userId, updatedAt])
@@ -4126,6 +4127,9 @@ model AgentConversation {
   bookingId              String?                 @map("booking_id") @db.Uuid
   /// The support conversation a handover to people created (ADR-083).
   handoverConversationId String?                 @map("handover_conversation_id") @db.Uuid
+  /// The WhatsApp support conversation this one answers in (channel `whatsapp`): the thread
+  /// staff see and take over. One assistant conversation per thread; it goes with the thread.
+  supportConversationId  String?                 @unique @map("support_conversation_id") @db.Uuid
   messageCount           Int                     @default(0) @map("message_count")
   lastMessageAt          DateTime                @map("last_message_at") @db.Timestamptz(3)
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -4133,7 +4137,8 @@ model AgentConversation {
 
   user          User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
   booking       Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  handover      SupportConversation? @relation(fields: [handoverConversationId], references: [id], onDelete: SetNull)
+  handover      SupportConversation? @relation("AgentHandover", fields: [handoverConversationId], references: [id], onDelete: SetNull)
+  supportThread SupportConversation? @relation("AgentWhatsAppThread", fields: [supportConversationId], references: [id], onDelete: Cascade)
   messages      AgentMessage[]
   runs          AgentRun[]
   confirmations AgentConfirmation[]

@@ -158,6 +158,44 @@ export class AgentConversationsService {
     return this.present(row, [], null);
   }
 
+  /**
+   * The assistant's conversation for a WhatsApp support thread (ADR-084, ADR-101): found, or
+   * created the first time. It belongs to nobody a traveller route could name (no account and
+   * no access token), so it is reached only from the thread; staff read it in the thread
+   * itself. Two first messages at once both try to create: the loser reads the winner.
+   */
+  async forWhatsAppThread(supportConversationId: string): Promise<AgentConversation> {
+    const find = () =>
+      this.prisma.agentConversation.findUnique({ where: { supportConversationId } });
+    const existing = await find();
+    if (existing) return existing;
+    let reference = newReference();
+    while (
+      await this.prisma.agentConversation.findUnique({ where: { reference }, select: { id: true } })
+    ) {
+      reference = newReference();
+    }
+    try {
+      return await this.prisma.agentConversation.create({
+        data: {
+          id: uuidv7(),
+          reference,
+          userId: null,
+          audience: 'customer',
+          channel: 'whatsapp',
+          locale: DEFAULT_LOCALE,
+          currency: DEFAULT_CURRENCY,
+          supportConversationId,
+          lastMessageAt: new Date(),
+        },
+      });
+    } catch (error) {
+      const winner = await find();
+      if (!winner) throw error;
+      return winner;
+    }
+  }
+
   /** The staff conversation if it is this staff member's; 404 otherwise. */
   async loadForStaff(conversationId: string, userId: string): Promise<AgentConversation> {
     const row = await this.prisma.agentConversation.findUnique({ where: { id: conversationId } });

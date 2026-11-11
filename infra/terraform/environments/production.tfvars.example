@@ -141,6 +141,9 @@ api_env = {
   # neither equal to INTERNAL_API_TOKEN), and the owner decides:
   # AGENT_ENABLED       = "true"
   # AGENT_URL           = "https://REPLACE"
+  # The assistant answers on WhatsApp only with its own switch as well (and
+  # WHATSAPP_SUPPORT_PROVIDER = "cloud" above); people still take over by replying:
+  # AGENT_WHATSAPP_ENABLED = "true"
   # Price intelligence reads only sites approved in the console, through the vendors named
   # here; each vendor's key goes in extra_secrets (FIRECRAWL_API_KEY, APIFY_TOKEN,
   # BROWSE_AI_API_KEY, OXYLABS_PASSWORD, BRIGHT_DATA_API_KEY). The mock vendor is refused in

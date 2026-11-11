@@ -60,6 +60,7 @@ import { StaffTools } from './tools/staff-tools';
 import { SupportTools } from './tools/support-tools';
 import { AgentToolCallers } from './tools/tool-support';
 import { WatchTools } from './tools/watch-tools';
+import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
 
 /**
  * Suskii Agent on the API side (ADR-101 to ADR-107): the switches, sealed grants, the tool
@@ -130,6 +131,8 @@ import { WatchTools } from './tools/watch-tools';
     AgentChatService,
     AgentConfirmationsService,
     AgentRunLog,
+    // Registers itself with the support module's WhatsApp answerers (ADR-084).
+    AgentWhatsApp,
     MockAgentClient,
     {
       // The agent service over HTTP, or the mock inside the API (tests, a stack without it).
