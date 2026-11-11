@@ -8,6 +8,7 @@ import {
   isValidTimeZone,
   localDate,
   localToUtc,
+  todayIn,
   utcOffsetMinutes,
   utcToLocal,
 } from './time';
@@ -71,6 +72,21 @@ describe('time zones', () => {
     );
     expect(earliestToday(new Date('2026-10-01T11:00:00Z'))).toBe('2026-09-30');
     expect(earliestToday(new Date('2026-10-01T12:00:00Z'))).toBe('2026-10-01');
+  });
+
+  it("dates today by the place's own calendar, not the viewer's", () => {
+    // 23:30 in Lagos on the 11th is already 02:30 on the 12th in Dubai.
+    const evening = new Date('2026-11-11T22:30:00Z');
+    expect(todayIn('Africa/Lagos', evening)).toBe('2026-11-11');
+    expect(todayIn('Asia/Dubai', evening)).toBe('2026-11-12');
+    // To the west the place is still on the day the viewer has left.
+    const morning = new Date('2026-11-12T03:00:00Z');
+    expect(todayIn('Africa/Lagos', morning)).toBe('2026-11-12');
+    expect(todayIn('America/New_York', morning)).toBe('2026-11-11');
+    // A place without a zone is read in UTC, as the search reads it.
+    expect(todayIn(null, evening)).toBe('2026-11-11');
+    expect(todayIn(undefined, new Date('2026-11-11T23:59:59Z'))).toBe('2026-11-11');
+    expect(todayIn(null, new Date('2026-11-12T00:00:00Z'))).toBe('2026-11-12');
   });
 
   it('round-trips wall time for every hour of a year in several zones', () => {

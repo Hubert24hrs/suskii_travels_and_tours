@@ -214,7 +214,14 @@ export const hotelDestinationSchema = named(
   z.object({
     id: z.string(),
     slug: z.string(),
-    city: z.object({ id: z.string(), name: z.string() }),
+    city: z.object({
+      id: z.string(),
+      name: z.string(),
+      timeZone: z.string().nullable().meta({
+        description:
+          'The city\'s IANA time zone. A hotel search refuses a check-in before today in this zone (UTC without one), so a client dates "tonight" there by this zone, never by its own clock.',
+      }),
+    }),
     country: z.object({ code: z.string(), name: z.string() }),
     imageUrl: z.string().nullable().meta({ description: 'Licensed photo, when the CMS has one.' }),
     hotelCount: z.number().int().nullable(),

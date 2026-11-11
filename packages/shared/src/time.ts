@@ -88,6 +88,17 @@ export function localDate(instant: Date, timeZone: string): string {
 }
 
 /**
+ * Today's calendar date where a stay or a trip happens: the place's own zone, UTC for a place
+ * without one. A search refuses a date before it, so anything dated "today" or "tonight"
+ * somewhere is dated with this rule and never with the viewer's own clock: the viewer's date
+ * is a day behind for part of every day when the place lies to the east (Dubai from 21:00 in
+ * Lagos).
+ */
+export function todayIn(timeZone: string | null | undefined, now: Date = new Date()): string {
+  return localDate(now, timeZone ?? 'UTC');
+}
+
+/**
  * Wall time in a zone to an instant. DST edge cases follow Temporal's `compatible` behaviour:
  * a time skipped by a spring-forward gap moves forward by the gap; a time repeated by a
  * fall-back overlap resolves to the earlier instant (`later` picks the second one).

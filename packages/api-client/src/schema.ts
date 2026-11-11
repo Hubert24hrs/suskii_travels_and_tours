@@ -12173,6 +12173,7 @@ export interface components {
             city: {
                 id: string;
                 name: string;
+                timeZone: string | null;
             };
             country: {
                 code: string;

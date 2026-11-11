@@ -61,7 +61,7 @@ export {
   type CabinClass,
   type TripType,
 } from './search-limits';
-export { addDays, earliestToday, isValidDate } from './time';
+export { addDays, earliestToday, isValidDate, todayIn } from './time';
 export {
   DEFAULT_TRAVELLERS,
   MAX_TRAVELLERS,
