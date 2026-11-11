@@ -244,6 +244,89 @@ describe('AssistantScreen', () => {
     expect(screen.queryByTestId('assistant-confirm')).toBeNull();
   });
 
+  it('shows a preference to remember by its name and value, and says it was remembered (ADR-105)', async () => {
+    await assistantSession.remember(ID);
+    const pending: Schemas['AgentConfirmation'] = {
+      id: CONFIRMATION,
+      conversationId: ID,
+      action: 'memory.remember',
+      status: 'pending',
+      reason: null,
+      // The key and the value arrive as codes; the app puts both into words.
+      card: { kind: 'link', title: 'cabin', lines: ['premium_economy'], amounts: [] },
+      expiresAt: '2026-11-11T09:15:00.000Z',
+      decidedAt: null,
+    };
+    mockApi({
+      'GET /v1/agent/status': available,
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(
+          conversation({
+            messages: [message(), answer({ text: '', confirmationId: CONFIRMATION })],
+          }),
+        ),
+      [`GET /v1/agent/confirmations/${CONFIRMATION}`]: () => json(pending),
+      [`POST /v1/agent/confirmations/${CONFIRMATION}/confirm`]: () =>
+        json({
+          confirmation: { ...pending, status: 'confirmed', decidedAt: '2026-11-11T09:02:00.000Z' },
+          runId: RUN,
+        }),
+    });
+    await renderWithApp(<AssistantScreen />, await signedInSession());
+
+    expect(await screen.findByText(m.assistant.confirm.actions.memory_remember)).toBeOnTheScreen();
+    expect(
+      screen.getByText(`${m.assistant.memory.keys.cabin}: ${m.cabins.premium_economy}`),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText('premium_economy')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('assistant-confirm'));
+    expect(await screen.findByText(m.assistant.memory.remembered)).toBeOnTheScreen();
+    // Not the words for a booking that changed.
+    expect(screen.queryByText(m.assistant.confirm.statuses.confirmed)).toBeNull();
+  });
+
+  it('asks how the conversation went once the assistant has answered, and sends the score', async () => {
+    await assistantSession.remember(ID);
+    await assistantSession.saveToken(ID, TOKEN);
+    const { calls } = mockApi({
+      'GET /v1/agent/status': available,
+      [`GET /v1/agent/conversations/${ID}`]: () =>
+        json(conversation({ messages: [message(), answer()] })),
+      [`PUT /v1/agent/conversations/${ID}/rating`]: () =>
+        json(conversation({ messages: [message(), answer()], rating: 4 })),
+    });
+    await renderWithApp(<AssistantScreen />);
+
+    expect(await screen.findByText(m.assistant.rating.question)).toBeOnTheScreen();
+    expect(screen.queryByTestId('assistant-rating-thanks')).toBeNull();
+    await fireEvent.press(
+      screen.getByRole('radio', { name: m.assistant.rating.score.replace('{score}', '4') }),
+    );
+
+    expect(await screen.findByTestId('assistant-rating-thanks')).toBeOnTheScreen();
+    expect(screen.getByTestId('assistant-rating-4')).toBeChecked();
+    const rated = calls.find((call) => call.url.endsWith('/rating'));
+    expect(await rated?.json()).toEqual({ score: 4 });
+    expect(rated?.headers.get('X-Agent-Token')).toBe(TOKEN);
+    // What the assistant remembers is for accounts: a guest is not offered the screen.
+    expect(screen.queryByTestId('assistant-preferences')).toBeNull();
+  });
+
+  it('asks nothing about a conversation the assistant has not answered in', async () => {
+    await assistantSession.remember(ID);
+    mockApi({
+      'GET /v1/agent/status': available,
+      [`GET /v1/agent/conversations/${ID}`]: () => json(conversation({ messages: [message()] })),
+    });
+    await renderWithApp(<AssistantScreen />, await signedInSession());
+
+    expect(await screen.findByText(message().text)).toBeOnTheScreen();
+    expect(screen.queryByTestId('assistant-rating')).toBeNull();
+    await fireEvent.press(screen.getByTestId('assistant-preferences'));
+    expect(router.push).toHaveBeenCalledWith('/assistant/preferences');
+  });
+
   it('tells a traveller whose asked-for conversation is gone, without starting another', async () => {
     params.mockReturnValue({ conversation: ID });
     const { calls } = mockApi({

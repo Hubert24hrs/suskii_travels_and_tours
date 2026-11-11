@@ -1,5 +1,5 @@
 import { useFormatters } from '@suskii/i18n/react';
-import { AGENT_MESSAGE_MAX } from '@suskii/shared';
+import { AGENT_MESSAGE_MAX, isAgentMemoryKey } from '@suskii/shared';
 import type { Schemas } from '@suskii/api-client';
 import { Badge, Button, Card } from '@suskii/ui-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { openBrowserAsync } from 'expo-web-browser';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { memoryValueText } from '../components/assistant/memory-text';
 import { Loading, Notice } from '../components/states';
 import { appConfig, webHost } from '../config';
 import { problemSlug } from '../lib/api';
@@ -34,6 +35,7 @@ const ACTION_LABELS = {
   'changes.take_refund_offer': 'assistant.confirm.actions.changes_take_refund_offer',
   'alerts.watch': 'assistant.confirm.actions.alerts_watch',
   'alerts.stop': 'assistant.confirm.actions.alerts_stop',
+  'memory.remember': 'assistant.confirm.actions.memory_remember',
 } as const;
 const actionLabel = (action: string) =>
   action in ACTION_LABELS
@@ -155,6 +157,8 @@ function ConfirmationCard({
     );
   }
   const { card, status } = confirmation;
+  const remembered =
+    confirmation.action === 'memory.remember' && isAgentMemoryKey(card.title) ? card.title : null;
   return (
     <Card className="gap-2 p-4" testID="assistant-confirmation">
       <Text className="font-body-medium text-caption text-muted">
@@ -163,12 +167,21 @@ function ConfirmationCard({
       <Text className="font-body-medium text-body text-heading">
         {t(actionLabel(confirmation.action))}
       </Text>
-      <Text className="font-body-medium text-body-sm text-foreground">{card.title}</Text>
-      {card.lines.map((line) => (
-        <Text key={line} className="font-body text-body-sm text-foreground">
-          {line}
+      {remembered ? (
+        // A preference to remember (ADR-105): its name and its value, in the traveller's words.
+        <Text className="font-body-medium text-body-sm text-foreground">
+          {`${t(`assistant.memory.keys.${remembered}`)}: ${memoryValueText(t, remembered, card.lines[0] ?? '')}`}
         </Text>
-      ))}
+      ) : (
+        <>
+          <Text className="font-body-medium text-body-sm text-foreground">{card.title}</Text>
+          {card.lines.map((line) => (
+            <Text key={line} className="font-body text-body-sm text-foreground">
+              {line}
+            </Text>
+          ))}
+        </>
+      )}
       {card.amounts.map((entry) => (
         <View key={entry.code} className="flex-row flex-wrap justify-between gap-2">
           <Text className="font-body text-body-sm text-muted">
@@ -204,7 +217,9 @@ function ConfirmationCard({
         </>
       ) : (
         <Text className="font-body text-body-sm text-foreground">
-          {t(`assistant.confirm.statuses.${status}`)}
+          {remembered && status === 'confirmed'
+            ? t('assistant.memory.remembered')
+            : t(`assistant.confirm.statuses.${status}`)}
         </Text>
       )}
     </Card>
@@ -246,6 +261,63 @@ function Feedback({ message, conversationId }: { message: Message; conversationI
           {t('assistant.feedback.down')}
         </Text>
       </Pressable>
+    </View>
+  );
+}
+
+const SCORES = [1, 2, 3, 4, 5] as const;
+
+/**
+ * How well the assistant helped, out of five (ADR-106): asked once the assistant has answered,
+ * answered with one press, and changeable. The score goes to the people who improve it.
+ */
+function Rating({ conversation }: { conversation: Conversation }) {
+  const { api } = useApp();
+  const { t } = useT();
+  const [score, setScore] = useState<number | null>(conversation.rating ?? null);
+  const rate = async (value: number) => {
+    setScore(value);
+    try {
+      await api.PUT('/v1/agent/conversations/{conversationId}/rating', {
+        params: {
+          path: { conversationId: conversation.id },
+          header: await assistantSession.headers(conversation.id),
+        },
+        body: { score: value },
+      });
+    } catch {
+      // A score that did not arrive is not worth an error to the traveller.
+    }
+  };
+  return (
+    <View testID="assistant-rating" className="gap-2">
+      <Text className="font-body text-body-sm text-foreground">
+        {t('assistant.rating.question')}
+      </Text>
+      <View accessibilityRole="radiogroup" className="flex-row gap-2">
+        {SCORES.map((value) => (
+          <Pressable
+            key={value}
+            testID={`assistant-rating-${String(value)}`}
+            accessibilityRole="radio"
+            accessibilityLabel={t('assistant.rating.score', { score: value })}
+            accessibilityState={{ checked: score === value }}
+            onPress={() => void rate(value)}
+            className={
+              score === value
+                ? 'size-12 items-center justify-center rounded-md bg-primary-subtle'
+                : 'size-12 items-center justify-center rounded-md border border-border-strong'
+            }
+          >
+            <Text className="font-body-medium text-body text-foreground">{String(value)}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {score ? (
+        <Text testID="assistant-rating-thanks" className="font-body text-caption text-muted">
+          {t('assistant.rating.thanks')}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -449,6 +521,9 @@ export function AssistantScreen() {
           {t('assistant.thinking')}
         </Text>
       ) : null}
+      {current && !answering && messages.some((message) => message.role === 'assistant') ? (
+        <Rating key={current.id} conversation={current} />
+      ) : null}
       {error ? (
         <Text accessibilityRole="alert" className="font-body text-body-sm text-danger">
           {error}
@@ -485,13 +560,23 @@ export function AssistantScreen() {
         {t('assistant.talkToPerson')}
       </Button>
       {user ? (
-        <Button
-          testID="assistant-history"
-          variant="ghost"
-          onPress={() => router.push('/assistant/history')}
-        >
-          {t('assistant.history')}
-        </Button>
+        <>
+          <Button
+            testID="assistant-history"
+            variant="ghost"
+            onPress={() => router.push('/assistant/history')}
+          >
+            {t('assistant.history')}
+          </Button>
+          {/* What the assistant remembers is the traveller's to see and erase (ADR-105). */}
+          <Button
+            testID="assistant-preferences"
+            variant="ghost"
+            onPress={() => router.push('/assistant/preferences')}
+          >
+            {t('assistant.memory.link')}
+          </Button>
+        </>
       ) : (
         <Text className="font-body text-caption text-muted">{t('assistant.signInForHistory')}</Text>
       )}

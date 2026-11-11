@@ -1,7 +1,7 @@
 import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
 import { assistedQuoteInputSchema } from '@suskii/shared';
-import { Badge, Button, Card, DateRangePicker, Input } from '@suskii/ui-native';
+import { Badge, Button, Card, DateRangePicker, Input, useToast } from '@suskii/ui-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { randomUUID } from 'expo-crypto';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -13,6 +13,7 @@ import { Stepper } from '../components/search/rooms-picker';
 import { Loading, Notice } from '../components/states';
 import { problemSlug } from '../lib/api';
 import { fromIso, toIso } from '../lib/dates';
+import { sharePlanPdf } from '../lib/plan-pdf';
 import { useApp, useT } from '../providers/app-provider';
 
 type AssistedQuote = Schemas['AssistedQuote'];
@@ -334,7 +335,9 @@ export function PriceRequestsScreen() {
 }
 
 function Request({ id }: { id: string }) {
-  const { api } = useApp();
+  const { api, session } = useApp();
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
   const { t } = useT();
   const format = useFormatters();
   const dates = useDates();
@@ -393,6 +396,23 @@ function Request({ id }: { id: string }) {
         ? 'another'
         : quote.data.closedReason;
   const bookingId = quote.data.bookingId;
+  const reference = quote.data.reference;
+  /** The request, with its offer once there is one, as a PDF to keep or pass on. */
+  const savePdf = async () => {
+    setSaving(true);
+    try {
+      await sharePlanPdf(
+        session,
+        `/v1/quotes/assisted/${id}/pdf`,
+        `suskii-price-request-${reference}.pdf`,
+        t('quotes.pdf'),
+      );
+    } catch {
+      toast({ title: t('mobile.trip.downloadFailed'), variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -454,6 +474,16 @@ function Request({ id }: { id: string }) {
             {t(`quotes.closed.${closedKey as 'another'}`)}
           </Text>
         ) : null}
+        <View className="items-start">
+          <Button
+            testID="quote-pdf"
+            variant="ghost"
+            loading={saving}
+            onPress={() => void savePdf()}
+          >
+            {t('quotes.pdf')}
+          </Button>
+        </View>
         {bookingId ? (
           <View className="items-start">
             <Button

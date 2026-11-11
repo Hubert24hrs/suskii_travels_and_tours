@@ -1,6 +1,8 @@
 import { getMessages } from '@suskii/i18n';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { File } from 'expo-file-system';
+import { shareAsync } from 'expo-sharing';
 
 import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
 import {
@@ -187,6 +189,35 @@ describe('PriceRequestScreen', () => {
 
     await fireEvent.press(screen.getByTestId('quote-book'));
     expect(router.push).toHaveBeenCalledWith(`/checkout/${QUOTE_ID}`);
+  });
+
+  it('hands the request to the share sheet as a PDF, and keeps no copy on the phone', async () => {
+    mockApi({
+      [`GET /v1/quotes/assisted/${PRICE_REQUEST_ID}`]: () => json(offeredPriceRequest()),
+    });
+    const shared = jest.mocked(shareAsync);
+    const downloaded = jest.mocked(File.downloadFileAsync);
+    shared.mockClear();
+    downloaded.mockClear();
+    await renderWithApp(<PriceRequestScreen />, await signedInSession());
+
+    await fireEvent.press(await screen.findByTestId('quote-pdf'));
+    await waitFor(() => expect(shared).toHaveBeenCalledTimes(1));
+    // Read from the API's own route with the account's session, as the app's own client.
+    const [url, destination, options] = downloaded.mock.calls[0] ?? [];
+    expect(url).toBe(`http://api.test/v1/quotes/assisted/${PRICE_REQUEST_ID}/pdf`);
+    expect((destination as File).uri).toBe('file:///data/cache/suskii-price-request-Q-7K2M4X.pdf');
+    expect(options).toMatchObject({
+      headers: { Authorization: 'Bearer access-token', 'X-Suskii-Client': 'mobile-android/0.1.0' },
+    });
+    expect(shared).toHaveBeenCalledWith(
+      'file:///data/cache/suskii-price-request-Q-7K2M4X.pdf',
+      expect.objectContaining({ mimeType: 'application/pdf' }),
+    );
+    // The cache copy goes once the sheet has closed.
+    await waitFor(() =>
+      expect(new File('file:///data/cache/suskii-price-request-Q-7K2M4X.pdf').exists).toBe(false),
+    );
   });
 
   it('says why a request closed, and links a booked one to its trip', async () => {

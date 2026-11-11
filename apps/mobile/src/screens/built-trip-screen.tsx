@@ -19,6 +19,7 @@ import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
 import { isNetworkError, problemSlug } from '../lib/api';
 import { attestationHeader } from '../lib/attestation';
 import { openHostedCheckout } from '../lib/payment';
+import { sharePlanPdf } from '../lib/plan-pdf';
 import { activeTrip, tripSearchPath } from '../lib/trip-builder';
 import { useApp, useT } from '../providers/app-provider';
 
@@ -147,7 +148,7 @@ function AddonChoices({
 }
 
 function BuiltTrip({ tripId }: { tripId: string }) {
-  const { api, currency } = useApp();
+  const { api, currency, session } = useApp();
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
@@ -287,6 +288,24 @@ function BuiltTrip({ tripId }: { tripId: string }) {
         return t('trips.page.errors.provider');
       return t('trips.page.errors.generic');
     });
+
+  /** The plan as a PDF to keep or pass on: what is chosen, each price and what is still open. */
+  const savePlan = async () => {
+    setBusy('pdf');
+    setError(null);
+    try {
+      await sharePlanPdf(
+        session,
+        `/v1/trips/${trip.id}/pdf`,
+        `suskii-trip-${trip.reference}.pdf`,
+        t('trips.pdf'),
+      );
+    } catch {
+      setError(t('trips.page.errors.generic'));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const deleteTrip = async () => {
     setBusy('delete');
@@ -576,6 +595,14 @@ function BuiltTrip({ tripId }: { tripId: string }) {
           {t('trips.page.delete')}
         </Button>
       )}
+      <Button
+        testID="trip-pdf"
+        variant="ghost"
+        loading={busy === 'pdf'}
+        onPress={() => void savePlan()}
+      >
+        {t('trips.pdf')}
+      </Button>
     </ScrollView>
   );
 }

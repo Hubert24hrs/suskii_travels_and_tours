@@ -87,6 +87,9 @@ function webPath({ path, query, fragment }: Parts): IncomingLink {
   if (first === 'deals' && segments.length === 1) return { path: '/deals' };
   // Price requests (ADR-104): the link in the email about an answered request.
   if (first === 'quotes') return quotesLink(segments.slice(1));
+  // What the assistant remembers (ADR-105): a card of the assistant leads here.
+  if (first === 'assistant' && second === 'preferences' && segments.length === 2)
+    return { path: '/assistant/preferences' };
   return HOME;
 }
 
@@ -113,6 +116,8 @@ function appPath({ path, query }: Parts): IncomingLink {
   if (first === 'trips' && second === 'built' && third && UUID.test(third) && segments.length === 3)
     return { path: `/trips/built/${third.toLowerCase()}` };
   if (first === 'account' && second === 'quotes') return quotesLink(segments.slice(2));
+  if (first === 'assistant' && second === 'preferences' && segments.length === 2)
+    return { path: '/assistant/preferences' };
   if (
     (first === 'deals' ||
       first === 'account' ||

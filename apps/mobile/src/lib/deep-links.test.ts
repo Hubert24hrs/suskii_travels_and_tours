@@ -127,6 +127,18 @@ describe('the assistant (ADR-101)', () => {
     expect(resolveIncomingUrl('suskii://assistant', WEB)).toEqual({ path: '/assistant' });
     expect(resolveIncomingUrl('suskii://assistant/history', WEB)).toEqual({ path: '/' });
   });
+
+  it('opens what the assistant remembers, from the app scheme and from a card', () => {
+    expect(resolveIncomingUrl('suskii://assistant/preferences', WEB)).toEqual({
+      path: '/assistant/preferences',
+    });
+    expect(resolveIncomingUrl(`https://${WEB}/assistant/preferences`, WEB)).toEqual({
+      path: '/assistant/preferences',
+    });
+    expect(resolveIncomingUrl('suskii://assistant/preferences/seat', WEB)).toEqual({ path: '/' });
+    // The chat itself is not an app link: the website's page stays in the browser.
+    expect(resolveIncomingUrl(`https://${WEB}/assistant`, WEB)).toEqual({ path: '/' });
+  });
 });
 
 describe('support links (ADR-083)', () => {
