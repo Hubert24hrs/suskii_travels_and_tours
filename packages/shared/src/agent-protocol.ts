@@ -7,6 +7,7 @@ import {
   AGENT_MESSAGE_MAX,
   AGENT_NAMES,
 } from './agent';
+import { isAgentCardNote } from './agent-notes';
 
 /**
  * What the API and the agent service say to each other (ADR-101): one request that starts or
@@ -71,6 +72,8 @@ export const AGENT_CARD_KINDS = [
   'link',
   // A document of the knowledge base an answer drew on (ADR-105).
   'source',
+  // What an answer must be read with (ADR-107): a code the clients put into words.
+  'note',
 ] as const;
 export type AgentCardKind = (typeof AGENT_CARD_KINDS)[number];
 
@@ -106,6 +109,33 @@ export const agentCardSchema = z.object({
   ref: z.object({ type: z.enum(['booking', 'trip', 'support']), id: uuid }).optional(),
 });
 export type AgentCard = z.infer<typeof agentCardSchema>;
+
+/** A note is its code and nothing else: no words, no price and no link ride on one. */
+export const isAgentNoteCard = (card: AgentCard): boolean =>
+  card.kind === 'note' &&
+  isAgentCardNote(card.title) &&
+  card.lines.length === 0 &&
+  card.price === undefined &&
+  card.href === undefined &&
+  card.ref === undefined;
+
+/**
+ * The cards of a turn, newest first, cut to `max`. Notes are counted first and kept whatever
+ * else there is, once each, after the other cards: a later tool's results can push an earlier
+ * result card out, never the note an answer must be read with. A note that is not one of the
+ * known codes is dropped.
+ */
+export function keepAgentCards(cards: readonly AgentCard[], max: number): AgentCard[] {
+  const notes: AgentCard[] = [];
+  const others: AgentCard[] = [];
+  for (const card of cards) {
+    if (card.kind !== 'note') others.push(card);
+    else if (isAgentNoteCard(card) && !notes.some((note) => note.title === card.title)) {
+      notes.push(card);
+    }
+  }
+  return [...others.slice(0, Math.max(0, max - notes.length)), ...notes].slice(0, max);
+}
 
 /** Shapes prompts and routing. It grants nothing: the sealed grant does (ADR-101). */
 export const agentRunContextSchema = z.object({

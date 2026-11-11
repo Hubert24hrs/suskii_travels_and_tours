@@ -3288,6 +3288,16 @@ export const sw: Messages = {
         'Imeonekana kwenye tovuti nyingine, si bei ya Suskii. Mtu huthibitisha bei halisi kabla ya malipo yoyote.',
       source: 'Kutoka kwenye nyaraka zetu',
     },
+    // What an answer is read with (ADR-107): shown whatever the assistant wrote.
+    notes: {
+      label: 'Tafadhali zingatia',
+      fare_trend:
+        'Hii inalinganisha nauli ambazo Suskii tayari imezipata kwenye njia hii. Ni mwelekeo, si utabiri: nauli zinaweza kubadilika wakati wowote, na utafutaji pekee ndio unaonyesha bei unayoweza kuhifadhi.',
+      passport_reminder:
+        'Nchi nyingi zinahitaji pasipoti iliyo halali kwa angalau miezi sita baada ya kuwasili. Hiki ni kikumbusho cha jumla, si uamuzi wa kuingia: angalia sharti la nchi unayokwenda.',
+      visa_guidance:
+        'Masharti ya viza hubadilika, na ubalozi au afisa wa uhamiaji ndiye anayeamua. Huu ni mwongozo kutoka kwenye kumbukumbu za Suskii, si hakikisho la viza wala la kuingia.',
+    },
     rating: {
       question: 'Msaidizi alikusaidia kwa kiasi gani?',
       score: '{score} kati ya 5',

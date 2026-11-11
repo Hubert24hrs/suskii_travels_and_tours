@@ -623,6 +623,12 @@ describe('customer agent tools (e2e)', () => {
       serviceFeePerApplicant: ngn(80_000),
     });
     expect(known.result?.cards?.[0]?.href).toBe('/visa/uk-visitor-tools');
+    // A rule on file is guidance: the note goes with it whatever the model writes (ADR-107).
+    expect(known.result?.cards?.at(-1)).toEqual({
+      kind: 'note',
+      title: 'visa_guidance',
+      lines: [],
+    });
     // No rule on file is said as such, never guessed.
     const unknown = await call<{ requirement: string }>(
       'visa.requirements',
@@ -631,6 +637,7 @@ describe('customer agent tools (e2e)', () => {
       grant,
     );
     expect(unknown.result?.requirement).toBe('unknown');
+    expect(unknown.result?.cards).toEqual([{ kind: 'note', title: 'visa_guidance', lines: [] }]);
     expect(
       await call('visa.requirements', 'tours', { nationality: 'NG', destination: 'NG' }, grant),
     ).toMatchObject({ status: 'denied', reason: 'invalid' });

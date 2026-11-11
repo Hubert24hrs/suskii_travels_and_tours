@@ -95,6 +95,57 @@ test('a visitor asks the assistant and keeps the conversation in the tab', async
   await expect(chat.getByText(t('assistant.notices.greeting'))).toBeVisible();
 });
 
+test('an answer is read with its note, in words, whatever the assistant wrote', async ({
+  page,
+}) => {
+  test.skip(OFF, WHY);
+  await page.goto('/assistant');
+  const chat = page.getByTestId('assistant-chat');
+  await chat.getByLabel(t('assistant.messageLabel')).fill(QUESTION);
+  await chat.getByTestId('assistant-send').click();
+  const answer = chat.getByTestId('assistant-message-assistant');
+  await expect(answer).toContainText(/sample assistant/, { timeout: 20_000 });
+
+  // The stored answer as a fare tool leaves it (ADR-107): a link, a note as a code, and a
+  // note this build has no words for. The sample assistant calls no such tool, so the cards
+  // are put on the API's own answer on its way to the page.
+  await page.route('**/v1/agent/conversations/*', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    const body = (await response.json()) as {
+      messages: { role: string; kind: string; cards: unknown[] }[];
+    };
+    for (const message of body.messages) {
+      if (message.role !== 'assistant' || message.kind !== 'text') continue;
+      message.cards = [
+        { kind: 'link', title: 'LOS → LHR', lines: [], href: '/flights/lagos-to-london' },
+        { kind: 'note', title: 'fare_trend', lines: [] },
+        { kind: 'note', title: 'a_note_from_a_newer_server', lines: [] },
+      ];
+    }
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto('/assistant');
+
+  const notes = chat.getByTestId('assistant-notes');
+  await expect(notes.getByText(t('assistant.notes.label'))).toBeVisible();
+  await expect(chat.getByTestId('assistant-note-fare_trend')).toHaveText(
+    t('assistant.notes.fare_trend'),
+  );
+  // A code is never shown as words, and a note is not drawn as a result card.
+  await expect(chat.getByText('fare_trend')).toHaveCount(0);
+  await expect(chat.getByText('a_note_from_a_newer_server')).toHaveCount(0);
+  await expect(answer.getByRole('listitem')).toHaveCount(1);
+  await expect(answer.getByRole('link', { name: t('assistant.cards.view') })).toHaveAttribute(
+    'href',
+    '/flights/lagos-to-london',
+  );
+  await expectNoAxeViolations(page);
+});
+
 test('the menu on a phone leads to the assistant too', async ({ page }) => {
   test.skip(OFF, WHY);
   await page.setViewportSize({ width: 390, height: 844 });

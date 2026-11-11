@@ -1,5 +1,5 @@
 import { useFormatters } from '@suskii/i18n/react';
-import { AGENT_MESSAGE_MAX, isAgentMemoryKey } from '@suskii/shared';
+import { AGENT_MESSAGE_MAX, isAgentCardNote, isAgentMemoryKey } from '@suskii/shared';
 import type { Schemas } from '@suskii/api-client';
 import { Badge, Button, Card } from '@suskii/ui-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -90,6 +90,35 @@ function ResultCard({ card }: { card: CardData }) {
           <Text className={LINK}>{t('assistant.cards.view')}</Text>
         </Pressable>
       ) : null}
+    </Card>
+  );
+}
+
+/**
+ * What an answer is read with (ADR-107): the API sends a code with the facts that need it, and
+ * the words are the catalog's, in the traveller's language, whatever the assistant wrote. A
+ * code this build does not know is left out.
+ */
+function Notes({ cards }: { cards: readonly CardData[] }) {
+  const { t } = useT();
+  const codes = cards.flatMap((card) =>
+    card.kind === 'note' && isAgentCardNote(card.title) ? [card.title] : [],
+  );
+  if (codes.length === 0) return null;
+  return (
+    <Card className="gap-1 p-3" testID="assistant-notes">
+      <Text className="font-body-bold text-caption text-foreground">
+        {t('assistant.notes.label')}
+      </Text>
+      {codes.map((code) => (
+        <Text
+          key={code}
+          testID={`assistant-note-${code}`}
+          className="font-body text-body-sm text-foreground"
+        >
+          {t(`assistant.notes.${code}`)}
+        </Text>
+      ))}
     </Card>
   );
 }
@@ -500,10 +529,13 @@ export function AssistantScreen() {
                 </Pressable>
               </>
             ) : null}
-            {message.cards.map((card, index) => (
-              // Cards have no id of their own and never reorder within a message.
-              <ResultCard key={`${message.id}-${String(index)}`} card={card} />
-            ))}
+            <Notes cards={message.cards} />
+            {message.cards.map((card, index) =>
+              card.kind === 'note' ? null : (
+                // Cards have no id of their own and never reorder within a message.
+                <ResultCard key={`${message.id}-${String(index)}`} card={card} />
+              ),
+            )}
             {message.confirmationId ? (
               <ConfirmationCard
                 confirmationId={message.confirmationId}

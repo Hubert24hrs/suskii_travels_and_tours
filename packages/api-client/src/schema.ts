@@ -9847,7 +9847,7 @@ export interface components {
             reason: ("disabled" | "paused" | "grant" | "unknown_tool" | "agent" | "scope" | "autonomy" | "confirmation_required" | "limit" | "invalid" | "not_found" | "refused" | "failed" | "timeout") | null;
             card: {
                 /** @enum {string} */
-                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source";
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source" | "note";
                 title: string;
                 lines: string[];
                 /** @default [] */
@@ -9917,7 +9917,7 @@ export interface components {
             notice: ("greeting" | "cannot_answer" | "limit" | "timeout" | "unavailable" | "paused") | null;
             cards: {
                 /** @enum {string} */
-                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source";
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source" | "note";
                 title: string;
                 lines: string[];
                 price?: {

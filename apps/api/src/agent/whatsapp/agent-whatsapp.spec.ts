@@ -1,6 +1,6 @@
 import type { AgentMessageDto } from '../chat/agent-chat.schemas';
 
-import { whatsappText } from './agent-whatsapp.service';
+import { AGENT_WHATSAPP_NOTES, whatsappText } from './agent-whatsapp.service';
 
 const ORIGIN = 'https://www.suskii.test';
 
@@ -95,5 +95,35 @@ describe('whatsappText', () => {
     expect(text).not.toContain('Second');
     // An answer longer than a text is cut, not sent in parts.
     expect(whatsappText(message({ text: 'b'.repeat(5000) }), ORIGIN)).toHaveLength(3800);
+  });
+
+  it('says what an answer must be read with, in words, whatever else has to go', () => {
+    const note = { kind: 'note' as const, title: 'fare_trend', lines: [] };
+    const page = { kind: 'link' as const, title: 'LOS → LHR', lines: [], href: '/flights/x' };
+    expect(
+      whatsappText(message({ text: 'Fares have been lower lately.', cards: [page, note] }), ORIGIN),
+    ).toBe(
+      [
+        'Fares have been lower lately.',
+        AGENT_WHATSAPP_NOTES.fare_trend,
+        ['LOS → LHR', `${ORIGIN}/flights/x`].join('\n'),
+      ].join('\n\n'),
+    );
+    expect(AGENT_WHATSAPP_NOTES.fare_trend).toMatch(/a trend, not a forecast/);
+    expect(AGENT_WHATSAPP_NOTES.passport_reminder).toMatch(/not a decision about entry/);
+    expect(AGENT_WHATSAPP_NOTES.visa_guidance).toMatch(/not a guarantee/);
+
+    // The longest answer there is still leaves room for the note; the link card goes instead.
+    const long = whatsappText(message({ text: 'c'.repeat(4000), cards: [page, note] }), ORIGIN);
+    expect(long!.length).toBeLessThanOrEqual(3800);
+    expect(long).toContain(AGENT_WHATSAPP_NOTES.fare_trend);
+    expect(long).not.toContain('LOS → LHR');
+    // A note this build does not know says nothing rather than its code.
+    expect(
+      whatsappText(
+        message({ text: 'Hello.', cards: [{ kind: 'note', title: 'something_new', lines: [] }] }),
+        ORIGIN,
+      ),
+    ).toBe('Hello.');
   });
 });

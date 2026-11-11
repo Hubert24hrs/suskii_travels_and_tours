@@ -1,0 +1,18 @@
+/**
+ * The notes a tool can attach to its result (ADR-107). A note is a code, never a sentence: the
+ * clients hold the words in every language, so what a traveller is told with an answer does
+ * not depend on how a model worded it. A tool whose facts need one returns it with them, and
+ * the graph never drops it.
+ */
+export const AGENT_CARD_NOTES = [
+  // Fares already found, compared with earlier ones: a trend, never a forecast.
+  'fare_trend',
+  // Passport validity is a general reminder: the destination decides who may enter.
+  'passport_reminder',
+  // Visa rules are guidance from Suskii's own notes: never a guarantee of a visa or of entry.
+  'visa_guidance',
+] as const;
+export type AgentCardNote = (typeof AGENT_CARD_NOTES)[number];
+
+export const isAgentCardNote = (value: string): value is AgentCardNote =>
+  (AGENT_CARD_NOTES as readonly string[]).includes(value);

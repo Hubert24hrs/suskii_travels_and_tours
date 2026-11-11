@@ -280,6 +280,50 @@ describe('tools and the guard (ADR-107)', () => {
     expect(result?.content).not.toContain('"cards"');
   });
 
+  it('keeps the note an answer is read with, whatever else the turn found and whatever the model wrote', async () => {
+    const trend = {
+      recentFaresComparedWithEarlier: 'lower',
+      cards: [
+        { kind: 'link', title: 'LOS → ABV', lines: [], href: '/flights/lagos-to-abuja' },
+        { kind: 'note', title: 'fare_trend', lines: [] },
+        // Words are not a note: a result cannot put a sentence where a code belongs.
+        { kind: 'note', title: 'Fares will fall, book later', lines: [] },
+      ],
+    };
+    const found = {
+      count: 6,
+      cards: Array.from({ length: 6 }, (_, index) => ({
+        kind: 'flight',
+        title: `Flight ${String(index + 1)}`,
+        lines: [],
+        href: '/flights',
+      })),
+    };
+    const h = harness([tool('fares.trend', ['flights']), tool('flights.search', ['flights'])], {
+      'fares.trend': () => ok(trend),
+      'flights.search': () => ok(found),
+    });
+    const { end } = await h.send('Are fares from Lagos to Abuja going down?', {
+      script: scripted({
+        router: [route('flights')],
+        specialist: [
+          call('fares__trend', { origin: 'LOS', destination: 'ABV' }),
+          call('flights__search', { from: 'LOS', to: 'ABV', date: '2026-12-01' }),
+          // A model that words the trend as a forecast: no figure, so the guard has no
+          // ground to refuse it. What the traveller is told with it does not depend on that.
+          { text: 'Fares will fall, so wait before you book.' },
+        ],
+      }),
+    });
+    expect(end.outcome).toBe('answered');
+    const cards = end.answer?.cards ?? [];
+    expect(cards).toHaveLength(6);
+    // The later search filled the room; the link of the earlier result went, the note stayed.
+    expect(cards.slice(0, 5).map((card) => card.kind)).toEqual(Array(5).fill('flight'));
+    expect(cards.at(-1)).toEqual({ kind: 'note', title: 'fare_trend', lines: [] });
+    expect(JSON.stringify(cards)).not.toContain('book later');
+  });
+
   it('asks once for a rewrite when an answer states a figure no tool returned, then gives up', async () => {
     const h = harness(tools, { 'flights.search': () => ok(FLIGHTS) });
     const fixed = await h.send('Cheapest flight to Abuja?', {

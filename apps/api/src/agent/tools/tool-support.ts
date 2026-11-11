@@ -2,10 +2,11 @@ import { HttpException, Injectable, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
 
 import {
-  DEFAULT_CURRENCY,
   agentCardSchema,
   currencyCodeSchema,
+  DEFAULT_CURRENCY,
   type AgentCard,
+  type AgentCardNote,
   type CurrencyCode,
   type MoneyWire,
 } from '@suskii/shared';
@@ -212,4 +213,13 @@ export function card(
   });
   // A card that does not fit the wire is left out: the answer still stands without it.
   return parsed.success ? [parsed.data] : [];
+}
+
+/**
+ * What an answer built on this result must be read with (ADR-107): a code, which the clients
+ * put into words in the traveller's language and show whatever the model wrote. The graph
+ * keeps a note when it trims a turn's cards.
+ */
+export function note(code: AgentCardNote): AgentCard[] {
+  return [{ kind: 'note', title: code, lines: [] }];
 }

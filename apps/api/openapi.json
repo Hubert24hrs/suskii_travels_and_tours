@@ -42993,7 +42993,8 @@
                   "trip",
                   "price",
                   "link",
-                  "source"
+                  "source",
+                  "note"
                 ]
               },
               "title": {
@@ -43365,7 +43366,8 @@
                     "trip",
                     "price",
                     "link",
-                    "source"
+                    "source",
+                    "note"
                   ]
                 },
                 "title": {

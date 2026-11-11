@@ -28,6 +28,7 @@ import {
   cardsOut,
   durationText,
   moneyOut,
+  note,
   problemCodes,
   problemsSchema,
   wallTime,
@@ -487,12 +488,16 @@ export class ProductTools implements OnModuleInit {
               serviceFeePerApplicant: product.price,
               governmentFeeNote: product.governmentFeeNote,
             })),
-            cards: shown.flatMap((product): AgentCard[] =>
-              card('visa', product.title, [product.destination], {
-                price: product.price,
-                href: `/visa/${product.slug}`,
-              }),
-            ),
+            cards: [
+              ...shown.flatMap((product): AgentCard[] =>
+                card('visa', product.title, [product.destination], {
+                  price: product.price,
+                  href: `/visa/${product.slug}`,
+                }),
+              ),
+              // A rule on file is guidance, never a guarantee: said whatever the model wrote.
+              ...note('visa_guidance'),
+            ],
           };
         },
       }),

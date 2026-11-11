@@ -12,6 +12,7 @@ import {
   STAFF_AGENTS,
   asksForSecrets,
   checkGrounding,
+  keepAgentCards,
   leaksInstructions,
   namedTools,
   unsupportedOutcomes,
@@ -474,7 +475,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
           toolCounts: { ...turn.toolCounts, [tool]: count },
           sources: [...turn.sources, { ref: `${tool}#${count}`, text }].slice(-24),
           // The newest results first: they are what the answer is about.
-          cards: [...cardsOf(answer.result), ...turn.cards].slice(0, CARDS_MAX),
+          cards: keepAgentCards([...cardsOf(answer.result), ...turn.cards], CARDS_MAX),
           statuses: [...turn.statuses, ...statusFactsOf(answer.result)].slice(-60),
           handover: turn.handover || tool === HANDOVER_TOOL,
         };
@@ -544,7 +545,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
         draft: null,
         toolCounts: { ...turn.toolCounts, [pending.tool]: count },
         sources: [...turn.sources, { ref: `${pending.tool}#${count}`, text }].slice(-24),
-        cards: [...cardsOf(resumed.facts), ...turn.cards].slice(0, CARDS_MAX),
+        cards: keepAgentCards([...cardsOf(resumed.facts), ...turn.cards], CARDS_MAX),
         statuses: [...turn.statuses, ...statusFactsOf(resumed.facts)].slice(-60),
       },
     };
@@ -583,7 +584,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
       const answer: AgentAnswer = {
         kind: turn.handover ? 'handover' : 'text',
         text: draft,
-        cards: turn.cards.slice(0, CARDS_MAX),
+        cards: keepAgentCards(turn.cards, CARDS_MAX),
         sources: turn.sources.map((source) => source.ref).slice(-24),
       };
       return {

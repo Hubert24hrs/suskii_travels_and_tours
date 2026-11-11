@@ -138,6 +138,7 @@ export {
   type KnowledgeMediaType,
   type KnowledgePassage,
 } from './knowledge';
+export { AGENT_CARD_NOTES, isAgentCardNote, type AgentCardNote } from './agent-notes';
 export {
   AGENT_CARD_KINDS,
   AGENT_MESSAGE_KINDS,
@@ -152,6 +153,8 @@ export {
   agentRunInputSchema,
   agentRunLimitsSchema,
   agentRunRequestSchema,
+  isAgentNoteCard,
+  keepAgentCards,
   type AgentAnswer,
   type AgentCard,
   type AgentCardKind,
