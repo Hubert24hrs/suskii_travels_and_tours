@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { browserApi, problemSlug, type Schemas } from '../../lib/browser-api';
 import { randomUuid } from '../../lib/random-uuid';
+import { savePdf } from '../../lib/save-pdf';
 import { hasSession } from '../../lib/session';
 import { useHydrated } from '../../lib/use-hydrated';
 import { AppLink } from '../app-link';
@@ -302,6 +303,25 @@ export function PriceRequest({ quoteId }: { quoteId: string }) {
   const [quote, setQuote] = useState<AssistedQuote | null>(null);
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+
+  /** The request, with its offer once there is one, as a PDF to keep or pass on. */
+  const save = async (reference: string) => {
+    setSaving(true);
+    setSaveFailed(false);
+    try {
+      const { data } = await browserApi().GET('/v1/quotes/assisted/{assistedQuoteId}/pdf', {
+        params: { path: { assistedQuoteId: quoteId } },
+        parseAs: 'blob',
+      });
+      if (!savePdf(data, `suskii-price-request-${reference}.pdf`)) setSaveFailed(true);
+    } catch {
+      setSaveFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -449,6 +469,20 @@ export function PriceRequest({ quoteId }: { quoteId: string }) {
         <AppLink href={`/bookings/${quote.bookingId}`} className={LINK}>
           {t('quotes.viewBooking')}
         </AppLink>
+      ) : null}
+      <Button
+        variant="ghost"
+        className="self-start"
+        loading={saving}
+        onClick={() => void save(quote.reference)}
+        data-testid="quote-pdf"
+      >
+        {t('quotes.pdf')}
+      </Button>
+      {saveFailed ? (
+        <p role="alert" className="font-body text-body-sm text-danger">
+          {t('quotes.errors.generic')}
+        </p>
       ) : null}
     </Card>
   );

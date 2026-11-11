@@ -1,7 +1,7 @@
 'use client';
 
 import { useFormatters } from '@suskii/i18n/react';
-import { AGENT_MESSAGE_MAX } from '@suskii/shared/lite';
+import { AGENT_MESSAGE_MAX, isAgentMemoryKey } from '@suskii/shared/lite';
 import { Badge, Button, Card } from '@suskii/ui-web';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 
@@ -18,6 +18,7 @@ import { useHydrated } from '../../lib/use-hydrated';
 import { useTurnstile } from '../account/use-turnstile';
 import { AppLink } from '../app-link';
 
+import { memoryValueText } from './memory-text';
 import { useAssistantT } from './use-assistant-t';
 
 type Conversation = Schemas['AgentConversation'];
@@ -40,6 +41,7 @@ const ACTION_LABELS = {
   'changes.take_refund_offer': 'assistant.confirm.actions.changes_take_refund_offer',
   'alerts.watch': 'assistant.confirm.actions.alerts_watch',
   'alerts.stop': 'assistant.confirm.actions.alerts_stop',
+  'memory.remember': 'assistant.confirm.actions.memory_remember',
 } as const;
 const actionLabel = (action: string) =>
   action in ACTION_LABELS
@@ -159,6 +161,8 @@ function ConfirmationCard({
   }
   if (!confirmation) return null;
   const { card, status } = confirmation;
+  const remembered =
+    confirmation.action === 'memory.remember' && isAgentMemoryKey(card.title) ? card.title : null;
   return (
     <Card className="flex flex-col gap-2 p-4" data-testid="assistant-confirmation">
       <span className="font-body text-caption font-bold text-muted">
@@ -167,12 +171,23 @@ function ConfirmationCard({
       <span className="font-body text-body font-bold text-heading">
         {t(actionLabel(confirmation.action))}
       </span>
-      <span className="font-body text-body-sm font-bold text-foreground">{card.title}</span>
-      {card.lines.map((line) => (
-        <span key={line} className="font-body text-body-sm text-foreground">
-          {line}
+      {remembered ? (
+        // A preference to remember (ADR-105): its name and its value, in the traveller's words.
+        <span className="font-body text-body-sm font-bold text-foreground">
+          {t(`assistant.memory.keys.${remembered}`)}
+          {': '}
+          {memoryValueText(t, remembered, card.lines[0] ?? '')}
         </span>
-      ))}
+      ) : (
+        <>
+          <span className="font-body text-body-sm font-bold text-foreground">{card.title}</span>
+          {card.lines.map((line) => (
+            <span key={line} className="font-body text-body-sm text-foreground">
+              {line}
+            </span>
+          ))}
+        </>
+      )}
       {card.amounts.length > 0 ? (
         <dl className="flex flex-col gap-1">
           {card.amounts.map((entry) => (
@@ -218,7 +233,9 @@ function ConfirmationCard({
         </>
       ) : (
         <p role="status" className="font-body text-body-sm text-foreground">
-          {t(`assistant.confirm.statuses.${status}`)}
+          {remembered && status === 'confirmed'
+            ? t('assistant.memory.remembered')
+            : t(`assistant.confirm.statuses.${status}`)}
         </p>
       )}
     </Card>
@@ -256,6 +273,65 @@ function Feedback({ message, headers }: { message: Message; headers: Record<stri
         {t('assistant.feedback.down')}
       </button>
     </span>
+  );
+}
+
+const SCORES = [1, 2, 3, 4, 5] as const;
+
+/**
+ * How well the assistant helped, out of five (ADR-106): asked once the assistant has answered,
+ * answered with one press, and changeable. The score goes to the people who improve it.
+ */
+function Rating({
+  conversation,
+  headers,
+}: {
+  conversation: Conversation;
+  headers: Record<string, string>;
+}) {
+  const { t } = useAssistantT();
+  const [score, setScore] = useState<number | null>(conversation.rating ?? null);
+  const rate = (value: number) => {
+    setScore(value);
+    void browserApi()
+      .PUT('/v1/agent/conversations/{conversationId}/rating', {
+        params: { path: { conversationId: conversation.id } },
+        headers,
+        body: { score: value },
+      })
+      .catch(() => undefined);
+  };
+  return (
+    <div className="flex flex-col gap-2" data-testid="assistant-rating">
+      <span id="assistant-rating-label" className="font-body text-body-sm text-foreground">
+        {t('assistant.rating.question')}
+      </span>
+      <div role="radiogroup" aria-labelledby="assistant-rating-label" className="flex gap-2">
+        {SCORES.map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={score === value}
+            aria-label={t('assistant.rating.score', { score: value })}
+            data-testid={`assistant-rating-${String(value)}`}
+            className={
+              score === value
+                ? 'inline-flex size-12 items-center justify-center rounded-md bg-primary font-body text-body font-bold text-on-primary focus-visible:focus-ring'
+                : 'inline-flex size-12 items-center justify-center rounded-md border border-border-strong font-body text-body text-foreground hover:border-primary focus-visible:focus-ring'
+            }
+            onClick={() => rate(value)}
+          >
+            {value}
+          </button>
+        ))}
+      </div>
+      {score ? (
+        <span role="status" className="font-body text-caption text-muted">
+          {t('assistant.rating.thanks')}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -556,16 +632,31 @@ export function AssistantChat({
           </div>
         </form>
       )}
-      {conversation ? (
-        <button
-          type="button"
-          className="inline-flex min-h-6 items-center self-start font-body text-body-sm text-muted underline hover:text-primary focus-visible:focus-ring"
-          onClick={startAgain}
-          data-testid="assistant-start-again"
-        >
-          {t('assistant.startAgain')}
-        </button>
+      {conversation && !answering && messages.some((message) => message.role === 'assistant') ? (
+        <Rating key={conversation.id} conversation={conversation} headers={headers} />
       ) : null}
+      <div className="flex flex-wrap gap-4">
+        {conversation ? (
+          <button
+            type="button"
+            className="inline-flex min-h-6 items-center font-body text-body-sm text-muted underline hover:text-primary focus-visible:focus-ring"
+            onClick={startAgain}
+            data-testid="assistant-start-again"
+          >
+            {t('assistant.startAgain')}
+          </button>
+        ) : null}
+        {signedIn ? (
+          // What the assistant remembers is the traveller's to see and erase (ADR-105).
+          <AppLink
+            href="/assistant/preferences"
+            className="inline-flex min-h-6 items-center font-body text-body-sm text-muted underline hover:text-primary focus-visible:focus-ring"
+            data-testid="assistant-preferences"
+          >
+            {t('assistant.memory.link')}
+          </AppLink>
+        ) : null}
+      </div>
     </div>
   );
 }

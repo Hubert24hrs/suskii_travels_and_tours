@@ -61,7 +61,7 @@ export class MemoryTools implements OnModuleInit {
             seat: value('seat'),
             preferredAirlines: airlines ? agentMemoryAirlines(airlines) : [],
             weighs: value('budget'),
-            cards: card('link', 'Preferences', [], { href: '/account/assistant' }),
+            cards: card('link', 'Preferences', [], { href: '/assistant/preferences' }),
           };
         },
       }),

@@ -65,6 +65,13 @@ test('a traveller asks for a price, sees it waiting, reads an offer and withdraw
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   await expectNoAxeViolations(page);
 
+  // The request as a PDF to keep or pass on, read with the session and named by us.
+  const [saved] = await Promise.all([
+    page.waitForEvent('download'),
+    detail.getByTestId('quote-pdf').click(),
+  ]);
+  expect(saved.suggestedFilename()).toMatch(/^suskii-price-request-Q-[A-Z0-9]{6}\.pdf$/);
+
   // Once a person has verified the price, the page shows the offer and where to book it.
   const offerQuoteId = '018f3a5c-7b1e-7c3a-9d2f-5a6b7c8d9e0f';
   await page.route(/\/v1\/quotes\/assisted\/[0-9a-f-]{36}$/, async (route) => {
