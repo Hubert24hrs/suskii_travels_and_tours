@@ -22,6 +22,7 @@
     "format:check": "prettier --check .",
     "security:checklist": "node scripts/security-checklist.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
+    "check:workflows": "node scripts/check-workflows.mjs",
     "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "smoke": "node scripts/smoke.mjs",
     "release:rehearse": "node scripts/release-rehearsal.mjs",

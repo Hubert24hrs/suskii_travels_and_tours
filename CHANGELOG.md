@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed: the Agent eval workflow could not be started (2026-11-11)
+
+- `agent-eval.yml` named the matrix in its job's own `if`. GitHub reads a job's `if` before the
+  matrix exists and refuses such a file, so the workflow could not be started by hand, and every
+  push since it was added recorded a failed run with no job (43 of them). No pull request check
+  showed it. The list of suites is now built from the input (`strategy.matrix` may read
+  `inputs`), so "all" starts three jobs and one suite starts one.
+- `scripts/check-workflows.mjs` (`pnpm check:workflows`, and a case in `pnpm test:scripts`, which
+  CI runs) refuses a workflow whose job condition names a context that does not exist yet.
+- The first run against the model is still the owner's: it needs the `LLM_API_KEY` secret, and
+  without it the workflow stops at its first step and says so.
+
 ### Fixed: "Tonight in {city}" late in the evening (2026-11-11)
 
 - The website's "Tonight in {city}" links (ADR-097) were dated by the visitor's own calendar.
