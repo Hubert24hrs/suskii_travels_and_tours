@@ -666,7 +666,7 @@ Tooling notes for agents:
 - Cookie-authenticated admin calls must come from an `ADMIN_ORIGINS` origin (every method);
   bearer tokens are not origin-checked but still need staff, MFA and the permission.
 - The riskiest admin mutations (roles, disable, MFA reset, refund approval, trust-signal verify,
-  markups, fees, tax rules, Prime plans, driver approval and reinstatement, company suspension, metasearch partner keys, releasing the assistant's pause and its autonomy levels, approving a site for price intelligence, switching it back on and its budgets) also carry `@StepUp()`: an authenticator check within
+  markups, fees, tax rules, Prime plans, driver approval and reinstatement, company suspension, metasearch partner keys, releasing the assistant's pause, its autonomy levels and one agent's switch, approving a site for price intelligence, switching it back on and its budgets) also carry `@StepUp()`: an authenticator check within
   `STEP_UP_WINDOW_MINUTES` (sign-in or `POST /v1/me/mfa/step-up`), else 403 `step-up-required`.
   The console's API client prompts and repeats the write itself (ADR-037).
 - Staff sessions are short (`STAFF_SESSION_*`) and every account has a device cap; end sessions
