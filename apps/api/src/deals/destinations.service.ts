@@ -195,7 +195,11 @@ export class DestinationsService {
       return {
         id: destination.id,
         slug: destination.slug,
-        city: { id: destination.city.id, name: destination.city.name },
+        city: {
+          id: destination.city.id,
+          name: destination.city.name,
+          timeZone: destination.city.timezone,
+        },
         country: { code: destination.city.country.code, name: destination.city.country.name },
         imageUrl: destination.imageUrl,
         hotelCount: snapshot?.hotelCount ?? null,

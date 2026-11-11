@@ -14,7 +14,7 @@ const m = getMessages('en-NG');
 const destination: Schemas['HotelDestination'] = {
   id: '0192d3a0-7c1e-7b2a-9f00-00000000d001',
   slug: 'dubai',
-  city: { id: '0192d3a0-7c1e-7b2a-9f00-00000000d002', name: 'Dubai' },
+  city: { id: '0192d3a0-7c1e-7b2a-9f00-00000000d002', name: 'Dubai', timeZone: 'Asia/Dubai' },
   country: { code: 'AE', name: 'United Arab Emirates' },
   imageUrl: null,
   hotelCount: 42,

@@ -309,8 +309,9 @@ describe('homepage data (e2e): content, deals, destinations, newsletter', () => 
         'lagos',
         'abuja',
       ]);
+      // The city's zone dates "tonight" there: a client's own date can be a day behind it.
       expect(before.body.destinations[0]).toMatchObject({
-        city: { name: 'Dubai' },
+        city: { name: 'Dubai', timeZone: 'Asia/Dubai' },
         country: { code: 'AE', name: 'United Arab Emirates' },
         hotelCount: null,
         fromPricePerNight: null,

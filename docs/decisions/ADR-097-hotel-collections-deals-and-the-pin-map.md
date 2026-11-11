@@ -77,9 +77,30 @@ This is the whole of "personal suggestions": the traveller's own searches, not a
 ### Last-minute deals
 
 The website's hotels page lists "Tonight in {city}" for the popular destinations: one night
-from the visitor's own today, two adults, the Deals collection chosen. The dates come from the
+from the city's own today, two adults, the Deals collection chosen. The instant comes from the
 browser's clock, so the links render there; the section sits under the destinations, where its
 arrival moves nothing a visitor is reading (ADR-075).
+
+"Tonight" is dated in the city's time zone, not the visitor's (amended on 2026-11-11). The
+first version used the visitor's own date. The hotel search refuses a check-in before today in
+the city's zone, so every evening the link to a city further east asked for a night that had
+begun yesterday there and was answered with an error: "Tonight in Dubai" from 21:00 in Lagos
+until midnight, Nairobi and Istanbul from 22:00. The website's tests ran by day and never met
+it; a run at 22:20 UTC did. Now:
+
+- `GET /v1/destinations/hotels` gives each city's IANA time zone (`city.timeZone`, null for a
+  city without one). The field is additive.
+- One rule says what today is somewhere: `todayIn(timeZone)` in `@suskii/shared` (UTC without
+  a zone). The API's check and the website's link both use it, so they cannot disagree.
+- The links are dated again when the visitor comes back to the tab, so a page left open
+  overnight does not offer last night.
+- A test holds the browser's clock at 22:30 UTC and follows the link to a city that is already
+  in its next day.
+
+A remembered search ("Continue your search") is still dropped by the visitor's own date, since
+the device does not know the city's zone: one whose check-in is today can, late in the evening,
+name a night that has begun in a city to the east, and the results page then shows its error
+message. It is the answer a hand-typed address gets.
 
 ## Consequences
 

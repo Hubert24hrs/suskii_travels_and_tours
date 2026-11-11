@@ -54565,11 +54565,18 @@
               },
               "name": {
                 "type": "string"
+              },
+              "timeZone": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "id",
-              "name"
+              "name",
+              "timeZone"
             ],
             "additionalProperties": false
           },

@@ -9,10 +9,10 @@ import {
   daysBetween,
   equals,
   isSafePhotoUrl,
-  localDate,
   multiplyRatio,
   plainDescription,
   subtract,
+  todayIn,
   toWire,
   type HotelSearchRequest,
   type Money,
@@ -485,7 +485,7 @@ export class HotelSearchService {
         },
       ]);
     }
-    if (validate && request.checkIn < localDate(new Date(), city.timeZone ?? 'UTC')) {
+    if (validate && request.checkIn < todayIn(city.timeZone)) {
       throw invalidSearch([
         { location: 'body', path: 'checkIn', code: 'date_in_past', message: 'date_in_past' },
       ]);

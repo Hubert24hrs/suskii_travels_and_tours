@@ -147,7 +147,50 @@ test('offers the last hotel search again on the hotels page, from this browser o
   await expect(page.getByTestId('recent-hotel-searches')).toHaveCount(0);
 });
 
+/** A city the hotels page lists, with the time zone its nights are dated in. */
+interface PopularCity {
+  id: string;
+  name: string;
+  timeZone: string | null;
+}
+
+/** The cities under "Last-minute deals", in the order the page lists them. */
+async function popularCities(page: Page): Promise<PopularCity[]> {
+  const answer = (await (
+    await page.request.get(`${API}/v1/destinations/hotels?currency=NGN`)
+  ).json()) as { destinations: { city: PopularCity }[] };
+  return answer.destinations.slice(0, 6).map((destination) => destination.city);
+}
+
+/** The calendar date in a zone at an instant, worked out apart from the code under test. */
+function dateIn(timeZone: string | null, at: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timeZone ?? 'UTC',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(at);
+}
+
+/** The visitor's own calendar date, as the browser's clock and zone give it. */
+function visitorToday(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const now = new Date();
+    const pad = (value: number): string => String(value).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  });
+}
+
+const searchParams = (href: string | null): URLSearchParams =>
+  new URL(href ?? '', 'http://localhost').searchParams;
+
 test("leads from the hotels page to tonight's deals in a popular city", async ({ page }) => {
+  // The page reads the clock when it dates the links. Held still, the page and this test date
+  // them at one instant, whatever the hour the suite runs at.
+  const now = new Date();
+  await page.clock.setFixedTime(now);
+  const cities = await popularCities(page);
+
   await page.goto('/hotels');
   const deals = page.getByTestId('last-minute-deals');
   await expect(deals).toBeVisible();
@@ -155,24 +198,59 @@ test("leads from the hotels page to tonight's deals in a popular city", async ({
     deals.getByRole('heading', { name: t('results.discover.lastMinuteHeading') }),
   ).toBeVisible();
   await expect(deals).toContainText(t('results.discover.lastMinuteNote'));
-  const link = deals.getByTestId('last-minute-deal').first();
-  // One night from the visitor's own today, two adults, the deals collection.
-  const today = await page.evaluate(() => {
-    const now = new Date();
-    const pad = (value: number): string => String(value).padStart(2, '0');
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  });
-  const href = (await link.getAttribute('href')) ?? '';
-  const params = new URL(href, 'http://localhost').searchParams;
-  expect(params.get('checkin')).toBe(today);
-  expect(Date.parse(params.get('checkout') ?? '') - Date.parse(today)).toBe(86_400_000);
-  expect(params.get('room')).toBe('2');
-  expect(params.get('collection')).toBe('deals');
+  const links = deals.getByTestId('last-minute-deal');
+  await expect(links).toHaveCount(cities.length);
+  // One night from the city's own today, two adults, the deals collection.
+  for (const [index, city] of cities.entries()) {
+    const params = searchParams(await links.nth(index).getAttribute('href'));
+    const tonight = dateIn(city.timeZone, now);
+    expect(params.get('dest'), city.name).toBe(city.id);
+    expect(params.get('checkin'), city.name).toBe(tonight);
+    expect(Date.parse(params.get('checkout') ?? '') - Date.parse(tonight)).toBe(86_400_000);
+    expect(params.get('room')).toBe('2');
+    expect(params.get('collection')).toBe('deals');
+  }
   await expectNoAxeViolations(page);
 
-  await link.click();
+  // Followed where the day has minutes left: on the stroke of a city's midnight, tonight
+  // becomes last night between reading the link and the search it starts.
+  const soon = new Date(now.getTime() + 5 * 60_000);
+  const steady = cities.findIndex(
+    (city) => dateIn(city.timeZone, now) === dateIn(city.timeZone, soon),
+  );
+  expect(steady, 'a city more than five minutes from its midnight').toBeGreaterThanOrEqual(0);
+  await links.nth(steady).click();
   await expect(page).toHaveURL(/collection=deals/);
   // The collection is chosen on arrival, whether or not tonight has a deal in this city.
   await expect(page.getByTestId('hotel-collection-deals')).toBeChecked({ timeout: 30_000 });
   await expect(page.getByTestId('collection-help')).toHaveText(t('results.collections.help.deals'));
+});
+
+test("dates tonight by the city's calendar when the visitor's evening is its next day", async ({
+  page,
+}) => {
+  // 22:30 UTC: 23:30 for a visitor in Lagos, and past midnight in Dubai, Nairobi and Istanbul.
+  // A link dated by the visitor's own day asks for a night that began yesterday there, which
+  // the API refuses as in the past. The suite met it only when it ran late in the evening.
+  const evening = new Date(`${new Date().toISOString().slice(0, 10)}T22:30:00Z`);
+  await page.clock.setFixedTime(evening);
+  const cities = await popularCities(page);
+
+  await page.goto('/hotels');
+  const links = page.getByTestId('last-minute-deals').getByTestId('last-minute-deal');
+  await expect(links).toHaveCount(cities.length);
+  const visitor = await visitorToday(page);
+  const ahead = cities.findIndex((city) => dateIn(city.timeZone, evening) > visitor);
+  expect(ahead, 'a popular city already in its next day').toBeGreaterThanOrEqual(0);
+  const tonight = dateIn(cities[ahead]?.timeZone ?? null, evening);
+  const params = searchParams(await links.nth(ahead).getAttribute('href'));
+  expect(params.get('checkin')).toBe(tonight);
+  expect(params.get('checkin')).not.toBe(visitor);
+  expect(Date.parse(params.get('checkout') ?? '') - Date.parse(tonight)).toBe(86_400_000);
+
+  // The search for that night is taken: the results arrive with the collection chosen, and the
+  // console guard of every test fails on a refused request.
+  await links.nth(ahead).click();
+  await expect(page).toHaveURL(new RegExp(`checkin=${tonight}`));
+  await expect(page.getByTestId('hotel-collection-deals')).toBeChecked({ timeout: 30_000 });
 });

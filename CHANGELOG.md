@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed: "Tonight in {city}" late in the evening (2026-11-11)
+
+- The website's "Tonight in {city}" links (ADR-097) were dated by the visitor's own calendar.
+  The hotel search refuses a check-in before today in the city's time zone, so every evening
+  the link to a city further east opened an error instead of tonight's deals: Dubai from 21:00
+  in Lagos until midnight, Nairobi and Istanbul from 22:00. The link now carries the city's own
+  date, by the rule the API checks with (`todayIn` in `@suskii/shared`), and is dated again
+  when the visitor returns to the tab.
+- `GET /v1/destinations/hotels` gives each city's time zone (`city.timeZone`, additive).
+- Found by the website's tests on the pull request that brings `main` up to date: they ran at
+  22:20 UTC for the first time. Two tests now hold the browser's clock still, one of them at
+  22:30 UTC, so the hour the suite runs at no longer decides what it finds.
+
 ### Suskii Agent, sub-phase H: hardening and delivery (2026-11-11)
 
 The last sub-phase of the assistant (ADR-101, ADR-102, ADR-106, ADR-107, ADR-045). Nothing is

@@ -163,7 +163,8 @@ Built on the API, the website and the app:
 - **Continue your search.** The last three hotel searches, kept on the device only, on the
   website's hotels page and above the app's hotel form, with "Clear".
 - **Last-minute deals.** "Tonight in {city}" on the website's hotels page opens tonight's Deals
-  in each popular destination.
+  in each popular destination. Tonight is the city's own date (`todayIn`), since 2026-11-11:
+  dated by the visitor's calendar, the link failed every evening for cities further east.
 
 Tests: unit tests for the rules (`hotel-collections.test.ts`, `results.spec.ts`), API e2e in
 `search.e2e-spec.ts`, the app's `hotel-screens.test.tsx` (10) and the website's

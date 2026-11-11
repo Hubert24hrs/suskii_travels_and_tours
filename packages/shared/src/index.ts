@@ -260,6 +260,7 @@ export {
   isValidTimeZone,
   localDate,
   localToUtc,
+  todayIn,
   utcOffsetMinutes,
   utcToLocal,
 } from './time';
