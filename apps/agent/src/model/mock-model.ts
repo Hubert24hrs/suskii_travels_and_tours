@@ -1,4 +1,4 @@
-import { CUSTOMER_AGENTS, type AgentName } from '@suskii/shared';
+import { AGENT_NAMES, type AgentName } from '@suskii/shared';
 
 import { obviousAgent } from '../graph/pre-router.js';
 
@@ -104,17 +104,29 @@ function sample(request: ModelRequest): RecordedTurn {
       : { text: MOCK_SPECIALIST_ANSWER };
   }
   const allowed = routable(request);
-  const guess = last ? obviousAgent(last.text) : null;
+  const guess = last ? (obviousAgent(last.text) ?? staffGuess(last.text)) : null;
   const agent: AgentName = guess && allowed.includes(guess) ? guess : (allowed[0] ?? 'concierge');
   return { toolCalls: [{ name: ROUTE_TOOL, arguments: { agent } }] };
 }
+
+/** Enough to tell the staff agents apart on a local stack; the real router is a model. */
+const STAFF_GUESSES: readonly (readonly [RegExp, AgentName])[] = [
+  [/\b(refund|payout|reconcil|payment)/i, 'finance_prep'],
+  [/\bpromo/i, 'marketing'],
+  [/\b(queue|waiting|ticketing|backlog)/i, 'operations'],
+  [/\b(sales|revenue|report)/i, 'business_intelligence'],
+  [/\b(vendor|scrap|website|price intel)/i, 'price_intel'],
+];
+
+const staffGuess = (text: string): AgentName | null =>
+  STAFF_GUESSES.find(([pattern]) => pattern.test(text))?.[1] ?? null;
 
 /** The agents the router's tool offers in this request. */
 function routable(request: ModelRequest): AgentName[] {
   const tool = request.tools.find((candidate) => candidate.name === ROUTE_TOOL);
   const properties = tool?.parameters.properties as { agent?: { enum?: unknown } } | undefined;
   const offered = Array.isArray(properties?.agent?.enum) ? properties.agent.enum : [];
-  return (CUSTOMER_AGENTS as readonly AgentName[]).filter((agent) => offered.includes(agent));
+  return (AGENT_NAMES as readonly AgentName[]).filter((agent) => offered.includes(agent));
 }
 
 /**
