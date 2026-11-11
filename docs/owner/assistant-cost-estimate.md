@@ -7,7 +7,7 @@ and which assumption moves it. Replace each assumption with a measured figure as
 is one. The invoices of the model provider, the vendors and Google Cloud are the actual cost.
 
 Written on 2026-11-11 for sub-phase H of the Suskii Agent (`docs/phases/ai-agent.md`). All
-amounts are US dollars a month.
+amounts are US dollars, a month unless a line says otherwise.
 
 ## Summary
 
@@ -23,8 +23,8 @@ Not in the table, because nothing here can estimate them:
   vendor charges at least each month is on its own pricing page, and the owner reads it when
   choosing which vendors to open accounts with. One or two vendors are enough to start.
 - **People.** Someone verifies each assisted quote with a supplier, books it by hand and works
-  the approvals queue. That time is the larger cost of selling a price seen on another site,
-  and it grows with the number of requests.
+  the approvals queue. That time is not estimated here, and it grows with the number of
+  requests.
 - **The other two AI features** have their own caps and are not part of this estimate: AI trip
   search (at most $20 a day by default) and the after-hours support assistant (at most $5 a
   day by default).

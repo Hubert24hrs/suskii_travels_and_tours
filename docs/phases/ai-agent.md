@@ -1082,3 +1082,403 @@ flows run in CI, not here; no phone was used.
 - The reply targets a handover may name (`SUPPORT_SLA`).
 - The wording of the PDFs' notes ("not a booking", "to be confirmed") from counsel.
 - Whether a guest may use the assistant, or only signed-in travellers.
+
+### H. Hardening and delivery (2026-11-11)
+
+**Built**, in the order of the plan.
+
+1. **Notes that do not depend on a model's wording** (ADR-107). `fares.trend`,
+   `documents.passports` and `visa.requirements` return a `note` card whose title is a code
+   (`fare_trend`, `passport_reminder`, `visa_guidance`). The graph never drops a note when it
+   trims a turn's cards, and the website, the app and WhatsApp put it into words from their
+   own catalogs in five languages. **Evals for what E and G added**: staff cases in the
+   routing suite (routed by the staff router), staff cases in the safety suite (asked to
+   approve and send a refund, to use another agent's tool, to name a traveller, to obey a
+   document, to call a proposal done), cases for the planning and memory tools, and cases
+   that a note is present whatever the answer says. The eval commands take `--json <file>`.
+2. **Shadow mode** (ADR-106). `CANDIDATE_PROMPTS` in the agent service (none ships today);
+   `AgentShadows` in the API decides which runs are shadowed (`AGENT_SHADOW_PROMPTS`,
+   `AGENT_SHADOW_SAMPLE_PERCENT`, 0 by default) and holds their spend under a daily cap of
+   its own (`AGENT_SHADOW_DAILY_MICROUSD`). After `end`, the agent service runs the turn
+   again with the candidates, in memory, on a gateway that only replays what the live tools
+   returned, and reports one line of codes and counts (`agent_shadow_runs`). The console
+   compares candidate and live on "Assistant cost and quality".
+3. **Eval results in the console.** `agent_eval_results`, `POST /v1/admin/ai/evals`
+   (`ai:manage`, audited, 409 for the same run twice) and `GET /v1/admin/ai/evals`; a section
+   on "Assistant cost and quality" with the latest run of each suite and the history, and a
+   dialog that takes the file the eval command wrote.
+4. **A recipe proposal for a site in drift** (ADR-102). `proposeRecipe()`: from the page kept
+   when nothing could be read, the schema.org types that carry a price and that the recipe
+   does not read, counted with the extraction code and named only from our own list
+   (`PRICED_SCHEMA_TYPES`). The price intelligence agent has `sources.drifting` and
+   `sources.propose_recipe`; the proposal is the approval kind `source_recipe`, decided by
+   another person with `ai:approve` and `datasources:manage`, saved through
+   `PriceSourcesService.update()` and refused when the recipe changed meanwhile (409
+   `recipe-changed`). The console shows what the proposal adds and how many priced items it
+   reads from the kept page.
+5. **The month's cost** (ADR-106). `AGENT_MONTHLY_ALERT_MICROUSD` (none by default); one rule
+   for the forecast (`agent-cost.ts`) used by the console, the alert and the gauge; the
+   worker's hourly check (`POST /v1/internal/agent/cost-check`) tells operations once when
+   the forecast passes the figure, after the month's first three days, and once when the
+   spend has. Alert rules for the assistant and price intelligence (five, all tickets, each
+   with a runbook and a promtool test) and a Grafana dashboard.
+6. **Delivery, built and not applied.** `apps/agent/Dockerfile` (as the worker's: the `node`
+   user, a read-only root file system), `GET /health` and `GET /ready`; the agent service in
+   `docker-compose.release.yml` and the release rehearsal; Terraform (`deploy_agent`: a Cloud
+   Run service with internal ingress only, its own identity, database URL and secrets,
+   scaling, `agent_internal_url`, tfvars examples for staging and production); the Helm chart
+   (`agent.enabled`, a network policy that lets in the API alone); the deploy workflow builds,
+   signs, promotes, deploys and rolls back the agent image wherever the service exists; the
+   infrastructure workflow builds the image and lints the chart with the agent on.
+7. **Load** (ADR-045). A third k6 scenario, `chat`: a guest starts a conversation, sends a
+   message and polls the run. Thresholds: the chat routes under 300 ms and the answer under
+   3 s at p95. The load stack lifts the spend cap per guest address, since every guest of a
+   load test writes from one address.
+8. **Security review.** `docs/security/`: the tools as they stand (45: 32 for travellers'
+   agents, 10 for staff agents, 3 for every agent), recipe proposals and their approval,
+   recorded eval runs, the month's cost check, where the agent service sits when deployed,
+   candidates in the shadow, the two new tables; four threats with their controls and two
+   accepted risks in the threat model. ADR-045, ADR-101, ADR-102, ADR-106 and ADR-107 gained
+   what was built.
+9. **Documents.** `docs/runbooks/ai-agent.md` (pause, the model provider down or slow, the
+   caps and the monthly figure, wrong answers, rolling a prompt or a model back, the agent
+   service, drift) and the drift section of `price-intelligence.md`;
+   `docs/guides/adding-an-agent.md` and `docs/guides/adding-a-scrape-provider-or-source.md`;
+   `docs/owner/assistant-cost-estimate.md`; section 7.6 of the owner's checklist; the README;
+   `CLAUDE.md`; the changelog. The register for counsel is generated per environment by
+   `price-intel:register` and needed no change: a recipe is not part of it.
+
+**Where the plan and what was built differ**
+
+- **The monthly setting** is `AGENT_MONTHLY_ALERT_MICROUSD`, in the unit of every other
+  spend setting, with two levels (the forecast is past it; the spend is past it), not
+  `AGENT_COST_ALERT_USD` with one.
+- **The compose rehearsal checks the agent service's two doors** from the inside (the run
+  door answers the run token and does not exist for any other; the tool gateway lists its
+  tools to the tools token and refuses the run token and no token), not a whole chat. A
+  guest's chat in that stack would have called Cloudflare's Turnstile for real. The whole
+  chain, with the agent service as its own process, is `agent-service.e2e-spec.ts`.
+- **The Cloud Run invoker check is off** for the agent service: internal ingress and the run
+  token are its two controls, as for the worker's calls to the API (ADR-101, an accepted
+  risk in the threat model).
+- **`AGENT_URL` is copied by the operator** from the `agent_internal_url` output: the API and
+  the agent each need the other's address, and two services cannot wait for each other.
+- **The agent service is not in the kind rehearsal** of the Helm chart; the chart is linted
+  and its manifests validated with the agent on.
+
+**Found on the way**
+
+- **A staff agent could say "the recipe is approved" and be shown.** The safety eval case
+  for the new tool passed the guard when it should not have. "Approved" is now an outcome
+  only a status supports: a proposal's tool result carries `approvalStatus: pending`, and the
+  guard refuses the word, in each language the assistant answers in, while such a status is
+  in the turn. Without a proposal in the turn it is left alone ("two sites are approved" is
+  a count a tool returned).
+- **A message written instead of a tap was planned for a shadow turn**, because the waiting
+  run was closed before the check; it is read first now. Found by the shadow's own test.
+- **CI could not install Playwright's system packages** on three runs of the previous pull
+  request: the runner's package mirror did not resolve. Pinning the runner image did not
+  help, and was said not to have. The install step now goes on when the mirror cannot be
+  reached and the image already starts Chromium (`scripts/ci-playwright-deps.mjs`, four
+  tests, checked with a failing `apt-get` in its place).
+- **The runbook was corrected against the code** before it was committed: the fallback model
+  is the same provider's, `/ready` checks only the checkpoint store, and a model failure is
+  one of three classes.
+
+**Known limits, kept in view**
+
+- **No eval has run against a model.** Routing, grounding and safety are measured on
+  recorded answers. The live run needs the owner's key (`agent-eval.yml`), and its result is
+  what should be recorded in the console before the assistant answers travellers.
+- **No candidate prompt exists**, so shadow mode has been exercised by its tests only. Every
+  turn a candidate is tried on was answered by the live prompt, so a candidate's "answered"
+  share is how it did where the live one succeeded, not an absolute rate.
+- **A recipe proposal reads structured data only.** When a page declares no priced thing of
+  a known schema.org type, nothing is proposed and a person writes selectors, as before. A
+  site can also declare prices that are not the ones it shows; what the new recipe reads is
+  still judged against the price's history and never sold without a person.
+- **The monthly figure stops nothing.** The daily caps do. Every cost shown is an estimate
+  from reported tokens at configured prices.
+- **The cost estimate is arithmetic on assumptions.** Prompt sizes were measured in the
+  code; usage, tool result sizes and the share of customers who use the assistant are
+  assumed; Google's unit prices could not be read from the build environment and are marked
+  as unconfirmed.
+- **Terraform was formatted here and validated only in CI**: the provider registry cannot be
+  reached from the build environment. Nothing was planned against a real project, since none
+  exists yet.
+- **The load test measures our own routes** with the mock inside the API. It says nothing
+  about a model's speed or the agent service's.
+- **The agent service's readiness is its checkpoint store.** It does not call the model
+  provider or the tool gateway to answer `/ready`: an outage of either shows as failed runs
+  (`AssistantRunsFailing`), not as an unready service.
+- **The five web-data adapters have never called their vendors**, and every site is in
+  review: nothing is approved, so nothing can be read outside the mock.
+
+**Acceptance criteria of the brief (section 13)**
+
+| #   | Criterion                                                                                  | Where it is proved                                                                                                                                                                                                                                                                                                                    |
+| --- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | No customer reads another's conversation, quote or booking through an agent path           | `agent-chat` (a conversation, its runs and events are its owner's), `agent-tools` and `agent-confirmations` (another person's record is `not_found`; a card is its traveller's alone), `assisted-quotes`, `agent-staff`, and the ownership matrix (`idor-matrix`)                                                                     |
+| 2   | No agent approves a refund, moves money, confirms a booking or states a payment outcome    | The registry refuses such a tool and the API does not start (`agent.spec`, `agent-gateway`: "none of them forbidden"); a commit never runs from the gateway; the guard refuses an outcome no status supports (`agent-grounding.test`, the safety eval)                                                                                |
+| 3   | Every price from scraping is labelled indicative with its date and source                  | `price-intel` (an observation carries `indicative`, when it was seen and on which site), `agent-tools` ("shows prices seen elsewhere as indicative, and asks a person to confirm one"), the app's assistant screen test (the mark is on the card). The website draws the same mark from the same field; no test of its own asserts it |
+| 4   | One provider down still returns data; all down degrades to stale or a handoff, and says so | `provider-router.spec` (each failure class, the ladder, breakers, budgets), `price-intel` ("gives old observations marked stale when a read fails, never as fresh")                                                                                                                                                                   |
+| 5   | A blocked or unapproved domain is never fetched                                            | `price-intel` ("never reads a blocked site", "answers a site in review from the mock only"), `price-sources.spec`, `ssrf-guard.spec`                                                                                                                                                                                                  |
+| 6   | Staff pause the agent, a provider or a domain within seconds; clients fall back            | `agent-gateway` ("lets staff pause everything at once"), `agent.spec` (fails closed), `price-intel` (switches), the website's off-mode suite and `assistant.spec`                                                                                                                                                                     |
+| 7   | Ordinary booking works with the agent and price intelligence off                           | The website's e2e with `E2E_AGENT=off` (a CI step). Nothing in search, booking or payment imports either module: outside the two modules only the root module and the cost gauge do (checked by a search of the imports, not by a test)                                                                                               |
+| 8   | Every state-changing agent or staff action has an audit record                             | `admin-audit` (every admin mutation declares and records its actions), `admin-matrix`, `agent-confirmations`, `agent-staff`, `agent-insights`                                                                                                                                                                                         |
+| 9   | Routing and grounding evals pass their thresholds                                          | The table below, on recorded answers; the live run needs the owner's key                                                                                                                                                                                                                                                              |
+
+**Test results** (local, 2026-11-11). The long suites ran on commit `fcd3072`, the last one
+that changes what the API, the website, the console and the agent service do. Three commits
+followed it, each to a test or to the code a test traced (below), and each was run on its
+own. The pull request's checks run everything once more on the head, with what could not
+run here: `terraform validate`, TFLint and the kind rehearsal.
+
+<!-- H-RESULTS-TABLE -->
+
+| Check                                                              | Result                                                                        | On                           |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ---------------------------- |
+| `pnpm lint`                                                        | 15 of 15 workspaces                                                           | `fcd3072`                    |
+| `pnpm typecheck`                                                   | 14 of 14 workspaces                                                           | `fcd3072`                    |
+| API unit (`test:cov`, with the 80% gates)                          | 78 suites, 834 tests                                                          | `fcd3072`                    |
+| API e2e (full, `test:e2e:cov`)                                     | 81 suites, 867 of 868 tests                                                   | `fcd3072`                    |
+| the contract suite after the route count's fix                     | 21 of 21 tests                                                                | `7052846`                    |
+| `@suskii/shared`                                                   | 397 tests                                                                     | `fcd3072`                    |
+| `@suskii/agent`                                                    | 72 tests (13 in the three evals)                                              | `fcd3072`                    |
+| `@suskii/worker`                                                   | 53 tests, 1 skipped (it needs a Redis address)                                | `fcd3072`                    |
+| `@suskii/i18n`                                                     | 34 tests                                                                      | `fcd3072`                    |
+| Web e2e (Chromium and slow 3G)                                     | still running when this was committed                                         | `fcd3072`                    |
+| the indicative price card's new test, with the note test           | 2 of 2 tests                                                                  | `e7a8644`                    |
+| Web e2e with the assistant off (`E2E_AGENT=off`)                   | runs after the suite above                                                    | head                         |
+| Mobile (Jest)                                                      | 53 suites, 351 tests before the timer's fix; the full run on the head follows | `7052846`                    |
+| Admin e2e                                                          | still running when this was committed                                         | `fcd3072`                    |
+| `pnpm check:migrations` (51 migrations)                            | pass                                                                          | `fcd3072`                    |
+| `pnpm security:checklist --check`, `pnpm format:check`             | pass                                                                          | `fcd3072`                    |
+| `pnpm test:scripts`                                                | 17 tests                                                                      | `fcd3072`                    |
+| Alert rules (`promtool check rules`, `test rules`)                 | 55 rules; every test passes                                                   | `fcd3072`                    |
+| Helm chart: lint and manifests, with and without the agent service | 24, 15 and 18 resources valid                                                 | `fcd3072`                    |
+| `terraform fmt -check`                                             | clean                                                                         | `fcd3072`                    |
+| Compose release rehearsal with the agent service                   | passed: five services healthy, both doors, a broken release refused, rollback | `cc3b412`                    |
+| k6 with the chat scenario (half the CI rates, 30 s)                | 521 of 521 checks; every threshold held                                       | `cc3b412` and its load files |
+
+| Eval (recorded answers) | Result                                              | Pass mark          |
+| ----------------------- | --------------------------------------------------- | ------------------ |
+| `eval:agent-routing`    | 94 of 98 (95.9%); 16 by rule without a model call   | 95%                |
+| `eval:agent-grounding`  | no invention shown; 15 of 16 grounded answers shown | 0 shown, 90% shown |
+| `eval:agent-safety`     | 39 of 39 held; no violation                         | 0 violations       |
+
+The website, app and console suites were still running when this was committed; their rows are completed in the commit that follows.
+
+<!-- /H-RESULTS-TABLE -->
+
+Found by this regression, and fixed:
+
+- **The contract test's count of internal routes was stale** (27 expected, 28 found): the
+  monthly cost check added one. The earlier runs of this sub-phase covered the suites each
+  step touched and not this one; the full run did (`7052846`).
+- **A test server left over from the local load test run** was still holding the website's
+  port, which would have failed the website suite here. It was stopped before that suite
+  started. The one-off command that ran the load test locally had missed two of its
+  processes; in CI the job's runner ends with the job.
+- **The app's "worker process has failed to exit gracefully"**, left open in G, was a timer:
+  a fatal error waits up to 1.5 s for its report, and the timer behind the wait ran on after
+  the report had left. It is cleared now. The test beside it proved less than it said (it
+  was answered by another case's `fetch`); it was tightened and a case for a report that
+  never leaves was added (`dbc4276`).
+- **The website's indicative price card had no test of its own.** It has one now (`e7a8644`).
+
+**Decisions needed from the owner**
+
+- One run of the three agent evals against the model (`LLM_API_KEY`, Actions, Agent evals),
+  recorded in the console, before the assistant answers travellers.
+- The monthly figure to be told about (`AGENT_MONTHLY_ALERT_MICROUSD`), and whether anything
+  should stop at it; today only the daily caps stop spending.
+- Staging: the agent service's three secrets, `deploy_agent`, the Deploy workflow, then
+  `AGENT_URL` and `AGENT_ENABLED` (owner's checklist, section 7.6). Production afterwards.
+- Whether the API should present a Google identity to the agent service as well as its
+  token (ADR-101; not built).
+- Who receives the five ticket alerts, and two people who may manage data sources, so a
+  recipe proposal has an approver other than its asker.
+- Google's current Cloud Run prices for London and each web-data vendor's plan, to replace
+  the unconfirmed figures in the cost estimate; and the share of customers expected to use
+  the assistant, which the estimate assumes.
+
+## Final report (section 16 of the brief)
+
+Written at the end of sub-phase H, 2026-11-11.
+
+### What was built
+
+A multi-agent assistant and a price-intelligence layer, in eight sub-phases (A to H, pull
+requests 76 to 82 and this one), all behind switches that are off in production.
+
+- **A separate agent service** (`apps/agent`, LangGraph.js 1.7): one graph for every agent
+  (begin, route, think, act, confirm, check, finish), ten agents for travellers and six for
+  staff, versioned prompts, a model adapter behind an interface, checkpoints in a database
+  schema of its own. It has no route to the platform but the API's tool gateway.
+- **The tool gateway and 45 tools** in the API: every call is checked against the sealed
+  grant of its run, in a fixed order, and recorded with argument names only. Tools read,
+  prepare or ask for a confirmation; what an agent never does (refunds, captures, payouts,
+  the ledger, price rules, confirming a booking, deciding an approval) cannot be registered.
+- **A guard in code on every answer**: figures, contacts and outcomes are checked against
+  what the tools returned in that turn; one rewrite, then a notice.
+- **Confirmations** a traveller taps (six tools), **approvals** another staff member decides
+  (three kinds), and **assisted quotes**: a request, a person's verified offer, the ordinary
+  checkout, a person's confirmation with the supplier's reference.
+- **Price intelligence**: sites that start closed and are approved with a recorded basis,
+  five vendor adapters with our own fetcher and a mock, a router with failover, a proxy
+  ladder the approver bounds, budgets, breakers, a throttle and kill switches, extraction
+  into a fixed list of public fields, observations judged before they are kept, drift
+  detection, and a recipe proposed by rule for a person to approve.
+- **The console**: switches, the staff chat, approvals, assisted quotes, data sources with
+  their health, runs with their tool calls, travellers' conversations masked and audited,
+  estimated cost with a forecast, quality, recorded evals, candidates in the shadow, the
+  limits in force and the knowledge base.
+- **The clients**: the website's chat and price requests, the app's assistant and price
+  requests, the assistant on WhatsApp inside the support thread, remembered preferences for
+  a traveller who agreed, a score for a conversation, and two PDFs.
+- **Operations**: a pause that works within seconds and fails closed, spend caps per run,
+  per person, per guest address and in total, a monthly figure, five alert rules, a
+  dashboard, two runbooks, three evals on recorded answers, a chat scenario in the load
+  test, and the service's image, Terraform, Helm chart and release pipeline.
+
+### Files and dependencies
+
+Since the commit before sub-phase A (`c5fa81c`): 276 files created and 180 existing files
+modified, in 103 commits (merges not counted), before this report's own commit. The largest
+existing files touched are generated (`apps/api/openapi.json`, the API client's schema) or
+catalogs.
+
+Dependencies added, all pinned in the workspace catalog:
+
+| Package                                    | Version | Where                   | Why                                                                                               |
+| ------------------------------------------ | ------- | ----------------------- | ------------------------------------------------------------------------------------------------- |
+| `@langchain/langgraph`                     | 1.7.2   | `apps/agent`            | The graph runtime the brief asks for                                                              |
+| `@langchain/core`                          | 1.3.5   | `apps/agent`, API tests | Its peer; the API's checkpoint test reads the library's own set-up                                |
+| `@langchain/langgraph-checkpoint-postgres` | 1.1.2   | `apps/agent`, API tests | Checkpoints in PostgreSQL; pinned exactly, since its tables are a checked-in migration (ADR-103)  |
+| `node-html-parser`                         | ^9.0.7  | `apps/api`              | Reads prices out of pages with CSS selectors; it parses and never runs a page's scripts (ADR-102) |
+
+`@anthropic-ai/sdk` (1.1.0) was already in the catalog for AI trip search and is reused by
+the agent service's model adapter. Sub-phase H added no dependency.
+
+### Which integrations are real and which are mock
+
+| Integration                                            | In the code                                   | Ever called from here                                          |
+| ------------------------------------------------------ | --------------------------------------------- | -------------------------------------------------------------- |
+| The model provider (Anthropic Messages API)            | A real adapter and a mock model               | No. Every eval and test ran on the mock or on recorded answers |
+| Firecrawl, Apify, Browse AI, Oxylabs, Bright Data      | Real adapters, written from the vendors' SDKs | No. Tests use fixtures and the mock vendor                     |
+| Our own fetcher (`direct`)                             | Real (names itself, obeys robots files)       | Only against local test servers in tests                       |
+| WhatsApp (Meta Cloud API)                              | A real adapter and a mock, from earlier work  | No                                                             |
+| Suppliers, payment providers, texts, exchange rates    | Unchanged by this work                        | No (mocks, as in every suite)                                  |
+| Cloud Run, Secret Manager, Cloud SQL for the agent     | Terraform, not applied                        | No. Formatted here; validated only in CI                       |
+| The compose release rehearsal with the agent service   | Real containers on this machine               | Yes: passed with the mock model                                |
+| The agent service beside the API (`agent-service.e2e`) | Real processes, mock model                    | Yes                                                            |
+
+### Keys, accounts and approvals still needed
+
+All are the owner's, and each has its steps in `docs/owner/launch-checklist.md` (sections
+7.1 to 7.6):
+
+- `LLM_API_KEY` as a repository secret, then one run of the agent evals against the model;
+  the provider's data retention terms; the model prices to confirm.
+- Accounts, keys and budgets for the web-data vendors that will be used (one or two are
+  enough to start), a Browse AI robot per site if that vendor is used, and one run of
+  `scrapers-sandbox.yml` against a page of Suskii's own site.
+- **Counsel's and the owner's approval of each site**, with its basis recorded. Every site
+  starts in review and cannot be approved until someone has read its robots file and terms.
+- The assisted-quote decisions: a fee rule for the vertical `assisted` (none is seeded, so
+  an assisted quote earns nothing today), who verifies prices and books by hand, and the
+  hours a traveller is promised an answer in.
+- People for the approvals queue, the handovers and the knowledge base; who holds
+  `ai:manage`; two people who may manage data sources.
+- For the assistant on WhatsApp: the Meta account from the support work, and the decision to
+  switch it on.
+- Counsel's reading of the PDFs' notes, the privacy policy's wording for the assistant and
+  for remembered preferences, and whether a meal preference may ever be remembered.
+- Production approval: `AGENT_ENABLED`, `PRICE_INTEL_ENABLED`, `ASSISTED_QUOTES_ENABLED`.
+
+### Google Cloud and Terraform steps that remain
+
+Nothing has been applied. In order, for staging and then production
+(`infra/terraform/README.md`, "The agent service"):
+
+1. The environments themselves, from phase 12: two projects with billing, the domains, the
+   GitHub environments. The agent service is added to an environment that already runs.
+2. Add `AGENT_RUN_TOKEN`, `AGENT_TOOLS_TOKEN` and `LLM_API_KEY` to `extra_secrets`, apply,
+   and give each a value in Secret Manager (`keys:generate` prints the two tokens).
+3. Set `deploy_agent = true` (with `agent_env` and `scaling.agent`) and apply: the service's
+   identity, its database URL, its secret access and the service on a placeholder image.
+4. Run the Deploy workflow: the database step creates the role `suskii_agent`, limited to
+   the `agent` schema, and the agent's image is rolled out.
+5. Copy the `agent_internal_url` output into `AGENT_URL` in `api_env`, with
+   `AGENT_SERVICE = "http"`, and apply.
+6. Set `AGENT_ENABLED = "true"` when the owner decides to.
+
+`terraform validate` and TFLint run in the infrastructure workflow, and have not been run
+against a real project.
+
+### Sites in review
+
+None. No site is seeded and none has been added in any environment, so the register
+(`docs/legal/scraping-register.md`) is the blank page. Every site the owner's team adds will
+start in review, answered only by the mock, until a person approves it with a basis.
+
+### Estimated monthly cost
+
+Estimates, not invoices (`docs/owner/assistant-cost-estimate.md`). In the base case, with
+15 in 100 monthly customers using the assistant for ten messages a month: about $270 to $320
+a month at 5,000 customers and about $885 to $935 at 20,000, plus the web-data vendors' plan
+fees, which could not be estimated. Most of it is the answering model. The defaults cap the
+assistant at $50 a day whatever happens. Google's unit prices behind the infrastructure part
+could not be confirmed from the build environment.
+
+### Known gaps and risks
+
+- **Nothing has met a real model, a real vendor or a real traveller.** The evals on recorded
+  answers prove the pipeline and the guard, not the model. The first live eval run is the
+  real measurement, and it may fail thresholds that recorded answers pass.
+- **The guard checks what can be checked in code**: figures, contacts, outcomes, disclosed
+  instructions, requests for secrets. It does not judge tone, advice or a wrong statement
+  that carries no figure. It refuses arithmetic the tools did not do, so a correct derived
+  total can be refused. A paraphrase of the instructions is not caught by the word-for-word
+  check; the instructions hold nothing secret.
+- **Whether reading a site is lawful is not something code settles.** The code makes the
+  decision explicit, recorded and reversible; counsel and the owner make it.
+- **Assisted quotes depend on people.** A paid assisted booking waits in `TICKETING` until a
+  person confirms it or abandons it with a full refund. Without people on shift it must stay
+  off.
+- **Cost figures are estimates everywhere**, in the console as well: reported tokens at
+  configured prices. The invoices are the cost.
+- **The agent service's network position** (internal ingress and a token, the invoker check
+  off) is an accepted risk to revisit when the first environment exists.
+- **The Helm chart's agent component is linted and validated, not rehearsed** on kind.
+- **WhatsApp's fixed lines are English**; the model answers in the traveller's language.
+- **The website's and the app's price requests have no end-to-end flow on a phone** of their
+  own; the assistant's Maestro flow and the phone check cover the chat.
+
+### Readiness for staging
+
+Ready to be applied by the owner, not applied. What is in place: the image builds and runs
+as an unprivileged user on a read-only file system; the compose release rehearsal deploys
+it beside the API, creates its database role and checks both of its doors; Terraform and the
+chart define the service with its own identity and secrets; the release pipeline builds,
+signs, promotes, deploys and rolls it back; the runbook covers pausing, a provider outage,
+the caps, wrong answers, rollback and drift; alerts and a dashboard exist. What staging needs
+first: the environment itself (phase 12), the three secrets, and the decision to start with
+the mock model (to see the screens) before the real one.
+
+### Next steps for the owner, in order
+
+1. Read `docs/owner/launch-checklist.md`, sections 7.1 to 7.6, and
+   `docs/owner/assistant-cost-estimate.md`.
+2. Add `LLM_API_KEY` as a repository secret and run Actions, Agent evals. Read the three
+   results; record them in the console once it runs somewhere.
+3. Decide which web-data vendors to open accounts with, and run `scrapers-sandbox.yml`.
+4. With counsel, choose the first sites and record the basis for each.
+5. Name the people: approvals, assisted quotes, handovers, the knowledge base, data sources.
+6. Create staging (phase 12), then add the agent service to it (the six steps above) with
+   the mock model, then with the real one.
+7. Try it: ask the assistant on the website and in the app, request a price, verify and book
+   it by hand in the console, pause and release, read a conversation as staff.
+8. Set the monthly figure and the fee rule for assisted quotes.
+9. Production, when content: the same steps, then the three switches.
