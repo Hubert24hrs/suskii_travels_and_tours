@@ -1,3 +1,5 @@
+import { todayIn } from '@suskii/shared/lite';
+
 import { readStored, STORAGE_KEYS, writeStored } from '../components/search/storage';
 
 /** A hotel search worth offering again: a city, the dates and the rooms. Nothing personal. */
@@ -39,10 +41,24 @@ const valid = (entry: unknown): entry is RecentHotelSearch => {
 };
 
 /** The visitor's calendar date, "2026-12-01": stays that have begun are not offered again. */
-export function localToday(): string {
-  const now = new Date();
+export function localToday(now: Date = new Date()): string {
   const pad = (value: number): string => String(value).padStart(2, '0');
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
+ * Tonight where the hotel is: the city's own calendar date, by the rule the API checks a
+ * check-in with (ADR-097). The visitor's date is a day behind it for part of every day when the
+ * city lies to the east (Dubai from 21:00 in Lagos), and a search for that date is refused as
+ * in the past.
+ */
+export function tonightIn(timeZone: string | null, now: Date): string {
+  try {
+    return todayIn(timeZone, now);
+  } catch {
+    // A zone this browser's Intl does not know: the visitor's own date is the best it can say.
+    return localToday(now);
+  }
 }
 
 const same = (a: RecentHotelSearch, b: RecentHotelSearch): boolean =>
@@ -91,15 +107,15 @@ function nextDay(date: string): string {
 }
 
 /**
- * Tonight's deals in a city (ADR-097): one night from the visitor's own today, two adults, the
- * "Deals" collection chosen. The dates come from the browser's clock, so the link exists only
- * once the page runs there.
+ * Tonight's deals in a city (ADR-097): one night from the city's own today (`tonightIn`), two
+ * adults, the "Deals" collection chosen. The instant comes from the browser's clock, so the
+ * link exists only once the page runs there.
  */
-export function lastMinuteHref(cityId: string, today: string): string {
+export function lastMinuteHref(cityId: string, tonight: string): string {
   const params = new URLSearchParams({
     dest: cityId,
-    checkin: today,
-    checkout: nextDay(today),
+    checkin: tonight,
+    checkout: nextDay(tonight),
     room: '2',
     collection: 'deals',
   });

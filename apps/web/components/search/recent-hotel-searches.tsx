@@ -10,6 +10,7 @@ import {
   localToday,
   recentHotelSearches,
   recentHotelSearchHref,
+  tonightIn,
   type RecentHotelSearch,
 } from '../../lib/recent-hotel-searches';
 import { AppLink } from '../app-link';
@@ -86,21 +87,41 @@ export function RecentHotelSearches() {
   );
 }
 
+/** A popular city and the time zone its nights are dated in (null: read in UTC, as the API does). */
+export interface LastMinuteCity {
+  id: string;
+  name: string;
+  timeZone: string | null;
+}
+
 /**
  * "Last-minute deals" under the popular destinations (ADR-097): tonight's "Deals" collection in
- * each of them. The links carry the visitor's own date, so they render once the page runs in the
- * browser; the section sits low on the page, where its arrival moves nothing a visitor reads.
+ * each of them. "Tonight" is the night that begins on the city's own date at the moment the
+ * browser's clock shows, never the visitor's date: late in the visitor's evening a city to the
+ * east is already in tomorrow, and the API refuses a check-in on its yesterday. The links
+ * render once the page runs in the browser and are dated again when the visitor comes back to
+ * the tab, so a page left open overnight does not offer last night. The section sits low on
+ * the page, where its arrival moves nothing a visitor reads.
  */
-export function LastMinuteDeals({ cities }: { cities: readonly { id: string; name: string }[] }) {
+export function LastMinuteDeals({ cities }: { cities: readonly LastMinuteCity[] }) {
   const { t } = useTranslator<RecentSearchMessages>();
-  const [today, setToday] = useState<string | null>(null);
+  const [readAt, setReadAt] = useState<number | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setToday(localToday()), 0);
-    return () => clearTimeout(timer);
+    const read = (): void => setReadAt(Date.now());
+    const timer = setTimeout(read, 0);
+    const onVisible = (): void => {
+      if (document.visibilityState === 'visible') read();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
-  if (!today || cities.length === 0) return null;
+  if (readAt === null || cities.length === 0) return null;
+  const now = new Date(readAt);
   return (
     <Container className="py-6">
       <section
@@ -115,7 +136,7 @@ export function LastMinuteDeals({ cities }: { cities: readonly { id: string; nam
           {cities.map((city) => (
             <li key={city.id}>
               <AppLink
-                href={lastMinuteHref(city.id, today)}
+                href={lastMinuteHref(city.id, tonightIn(city.timeZone, now))}
                 className="inline-flex min-h-12 items-center rounded-pill border border-border-strong bg-surface px-4 font-body text-body-sm font-bold text-foreground focus-visible:focus-ring"
                 data-testid="last-minute-deal"
               >
