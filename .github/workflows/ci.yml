@@ -25,7 +25,12 @@ env:
 jobs:
   verify:
     name: Lint, typecheck, test, build
-    runs-on: ubuntu-latest
+    # A named image, not `ubuntu-latest`: this job installs Chromium's system packages with apt
+    # and compares screenshots, so it must not change under us. When `ubuntu-latest` moved to
+    # 26.04 the browser cache missed and the package install failed to resolve the Ubuntu
+    # mirrors, before any test ran. Move to a newer image deliberately, with the screenshot
+    # baselines (visual-baselines.yml uses the same image).
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     # Throwaway services for the web and admin e2e stacks and the worker's BullMQ test. The API
     # e2e suite starts its own containers (Testcontainers). Credentials are CI-only, never real.
