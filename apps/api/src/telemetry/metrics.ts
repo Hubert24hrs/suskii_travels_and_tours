@@ -265,6 +265,22 @@ export const agentPauses = meter.createCounter('suskii.agent.pauses', {
   description: 'Times staff paused or released the assistant, by change and reason',
 });
 
+/** Confirmations asked of travellers, by tool and what became of them (ADR-107). */
+export const agentConfirmations = meter.createCounter('suskii.agent.confirmations', {
+  description: 'Confirmations by tool and outcome: asked, confirmed, declined, failed, expired',
+});
+
+/** What staff agents prepared, by kind and what became of it (ADR-107). */
+export const agentApprovals = meter.createCounter('suskii.agent.approvals', {
+  description: 'Proposals by kind and outcome: proposed, approved, rejected, failed, expired',
+});
+
+/** Assisted quotes by step (ADR-104). */
+export const assistedQuotes = meter.createCounter('suskii.assisted_quotes', {
+  description:
+    'Assisted quotes by step: requested, offered, closed, booked, unbookable, withdrawn, expired',
+});
+
 // Price intelligence (ADR-102).
 
 /** Attempts to read a page by vendor, proxy class and outcome (`ok` or the failure class). */

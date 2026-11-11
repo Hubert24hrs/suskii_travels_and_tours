@@ -15,6 +15,7 @@ import { uuidv7 } from '../../common/uuid';
 import type { AgentConfirmation, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma.service';
 import { ErrorReporter } from '../../telemetry/error-reporter';
+import { agentConfirmations } from '../../telemetry/metrics';
 import type { AgentGrant } from '../agent-grants';
 import {
   AgentToolError,
@@ -102,6 +103,7 @@ export class AgentConfirmationsService {
         },
       });
     });
+    agentConfirmations.add(1, { tool: tool.name, outcome: 'asked' });
     return id;
   }
 
@@ -139,6 +141,7 @@ export class AgentConfirmationsService {
         where: { id: row.id, status: 'pending' },
         data: { status: 'expired', decidedAt: now },
       });
+      agentConfirmations.add(1, { tool: row.tool, outcome: 'expired' });
       throw problem(
         HttpStatus.CONFLICT,
         'confirmation-expired',
@@ -172,6 +175,8 @@ export class AgentConfirmationsService {
         });
       }
     }
+
+    agentConfirmations.add(1, { tool: row.tool, outcome });
 
     // The assistant says what happened, from the records only. If it cannot be reached the
     // action stands: the card shows its state and the booking page the rest.

@@ -26,6 +26,7 @@ import { ProblemDetailsException } from '../../common/problem-details';
 import type { AgentApproval, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma.service';
 import { ErrorReporter } from '../../telemetry/error-reporter';
+import { agentApprovals } from '../../telemetry/metrics';
 
 import {
   promoCodeProposalSchema,
@@ -88,7 +89,7 @@ export class AgentApprovalsService {
   }): Promise<{ id: string; created: boolean } | { refused: 'limit' }> {
     const payload = asJson(this.payloadOf(input.kind, input.payload));
     const now = new Date();
-    return this.prisma.$transaction(async (tx) => {
+    const made = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${input.requestedBy}::uuid FOR UPDATE`;
       const waiting = await tx.agentApproval.findMany({
         where: { requestedBy: input.requestedBy, status: 'pending', expiresAt: { gt: now } },
@@ -125,6 +126,10 @@ export class AgentApprovalsService {
       );
       return { id: row.id, created: true };
     });
+    if ('created' in made && made.created) {
+      agentApprovals.add(1, { kind: input.kind, outcome: 'proposed' });
+    }
+    return made;
   }
 
   async list(
@@ -187,6 +192,7 @@ export class AgentApprovalsService {
         context: decider.context,
         metadata: { kind, carriedOut: false, reason: refused ? 'refused' : 'failed' },
       });
+      agentApprovals.add(1, { kind, outcome: 'failed' });
       return this.get(id, decider);
     }
     await this.prisma.$transaction(async (tx) => {
@@ -206,6 +212,7 @@ export class AgentApprovalsService {
         tx,
       );
     });
+    agentApprovals.add(1, { kind, outcome: 'approved' });
     return this.get(id, decider);
   }
 
@@ -214,7 +221,7 @@ export class AgentApprovalsService {
     reason: AgentApprovalRejectReason,
     decider: ApprovalDecider,
   ): Promise<AgentApprovalDto> {
-    await this.claimable(id, decider);
+    const row = await this.claimable(id, decider);
     const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.agentApproval.updateMany({
@@ -234,6 +241,7 @@ export class AgentApprovalsService {
         tx,
       );
     });
+    agentApprovals.add(1, { kind: row.kind, outcome: 'rejected' });
     return this.get(id, decider);
   }
 
@@ -243,6 +251,7 @@ export class AgentApprovalsService {
       where: { status: 'pending', expiresAt: { lte: now } },
       data: { status: 'expired' },
     });
+    if (count > 0) agentApprovals.add(count, { kind: 'any', outcome: 'expired' });
     return count;
   }
 

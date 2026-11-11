@@ -31,6 +31,7 @@ import { NotificationService } from '../messaging/notification.service';
 import { PricingService } from '../pricing/pricing.service';
 import { toPriceDto } from '../pricing/pricing.schemas';
 import { withCurrentTier } from '../prime/prime-status';
+import { assistedQuotes } from '../telemetry/metrics';
 
 import type {
   AdminAssistedQuoteDto,
@@ -133,6 +134,7 @@ export class AssistedQuotesService {
         },
       });
     });
+    assistedQuotes.add(1, { step: 'requested', product: input.product });
     return this.present(row);
   }
 
@@ -165,6 +167,7 @@ export class AssistedQuotesService {
       data: { status: 'withdrawn', closedReason: 'withdrawn' },
     });
     if (claimed.count === 0) throw this.closed();
+    assistedQuotes.add(1, { step: 'withdrawn', product: before.product });
     return this.get(id, userId);
   }
 
@@ -329,6 +332,7 @@ export class AssistedQuotesService {
         tx,
       );
     });
+    assistedQuotes.add(1, { step: 'offered', product: before.product });
     await this.tell(before.userId, id, before.reference, 'offered');
     return this.forStaff(id);
   }
@@ -359,6 +363,7 @@ export class AssistedQuotesService {
         tx,
       );
     });
+    assistedQuotes.add(1, { step: 'closed', product: before.product });
     await this.tell(before.userId, id, before.reference, 'unavailable');
     return this.forStaff(id);
   }
@@ -391,6 +396,7 @@ export class AssistedQuotesService {
       context: staff.context,
       metadata: { bookingId: before.booking.id },
     });
+    assistedQuotes.add(1, { step: 'booked', product: before.product });
     return this.forStaff(id);
   }
 
@@ -412,6 +418,7 @@ export class AssistedQuotesService {
       context: staff.context,
       metadata: { bookingId: before.booking.id, reason },
     });
+    assistedQuotes.add(1, { step: 'unbookable', product: before.product });
     return this.forStaff(id);
   }
 
@@ -449,6 +456,7 @@ export class AssistedQuotesService {
       });
       closed += booked > 0 ? 0 : result.count;
     }
+    if (closed > 0) assistedQuotes.add(closed, { step: 'expired', product: 'any' });
     return closed;
   }
 
