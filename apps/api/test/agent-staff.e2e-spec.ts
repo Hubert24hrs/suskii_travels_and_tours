@@ -10,6 +10,8 @@ import { AgentPause } from '../src/agent/agent-pause';
 import { AgentSettingsService } from '../src/agent/agent-settings.service';
 import { AgentApprovalsService } from '../src/agent/approvals/agent-approvals.service';
 import { MockAgentClient } from '../src/agent/chat/agent-client';
+import { DRIFT_MIN_FAILURES } from '../src/price-intel/price-intel-drift';
+import { MockScrapeProvider } from '../src/price-intel/providers/mock-scrape-provider';
 import { PricingService } from '../src/pricing/pricing.service';
 
 import { nextKey, staffSession } from './helpers/cars';
@@ -932,6 +934,243 @@ describe('staff agents and the approvals queue (e2e)', () => {
       const again = await drafted(ops, 'marketing.draft_promo', promoDraft('STALE10'));
       expect(again).not.toBe(id);
       expect(await ctx.app.get(AgentApprovalsService).expireDue()).toBe(0);
+    });
+
+    it('prepares a recipe for a site in drift from the page that was kept, and saves it only when another manager of data sources approves', async () => {
+      const second = await persona('staff-root2@suskii.test', ['super_admin']);
+      ctx.app.get(MockScrapeProvider).reset();
+      // The sample site describes its hotels as schema.org `Hotel` things. This recipe reads
+      // `Product` things and cards the site no longer has: every page comes back unread.
+      const domain = 'drifting-hotels.example.com';
+      const gone = {
+        method: 'selectors',
+        item: 'div.card-old',
+        fields: { title: '.title', price: '.amount' },
+      };
+      const recipeOf = (version: string) => ({
+        version,
+        methods: [{ method: 'structured_data', types: ['Product'] }, gone],
+      });
+      const sources = '/v1/admin/data-sources';
+      const sourceId = (
+        (
+          await ctx
+            .http()
+            .post(sources)
+            .set(root.headers)
+            .send({
+              domain,
+              name: 'Drifting Hotels',
+              products: ['hotel'],
+              country: 'NG',
+              currency: 'NGN',
+              locale: 'en-NG',
+              urlTemplates: {
+                hotel: `https://${domain}/search?city={place}&in={from}&out={to}&adults={adults}`,
+              },
+              recipes: { hotel: recipeOf('hotel-v1') },
+              vendors: ['mock'],
+              requestsPerMinute: 600,
+              maxConcurrency: 5,
+              timeZone: 'Africa/Lagos',
+              robots: 'allowed',
+              terms: 'silent',
+            })
+            .expect(201)
+        ).body as { id: string }
+      ).id;
+      await ctx
+        .http()
+        .post(`${sources}/${sourceId}/approve`)
+        .set(root.headers)
+        .send({ basis: 'public_data_assessment', basisReference: 'Legal file PI-2026-021' })
+        .expect(200);
+      const dayIn = (days: number) =>
+        new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+      const read = async (place: string) =>
+        (
+          await ctx
+            .http()
+            .post(`${sources}/${sourceId}/read`)
+            .set(root.headers)
+            .send({
+              product: 'hotel',
+              query: { place, from: dayIn(30), to: dayIn(32), adults: 2 },
+            })
+            .expect(200)
+        ).body as { state: string; failure: string | null; observations: unknown[] };
+      const site = async () =>
+        (
+          (await ctx.http().get(sources).set(root.headers).expect(200)).body as {
+            items: {
+              id: string;
+              status: string;
+              drift: { parserVersion: string } | null;
+              recipes: { hotel?: { version: string; methods: unknown[] } };
+            }[];
+          }
+        ).items.find((item) => item.id === sourceId);
+      const drift = async (town: string) => {
+        for (let attempt = 0; attempt < DRIFT_MIN_FAILURES; attempt += 1) {
+          expect(await read(`${town} ${String.fromCharCode(65 + attempt)}`)).toMatchObject({
+            state: 'exhausted',
+            failure: 'parse_failed',
+          });
+        }
+      };
+      type Drafted = Proposal & { addedTypes: string[]; itemsReadFromKeptPage: number };
+      const propose = async (staff: Staff) =>
+        call<Drafted>(
+          'sources.propose_recipe',
+          'price_intel',
+          { sourceId, product: 'hotel' },
+          await grantFor(staff),
+        );
+
+      // Nothing drifts yet, and without a kept page there is nothing to propose from.
+      expect(
+        (await call('sources.drifting', 'price_intel', {}, await grantFor(root))).result,
+      ).toEqual({ sites: [] });
+      expect((await propose(root)).result).toMatchObject({
+        problems: ['no_kept_page'],
+        waitsForApproval: false,
+        approvalId: null,
+      });
+      // Someone who may not manage data sources reaches neither tool.
+      expect((await propose(ops)).reason).toBe('scope');
+      expect((await call('sources.drifting', 'price_intel', {}, await grantFor(ops))).reason).toBe(
+        'scope',
+      );
+      expect((await propose(root)).status).toBe('ok');
+      expect(
+        (
+          await call(
+            'sources.propose_recipe',
+            'price_intel',
+            { sourceId: '018f4f6e-0000-7000-8000-000000000000', product: 'hotel' },
+            await grantFor(root),
+          )
+        ).reason,
+      ).toBe('not_found');
+
+      // Enough unread pages open the incident; the last page of each read was kept.
+      await drift('Town');
+      expect(
+        (await call('sources.drifting', 'price_intel', {}, await grantFor(root))).result,
+      ).toEqual({
+        sites: [
+          {
+            sourceId,
+            site: domain,
+            driftingSince: expect.stringMatching(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/) as string,
+            recipeVersion: 'hotel-v1',
+            keptPages: ['hotel'],
+          },
+        ],
+      });
+
+      // The agent prepares a recipe from the kept page. It is a row in the queue and no more.
+      const first = await propose(root);
+      expect(first).toMatchObject({
+        status: 'ok',
+        result: {
+          problems: [],
+          waitsForApproval: true,
+          wasAlreadyWaiting: false,
+          addedTypes: ['Hotel'],
+          itemsReadFromKeptPage: 3,
+        },
+      });
+      const firstId = first.result?.approvalId ?? '';
+      expect((await propose(root)).result).toMatchObject({
+        wasAlreadyWaiting: true,
+        approvalId: firstId,
+      });
+      expect(await site()).toMatchObject({
+        drift: { parserVersion: 'hotel-v1' },
+        recipes: { hotel: { version: 'hotel-v1' } },
+      });
+      const [waiting] = (await queue(second)).approvals;
+      expect(waiting).toMatchObject({
+        id: firstId,
+        kind: 'source_recipe',
+        agent: 'price_intel',
+        requestedBy: root.userId,
+        mayDecide: true,
+        subject: { type: 'price_source', id: sourceId },
+        payload: {
+          sourceId,
+          product: 'hotel',
+          replaces: 'hotel-v1',
+          addedTypes: ['Hotel'],
+          itemsRead: 3,
+          recipe: {
+            version: 'hotel-v1-p1',
+            methods: [{ method: 'structured_data', types: ['Product', 'Hotel'] }, gone],
+          },
+        },
+      });
+      // The person who asked cannot decide it, and neither can someone who may not change a
+      // site themselves, whatever else they may approve.
+      await decide(root, firstId, 'approve').expect(403);
+      await decide(ops, firstId, 'approve').expect(403);
+
+      // A person saves the recipe in the meantime: the proposal no longer fits what is there,
+      // and approving it changes nothing.
+      await ctx
+        .http()
+        .patch(`${sources}/${sourceId}`)
+        .set(root.headers)
+        .send({ recipes: { hotel: recipeOf('hotel-v2') } })
+        .expect(200);
+      expect((await decide(second, firstId, 'approve').expect(200)).body).toMatchObject({
+        status: 'failed',
+        reason: 'refused',
+        result: null,
+      });
+      expect(await site()).toMatchObject({
+        drift: null,
+        recipes: { hotel: { version: 'hotel-v2' } },
+      });
+
+      // The new version reads no better. Proposed again and approved by the other manager, the
+      // recipe is saved as that person's change, the incident closes and the site reads.
+      await drift('City');
+      const next = await propose(root);
+      const nextId = next.result?.approvalId ?? '';
+      expect(next.result).toMatchObject({ waitsForApproval: true, wasAlreadyWaiting: false });
+      expect((await decide(second, nextId, 'approve').expect(200)).body).toMatchObject({
+        status: 'approved',
+        decidedBy: second.userId,
+        result: { type: 'price_source', id: sourceId },
+      });
+      expect(await site()).toMatchObject({
+        status: 'approved',
+        drift: null,
+        recipes: {
+          hotel: {
+            version: 'hotel-v2-p1',
+            methods: [{ method: 'structured_data', types: ['Product', 'Hotel'] }, gone],
+          },
+        },
+      });
+      const saved = await ctx.prisma.auditLog.findFirstOrThrow({
+        where: { action: 'price_intel.source_updated', targetId: sourceId },
+        orderBy: { occurredAt: 'desc' },
+      });
+      expect(saved.actorUserId).toBe(second.userId);
+      const after = await read('Ibadan');
+      expect(after.state).toBe('read');
+      expect(after.observations).toHaveLength(3);
+      expect(
+        (await call('sources.drifting', 'price_intel', {}, await grantFor(root))).result,
+      ).toEqual({ sites: [] });
+      // With the site reading, the recipe as it stands reads the last kept page: nothing more
+      // to propose.
+      expect((await propose(root)).result).toMatchObject({
+        problems: ['recipe_reads_page'],
+        waitsForApproval: false,
+      });
     });
 
     it('carries a draft from a console chat to the queue, under the person who asked', async () => {

@@ -1,6 +1,7 @@
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { metrics, type ObservableResult } from '@opentelemetry/api';
 
+import { monthSpend, monthStartOf } from '../agent/insights/agent-cost';
 import { PrismaService } from '../infra/prisma.service';
 import { BREACH_NOTICE_WARNING_HOURS } from '../privacy/privacy-breaches.service';
 
@@ -25,7 +26,7 @@ const UNSCANNED_WINDOW_MS = 6 * 60 * 60_000;
  * work in flight, the ticketing backlog and its oldest booking, open refunds and risk reviews,
  * database connections, and for Cars: live rides and the oldest search and trip, open safety
  * incidents, driver documents waiting for review and departures nobody was scanned onto; and the
- * privacy registers' deadlines (ADR-089).
+ * privacy registers' deadlines (ADR-089); and what the assistant has cost this month (ADR-106).
  * Without an exporter the callbacks never run.
  */
 const ageSeconds = (since: Date | null): number =>
@@ -112,10 +113,27 @@ export class OperationsMetrics implements OnModuleInit {
       })
       .addCallback((result) => this.observe('breach notices', () => this.breachNotices(result)));
     meter
+      .createObservableGauge('suskii.agent.month.cost', {
+        description:
+          "The assistant's estimated model spend this UTC month in micro-dollars: so far, and carried to the month's end at the same rate (ADR-106)",
+      })
+      .addCallback((result) => this.observe('assistant cost', () => this.assistantCost(result)));
+    meter
       .createObservableGauge('suskii.db.connections', {
         description: 'Connections to the application database by state, and the server maximum',
       })
       .addCallback((result) => this.observe('database', () => this.connections(result)));
+  }
+
+  private async assistantCost(result: ObservableResult): Promise<void> {
+    const now = new Date();
+    const spent = await this.prisma.agentRun.aggregate({
+      where: { startedAt: { gte: monthStartOf(now) } },
+      _sum: { costMicroUsd: true },
+    });
+    const month = monthSpend(Number(spent._sum.costMicroUsd ?? 0n), now);
+    result.observe(month.toDateMicroUsd, { figure: 'to_date' });
+    result.observe(month.forecastMicroUsd, { figure: 'forecast' });
   }
 
   private async privacyRequests(result: ObservableResult): Promise<void> {

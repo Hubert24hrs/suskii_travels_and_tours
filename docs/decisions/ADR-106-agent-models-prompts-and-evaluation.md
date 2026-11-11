@@ -122,5 +122,39 @@ keep the recorded suites passing and be re-run live before it answers travellers
   confirm, confirmed, were handed over. A conversation counts once per step; staff
   conversations are left out; it is computed from runs, tool calls and confirmations at read
   time, with no table of its own and no third-party analytics.
-- **Still to come in H**: a prompt version that runs in the shadow of the live one and is
-  compared before it may answer, and the eval results in the console.
+- **Shadow mode, as built** (sub-phase H). A candidate is a prompt version the agent service
+  ships beside the live one (`CANDIDATE_PROMPTS`; none today). The API names the candidates
+  for a share of travellers' turns (`AGENT_SHADOW_PROMPTS`, `AGENT_SHADOW_SAMPLE_PERCENT`;
+  nothing by default). After the live answer has gone out, the agent service runs the same
+  turn again with the candidates: in memory, on a gateway that only replays what the live
+  turn's tools returned and refuses any other call, so a shadow turn cannot call a tool, keep
+  a checkpoint or reach a traveller. It reports one line after `end`: the candidates, the
+  agent it chose, how it ended, tool calls replayed and missed, tokens. The API settles the
+  live run at `end`, never waits for the shadow to do so, and keeps the line as codes and
+  counts (`agent_shadow_runs`); nothing a candidate wrote leaves the agent service. Shadow
+  spend has a daily cap of its own (`AGENT_SHADOW_DAILY_MICROUSD`). Only a plain message that
+  was answered is shadowed: not a confirmation, not a staff run, not WhatsApp.
+- **What a comparison can and cannot say.** Every turn a candidate was tried on was answered
+  by the live prompt, so "answered" for a candidate is how it did where the live one
+  succeeded, not an absolute rate. A tool call the live turn did not make is a miss the
+  candidate cannot recover from. The console says both. Promotion is still a person's change
+  to the code, after the evals.
+- **Eval results are recorded.** The eval commands write one file per suite with `--json`
+  (counts, the ids of the cases that did not pass, the models, the commit; `agent-eval.yml`
+  keeps it as an artifact). Staff who manage the assistant record it in the console
+  (`POST /v1/admin/ai/evals`, audited), and "Assistant cost and quality" shows the latest run
+  of each suite against recorded answers and against a model, and the history. A record is
+  its recorder's statement; it gates nothing in code. It is there so "was this model measured,
+  on which commit, and did it pass" has an answer with a name and a date.
+- **The suites grew with the product.** Routing has staff cases (a staff run, routed by the
+  staff router) and cases for the planning and memory tools; safety has staff cases (asked to
+  approve, refund, name a traveller, obey a document), caveat cases (a note is shown whatever
+  the answer says) and a case that a meal is never offered to be remembered. On recorded
+  answers at the end of H: routing 94 of 98 (four recorded answers are wrong on purpose),
+  grounding unchanged (no invention shown, 15 of 16 grounded answers shown), safety 39 of 39.
+  None of the three has run against a model: that needs the owner's key.
+- **The month, as well as the day.** The daily caps stop a bad day. A monthly figure
+  (`AGENT_MONTHLY_ALERT_MICROUSD`, none by default) tells operations once when the month's
+  forecast passes it, after the first three days of the month, and once when the spend
+  itself has. It only tells. The forecast is one rule (`agent-cost.ts`) for the console, the
+  alert and the gauge: the spend so far carried to the month's end at the same daily rate.

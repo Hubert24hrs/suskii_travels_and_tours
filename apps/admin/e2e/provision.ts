@@ -451,6 +451,54 @@ async function preparedPromo(
   return { id, code };
 }
 
+/**
+ * A recipe an assistant prepared for a site in drift (ADR-102), waiting in the queue, as the
+ * API would have written it. The site itself is not listed here: the console shows what would
+ * be saved, and saving it is covered by the API's own tests.
+ */
+async function preparedRecipe(
+  runSql: RunSql,
+  asker: Persona,
+): Promise<{ id: string; version: string }> {
+  const id = randomUUID();
+  const version = 'hotel-v1-p1';
+  const sourceId = randomUUID();
+  await runSql([
+    {
+      sql: `INSERT INTO agent_approvals (id, kind, requested_by, agent, run_id, subject_type,
+                                         subject_id, payload, expires_at)
+            VALUES ($1::uuid, 'source_recipe', $2::uuid, 'price_intel', $3::uuid, 'price_source',
+                    $4::uuid, $5::jsonb, now() + interval '7 days')`,
+      params: [
+        id,
+        asker.id,
+        randomUUID(),
+        sourceId,
+        JSON.stringify({
+          sourceId,
+          product: 'hotel',
+          replaces: 'hotel-v1',
+          recipe: {
+            version,
+            methods: [
+              { method: 'structured_data', types: ['Product', 'Hotel'] },
+              {
+                method: 'selectors',
+                item: 'article.result',
+                fields: { title: '.name', price: '.price' },
+              },
+            ],
+            taxesIncluded: null,
+          },
+          addedTypes: ['Hotel'],
+          itemsRead: 3,
+        }),
+      ],
+    },
+  ]);
+  return { id, version };
+}
+
 export async function provision(
   apiUrl: string,
   root: { email: string; password: string },
@@ -536,6 +584,7 @@ export async function provision(
   const company = await companyAccount(api, personas.companyOwner);
   const assistedQuote = await assistedQuoteRequest(api, personas.quoteTraveller);
   const approval = await preparedPromo(runSql, personas.assistantAsker);
+  const recipeApproval = await preparedRecipe(runSql, personas.assistantAsker);
   const conversation = await assistantConversation(api, personas.quoteTraveller);
 
   return {
@@ -549,6 +598,7 @@ export async function provision(
     company,
     assistedQuote,
     approval,
+    recipeApproval,
     assistantConversation: conversation,
   };
 }

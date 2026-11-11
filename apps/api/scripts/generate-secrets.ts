@@ -25,5 +25,10 @@ const lines = [
   `CARS_TICKET_SIGNING_KEY=${base64Pem(ticketKey.export({ type: 'pkcs8', format: 'pem' }).toString())}`,
   '# Service token shared by the API and the worker for /v1/internal routes.',
   `INTERNAL_API_TOKEN=${randomBytes(32).toString('base64url')}`,
+  '# Between the API and the agent service (ADR-101), two different values: the API presents',
+  '# the first to start a run, the agent service the second to call a tool. Neither opens',
+  '# anything else, and neither is the worker token above.',
+  `AGENT_RUN_TOKEN=${randomBytes(32).toString('base64url')}`,
+  `AGENT_TOOLS_TOKEN=${randomBytes(32).toString('base64url')}`,
 ];
 process.stdout.write(`${lines.join('\n')}\n`);

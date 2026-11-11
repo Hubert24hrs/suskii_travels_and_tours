@@ -72,6 +72,9 @@ resource "google_sql_database" "suskii" {
 
 locals {
   app_database_user = "suskii_app"
+
+  # The agent service's role (ADR-103): it sees the `agent` schema and nothing else.
+  agent_database_user = "suskii_agent"
 }
 
 ephemeral "random_password" "migrator" {
@@ -80,6 +83,11 @@ ephemeral "random_password" "migrator" {
 }
 
 ephemeral "random_password" "app" {
+  length  = 40
+  special = false
+}
+
+ephemeral "random_password" "agent" {
   length  = 40
   special = false
 }
@@ -115,6 +123,21 @@ resource "google_secret_manager_secret_version" "database_url" {
     "postgresql://%s:%s@localhost/%s?host=/cloudsql/%s",
     local.app_database_user,
     ephemeral.random_password.app.result,
+    google_sql_database.suskii.name,
+    google_sql_database_instance.main.connection_name,
+  )
+}
+
+# The agent service's URL, as its own role (ADR-103). The release step creates the role, limits
+# it to the `agent` schema and sets its password from this value, as it does for the app role.
+resource "google_secret_manager_secret_version" "agent_database_url" {
+  count                  = var.deploy_agent ? 1 : 0
+  secret                 = google_secret_manager_secret.app["AGENT_DATABASE_URL"].id
+  secret_data_wo_version = var.database_password_version
+  secret_data_wo = format(
+    "postgresql://%s:%s@localhost/%s?host=/cloudsql/%s",
+    local.agent_database_user,
+    ephemeral.random_password.agent.result,
     google_sql_database.suskii.name,
     google_sql_database_instance.main.connection_name,
   )

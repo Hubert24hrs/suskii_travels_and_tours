@@ -159,6 +159,9 @@ describe('AssistantScreen', () => {
                     indicative: true,
                   },
                   { kind: 'source', title: 'Refund policy', lines: ['2026-11-01'] },
+                  // What the answer is read with: a code, put into words here (ADR-107).
+                  { kind: 'note', title: 'fare_trend', lines: [] },
+                  { kind: 'note', title: 'a_note_from_a_newer_server', lines: [] },
                 ],
               }),
               answer({
@@ -182,6 +185,13 @@ describe('AssistantScreen', () => {
     expect(screen.getByText(m.assistant.cards.indicative)).toBeOnTheScreen();
     expect(screen.getByText(m.assistant.cards.indicativeNote)).toBeOnTheScreen();
     expect(screen.getByText(m.assistant.cards.source)).toBeOnTheScreen();
+    // The note is the catalog's sentence, never its code; an unknown code shows nothing.
+    expect(screen.getByTestId('assistant-note-fare_trend')).toHaveTextContent(
+      m.assistant.notes.fare_trend,
+    );
+    expect(screen.getByText(m.assistant.notes.label)).toBeOnTheScreen();
+    expect(screen.queryByText('fare_trend')).toBeNull();
+    expect(screen.queryByText('a_note_from_a_newer_server')).toBeNull();
     expect(screen.getByText(m.assistant.notices.cannot_answer)).toBeOnTheScreen();
     expect(screen.getByText(m.assistant.handover)).toBeOnTheScreen();
 

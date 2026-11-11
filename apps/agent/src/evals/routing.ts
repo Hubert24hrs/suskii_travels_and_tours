@@ -1,26 +1,42 @@
-import { CUSTOMER_AGENTS, type AgentModelUsage, type AgentName } from '@suskii/shared';
+import {
+  AGENT_AUDIENCES,
+  AGENT_NAMES,
+  agentAudience,
+  type AgentModelUsage,
+  type AgentName,
+} from '@suskii/shared';
 import { z } from 'zod';
 
 import { addUsage, loadSuite, loadTools, routeTo, runMessage, type LiveModel } from './eval-kit.js';
 
 /**
- * The routing eval (ADR-106): does a traveller's message reach the specialist who should answer
- * it, in the languages the assistant answers in? Graded by rule: the specialist that answered
- * must be one of the case's acceptable ones.
+ * The routing eval (ADR-106): does a message reach the specialist who should answer it, in the
+ * languages the assistant answers in? A traveller's message is routed among the customer
+ * agents and a staff member's among the staff agents, each by its own router. Graded by rule:
+ * the specialist that answered must be one of the case's acceptable ones.
  */
 export const ROUTING_PASS_RATE = 0.95;
 
-const agent = z.enum(CUSTOMER_AGENTS);
-const routingCase = z.object({
-  id: z.string(),
-  message: z.string().min(1),
-  locale: z.string().default('en-NG'),
-  signedIn: z.boolean().default(true),
-  /** The specialists that would be right; the first is the best. */
-  expect: z.array(agent).min(1),
-  /** A hand-written router answer for CI; a few are wrong on purpose. */
-  recorded: agent,
-});
+const agent = z.enum(AGENT_NAMES);
+const routingCase = z
+  .object({
+    id: z.string(),
+    /** Who asks: a traveller on the website, or a staff member in the console. */
+    audience: z.enum(AGENT_AUDIENCES).default('customer'),
+    message: z.string().min(1),
+    locale: z.string().default('en-NG'),
+    signedIn: z.boolean().default(true),
+    /** The specialists that would be right; the first is the best. */
+    expect: z.array(agent).min(1),
+    /** A hand-written router answer for CI; a few are wrong on purpose. */
+    recorded: agent,
+  })
+  // A case never expects, or records, an agent the other audience answers with.
+  .refine(
+    (entry) =>
+      [...entry.expect, entry.recorded].every((name) => agentAudience(name) === entry.audience),
+    { message: 'an agent of the other audience' },
+  );
 export type RoutingCase = z.infer<typeof routingCase>;
 
 export const loadRoutingSuite = (): RoutingCase[] =>
@@ -50,6 +66,7 @@ export async function runRoutingEval(
       results: {},
       signedIn: entry.signedIn,
       locale: entry.locale,
+      audience: entry.audience,
       recorded: {
         router: [routeTo(entry.recorded)],
         // Routing is what is measured: the specialist says one line that needs no tool.

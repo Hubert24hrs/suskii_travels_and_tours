@@ -138,11 +138,22 @@ export {
   type KnowledgeMediaType,
   type KnowledgePassage,
 } from './knowledge';
+export { AGENT_CARD_NOTES, isAgentCardNote, type AgentCardNote } from './agent-notes';
+export {
+  AGENT_EVAL_FIGURES,
+  AGENT_EVAL_MODES,
+  AGENT_EVAL_SUITES,
+  agentEvalResultSchema,
+  type AgentEvalMode,
+  type AgentEvalResult,
+  type AgentEvalSuite,
+} from './agent-evals';
 export {
   AGENT_CARD_KINDS,
   AGENT_MESSAGE_KINDS,
   AGENT_NOTICES,
   AGENT_RUN_OUTCOMES,
+  AGENT_SHADOW_STATUSES,
   agentAnswerSchema,
   agentCardPathSchema,
   agentCardSchema,
@@ -152,6 +163,8 @@ export {
   agentRunInputSchema,
   agentRunLimitsSchema,
   agentRunRequestSchema,
+  isAgentNoteCard,
+  keepAgentCards,
   type AgentAnswer,
   type AgentCard,
   type AgentCardKind,
@@ -165,6 +178,8 @@ export {
   type AgentRunLimits,
   type AgentRunOutcome,
   type AgentRunRequest,
+  type AgentRunShadow,
+  type AgentShadowStatus,
 } from './agent-protocol';
 export {
   PERMISSIONS,

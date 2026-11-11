@@ -4,7 +4,12 @@ import { MockAgentClient } from '../src/agent/chat/agent-client';
 
 import { staffSession } from './helpers/cars';
 import { bearer, signUp, type TokenSession } from './helpers/flows';
-import { createTestApp, resetState, type TestContext } from './helpers/test-app';
+import {
+  createTestApp,
+  E2E_INTERNAL_TOKEN,
+  resetState,
+  type TestContext,
+} from './helpers/test-app';
 
 /**
  * What staff see of the assistant's work (ADR-105, ADR-107): runs with the tools they called,
@@ -114,6 +119,9 @@ describe('assistant insights for staff (e2e)', () => {
       AGENT_MODEL_PRICES: {
         'mock-specialist': { input: 2_000_000, output: 10_000_000, cacheRead: 0, cacheWrite: 0 },
       },
+      // Half a cent: the runs below cost more, so the month is past the figure to tell at.
+      AGENT_MONTHLY_ALERT_MICROUSD: 5000,
+      OPS_ALERT_EMAIL: 'ops-insights@suskii.test',
     });
     mock = ctx.app.get(MockAgentClient);
     await ctx.background.drain();
@@ -205,6 +213,7 @@ describe('assistant insights for staff (e2e)', () => {
       'cost',
       'quality',
       'limits',
+      'evals',
     ]) {
       await get(path, content.headers).expect(403);
       await get(path, as(ada)).expect(403);
@@ -428,6 +437,7 @@ describe('assistant insights for staff (e2e)', () => {
       runMaxToolCalls: 24,
       runTimeoutMs: 120_000,
       globalDailyMicroUsd: 50_000_000,
+      monthlyAlertMicroUsd: 5000,
       confirmationMinutes: 15,
       approvalDays: 7,
       models: [
@@ -438,6 +448,68 @@ describe('assistant insights for staff (e2e)', () => {
         },
       ],
     });
+  });
+
+  it("tells operations once when the month's cost is past the figure set, and pauses nothing", async () => {
+    const check = () =>
+      ctx
+        .http()
+        .post('/v1/internal/agent/cost-check')
+        .set('Authorization', `Bearer ${E2E_INTERNAL_TOKEN}`);
+    // The worker's route: not for staff, a traveller or anyone without the worker's token.
+    await ctx.http().post('/v1/internal/agent/cost-check').expect(401);
+    await ctx.http().post('/v1/internal/agent/cost-check').set(root.headers).expect(401);
+
+    ctx.emails.outbox.length = 0;
+    // The audit log is append-only and outlives a run of this suite: count from here.
+    const alerts = () => ctx.prisma.auditLog.count({ where: { action: 'agent.cost_alert' } });
+    const before = await alerts();
+    const spent = (await ctx.prisma.agentRun.aggregate({ _sum: { costMicroUsd: true } }))._sum
+      .costMicroUsd;
+    const first = (await check().expect(200)).body as {
+      toDateMicroUsd: number;
+      forecastMicroUsd: number;
+      alertAtMicroUsd: number;
+      level: string | null;
+      told: boolean;
+    };
+    expect(first).toMatchObject({
+      toDateMicroUsd: Number(spent),
+      alertAtMicroUsd: 5000,
+      level: 'spent',
+      told: true,
+    });
+    expect(first.toDateMicroUsd).toBeGreaterThanOrEqual(TOTAL_COST);
+    expect(first.forecastMicroUsd).toBeGreaterThanOrEqual(first.toDateMicroUsd);
+
+    // Told once: an audit entry by the system and one message to the operations mailbox, in
+    // amounts, with what the figures are.
+    expect(await alerts()).toBe(before + 1);
+    const logged = await ctx.prisma.auditLog.findFirstOrThrow({
+      where: { action: 'agent.cost_alert' },
+      orderBy: { occurredAt: 'desc' },
+    });
+    expect(logged).toMatchObject({ actorType: 'system', actorUserId: null });
+    expect(logged.metadata).toMatchObject({
+      level: 'spent',
+      alertAtUsd: '0.01',
+      basis: expect.stringContaining('not an invoice') as string,
+    });
+    const mails = ctx.emails.outbox.filter((mail) => mail.to === 'ops-insights@suskii.test');
+    expect(mails).toHaveLength(1);
+    expect(mails[0]?.subject).toBe('[ops] assistant cost');
+    expect(mails[0]?.text).toContain('level: spent');
+
+    // The next sweep sees the same month and says nothing more.
+    expect((await check().expect(200)).body).toMatchObject({ level: 'spent', told: false });
+    expect(await alerts()).toBe(before + 1);
+    expect(ctx.emails.outbox.filter((mail) => mail.to === 'ops-insights@suskii.test')).toHaveLength(
+      1,
+    );
+    // It only tells: the assistant still answers.
+    await say(bolaConversation, 'Are you still there?', bola);
+    const last = await ctx.prisma.agentRun.findFirstOrThrow({ orderBy: { startedAt: 'desc' } });
+    expect(last.status).toBe('succeeded');
   });
 
   it('switches one agent off: it is offered to no run and its tools are refused', async () => {
@@ -502,5 +574,93 @@ describe('assistant insights for staff (e2e)', () => {
       { agent: 'flights', enabled: false },
       { agent: 'flights', enabled: true },
     ]);
+  });
+
+  it('keeps the eval runs staff record: the latest of each suite, the history and who recorded one', async () => {
+    const record = (body: object, headers: Record<string, string> = root.headers) =>
+      ctx.http().post('/v1/admin/ai/evals').set(headers).send(body);
+    const routing = {
+      suite: 'routing',
+      mode: 'recorded',
+      passed: true,
+      cases: 97,
+      held: 93,
+      figures: { routed: 93, byRule: 41, passMarkPercent: 90 },
+      failed: ['r59', 'r67', 'r80', 'r97'],
+      models: [],
+      commit: '41cc5bc',
+      ranAt: '2026-11-10T09:00:00.000Z',
+    };
+    const live = {
+      suite: 'safety',
+      mode: 'live',
+      passed: false,
+      cases: 38,
+      held: 37,
+      figures: { violations: 1 },
+      failed: ['s12'],
+      models: ['claude-opus-5-5'],
+      commit: null,
+      ranAt: '2026-11-10T10:00:00.000Z',
+    };
+
+    expect((await get('evals').expect(200)).body).toEqual({ latest: [], recent: [] });
+
+    // Reading is for every reader of the assistant; recording is for those who manage it.
+    await record(routing, ops.headers).expect(403);
+    await record(routing, as(ada)).expect(403);
+    await ctx.http().post('/v1/admin/ai/evals').send(routing).expect(401);
+
+    const first = (await record(routing).expect(201)).body as { id: string; recordedAt: string };
+    expect(first).toMatchObject({ ...routing, id: expect.any(String) as string });
+    // The same run a second time is refused, and so are a figure the suite does not report,
+    // a live run that names no model, text where a case id belongs and a run still to come.
+    expect((await record(routing).expect(409)).body).toMatchObject({
+      type: expect.stringContaining('eval-already-recorded') as string,
+    });
+    await record({
+      ...routing,
+      ranAt: '2026-11-10T09:30:00.000Z',
+      figures: { violations: 0 },
+    }).expect(400);
+    await record({ ...live, models: [] }).expect(400);
+    await record({ ...live, failed: ['ada.private@example.com'] }).expect(400);
+    await record({ ...live, ranAt: new Date(Date.now() + 3_600_000).toISOString() }).expect(422);
+
+    // A later run of the same suite replaces it as the latest and both stay in the history.
+    const later = {
+      ...routing,
+      held: 95,
+      failed: ['r59', 'r97'],
+      ranAt: '2026-11-11T09:00:00.000Z',
+    };
+    await record(later).expect(201);
+    await record(live).expect(201);
+    const listed = (await get('evals', ops.headers).expect(200)).body as {
+      latest: { suite: string; mode: string; held: number; passed: boolean; models: string[] }[];
+      recent: { suite: string; ranAt: string }[];
+    };
+    expect(listed.latest.map((row) => [row.suite, row.mode, row.held, row.passed])).toEqual([
+      ['routing', 'recorded', 95, true],
+      ['safety', 'live', 37, false],
+    ]);
+    expect(listed.latest[1]?.models).toEqual(['claude-opus-5-5']);
+    expect(listed.recent.map((row) => [row.suite, row.ranAt])).toEqual([
+      ['routing', '2026-11-11T09:00:00.000Z'],
+      ['safety', '2026-11-10T10:00:00.000Z'],
+      ['routing', '2026-11-10T09:00:00.000Z'],
+    ]);
+
+    // The audit log says who recorded which run, with counts only.
+    const logged = await ctx.prisma.auditLog.findMany({
+      where: { action: 'agent.eval_recorded', actorUserId: root.userId },
+      orderBy: { occurredAt: 'asc' },
+    });
+    expect(logged).toHaveLength(3);
+    expect(logged[0]).toMatchObject({
+      targetType: 'agent_eval_result',
+      targetId: first.id,
+      metadata: { suite: 'routing', mode: 'recorded', passed: true, cases: 97, held: 93 },
+    });
   });
 });

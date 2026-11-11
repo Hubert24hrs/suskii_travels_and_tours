@@ -87,12 +87,17 @@ describe('the agent service door (ADR-101)', () => {
     expect(h.model.requests).toHaveLength(0);
   });
 
-  it('says whether it can keep threads', async () => {
+  it('says that it is up, and separately whether it can keep threads', async () => {
     const up = await start();
     const health = await fetch(`${up.base}/health`);
     expect([health.status, await health.json()]).toEqual([200, { status: 'ok', running: 0 }]);
+    const ready = await fetch(`${up.base}/ready`);
+    expect([ready.status, await ready.json()]).toEqual([200, { status: 'ready' }]);
     await server?.stop();
+    // Without its store it is still alive, and not ready to be sent a run.
     const down = await start(TOKEN, false);
-    expect((await fetch(`${down.base}/health`)).status).toBe(503);
+    expect((await fetch(`${down.base}/health`)).status).toBe(200);
+    const unready = await fetch(`${down.base}/ready`);
+    expect([unready.status, await unready.json()]).toEqual([503, { status: 'unavailable' }]);
   });
 });

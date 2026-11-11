@@ -4219,11 +4219,43 @@ model AgentRun {
   conversation AgentConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   toolCalls    AgentToolCall[]
   messages     AgentMessage[]
+  shadow       AgentShadowRun?
 
   @@index([conversationId, id])
   @@index([status, startedAt])
   @@index([startedAt])
   @@map("agent_runs")
+}
+
+/// How candidate prompts did on a turn they ran in the shadow of (ADR-106): which candidates,
+/// how the shadow turn ended, how many of its tool calls could be answered from what the live
+/// turn's tools returned, and what it cost. Codes and counts only: what a candidate wrote never
+/// leaves the agent service, so it is never here. One per run, gone with the run.
+model AgentShadowRun {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  runId        String   @unique @map("run_id") @db.Uuid
+  /// `AGENT_SHADOW_STATUSES`: `compared`, or why nothing was.
+  status       String   @db.VarChar(20)
+  /// The candidates that took part (`flights@3`).
+  prompts      String[] @default([])
+  /// The agent that answered the traveller, and the one the shadow turn ended with.
+  liveAgent    String   @map("live_agent") @db.VarChar(32)
+  agent        String?  @db.VarChar(32)
+  /// How the shadow turn ended (`AGENT_RUN_OUTCOMES`); the live turn was always answered.
+  outcome      String?  @db.VarChar(40)
+  steps        Int      @default(0)
+  replayed     Int      @default(0)
+  missed       Int      @default(0)
+  inputTokens  Int      @default(0) @map("input_tokens")
+  outputTokens Int      @default(0) @map("output_tokens")
+  /// Billed cost in millionths of a US dollar.
+  costMicroUsd BigInt   @default(0) @map("cost_micro_usd")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  run AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("agent_shadow_runs")
 }
 
 /// One call through the tool gateway: the tool, its tier, the outcome and the names of the
@@ -4355,6 +4387,32 @@ model AgentSetting {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("agent_settings")
+}
+
+/// One run of an agent eval that staff recorded (ADR-106): which suite, against recorded
+/// answers or a model, whether it passed, counts and the ids of the cases that did not. Never
+/// a message, an answer or a prompt. Who recorded it is in the audit log.
+model AgentEvalResult {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  /// `AGENT_EVAL_SUITES`.
+  suite     String   @db.VarChar(20)
+  /// `AGENT_EVAL_MODES`: `recorded` answers, or `live` against a model.
+  mode      String   @db.VarChar(20)
+  passed    Boolean
+  cases     Int
+  held      Int
+  /// The suite's figures by name (`AGENT_EVAL_FIGURES`): counts only.
+  figures   Json
+  failed    String[] @default([])
+  /// The models under evaluation; none for recorded answers.
+  models    String[] @default([])
+  commit    String?  @db.VarChar(40)
+  ranAt     DateTime @map("ran_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([suite, mode, ranAt])
+  @@index([ranAt])
+  @@map("agent_eval_results")
 }
 
 // ---------------------------------------------------------------------------------------------

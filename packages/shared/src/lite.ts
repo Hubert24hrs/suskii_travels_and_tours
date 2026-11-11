@@ -367,6 +367,7 @@ export {
 } from './support';
 // The assistant's message limit, for the chat box (ADR-101).
 export { AGENT_MESSAGE_MAX } from './agent-limits';
+export { AGENT_CARD_NOTES, isAgentCardNote, type AgentCardNote } from './agent-notes';
 // What the assistant may remember, for the page where a traveller sees and changes it.
 export {
   AGENT_MEMORY_AIRLINES_MAX,

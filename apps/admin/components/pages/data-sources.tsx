@@ -910,7 +910,8 @@ const statusTone = (status: Source['status']) =>
 function SiteCard({ site, manage }: { site: Source; manage: boolean }) {
   const actions: ReactNode[] = [<ObservationsDialog key="observations" site={site} />];
   if (manage) {
-    if (site.status !== 'approved') actions.push(<ApproveDialog key="approve" site={site} />);
+    // A blocked site goes back to review before it can be approved again (the API refuses it).
+    if (site.status === 'review') actions.push(<ApproveDialog key="approve" site={site} />);
     actions.push(<ReadDialog key="read" site={site} />);
     actions.push(<SiteDialog key="edit" site={site} />);
     if (site.status !== 'review') {

@@ -165,8 +165,10 @@ describe('planning tools of the assistant (e2e)', () => {
         lowestRecentFare: null,
         recentFaresComparedWithEarlier: 'unknown',
       });
+      // Whatever is said about this route's fares is read with the note (ADR-107).
       expect(thin.result?.cards).toEqual([
         expect.objectContaining({ kind: 'link', href: '/flights/lagos-to-london' }),
+        { kind: 'note', title: 'fare_trend', lines: [] },
       ]);
     });
 
@@ -278,6 +280,7 @@ describe('planning tools of the assistant (e2e)', () => {
       expect(text).not.toContain(addDays(30));
       expect(answer.result?.cards).toEqual([
         expect.objectContaining({ kind: 'link', href: '/account/travellers' }),
+        { kind: 'note', title: 'passport_reminder', lines: [] },
       ]);
     });
 

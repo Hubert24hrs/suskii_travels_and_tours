@@ -15,6 +15,7 @@ import { PriceIntelDrift } from './price-intel-drift';
 import { PriceIntelSwitches } from './price-intel-switches';
 import { PriceIntelService } from './price-intel.service';
 import { PriceSourcesService } from './price-sources.service';
+import { RecipeProposalsService } from './recipe-proposals.service';
 import { ProviderRouter } from './provider-router';
 import { ApifyScrapeProvider } from './providers/apify-scrape-provider';
 import { BrightDataScrapeProvider } from './providers/bright-data-scrape-provider';
@@ -100,7 +101,14 @@ function enabledProviders(config: AppConfig, mock: MockScrapeProvider): ScrapePr
     PriceSourcesService,
     PriceIntelService,
     PriceIntelAdminService,
+    RecipeProposalsService,
   ],
-  exports: [PriceIntelService, PriceSourcesService, PriceIntelAdminService, MockScrapeProvider],
+  exports: [
+    PriceIntelService,
+    PriceSourcesService,
+    PriceIntelAdminService,
+    RecipeProposalsService,
+    MockScrapeProvider,
+  ],
 })
 export class PriceIntelModule {}

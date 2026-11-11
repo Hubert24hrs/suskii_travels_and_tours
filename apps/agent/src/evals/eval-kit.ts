@@ -7,6 +7,8 @@ import {
   AGENT_TOOL_TIERS,
   CUSTOMER_AGENTS,
   agentScopesFor,
+  staffAgentsFor,
+  type AgentAudience,
   type AgentModelUsage,
   type AgentName,
   type AgentRunContext,
@@ -76,10 +78,37 @@ const answer = (reason: AgentToolDenial, result: unknown = null): ToolAnswer => 
   result,
 });
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Whether arguments fit a tool's parameters, as far as an eval needs to know: every required
+ * name is there, no name is one the tool does not take, and a value with a fixed set is one of
+ * the set. The API validates in full with the tool's own schema; this is what decides that
+ * "remember my meal" has no key to be remembered under.
+ */
+export function fitsParameters(parameters: unknown, args: Record<string, unknown>): boolean {
+  if (!isObject(parameters)) return true;
+  const properties = isObject(parameters.properties) ? parameters.properties : {};
+  const required = Array.isArray(parameters.required) ? parameters.required : [];
+  if (required.some((name) => typeof name === 'string' && !(name in args))) return false;
+  for (const [name, value] of Object.entries(args)) {
+    const property = properties[name];
+    if (property === undefined) {
+      if (parameters.additionalProperties === false) return false;
+      continue;
+    }
+    if (isObject(property) && Array.isArray(property.enum) && !property.enum.includes(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * The API's tool gateway in miniature: the same checks in the same order (tool, agent, scope,
- * tier) for the scopes a grant carries, answering from the case's fixtures. It remembers every
- * attempt, so an eval can say what a model tried and what actually ran.
+ * arguments, tier) for the scopes a grant carries, answering from the case's fixtures. It
+ * remembers every attempt, so an eval can say what a model tried and what actually ran.
  */
 export class EvalGateway extends ToolGateway {
   readonly attempts: ToolAttempt[] = [];
@@ -113,6 +142,7 @@ export class EvalGateway extends ToolGateway {
     if (!tool) return note('unknown_tool', answer('unknown_tool'));
     if (!tool.agents.includes(call.agent)) return note('agent', answer('agent'));
     if (!this.scopes.includes(tool.scope)) return note('scope', answer('scope'));
+    if (!fitsParameters(tool.parameters, call.arguments)) return note('invalid', answer('invalid'));
     if (tool.tier === 'commit') {
       return note(
         'confirmation_required',
@@ -187,6 +217,32 @@ export interface EvalRun {
 let threads = 0;
 
 /**
+ * What a run of a case is told about its caller. A staff case is a super admin in the console,
+ * who reaches every staff agent; a traveller's case is the website.
+ */
+export function evalContext(caller: {
+  audience: AgentAudience;
+  locale: string;
+  signedIn: boolean;
+}): AgentRunContext {
+  const staff = caller.audience === 'staff';
+  return {
+    audience: caller.audience,
+    channel: staff ? 'console' : 'web',
+    locale: caller.locale,
+    currency: 'NGN',
+    country: 'NG',
+    agents: staff
+      ? staffAgentsFor(
+          agentScopesFor({ userId: 'staff', roles: ['super_admin'], channel: 'console' }),
+        )
+      : [...CUSTOMER_AGENTS],
+    signedIn: staff || caller.signedIn,
+    today: EVAL_TODAY,
+  };
+}
+
+/**
  * One message through the whole service: a fresh thread, the graph, the guard. `live` names the
  * role the model under evaluation plays; without it every turn comes from the recording.
  */
@@ -199,12 +255,17 @@ export async function runMessage(options: {
   recorded: { router: RecordedTurn[]; specialist: RecordedTurn[] };
   live?: { role: ModelRole; model: LiveModel } | undefined;
   maxSteps?: number;
+  /** `staff`: a super admin in the console, who reaches every staff agent (ADR-107). */
+  audience?: AgentAudience | undefined;
 }): Promise<EvalRun> {
-  const scopes = agentScopesFor({
-    userId: options.signedIn ? 'traveller' : null,
-    roles: options.signedIn ? ['customer'] : [],
-    channel: 'web',
-  });
+  const staff = options.audience === 'staff';
+  const scopes = staff
+    ? agentScopesFor({ userId: 'staff', roles: ['super_admin'], channel: 'console' })
+    : agentScopesFor({
+        userId: options.signedIn ? 'traveller' : null,
+        roles: options.signedIn ? ['customer'] : [],
+        channel: 'web',
+      });
   const gateway = new EvalGateway(options.tools, scopes, options.results);
   const queues = {
     router: [...options.recorded.router],
@@ -239,16 +300,11 @@ export async function runMessage(options: {
     maxConcurrentRuns: 1,
     toolTimeoutMs: 5000,
   });
-  const context: AgentRunContext = {
-    audience: 'customer',
-    channel: 'web',
+  const context = evalContext({
+    audience: staff ? 'staff' : 'customer',
     locale: options.locale,
-    currency: 'NGN',
-    country: 'NG',
-    agents: [...CUSTOMER_AGENTS],
     signedIn: options.signedIn,
-    today: EVAL_TODAY,
-  };
+  });
   const sequence = String((threads += 1)).padStart(12, '0');
   let end: AgentRunEnd | null = null;
   await service.run(

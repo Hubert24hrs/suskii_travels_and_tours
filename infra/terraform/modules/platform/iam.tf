@@ -2,15 +2,21 @@
 # Workload Identity Federation: no service account keys exist. Only workflows of this repository
 # running in the matching GitHub environment (with its protection rules) can deploy here.
 
+locals {
+  # The agent service's identity exists only where the service does (deploy_agent).
+  agent_services   = var.deploy_agent ? ["agent"] : []
+  runtime_services = concat(["api", "worker", "web", "admin", "migrate"], local.agent_services)
+}
+
 resource "google_service_account" "runtime" {
-  for_each     = toset(["api", "worker", "web", "admin", "migrate"])
+  for_each     = toset(local.runtime_services)
   project      = var.project_id
   account_id   = "${local.name}-${each.value}"
   display_name = "Suskii ${var.environment} ${each.value}"
 }
 
 resource "google_project_iam_member" "sql_clients" {
-  for_each = toset(["api", "migrate"])
+  for_each = toset(concat(["api", "migrate"], local.agent_services))
   project  = var.project_id
   role     = "roles/cloudsql.client"
   member   = google_service_account.runtime[each.value].member
@@ -18,7 +24,7 @@ resource "google_project_iam_member" "sql_clients" {
 
 resource "google_project_iam_member" "telemetry" {
   for_each = {
-    for pair in setproduct(["api", "worker", "web", "admin", "migrate"], ["roles/logging.logWriter", "roles/monitoring.metricWriter", "roles/cloudtrace.agent"]) :
+    for pair in setproduct(local.runtime_services, ["roles/logging.logWriter", "roles/monitoring.metricWriter", "roles/cloudtrace.agent"]) :
     "${pair[0]}/${pair[1]}" => { service = pair[0], role = pair[1] }
   }
   project = var.project_id

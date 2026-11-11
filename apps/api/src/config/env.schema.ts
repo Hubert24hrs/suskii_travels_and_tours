@@ -579,6 +579,23 @@ export const envSchema = z
     AGENT_GUEST_DAILY_MICROUSD: z.coerce.number().int().min(0).default(120_000),
     AGENT_GLOBAL_DAILY_MICROUSD: z.coerce.number().int().min(0).default(50_000_000),
     /**
+     * The estimated cost of a UTC month at which operations are told, once when the month is
+     * heading past it and once when it is past it (ADR-106). 0 tells nobody. It only tells:
+     * the daily caps are what stops spending.
+     */
+    AGENT_MONTHLY_ALERT_MICROUSD: z.coerce.number().int().min(0).default(0),
+    /**
+     * Shadow turns (ADR-106): candidate prompt versions (`flights@3`) the agent service ships,
+     * tried beside this share of travellers' turns after the answer has gone out, and never
+     * shown. None by default, and nothing runs while the share is 0. A shadow turn is paid
+     * model calls: its spend has a daily cap of its own, apart from the assistant's.
+     */
+    AGENT_SHADOW_PROMPTS: csv(z.string().regex(/^[a-z_]{2,32}@\d{1,4}$/))
+      .pipe(z.array(z.string()).max(8))
+      .default([]),
+    AGENT_SHADOW_SAMPLE_PERCENT: z.coerce.number().int().min(0).max(100).default(0),
+    AGENT_SHADOW_DAILY_MICROUSD: z.coerce.number().int().min(0).default(2_000_000),
+    /**
      * Price intelligence (ADR-102). The vendors that may fetch a page at all; each site's policy
      * picks among them, in its own order. `direct` is our own plain request and `mock` answers
      * from memory (tests and local development; refused in production).

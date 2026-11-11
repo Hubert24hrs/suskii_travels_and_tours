@@ -41,8 +41,15 @@ export function installErrorReporting(): void {
       previous(error, isFatal);
       return;
     }
-    const wait = new Promise<void>((resolve) => setTimeout(resolve, FATAL_REPORT_WAIT_MS));
-    void Promise.race([sent, wait]).finally(() => previous(error, isFatal));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const wait = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, FATAL_REPORT_WAIT_MS);
+    });
+    void Promise.race([sent, wait]).finally(() => {
+      // The report left first: the wait is over, and nothing should outlive the handler.
+      clearTimeout(timer);
+      previous(error, isFatal);
+    });
   });
   const hermes = (globalThis as { HermesInternal?: PromiseRejectionTracker }).HermesInternal;
   if (!__DEV__ && hermes?.enablePromiseRejectionTracker) {

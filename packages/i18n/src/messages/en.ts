@@ -3207,6 +3207,16 @@ export const en = {
         'Seen on another website, not a Suskii price. A person confirms the live price before anything is paid.',
       source: 'From our documents',
     },
+    // What an answer is read with (ADR-107): shown whatever the assistant wrote.
+    notes: {
+      label: 'Please note',
+      fare_trend:
+        'This compares fares Suskii already found on this route. It is a trend, not a forecast: fares can change at any time, and only a search shows a price you can book.',
+      passport_reminder:
+        'Many countries ask for a passport valid for at least six months after you arrive. This is a general reminder, not a decision about entry: check the rule of the country you are going to.',
+      visa_guidance:
+        'Visa rules change, and the embassy or the immigration officer decides. This is guidance from Suskii’s own notes, not a guarantee of a visa or of entry.',
+    },
     rating: {
       question: 'How well did the assistant help?',
       score: '{score} out of 5',

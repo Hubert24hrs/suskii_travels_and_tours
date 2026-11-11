@@ -31,7 +31,8 @@ export function PageHeader({
         <h1 className="font-heading text-h2 font-extrabold text-heading">{title}</h1>
         {intro ? <p className="font-body text-body-sm text-muted">{intro}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      {/* Beside a long introduction the buttons move to another line; their labels never break. */}
+      {actions ? <div className="flex flex-wrap gap-2 whitespace-nowrap">{actions}</div> : null}
     </header>
   );
 }
@@ -60,7 +61,7 @@ export function Section({
             </h2>
             {intro ? <p className="font-body text-body-sm text-muted">{intro}</p> : null}
           </div>
-          {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+          {actions ? <div className="flex flex-wrap gap-2 whitespace-nowrap">{actions}</div> : null}
         </div>
         {children}
       </Card>

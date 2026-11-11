@@ -6,9 +6,11 @@ import {
   DEFAULT_LOCALE,
   SUPPORT_MESSAGES_PER_CONVERSATION,
   formatMoney,
+  isAgentCardNote,
   isWhatsAppStop,
   money,
   type AgentCard,
+  type AgentCardNote,
 } from '@suskii/shared';
 import type { Redis } from 'ioredis';
 
@@ -68,8 +70,24 @@ interface Thread {
   whatsappContactId: string | null;
 }
 
+/**
+ * What an answer is read with (ADR-107), in English like every fixed line here. On the website
+ * and in the app these are the catalogs' words in the traveller's language.
+ */
+export const AGENT_WHATSAPP_NOTES: Record<AgentCardNote, string> = {
+  fare_trend:
+    'Please note: this compares fares Suskii already found on this route. It is a trend, not a forecast: fares can change at any time, and only a search shows a price you can book.',
+  passport_reminder:
+    'Please note: many countries ask for a passport valid for at least six months after you arrive. This is a general reminder, not a decision about entry: check the rule of the country you are going to.',
+  visa_guidance:
+    'Please note: visa rules change, and the embassy or the immigration officer decides. This is guidance from our own notes, not a guarantee of a visa or of entry.',
+};
+
 /** One card as lines of plain text: what it is, its facts, its price and where to open it. */
 function cardLines(card: AgentCard, webOrigin: string): string {
+  if (card.kind === 'note') {
+    return isAgentCardNote(card.title) ? AGENT_WHATSAPP_NOTES[card.title] : '';
+  }
   const lines = [card.title, ...card.lines];
   if (card.price) {
     const price = formatMoney(
@@ -86,19 +104,26 @@ function cardLines(card: AgentCard, webOrigin: string): string {
 }
 
 /**
- * The words of an answer as one WhatsApp text: the checked answer, then each card that still
- * fits whole. Null when the run left nothing a traveller can read.
+ * The words of an answer as one WhatsApp text: the checked answer, the notes it must be read
+ * with, then each card that still fits whole. Room for the notes is kept before the answer is
+ * cut, so a long answer never pushes one out. Null when the run left nothing a traveller can
+ * read.
  */
 export function whatsappText(message: AgentMessageDto | null, webOrigin: string): string | null {
   if (!message) return null;
   if (message.kind === 'notice') return message.notice === 'greeting' ? GREETING : null;
   // A confirmation is tapped in the app or on the website, never agreed to in a chat.
   if (message.confirmationId) return null;
-  const blocks: string[] = [];
-  const text = message.text.trim();
-  if (text) blocks.push(text.slice(0, WHATSAPP_TEXT_MAX));
-  let length = blocks[0]?.length ?? 0;
+  const notes = message.cards
+    .filter((card) => card.kind === 'note')
+    .map((card) => cardLines(card, webOrigin))
+    .filter((block) => block !== '');
+  const reserved = notes.reduce((sum, block) => sum + block.length + 2, 0);
+  const text = message.text.trim().slice(0, WHATSAPP_TEXT_MAX - reserved);
+  const blocks = [...(text ? [text] : []), ...notes];
+  let length = text.length + reserved;
   for (const card of message.cards) {
+    if (card.kind === 'note') continue;
     const block = cardLines(card, webOrigin);
     if (length + block.length + 2 > WHATSAPP_TEXT_MAX) break;
     blocks.push(block);

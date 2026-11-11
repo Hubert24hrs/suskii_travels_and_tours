@@ -5,16 +5,18 @@ name: Deploy environment
 # GitHub environment, so its protection rules and variables apply, and authenticates to GCP
 # through Workload Identity Federation (no keys). The order is fixed:
 #
-#   1. Server images (API, migrate, worker): staging builds, scans, pushes, signs and attests
-#      them once per commit; production verifies staging's signatures and copies the same
-#      digests (cosign copy). Web and console images are built per environment, because Next.js
-#      inlines their public settings at build time.
+#   1. Server images (API, migrate, worker, agent): staging builds, scans, pushes, signs and
+#      attests them once per commit; production verifies staging's signatures and copies the
+#      same digests (cosign copy). Web and console images are built per environment, because
+#      Next.js inlines their public settings at build time.
 #   2. Database step: the migrate job on the new image (expand/contract migrations only), then
 #      the ops job moves to the same image.
 #   3. Services: staging rolls each service forward; Cloud Run moves traffic only once a new
 #      revision passes its startup probe (/ready for the API). Production sends a share of
 #      traffic to the API and website candidates, checks their 5xx ratio and the smoke tests,
-#      then promotes them, or puts every service back on its previous revision.
+#      then promotes them, or puts every service back on its previous revision. The agent
+#      service (ADR-101) is rolled forward where Terraform created it (deploy_agent), after
+#      the API: its image is built, scanned and signed for every commit either way.
 #   4. Smoke tests against the public hosts.
 on:
   workflow_call:
@@ -176,10 +178,11 @@ jobs:
             api="$(release_image api apps/api/Dockerfile runtime)"
             migrate="$(release_image api-migrate apps/api/Dockerfile migrate)"
             worker="$(release_image worker apps/worker/Dockerfile '')"
-            printf 'api=%s\nmigrate=%s\nworker=%s\n' "$api" "$migrate" "$worker" >> "$GITHUB_OUTPUT"
+            agent="$(release_image agent apps/agent/Dockerfile '')"
+            printf 'api=%s\nmigrate=%s\nworker=%s\nagent=%s\n' "$api" "$migrate" "$worker" "$agent" >> "$GITHUB_OUTPUT"
           else
             # Production runs exactly what staging tested: same digests, signatures verified.
-            for name in api api-migrate worker; do
+            for name in api api-migrate worker agent; do
               digest="$(digest_of "$PROMOTE_FROM/suskii-$name:$TAG")"
               if [ -z "$digest" ]; then
                 echo "::error::$name has no staging image for $REF: deploy this commit to staging first."
@@ -250,11 +253,19 @@ jobs:
       - name: Record the serving revisions
         id: previous
         run: |
+          serving() {
+            gcloud run services describe "$PREFIX-$1" --region "$REGION" --format=json |
+              jq -r '[.status.traffic[] | select(.revisionName != null)] | max_by(.percent // 0) | .revisionName'
+          }
           for service in api worker web admin; do
-            revision="$(gcloud run services describe "$PREFIX-$service" --region "$REGION" --format=json |
-              jq -r '[.status.traffic[] | select(.revisionName != null)] | max_by(.percent // 0) | .revisionName')"
+            revision="$(serving "$service")"
             echo "$service=$revision" >> "$GITHUB_OUTPUT"
           done
+          # The agent service exists only where Terraform created it (deploy_agent).
+          if gcloud run services describe "$PREFIX-agent" --region "$REGION" --format='value(metadata.name)' >/dev/null 2>&1; then
+            revision="$(serving agent)"
+            printf 'agent=%s\nhas_agent=true\n' "$revision" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Deploy candidates
         id: candidates
@@ -328,6 +339,17 @@ jobs:
             gcloud run services update-traffic "$PREFIX-$service" --region "$REGION" --to-latest --quiet
           done
 
+      # After the API: the gateway the agent calls is then the one this commit's tools expect.
+      # Cloud Run moves traffic only once the new revision answers /ready (its own database
+      # role reads its checkpoint tables).
+      - name: Deploy the agent service
+        if: steps.previous.outputs.has_agent == 'true'
+        env:
+          AGENT: ${{ steps.server.outputs.agent }}
+        run: |
+          gcloud run deploy "$PREFIX-agent" --image "$REGISTRY/suskii-agent@$AGENT" --region "$REGION" --quiet
+          gcloud run services update-traffic "$PREFIX-agent" --region "$REGION" --to-latest --quiet
+
       - name: Smoke tests
         env:
           PUBLIC_WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
@@ -349,9 +371,10 @@ jobs:
           PREVIOUS_WORKER: ${{ steps.previous.outputs.worker }}
           PREVIOUS_WEB: ${{ steps.previous.outputs.web }}
           PREVIOUS_ADMIN: ${{ steps.previous.outputs.admin }}
+          PREVIOUS_AGENT: ${{ steps.previous.outputs.agent }}
         run: |
           status=0
-          for service in api worker web admin; do
+          for service in api worker web admin agent; do
             variable="PREVIOUS_${service^^}"
             revision="${!variable}"
             [ -n "$revision" ] || continue
@@ -369,6 +392,7 @@ jobs:
           API: ${{ steps.server.outputs.api }}
           MIGRATE: ${{ steps.server.outputs.migrate }}
           WORKER: ${{ steps.server.outputs.worker }}
+          AGENT: ${{ steps.server.outputs.agent }}
           WEB: ${{ steps.clients.outputs.web }}
           ADMIN: ${{ steps.clients.outputs.admin }}
           JOB_STATUS: ${{ job.status }}
@@ -379,5 +403,5 @@ jobs:
             echo
             echo "| Image | Digest |"
             echo "| --- | --- |"
-            for name in API MIGRATE WORKER WEB ADMIN; do echo "| ${name,,} | \`${!name:-not built}\` |"; done
+            for name in API MIGRATE WORKER AGENT WEB ADMIN; do echo "| ${name,,} | \`${!name:-not built}\` |"; done
           } >> "$GITHUB_STEP_SUMMARY"

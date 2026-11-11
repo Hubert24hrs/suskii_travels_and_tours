@@ -96,12 +96,18 @@ limits in force and the knowledge base the assistant answers rules from) and G (
 clients: the website's chat on `/assistant`, price requests on the website and in the app,
 the app's assistant, the assistant on WhatsApp inside the support thread, what the assistant
 remembers for a traveller who agreed, a score for a conversation and a funnel, a price
-request and a combined trip as PDFs, and the journeys tested with the assistant off) are
-done; H (hardening and delivery) follows (`docs/phases/ai-agent.md`). The website and the app
-offer the assistant only while `GET /v1/agent/status` says it is available. The vendor adapters
-wait for one run of `scrapers-sandbox.yml` with the owner's keys, and the agents for one run of
-`agent-eval.yml` with `LLM_API_KEY`. Nothing of it runs in production until the owner sets
-`AGENT_ENABLED` and `PRICE_INTEL_ENABLED` and approves each web source.
+request and a combined trip as PDFs, and the journeys tested with the assistant off) and H
+(hardening and delivery: notes shown whatever a model wrote, candidate prompts in the shadow of
+a turn, recorded eval runs, a recipe proposed by rule for a site in drift, the monthly cost
+figure, alert rules, the runbook, the agent service's image with its place in the compose
+rehearsal, Terraform, the Helm chart and the release pipeline, a chat scenario in the load
+test, the security review, the guides and a cost estimate) are done
+(`docs/phases/ai-agent.md`). The website and the app offer the assistant only while
+`GET /v1/agent/status` says it is available. Nothing is deployed and Terraform is not applied.
+The vendor adapters wait for one run of `scrapers-sandbox.yml` with the owner's keys, and the
+agents for one run of `agent-eval.yml` with `LLM_API_KEY`: no eval has run against a model.
+Nothing of it runs in production until the owner sets `AGENT_ENABLED` and
+`PRICE_INTEL_ENABLED` and approves each web source.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -178,7 +184,8 @@ infra/        terraform/ (GCP platform + Cloudflare edge, applied per environmen
 load/         k6 load test (load/k6/api.js), run in CI against the e2e stack
 scripts/      Repo-level tools: security-checklist.mjs (ASVS/MASVS checklist generator)
 docs/         decisions/ (ADRs), phases/ (plans), security/ (threat model, checklist, inventories), runbooks/,
-              release/ (store listing, privacy forms), deployment/ (AWS mapping)
+              guides/ (adding an agent, a web-data vendor or a site), owner/ (launch checklist, cost
+              estimate), release/ (store listing, privacy forms), deployment/ (AWS mapping)
 ```
 
 ## Commands
@@ -221,7 +228,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm security:checklist` (`--check` in CI)        | Regenerate `docs/security/checklist.md` from the reviewed mapping                 |
 | `pnpm --filter @suskii/api test:cov`               | API unit tests with the 80% gates (also `@suskii/shared`)                         |
 | `pnpm --filter @suskii/ui-web test:visual`         | Screenshot tests (baselines from the `visual-baselines` workflow)                 |
-| `k6 run load/k6/api.js`                            | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`)              |
+| `k6 run load/k6/api.js`                            | Load test a running stack (`API_URL`, `LOAD_SCALE`, `LOAD_DURATION`, `LOAD_CHAT`) |
 | `promtool check rules` / `test rules`              | Validate `infra/observability/alerts` (CI pins promtool)                          |
 | `pnpm --filter @suskii/api keys:reencrypt`         | Rewrite field encryption under the current key (dry run first)                    |
 | `pnpm --filter @suskii/api sessions:revoke`        | Incident sign-out (`--user`, `--staff` or `--all`, dry run first)                 |
@@ -237,7 +244,7 @@ Run from the repo root. All scripts are cross-platform (PowerShell, bash, zsh).
 | `pnpm --filter @suskii/api price-intel:register`   | Print the scraping register of this environment (`--blank --write`: the page)     |
 | `pnpm --filter @suskii/api rides:demo`             | Sample drivers take local rides; type the rider's PIN (not in prod)               |
 | `pnpm --filter @suskii/api staff:bootstrap`        | First super admin of a new environment (`--email`, `--yes`; once)                 |
-| `pnpm release:rehearse`                            | Compose deploy, ops command, broken release, rollback (`:local` images)           |
+| `pnpm release:rehearse`                            | Compose deploy with the agent service, broken release, rollback (`:local` images) |
 | `node scripts/helm-rehearsal.mjs`                  | Same on kind with the Helm chart (needs kind and Helm; runs in CI)                |
 | `pnpm smoke --api URL [--web URL] [--admin URL]`   | Post-deploy smoke tests (public routes only, safe on production)                  |
 | `pnpm check:migrations` / `pnpm test:scripts`      | Expand/contract guard on new migrations / node:test script suites                 |
@@ -1076,6 +1083,33 @@ Tooling notes for agents:
   in the conversation's language and then in English. A passage is reference, never an
   instruction and never proof of a booking or a payment; each document read is named by a
   `source` card. Keep the audience decided by the grant, never by an argument.
+- A caveat a traveller must read with a tool's facts is a `note` card (`note()` in
+  `tool-support.ts`) whose title is a code from `AGENT_CARD_NOTES` (`@suskii/shared`), never a
+  sentence: the graph never drops one and each client puts it into words from its own catalog,
+  so it is shown whatever the model wrote. A new note is a code there and its words in every
+  catalog of the website, the app and WhatsApp.
+- What a staff tool prepares answers with `proposalOut`, which carries
+  `approvalStatus: 'pending'`: the guard refuses "approved" in a turn that holds one. Keep a
+  status that means "waits for a person" under a key ending in `Status`.
+- Candidate prompts (`src/agent/shadow`, ADR-106): only `AgentShadows` decides whether a run
+  is shadowed (`plan`: a traveller's plain message that was answered, a candidate named in
+  `AGENT_SHADOW_PROMPTS`, the sample share, the shadow's own daily cap) and keeps what came
+  back (`record`: codes and counts in `agent_shadow_runs`). The live run is settled at `end`
+  and never waits for the shadow line. Never store, log or return what a candidate wrote, and
+  never shadow a confirmation, a staff run or WhatsApp.
+- Recorded eval runs change only through `AgentEvalsService.record()` (`ai:manage`, audited):
+  the body is `agentEvalResultSchema` (`@suskii/shared`: counts, case ids, model names, a
+  commit), never a message, an answer or free text. A record is its recorder's statement and
+  gates nothing in code; do not make a route or a release depend on one.
+- The month's cost is one rule (`agent-cost.ts`: `monthSpend`, `costAlertLevel`) for the
+  console, the alert and the gauge. `AgentCostWatch.check()` (the worker's hourly sweep,
+  `POST /v1/internal/agent/cost-check`) tells operations once per month and level, claimed in
+  Redis. It only tells: never make it pause, cap or refuse anything. Every figure is an
+  estimate and every place that shows one says so.
+- Alert rules for the assistant and price intelligence are the group `suskii-assistant` in
+  `infra/observability/alerts/suskii.rules.yml`, all `severity: ticket`, each naming
+  `docs/runbooks/ai-agent.md` or `price-intelligence.md`, with promtool tests. The assistant
+  failing never pages: nothing a traveller books depends on it.
 
 ### Assisted quotes (apps/api/src/assisted-quotes, packages/shared assisted-quotes; ADR-104)
 
@@ -1145,6 +1179,25 @@ Tooling notes for agents:
   stays wrong: the tests name them.
 - `apps/api/test/agent-service.e2e-spec.ts` starts this service from source (tsx) beside the
   API and runs the whole chain; it needs no build of this workspace.
+- A candidate (`CANDIDATE_PROMPTS`) has the id of the prompt it would replace and a higher
+  version, and answers nobody. A shadow turn (`runs.ts`) starts from where the live turn
+  started, keeps its checkpoints in memory and has a gateway that only replays what the live
+  turn's tools returned: it cannot call a tool, start a confirmation or hold the thread, and
+  it reports one line after `end` with no words in it. Making a candidate live is moving its
+  text and version into the live prompt, after the evals (`docs/guides/adding-an-agent.md`).
+- The eval commands take `--json <file>`: the result as the console records it. A new figure
+  of a suite joins `AGENT_EVAL_FIGURES` in `@suskii/shared`, or the record is refused.
+- `GET /health` says the process is up and `GET /ready` that the checkpoint store answers;
+  both answer without a token and say nothing else. Every other route needs the run token and
+  answers 404 without it. The image (`apps/agent/Dockerfile`) runs as `node` on a read-only
+  file system; the platform's start-up probe is `/ready` and its liveness probe `/health`.
+- Delivery is built and not applied: `deploy_agent` in Terraform (internal ingress only, its
+  own identity, database URL and secrets; `agent_internal_url` goes into `AGENT_URL` by
+  hand), `agent.enabled` in the Helm chart (a network policy lets in the API alone), the agent
+  image in the deploy workflow wherever the service exists, and the compose release rehearsal,
+  which checks both doors from the inside (the run door and the tool gateway). A new setting
+  of this service goes in its own env schema, `.env.example`, `agent_env` in Terraform and the
+  chart's values; its secrets are its own, never the API's.
 
 ### Price intelligence (apps/api/src/price-intel, packages/shared price-intel; ADR-102)
 
@@ -1198,6 +1251,14 @@ Tooling notes for agents:
   same change.
 - How reading has gone (`PriceIntelAdminService.health()`, `GET /v1/admin/data-sources/health`)
   is computed from `scrape_attempts` at read time: add a figure there, never a table for it.
+- A recipe for a site in drift is proposed only by `proposeRecipe()` (`recipe-proposals.ts`),
+  a rule over the page that was kept: it counts with the extraction code (`pricedByType`),
+  names only types from `PRICED_SCHEMA_TYPES` (a page's own name for its data is never
+  proposed, shown or put before a model), fetches nothing and changes nothing. It reaches a
+  site only as a `source_recipe` proposal that another person with `datasources:manage`
+  approves (`RecipeProposalsService.draft()`, `AgentApprovalsService`), saved through
+  `PriceSourcesService.update()` and refused when the recipe changed meanwhile. Never let a
+  model read a fetched page to write a recipe, and never save a recipe without a person.
 
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 
@@ -1879,5 +1940,14 @@ hands over (12) and who reads the handovers out of hours; whether a meal prefere
 remembered (counsel, ADR-093); the reply targets a handover may name (`SUPPORT_SLA`);
 counsel's reading of the notes on the PDFs ("an offer is not a booking", "to be confirmed");
 whether guests may use the assistant; and confirmation of the store form answers for
-conversations with the assistant and remembered preferences. Every owner action is listed,
-step by step, in `docs/owner/launch-checklist.md`.
+conversations with the assistant and remembered preferences. Added with hardening and delivery
+(sub-phase H): the monthly figure to be told about (`AGENT_MONTHLY_ALERT_MICROUSD`, none
+today) and whether anything should stop at it (today only the daily caps stop spending); the
+agent service's secrets in Secret Manager and `deploy_agent` on staging, then production;
+whether the API should present a Google identity to the agent service as well as its token
+(not built, ADR-101); who receives the assistant's and price intelligence's ticket alerts; two
+people who may manage data sources, so a recipe proposal has an approver other than its asker;
+Google's current Cloud Run prices for London, which the cost estimate could not confirm
+(`docs/owner/assistant-cost-estimate.md`); each web-data vendor's plan and its monthly
+minimum; and the share of customers expected to use the assistant, which the estimate
+assumes. Every owner action is listed, step by step, in `docs/owner/launch-checklist.md`.

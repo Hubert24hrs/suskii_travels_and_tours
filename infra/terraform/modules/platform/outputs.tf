@@ -59,3 +59,8 @@ output "api_internal_url" {
   description = "API run.app URL, reachable from the VPC only."
   value       = var.deploy_services ? module.api[0].uri : null
 }
+
+output "agent_internal_url" {
+  description = "The agent service's run.app URL, reachable from the VPC only: the API's AGENT_URL."
+  value       = var.deploy_services && var.deploy_agent ? module.agent[0].uri : null
+}

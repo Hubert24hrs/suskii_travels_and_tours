@@ -77,10 +77,11 @@ function client(answer: (call: Call) => Response | Promise<Response>): {
 async function run(
   subject: HttpAgentClient | MockAgentClient,
   signal: AbortSignal = new AbortController().signal,
+  request: AgentRunRequest = REQUEST,
 ): Promise<AgentRunEvent[]> {
   const seen: AgentRunEvent[] = [];
   await subject.run(
-    REQUEST,
+    request,
     (event) => {
       seen.push(event);
     },
@@ -168,6 +169,77 @@ describe('HttpAgentClient', () => {
     expect(await run(slow, aborted.signal)).toEqual([
       expect.objectContaining({ outcome: 'timeout', notice: 'timeout' }),
     ]);
+  });
+});
+
+describe('a shadow turn on the wire (ADR-106)', () => {
+  const SHADOWED: AgentRunRequest = { ...REQUEST, shadow: { prompts: ['flights@9'] } };
+  const SHADOW: AgentRunEvent = {
+    type: 'shadow',
+    status: 'compared',
+    prompts: ['flights@9'],
+    outcome: 'answered',
+    agent: 'flights',
+    steps: 3,
+    replayed: 1,
+    missed: 0,
+    usage: [],
+  };
+  const signal = (): AbortSignal => new AbortController().signal;
+
+  it('reads the one line after the end when the request asked for a shadow turn', async () => {
+    const { client: subject } = client(() => streamed([lines(STATUS, END), lines(SHADOW)]));
+    expect(await run(subject, signal(), SHADOWED)).toEqual([STATUS, END, SHADOW]);
+  });
+
+  it('takes one line and only that kind: nothing else follows an end', async () => {
+    const { client: subject } = client(() =>
+      streamed([lines(STATUS, END, STATUS, SHADOW, { ...SHADOW, status: 'failed' }, END)]),
+    );
+    expect(await run(subject, signal(), SHADOWED)).toEqual([STATUS, END, SHADOW]);
+  });
+
+  it('drops a shadow line nobody asked for, and one that comes before the end', async () => {
+    const unasked = client(() => streamed([lines(STATUS, END, SHADOW)]));
+    expect(await run(unasked.client)).toEqual([STATUS, END]);
+    const early = client(() => streamed([lines(SHADOW, STATUS, END)]));
+    expect(await run(early.client, signal(), SHADOWED)).toEqual([STATUS, END]);
+  });
+
+  it('settles for the end alone when no line follows, or the stream breaks after it', async () => {
+    const silent = client(() => streamed([lines(STATUS, END)]));
+    expect(await run(silent.client, signal(), SHADOWED)).toEqual([STATUS, END]);
+    const broken = client(() => streamed([lines(STATUS, END), '{"type":"shadow","status":']));
+    expect(await run(broken.client, signal(), SHADOWED)).toEqual([STATUS, END]);
+    const garbage = client(() => streamed([lines(STATUS, END), 'not json\n']));
+    expect(await run(garbage.client, signal(), SHADOWED)).toEqual([STATUS, END]);
+  });
+
+  it('holds the mock to the same rule, and the sample assistant ships no candidate', async () => {
+    const mock = new MockAgentClient();
+    mock.use(async (_request, emit) => {
+      await emit(SHADOW);
+      await emit(END);
+      await emit(STATUS);
+      await emit(SHADOW);
+      await emit(SHADOW);
+    });
+    expect(await run(mock, signal(), SHADOWED)).toEqual([END, SHADOW]);
+    mock.use(async (_request, emit) => {
+      await emit(END);
+      await emit(SHADOW);
+    });
+    expect(await run(mock)).toEqual([END]);
+
+    mock.use(null);
+    const sample = await run(mock, signal(), SHADOWED);
+    expect(sample.at(-1)).toMatchObject({
+      type: 'shadow',
+      status: 'unknown_prompt',
+      prompts: ['flights@9'],
+      usage: [],
+    });
+    expect((await run(mock)).at(-1)?.type).toBe('end');
   });
 });
 

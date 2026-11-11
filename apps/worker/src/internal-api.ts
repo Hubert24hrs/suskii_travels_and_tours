@@ -22,6 +22,7 @@ export type ReminderRun = components['schemas']['ReminderRun'];
 export type ReviewInvitationRun = components['schemas']['ReviewInvitationRun'];
 export type AdConversionRun = components['schemas']['AdConversionRun'];
 export type PriceIntelSweepRun = components['schemas']['PriceIntelSweep'];
+export type AgentCostCheck = components['schemas']['AgentCostCheck'];
 export type RetentionRun = components['schemas']['RetentionRun'];
 export type RideDispatchRun = components['schemas']['RideDispatchRun'];
 export type DriverDocumentScanRun = components['schemas']['DriverDocumentScanRun'];
@@ -85,6 +86,8 @@ export interface BookingsApi {
   readonly runAdConversions: () => Promise<AdConversionRun>;
   /** Stale price answers re-read inside each approved site's local night (ADR-102). */
   readonly sweepPriceIntel: () => Promise<PriceIntelSweepRun>;
+  /** The assistant's estimated cost this month against the figure to tell at (ADR-106). */
+  readonly checkAgentCost: () => Promise<AgentCostCheck>;
   /** Records past their retention period are purged; long-closed bookings anonymised (ADR-039). */
   readonly runRetention: () => Promise<RetentionRun>;
   /** Compares captured payments, refunds and payouts with the ledger (ADR-051). */
@@ -266,6 +269,10 @@ export function createInternalApi(
         'sweepPriceIntel',
         (signal, headers) => client.POST('/v1/internal/price-intel/sweep', { signal, headers }),
         PRICE_INTEL_TIMEOUT_MS,
+      ),
+    checkAgentCost: () =>
+      call('checkAgentCost', (signal, headers) =>
+        client.POST('/v1/internal/agent/cost-check', { signal, headers }),
       ),
     runRetention: () =>
       call(

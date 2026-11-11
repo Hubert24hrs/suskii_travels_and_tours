@@ -9,20 +9,22 @@ and Android) and a Next.js admin console.
 - Architecture decisions: [`docs/decisions/`](./docs/decisions)
 - Phase plans: [`docs/phases/`](./docs/phases)
 - What the owner still has to do (accounts, keys, legal), step by step: [`docs/owner/launch-checklist.md`](./docs/owner/launch-checklist.md)
+- Guides for developers: [`docs/guides/`](./docs/guides) (adding an agent, a tool or a prompt version; adding a web-data vendor or a site to read)
 
 ## Repository layout
 
 | Path              | What it is                                                          |
 | ----------------- | ------------------------------------------------------------------- |
 | `apps/api`        | NestJS API (REST under `/v1`), shared by every client               |
-| `apps/worker`     | Background workers (BullMQ queues arrive in later phases)           |
+| `apps/worker`     | Background workers (BullMQ queues and schedules)                    |
+| `apps/agent`      | The assistant's agents (LangGraph.js); reaches the API's tools only |
 | `apps/web`        | Next.js public website                                              |
 | `apps/admin`      | Next.js admin console                                               |
 | `apps/mobile`     | Expo React Native app                                               |
 | `packages/shared` | Domain constants, Zod schemas, types shared by API and clients      |
 | `packages/config` | Shared TypeScript, ESLint, Prettier and Vitest configuration        |
 | `infra/`          | Terraform and Helm (phase 12). Local services: `docker-compose.yml` |
-| `docs/`           | ADRs, phase plans, runbooks                                         |
+| `docs/`           | ADRs, phase plans, runbooks, guides, security and privacy records   |
 
 ## Prerequisites
 
@@ -250,6 +252,43 @@ Ground transport runs on the same booking, payment and ledger pipeline as the ot
   in the API e2e suite; `e2e/cars.spec.ts` on the website; `cars.spec.ts` in the console; the
   app's `cars-*`, `driver-screens`, `trip-planning` and `offline-scan` tests.
 
+## The assistant and prices from other websites
+
+Suskii Agent is a set of agents that answer travellers on the website, in the app and
+(optionally) on WhatsApp, and staff in the console. It is off in production until the owner
+switches it on, and search, booking and payment never depend on it
+(`docs/phases/ai-agent.md`, ADR-101 to ADR-107).
+
+- **What it may do.** Read what the traveller may read, prepare things a person decides (a
+  support handover, a price request, a proposal in the approvals queue), and ask the traveller
+  to confirm an action of their own on a card. It never approves or sends a refund, captures a
+  payment, posts to the ledger or confirms a booking: those are not tools, and the API does
+  not start with one registered. An answer is shown only after a guard in code checked its
+  figures, contacts and outcomes against what the tools returned.
+- **How it is built.** `apps/agent` is a separate service with no route to the platform but
+  the API's tool gateway (`/v1/internal/agent-tools`), where every call is checked against the
+  sealed grant of its run. Its working state lives in a database schema of its own.
+- **Trying it.** `pnpm dev` starts the agent service beside the API with a mock model that
+  says one fixed sentence; `AGENT_SERVICE=mock` answers inside the API without the service.
+  A real model needs `AGENT_MODEL_PROVIDER=anthropic` and `LLM_API_KEY`. The website's chat is
+  on `/assistant`, the app's under Account, the staff chat in the console under "Ask the
+  assistant".
+- **Measuring it.** Three evals run on every change with recorded answers and need no key:
+  `pnpm --filter @suskii/agent eval:agent-routing --recorded` (also `-grounding`, `-safety`).
+  Against a model: Actions, Agent evals, with the owner's key. None has run against a model
+  yet.
+- **Prices from other websites** (price intelligence, ADR-102) are observations, never offers:
+  shown as indicative with when and where they were seen, and sold only after a person
+  verified the price with a supplier (an assisted quote, ADR-104). Every site starts closed and
+  is read only after a person approved it with a recorded basis; none is approved today. Five
+  vendor adapters exist beside our own fetcher and the mock; none has been run against a live
+  account.
+- **Running it.** Staff pause everything from the console within seconds. Runbooks:
+  `docs/runbooks/ai-agent.md` and `docs/runbooks/price-intelligence.md`. What it may cost a
+  month, as estimates: `docs/owner/assistant-cost-estimate.md`.
+- **Extending it.** `docs/guides/adding-an-agent.md` and
+  `docs/guides/adding-a-scrape-provider-or-source.md`.
+
 ## Deploying and releasing
 
 GCP Cloud Run behind Cloudflare is the default platform (ADR-059); the pipeline is ADR-060.
@@ -257,9 +296,10 @@ GCP Cloud Run behind Cloudflare is the default platform (ADR-059); the pipeline 
 - **Images.** `apps/<app>/Dockerfile`, built from the repository root, for example
   `docker build -f apps/api/Dockerfile --target runtime -t suskii-api:local .` (`--target migrate`
   for the database step).
-- **Rehearse a release locally.** Build the five images with the `:local` tags, then run
-  `pnpm release:rehearse`. It deploys them as production does, refuses a broken release and
-  rolls back.
+- **Rehearse a release locally.** Build the six images with the `:local` tags (API, its
+  `migrate` target, worker, agent, web, admin), then run `pnpm release:rehearse`. It deploys
+  them as production does, checks the agent service's two doors from the inside, refuses a
+  broken release and rolls back.
 - **A new environment.** `infra/terraform/README.md` covers the GCP project, Cloudflare zone,
   secrets, GitHub environment and the first super admin (`staff:bootstrap`).
 - **Releases.** Merging to main deploys staging. A `v*` tag on main deploys staging, then

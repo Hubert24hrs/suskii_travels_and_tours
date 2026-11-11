@@ -10,13 +10,19 @@
  *   node scripts/release-rehearsal.mjs [--keep]
  *
  * Images default to the `:local` tags (docker build ... -t suskii-api:local); override with
- * SUSKII_API_IMAGE, SUSKII_MIGRATE_IMAGE, SUSKII_WORKER_IMAGE, SUSKII_WEB_IMAGE and
- * SUSKII_ADMIN_IMAGE. Throwaway keys go to .env.release (git-ignored), from the API's
- * keys:generate. Compose replaces a container in place, so unlike Cloud Run or Helm it rehearses
- * the procedure (gate, rollback, verification), not a traffic split.
+ * SUSKII_API_IMAGE, SUSKII_MIGRATE_IMAGE, SUSKII_WORKER_IMAGE, SUSKII_AGENT_IMAGE,
+ * SUSKII_WEB_IMAGE and SUSKII_ADMIN_IMAGE. Throwaway keys go to .env.release (git-ignored), from
+ * the API's keys:generate; the agent service gets only its two tokens, in .env.release.agent.
+ * Compose replaces a container in place, so unlike Cloud Run or Helm it rehearses the procedure
+ * (gate, rollback, verification), not a traffic split.
+ *
+ * The agent service (ADR-101) is deployed as a release deploys it: the database step creates its
+ * role, it is healthy only once that role reads its checkpoint tables, and each of its two doors
+ * is checked to answer to its own token and to no other.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -66,16 +72,85 @@ const deployApi = (image, waitSeconds) =>
     allowFailure: true,
   });
 
+const AGENT_TOKENS = ['AGENT_RUN_TOKEN', 'AGENT_TOOLS_TOKEN'];
+
 function writeKeys() {
   const path = join(ROOT, '.env.release');
-  if (existsSync(path)) return;
-  const result = spawnSync('pnpm', ['--filter', '@suskii/api', '-s', 'keys:generate'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-  });
-  if (result.status !== 0) throw new Error('keys:generate failed');
-  writeFileSync(path, result.stdout, { mode: 0o600 });
+  if (!existsSync(path)) {
+    const result = spawnSync('pnpm', ['--filter', '@suskii/api', '-s', 'keys:generate'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    if (result.status !== 0) throw new Error('keys:generate failed');
+    writeFileSync(path, result.stdout, { mode: 0o600 });
+  }
+  // A key file from before the agent service existed has no tokens for it.
+  const lines = () => readFileSync(path, 'utf8').split('\n');
+  for (const name of AGENT_TOKENS) {
+    if (!lines().some((line) => line.startsWith(`${name}=`))) {
+      appendFileSync(path, `${name}=${randomBytes(32).toString('base64url')}\n`);
+    }
+  }
+  // The agent service is given its two tokens and none of the API's keys.
+  writeFileSync(
+    join(ROOT, '.env.release.agent'),
+    `${lines()
+      .filter((line) => AGENT_TOKENS.some((name) => line.startsWith(`${name}=`)))
+      .join('\n')}\n`,
+    { mode: 0o600 },
+  );
 }
+
+/** Runs a short script with Node inside a running service; true when it exits 0. */
+const inside = (service, script) =>
+  compose(['exec', '-T', service, 'node', '-e', script], { allowFailure: true });
+
+/**
+ * From inside the API: the agent service starts nothing without the run token. With it, a
+ * request that is not a run is refused as one (400); with any other token, or none, the door
+ * does not exist (404).
+ */
+const RUN_DOOR = `
+const post = (token) =>
+  fetch(process.env.AGENT_URL + '/runs', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' },
+    body: '{}',
+  }).then((response) => response.status);
+Promise.all([
+  post(process.env.AGENT_RUN_TOKEN),
+  post(process.env.AGENT_TOOLS_TOKEN),
+  post(process.env.INTERNAL_API_TOKEN),
+  post(''),
+]).then((statuses) => {
+  const wanted = [400, 404, 404, 404];
+  if (statuses.join() !== wanted.join()) {
+    console.error('run door answered ' + statuses.join() + ', wanted ' + wanted.join());
+    process.exit(1);
+  }
+}, () => process.exit(1));
+`;
+
+/**
+ * From inside the agent service: the tool gateway lists its tools to the tools token, and
+ * refuses the run token and no token (401). It is the agent's only way into the platform.
+ */
+const TOOL_DOOR = `
+const list = (token) =>
+  fetch(process.env.API_INTERNAL_URL + '/v1/internal/agent-tools', {
+    headers: token ? { authorization: 'Bearer ' + token } : {},
+  }).then(async (response) => [response.status, response.ok ? (await response.json()).tools.length : 0]);
+Promise.all([
+  list(process.env.AGENT_TOOLS_TOKEN),
+  list(process.env.AGENT_RUN_TOKEN),
+  list(''),
+]).then(([own, other, none]) => {
+  if (own[0] !== 200 || own[1] < 1 || other[0] !== 401 || none[0] !== 401) {
+    console.error('tool gateway answered ' + [own[0], other[0], none[0]].join() + ' with ' + own[1] + ' tools');
+    process.exit(1);
+  }
+}, () => process.exit(1));
+`;
 
 const steps = [];
 const done = (step) => {
@@ -90,15 +165,31 @@ try {
   compose(['up', '-d', '--wait', 'postgres', 'redis', 's3']);
   done('data services healthy');
 
-  say('release N: database step (migrate deploy, reference seed)');
+  say('release N: database step (migrate deploy, reference seed, the app and agent roles)');
   compose(['run', '--rm', 'migrate']);
   done('migrations and reference seed applied');
 
   say('release N: services behind their health checks');
-  compose(['up', '-d', '--wait', '--wait-timeout', '240', 'api', 'worker', 'web', 'admin']);
-  done('api, worker, web and admin healthy');
+  compose([
+    'up',
+    '-d',
+    '--wait',
+    '--wait-timeout',
+    '240',
+    'api',
+    'worker',
+    'agent',
+    'web',
+    'admin',
+  ]);
+  done('api, worker, agent, web and admin healthy');
   if (!smoke()) throw new Error('smoke tests failed on release N');
   done('smoke tests passed on release N');
+
+  say("the agent service's two doors, each with its own token");
+  if (!inside('api', RUN_DOOR)) throw new Error('the run door did not answer as it should');
+  if (!inside('agent', TOOL_DOOR)) throw new Error('the tool gateway did not answer as it should');
+  done('the agent starts runs only for the API, and reaches the platform only as itself');
 
   say('ops: first super admin through the ops command, as the app role');
   compose([

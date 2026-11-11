@@ -12,6 +12,7 @@ import {
   STAFF_AGENTS,
   asksForSecrets,
   checkGrounding,
+  keepAgentCards,
   leaksInstructions,
   namedTools,
   unsupportedOutcomes,
@@ -37,13 +38,7 @@ import {
   type ModelToolSpec,
   type ModelTurn,
 } from '../model/model.js';
-import {
-  ROUTER_PROMPT,
-  STAFF_ROUTER_PROMPT,
-  promptFor,
-  promptRef,
-  rewriteInstruction,
-} from '../prompts/prompts.js';
+import { LIVE_PROMPTS, promptRef, rewriteInstruction, type PromptSet } from '../prompts/prompts.js';
 import { GatewayError, type ToolDescription, type ToolGateway } from '../tools/gateway.js';
 import { cardsOf, renderForModel, statusFactsOf } from '../tools/render.js';
 
@@ -166,6 +161,8 @@ export interface RunDeps {
   /** Aborted when the run's time is up or the caller went away. */
   signal: AbortSignal;
   toolTimeoutMs: number;
+  /** The prompts of this run: the live ones unless a shadow turn tries candidates (ADR-106). */
+  prompts?: PromptSet;
 }
 
 const ended = (
@@ -244,7 +241,8 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
   const fallbackAgent: AgentName = allowed.includes(generalist)
     ? generalist
     : (allowed[0] ?? generalist);
-  const router = staff ? STAFF_ROUTER_PROMPT : ROUTER_PROMPT;
+  const prompts = deps.prompts ?? LIVE_PROMPTS;
+  const router = prompts.router(context.audience);
   // A router is told only about the agents this run can open.
   const routing = { ...context, agents: allowed };
 
@@ -364,7 +362,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
     if (turn.steps >= limits.maxSteps) {
       return { turn: { ...turn, result: ended('step_limit', 'limit') } };
     }
-    const prompt = promptFor(turn.agent);
+    const prompt = prompts.specialist(turn.agent);
     const tools: ModelToolSpec[] = toolsFor(turn.agent).map((tool) => ({
       name: modelToolName(tool.name),
       description: tool.description,
@@ -474,7 +472,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
           toolCounts: { ...turn.toolCounts, [tool]: count },
           sources: [...turn.sources, { ref: `${tool}#${count}`, text }].slice(-24),
           // The newest results first: they are what the answer is about.
-          cards: [...cardsOf(answer.result), ...turn.cards].slice(0, CARDS_MAX),
+          cards: keepAgentCards([...cardsOf(answer.result), ...turn.cards], CARDS_MAX),
           statuses: [...turn.statuses, ...statusFactsOf(answer.result)].slice(-60),
           handover: turn.handover || tool === HANDOVER_TOOL,
         };
@@ -544,7 +542,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
         draft: null,
         toolCounts: { ...turn.toolCounts, [pending.tool]: count },
         sources: [...turn.sources, { ref: `${pending.tool}#${count}`, text }].slice(-24),
-        cards: [...cardsOf(resumed.facts), ...turn.cards].slice(0, CARDS_MAX),
+        cards: keepAgentCards([...cardsOf(resumed.facts), ...turn.cards], CARDS_MAX),
         statuses: [...turn.statuses, ...statusFactsOf(resumed.facts)].slice(-60),
       },
     };
@@ -570,7 +568,10 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
     const tooLong = draft.length > AGENT_ANSWER_MAX;
     // Its own instructions read back, or its tools by name: not something a traveller is told.
     const disclosed =
-      leaksInstructions(draft, [router.render(routing), promptFor(turn.agent).render(context)]) ||
+      leaksInstructions(draft, [
+        router.render(routing),
+        prompts.specialist(turn.agent).render(context),
+      ]) ||
       namedTools(
         draft,
         deps.tools.map((tool) => tool.name),
@@ -583,7 +584,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
       const answer: AgentAnswer = {
         kind: turn.handover ? 'handover' : 'text',
         text: draft,
-        cards: turn.cards.slice(0, CARDS_MAX),
+        cards: keepAgentCards(turn.cards, CARDS_MAX),
         sources: turn.sources.map((source) => source.ref).slice(-24),
       };
       return {

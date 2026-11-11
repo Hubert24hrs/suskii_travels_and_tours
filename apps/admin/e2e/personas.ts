@@ -78,6 +78,8 @@ export const PERSONAS = {
   knowledgeManager: { roles: ['super_admin'], enrolled: true },
   /** Reads the assistant's runs, a traveller's masked conversation, cost and quality. */
   insightsReader: { roles: ['operations'], enrolled: true },
+  /** Records a run of an agent eval from the file the eval command wrote (ADR-106). */
+  evalRecorder: { roles: ['super_admin'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
@@ -110,6 +112,8 @@ export interface StackState {
   assistedQuote: { id: string; reference: string };
   /** A promo code the assistant prepared for the assistant asker (ADR-107). */
   approval: { id: string; code: string };
+  /** A recipe for a site an assistant prepared for the same person (ADR-102). */
+  recipeApproval: { id: string; version: string };
   /** The quote traveller's conversation with the assistant; its message holds an address. */
   assistantConversation: { reference: string };
   /** The run's own database, for the few states a browser cannot reach (an aged session). */

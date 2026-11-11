@@ -75,6 +75,11 @@ const envSchema = z
      * read inside its own night window, so most ticks read nothing.
      */
     PRICE_INTEL_SWEEP_MINUTES: minutes(30),
+    /**
+     * How often the API compares the assistant's estimated cost this month with the figure
+     * operations are told at (ADR-106). The API tells once a month per level.
+     */
+    AGENT_COST_CHECK_MINUTES: minutes(60),
     /** How often records past their retention period are purged (ADR-039). */
     RETENTION_SWEEP_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
 

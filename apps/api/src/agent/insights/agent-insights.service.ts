@@ -15,8 +15,10 @@ import { AuditService } from '../../audit/audit.service';
 import { APP_CONFIG, type AppConfig } from '../../config/config';
 import type { AgentConversation, AgentRun, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma.service';
+import { AgentBudget } from '../agent-budget';
 import { AgentConversationsService } from '../chat/agent-conversations.service';
 
+import { monthSpend, monthStartOf } from './agent-cost';
 import type {
   AdminAgentConversation,
   AdminAgentConversationSummary,
@@ -77,6 +79,7 @@ export class AgentInsightsService {
     private readonly prisma: PrismaService,
     private readonly conversations: AgentConversationsService,
     private readonly audit: AuditService,
+    private readonly budget: AgentBudget,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -193,10 +196,7 @@ export class AgentInsightsService {
   async cost(days: number, now = new Date()): Promise<AdminAgentCost> {
     const from = new Date(startOfDay(now).getTime() - (days - 1) * DAY_MS);
     const where = { startedAt: { gte: from } };
-    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const daysInMonth = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0),
-    ).getUTCDate();
+    const monthStart = monthStartOf(now);
     const [total, byAgent, byModel, byChannel, byDay, topAccounts, month] = await Promise.all([
       this.prisma.agentRun.aggregate({ where, _count: { _all: true }, _sum: SUM }),
       this.prisma.agentRun.groupBy({ by: ['agent'], where, _count: { _all: true }, _sum: SUM }),
@@ -234,9 +234,6 @@ export class AgentInsightsService {
     ]);
     const byCost = <T extends { costMicroUsd: number }>(rows: T[]): T[] =>
       rows.sort((a, b) => b.costMicroUsd - a.costMicroUsd);
-    const toDateMicroUsd = Number(month._sum.costMicroUsd ?? 0n);
-    // The part of the month that has passed, with today counted by the hour.
-    const elapsed = (now.getTime() - monthStart.getTime()) / DAY_MS;
     return {
       from: day(from),
       to: day(now),
@@ -262,12 +259,7 @@ export class AgentInsightsService {
         runs: Number(row.runs),
         costMicroUsd: Number(row.cost ?? 0n),
       })),
-      month: {
-        toDateMicroUsd,
-        forecastMicroUsd: elapsed > 0 ? Math.round((toDateMicroUsd / elapsed) * daysInMonth) : 0,
-        daysElapsed: Math.max(1, Math.ceil(elapsed)),
-        daysInMonth,
-      },
+      month: monthSpend(Number(month._sum.costMicroUsd ?? 0n), now),
       caps: {
         globalDailyMicroUsd: this.config.AGENT_GLOBAL_DAILY_MICROUSD,
         userDailyMicroUsd: this.config.AGENT_USER_DAILY_MICROUSD,
@@ -343,6 +335,38 @@ export class AgentInsightsService {
           FROM agent_conversations c
          WHERE c.created_at >= ${from} AND c.audience = 'customer'`,
     ]);
+    // One row per candidate: a turn that tried two counts for both.
+    const [shadowRows, shadowSpent] = await Promise.all([
+      this.prisma.$queryRaw<
+        {
+          prompt: string;
+          turns: bigint;
+          compared: bigint;
+          answered: bigint;
+          guard_blocked: bigint;
+          same_agent: bigint;
+          replayed: bigint;
+          missed: bigint;
+          cost: bigint;
+        }[]
+      >`
+        SELECT p AS prompt,
+               count(*) AS turns,
+               count(*) FILTER (WHERE s.status = 'compared') AS compared,
+               count(*) FILTER (WHERE s.status = 'compared' AND s.outcome = 'answered') AS answered,
+               count(*) FILTER (
+                 WHERE s.status = 'compared' AND s.outcome = 'guard_blocked') AS guard_blocked,
+               count(*) FILTER (
+                 WHERE s.status = 'compared' AND s.agent = s.live_agent) AS same_agent,
+               coalesce(sum(s.replayed), 0)::bigint AS replayed,
+               coalesce(sum(s.missed), 0)::bigint AS missed,
+               coalesce(sum(s.cost_micro_usd), 0)::bigint AS cost
+          FROM agent_shadow_runs s, unnest(s.prompts) AS p
+         WHERE s.created_at >= ${from}
+         GROUP BY 1
+         ORDER BY 1`,
+      this.budget.shadowSpentToday(now),
+    ]);
     const rated = scores.reduce((sum, row) => sum + row._count._all, 0);
     const points = scores.reduce((sum, row) => sum + (row.rating ?? 0) * row._count._all, 0);
     const reached = funnel[0];
@@ -402,6 +426,23 @@ export class AgentInsightsService {
           down: voted('down'),
         };
       }),
+      shadow: {
+        candidates: [...this.config.AGENT_SHADOW_PROMPTS],
+        samplePercent: this.config.AGENT_SHADOW_SAMPLE_PERCENT,
+        dailyCapMicroUsd: this.config.AGENT_SHADOW_DAILY_MICROUSD,
+        spentTodayMicroUsd: shadowSpent,
+        prompts: shadowRows.map((row) => ({
+          prompt: row.prompt,
+          turns: Number(row.turns),
+          compared: Number(row.compared),
+          answered: Number(row.answered),
+          guardBlocked: Number(row.guard_blocked),
+          sameAgent: Number(row.same_agent),
+          replayedCalls: Number(row.replayed),
+          missedCalls: Number(row.missed),
+          costMicroUsd: Number(row.cost),
+        })),
+      },
     };
   }
 
@@ -420,6 +461,9 @@ export class AgentInsightsService {
       userDailyMicroUsd: config.AGENT_USER_DAILY_MICROUSD,
       guestDailyMicroUsd: config.AGENT_GUEST_DAILY_MICROUSD,
       globalDailyMicroUsd: config.AGENT_GLOBAL_DAILY_MICROUSD,
+      monthlyAlertMicroUsd: config.AGENT_MONTHLY_ALERT_MICROUSD,
+      shadowSamplePercent: config.AGENT_SHADOW_SAMPLE_PERCENT,
+      shadowDailyMicroUsd: config.AGENT_SHADOW_DAILY_MICROUSD,
       confirmationMinutes: AGENT_CONFIRMATION_MINUTES,
       approvalDays: AGENT_APPROVAL_DAYS,
       messageMax: AGENT_MESSAGE_MAX,

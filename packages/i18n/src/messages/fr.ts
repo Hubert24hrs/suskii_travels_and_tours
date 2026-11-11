@@ -3332,6 +3332,16 @@ export const fr: Messages = {
         'Vu sur un autre site, ce n’est pas un prix Suskii. Une personne confirme le prix réel avant tout paiement.',
       source: 'D’après nos documents',
     },
+    // What an answer is read with (ADR-107): shown whatever the assistant wrote.
+    notes: {
+      label: 'À noter',
+      fare_trend:
+        'Ceci compare des tarifs que Suskii a déjà trouvés sur ce trajet. C’est une tendance, pas une prévision : les tarifs peuvent changer à tout moment, et seule une recherche indique un prix que vous pouvez réserver.',
+      passport_reminder:
+        'De nombreux pays demandent un passeport valable au moins six mois après votre arrivée. C’est un rappel général, pas une décision d’entrée : vérifiez la règle du pays où vous allez.',
+      visa_guidance:
+        'Les règles de visa changent, et c’est l’ambassade ou l’agent d’immigration qui décide. Ces indications viennent des notes de Suskii et ne garantissent ni un visa ni l’entrée.',
+    },
     rating: {
       question: "L'assistant vous a-t-il bien aidé ?",
       score: '{score} sur 5',

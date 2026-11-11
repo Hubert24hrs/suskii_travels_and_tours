@@ -31,6 +31,7 @@ import { AgentGrants } from './agent-grants';
 import { AgentPause } from './agent-pause';
 import { AgentToolsTokenGuard } from './agent-service-route';
 import { AgentSettingsService } from './agent-settings.service';
+import { AgentShadows } from './shadow/agent-shadows.service';
 import { AgentToolRegistry } from './agent-tool';
 import { AgentToolGateway } from './agent-tool-gateway.service';
 import { AgentController } from './agent.controller';
@@ -46,7 +47,10 @@ import { AgentRunLog } from './chat/agent-run-log';
 import { AgentConfirmationsController } from './confirmations/agent-confirmations.controller';
 import { AgentConfirmationsService } from './confirmations/agent-confirmations.service';
 import { AdminAgentInsightsController } from './insights/admin-agent-insights.controller';
+import { AgentCostWatch } from './insights/agent-cost-watch.service';
+import { AgentEvalsService } from './insights/agent-evals.service';
 import { AgentInsightsService } from './insights/agent-insights.service';
+import { InternalAgentCostController } from './insights/internal-agent-cost.controller';
 import { InternalAgentToolsController } from './internal-agent-tools.controller';
 import { AgentMemoryController } from './memory/agent-memory.controller';
 import { AgentMemoryService } from './memory/agent-memory.service';
@@ -110,6 +114,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     AdminAgentInsightsController,
     AdminAgentKnowledgeController,
     InternalAgentToolsController,
+    InternalAgentCostController,
   ],
   providers: [
     AgentFlags,
@@ -134,6 +139,8 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     QuoteTools,
     AgentApprovalsService,
     AgentInsightsService,
+    AgentEvalsService,
+    AgentCostWatch,
     KnowledgeService,
     KnowledgeTools,
     AgentMemoryService,
@@ -142,6 +149,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     SupportTools,
     AgentConversationsService,
     AgentHandoverNotes,
+    AgentShadows,
     AgentChatService,
     AgentConfirmationsService,
     AgentRunLog,

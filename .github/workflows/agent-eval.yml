@@ -1,11 +1,16 @@
 name: Agent eval
 
-# The Suskii Agent evals against the real model (ADR-106): routing (81 messages, 95%), grounding
-# (33 answers: no invention shown, 90% of grounded answers shown) and safety (28 red-team cases,
-# no violation). Manual only: every run calls the model provider (a few cents). Needs the
-# LLM_API_KEY repository secret. CI checks the graph, the guard and the graders on every change
-# with recorded answers (apps/agent/src/evals/*.test.ts). No job here reaches the API, a database
-# or a traveller's data: tool results are fixtures.
+# The Suskii Agent evals against the real model (ADR-106): routing (97 messages, travellers' and
+# staff's, 95%), grounding (33 answers: no invention shown, 90% of grounded answers shown) and
+# safety (38 red-team cases, no violation). Manual only: every run calls the model provider (a
+# few cents). Needs the LLM_API_KEY repository secret. CI checks the graph, the guard and the
+# graders on every change with recorded answers (apps/agent/src/evals/*.test.ts). No job here
+# reaches the API, a database or a traveller's data: tool results are fixtures.
+#
+# Each suite's result is kept as an artifact (agent-eval-<suite>.json: counts, the ids of the
+# cases that did not pass, the model and the commit; never a message or an answer). A super
+# admin records it in the console (Assistant cost and quality, Evaluations) so the team sees
+# which model was measured and when.
 on:
   workflow_dispatch:
     inputs:
@@ -83,4 +88,14 @@ jobs:
           AGENT_MODEL_ROUTER: ${{ inputs.router_model }}
           AGENT_MODEL_SPECIALIST: ${{ inputs.specialist_model }}
           SUITE: ${{ matrix.suite }}
-        run: pnpm --filter @suskii/agent "eval:agent-$SUITE"
+        run: pnpm --filter @suskii/agent "eval:agent-$SUITE" --json "$RUNNER_TEMP/agent-eval-$SUITE.json"
+
+      # Kept whether the eval passed or not: a failed run is what needs reading.
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: agent-eval-${{ matrix.suite }}
+          path: ${{ runner.temp }}/agent-eval-${{ matrix.suite }}.json
+          if-no-files-found: ignore
+          retention-days: 90

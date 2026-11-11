@@ -49,7 +49,8 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 
 /**
  * The agent service's only door (ADR-101): `POST /runs` for the API, with the run token, and
- * `GET /health` for the platform. It is never reachable from the internet (internal ingress),
+ * `GET /health` (the process is up) and `GET /ready` (it can keep threads) for the platform.
+ * It is never reachable from the internet (internal ingress),
  * and a request without the token learns nothing: not which routes exist, not whether a thread
  * does. A run answers as newline-delimited JSON, one event a line, ending with `end`.
  */
@@ -94,10 +95,16 @@ export function createAgentServer(options: AgentServerOptions): AgentServer {
 
   const server: Server = createServer((req, res) => {
     const path = (req.url ?? '').split('?')[0];
+    // Liveness: the process answers. It says nothing of the store, so a database blip never
+    // has the platform restart a service that is otherwise well.
     if (req.method === 'GET' && path === '/health') {
+      json(res, 200, { status: 'ok', running: runs.running });
+      return;
+    }
+    // Readiness: it can keep a conversation's working state, so it may be sent runs.
+    if (req.method === 'GET' && path === '/ready') {
       void options.ready().then(
-        (ok) =>
-          json(res, ok ? 200 : 503, { status: ok ? 'ok' : 'unavailable', running: runs.running }),
+        (ok) => json(res, ok ? 200 : 503, { status: ok ? 'ready' : 'unavailable' }),
         () => json(res, 503, { status: 'unavailable' }),
       );
       return;

@@ -187,3 +187,129 @@ tests:
                 A request recorded in the privacy register has not been answered in the time its
                 jurisdiction allows. Answer it, or record the refusal and its reason.
               runbook: docs/runbooks/data-rights-requests.md
+
+  - name: the assistant's failing runs raise a ticket when they are many and a large share
+    interval: 1m
+    input_series:
+      # A fifth of the runs fail: one a minute against four that answer.
+      - series: 'suskii_agent_runs_total{outcome="model_error", agent="flights", channel="web"}'
+        values: '0+1x60'
+      - series: 'suskii_agent_runs_total{outcome="answered", agent="flights", channel="web"}'
+        values: '0+3x60'
+      # A handful of failures among many answers is not an incident.
+      - series: 'suskii_agent_runs_total{outcome="timeout", agent="hotels", channel="app"}'
+        values: '0+0x60'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: AssistantRunsFailing
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: AssistantRunsFailing
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: "Many of the assistant's runs are failing"
+              description: >-
+                The model provider or the agent service is failing, and people read a notice
+                instead of an answer. Search, booking and payment do not depend on it. Pause the
+                assistant if it lasts.
+              runbook: docs/runbooks/ai-agent.md
+
+  - name: a few failed runs among many answers raise nothing
+    interval: 1m
+    input_series:
+      - series: 'suskii_agent_runs_total{outcome="timeout", agent="flights", channel="web"}'
+        values: '0+1x60'
+      - series: 'suskii_agent_runs_total{outcome="answered", agent="flights", channel="web"}'
+        values: '0+20x60'
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: AssistantRunsFailing
+        exp_alerts: []
+
+  - name: many refused answers raise a ticket, a few do not
+    interval: 1m
+    input_series:
+      - series: 'suskii_agent_runs_total{outcome="guard_blocked", agent="payments", channel="web"}'
+        values: '0+1x90'
+      - series: 'suskii_agent_runs_total{outcome="answered", agent="payments", channel="web"}'
+        values: '0+1x90'
+    alert_rule_test:
+      # Fifteen refused in the first quarter of an hour: not yet more than twenty.
+      - eval_time: 15m
+        alertname: AssistantAnswersRefused
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: AssistantAnswersRefused
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: "The guard is refusing many of the assistant's answers"
+              description: >-
+                Answers hold figures, contacts or outcomes the tools did not return, twice in a
+                row. Nothing wrong was shown, but people get a notice instead of an answer: a
+                prompt, a tool or a model has drifted. Switch the agent off or roll the prompt
+                back.
+              runbook: docs/runbooks/ai-agent.md
+
+  - name: the monthly cost alert the API told becomes a ticket naming its level
+    interval: 1m
+    input_series:
+      - series: 'suskii_agent_cost_alerts_total{level="forecast"}'
+        values: '0 0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: AssistantMonthlyCost
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: AssistantMonthlyCost
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+              level: forecast
+            exp_annotations:
+              summary: "The assistant's estimated cost this month: forecast"
+              description: >-
+                The month's estimated model spend is heading past the figure set
+                (AGENT_MONTHLY_ALERT_MICROUSD), or is past it. An estimate from token counts at
+                the configured prices, not an invoice. Nothing was paused.
+              runbook: docs/runbooks/ai-agent.md
+
+  - name: a parser drift and a budget at its cap each raise a ticket, a budget at half does not
+    interval: 1m
+    input_series:
+      - series: 'suskii_price_intel_alerts_total{kind="drift", level="opened"}'
+        values: '0 0 1 1 1'
+      - series: 'suskii_price_intel_alerts_total{kind="budget", level="50"}'
+        values: '0 1 1 1 1'
+      - series: 'suskii_price_intel_alerts_total{kind="budget", level="100"}'
+        values: '0 0 0 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PriceIntelBudgetReached
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: PriceIntelParserDrift
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: "A site's pages stopped yielding prices to its recipe"
+              description: >-
+                Reads of the site now start at the recipe's next method. A person changes the
+                recipe, or approves one the price intelligence assistant prepared from the kept
+                page.
+              runbook: docs/runbooks/price-intelligence.md
+      - eval_time: 4m
+        alertname: PriceIntelBudgetReached
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+            exp_annotations:
+              summary: 'A price intelligence budget reached its cap'
+              description: >-
+                A vendor or a site is at its daily or monthly cap and is not read again until the
+                period ends. Indicative prices there are shown as stale, or not at all.
+              runbook: docs/runbooks/price-intelligence.md

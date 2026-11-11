@@ -507,6 +507,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'AgentApproval',
       'AgentRun',
       'AgentToolCall',
+      'AgentShadowRun',
     ],
     recipients: [...hosting, 'anthropic', 'whatsapp'],
   },

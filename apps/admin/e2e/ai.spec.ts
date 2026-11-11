@@ -183,6 +183,15 @@ test('staff ask the assistant, and what it prepared for them is someone else to 
   await expect(proposal).toContainText(t('approvals.ownNote'));
   await expect(proposal.getByRole('button', { name: /^Approve/ })).toHaveCount(0);
   await expect(proposal.getByRole('button', { name: /^Reject/ })).toHaveCount(0);
+  // And a recipe for a site whose pages stopped reading: what would be saved, and that a
+  // rule worked it out from the kept page.
+  const recipe = page.getByRole('region', { name: t('approvals.kinds.source_recipe') });
+  await expect(recipe).toContainText(stack.recipeApproval.version);
+  await expect(recipe).toContainText('structured_data (Product, Hotel)');
+  await expect(recipe).toContainText(t('approvals.recipeItemsRead'));
+  await expect(recipe).toContainText(t('approvals.recipeNote'));
+  await expect(recipe).toContainText(t('approvals.ownNote'));
+  await expect(recipe.getByRole('button', { name: /^Approve/ })).toHaveCount(0);
   await expectNoAxeViolations(page);
 });
 
@@ -196,6 +205,11 @@ test('another staff member approves the proposal, and the promo code is created 
   await expect(proposal).toContainText(stack.approval.code);
   await expect(proposal).toContainText(t('approvals.percentOff', { percent: '10' }));
   await expect(page.getByText(t('approvals.quotesToVerify', { count: 1 }))).toBeVisible();
+  // Someone else's recipe for a site is theirs to read, and not to decide: operations may
+  // not change a site themselves.
+  const recipe = page.getByRole('region', { name: t('approvals.kinds.source_recipe') });
+  await expect(recipe).toContainText(t('approvals.noPermissionNote'));
+  await expect(recipe.getByRole('button', { name: /^Approve/ })).toHaveCount(0);
 
   await proposal.getByRole('button', { name: /^Approve/ }).click();
   const confirm = page.getByRole('dialog', { name: t('approvals.approve') });

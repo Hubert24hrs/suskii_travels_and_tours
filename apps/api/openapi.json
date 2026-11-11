@@ -716,7 +716,7 @@
       "post": {
         "operationId": "adminApproveAgentApproval",
         "summary": "Approve: the ordinary service carries it out as the approver",
-        "description": "A refund request is created as the approver's (it then waits for its own second approver, as every staff refund does); a promo code is created switched off. Needs the kind's own permission besides `ai:approve` (403), and someone other than the person who asked (403 `own-approval`). If the ordinary service refuses it, the proposal ends as `failed` and nothing changed. 409 `approval-decided` once it was decided or lapsed.",
+        "description": "A refund request is created as the approver's (it then waits for its own second approver, as every staff refund does); a promo code is created switched off; a recipe is saved to its site as the approver's change, unless the recipe changed since (then the proposal ends as `failed`). Needs the kind's own permission besides `ai:approve` (403), and someone other than the person who asked (403 `own-approval`). If the ordinary service refuses it, the proposal ends as `failed` and nothing changed. 409 `approval-decided` once it was decided or lapsed.",
         "tags": [
           "Admin"
         ],
@@ -1208,6 +1208,121 @@
         },
         "x-admin-permissions": [
           "ai:read"
+        ]
+      }
+    },
+    "/v1/admin/ai/evals": {
+      "get": {
+        "operationId": "adminListAgentEvals",
+        "summary": "Runs of the agent evals that staff recorded",
+        "description": "The latest run of each suite against recorded answers and against a model, and the history: counts, the ids of the cases that did not pass, the models and the commit. Never a message, an answer or a prompt.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAgentEvals"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      },
+      "post": {
+        "operationId": "adminRecordAgentEval",
+        "summary": "Record one run of an agent eval",
+        "description": "The body is the file the eval command wrote with `--json` (also the artifact of the agent eval workflow). A record is the recorder's statement that the run happened, audited as theirs; it changes nothing about how the assistant answers. The same run a second time is a 409 `eval-already-recorded`.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminAgentEvalInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAgentEval"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:manage"
+        ],
+        "x-audit": [
+          "agent.eval_recorded"
         ]
       }
     },
@@ -24381,6 +24496,52 @@
         }
       }
     },
+    "/v1/internal/agent/cost-check": {
+      "post": {
+        "operationId": "checkAgentCost",
+        "summary": "Compare the month's estimated cost of the assistant with the figure to tell at",
+        "description": "Reads this UTC month's settled cost of the assistant's runs and its forecast at the same daily rate. When a figure is set (`AGENT_MONTHLY_ALERT_MICROUSD`) and the forecast, after the first days of the month, or the spend itself reaches it, operations are told once a month per level. It pauses nothing and changes no cap.",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentCostCheck"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/bookings/expire-due": {
       "post": {
         "operationId": "expireDueBookings",
@@ -35075,6 +35236,205 @@
         ],
         "additionalProperties": false
       },
+      "AdminAgentEval": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "suite": {
+            "type": "string",
+            "enum": [
+              "routing",
+              "grounding",
+              "safety"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "recorded",
+              "live"
+            ]
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "cases": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "held": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "figures": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "failed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "commit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ranAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "suite",
+          "mode",
+          "passed",
+          "cases",
+          "held",
+          "figures",
+          "failed",
+          "models",
+          "commit",
+          "ranAt",
+          "recordedAt"
+        ],
+        "additionalProperties": false
+      },
+      "AdminAgentEvalInputInput": {
+        "type": "object",
+        "properties": {
+          "suite": {
+            "type": "string",
+            "enum": [
+              "routing",
+              "grounding",
+              "safety"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "recorded",
+              "live"
+            ]
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "cases": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "held": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "figures": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z][A-Za-z]{0,39}$"
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            }
+          },
+          "failed": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z]\\d{1,4}$"
+            }
+          },
+          "models": {
+            "default": [],
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9.-]{2,63}$"
+            }
+          },
+          "commit": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{7,40}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ranAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "suite",
+          "mode",
+          "passed",
+          "cases",
+          "held",
+          "figures",
+          "ranAt"
+        ]
+      },
+      "AdminAgentEvals": {
+        "type": "object",
+        "properties": {
+          "latest": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminAgentEval"
+            }
+          },
+          "recent": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminAgentEval"
+            }
+          }
+        },
+        "required": [
+          "latest",
+          "recent"
+        ],
+        "additionalProperties": false
+      },
       "AdminAgentLimits": {
         "type": "object",
         "properties": {
@@ -35119,6 +35479,21 @@
             "maximum": 9007199254740991
           },
           "globalDailyMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "monthlyAlertMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "shadowSamplePercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "shadowDailyMicroUsd": {
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
@@ -35193,6 +35568,9 @@
           "userDailyMicroUsd",
           "guestDailyMicroUsd",
           "globalDailyMicroUsd",
+          "monthlyAlertMicroUsd",
+          "shadowSamplePercent",
+          "shadowDailyMicroUsd",
           "confirmationMinutes",
           "approvalDays",
           "messageMax",
@@ -35640,6 +36018,103 @@
               ],
               "additionalProperties": false
             }
+          },
+          "shadow": {
+            "type": "object",
+            "properties": {
+              "candidates": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "samplePercent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "dailyCapMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "spentTodayMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "prompts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "prompt": {
+                      "type": "string"
+                    },
+                    "turns": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "compared": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "answered": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "guardBlocked": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "sameAgent": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "replayedCalls": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "missedCalls": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "costMicroUsd": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "prompt",
+                    "turns",
+                    "compared",
+                    "answered",
+                    "guardBlocked",
+                    "sameAgent",
+                    "replayedCalls",
+                    "missedCalls",
+                    "costMicroUsd"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "candidates",
+              "samplePercent",
+              "dailyCapMicroUsd",
+              "spentTodayMicroUsd",
+              "prompts"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -35654,7 +36129,8 @@
           "feedback",
           "ratings",
           "funnel",
-          "prompts"
+          "prompts",
+          "shadow"
         ],
         "additionalProperties": false
       },
@@ -42641,7 +43117,8 @@
             "type": "string",
             "enum": [
               "refund_request",
-              "promo_code"
+              "promo_code",
+              "source_recipe"
             ]
           },
           "status": {
@@ -42993,7 +43470,8 @@
                   "trip",
                   "price",
                   "link",
-                  "source"
+                  "source",
+                  "note"
                 ]
               },
               "title": {
@@ -43253,6 +43731,51 @@
           "score"
         ]
       },
+      "AgentCostCheck": {
+        "type": "object",
+        "properties": {
+          "toDateMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "forecastMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "alertAtMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "forecast",
+                  "spent"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "told": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "toDateMicroUsd",
+          "forecastMicroUsd",
+          "alertAtMicroUsd",
+          "level",
+          "told"
+        ],
+        "additionalProperties": false
+      },
       "AgentFeedbackRequestInput": {
         "type": "object",
         "properties": {
@@ -43365,7 +43888,8 @@
                     "trip",
                     "price",
                     "link",
-                    "source"
+                    "source",
+                    "note"
                   ]
                 },
                 "title": {

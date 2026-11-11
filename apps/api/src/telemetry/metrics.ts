@@ -246,6 +246,10 @@ export const agentRuns = meter.createCounter('suskii.agent.runs', {
 export const agentWhatsApp = meter.createCounter('suskii.agent.whatsapp', {
   description: 'WhatsApp messages the assistant took, by outcome',
 });
+/** What became of the shadow turns asked for (ADR-106): compared, or why not. */
+export const agentShadowTurns = meter.createCounter('suskii.agent.shadow', {
+  description: 'Shadow turns of candidate prompts, by status',
+});
 /** What the assistant's model calls cost, in millionths of a US dollar. */
 export const agentCost = meter.createCounter('suskii.agent.cost', {
   description: 'Agent model spend in micro-dollars by model',
@@ -272,6 +276,11 @@ export const agentPauses = meter.createCounter('suskii.agent.pauses', {
 /** Confirmations asked of travellers, by tool and what became of them (ADR-107). */
 export const agentConfirmations = meter.createCounter('suskii.agent.confirmations', {
   description: 'Confirmations by tool and outcome: asked, confirmed, declined, failed, expired',
+});
+
+/** Times operations were told about the month's estimated cost (ADR-106). */
+export const agentCostAlerts = meter.createCounter('suskii.agent.cost_alerts', {
+  description: 'Monthly cost alerts told, by level: forecast or spent',
 });
 
 /** What staff agents prepared, by kind and what became of it (ADR-107). */

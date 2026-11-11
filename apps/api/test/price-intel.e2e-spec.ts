@@ -448,6 +448,17 @@ describe('price intelligence (e2e)', () => {
     const job = await ctx.prisma.scrapeJob.findUniqueOrThrow({ where: { id: result.jobId ?? '' } });
     expect(job).toMatchObject({ status: 'denied', failureClass: 'policy_denied', attemptCount: 0 });
 
+    // A blocked site is not approved in one step, whatever the basis: review comes first.
+    const straight = await approve(source.id, {
+      basis: 'permission',
+      basisReference: 'Letter of 2026-11-02, file PI-2026-031',
+    });
+    expect(straight.status).toBe(409);
+    expect((straight.body as { type: string }).type).toContain('price-source-blocked');
+    expect(
+      await ctx.prisma.sourcePolicy.findUniqueOrThrow({ where: { sourceId: source.id } }),
+    ).toMatchObject({ status: 'blocked', basis: null });
+
     // Inactive is the same; review answers again, from the mock only.
     await ctx.http().post(`/v1/admin/data-sources/${source.id}/review`).set(as(admin)).expect(200);
     expect((await patch(source.id, { active: false })).body).toMatchObject({

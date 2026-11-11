@@ -4,7 +4,10 @@
 # identity can read only the secrets it uses.
 
 locals {
-  generated_secrets = ["DATABASE_URL", "DATABASE_MIGRATION_URL", "REDIS_URL", "REDIS_TLS_CA"]
+  generated_secrets = concat(
+    ["DATABASE_URL", "DATABASE_MIGRATION_URL", "REDIS_URL", "REDIS_TLS_CA"],
+    var.deploy_agent ? ["AGENT_DATABASE_URL"] : [],
+  )
   operator_secrets = [
     "JWT_PRIVATE_KEY",
     "JWT_PUBLIC_KEY",
@@ -16,15 +19,33 @@ locals {
     "OBJECT_STORAGE_ACCESS_KEY_ID",
     "OBJECT_STORAGE_SECRET_ACCESS_KEY",
   ]
-  secret_names = toset(concat(local.generated_secrets, local.operator_secrets, var.extra_secrets))
+  # What the agent service reads besides its database URL (ADR-101): the token the API presents
+  # to start a run, the token it presents to the tool gateway, and the model provider's key. The
+  # API reads the two tokens as well; it never reads the agent's database URL.
+  agent_secrets = var.deploy_agent ? ["AGENT_RUN_TOKEN", "AGENT_TOOLS_TOKEN", "LLM_API_KEY"] : []
+  secret_names = toset(concat(
+    local.generated_secrets,
+    local.operator_secrets,
+    local.agent_secrets,
+    var.extra_secrets,
+  ))
+
+  # The migrate job also sets the agent role's password, so it reads that URL too.
+  migrate_secrets = concat(["DATABASE_URL", "DATABASE_MIGRATION_URL"], var.deploy_agent ? ["AGENT_DATABASE_URL"] : [])
 
   # Which service reads which secret (environment variable of the same name, except the migrate
   # job's, run.tf). Only the migrate job can act as the schema owner.
-  secret_readers = {
-    api     = setsubtract(local.secret_names, ["DATABASE_MIGRATION_URL"])
-    worker  = toset(["REDIS_URL", "REDIS_TLS_CA", "INTERNAL_API_TOKEN"])
-    migrate = toset(["DATABASE_URL", "DATABASE_MIGRATION_URL"])
-  }
+  secret_readers = merge(
+    {
+      api     = setsubtract(local.secret_names, ["DATABASE_MIGRATION_URL", "AGENT_DATABASE_URL"])
+      worker  = toset(["REDIS_URL", "REDIS_TLS_CA", "INTERNAL_API_TOKEN"])
+      migrate = toset(local.migrate_secrets)
+    },
+    {
+      for service in local.agent_services :
+      service => toset(concat(local.agent_secrets, ["AGENT_DATABASE_URL"]))
+    },
+  )
   secret_grants = merge([
     for service, names in local.secret_readers : {
       for name in names : "${service}/${name}" => { service = service, name = name }

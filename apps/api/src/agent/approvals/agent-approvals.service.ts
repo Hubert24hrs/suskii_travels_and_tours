@@ -25,12 +25,15 @@ import { RefundsService } from '../../bookings/refunds.service';
 import { ProblemDetailsException } from '../../common/problem-details';
 import type { AgentApproval, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma.service';
+import { PriceSourcesService } from '../../price-intel/price-sources.service';
+import { recipesSchema } from '../../price-intel/recipes';
 import { ErrorReporter } from '../../telemetry/error-reporter';
 import { agentApprovals } from '../../telemetry/metrics';
 
 import {
   promoCodeProposalSchema,
   refundRequestProposalSchema,
+  sourceRecipeProposalSchema,
   type AgentApprovalDto,
 } from './agent-approvals.schemas';
 
@@ -70,6 +73,7 @@ export class AgentApprovalsService {
     private readonly prisma: PrismaService,
     private readonly refunds: RefundsService,
     private readonly promos: AdminPromosService,
+    private readonly sources: PriceSourcesService,
     private readonly audit: AuditService,
     private readonly errors: ErrorReporter,
   ) {}
@@ -289,6 +293,7 @@ export class AgentApprovalsService {
   /** The proposal as its kind's schema holds it; anything else is not a proposal. */
   private payloadOf(kind: AgentApprovalKind, payload: unknown): unknown {
     if (kind === 'refund_request') return refundRequestProposalSchema.parse(payload);
+    if (kind === 'source_recipe') return sourceRecipeProposalSchema.parse(payload);
     // Whatever was drafted, a promo code starts switched off: switching it on is a person's.
     return { ...promoCodeProposalSchema.parse(payload), active: false };
   }
@@ -315,6 +320,27 @@ export class AgentApprovalsService {
         staff,
       );
       return { type: 'refund', id: refund.id };
+    }
+    if (kind === 'source_recipe') {
+      const proposal = sourceRecipeProposalSchema.parse(payload);
+      const source = await this.sources.get(proposal.sourceId);
+      const recipes = recipesSchema.catch({}).parse(source.recipes);
+      // Someone changed the recipe since: what was proposed no longer fits what is there.
+      if (recipes[proposal.product]?.version !== proposal.replaces) {
+        throw problem(
+          HttpStatus.CONFLICT,
+          'recipe-changed',
+          'The recipe changed since this was proposed',
+        );
+      }
+      // The approver's own change to the site, by the ordinary service: audited as theirs,
+      // and the drift incident closes as it does when a person saves a recipe.
+      await this.sources.update(
+        proposal.sourceId,
+        { recipes: { ...recipes, [proposal.product]: proposal.recipe } },
+        staff,
+      );
+      return { type: 'price_source', id: proposal.sourceId };
     }
     const proposal = promoCodeProposalSchema.parse(payload);
     const promo = await this.promos.create({ ...proposal, active: false }, staff);

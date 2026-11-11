@@ -63,3 +63,22 @@ API under concurrent load.
   staging run (phase 12).
 - Rate limits are off in the load stack, so the test says nothing about how the limits behave
   under load. The rate-limit e2e tests cover that.
+
+## Amendment: a conversation with the assistant (Suskii Agent, sub-phase H)
+
+A third open-model scenario, **chat**, one message a second (scaled by `LOAD_SCALE`, never below
+one; `LOAD_CHAT=off` leaves it out): a guest starts a conversation (Turnstile mock token), sends a message
+(`POST /v1/agent/chat`, 202) and polls the run until it has ended. It runs only when
+`GET /v1/agent/status` says the assistant is available.
+
+- Thresholds: `http_req_duration{kind:chat}` p95 under 300 ms (our own routes), and `chat_answer`
+  (from the message to the ended run) p95 under 3 s.
+- The e2e stack answers with the mock inside the API (`AGENT_SERVICE=mock`), so the figures are
+  the chat routes, the run's records, its events in Redis and the spend reservation. They say
+  nothing about a model's speed or the agent service's: a real answer takes as long as its model
+  calls, which the run's own limits bound (10 model turns, 2 minutes; ADR-106).
+- Every guest of a load test writes from one address, so the load stack lifts the assistant's
+  spend cap per guest address (`E2E_AGENT_GUEST_DAILY_MICROUSD`), as it switches the per-address
+  rate limits off. The caps have their own tests.
+- Local result at half the CI rates for 30 s, beside the browse and book scenarios: chat routes
+  p95 36 ms, `chat_answer` p95 143 ms, no failed request, 521 of 521 checks.

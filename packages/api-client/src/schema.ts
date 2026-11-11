@@ -211,7 +211,7 @@ export interface paths {
         put?: never;
         /**
          * Approve: the ordinary service carries it out as the approver
-         * @description A refund request is created as the approver's (it then waits for its own second approver, as every staff refund does); a promo code is created switched off. Needs the kind's own permission besides `ai:approve` (403), and someone other than the person who asked (403 `own-approval`). If the ordinary service refuses it, the proposal ends as `failed` and nothing changed. 409 `approval-decided` once it was decided or lapsed.
+         * @description A refund request is created as the approver's (it then waits for its own second approver, as every staff refund does); a promo code is created switched off; a recipe is saved to its site as the approver's change, unless the recipe changed since (then the proposal ends as `failed`). Needs the kind's own permission besides `ai:approve` (403), and someone other than the person who asked (403 `own-approval`). If the ordinary service refuses it, the proposal ends as `failed` and nothing changed. 409 `approval-decided` once it was decided or lapsed.
          */
         post: operations["adminApproveAgentApproval"];
         delete?: never;
@@ -328,6 +328,30 @@ export interface paths {
         get: operations["adminGetAgentCost"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/evals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Runs of the agent evals that staff recorded
+         * @description The latest run of each suite against recorded answers and against a model, and the history: counts, the ids of the cases that did not pass, the models and the commit. Never a message, an answer or a prompt.
+         */
+        get: operations["adminListAgentEvals"];
+        put?: never;
+        /**
+         * Record one run of an agent eval
+         * @description The body is the file the eval command wrote with `--json` (also the artifact of the agent eval workflow). A record is the recorder's statement that the run happened, audited as theirs; it changes nothing about how the assistant answers. The same run a second time is a 409 `eval-already-recorded`.
+         */
+        post: operations["adminRecordAgentEval"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5553,6 +5577,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/agent/cost-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare the month's estimated cost of the assistant with the figure to tell at
+         * @description Reads this UTC month's settled cost of the assistant's runs and its forecast at the same daily rate. When a figure is set (`AGENT_MONTHLY_ALERT_MICROUSD`) and the forecast, after the first days of the month, or the spend itself reaches it, operations are told once a month per level. It pauses nothing and changes no cap.
+         */
+        post: operations["checkAgentCost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/bookings/expire-due": {
         parameters: {
             query?: never;
@@ -8361,6 +8405,51 @@ export interface components {
                 guestDailyMicroUsd: number;
             };
         };
+        AdminAgentEval: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            suite: "routing" | "grounding" | "safety";
+            /** @enum {string} */
+            mode: "recorded" | "live";
+            passed: boolean;
+            cases: number;
+            held: number;
+            figures: {
+                [key: string]: number;
+            };
+            failed: string[];
+            models: string[];
+            commit: string | null;
+            /** Format: date-time */
+            ranAt: string;
+            /** Format: date-time */
+            recordedAt: string;
+        };
+        AdminAgentEvalInputInput: {
+            /** @enum {string} */
+            suite: "routing" | "grounding" | "safety";
+            /** @enum {string} */
+            mode: "recorded" | "live";
+            passed: boolean;
+            cases: number;
+            held: number;
+            figures: {
+                [key: string]: number;
+            };
+            /** @default [] */
+            failed?: string[];
+            /** @default [] */
+            models?: string[];
+            /** @default null */
+            commit?: string | null;
+            /** Format: date-time */
+            ranAt: string;
+        };
+        AdminAgentEvals: {
+            latest: components["schemas"]["AdminAgentEval"][];
+            recent: components["schemas"]["AdminAgentEval"][];
+        };
         AdminAgentLimits: {
             runMaxSteps: number;
             runMaxToolCalls: number;
@@ -8371,6 +8460,9 @@ export interface components {
             userDailyMicroUsd: number;
             guestDailyMicroUsd: number;
             globalDailyMicroUsd: number;
+            monthlyAlertMicroUsd: number;
+            shadowSamplePercent: number;
+            shadowDailyMicroUsd: number;
             confirmationMinutes: number;
             approvalDays: number;
             messageMax: number;
@@ -8457,6 +8549,23 @@ export interface components {
                 up: number;
                 down: number;
             }[];
+            shadow: {
+                candidates: string[];
+                samplePercent: number;
+                dailyCapMicroUsd: number;
+                spentTodayMicroUsd: number;
+                prompts: {
+                    prompt: string;
+                    turns: number;
+                    compared: number;
+                    answered: number;
+                    guardBlocked: number;
+                    sameAgent: number;
+                    replayedCalls: number;
+                    missedCalls: number;
+                    costMicroUsd: number;
+                }[];
+            };
         };
         AdminAgentRun: {
             /** Format: uuid */
@@ -9775,7 +9884,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "refund_request" | "promo_code";
+            kind: "refund_request" | "promo_code" | "source_recipe";
             /** @enum {string} */
             status: "pending" | "approved" | "rejected" | "expired" | "failed";
             /** @enum {string} */
@@ -9847,7 +9956,7 @@ export interface components {
             reason: ("disabled" | "paused" | "grant" | "unknown_tool" | "agent" | "scope" | "autonomy" | "confirmation_required" | "limit" | "invalid" | "not_found" | "refused" | "failed" | "timeout") | null;
             card: {
                 /** @enum {string} */
-                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source";
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source" | "note";
                 title: string;
                 lines: string[];
                 /** @default [] */
@@ -9902,6 +10011,13 @@ export interface components {
         AgentConversationRatingInput: {
             score: number;
         };
+        AgentCostCheck: {
+            toDateMicroUsd: number;
+            forecastMicroUsd: number;
+            alertAtMicroUsd: number;
+            level: ("forecast" | "spent") | null;
+            told: boolean;
+        };
         AgentFeedbackRequestInput: {
             feedback: ("up" | "down") | null;
         };
@@ -9917,7 +10033,7 @@ export interface components {
             notice: ("greeting" | "cannot_answer" | "limit" | "timeout" | "unavailable" | "paused") | null;
             cards: {
                 /** @enum {string} */
-                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source";
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source" | "note";
                 title: string;
                 lines: string[];
                 price?: {
@@ -16369,6 +16485,67 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListAgentEvals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentEvals"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRecordAgentEval: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminAgentEvalInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentEval"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -26642,6 +26819,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentToolAnswer"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    checkAgentCost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentCostCheck"];
                 };
             };
             400: components["responses"]["Problem400"];

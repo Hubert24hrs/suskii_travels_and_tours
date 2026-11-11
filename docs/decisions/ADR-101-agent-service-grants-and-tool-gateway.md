@@ -139,3 +139,29 @@ assistant. Search, checkout, payment and the console never call the agent servic
 - **Off means absent.** With the assistant off, `/assistant` and `/assistant/preferences`
   answer 404 and nothing links to them; the app shows no entry. The website's assistant,
   search and booking suites run in CI on a stack started without it (`E2E_AGENT=off`).
+- **Delivery, built and not applied** (sub-phase H). The agent service has its own image
+  (`apps/agent/Dockerfile`, as the worker's: pruned workspace, production dependencies only,
+  the `node` user, a read-only root file system). `/health` says the process is up and
+  `/ready` that it can keep threads; the image's health check and the platform's startup
+  probe use `/ready`, the liveness probe `/health`, so a database blip never restarts it.
+- **On Cloud Run** (`deploy_agent` in Terraform) it is a service with internal ingress only,
+  no load balancer backend, its own identity, its own database URL written by Terraform, and
+  the secrets it reads and no others (its two tokens, the model provider's key). The invoker
+  IAM check is off: the API presents the run token, as the worker presents its own to the
+  API's internal routes, and only traffic from the VPC arrives at all. An IAM-checked hop
+  (the API sending a Google identity token) would be stronger and is not built: it puts
+  cloud-specific code in the API's client. The operator copies the service's address into
+  `AGENT_URL`; Terraform does not derive it, because the API and the agent each need the
+  other's address and two services cannot wait for each other.
+- **Its secrets are its own.** In the compose rehearsal the agent service is given a file
+  with its two tokens and none of the API's keys. `keys:generate` prints the two tokens.
+- **The rehearsal proves the wiring, not a conversation.** The compose release rehearsal has
+  the database step create the agent's role, waits until the service is ready (its role
+  reads its checkpoint tables), and checks each door from the inside: the run door answers
+  the run token (400 for a request that is not a run) and does not exist for any other token
+  (404); the tool gateway lists its tools to the tools token and refuses the run token and
+  no token (401). A whole conversation through the real service is the API's
+  `agent-service.e2e-spec.ts`; a guest's chat in the rehearsal would have called Cloudflare's
+  Turnstile, which that stack verifies for real.
+- **The Helm chart** carries the service as an optional component (`agent.enabled`), with a
+  network policy that lets in the API only. The kind rehearsal does not include it.

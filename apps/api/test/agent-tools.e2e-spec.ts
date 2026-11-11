@@ -190,7 +190,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the tools with their tiers: five prepare something, six ask for a tap, and the staff tools are staff only', async () => {
+  it('ships the tools with their tiers: six prepare something, six ask for a tap, and the staff tools are staff only', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -234,7 +234,9 @@ describe('customer agent tools (e2e)', () => {
       'quotes.list',
       'quotes.request',
       'reports.sales',
+      'sources.drifting',
       'sources.overview',
+      'sources.propose_recipe',
       'support.faqs',
       'support.handover',
       'tours.search',
@@ -247,6 +249,7 @@ describe('customer agent tools (e2e)', () => {
       'finance.draft_refund_request',
       'marketing.draft_promo',
       'quotes.request',
+      'sources.propose_recipe',
       'support.handover',
       'trips.plan',
     ]);
@@ -278,7 +281,7 @@ describe('customer agent tools (e2e)', () => {
       ]);
       expect([tool.name, tool.tier === 'commit']).toEqual([tool.name, false]);
     }
-    expect(tools.filter((tool) => staffTools.test(tool.name))).toHaveLength(8);
+    expect(tools.filter((tool) => staffTools.test(tool.name))).toHaveLength(10);
     // Every customer agent can bring in a person.
     const handover = tools.find((tool) => tool.name === 'support.handover');
     expect(handover?.agents).toHaveLength(10);
@@ -623,6 +626,12 @@ describe('customer agent tools (e2e)', () => {
       serviceFeePerApplicant: ngn(80_000),
     });
     expect(known.result?.cards?.[0]?.href).toBe('/visa/uk-visitor-tools');
+    // A rule on file is guidance: the note goes with it whatever the model writes (ADR-107).
+    expect(known.result?.cards?.at(-1)).toEqual({
+      kind: 'note',
+      title: 'visa_guidance',
+      lines: [],
+    });
     // No rule on file is said as such, never guessed.
     const unknown = await call<{ requirement: string }>(
       'visa.requirements',
@@ -631,6 +640,7 @@ describe('customer agent tools (e2e)', () => {
       grant,
     );
     expect(unknown.result?.requirement).toBe('unknown');
+    expect(unknown.result?.cards).toEqual([{ kind: 'note', title: 'visa_guidance', lines: [] }]);
     expect(
       await call('visa.requirements', 'tours', { nationality: 'NG', destination: 'NG' }, grant),
     ).toMatchObject({ status: 'denied', reason: 'invalid' });

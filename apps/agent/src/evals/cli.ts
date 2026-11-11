@@ -5,6 +5,10 @@
  *   pnpm --filter @suskii/agent eval:agent-grounding [--recorded]
  *   pnpm --filter @suskii/agent eval:agent-safety    [--recorded]
  *
+ * `--json <file>` also writes the result as the console takes it (Assistant cost and quality,
+ * Evaluations): counts, the ids of the cases that did not pass, the models and, with
+ * `--commit <sha>` or GITHUB_SHA, the commit. Never a message or an answer.
+ *
  * With `--recorded` the model turns come from the fixtures: the graph, the guard and the grader
  * are checked and no model is called (CI runs this as unit tests). Without it the configured
  * model plays the part under evaluation: set LLM_API_KEY, and AGENT_MODEL_ROUTER or
@@ -12,9 +16,10 @@
  * the tokens used, priced by AGENT_MODEL_PRICES in the API's settings. No eval reaches the API,
  * a database or a traveller's data: tool results are fixtures.
  */
+import { writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 
-import type { AgentModelUsage } from '@suskii/shared';
+import { agentEvalResultSchema, type AgentEvalResult, type AgentModelUsage } from '@suskii/shared';
 import { z } from 'zod';
 
 import { AnthropicAgentModel } from '../model/anthropic-model.js';
@@ -79,7 +84,10 @@ function printUsage(usage: Map<string, AgentModelUsage>, recorded: boolean): voi
   }
 }
 
-async function routing(live: LiveModel | undefined): Promise<boolean> {
+/** What a suite came to: whether it passed, and what the console is told of it. */
+type Outcome = Pick<AgentEvalResult, 'passed' | 'cases' | 'held' | 'figures' | 'failed'>;
+
+async function routing(live: LiveModel | undefined): Promise<Outcome> {
   const cases = loadRoutingSuite();
   const { results, usage } = await runRoutingEval(cases, live);
   for (const result of results) {
@@ -95,10 +103,20 @@ async function routing(live: LiveModel | undefined): Promise<boolean> {
   out(
     `routed ${summary.passed}/${results.length} (${percent(summary.rate)}), pass mark ${percent(ROUTING_PASS_RATE)}; ${summary.byRule} by rule without a model call`,
   );
-  return summary.ok;
+  return {
+    passed: summary.ok,
+    cases: results.length,
+    held: summary.passed,
+    figures: {
+      routed: summary.passed,
+      byRule: summary.byRule,
+      passMarkPercent: Math.round(ROUTING_PASS_RATE * 100),
+    },
+    failed: results.filter((result) => !result.passed).map((result) => result.id),
+  };
 }
 
-async function grounding(live: LiveModel | undefined): Promise<boolean> {
+async function grounding(live: LiveModel | undefined): Promise<Outcome> {
   const cases = loadGroundingSuite();
   const { results, usage } = await runGroundingEval(cases, live);
   for (const result of results) {
@@ -117,10 +135,23 @@ async function grounding(live: LiveModel | undefined): Promise<boolean> {
   out(
     `inventions shown ${summary.invented} (must be 0); grounded answers shown ${summary.groundedPassed}/${summary.grounded} (${percent(summary.rate)}), pass mark ${percent(GROUNDED_PASS_RATE)}`,
   );
-  return summary.ok;
+  // A case passes when nothing invented was shown and, if it was grounded, its answer was.
+  const failed = results.filter((result) => result.invented.length > 0 || !result.passed);
+  return {
+    passed: summary.ok,
+    cases: results.length,
+    held: results.length - failed.length,
+    figures: {
+      inventionsShown: summary.invented,
+      grounded: summary.grounded,
+      groundedShown: summary.groundedPassed,
+      passMarkPercent: Math.round(GROUNDED_PASS_RATE * 100),
+    },
+    failed: failed.map((result) => result.id),
+  };
 }
 
-async function safety(live: LiveModel | undefined): Promise<boolean> {
+async function safety(live: LiveModel | undefined): Promise<Outcome> {
   const cases = loadSafetySuite();
   const { results, usage } = await runSafetyEval(cases, live);
   for (const result of results) {
@@ -136,12 +167,22 @@ async function safety(live: LiveModel | undefined): Promise<boolean> {
   out();
   printUsage(usage, !live);
   out(`held ${summary.held}/${results.length}; violations ${summary.violations} (must be 0)`);
-  return summary.ok;
+  return {
+    passed: summary.ok,
+    cases: results.length,
+    held: summary.held,
+    figures: { violations: summary.violations },
+    failed: results.filter((result) => result.violations.length > 0).map((result) => result.id),
+  };
 }
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
-    options: { recorded: { type: 'boolean', default: false } },
+    options: {
+      recorded: { type: 'boolean', default: false },
+      json: { type: 'string' },
+      commit: { type: 'string' },
+    },
     allowPositionals: true,
   });
   const suite = positionals[0];
@@ -149,15 +190,29 @@ async function main(): Promise<void> {
     throw new Error(`Name the eval to run: ${SUITES.join(', ')}.`);
   }
   const live = values.recorded ? undefined : liveModel();
-  const run: Record<Suite, (model: LiveModel | undefined) => Promise<boolean>> = {
+  const run: Record<Suite, (model: LiveModel | undefined) => Promise<Outcome>> = {
     routing,
     grounding,
     safety,
   };
   out(`agent ${suite ?? ''} eval`);
-  const ok = await run[suite as Suite](live);
-  out(ok ? 'PASSED' : 'FAILED');
-  process.exitCode = ok ? 0 : 1;
+  const outcome = await run[suite as Suite](live);
+  if (values.json) {
+    // The part a suite puts under evaluation: the router for routing, the specialist otherwise.
+    const models = live ? [suite === 'routing' ? live.names.router : live.names.specialist] : [];
+    const result = agentEvalResultSchema.parse({
+      suite,
+      mode: live ? 'live' : 'recorded',
+      ...outcome,
+      models,
+      commit: (values.commit ?? process.env.GITHUB_SHA ?? '').toLowerCase() || null,
+      ranAt: new Date().toISOString(),
+    });
+    writeFileSync(values.json, `${JSON.stringify(result, null, 2)}\n`);
+    out(`result written to ${values.json}`);
+  }
+  out(outcome.passed ? 'PASSED' : 'FAILED');
+  process.exitCode = outcome.passed ? 0 : 1;
 }
 
 main().catch((error: unknown) => {

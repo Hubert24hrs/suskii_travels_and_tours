@@ -14,7 +14,7 @@ import { CompaniesService, presentPolicy } from '../../companies/companies.servi
 import { DealsService } from '../../deals/deals.service';
 import { agentTool, AgentToolError, AgentToolRegistry } from '../agent-tool';
 
-import { AgentToolCallers, card, cardsOut, guarded, moneyOut } from './tool-support';
+import { AgentToolCallers, card, cardsOut, guarded, moneyOut, note } from './tool-support';
 
 /** What a fare trend is and is not, said with every one (ADR-080). */
 export const FARE_TREND_BASIS =
@@ -112,7 +112,10 @@ export class PlanningTools implements OnModuleInit {
           const page = card('link', `${input.origin} → ${input.destination}`, [], {
             href: `/flights/${found.slug}`,
           });
-          if (!facts) return { ...none, followed: true, cards: page };
+          // Whatever is said about this route's fares is read with the note: a trend, never
+          // a forecast, in the traveller's language and whatever the model wrote.
+          const cards = [...page, ...note('fare_trend')];
+          if (!facts) return { ...none, followed: true, cards };
           const compared: 'lower' | 'higher' | 'steady' | 'unknown' = found.trend ?? 'unknown';
           return {
             followed: true,
@@ -126,7 +129,7 @@ export class PlanningTools implements OnModuleInit {
             usuallyCheapestMonth:
               facts.cheapestMonth === null ? null : (MONTHS[facts.cheapestMonth - 1] ?? null),
             basis: FARE_TREND_BASIS,
-            cards: page,
+            cards,
           };
         },
       }),
@@ -172,7 +175,10 @@ export class PlanningTools implements OnModuleInit {
             passportsRunOutByArrival: of('expired'),
             monthsOfValidityAsked: PASSPORT_VALIDITY_MONTHS,
             reminder: PASSPORT_REMINDER,
-            cards: card('link', 'Travellers', [], { href: '/account/travellers' }),
+            cards: [
+              ...card('link', 'Travellers', [], { href: '/account/travellers' }),
+              ...note('passport_reminder'),
+            ],
           };
         },
       }),

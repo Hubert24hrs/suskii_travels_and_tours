@@ -2,8 +2,9 @@ name: Infrastructure
 
 # Checks the deployment code without any cloud account (ADR-059, ADR-060): Terraform format,
 # validation and lint; the Helm chart's lint and schema check; and the two release rehearsals on
-# images built from this commit (compose: deploy, ops command, broken release refused, rollback;
-# kind: Helm install, broken upgrade rolled back by --atomic, manual rollback). Tools are pinned:
+# images built from this commit (compose: deploy with the agent service and its two doors, ops
+# command, broken release refused, rollback; kind: Helm install, broken upgrade rolled back by
+# --atomic, manual rollback). Tools are pinned:
 # Terraform by version and SHA-256, the Go tools through the Go checksum database.
 on:
   pull_request:
@@ -107,6 +108,12 @@ jobs:
               --kube-version "$KUBERNETES_VERSION" -f "$values" |
               kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION"
           done
+          # The agent service is optional (agent.enabled): the chart is checked with it as well.
+          agent=(-f infra/helm/suskii/ci/rehearsal-values.yaml -f infra/helm/suskii/ci/agent-values.yaml)
+          helm lint infra/helm/suskii --strict --kube-version "$KUBERNETES_VERSION" "${agent[@]}"
+          helm template suskii infra/helm/suskii --namespace suskii \
+            --kube-version "$KUBERNETES_VERSION" "${agent[@]}" |
+            kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION"
           kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION" \
             infra/helm/rehearsal/data-services.yaml
 
@@ -139,6 +146,7 @@ jobs:
           docker build -f apps/api/Dockerfile --target runtime -t suskii-api:local .
           docker build -f apps/api/Dockerfile --target migrate -t suskii-api-migrate:local .
           docker build -f apps/worker/Dockerfile -t suskii-worker:local .
+          docker build -f apps/agent/Dockerfile -t suskii-agent:local .
           docker build -f apps/web/Dockerfile -t suskii-web:local .
           docker build -f apps/admin/Dockerfile -t suskii-admin:local .
       - name: Compose rehearsal (deploy, ops command, broken release, rollback)

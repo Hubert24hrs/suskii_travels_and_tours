@@ -33,3 +33,7 @@ output "services" {
 output "api_internal_url" {
   value = module.platform.api_internal_url
 }
+
+output "agent_internal_url" {
+  value = module.platform.agent_internal_url
+}

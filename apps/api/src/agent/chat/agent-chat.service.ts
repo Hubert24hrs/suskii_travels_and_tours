@@ -41,6 +41,7 @@ import { AgentFlags } from '../agent-flags';
 import { AgentGrants } from '../agent-grants';
 import { AgentPause } from '../agent-pause';
 import { AgentSettingsService } from '../agent-settings.service';
+import { AgentShadows, type ShadowPlan } from '../shadow/agent-shadows.service';
 
 import type { AgentMessageDto, AgentStreamEvent } from './agent-chat.schemas';
 import { AGENT_CLIENT, AgentClient, failedRun } from './agent-client';
@@ -108,6 +109,7 @@ export class AgentChatService {
     private readonly pause: AgentPause,
     private readonly settings: AgentSettingsService,
     private readonly budget: AgentBudget,
+    private readonly shadows: AgentShadows,
     private readonly grants: AgentGrants,
     private readonly log: AgentRunLog,
     private readonly background: BackgroundTasks,
@@ -242,6 +244,13 @@ export class AgentChatService {
     }
 
     const { runId, reservation } = await this.begin(conversation, payer);
+    // Read before the run is opened, which closes a turn that waited for a tap: a message
+    // written instead of the tap continues that turn (ADR-107).
+    const continuesWaitingTurn =
+      this.shadows.configured &&
+      (await this.prisma.agentRun
+        .count({ where: { conversationId: conversation.id, status: 'waiting' } })
+        .catch(() => 1)) > 0;
 
     const messageId = uuidv7();
     const now = new Date();
@@ -278,15 +287,20 @@ export class AgentChatService {
 
     // The model never gets what the traveller wrote: only a copy without contact details
     // and document-like numbers (ADR-105).
-    const request = this.request(
-      runId,
-      conversation,
-      { kind: 'message', text: scrubQuery(text) || SCRUBBED_AWAY },
-      roles,
-      now,
-      await this.settings.disabledAgents(),
+    const input: AgentRunRequest['input'] = {
+      kind: 'message',
+      text: scrubQuery(text) || SCRUBBED_AWAY,
+    };
+    // For a share of turns, candidate prompts are tried after the answer went out (ADR-106).
+    // Planning one must never cost the traveller their answer.
+    const shadow = await this.shadows.plan(input, continuesWaitingTurn).catch(() => null);
+    const request: AgentRunRequest = {
+      ...this.request(runId, conversation, input, roles, now, await this.settings.disabledAgents()),
+      ...(shadow ? { shadow: { prompts: shadow.prompts } } : {}),
+    };
+    this.background.run('agent-run', () =>
+      this.execute(request, conversation, reservation, ended, shadow ?? undefined),
     );
-    this.background.run('agent-run', () => this.execute(request, conversation, reservation, ended));
     return { runId, message: this.conversations.message(stored) };
   }
 
@@ -522,23 +536,73 @@ export class AgentChatService {
     };
   }
 
-  /** Runs the request against the agent service and stores what came of it. */
+  /**
+   * Runs the request against the agent service and stores what came of it. The run is settled
+   * the moment its `end` arrives: the answer is stored, the conversation is free again and a
+   * waiting caller is told. When a shadow turn was asked for (ADR-106) the stream is then read
+   * on, in the same background task, for the one line about it; nobody waits for that.
+   */
   private async execute(
     request: AgentRunRequest,
     conversation: AgentConversation,
     reservation: BudgetReservation,
     ended?: (result: AgentRunResult) => void,
+    shadow?: ShadowPlan,
   ): Promise<void> {
     const started = Date.now();
-    let end: AgentRunEnd | null = null;
-    // What a waiting caller is told when the answer could not be stored.
-    let result: AgentRunResult = { outcome: 'failed', message: null };
+    const limit = this.config.AGENT_RUN_TIMEOUT_MS + 5000;
+    const controller = new AbortController();
+    let timer = setTimeout(() => controller.abort(), limit);
+    let live: AgentRunEnd | null = null;
+    let reported = false;
+    // An answer that could not be stored is reported by the background runner, after the
+    // stream has been read to its end.
+    let failure: unknown = null;
+
+    const settle = async (end: AgentRunEnd): Promise<void> => {
+      if (live) return;
+      live = end;
+      // What a waiting caller is told when the answer could not be stored.
+      let result: AgentRunResult = { outcome: 'failed', message: null };
+      try {
+        const message = await this.finalize(request, conversation, end, reservation, started);
+        result = { outcome: end.outcome, message };
+      } catch (error) {
+        // The answer could not be stored. The run is closed without one, so the conversation
+        // does not look busy until the time limit; its reservation stands, since the model may
+        // have been billed.
+        failure = error;
+        await this.prisma.agentRun
+          .updateMany({
+            where: { id: request.runId, status: 'running' },
+            data: { status: 'failed', outcome: 'failed', finishedAt: new Date() },
+          })
+          .catch(() => undefined);
+        await this.log
+          .append(request.runId, { type: 'done', outcome: 'failed', confirmationId: null })
+          .catch(() => undefined);
+      } finally {
+        await this.release(conversation.id, request.runId);
+        ended?.(result);
+      }
+    };
+
     try {
       await this.client.run(
         request,
         async (event) => {
           if (event.type === 'end') {
-            end = event;
+            await settle(event);
+            // The traveller's turn is over; a shadow turn gets a window of its own.
+            clearTimeout(timer);
+            timer = setTimeout(() => controller.abort(), limit);
+            return;
+          }
+          if (event.type === 'shadow') {
+            if (shadow && live && !reported) {
+              reported = true;
+              await this.shadows.record(request.runId, live, event, shadow);
+            }
             return;
           }
           const status: AgentStreamEvent = {
@@ -549,36 +613,22 @@ export class AgentChatService {
           };
           await this.log.append(request.runId, status).catch(() => undefined);
         },
-        AbortSignal.timeout(this.config.AGENT_RUN_TIMEOUT_MS + 5000),
+        controller.signal,
       );
     } catch (error) {
       this.logger.warn(
         { runId: request.runId, error: error instanceof Error ? error.name : 'unknown' },
         'agent run could not be carried out',
       );
-    }
-    try {
-      const finished: AgentRunEnd = end ?? failedRun();
-      const message = await this.finalize(request, conversation, finished, reservation, started);
-      result = { outcome: finished.outcome, message };
-    } catch (error) {
-      // The answer could not be stored. The run is closed without one, so the conversation does
-      // not look busy until the time limit; its reservation stands, since the model may have
-      // been billed. The failure itself is reported by the background runner.
-      await this.prisma.agentRun
-        .updateMany({
-          where: { id: request.runId, status: 'running' },
-          data: { status: 'failed', outcome: 'failed', finishedAt: new Date() },
-        })
-        .catch(() => undefined);
-      await this.log
-        .append(request.runId, { type: 'done', outcome: 'failed', confirmationId: null })
-        .catch(() => undefined);
-      throw error;
     } finally {
-      await this.release(conversation.id, request.runId);
-      ended?.(result);
+      clearTimeout(timer);
     }
+    if (!live) await settle(failedRun());
+    if (shadow && !reported) {
+      const outcome = (live as AgentRunEnd | null)?.outcome ?? null;
+      await this.shadows.unreported(shadow, outcome).catch(() => undefined);
+    }
+    if (failure) throw failure instanceof Error ? failure : new Error('agent run failed');
   }
 
   /** Closes the run and stores what the traveller gets; returns that message, if any. */

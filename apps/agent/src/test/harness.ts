@@ -9,6 +9,7 @@ import { pino } from 'pino';
 
 import { AgentModelFactory } from '../model/factory.js';
 import { MockAgentModel, type MockScript } from '../model/mock-model.js';
+import { type Prompt } from '../prompts/prompts.js';
 import { RunService } from '../runs.js';
 import {
   ToolGateway,
@@ -111,7 +112,11 @@ export const request = (over: Partial<AgentRunRequest> = {}): AgentRunRequest =>
 export function harness(
   tools: ToolDescription[] = [],
   handlers: Record<string, ToolHandler> = {},
-  options: { maxConcurrentRuns?: number } = {},
+  options: {
+    maxConcurrentRuns?: number;
+    candidates?: readonly Prompt[];
+    maxConcurrentShadows?: number;
+  } = {},
 ): Harness {
   const model = new MockAgentModel();
   const gateway = new FakeGateway(tools, handlers);
@@ -127,6 +132,10 @@ export function harness(
     logger: pino({ level: 'silent' }),
     maxConcurrentRuns: options.maxConcurrentRuns ?? 5,
     toolTimeoutMs: 2000,
+    ...(options.candidates ? { candidates: options.candidates } : {}),
+    ...(options.maxConcurrentShadows === undefined
+      ? {}
+      : { maxConcurrentShadows: options.maxConcurrentShadows }),
   });
   const run = async (
     body: AgentRunRequest,
@@ -138,7 +147,14 @@ export function harness(
     await service.run(body, (event) => events.push(event), signal);
     const ends = events.filter((event): event is AgentRunEnd => event.type === 'end');
     const [end] = ends;
-    if (!end || ends.length !== 1 || events.at(-1)?.type !== 'end') {
+    // One `end`, and after it nothing but, at most, the one line about a shadow turn.
+    const after = events.slice(events.findIndex((event) => event.type === 'end') + 1);
+    if (
+      !end ||
+      ends.length !== 1 ||
+      after.length > 1 ||
+      after.some((event) => event.type !== 'shadow')
+    ) {
       throw new Error(`a run must end exactly once, last: got ${ends.length}`);
     }
     return { end, events };

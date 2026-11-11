@@ -3,13 +3,18 @@ import { z } from 'zod';
 import {
   AGENT_AUDIENCES,
   AGENT_CHANNELS,
+  AGENT_EVAL_MODES,
+  AGENT_EVAL_SUITES,
   AGENT_MESSAGE_KINDS,
   AGENT_NAMES,
   AGENT_NOTICES,
   AGENT_TOOL_TIERS,
+  agentEvalResultSchema,
 } from '@suskii/shared';
 
 import { named } from '../../contract/contract';
+
+import { COST_ALERT_LEVELS } from './agent-cost';
 
 const timestamp = z.iso.datetime();
 const uuid = z.uuid();
@@ -242,6 +247,33 @@ export const adminAgentQualitySchema = named(
         down: count,
       }),
     ),
+    shadow: z
+      .object({
+        /** The candidates named in the settings, and the share of turns they are tried on. */
+        candidates: z.array(z.string()),
+        samplePercent: count,
+        dailyCapMicroUsd: microUsd,
+        spentTodayMicroUsd: microUsd,
+        prompts: z.array(
+          z.object({
+            prompt: z.string(),
+            /** Turns it was asked for on, and those it actually took part in. */
+            turns: count,
+            compared: count,
+            answered: count,
+            guardBlocked: count,
+            /** Compared turns that ended with the agent that answered the traveller. */
+            sameAgent: count,
+            replayedCalls: count,
+            missedCalls: count,
+            costMicroUsd: microUsd,
+          }),
+        ),
+      })
+      .meta({
+        description:
+          'Candidate prompt versions tried in the shadow of travellers’ turns (ADR-106). Every turn they were tried on was answered by the live prompt, so `answered` out of `compared` is how the candidate did where the live one succeeded. A candidate answers nobody: what it wrote is never kept. Costs are estimates.',
+      }),
   }),
 );
 export type AdminAgentQuality = z.infer<typeof adminAgentQualitySchema>;
@@ -260,6 +292,10 @@ export const adminAgentLimitsSchema = named(
     userDailyMicroUsd: microUsd,
     guestDailyMicroUsd: microUsd,
     globalDailyMicroUsd: microUsd,
+    /** The month's estimated cost at which operations are told; 0 when none is set. */
+    monthlyAlertMicroUsd: microUsd,
+    shadowSamplePercent: count,
+    shadowDailyMicroUsd: microUsd,
     confirmationMinutes: count,
     approvalDays: count,
     messageMax: count,
@@ -290,3 +326,56 @@ export const adminAgentSwitchSchema = named(
   'AdminAgentSwitch',
   z.object({ agent: z.enum(AGENT_NAMES), enabled: z.boolean() }),
 );
+
+// --- The month's cost against the figure operations are told at (ADR-106) -----------------------
+
+export const agentCostCheckSchema = named(
+  'AgentCostCheck',
+  z.object({
+    toDateMicroUsd: microUsd,
+    forecastMicroUsd: microUsd,
+    /** 0 when no figure is set. */
+    alertAtMicroUsd: microUsd,
+    /** What the month calls for: nothing, a forecast past the figure, or spend past it. */
+    level: z.enum(COST_ALERT_LEVELS).nullable(),
+    /** True when this check told operations; an alert is told once a month per level. */
+    told: z.boolean(),
+  }),
+);
+export type AgentCostCheck = z.infer<typeof agentCostCheckSchema>;
+
+// --- Eval runs staff recorded (ADR-106) ---------------------------------------------------------
+
+/** The file the eval command writes with `--json`, as it is. */
+export const adminAgentEvalInputSchema = named('AdminAgentEvalInput', agentEvalResultSchema);
+
+const evalFields = {
+  id: uuid,
+  suite: z.enum(AGENT_EVAL_SUITES),
+  mode: z.enum(AGENT_EVAL_MODES),
+  passed: z.boolean(),
+  cases: count,
+  held: count,
+  /** The suite's own figures by name: counts and a pass mark, never text. */
+  figures: z.record(z.string(), count),
+  /** The ids of the cases that did not pass. */
+  failed: z.array(z.string()),
+  /** The models under evaluation; none for recorded answers. */
+  models: z.array(z.string()),
+  commit: z.string().nullable(),
+  ranAt: timestamp,
+  recordedAt: timestamp,
+};
+
+export const adminAgentEvalSchema = named('AdminAgentEval', z.object(evalFields));
+export type AdminAgentEval = z.infer<typeof adminAgentEvalSchema>;
+
+export const adminAgentEvalsSchema = named(
+  'AdminAgentEvals',
+  z.object({
+    /** The latest run of each suite, against recorded answers and against a model. */
+    latest: z.array(adminAgentEvalSchema),
+    recent: z.array(adminAgentEvalSchema),
+  }),
+);
+export type AdminAgentEvals = z.infer<typeof adminAgentEvalsSchema>;
