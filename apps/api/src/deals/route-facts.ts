@@ -130,3 +130,37 @@ export function summariseFares<Row extends FareRow>(
     updatedAt: new Date(Math.max(...window.map((row) => row.updatedAt.getTime()))),
   };
 }
+
+export type FareTrend = 'lower' | 'higher' | 'steady';
+/** Days with a fare, in each of the two windows, before anything is said about a trend. */
+export const TREND_MIN_DAYS = 5;
+/** A move smaller than this share of the earlier fare is "steady", in basis points. */
+export const TREND_BAND_BPS = 500n;
+
+/**
+ * How the last 30 days compare with the 60 before them: the median of each day's cheapest fare
+ * in one window against the other. Null on thin data. It describes what was found and says
+ * nothing about what fares will do: every caller shows it as a trend, never as a forecast.
+ */
+export function fareTrend(rows: readonly FareRow[], today: Date): FareTrend | null {
+  const from = daysBefore(today, TYPICAL_DAYS - 1).getTime();
+  const recentFrom = daysBefore(today, RECENT_DAYS - 1).getTime();
+  const cheapestPerDay = new Map<string, FareRow>();
+  for (const row of rows) {
+    if (row.observedOn.getTime() < from) continue;
+    const key = dayKey(row.observedOn);
+    const best = cheapestPerDay.get(key);
+    if (!best || byPrice(row, best) < 0) cheapestPerDay.set(key, row);
+  }
+  const days = [...cheapestPerDay.values()];
+  const recent = days.filter((row) => row.observedOn.getTime() >= recentFrom).sort(byPrice);
+  const earlier = days.filter((row) => row.observedOn.getTime() < recentFrom).sort(byPrice);
+  if (recent.length < TREND_MIN_DAYS || earlier.length < TREND_MIN_DAYS) return null;
+  const now = lowerMedian(recent)?.usdMinor;
+  const before = lowerMedian(earlier)?.usdMinor;
+  if (now === undefined || before === undefined || before <= 0n) return null;
+  const scaled = now * 10_000n;
+  if (scaled < before * (10_000n - TREND_BAND_BPS)) return 'lower';
+  if (scaled > before * (10_000n + TREND_BAND_BPS)) return 'higher';
+  return 'steady';
+}

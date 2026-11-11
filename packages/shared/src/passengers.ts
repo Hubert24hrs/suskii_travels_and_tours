@@ -117,3 +117,26 @@ export type HotelGuest = z.output<typeof hotelGuestSchema>;
 
 export const contactDetailsSchema = z.object({ email: emailSchema, phone: phoneSchema });
 export type ContactDetails = z.output<typeof contactDetailsSchema>;
+
+/** Many countries ask for a passport valid this many months after arrival. */
+export const PASSPORT_VALIDITY_MONTHS = 6;
+
+export type PassportValidity = 'valid' | 'expires_soon' | 'expired';
+
+/**
+ * Whether a passport expiring on `expiryDate` lasts `months` past `arrivalDate` (both ISO
+ * dates). `expired` when it has run out by arrival, `expires_soon` when it runs out within the
+ * months asked, else `valid`. A reminder for the traveller, never a decision about entry: the
+ * destination's own rule decides, and it differs by country.
+ */
+export function passportValidity(
+  expiryDate: string,
+  arrivalDate: string,
+  months: number = PASSPORT_VALIDITY_MONTHS,
+): PassportValidity {
+  if (expiryDate < arrivalDate) return 'expired';
+  const [year = 0, month = 1, day = 1] = arrivalDate.split('-').map(Number);
+  // The same day `months` later; a day that month does not have rolls into the next one.
+  const needed = new Date(Date.UTC(year, month - 1 + months, day)).toISOString().slice(0, 10);
+  return expiryDate < needed ? 'expires_soon' : 'valid';
+}

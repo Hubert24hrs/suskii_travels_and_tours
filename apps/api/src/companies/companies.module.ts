@@ -20,5 +20,7 @@ import { CompanyWalletService } from './company-wallet.service';
   imports: [BookingsModule, PaymentsModule],
   controllers: [CompaniesController, AdminCompaniesController],
   providers: [CompaniesService, CompanyTripsService, CompanyWalletService, AdminCompaniesService],
+  // The assistant reads the caller's own company policy through the service (ADR-101).
+  exports: [CompaniesService],
 })
 export class CompaniesModule {}

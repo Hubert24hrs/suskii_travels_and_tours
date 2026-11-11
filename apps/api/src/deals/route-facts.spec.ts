@@ -1,4 +1,4 @@
-import { daysBefore, summariseFares, type FareRow } from './route-facts';
+import { daysBefore, fareTrend, summariseFares, type FareRow } from './route-facts';
 
 const TODAY = new Date('2026-10-28T09:00:00Z');
 
@@ -87,5 +87,38 @@ describe('summariseFares', () => {
   it('marks facts built from sample fares', () => {
     const rows = [fare(0, 1), fare(1, 1), fare(2, 1, { supplier: 'mock' })];
     expect(summariseFares(rows, TODAY, 3)?.sample).toBe(true);
+  });
+});
+
+describe('fareTrend', () => {
+  const window = (from: number, usd: number, days = 5): FareRow[] =>
+    Array.from({ length: days }, (_, index) => fare(from + index, usd));
+
+  it('says nothing until both the last month and the two before it have enough days', () => {
+    expect(fareTrend([], TODAY)).toBeNull();
+    expect(fareTrend(window(0, 500_00), TODAY)).toBeNull();
+    expect(fareTrend([...window(0, 500_00), ...window(40, 500_00, 4)], TODAY)).toBeNull();
+    expect(fareTrend([...window(0, 500_00, 4), ...window(40, 500_00)], TODAY)).toBeNull();
+    // Fares older than 90 days are not history any more.
+    expect(fareTrend([...window(0, 500_00), ...window(95, 900_00)], TODAY)).toBeNull();
+  });
+
+  it('compares the median of daily cheapest fares, with a band either side for steady', () => {
+    const earlier = window(40, 500_00);
+    expect(fareTrend([...window(0, 400_00), ...earlier], TODAY)).toBe('lower');
+    expect(fareTrend([...window(0, 600_00), ...earlier], TODAY)).toBe('higher');
+    expect(fareTrend([...window(0, 510_00), ...earlier], TODAY)).toBe('steady');
+    expect(fareTrend([...window(0, 475_00), ...earlier], TODAY)).toBe('steady');
+    expect(fareTrend([...window(0, 474_99), ...earlier], TODAY)).toBe('lower');
+    expect(fareTrend([...window(0, 525_01), ...earlier], TODAY)).toBe('higher');
+  });
+
+  it('reads each day by its cheapest fare, and one odd day does not move the median', () => {
+    const recent = [
+      ...window(0, 500_00),
+      fare(0, 900_00), // a dearer fare on a day that also had a cheaper one
+      fare(6, 100_00), // one very cheap day among six
+    ];
+    expect(fareTrend([...recent, ...window(40, 500_00)], TODAY)).toBe('steady');
   });
 });

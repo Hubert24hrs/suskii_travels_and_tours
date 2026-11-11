@@ -393,16 +393,19 @@ export {
   type PassengerType,
 } from './passenger-rules';
 export {
+  PASSPORT_VALIDITY_MONTHS,
   contactDetailsSchema,
   hotelGuestSchema,
   passengerInputSchema,
   passportNumberSchema,
+  passportValidity,
   personNameSchema,
   travelDocumentSchema,
   travellerInputSchema,
   type ContactDetails,
   type HotelGuest,
   type PassengerInput,
+  type PassportValidity,
   type TravelDocument,
   type TravellerInput,
 } from './passengers';
