@@ -756,6 +756,167 @@
       }
     },
     {
+      "name": "prices.indicative",
+      "description": "Prices seen on other websites for a flight (origin and destination as IATA codes), a hotel, a car, a transfer or a tour (place by name), on given dates. These are NOT Suskii's prices and cannot be booked: each was seen on the site named, at the time given, and may have changed. Always say so, and that a person confirms the live price before anything is paid. Never call one confirmed or available. Use it only when the ordinary search has nothing suitable or the traveller asks what it costs elsewhere; quotes.request asks for one to be confirmed.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string",
+            "enum": [
+              "flight",
+              "hotel",
+              "car",
+              "transfer",
+              "tour"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "place": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "adults": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "product",
+          "from"
+        ]
+      }
+    },
+    {
+      "name": "quotes.list",
+      "description": "The signed-in traveller's own requests to have a price confirmed, newest first: what was asked, whether a person has answered, the price on offer and until when it can be booked, or why it closed. 'became_a_booking' is not a confirmation: read the booking for where it stands. The traveller books an offer on its page; you cannot book it.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "concierge",
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "bookings",
+        "payments",
+        "support",
+        "disruption"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "quotes.request",
+      "description": "Asks the support team to confirm a live price for the signed-in traveller: for an indicative price (give its observationId) or for something the ordinary search does not sell. It books and promises nothing: a person checks with the supplier and answers with an offer the traveller can book, or says it cannot be had. Give what is wanted in a few words (no names, no contact details), the place, the dates and how many travel. Tell the traveller it is a request, and when an answer is expected.",
+      "tier": "propose",
+      "scope": "quotes",
+      "agents": [
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string",
+            "enum": [
+              "flight",
+              "hotel",
+              "car",
+              "transfer",
+              "tour",
+              "package",
+              "other"
+            ]
+          },
+          "what": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "origin": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string"
+          },
+          "adults": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "observationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "product",
+          "what",
+          "destination",
+          "startDate"
+        ]
+      }
+    },
+    {
       "name": "support.faqs",
       "description": "Search Suskii's published help articles (payments, refunds, changes, baggage, documents, accounts). Answer policy questions only from what an article says; if none fits, say you do not have that information and offer a person.",
       "tier": "read",

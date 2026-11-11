@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { BOOKING_TERMS_VERSION, type AgentScope } from '@suskii/shared';
 
 import { AgentGrants, type AgentGrant } from '../src/agent/agent-grants';
+import { AssistedQuotesService } from '../src/assisted-quotes/assisted-quotes.service';
+import { PriceSourcesService } from '../src/price-intel/price-sources.service';
+import { MockScrapeProvider } from '../src/price-intel/providers/mock-scrape-provider';
 import { PricingService } from '../src/pricing/pricing.service';
 
 import { busInventory, CONTACT, inDays, nextKey, passenger, staffSession } from './helpers/cars';
@@ -187,7 +190,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the customer tools with their tiers: two prepare something, five ask for a tap', async () => {
+  it('ships the customer tools with their tiers: three prepare something, five ask for a tap', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -215,6 +218,9 @@ describe('customer agent tools (e2e)', () => {
       'packages.search',
       'payments.options',
       'platform.status',
+      'prices.indicative',
+      'quotes.list',
+      'quotes.request',
       'support.faqs',
       'support.handover',
       'tours.search',
@@ -224,6 +230,7 @@ describe('customer agent tools (e2e)', () => {
       'visa.requirements',
     ]);
     expect(tools.filter((tool) => tool.tier === 'propose').map((tool) => tool.name)).toEqual([
+      'quotes.request',
       'support.handover',
       'trips.plan',
     ]);
@@ -942,6 +949,178 @@ describe('customer agent tools (e2e)', () => {
     expect(guest.result).toMatchObject({ handedOver: false, needsTheSupportPage: true });
     expect(guest.result?.cards?.[0]).toMatchObject({ kind: 'link', href: '/support' });
     expect(await ctx.prisma.supportConversation.count()).toBe(1);
+  });
+
+  it('shows prices seen elsewhere as indicative, and asks a person to confirm one', async () => {
+    ctx.app.get(MockScrapeProvider).reset();
+    const stay = { product: 'hotel', place: 'Lagos', from: inDays(30), to: inDays(32), adults: 2 };
+    // No site is listed for hotels yet: nothing to read, said in a code.
+    expect((await call('prices.indicative', 'hotels', stay)).result).toEqual({
+      problems: ['no_source'],
+      found: 0,
+      prices: [],
+      cards: [],
+    });
+
+    // A site still in review: outside production the mock vendor stands in for it.
+    const admin = await staffSession(ctx, 'tools-sources@suskii.test', ['super_admin']);
+    await ctx.app.get(PriceSourcesService).create(
+      {
+        domain: 'rooms.example.com',
+        name: 'Rooms Example',
+        products: ['hotel'],
+        country: 'NG',
+        currency: 'NGN',
+        locale: 'en-NG',
+        urlTemplates: {
+          hotel: 'https://rooms.example.com/search?city={place}&in={from}&out={to}',
+        },
+        recipes: {
+          hotel: {
+            version: 'hotel-v1',
+            methods: [{ method: 'structured_data', types: ['Hotel'] }],
+          },
+        },
+        vendors: ['mock'],
+        timeZone: 'Africa/Lagos',
+      } as Parameters<PriceSourcesService['create']>[0],
+      { userId: admin.userId, context: { ip: '127.0.0.1' } },
+    );
+    interface Seen {
+      observationId: string;
+      what: string;
+      indicativePrice: Wire;
+      seenOn: string;
+      seenAt: string;
+      indicative: boolean;
+    }
+    const answer = await call<{ found: number; prices: Seen[]; cards: Card[] }>(
+      'prices.indicative',
+      'hotels',
+      stay,
+      await guestGrant(),
+    );
+    expect(answer.status).toBe('ok');
+    const prices = answer.result?.prices ?? [];
+    expect(prices.length).toBeGreaterThan(0);
+    expect(answer.result?.found).toBe(prices.length);
+    for (const price of prices) {
+      // What it is: seen on a named site at a stated time, and nothing more.
+      expect(price).toMatchObject({ indicative: true, seenOn: 'Rooms Example' });
+      expect(price.seenAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/);
+      expect(price.indicativePrice.amountMinor).toBeGreaterThan(0);
+    }
+    // The cards are marked indicative and lead nowhere: there is nothing to book.
+    const cards = answer.result?.cards ?? [];
+    expect(cards).toHaveLength(prices.length);
+    for (const entry of cards) {
+      expect(entry).toMatchObject({ kind: 'price', indicative: true });
+      expect(entry.href).toBeUndefined();
+    }
+    expectInternal(cards);
+    // A question that is not one is refused in codes, and nothing is read for it.
+    const bad = await call<{ problems: string[] }>('prices.indicative', 'hotels', {
+      ...stay,
+      to: inDays(20),
+    });
+    expect(bad.result?.problems.length).toBeGreaterThan(0);
+    expect((await call('prices.indicative', 'payments', stay)).reason).toBe('agent');
+
+    // Asking a person to confirm it: an account's request, which books nothing.
+    const first = prices[0];
+    const wanted = {
+      product: 'hotel',
+      what: first?.what ?? 'A room in Lagos',
+      destination: 'Lagos',
+      startDate: inDays(30),
+      endDate: inDays(32),
+      adults: 2,
+      observationId: first?.observationId,
+    };
+    const guest = await call('quotes.request', 'hotels', wanted, await guestGrant());
+    expect(guest.result).toMatchObject({ requested: false, needsToSignIn: true, quote: null });
+    const personal = await call<{ problems: string[]; requested: boolean }>(
+      'quotes.request',
+      'hotels',
+      { ...wanted, what: 'A room, call me on +234 801 234 5678' },
+    );
+    expect(personal.result).toMatchObject({ requested: false, problems: ['no_contact_details'] });
+    expect(await ctx.prisma.assistedQuote.count()).toBe(0);
+
+    interface Asked {
+      quoteId: string;
+      quoteState: string;
+      offeredTotal: Wire | null;
+      bookingId: string | null;
+    }
+    const asked = await call<{ requested: boolean; quote: Asked; cards: Card[] }>(
+      'quotes.request',
+      'hotels',
+      wanted,
+    );
+    expect(asked.result).toMatchObject({
+      problems: [],
+      requested: true,
+      quote: { quoteState: 'waiting_for_a_person', offeredTotal: null, bookingId: null },
+    });
+    const quoteId = asked.result?.quote.quoteId ?? '';
+    expect(asked.result?.cards).toEqual([
+      expect.objectContaining({ kind: 'price', href: `/quotes/${quoteId}` }),
+    ]);
+    // The request is the traveller's, in the conversation's currency, with the price it came
+    // from kept as a reference.
+    expect(
+      await ctx.prisma.assistedQuote.findUniqueOrThrow({ where: { id: quoteId } }),
+    ).toMatchObject({
+      userId: ada.userId,
+      status: 'requested',
+      currency: 'NGN',
+      observationId: first?.observationId,
+      referenceMinor: BigInt(first?.indicativePrice.amountMinor ?? 0),
+      referenceSource: 'Rooms Example',
+    });
+
+    // Its answer is read back; someone else has none, and a guest has no account to read.
+    const mine = await call<{ found: number; quotes: Asked[] }>('quotes.list', 'hotels', {});
+    expect(mine.result).toMatchObject({
+      found: 1,
+      quotes: [{ quoteId, quoteState: 'waiting_for_a_person' }],
+    });
+    const theirs = await call('quotes.list', 'hotels', {}, await grantFor({ userId: bola.userId }));
+    expect(theirs.result).toEqual({ found: 0, quotes: [], cards: [] });
+    expect((await call('quotes.list', 'hotels', {}, await guestGrant())).reason).toBe('scope');
+
+    // A person verified it: the offer's total is what the traveller would pay, on its page.
+    await ctx.app.get(AssistedQuotesService).offer(
+      quoteId,
+      {
+        supplierName: 'Wholesale Rooms Ltd',
+        supplierPrice: { amountMinor: 30_000_000, currency: 'NGN' },
+        evidenceUrl: 'https://files.suskii.test/evidence/price.pdf',
+        details: {
+          title: 'Sea view room',
+          summary: 'Two nights for two with breakfast. Free cancellation until five days before.',
+          startDate: inDays(30),
+          endDate: inDays(32),
+          cityName: 'Lagos',
+          countryCode: 'NG',
+          refundable: true,
+        },
+      },
+      { userId: admin.userId, context: { ip: '127.0.0.1' } },
+    );
+    const answered = await call<{ quotes: Asked[]; cards: Card[] }>('quotes.list', 'hotels', {});
+    expect(answered.result?.quotes[0]).toMatchObject({
+      quoteState: 'on_offer',
+      offeredTotal: ngn(300_000),
+    });
+    expect(answered.result?.cards[0]).toMatchObject({
+      kind: 'price',
+      price: ngn(300_000),
+      href: `/quotes/${quoteId}`,
+    });
+    // Who sells it to Suskii and the proof never reach a model.
+    expect(JSON.stringify(answered)).not.toMatch(/Wholesale|files\.suskii/);
   });
 
   it('records each call with argument names only', async () => {
