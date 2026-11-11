@@ -15338,7 +15338,9 @@ export interface operations {
     adminApproveAgentApproval: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
                 /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
                 "X-CSRF-Token"?: string;
             };

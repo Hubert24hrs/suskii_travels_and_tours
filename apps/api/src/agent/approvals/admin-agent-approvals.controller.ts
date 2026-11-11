@@ -112,6 +112,8 @@ export class AdminAgentApprovalsController {
     params: agentApprovalParamsSchema,
     responses: { 200: agentApprovalSchema },
     errors: [403, 404, 409],
+    // It can create a refund request: a repeated tap replays the first answer.
+    idempotent: true,
     audit: ['agent.approval_approved'],
   })
   approve(

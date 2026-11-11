@@ -238,7 +238,13 @@ describe('staff agents and the approvals queue (e2e)', () => {
     id: string,
     decision: 'approve' | 'reject',
     body: Record<string, unknown> = decision === 'reject' ? { reason: 'not_needed' } : {},
-  ) => ctx.http().post(`/v1/admin/ai/approvals/${id}/${decision}`).set(staff.headers).send(body);
+  ) =>
+    ctx
+      .http()
+      .post(`/v1/admin/ai/approvals/${id}/${decision}`)
+      .set(staff.headers)
+      .set('Idempotency-Key', nextKey('e2e-staff-decide'))
+      .send(body);
 
   const converse = async (staff: Staff): Promise<string> =>
     (
@@ -785,6 +791,7 @@ describe('staff agents and the approvals queue (e2e)', () => {
         .http()
         .post(`/v1/admin/ai/approvals/${promoId}/approve`)
         .set(bearer(ada.accessToken))
+        .set('Idempotency-Key', nextKey('e2e-staff-decide'))
         .send({})
         .expect(403);
       await decide(root, '0193a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b', 'approve').expect(404);
@@ -796,7 +803,19 @@ describe('staff agents and the approvals queue (e2e)', () => {
 
     it("turns an approved refund draft into the approver's ordinary refund request, which still waits for its own second approver", async () => {
       const id = await drafted(ops, 'finance.draft_refund_request', refundDraft());
-      const approved = await decide(fin, id, 'approve').expect(200);
+      // Approving can create a refund request, so it takes an idempotency key like one.
+      await ctx.http().post(`/v1/admin/ai/approvals/${id}/approve`).set(fin.headers).expect(400);
+      const key = nextKey('e2e-staff-approve');
+      const tap = () =>
+        ctx
+          .http()
+          .post(`/v1/admin/ai/approvals/${id}/approve`)
+          .set(fin.headers)
+          .set('Idempotency-Key', key)
+          .send({});
+      const approved = await tap().expect(200);
+      // The same tap again replays the first answer instead of deciding twice.
+      expect((await tap().expect(200)).body).toEqual(approved.body);
       const body = approved.body as Approval;
       expect(body).toMatchObject({
         status: 'approved',
@@ -827,7 +846,7 @@ describe('staff agents and the approvals queue (e2e)', () => {
       const booking = await ctx.prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
       expect(booking.status).toBe('CONFIRMED');
 
-      // Decided once.
+      // Decided once: another tap is refused, and nothing is requested twice.
       for (const decision of ['approve', 'reject'] as const) {
         const second = await decide(root, id, decision);
         expect([second.status, (second.body as { type: string }).type]).toEqual([

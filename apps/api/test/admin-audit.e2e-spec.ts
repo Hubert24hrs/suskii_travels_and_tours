@@ -1163,7 +1163,7 @@ describe('admin audit coverage (e2e)', () => {
     const approved = await audited(
       'adminApproveAgentApproval',
       { approvalId: await proposed('E2EAGENT10') },
-      none,
+      (request) => request.set('Idempotency-Key', idempotencyKey()).send({}),
       approver,
     );
     expect(approved.body).toMatchObject({ status: 'approved', result: { type: 'promo_code' } });
