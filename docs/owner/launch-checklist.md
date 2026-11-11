@@ -261,8 +261,11 @@ If a site asks you to stop: Data sources, the site, **Block**
 ### 7.2 The assistant (optional)
 
 A chat assistant that helps travellers search, plan a trip, understand a booking or a payment
-and reach your support team. It never books, pays, refunds, cancels or confirms anything: it
-shows options, opens the ordinary pages and brings in a person. It is built and off, and no
+and reach your support team. It never books, pays, refunds or confirms anything by itself: it
+shows options, opens the ordinary pages and brings in a person. For a few actions on the
+traveller's own booking (cancelling it under its policy, accepting an airline's new times,
+taking the airline's full refund, watching a price) it shows a card with exactly what would
+happen, and nothing happens unless the traveller taps to confirm. It is built and off, and no
 website or app screen offers it yet (that comes with the client work). What is yours to do
 before it answers anyone:
 
@@ -294,6 +297,43 @@ before it answers anyone:
    last part of this work. Staff with the `ai:manage` permission can pause it everywhere within
    seconds from the console.
 
+### 7.3 Assisted quotes and the staff assistants (optional)
+
+**Assisted quotes.** When the ordinary search does not sell what a traveller wants, or they
+saw a price elsewhere, they can ask for it to be confirmed. A person on your team checks the
+live price with the supplier and records it; the traveller then books and pays it like any
+other booking; after payment a person books it with the supplier and records the supplier's
+confirmation, and only then is the booking confirmed. If it cannot be booked, everything is
+refunded automatically. Built and off (`ASSISTED_QUOTES_ENABLED`). Before switching it on:
+
+1. **Name who works the queue, and when.** Two jobs: verifying prices (the `ai:approve`
+   permission: operations, finance, support) and booking paid ones by hand (`bookings:manage`:
+   operations). A request nobody answers in 48 hours closes and tells the traveller
+   (`ASSISTED_QUOTE_REQUEST_HOURS`); choose a time you can keep. An offer can be booked for two
+   hours (`ASSISTED_QUOTE_VALID_MINUTES`).
+2. **Decide what a quote earns.** Today nothing: the traveller pays the supplier's verified
+   price. Add a fee rule for the product "Assisted quotes" in the console (Pricing, Fees) for a
+   fixed fee or a percentage. The price never goes below what the supplier charges.
+3. **Decide where proof is kept.** The forms take a web address (https) for the proof of the
+   supplier's price and of its confirmation: a shared drive your staff can open. No file is
+   uploaded to Suskii.
+4. **Supplier accounts.** An assisted booking is made by a person with a supplier you have an
+   account with, paid from your side. Nothing is bought from a website Suskii has no agreement
+   with.
+
+**Staff assistants.** In the console, staff can ask an assistant what is waiting (operations),
+how sales and refunds stand (finance, business intelligence, the executive summary), how promo
+codes are doing (marketing) and how reading prices from other websites stands. It answers from
+the same figures the console shows that person and sees nothing they could not see. It can
+prepare two things, a refund request and a promo code, and neither does anything by itself:
+
+5. **Name who decides.** What an assistant prepared waits in an approvals queue. The person
+   who asked can never approve it; someone else with the `ai:approve` permission and the right
+   to do that thing themselves does. An approved refund request then follows your ordinary
+   refund rule (a second approver); an approved promo code is created switched off.
+6. **The same key and limits** as the assistant for travellers (7.2): the model key, the
+   evaluation run, the spend caps and the pause switch cover the staff assistants too.
+
 ## 8. Legal and compliance
 
 1. **Data protection registration**: the NDPC (Nigeria), and the ODPC (Kenya) and the
@@ -313,7 +353,8 @@ before it answers anyone:
 ## 9. People to name
 
 Support staff, review moderators, visa officers, who fulfils packages and redeems vouchers,
-finance approvers for refunds, a native speaker each for French, Swahili, Arabic and Portuguese
+finance approvers for refunds, who verifies assisted quotes and books them by hand, who decides
+what the staff assistants prepare, a native speaker each for French, Swahili, Arabic and Portuguese
 (booking, payment and refund wording first), and testers with iPhone and Android devices.
 
 ## 10. Decisions that already have a safe default
