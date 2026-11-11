@@ -1,4 +1,5 @@
 import {
+  DEFAULT_AGENT_MODEL_PRICES,
   DEFAULT_COMPANY_TOPUP_LIMITS,
   DEFAULT_SCRAPE_COSTS,
   LOCAL_INTERNAL_TOKEN_PREFIX,
@@ -458,6 +459,55 @@ describe('parseEnv', () => {
         AGENT_RUN_TOKEN: `${LOCAL_INTERNAL_TOKEN_PREFIX}agent-run-token-change-me`,
       }),
     ).toContain('AGENT_RUN_TOKEN: the local development token is not allowed in production');
+  });
+
+  it('prices the agent models from the setting over the defaults, and keeps the mock assistant out of production (ADR-106)', () => {
+    const env = parseEnv(base);
+    expect(env.AGENT_SERVICE).toBe('http');
+    expect(env.AGENT_RUN_MAX_STEPS).toBe(10);
+    expect(env.AGENT_MAX_OUTPUT_TOKENS).toBe(1024);
+    expect(env.AGENT_MODEL_PRICES).toEqual(DEFAULT_AGENT_MODEL_PRICES);
+    expect(parseEnv({ ...base, AGENT_MODEL_PRICES: '' }).AGENT_MODEL_PRICES).toEqual(
+      DEFAULT_AGENT_MODEL_PRICES,
+    );
+
+    const priced = parseEnv({
+      ...base,
+      AGENT_MODEL_PRICES: 'claude-sonnet-5-5=3000000/15000000/300000/3750000, a-new-model=1/2/3/4',
+    }).AGENT_MODEL_PRICES;
+    expect(priced['claude-sonnet-5-5']).toEqual({
+      input: 3_000_000,
+      output: 15_000_000,
+      cacheRead: 300_000,
+      cacheWrite: 3_750_000,
+    });
+    expect(priced['a-new-model']).toEqual({ input: 1, output: 2, cacheRead: 3, cacheWrite: 4 });
+    // A model the setting does not name keeps its default.
+    expect(priced['claude-haiku-5-5']).toEqual(DEFAULT_AGENT_MODEL_PRICES['claude-haiku-5-5']);
+    // Four whole numbers, or nothing: a price is never guessed from a part of one.
+    for (const bad of ['claude-sonnet-5-5=3/15', 'claude-sonnet-5-5=2.5/10/1/1', 'x=1/2/3/-4']) {
+      expect(() => parseEnv({ ...base, AGENT_MODEL_PRICES: bad })).toThrow(/AGENT_MODEL_PRICES/);
+    }
+
+    const production = (overrides: Record<string, string>) => {
+      try {
+        parseEnv({
+          ...base,
+          NODE_ENV: 'production',
+          AGENT_ENABLED: 'true',
+          AGENT_TOOLS_TOKEN: 't'.repeat(40),
+          ...overrides,
+        });
+        return '';
+      } catch (error) {
+        return (error as Error).message;
+      }
+    };
+    const mock = production({ AGENT_SERVICE: 'mock' });
+    expect(mock).toContain('AGENT_SERVICE: the mock assistant answers nobody');
+    // Allowed (a staging stack), the mock needs no address and no run token: nothing is called.
+    const allowed = production({ AGENT_SERVICE: 'mock', ALLOW_MOCK_PROVIDERS: 'true' });
+    expect(allowed).not.toContain('AGENT_');
   });
 
   it('needs a key for every web-data vendor it names, and refuses the mock in production (ADR-102)', () => {

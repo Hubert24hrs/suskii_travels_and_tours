@@ -1,0 +1,821 @@
+{
+  "tools": [
+    {
+      "name": "addons.search",
+      "description": "List travel add-ons Suskii sells: travel insurance, airport transfers, eSIMs and lounge access, with the unit price and what it is charged per. Add-ons marked sample are demo inventory.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "tours",
+        "cars",
+        "trip_builder",
+        "flights",
+        "hotels"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "insurance",
+              "airport_transfer",
+              "esim",
+              "lounge"
+            ]
+          },
+          "countryCode": {
+            "description": "Only add-ons that apply in this country.",
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "limit": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        }
+      }
+    },
+    {
+      "name": "bookings.get",
+      "description": "One of the signed-in traveller's own bookings: its status, what was paid and what is due, the trip itself (places, local times, bags, room, cancellation terms), open airline changes, documents ready and refunds. Quote only what the facts say; the booking page holds the tickets and the actions.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "bookings",
+        "payments",
+        "support",
+        "disruption",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
+      "name": "bookings.list",
+      "description": "The signed-in traveller's own bookings, newest first: what each is, its dates, its status and its total. Use the bookingId with bookings.get for the details of one.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "bookings",
+        "payments",
+        "support",
+        "disruption",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 5,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        }
+      }
+    },
+    {
+      "name": "cars.buses",
+      "description": "Find intercity bus departures between two cities on a date, with the price per seat and the seats left. When nothing is found, the cities buses run between are listed so you can check the names. Trips marked sample are demo inventory.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "cars"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80,
+            "description": "Origin city name."
+          },
+          "to": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80,
+            "description": "Destination city name."
+          },
+          "date": {
+            "type": "string",
+            "description": "YYYY-MM-DD, local to the origin."
+          },
+          "seats": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "limit": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "date"
+        ]
+      }
+    },
+    {
+      "name": "cars.rentals",
+      "description": "Find rental cars that are free in a city for a pick-up and a return time, with the price of the period and the refundable deposit. Times are local to the branch. Cars marked sample are demo inventory.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "cars",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80,
+            "description": "City name, e.g. Lagos."
+          },
+          "pickupAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$",
+            "description": "YYYY-MM-DDTHH:mm, local time."
+          },
+          "returnAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$",
+            "description": "YYYY-MM-DDTHH:mm, local time."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "economy",
+              "compact",
+              "suv",
+              "luxury",
+              "van"
+            ]
+          },
+          "transmission": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual"
+            ]
+          },
+          "atAirport": {
+            "default": false,
+            "type": "boolean"
+          },
+          "withChauffeur": {
+            "default": false,
+            "type": "boolean"
+          },
+          "driverAge": {
+            "description": "Only when the traveller said it; never guess an age.",
+            "type": "integer",
+            "minimum": 18,
+            "maximum": 99
+          },
+          "limit": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        },
+        "required": [
+          "city",
+          "pickupAt",
+          "returnAt"
+        ]
+      }
+    },
+    {
+      "name": "catalog.places",
+      "description": "Find airports and cities by name, IATA code or country. Returns airport codes (for flights) and city ids (for hotels and cars). Always resolve a place here before searching; never guess a code.",
+      "tier": "read",
+      "scope": "catalog",
+      "agents": [
+        "concierge",
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "bookings",
+        "payments",
+        "support",
+        "disruption",
+        "price_intel",
+        "operations",
+        "finance_prep",
+        "marketing",
+        "business_intelligence",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 64,
+            "description": "A city, an airport, a country or an IATA code."
+          },
+          "types": {
+            "default": [
+              "airport",
+              "city"
+            ],
+            "minItems": 1,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "airport",
+                "city"
+              ]
+            }
+          },
+          "limit": {
+            "default": 5,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "flights.search",
+      "description": "Search flights for given airports, dates and travellers, with the price the traveller would pay now. Use IATA codes from catalog.places. Leave returnDate out for a one-way trip. Prices are for every traveller together, taxes and fees included. Offers marked sample are demo fares, not real ones.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "flights",
+        "trip_builder",
+        "disruption"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "description": "IATA code of the departure airport."
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "description": "IATA code of the arrival airport."
+          },
+          "departDate": {
+            "type": "string",
+            "description": "YYYY-MM-DD, local to the origin."
+          },
+          "returnDate": {
+            "description": "YYYY-MM-DD; a return trip.",
+            "type": "string"
+          },
+          "adults": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "children": {
+            "default": 0,
+            "description": "Aged 2 to 11.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "infants": {
+            "default": 0,
+            "description": "Under 2, on a lap.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "cabinClass": {
+            "default": "economy",
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "directOnly": {
+            "default": false,
+            "type": "boolean"
+          },
+          "sort": {
+            "default": "best",
+            "type": "string",
+            "enum": [
+              "best",
+              "cheapest",
+              "fastest",
+              "earliest"
+            ]
+          },
+          "limit": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "departDate"
+        ]
+      }
+    },
+    {
+      "name": "hotels.search",
+      "description": "Search places to stay in a city for given dates and guests, with the price the traveller would pay now for the whole stay. Use a city id from catalog.places. Stays marked sample are demo inventory, not real hotels.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "hotels",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cityId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "A city id from catalog.places."
+          },
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "rooms": {
+            "default": [
+              {
+                "adults": 2,
+                "childAges": []
+              }
+            ],
+            "description": "One entry per room.",
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "adults": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 6
+                },
+                "childAges": {
+                  "default": [],
+                  "maxItems": 4,
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 17
+                  }
+                }
+              },
+              "required": [
+                "adults"
+              ]
+            }
+          },
+          "freeCancellationOnly": {
+            "default": false,
+            "type": "boolean"
+          },
+          "sort": {
+            "default": "recommended",
+            "type": "string",
+            "enum": [
+              "recommended",
+              "price",
+              "rating",
+              "stars"
+            ]
+          },
+          "limit": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        },
+        "required": [
+          "cityId",
+          "checkIn",
+          "checkOut"
+        ]
+      }
+    },
+    {
+      "name": "packages.search",
+      "description": "List holiday packages (flight, stay and extras sold together by Suskii) for a city, a country or a month, with the lowest price per adult. Packages marked sample are demo inventory.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "tours",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cityId": {
+            "description": "A city id from catalog.places.",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "countryCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "month": {
+            "description": "YYYY-MM: departures starting in that month.",
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          },
+          "adults": {
+            "default": 2,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "limit": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        }
+      }
+    },
+    {
+      "name": "payments.options",
+      "description": "How one of the signed-in traveller's own bookings stands for payment: paid, due now and by when, the payment methods on offer, reserving now and paying later, installments with their dates, the payment plan in force, the wallet balance and refunds. You never take a payment: the traveller pays on the booking page.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "payments",
+        "bookings",
+        "support"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
+      "name": "platform.status",
+      "description": "How Suskii is working right now: the state of search, bookings, payments, accounts and support, and the titles of open incidents. Use it when something failed or the person asks whether there is a problem.",
+      "tier": "read",
+      "scope": "catalog",
+      "agents": [
+        "concierge",
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "bookings",
+        "payments",
+        "support",
+        "disruption",
+        "price_intel",
+        "operations",
+        "finance_prep",
+        "marketing",
+        "business_intelligence",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "support.faqs",
+      "description": "Search Suskii's published help articles (payments, refunds, changes, baggage, documents, accounts). Answer policy questions only from what an article says; if none fits, say you do not have that information and offer a person.",
+      "tier": "read",
+      "scope": "catalog",
+      "agents": [
+        "concierge",
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "bookings",
+        "payments",
+        "support",
+        "disruption"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160,
+            "description": "What to look up."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "support.handover",
+      "description": "Bring in a person from the support team: opens a support conversation for the signed-in traveller with their own last messages, attached to a booking of theirs when you name one. Use it when the traveller asks for a person, or when you cannot resolve what they need. A guest gets the support page instead. After it, tell the traveller the team will answer in that conversation; never promise a time.",
+      "tier": "propose",
+      "scope": "support",
+      "agents": [
+        "concierge",
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "bookings",
+        "payments",
+        "support",
+        "disruption"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "default": "general",
+            "type": "string",
+            "enum": [
+              "pre_booking",
+              "booking_change",
+              "cancellation_refund",
+              "payment",
+              "documents",
+              "general"
+            ]
+          },
+          "bookingId": {
+            "description": "One of the traveller's own bookings, from bookings.list.",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        }
+      }
+    },
+    {
+      "name": "tours.search",
+      "description": "List tours and activities run by Suskii, by name, city or date, with the lowest price and the next departure (local time at the meeting point). Tours marked sample are demo inventory.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "tours"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "A tour, a city or a country.",
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 64
+          },
+          "cityId": {
+            "description": "A city id from catalog.places.",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "date": {
+            "description": "Departures on this local date.",
+            "type": "string"
+          },
+          "adults": {
+            "default": 2,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "limit": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        }
+      }
+    },
+    {
+      "name": "trips.get",
+      "description": "One of the signed-in traveller's own combined trips: the plan, each part chosen so far with its state, the parts still to choose, the total and what one payment would charge now.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "trip_builder",
+        "bookings",
+        "payments"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "tripId"
+        ]
+      }
+    },
+    {
+      "name": "trips.list",
+      "description": "The signed-in traveller's own combined trips (a flight, a stay, a car, a transfer and insurance paid once), newest first, with each part, its state and what is still to pay.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "trip_builder",
+        "bookings",
+        "payments"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        }
+      }
+    },
+    {
+      "name": "trips.plan",
+      "description": "Start a combined trip for the signed-in traveller: places, dates, who travels and the parts they want (flight, hotel, car, transfer, insurance; one or two is fine). It books and holds nothing: the traveller chooses each part on the trip page and pays once. Use it only when the traveller asked to plan a trip and gave the places and dates.",
+      "tier": "propose",
+      "scope": "account",
+      "agents": [
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "description": "IATA code of the departure airport."
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "description": "IATA code of the arrival airport."
+          },
+          "departDate": {
+            "type": "string"
+          },
+          "returnDate": {
+            "type": "string"
+          },
+          "adults": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "parts": {
+            "default": [
+              "flight",
+              "hotel"
+            ],
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flight",
+                "hotel",
+                "car",
+                "transfer",
+                "insurance"
+              ]
+            }
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "departDate",
+          "returnDate"
+        ]
+      }
+    },
+    {
+      "name": "visa.requirements",
+      "description": "Whether a traveller of one nationality needs a visa for a country, from Suskii's own rules, and the visa assistance Suskii sells for it. When the requirement is unknown there is no rule on file: say so and never guess. Always pass on the disclaimer. Use ISO 3166 two-letter country codes.",
+      "tier": "read",
+      "scope": "catalog",
+      "agents": [
+        "tours",
+        "flights",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "nationality": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "description": "The passport's country."
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "purpose": {
+            "default": "tourism",
+            "type": "string",
+            "enum": [
+              "tourism",
+              "business",
+              "study",
+              "transit"
+            ]
+          }
+        },
+        "required": [
+          "nationality",
+          "destination"
+        ]
+      }
+    }
+  ]
+}

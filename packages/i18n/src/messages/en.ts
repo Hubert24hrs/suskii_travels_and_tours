@@ -3097,6 +3097,7 @@ export const en = {
     link: 'Help',
     topics: {
       group_booking: 'Group booking request',
+      assistant_handover: 'Passed on by the assistant',
     },
     getHelp: 'Get help with this booking',
     start: {

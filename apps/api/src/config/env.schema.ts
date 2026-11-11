@@ -79,6 +79,34 @@ export const DEFAULT_SCRAPE_COSTS: ScrapeCosts = {
   mock: { none: 100, datacenter: 200, residential: 800, unblocker: 1_500 },
 };
 
+/** What a model's tokens cost, in millionths of a US dollar per million tokens. */
+export interface AgentModelPrice {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+export type AgentModelPrices = Readonly<Record<string, AgentModelPrice>>;
+
+/**
+ * The vendor's published prices for the agent's default models, read from its pricing page on
+ * 2026-11-10 (Claude Haiku 5.5 for prompts up to 100,000 tokens, which a run's bounded history
+ * stays far below; Claude Sonnet 5.5). The owner confirms them against the current list and
+ * sets AGENT_MODEL_PRICES when they change (ADR-106). The mock models cost nothing.
+ */
+export const DEFAULT_AGENT_MODEL_PRICES: AgentModelPrices = {
+  'claude-haiku-5-5': { input: 100_000, output: 500_000, cacheRead: 10_000, cacheWrite: 125_000 },
+  'claude-sonnet-5-5': {
+    input: 2_000_000,
+    output: 10_000_000,
+    cacheRead: 100_000,
+    cacheWrite: 2_500_000,
+  },
+  'mock-router': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  'mock-specialist': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  'mock-fallback': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+};
+
 /** Prefix of the local development internal token in .env.example; refused in production. */
 export const LOCAL_INTERNAL_TOKEN_PREFIX = 'local-dev-only-';
 
@@ -491,11 +519,42 @@ export const envSchema = z
     /** The API's token to the agent service, and the agent's token to the tool gateway. */
     AGENT_RUN_TOKEN: z.string().min(32).optional(),
     AGENT_TOOLS_TOKEN: z.string().min(32).optional(),
+    /**
+     * How runs reach the agent service: `http` (AGENT_URL), or `mock`, an assistant inside the
+     * API that says one fixed sentence, for tests and a stack without the service.
+     */
+    AGENT_SERVICE: z.enum(['http', 'mock']).default('http'),
     /** A grant lives for one run: the run's time limit and a margin. */
     AGENT_GRANT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
     AGENT_RUN_TIMEOUT_MS: z.coerce.number().int().min(5000).max(600_000).default(120_000),
     /** Tool calls one run may make through the gateway. */
     AGENT_RUN_MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(100).default(24),
+    /** Model turns one run may take (the router's included), and its longest answer in tokens. */
+    AGENT_RUN_MAX_STEPS: z.coerce.number().int().min(2).max(40).default(10),
+    AGENT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(8192).default(1024),
+    /**
+     * What each model costs, `model=input/output/cacheRead/cacheWrite` in micro-dollars per
+     * million tokens (`claude-sonnet-5-5=2000000/10000000/100000/2500000`). Entries replace or
+     * add to the defaults. A model without a price is charged at the dearest one listed, so a
+     * cap is reached early, never late.
+     */
+    AGENT_MODEL_PRICES: csv(
+      z
+        .string()
+        .regex(/^[a-z0-9][a-z0-9.-]{2,63}=\d{1,12}\/\d{1,12}\/\d{1,12}\/\d{1,12}$/)
+        .transform((entry): [string, AgentModelPrice] => {
+          const [model = '', prices = ''] = entry.split('=');
+          const [input = 0, output = 0, cacheRead = 0, cacheWrite = 0] = prices
+            .split('/')
+            .map(Number);
+          return [model, { input, output, cacheRead, cacheWrite }];
+        }),
+    )
+      .transform((entries): AgentModelPrices => ({
+        ...DEFAULT_AGENT_MODEL_PRICES,
+        ...Object.fromEntries(entries),
+      }))
+      .default(DEFAULT_AGENT_MODEL_PRICES),
     /**
      * Spend in micro-dollars: reserved for a run before it starts, and the daily caps per
      * signed-in traveller, per guest address and for everyone together (the ADR-061 pattern).
@@ -1179,14 +1238,20 @@ export const envSchema = z
     // The agent is off in production unless set (ADR-101). When on, the API needs the service's
     // address over TLS and two tokens that open nothing else.
     if (env.AGENT_ENABLED) {
-      if (!env.AGENT_URL)
+      if (env.AGENT_SERVICE === 'mock' && !env.ALLOW_MOCK_PROVIDERS)
+        require('AGENT_SERVICE', 'the mock assistant answers nobody; it is not allowed in production');
+      // The mock calls no service: only the real one needs an address and a token to start runs.
+      const calls = env.AGENT_SERVICE === 'http';
+      if (calls && !env.AGENT_URL)
         require('AGENT_URL', 'is required in production while AGENT_ENABLED is set');
-      else if (!env.AGENT_ALLOW_PLAINTEXT && !env.AGENT_URL.startsWith('https://'))
+      else if (calls && !env.AGENT_ALLOW_PLAINTEXT && !env.AGENT_URL?.startsWith('https://'))
         require('AGENT_URL', 'must use https in production; AGENT_ALLOW_PLAINTEXT is only for a private network');
       for (const key of ['AGENT_RUN_TOKEN', 'AGENT_TOOLS_TOKEN'] as const) {
         const token = env[key];
-        if (!token) require(key, 'is required in production while AGENT_ENABLED is set');
-        else if (token.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
+        if (!token) {
+          if (calls || key === 'AGENT_TOOLS_TOKEN')
+            require(key, 'is required in production while AGENT_ENABLED is set');
+        } else if (token.startsWith(LOCAL_INTERNAL_TOKEN_PREFIX))
           require(key, 'the local development token is not allowed in production');
         else if (token === env.INTERNAL_API_TOKEN)
           require(key, "must differ from INTERNAL_API_TOKEN: the worker's token must not open agent routes");

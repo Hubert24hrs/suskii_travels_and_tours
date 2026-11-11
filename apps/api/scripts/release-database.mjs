@@ -6,7 +6,9 @@
  * the revision still serving keeps working against the new schema.
  *
  * DATABASE_URL is the schema owner's. With DATABASE_APP_URL set, the last step creates or updates
- * the API's own role, which may only read and write rows (src/infra/app-role.ts).
+ * the API's own role, which may only read and write rows (src/infra/app-role.ts). With
+ * DATABASE_AGENT_URL set, it also creates or updates the agent service's role, which keeps
+ * checkpoints in the `agent` schema and reaches nothing else (ADR-103).
  *
  *   node scripts/release-database.mjs        # needs DATABASE_URL, the API built (dist/)
  */
@@ -52,6 +54,24 @@ if (process.env.DATABASE_APP_URL) {
       process.env.DATABASE_APP_URL,
     );
     process.stdout.write(`release-database: app role ${role} ${created ? 'created' : 'updated'}\n`);
+  } catch (error) {
+    process.stderr.write(`release-database: ${error.message}\n`);
+    process.exit(1);
+  }
+}
+if (process.env.DATABASE_AGENT_URL) {
+  const { ensureAgentRole } = createRequire(import.meta.url)(
+    join(apiDir, 'dist', 'infra', 'app-role.js'),
+  );
+  try {
+    const { role, created } = await ensureAgentRole(
+      process.env.DATABASE_URL,
+      process.env.DATABASE_AGENT_URL,
+      process.env.DATABASE_APP_URL,
+    );
+    process.stdout.write(
+      `release-database: agent role ${role} ${created ? 'created' : 'updated'}\n`,
+    );
   } catch (error) {
     process.stderr.write(`release-database: ${error.message}\n`);
     process.exit(1);

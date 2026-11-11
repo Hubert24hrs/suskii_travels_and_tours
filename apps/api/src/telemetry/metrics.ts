@@ -238,6 +238,19 @@ export const supportAssistantTokens = meter.createCounter('suskii.support.assist
 // Suskii Agent (ADR-101 to ADR-107).
 
 /** Calls through the tool gateway by tool, tier and outcome (`ok` or the refusal code). */
+/** Runs of the assistant by how they ended and where they were asked (ADR-106). */
+export const agentRuns = meter.createCounter('suskii.agent.runs', {
+  description: 'Agent runs by outcome, agent and channel',
+});
+/** What the assistant's model calls cost, in millionths of a US dollar. */
+export const agentCost = meter.createCounter('suskii.agent.cost', {
+  description: 'Agent model spend in micro-dollars by model',
+  unit: '{microUSD}',
+});
+export const agentRunDuration = meter.createHistogram('suskii.agent.run.duration', {
+  description: 'How long an agent run took',
+  unit: 'ms',
+});
 export const agentToolCalls = meter.createCounter('suskii.agent.tool_calls', {
   description: 'Agent tool gateway calls by tool, tier and outcome',
 });

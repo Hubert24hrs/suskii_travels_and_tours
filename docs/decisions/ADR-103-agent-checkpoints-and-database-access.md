@@ -75,3 +75,17 @@ take the API's connections.
 - A library upgrade that changes the checkpoint tables is a migration to write, caught by a test.
 - Deleting an account now also deletes rows in a second schema; the deletion test covers it.
 - One more database role and connection string (`AGENT_DATABASE_URL`) per environment.
+
+## Amendments made while building it
+
+- The migration arrived with the agent service (sub-phase D) and not with the foundations: the
+  tables are copied from the pinned library (`@langchain/langgraph-checkpoint-postgres` 1.1.2),
+  so they belong with the workspace that depends on it and with the test that `setup()`
+  changes nothing.
+- `suskii_app` holds `DELETE` on the three thread tables and `SELECT (thread_id)` on them:
+  PostgreSQL needs the right to read a column a `DELETE ... WHERE` names. It can read no other
+  column of a checkpoint. The release step refuses a role that can do more.
+- The graph is built per run with what the run carries (the grant, the limits) in a closure:
+  LangGraph copies primitive values of a run's configuration into checkpoint metadata, so
+  nothing a checkpoint must not hold is ever put there. A test reads every checkpoint of a
+  thread and fails if the grant appears.

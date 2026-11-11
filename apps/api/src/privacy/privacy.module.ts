@@ -6,6 +6,7 @@ import { BookingsModule } from '../bookings/bookings.module';
 import { DocumentsModule } from '../documents/documents.module';
 
 import { AccountDeletionService } from './account-deletion.service';
+import { AgentThreads } from './agent-threads';
 import { AdminPrivacyController } from './admin-privacy.controller';
 import { CookieConsentController } from './cookie-consent.controller';
 import { DataExportService } from './data-export.service';
@@ -30,10 +31,11 @@ import { RetentionService } from './retention.service';
   providers: [
     DataExportService,
     AccountDeletionService,
+    AgentThreads,
     RetentionService,
     PrivacyRequestsService,
     PrivacyBreachesService,
   ],
-  exports: [PrivacyRequestsService, PrivacyBreachesService],
+  exports: [PrivacyRequestsService, PrivacyBreachesService, AgentThreads],
 })
 export class PrivacyModule {}

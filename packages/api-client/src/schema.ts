@@ -2879,6 +2879,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agent/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a message to the assistant
+         * @description Stores the message and starts a run; the answer arrives as events of the run (`GET /v1/agent/runs/{runId}` or its stream). 409 `agent-busy` while the last message is still being answered, 409 `agent-conversation-full` after 200 messages, 429 `agent-budget` when the day's spend cap is reached, 503 `agent-paused` or `agent-unavailable` when the assistant cannot answer. The assistant never books, pays or refunds: an action it proposes is a confirmation the traveller taps.
+         */
+        post: operations["sendAgentMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agent/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in traveller's conversations with the assistant
+         * @description Most recently active first; empty without a session (guests open theirs by id).
+         */
+        get: operations["listAgentConversations"];
+        put?: never;
+        /**
+         * Start a conversation with the assistant
+         * @description Optionally opened from one of the caller's bookings (guests add `X-Booking-Token`). Without a session, the website sends a Turnstile token and the app a device attestation (400 `bot-check-failed` otherwise); guests receive an access token once. 409 `agent-conversation-limit` when an account already has 20 open conversations.
+         */
+        post: operations["startAgentConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agent/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A conversation with its messages
+         * @description The caller's own conversation; 404 for anyone else's. `activeRunId` names a run that is still answering.
+         */
+        get: operations["getAgentConversation"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a conversation
+         * @description Deletes the conversation, its messages and the assistant's working state of it. It cannot be undone.
+         */
+        delete: operations["deleteAgentConversation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agent/messages/{messageId}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Say whether an answer helped
+         * @description A thumb up or down on an answer of the caller's own conversation; null takes it back.
+         */
+        put: operations["rateAgentMessage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agent/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The events of a run, for clients that poll
+         * @description Status lines while the assistant works, then the answer as a `message` and a `done`. Ask again with `after` set to the last event number seen until `done` is true. Events are kept for an hour; the answer itself stays in the conversation.
+         */
+        get: operations["getAgentRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agent/runs/{runId}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The events of a run as a server-sent event stream
+         * @description The same events as the poll, each with its number as the event id: reconnect with `Last-Event-ID` (or `after`) to resume. The stream ends with the run. It is never compressed or cached.
+         */
+        get: operations["streamAgentRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/agent/status": {
         parameters: {
             query?: never;
@@ -8321,7 +8449,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
-            topic: "group_booking" | null;
+            topic: ("group_booking" | "assistant_handover") | null;
             /** @enum {string} */
             priority: "urgent" | "prime" | "normal";
             /** @enum {string} */
@@ -8374,7 +8502,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
-            topic: "group_booking" | null;
+            topic: ("group_booking" | "assistant_handover") | null;
             /** @enum {string} */
             priority: "urgent" | "prime" | "normal";
             /** @enum {string} */
@@ -8534,9 +8662,115 @@ export interface components {
             level: "manual" | "supervised" | "autonomous";
             set: boolean;
         };
+        AgentChatRequestInput: {
+            /** Format: uuid */
+            conversationId: string;
+            text: string;
+        };
+        AgentChatStarted: {
+            /** Format: uuid */
+            runId: string;
+            message: components["schemas"]["AgentMessage"];
+        };
+        AgentConversation: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            locale: string;
+            currency: string;
+            /** @enum {string} */
+            status: "open" | "closed";
+            bookingId: string | null;
+            messageCount: number;
+            activeRunId: string | null;
+            /** Format: date-time */
+            lastMessageAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            messages: components["schemas"]["AgentMessage"][];
+        };
+        AgentConversationList: {
+            conversations: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+                /** @enum {string} */
+                status: "open" | "closed";
+                messageCount: number;
+                /** Format: date-time */
+                lastMessageAt: string;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        AgentFeedbackRequestInput: {
+            feedback: ("up" | "down") | null;
+        };
+        AgentMessage: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            role: "user" | "assistant";
+            /** @enum {string} */
+            kind: "text" | "handover" | "notice";
+            agent: ("concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive") | null;
+            text: string;
+            notice: ("greeting" | "cannot_answer" | "limit" | "timeout" | "unavailable" | "paused") | null;
+            cards: {
+                /** @enum {string} */
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link";
+                title: string;
+                lines: string[];
+                price?: {
+                    amountMinor: number;
+                    currency: string;
+                };
+                indicative?: boolean;
+                href?: string;
+                ref?: {
+                    /** @enum {string} */
+                    type: "booking" | "trip" | "support";
+                    /** Format: uuid */
+                    id: string;
+                };
+            }[];
+            confirmationId: string | null;
+            feedback: ("up" | "down") | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
         AgentPauseInputInput: {
             /** @enum {string} */
             reason: "incident" | "cost" | "quality" | "maintenance" | "other";
+        };
+        AgentRunEvents: {
+            /** Format: uuid */
+            runId: string;
+            /** @enum {string} */
+            status: "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "refused";
+            done: boolean;
+            events: ({
+                id: number;
+                /** @constant */
+                type: "status";
+                /** @enum {string} */
+                agent: "concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive";
+                /** @enum {string} */
+                phase: "routing" | "thinking" | "tool" | "checking";
+                tool?: string;
+            } | {
+                id: number;
+                /** @constant */
+                type: "message";
+                message: components["schemas"]["AgentMessage"];
+            } | {
+                id: number;
+                /** @constant */
+                type: "done";
+                /** @enum {string} */
+                outcome: "answered" | "handover" | "confirmation" | "guard_blocked" | "step_limit" | "tool_limit" | "timeout" | "model_error" | "model_refused" | "paused" | "cancelled" | "failed";
+                confirmationId: string | null;
+            })[];
         };
         AgentStatus: {
             enabled: boolean;
@@ -12703,6 +12937,7 @@ export interface components {
             "metasearch-landings": number;
             "agent-conversations": number;
             "agent-runs": number;
+            "agent-threads": number;
             "scrape-jobs": number;
             "price-observations": number;
             "price-snapshots": number;
@@ -13150,6 +13385,16 @@ export interface components {
             contactsNotified: number;
             emergencyNumber: string;
         };
+        StartAgentConversationRequestInput: {
+            /** @enum {string} */
+            locale?: "en-NG" | "en-GB" | "en-US" | "fr" | "sw" | "ar" | "pt";
+            /** @enum {string} */
+            currency?: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            /** Format: uuid */
+            bookingId?: string;
+            /** @default null */
+            turnstileToken?: string | null;
+        };
         StartCompanyTopUpInput: {
             amount: {
                 amountMinor: number;
@@ -13159,6 +13404,10 @@ export interface components {
             provider?: ("mock" | "paystack" | "flutterwave" | "stripe") | null;
             /** @default null */
             method?: ("card" | "bank_transfer" | "ussd" | "mobile_money" | "apple_google_pay" | "agent") | null;
+        };
+        StartedAgentConversation: {
+            conversation: components["schemas"]["AgentConversation"];
+            accessToken: string | null;
         };
         StartedSupportConversation: {
             conversation: components["schemas"]["SupportConversation"];
@@ -13261,7 +13510,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
-            topic: "group_booking" | null;
+            topic: ("group_booking" | "assistant_handover") | null;
             /** @enum {string} */
             status: "open" | "waiting" | "resolved";
             booking: {
@@ -13285,7 +13534,7 @@ export interface components {
             reference: string;
             /** @enum {string} */
             category: "pre_booking" | "booking_change" | "cancellation_refund" | "payment" | "documents" | "general";
-            topic: "group_booking" | null;
+            topic: ("group_booking" | "assistant_handover") | null;
             /** @enum {string} */
             status: "open" | "waiting" | "resolved";
             booking: {
@@ -19252,7 +19501,7 @@ export interface operations {
                 queue?: "active" | "open" | "waiting" | "resolved";
                 priority?: "urgent" | "prime" | "normal";
                 channel?: "web" | "app" | "whatsapp";
-                topic?: "group_booking";
+                topic?: "group_booking" | "assistant_handover";
                 assignee?: "any" | "me" | "unassigned";
                 cursor?: string;
                 limit?: number;
@@ -20277,6 +20526,264 @@ export interface operations {
             403: components["responses"]["Problem403"];
             404: components["responses"]["Problem404"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    sendAgentMessage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guests: the access token returned when the conversation started. Account holders use their session instead. */
+                "X-Agent-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentChatRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentChatStarted"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    listAgentConversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentConversationList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    startAgentConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guest bookings: the access token returned when the booking was created. Account bookings use the session instead. */
+                "X-Booking-Token"?: string;
+                /** @description Mobile app: base64url JSON with the platform, a challenge from `POST /v1/attestation/challenges` and the Play Integrity or App Attest token bound to it (ADR-023). Each challenge works once. */
+                "X-Suskii-Attestation"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartAgentConversationRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedAgentConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getAgentConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guests: the access token returned when the conversation started. Account holders use their session instead. */
+                "X-Agent-Token"?: string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    deleteAgentConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guests: the access token returned when the conversation started. Account holders use their session instead. */
+                "X-Agent-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    rateAgentMessage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guests: the access token returned when the conversation started. Account holders use their session instead. */
+                "X-Agent-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentFeedbackRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentMessage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getAgentRun: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                /** @description Guests: the access token returned when the conversation started. Account holders use their session instead. */
+                "X-Agent-Token"?: string;
+            };
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunEvents"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    streamAgentRun: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                /** @description Guests: the access token returned when the conversation started. Account holders use their session instead. */
+                "X-Agent-Token"?: string;
+            };
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

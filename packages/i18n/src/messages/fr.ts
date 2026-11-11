@@ -3211,6 +3211,7 @@ export const fr: Messages = {
     link: 'Aide',
     topics: {
       group_booking: 'Demande de réservation de groupe',
+      assistant_handover: 'Transmis par l’assistant',
     },
     getHelp: 'Obtenir de l’aide pour cette réservation',
     start: {

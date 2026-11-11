@@ -109,6 +109,10 @@ interface Fixture {
   /** Combined trips (ADR-099): the owner's trip and the unpaid flight in it. */
   tripId: string;
   tripBookingId: string;
+  /** The assistant (ADR-101): the owner's conversation, a finished run and its answer. */
+  agentConversationId: string;
+  agentRunId: string;
+  agentMessageId: string;
 }
 
 interface Case {
@@ -254,6 +258,14 @@ const CASES: Record<string, Case> = {
   },
   removeTripPart: { path: (f) => `/v1/trips/${f.tripId}/parts/${f.tripBookingId}` },
   startTripPayment: { path: (f) => `/v1/trips/${f.tripId}/payments`, body: () => ({}) },
+  getAgentConversation: { path: (f) => `/v1/agent/conversations/${f.agentConversationId}` },
+  deleteAgentConversation: { path: (f) => `/v1/agent/conversations/${f.agentConversationId}` },
+  getAgentRun: { path: (f) => `/v1/agent/runs/${f.agentRunId}` },
+  streamAgentRun: { path: (f) => `/v1/agent/runs/${f.agentRunId}/stream` },
+  rateAgentMessage: {
+    path: (f) => `/v1/agent/messages/${f.agentMessageId}/feedback`,
+    body: () => ({ feedback: 'down' }),
+  },
 };
 
 interface Operation {
@@ -292,7 +304,8 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
   let fixture: Fixture;
 
   beforeAll(async () => {
-    ctx = await createTestApp({ RATE_LIMIT_ENABLED: false });
+    // The assistant answers inside the API here: its routes are owned like any other.
+    ctx = await createTestApp({ RATE_LIMIT_ENABLED: false, AGENT_SERVICE: 'mock' });
     await resetState(ctx);
     owner = await signUp(ctx, 'idor-owner@example.com');
     intruder = await signUp(ctx, 'idor-intruder@example.com');
@@ -652,7 +665,29 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       .send({ bookingId: tripFlight.bookingId })
       .expect(200);
 
+    // A conversation with the assistant, with one answered message.
+    const chat = await ctx.http().post('/v1/agent/conversations').set(auth).send({}).expect(201);
+    const agentConversationId = chat.body.conversation.id as string;
+    const said = await ctx
+      .http()
+      .post('/v1/agent/chat')
+      .set(auth)
+      .send({ conversationId: agentConversationId, text: 'What can you help me with?' })
+      .expect(202);
+    await ctx.background.drain();
+    const answered = await ctx
+      .http()
+      .get(`/v1/agent/conversations/${agentConversationId}`)
+      .set(auth)
+      .expect(200);
+    const answer = (answered.body.messages as { id: string; role: string }[]).find(
+      (message) => message.role === 'assistant',
+    );
+
     return {
+      agentConversationId,
+      agentRunId: said.body.runId as string,
+      agentMessageId: answer?.id ?? '',
       tripId: combined.body.id as string,
       tripBookingId: tripFlight.bookingId,
       supportConversationId: conversation.body.conversation.id as string,
@@ -780,6 +815,22 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       expect.objectContaining({ component: 'flight', state: 'to_pay' }),
     ]);
     expect(await ctx.prisma.tripPayment.count({ where: { tripId: fixture.tripId } })).toBe(0);
+
+    // The conversation with the assistant is still there, and nobody rated its answer.
+    const chat = await ctx
+      .http()
+      .get(`/v1/agent/conversations/${fixture.agentConversationId}`)
+      .set(auth)
+      .expect(200);
+    expect(
+      (chat.body.messages as { role: string; feedback: string | null }[]).map((message) => [
+        message.role,
+        message.feedback,
+      ]),
+    ).toEqual([
+      ['user', null],
+      ['assistant', null],
+    ]);
 
     // Nothing was attached to the owner's bookings either.
     expect(

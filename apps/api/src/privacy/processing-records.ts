@@ -483,7 +483,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
     id: 'assistant',
     name: 'The assistant (Suskii Agent)',
     purpose:
-      'Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change (ADR-101, ADR-105, ADR-107).',
+      'Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change. The agent service keeps each conversation as the model saw it in a schema of its own, deleted with the conversation and 30 days after its last turn (ADR-101, ADR-103, ADR-105, ADR-107).',
     basis: ['contract', 'legitimate_interests'],
     subjects: ['travellers', 'guests', 'staff'],
     categories: ['communications', 'trips', 'preferences'],

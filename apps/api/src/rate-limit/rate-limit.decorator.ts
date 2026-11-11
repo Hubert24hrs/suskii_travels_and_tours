@@ -162,6 +162,16 @@ export const SUPPORT_LIMITS = {
   readIp: { name: 'support-read-ip', limit: 120, windowSeconds: 60, by: 'ip' },
 } as const satisfies Record<string, RateLimitPolicy>;
 
+/**
+ * The assistant (ADR-101): a message starts model calls, so it is capped per address on top of
+ * the spend caps; reading a run is polled every second or two while an answer is being written.
+ */
+export const AGENT_LIMITS = {
+  startIp: { name: 'agent-start-ip', limit: 20, windowSeconds: 3600, by: 'ip' },
+  messageIp: { name: 'agent-message-ip', limit: 30, windowSeconds: 300, by: 'ip' },
+  readIp: { name: 'agent-read-ip', limit: 240, windowSeconds: 60, by: 'ip' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
 /** Company accounts (ADR-078): invitations send email, so they are capped per account. */
 export const COMPANY_LIMITS = {
   createUser: { name: 'company-create-user', limit: 5, windowSeconds: 3600, by: 'user' },

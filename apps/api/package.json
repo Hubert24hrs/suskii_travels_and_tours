@@ -77,6 +77,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@langchain/core": "catalog:",
+    "@langchain/langgraph-checkpoint-postgres": "catalog:",
     "@nestjs/cli": "catalog:",
     "@nestjs/schematics": "catalog:",
     "@nestjs/testing": "catalog:",

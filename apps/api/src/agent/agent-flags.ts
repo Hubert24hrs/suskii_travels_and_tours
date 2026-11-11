@@ -28,6 +28,8 @@ export class AgentFlags {
 
   /** True when the API knows where the agent service is and holds both of its tokens. */
   configured(): boolean {
+    // The mock assistant runs inside the API and needs no address.
+    if (this.config.AGENT_SERVICE === 'mock') return true;
     return Boolean(
       this.config.AGENT_URL && this.config.AGENT_RUN_TOKEN && this.config.AGENT_TOOLS_TOKEN,
     );

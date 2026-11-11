@@ -38,6 +38,8 @@ export type HmacPurpose =
   | 'metasearch-key'
   // Support conversations (ADR-083): a guest's access token and emailed link tokens.
   | 'support-access'
+  | 'agent-access'
+  | 'agent-guest'
   | 'support-link'
   // WhatsApp support contacts (ADR-084): the number's digits and the business-scoped user id.
   | 'whatsapp-phone'
@@ -70,6 +72,8 @@ const PURPOSES: readonly HmacPurpose[] = [
   'company-invitation-email',
   'metasearch-key',
   'support-access',
+  'agent-access',
+  'agent-guest',
   'support-link',
   'whatsapp-phone',
   'whatsapp-bsuid',

@@ -1,8 +1,20 @@
 import { Module } from '@nestjs/common';
 
 import { AiSearchModule } from '../ai-search/ai-search.module';
+import { AuthModule } from '../auth/auth.module';
+import { BookingsModule } from '../bookings/bookings.module';
+import { BusesModule } from '../buses/buses.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import { GroundModule } from '../ground/ground.module';
+import { InhouseModule } from '../inhouse/inhouse.module';
+import { PrivacyModule } from '../privacy/privacy.module';
+import { RentalsModule } from '../rentals/rentals.module';
+import { SearchModule } from '../search/search.module';
 import { StatusModule } from '../status/status.module';
+import { SupportModule } from '../support/support.module';
+import { TripsModule } from '../trips/trips.module';
+import { VisaModule } from '../visa/visa.module';
 
 import { AdminAgentController } from './admin-agent.controller';
 import { AgentAdminService } from './agent-admin.service';
@@ -15,9 +27,19 @@ import { AgentSettingsService } from './agent-settings.service';
 import { AgentToolRegistry } from './agent-tool';
 import { AgentToolGateway } from './agent-tool-gateway.service';
 import { AgentController } from './agent.controller';
+import { AgentChatController } from './chat/agent-chat.controller';
+import { AgentChatService } from './chat/agent-chat.service';
+import { AGENT_CLIENT, HttpAgentClient, MockAgentClient } from './chat/agent-client';
+import { AgentConversationsService } from './chat/agent-conversations.service';
+import { AgentRunLog } from './chat/agent-run-log';
 import { InternalAgentToolsController } from './internal-agent-tools.controller';
+import { AccountTools } from './tools/account-tools';
 import { CatalogTools } from './tools/catalog-tools';
 import { PlatformTools } from './tools/platform-tools';
+import { ProductTools } from './tools/product-tools';
+import { SearchTools } from './tools/search-tools';
+import { SupportTools } from './tools/support-tools';
+import { AgentToolCallers } from './tools/tool-support';
 
 /**
  * Suskii Agent on the API side (ADR-101 to ADR-107): the switches, sealed grants, the tool
@@ -26,8 +48,28 @@ import { PlatformTools } from './tools/platform-tools';
  * booking or payment knows the assistant exists.
  */
 @Module({
-  imports: [AiSearchModule, CatalogModule, StatusModule],
-  controllers: [AgentController, AdminAgentController, InternalAgentToolsController],
+  imports: [
+    AiSearchModule,
+    AuthModule,
+    BookingsModule,
+    BusesModule,
+    CatalogModule,
+    GroundModule,
+    InhouseModule,
+    PrivacyModule,
+    RentalsModule,
+    SearchModule,
+    StatusModule,
+    SupportModule,
+    TripsModule,
+    VisaModule,
+  ],
+  controllers: [
+    AgentController,
+    AgentChatController,
+    AdminAgentController,
+    InternalAgentToolsController,
+  ],
   providers: [
     AgentFlags,
     AgentPause,
@@ -38,9 +80,36 @@ import { PlatformTools } from './tools/platform-tools';
     AgentToolGateway,
     AgentAdminService,
     AgentToolsTokenGuard,
+    AgentToolCallers,
     PlatformTools,
     CatalogTools,
+    SearchTools,
+    ProductTools,
+    AccountTools,
+    SupportTools,
+    AgentConversationsService,
+    AgentChatService,
+    AgentRunLog,
+    MockAgentClient,
+    {
+      // The agent service over HTTP, or the mock inside the API (tests, a stack without it).
+      // The env schema already refused the mock in production.
+      provide: AGENT_CLIENT,
+      inject: [APP_CONFIG, MockAgentClient],
+      useFactory: (config: AppConfig, mock: MockAgentClient) =>
+        config.AGENT_SERVICE === 'http' && config.AGENT_URL && config.AGENT_RUN_TOKEN
+          ? new HttpAgentClient({ baseUrl: config.AGENT_URL, token: config.AGENT_RUN_TOKEN })
+          : mock,
+    },
   ],
-  exports: [AgentFlags, AgentPause, AgentGrants, AgentBudget, AgentToolRegistry, AgentToolGateway],
+  exports: [
+    AgentFlags,
+    AgentPause,
+    AgentGrants,
+    AgentBudget,
+    AgentToolRegistry,
+    AgentToolGateway,
+    MockAgentClient,
+  ],
 })
 export class AgentModule {}

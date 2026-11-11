@@ -48,10 +48,11 @@ export const agentTool = <Input, Output>(tool: AgentTool<Input, Output>): AgentT
 
 /**
  * A refusal a tool raises itself: what was asked for does not exist for this caller
- * (`not_found`, also for someone else's record) or its service said no (`refused`).
+ * (`not_found`, also for someone else's record), its service said no (`refused`), or its
+ * service could not answer just now (`failed`: a supplier that is down is not a fault of ours).
  */
 export class AgentToolError extends Error {
-  constructor(readonly code: Extract<AgentToolDenial, 'not_found' | 'refused'>) {
+  constructor(readonly code: Extract<AgentToolDenial, 'not_found' | 'refused' | 'failed'>) {
     super(`agent tool: ${code}`);
     this.name = 'AgentToolError';
   }

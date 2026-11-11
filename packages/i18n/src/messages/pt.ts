@@ -3188,6 +3188,7 @@ export const pt: Messages = {
     link: 'Ajuda',
     topics: {
       group_booking: 'Pedido de reserva de grupo',
+      assistant_handover: 'Encaminhado pelo assistente',
     },
     getHelp: 'Obter ajuda com esta reserva',
     start: {

@@ -75,6 +75,7 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
       trips: 0,
       'agent-conversations': 0,
       'agent-runs': 0,
+      'agent-threads': 0,
       'scrape-jobs': 0,
       'price-observations': 0,
       'price-snapshots': 0,

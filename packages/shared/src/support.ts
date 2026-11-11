@@ -27,8 +27,10 @@ export type SupportChannel = (typeof SUPPORT_CHANNELS)[number];
 /**
  * What a conversation is about when it came from a form of its own rather than the support
  * page. `group_booking`: a request for a flight for ten travellers or more.
+ * `assistant_handover`: the assistant brought in a person, with the traveller's own last
+ * messages as the first one (ADR-107).
  */
-export const SUPPORT_TOPICS = ['group_booking'] as const;
+export const SUPPORT_TOPICS = ['group_booking', 'assistant_handover'] as const;
 export type SupportTopic = (typeof SUPPORT_TOPICS)[number];
 
 /** A booking takes nine travellers; larger parties ask for a group fare. */

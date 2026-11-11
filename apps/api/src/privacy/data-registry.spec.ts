@@ -5,6 +5,7 @@ import { Prisma } from '../generated/prisma/client';
 
 import { DATA_REGISTRY, EXPORT_SECTIONS, type DataTreatment } from './data-registry';
 import { RETENTION_RULES } from './retention.service';
+import { UNMANAGED_TABLES } from './unmanaged-tables';
 
 const schemaModels = (): string[] => {
   const schema = readFileSync(resolve(__dirname, '../../prisma/schema.prisma'), 'utf8');
@@ -44,9 +45,11 @@ describe('DSAR data registry (ADR-029)', () => {
   });
 
   it('gives every table a retention and claims every sweep rule (ADR-039)', () => {
-    const claimed = entries.flatMap(([, treatment]) =>
-      treatment.retention.kind === 'rule' ? [treatment.retention.rule] : [],
-    );
+    // Tables outside Prisma (the agent's checkpoints, ADR-103) claim their rule the same way.
+    const claimed = [
+      ...entries.map(([, treatment]) => treatment.retention),
+      ...UNMANAGED_TABLES.map((table) => table.retention),
+    ].flatMap((retention) => (retention.kind === 'rule' ? [retention.rule] : []));
     expect([...new Set(claimed)].sort()).toEqual([...RETENTION_RULES].sort());
     const appendOnly = entries
       .filter(([, treatment]) => treatment.retention.kind === 'append-only')

@@ -497,7 +497,7 @@ export const adminMessages = {
     anyChannel: 'Any channel',
     topic: 'Topic',
     anyTopic: 'Any topic',
-    topics: { group_booking: 'Group booking' },
+    topics: { group_booking: 'Group booking', assistant_handover: 'From the assistant' },
     whatsapp: {
       windowOpen: 'WhatsApp window open until {time}: replies go as messages.',
       windowClosed:

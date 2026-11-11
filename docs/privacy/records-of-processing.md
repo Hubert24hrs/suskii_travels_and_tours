@@ -262,7 +262,7 @@ Nothing is stored.
 
 ### The assistant (Suskii Agent)
 
-Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change (ADR-101, ADR-105, ADR-107).
+Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change. The agent service keeps each conversation as the model saw it in a schema of its own, deleted with the conversation and 30 days after its last turn (ADR-101, ADR-103, ADR-105, ADR-107).
 
 - **Lawful basis:** Contract: needed for the service the person asked for; Legitimate interests: security, fraud prevention and service quality
 - **People:** Travellers with an account; Guests who book without an account, and the passengers they name; Suskii staff
