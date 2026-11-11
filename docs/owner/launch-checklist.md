@@ -360,6 +360,90 @@ it. They show for operations, finance, support and super admins.
    no code; releasing it needs an authenticator code. A single agent (hotels, say) can be
    switched off on its own: its questions then go to the general agent.
 
+### 7.5 What travellers see of the assistant (optional)
+
+Built with the website and the app; all of it is hidden while the assistant is off (7.2), and
+search, booking and payment work the same either way (tested on a stack without it).
+
+1. **Where it is.** The website shows "Assistant" in the top bar and the phone menu, leading
+   to its own page; the app offers it from Account. A traveller can ask without an account;
+   a booking, a price request and remembered preferences need one. Say if only signed-in
+   travellers should be able to use it.
+2. **Price requests.** A traveller asks for a price to be confirmed (website: Price
+   requests; app: Account, Price requests), your team verifies it in the console (7.3), and
+   the traveller books it through the ordinary checkout. They can save a request, and a
+   combined trip, as a PDF. Have counsel read the notes printed on both ("an offer is not a
+   booking", "to be confirmed", "a plan is not a booking").
+3. **What the assistant remembers.** Nothing, until a traveller switches it on under
+   "What the assistant remembers": then a home airport, a cabin, window or aisle, up to
+   three airlines and whether price or comfort comes first. They see, change and erase each,
+   and switching it off erases all. A meal preference is not remembered: it can reveal
+   religion or health, and waits for counsel's view (ADR-093). Your privacy policy should
+   name this, with consent as its basis.
+4. **The assistant on WhatsApp** (off unless you set `AGENT_WHATSAPP_ENABLED`). It needs
+   WhatsApp support first (section 6, item 2). It then answers a traveller's WhatsApp
+   message in the same thread your team reads: searches and rules only, nothing about an
+   account, and no confirmations. Its first answer says it is automated. It hands over to
+   your team when asked, when it cannot help, after 12 answers
+   (`AGENT_WHATSAPP_MAX_REPLIES`), or the moment one of your people replies; after that it
+   says nothing more in that thread. Decide whether to offer it, and who reads the handovers
+   out of hours. Meta bills these messages as it bills your team's replies, and your privacy
+   policy must say that an automated assistant may answer there.
+5. **When a traveller asks for a person**, the assistant says when your team aims to reply,
+   from your own reply targets (`SUPPORT_SLA`, section 6 item 1), as an aim and never a
+   promise. Set targets you can keep.
+6. **How it is doing.** After an answer a traveller can score the conversation out of five.
+   Console, "Assistant cost and quality", shows the scores and what conversations led to
+   (searched, asked a person for a price, confirmed something, handed over).
+7. **Store forms.** Conversations with the assistant and remembered preferences are now on
+   the privacy forms page (`docs/release/data-safety.md`); confirm the answers before the
+   next store release.
+
+### 7.6 Putting the assistant on a server (optional)
+
+Everything here is built and nothing is applied: no server runs the assistant until you do
+these steps. Do them on staging first. The runbook for the people on call is
+`docs/runbooks/ai-agent.md`; what it may cost is in
+[`assistant-cost-estimate.md`](assistant-cost-estimate.md) (estimates, not invoices).
+
+1. **Run the three evaluations against the real model** (once, before any traveller is
+   answered). Add `LLM_API_KEY` as a repository secret, then Actions, Agent evals, Run
+   workflow. Each suite leaves a small file as an artifact. A super admin records each file in
+   the console (Assistant cost and quality, Evaluations, Record a run), so there is a dated
+   record of which model was measured, on which commit, and whether it passed. Nothing has
+   been measured against a real model yet: every result so far is from recorded answers.
+2. **Create the assistant's two tokens.** `pnpm --filter @suskii/api keys:generate` prints
+   `AGENT_RUN_TOKEN` and `AGENT_TOOLS_TOKEN` with the other keys. Put each straight into
+   Secret Manager, never into a file or a chat, together with `LLM_API_KEY`.
+3. **Have Terraform create the service.** In the environment's variables: add the three names
+   to `extra_secrets`, apply and give each a value; then set `deploy_agent = true` and apply.
+   The steps are in `infra/terraform/README.md`, "The agent service". The service is reachable
+   only from inside your own network.
+4. **Deploy, then point the API at it.** Run the Deploy workflow: it finds the new service,
+   creates its database role and rolls its image out. Then copy the `agent_internal_url`
+   output into `AGENT_URL` in `api_env` and apply. `AGENT_ENABLED = "true"` is the last step
+   (item 9), and yours to decide.
+5. **Choose the monthly figure you want to be told about**
+   (`AGENT_MONTHLY_ALERT_MICROUSD`, in millionths of a dollar: `300000000` is $300). You are
+   told once when the month is heading past it and once when it is past it. It stops nothing;
+   the daily cap (`AGENT_GLOBAL_DAILY_MICROUSD`, $50 a day today) is what stops spending.
+6. **Name who receives the alerts.** Five alerts for the assistant and price intelligence
+   raise a ticket and none pages: runs failing, answers refused by the guard, the monthly
+   cost, a site whose pages stopped reading, a budget at its cap. They go where your other
+   alerts go (section 1.7).
+7. **Trying a new wording safely (later).** A new version of the assistant's instructions can
+   run "in the shadow": on a share of real questions, after the real answer has gone out,
+   answering nobody. The console then compares it with the wording in use. It is off; a
+   developer switches it on for one candidate (`AGENT_SHADOW_PROMPTS`,
+   `AGENT_SHADOW_SAMPLE_PERCENT`) and it has its own cap of $2 a day.
+8. **When a site changes its pages.** The price intelligence assistant in the console can
+   prepare the fix from the page that was kept. It waits in Approvals for someone other than
+   the person who asked; name two people who may manage data sources, since today only super
+   admins can.
+9. **Switch it on.** Staging first, with the mock model, to see the screens; then the real
+   model on staging; then production, when you have read real conversations and are content.
+   Pausing takes seconds and needs no code (7.4, item 6).
+
 ## 8. Legal and compliance
 
 1. **Data protection registration**: the NDPC (Nigeria), and the ODPC (Kenya) and the
@@ -422,42 +506,3 @@ the console (Add-ons). Tell us if a combined trip should get a discount.
 
 Tell Claude which step is done (never the key itself). Claude then turns the setting on, runs or
 reads the check, fixes anything the real provider answers differently, and updates this list.
-
-### 7.5 What travellers see of the assistant (optional)
-
-Built with the website and the app; all of it is hidden while the assistant is off (7.2), and
-search, booking and payment work the same either way (tested on a stack without it).
-
-1. **Where it is.** The website shows "Assistant" in the top bar and the phone menu, leading
-   to its own page; the app offers it from Account. A traveller can ask without an account;
-   a booking, a price request and remembered preferences need one. Say if only signed-in
-   travellers should be able to use it.
-2. **Price requests.** A traveller asks for a price to be confirmed (website: Price
-   requests; app: Account, Price requests), your team verifies it in the console (7.3), and
-   the traveller books it through the ordinary checkout. They can save a request, and a
-   combined trip, as a PDF. Have counsel read the notes printed on both ("an offer is not a
-   booking", "to be confirmed", "a plan is not a booking").
-3. **What the assistant remembers.** Nothing, until a traveller switches it on under
-   "What the assistant remembers": then a home airport, a cabin, window or aisle, up to
-   three airlines and whether price or comfort comes first. They see, change and erase each,
-   and switching it off erases all. A meal preference is not remembered: it can reveal
-   religion or health, and waits for counsel's view (ADR-093). Your privacy policy should
-   name this, with consent as its basis.
-4. **The assistant on WhatsApp** (off unless you set `AGENT_WHATSAPP_ENABLED`). It needs
-   WhatsApp support first (section 6, item 2). It then answers a traveller's WhatsApp
-   message in the same thread your team reads: searches and rules only, nothing about an
-   account, and no confirmations. Its first answer says it is automated. It hands over to
-   your team when asked, when it cannot help, after 12 answers
-   (`AGENT_WHATSAPP_MAX_REPLIES`), or the moment one of your people replies; after that it
-   says nothing more in that thread. Decide whether to offer it, and who reads the handovers
-   out of hours. Meta bills these messages as it bills your team's replies, and your privacy
-   policy must say that an automated assistant may answer there.
-5. **When a traveller asks for a person**, the assistant says when your team aims to reply,
-   from your own reply targets (`SUPPORT_SLA`, section 6 item 1), as an aim and never a
-   promise. Set targets you can keep.
-6. **How it is doing.** After an answer a traveller can score the conversation out of five.
-   Console, "Assistant cost and quality", shows the scores and what conversations led to
-   (searched, asked a person for a price, confirmed something, handed over).
-7. **Store forms.** Conversations with the assistant and remembered preferences are now on
-   the privacy forms page (`docs/release/data-safety.md`); confirm the answers before the
-   next store release.

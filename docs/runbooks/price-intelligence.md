@@ -69,10 +69,19 @@ switches fail closed.
 
 1. Jobs for the site: the last `parse_failed` try has a kept page (7 days). The site changed
    its markup, or it now serves a challenge our page check did not recognise.
-2. Write the new recipe version in the console and save. Saving closes the incident and reads
-   start at the first method again. Nothing approves a recipe by itself. An incident nobody
-   answers closes after 14 days and opens again if the pages still cannot be read.
-3. If the page is a challenge, do not work around it: the policy's highest proxy class is the
+2. Ask the price intelligence assistant in the console to prepare a recipe for the site. A rule
+   works one out from the kept page: the schema.org types on it that carry a price and that
+   the recipe does not read yet, from our own list of types. No model reads the page and
+   nothing is fetched. The proposal waits in Approvals for someone other than the person who
+   asked, who holds `ai:approve` and `datasources:manage`; approving saves it as that person's
+   change, and it is refused if the recipe changed in the meantime.
+3. If nothing can be proposed (`nothing_priced`: the page declares no priced thing of a known
+   type; `no_kept_page`: no page was kept or it is gone, since pages are kept for a week), write
+   the new recipe version in the console and save.
+4. Saving a recipe, either way, closes the incident and reads start at the first method again.
+   Nothing approves a recipe by itself. An incident nobody answers closes after 14 days and
+   opens again if the pages still cannot be read.
+5. If the page is a challenge, do not work around it: the policy's highest proxy class is the
    approver's decision, and raising it sends the site back to review.
 
 ## 5. Verify

@@ -6,6 +6,87 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Suskii Agent, sub-phase H: hardening and delivery (2026-11-11)
+
+The last sub-phase of the assistant (ADR-101, ADR-102, ADR-106, ADR-107, ADR-045). Nothing is
+deployed and Terraform is not applied; no eval has run against a model, and no web-data vendor
+has been called. The assistant stays off in production until the owner switches it on.
+
+#### Added
+
+- **Notes that do not depend on a model's wording** (ADR-107): a tool whose facts need a caveat
+  returns a `note` card with a code (`fare_trend`, `passport_reminder`, `visa_guidance`). The
+  graph never drops one, and the website, the app and WhatsApp put it into words from their
+  own catalogs, in five languages.
+- **Candidate prompts in the shadow** (ADR-106): for a share of travellers' turns
+  (`AGENT_SHADOW_PROMPTS`, `AGENT_SHADOW_SAMPLE_PERCENT`, nothing by default) the agent service
+  runs the turn again with a candidate after the answer has gone out, on a gateway that only
+  replays what the live tools returned. It reports codes and counts
+  (`agent_shadow_runs`); what a candidate wrote never leaves the service. Its spend has a daily
+  cap of its own (`AGENT_SHADOW_DAILY_MICROUSD`, $2). The console compares candidate and live.
+- **Recorded eval runs**: the eval commands write their result with `--json`; staff with
+  `ai:manage` record it (`POST /v1/admin/ai/evals`, audited) and "Assistant cost and quality"
+  shows the latest run of each suite and the history (`GET /v1/admin/ai/evals`). Table
+  `agent_eval_results`.
+- **Evals for what E and G added**: staff cases in the routing and safety suites, cases for the
+  planning and memory tools, and cases that a note is shown whatever the answer says. On
+  recorded answers: routing 94 of 98 (four are wrong on purpose), grounding unchanged, safety
+  39 of 39.
+- **A recipe proposed by rule for a site in drift** (ADR-102): from the page kept when nothing
+  could be read, the schema.org types that carry a price and that the recipe does not read,
+  from a fixed list of our own. No model reads the page. Tools `sources.drifting` and
+  `sources.propose_recipe` for the price intelligence agent; the proposal is the approval kind
+  `source_recipe`, decided by another person with `ai:approve` and `datasources:manage`.
+- **The month's cost** (ADR-106): `AGENT_MONTHLY_ALERT_MICROUSD` (none by default). The worker
+  has the month checked every hour (`POST /v1/internal/agent/cost-check`,
+  `AGENT_COST_CHECK_MINUTES`); operations are told once when the forecast passes the figure
+  and once when the spend has. It only tells. A gauge `suskii.agent.month.cost` and a counter
+  `suskii.agent.cost_alerts`.
+- **Alert rules and a dashboard**: `AssistantRunsFailing`, `AssistantAnswersRefused`,
+  `AssistantMonthlyCost`, `PriceIntelParserDrift` and `PriceIntelBudgetReached`, all tickets,
+  with promtool tests; the Grafana dashboard `suskii-assistant`.
+- **Delivery, built and not applied**: `apps/agent/Dockerfile` with `/health` and `/ready`;
+  the agent service in `docker-compose.release.yml` and the release rehearsal, which checks
+  its two doors from the inside; Terraform (`deploy_agent`: a Cloud Run service with internal
+  ingress only, its own identity, database URL and secrets, `agent_internal_url`); the Helm
+  chart (`agent.enabled`, a network policy that lets in the API alone); the deploy workflow
+  builds, signs, promotes, deploys and rolls back the agent image where the service exists.
+  `keys:generate` prints `AGENT_RUN_TOKEN` and `AGENT_TOOLS_TOKEN`.
+- **A chat scenario in the load test** (ADR-045): a guest starts a conversation, sends a
+  message and polls the run, one a second; the chat routes under 300 ms and the answer under
+  3 s at p95. `LOAD_CHAT=off` leaves it out.
+- **Documents**: `docs/runbooks/ai-agent.md` (pause, the model provider down, the caps and the
+  monthly figure, wrong answers, rolling a prompt or a model back, the agent service, drift);
+  the guides `docs/guides/adding-an-agent.md` and
+  `docs/guides/adding-a-scrape-provider-or-source.md`; a cost estimate at 5,000 and 20,000
+  monthly customers, marked as estimates (`docs/owner/assistant-cost-estimate.md`); section
+  7.6 of the owner's checklist; the README.
+
+#### Changed
+
+- **"Approved" is an outcome only a status supports**: a proposal's tool result carries
+  `approvalStatus: pending`, and the answer guard refuses an answer that says the thing was
+  approved while such a status is in the turn, in each language the assistant answers in.
+  Found by the safety eval: a staff agent could say "the recipe is approved" and be shown.
+- The agent service answers `/ready` (its checkpoint store) as well as `/health`; the image's
+  health check and the platform's start-up probe use `/ready`.
+- CI installs Playwright's system packages with a script that goes on when the runner's
+  package mirror cannot be reached and the image already has what Chromium needs
+  (`scripts/ci-playwright-deps.mjs`).
+- The security documents state the tools as they stand (45), the new routes, the two new
+  tables, four more threats with their controls and two accepted risks.
+
+#### Known limits
+
+- No eval has run against a model, and nothing was measured with real conversations: the
+  cost estimate rests on prompt sizes measured in the code and on stated assumptions.
+- `terraform validate`, TFLint and the kind rehearsal of the chart run only in CI (the
+  Terraform registry cannot be reached from the build environment); the agent service is not
+  part of the kind rehearsal.
+- The Cloud Run invoker check is off for the agent service: internal ingress and the run
+  token are its two controls (ADR-101).
+- The monthly figure stops nothing; the daily caps do.
+
 ### Suskii Agent, sub-phase G: the clients (2026-11-11)
 
 What travellers see of the assistant: on the website, in the app and on WhatsApp (ADR-080,

@@ -3,7 +3,7 @@
 **Alert:** `AssistantRunsFailing`, `AssistantAnswersRefused` or `AssistantMonthlyCost`; an
 operations email or a log line `operations alert` with kind `assistant cost`; staff or
 travellers saying the assistant answers wrongly, slowly or not at all.
-**Console:** AI (pause, levels, one agent's switch), Assistant activity (runs, traces,
+**Console:** Assistant (pause, levels, one agent's switch), Assistant activity (runs, traces,
 conversations), Assistant cost and quality (cost, forecast, quality, evaluations, limits),
 Approvals, Audit log with `?area=assistant`.
 **Background:** ADR-101 (the agent service and the tool gateway), ADR-105 (its data), ADR-106
@@ -35,7 +35,7 @@ When in doubt, pause first and look afterwards.
 
 ## 1. Stop it now (pause)
 
-1. Console, AI, **Pause**, with a reason (`POST /v1/admin/ai/pause`, `ai:manage`). Runs in
+1. Console, Assistant, **Pause**, with a reason (`POST /v1/admin/ai/pause`, `ai:manage`). Runs in
    flight end at their next tool call or model turn; nobody new is answered. Travellers who
    write see that the assistant is paused; the preferences page stays open so anyone can
    still erase what it remembers.
