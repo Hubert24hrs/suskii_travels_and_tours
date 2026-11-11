@@ -173,3 +173,16 @@ A person approves recipes; nothing approves itself.
   most), the tries, those that gave a usable page and those the site refused, the median
   time, and the cost per usable page and per price kept; it says which vendor's breaker is
   open and which sites' pages stopped yielding prices. Nothing new is stored for it.
+- **A recipe can be proposed by a rule, never applied by one** (sub-phase H). When a site is
+  in drift, the page nothing could be read from is already kept for a week. From that page
+  alone, `proposeRecipe()` works out a recipe that reads it: the schema.org types on the
+  page that carry a price and that the recipe does not read yet, counted with the same code
+  that extracts (`pricedByType`), so what is proposed is what would be stored. It names only
+  types from our own list (`PRICED_SCHEMA_TYPES`): a page can call its data anything, and a
+  name that is not on the list is never proposed, shown to staff or put before a model. No
+  model reads the page, nothing is fetched and nothing in the page is run. When the page
+  declares no priced thing of a known type, the answer is `nothing_priced` and a person
+  writes selectors, as before. The proposal goes to the approvals queue (ADR-107); "a person
+  writes and changes recipes" still holds, since saving it is the approver's own change.
+- **Alert rules** (`infra/observability/alerts`): a parser drift and a budget at its cap
+  each raise a ticket from the alerts the code already counts; neither pages.

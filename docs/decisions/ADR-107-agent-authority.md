@@ -211,3 +211,20 @@ input.
   never shown to the traveller.
 - **No confirmation outside the app and the website.** On WhatsApp a run that ends in a
   confirmation becomes the handover (ADR-084): "yes" in a chat is never a tap.
+- **Notes are shown whatever the model wrote** (sub-phase H). A tool whose facts must be read
+  with a caveat returns a card of the kind `note` whose title is a code (`fare_trend`,
+  `passport_reminder`, `visa_guidance`). The graph never drops a note when it trims cards,
+  and the website, the app and WhatsApp put it into words from their own catalogs. So "a
+  trend, not a forecast" and "a reminder, not a decision about entry" do not depend on the
+  model repeating them.
+- **A third kind of proposal: a recipe for a site** (`source_recipe`, ADR-102). The price
+  intelligence agent prepares it; approving needs `ai:approve`, `datasources:manage` and
+  another person than the one who asked, and saves it through the ordinary site update as
+  the approver. If the recipe changed in the meantime the proposal ends as `failed` and
+  nothing changes.
+- **"Approved" is an outcome only a status supports.** A proposal's tool result now carries
+  `approvalStatus: pending`, and the answer guard refuses an answer that says the thing was
+  approved while such a status is in the turn (in each language the assistant answers in).
+  Without a proposal in the turn the word is left alone: "two sites are approved" is a count
+  a tool returned. The safety eval found the gap: a staff agent could say "the recipe is
+  approved" and be shown.
