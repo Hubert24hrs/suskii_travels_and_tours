@@ -140,6 +140,15 @@ export {
 } from './knowledge';
 export { AGENT_CARD_NOTES, isAgentCardNote, type AgentCardNote } from './agent-notes';
 export {
+  AGENT_EVAL_FIGURES,
+  AGENT_EVAL_MODES,
+  AGENT_EVAL_SUITES,
+  agentEvalResultSchema,
+  type AgentEvalMode,
+  type AgentEvalResult,
+  type AgentEvalSuite,
+} from './agent-evals';
+export {
   AGENT_CARD_KINDS,
   AGENT_MESSAGE_KINDS,
   AGENT_NOTICES,
