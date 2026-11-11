@@ -54,7 +54,10 @@ switches fail closed.
 
 ## 3. A budget alert
 
-1. Overview shows spend against each cap. Is it one site, one vendor, or everything?
+1. Overview shows spend against each cap. Is it one site, one vendor, or everything? "How
+   reading has gone" on the same page (`GET /v1/admin/data-sources/health`) gives, for each
+   vendor and site over the last day, three days or week, the tries, the share that gave a
+   usable page, the share the site refused, and the cost per usable page and per price kept.
 2. Jobs for the site (`/jobs?sourceId=`) show each read with its tries, classes and cost. Many
    `blocked` tries at the highest class mean the site is refusing us: lower its rate, or stop
    reading it and ask for an assisted quote path instead.
@@ -75,7 +78,8 @@ switches fail closed.
 ## 5. Verify
 
 A staff read from the console (Data sources, the site, Read) answers `read` with observations,
-the overview shows the switch released and the vendor healthy, and no new alert arrives.
+the overview shows the switch released and the vendor healthy, "How reading has gone" shows
+the try as a usable page with the vendor's circuit closed, and no new alert arrives.
 
 ## Never
 

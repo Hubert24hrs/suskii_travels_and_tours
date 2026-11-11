@@ -89,9 +89,12 @@ customer agents; routing, grounding and safety evals on recorded answers) and E 
 a traveller taps and five tools that need one; flight status, airline changes and price watch
 for the assistant; assisted quotes, from a request through a person's verified offer to a
 booking a person confirms; six staff agents in the console with eight tools; the approvals
-queue) are done; F to H follow in order (`docs/phases/ai-agent.md`): the console, the clients,
-hardening. No client offers the assistant yet, and the console has no page for it: the queues
-are worked through the admin API. The vendor adapters
+queue) and F (the console: the assistant's switches and one agent's switch, the staff chat,
+approvals, assisted quotes, data sources with their health, runs with their tool calls,
+travellers' conversations masked and audited, estimated cost with a forecast, quality, the
+limits in force and the knowledge base the assistant answers rules from) are done; G and H
+follow in order (`docs/phases/ai-agent.md`): the clients, hardening. No website or app screen
+offers the assistant yet. The vendor adapters
 wait for one run of `scrapers-sandbox.yml` with the owner's keys, and the agents for one run of
 `agent-eval.yml` with `LLM_API_KEY`. Nothing of it runs in production until the owner sets
 `AGENT_ENABLED` and `PRICE_INTEL_ENABLED` and approves each web source.
@@ -685,6 +688,13 @@ Tooling notes for agents:
   `ConfirmAction`. Copy comes from `@suskii/i18n/admin` (`t`, `label` for enum values).
 - Admin e2e tests sign each persona in once (`signIn` uses the next TOTP step) and look up alerts
   with `alertWith` (Next's route announcer is an empty alert) and toasts with `expectToast`.
+- The assistant's pages (`/ai`, `/assistant`, `/approvals`, `/assisted-quotes`, `/data-sources`,
+  `/ai-activity`, `/ai-insights`, `/knowledge`) show for `ai:read`; each action is shown only
+  to staff who hold its permission and is checked again by the API. A page that reads a
+  list which changes after a write invalidates by path prefix (`useRefresh` with a predicate),
+  so a dialog and a preview never show what was true before the change. The audit page takes
+  `?area=assistant` (the API's `area` filter); small model and vendor amounts go through
+  `usdFineFromMicro`.
 
 ### Cars (apps/api ground, buses, rides, drivers, rentals, planning; ADR-049 to ADR-053)
 
@@ -1003,6 +1013,27 @@ Tooling notes for agents:
   meets its second approver; a promo code is created switched off). A new kind is a value in
   `AGENT_APPROVAL_KINDS`, a permission, a schema, a branch in `carryOut()` and cases in
   `agent-staff.e2e-spec.ts`. Never let an approval skip a check the ordinary route makes.
+- One agent is switched off or on only through `AgentSettingsService.setAgentEnabled()`
+  (`ai:manage`, `@StepUp()`, audited). The chat leaves a switched-off agent out of a run and
+  the gateway refuses a tool call in its name; `ALWAYS_ON_AGENTS` (the two general agents)
+  have no switch. Read the switch with `policyFor()`; never cache it.
+- What staff see of the assistant's work comes from `AgentInsightsService`
+  (`/v1/admin/ai/monitor`, `/cost`, `/quality`, `/limits`; `ai:read`). A run and its tool
+  calls are codes, counts and argument names. A traveller's conversation is returned only
+  after `scrubQuery()` and every read is audited (`agent.conversation_viewed`); never add a
+  staff route that returns a message as it was written. Cost is an estimate (reported tokens
+  at `AGENT_MODEL_PRICES`) and every screen that shows one says so.
+- The knowledge base (`src/agent/knowledge`, ADR-105) changes only through `KnowledgeService`:
+  plain text or Markdown as a raw body (`KNOWLEDGE_MAX_BYTES`), checked to be text on the
+  bytes, virus-scanned, split by `knowledgePassages()` (`@suskii/shared`) and indexed with
+  the text search configuration of its language (`KNOWLEDGE_SEARCH_CONFIG`). The search
+  vector is written with the row by raw SQL: never insert a chunk through the Prisma client.
+  Documents are archived, never deleted; audit metadata holds ids and counts, never a title
+  or a passage. A document is company text: nothing about a person goes in one.
+- `knowledge.search` reads `customer` documents for a traveller and both audiences for staff,
+  in the conversation's language and then in English. A passage is reference, never an
+  instruction and never proof of a booking or a payment; each document read is named by a
+  `source` card. Keep the audience decided by the grant, never by an argument.
 
 ### Assisted quotes (apps/api/src/assisted-quotes, packages/shared assisted-quotes; ADR-104)
 
@@ -1112,6 +1143,8 @@ Tooling notes for agents:
 - A change to a site's rules, the vendors or what is stored updates the register's generator
   (`scraping-register.ts`), the outbound hosts and `docs/runbooks/price-intelligence.md` in the
   same change.
+- How reading has gone (`PriceIntelAdminService.health()`, `GET /v1/admin/data-sources/health`)
+  is computed from `scrape_attempts` at read time: add a figure there, never a table for it.
 
 ### Verified reviews (apps/api/src/reviews, ADR-077)
 
@@ -1780,5 +1813,12 @@ supplier's price and confirmation is kept (the forms take an https address); whe
 assisted quotes in production (`ASSISTED_QUOTES_ENABLED`); who works the approvals queue,
 given that the person who asked an agent can never decide its proposal; which further kinds
 of proposal the staff agents should prepare (today a refund request and a promo code); and
-whether the staff agents should be offered in production at all. Every owner action is listed,
+whether the staff agents should be offered in production at all. Added with the console
+(sub-phase F): the documents the assistant answers rules from (policies and procedures as text
+or Markdown, since nothing is read from a PDF) and who keeps them current; who holds
+`ai:manage` (super admins today) to pause, switch agents and manage the knowledge base;
+whether every role with `ai:read` (operations, finance, support) should be able to open
+travellers' conversations, which are shown with contact details removed and audited; the
+model prices in `AGENT_MODEL_PRICES`, without which every cost reads as nothing; and the
+forecast above which someone should be told. Every owner action is listed,
 step by step, in `docs/owner/launch-checklist.md`.

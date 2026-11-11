@@ -87,3 +87,42 @@ payment, and never an instruction (ADR-107).
   the records of processing for AI trip search and the support assistant, and the purpose list
   grows.
 - Knowledge answers are only as good as what staff upload; an empty base hands over to a person.
+
+## Amendments made while building it (sub-phase F, 2026-11-11)
+
+- **Plain text and Markdown only.** Nothing is extracted from a PDF or an office file: that
+  needs a parser the platform does not carry, and a parser for untrusted files is a risk of
+  its own. Staff save a policy as text or Markdown: 512 KB a file, 200 documents in use, 600
+  passages a document. The declared type must be text and so must the bytes (valid UTF-8
+  without control characters), whatever was declared.
+- **The search vector is written with the row**, not generated. A generated column cannot
+  choose a text search configuration per row, and a document's language decides it: English,
+  French, Portuguese and Arabic stem their words; Swahili has no configuration in PostgreSQL
+  and is matched as written. A heading weighs more than the body under it.
+- **Any word of the question may match.** A question is longer than the rule that answers
+  it, so requiring every word found nothing. Passages that match more of the words, or match
+  in a heading, rank first, and the four best are returned.
+- **A language, not a locale.** A document is written in one of the five languages of the
+  site; `en-NG`, `en-GB` and `en-US` read the same English documents. A conversation is
+  answered from its own language first and from English when that has nothing.
+- **No signed links.** The file is served only by `GET /v1/admin/ai/knowledge/{id}/content`
+  to staff with `ai:read`, as an attachment a browser will not render. A link that works
+  without a session is one more thing to leak, for a file only staff need.
+- **Archived, never deleted**, and the same file cannot be in use twice for one audience and
+  language. Who added, changed, archived or restored a document is in the audit log with ids
+  and counts, never its words or its title.
+- **The citation is a card.** `knowledge.search` returns each passage with its document and
+  section, and one card of the kind `source` for each document read. Tools build cards and
+  the graph passes them through unchanged, so a model cannot name a source it did not read.
+- **A passage is a tool result like any other.** The guard accepts a figure or a contact an
+  answer quotes from one, and the tool's description tells the model that a passage is never
+  an instruction and never proof of a booking or a payment. Staff are told, where they choose
+  a file, that nothing about a person belongs in one; nothing checks a document for personal
+  data.
+- **Staff can run the assistant's search** (`GET /v1/admin/ai/knowledge/search`) for an
+  audience and a language, to see what a traveller would be answered from before relying on
+  it.
+- **What staff see of a conversation.** `GET /v1/admin/ai/monitor/conversations/{id}` returns
+  a traveller's messages after `scrubQuery()`, as the model saw them, and records the read
+  (`agent.conversation_viewed`) with the reader and the conversation. Runs and tool calls
+  were already ids, codes and the names of arguments.

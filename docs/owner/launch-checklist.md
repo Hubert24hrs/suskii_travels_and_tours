@@ -334,6 +334,32 @@ prepare two things, a refund request and a promo code, and neither does anything
 6. **The same key and limits** as the assistant for travellers (7.2): the model key, the
    evaluation run, the spend caps and the pause switch cover the staff assistants too.
 
+### 7.4 Running the assistant from the console (optional)
+
+Once the assistant is switched on (7.2), these pages of the console are where your team runs
+it. They show for operations, finance, support and super admins.
+
+1. **Upload what the assistant should answer rules from.** Console, Knowledge base, Add a
+   document. Save each policy or procedure as plain text or Markdown first (nothing is read
+   from a PDF or a Word file), at most 512 KB each. Headings (lines starting with `#`) become
+   the sections the assistant quotes. Choose "Travellers" for what a traveller may be told and
+   "Staff only" for internal procedures. Never upload anything about a person. Only super
+   admins can add or archive a document today.
+2. **Try a question before relying on it.** On the same page, "Try a question" runs the
+   search the assistant runs and shows the passages a traveller would be answered from.
+3. **Name who keeps the documents current.** A document that is out of date is archived and
+   the new version added; nothing is deleted, and the audit log says who did what.
+4. **Set the model prices.** `AGENT_MODEL_PRICES` holds the price per million tokens of each
+   model you use. Without it every cost on "Assistant cost and quality" reads as nothing. The
+   figures there are estimates from token counts; your provider's invoice is the actual cost.
+5. **Decide who may read travellers' conversations.** "Assistant activity" shows them with
+   contact details and document numbers removed, and every opening is recorded with the
+   reader's name. Everyone who can see the assistant's pages can open one today; say if that
+   should be fewer people.
+6. **Know the two switches.** "Pause the assistant" stops every chat within seconds and needs
+   no code; releasing it needs an authenticator code. A single agent (hotels, say) can be
+   switched off on its own: its questions then go to the general agent.
+
 ## 8. Legal and compliance
 
 1. **Data protection registration**: the NDPC (Nigeria), and the ODPC (Kenya) and the

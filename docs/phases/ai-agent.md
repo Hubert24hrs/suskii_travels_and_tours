@@ -166,6 +166,9 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
   end-to-end tests but no eval of their own).
 - Shadow mode (section 12 of the brief): a prompt version that runs beside the live one, is
   never shown, and is compared before it may answer.
+- Left by F, from sections 10 and 12 of the brief: a recipe proposal when a site's pages stop
+  yielding prices, decided in Approvals; the results of the evals in the console (they are in
+  CI today); an alert when the month's forecast passes a threshold.
 
 ## Evaluation thresholds
 
@@ -682,3 +685,94 @@ arrives). No other answer changes; the confirmation, quote and console routes ar
 **Not done here**: the console has no page for any of this (F), no client offers the
 assistant, a confirmation card or a quote (G), and the agent service has no image, Terraform
 or Helm yet (H).
+
+### F. Console (2026-11-11)
+
+**Built**
+
+- **Pages for what E built**: the assistant's switches (`/ai`), the staff chat
+  (`/assistant`), approvals (`/approvals`), assisted quotes (`/assisted-quotes`) and data
+  sources (`/data-sources`). Each shows for `ai:read`; an action is shown only to staff who
+  hold its permission and is checked again by the API. Pause is one press with a reason;
+  releasing it, changing a level, approving a site, switching reading back on and raising a
+  budget ask for an authenticator code through the console's own step-up prompt.
+- **What staff see of the assistant's work.** `AgentInsightsService` and
+  `/v1/admin/ai/monitor/runs`, `.../runs/{id}`, `.../conversations`, `.../conversations/{id}`,
+  `/cost`, `/quality` and `/limits`, drawn by two pages: **Assistant activity** (runs with a
+  filter by status, agent and audience, refreshed every 15 seconds; a run's trace of tool
+  calls; travellers' conversations) and **Assistant cost and quality** (estimated spend by
+  agent, model, channel, day and account, the month so far and its forecast, the caps; runs
+  answered, handed over, refused by the guard and failed, feedback, the same by prompt
+  version; the limits in force and the model prices).
+- **One agent's switch**: `PUT /v1/admin/ai/agents/{agent}`, on the assistant page.
+- **The knowledge base** (ADR-105): tables `knowledge_documents` and `knowledge_chunks`
+  (migration `20261122120000_knowledge_base`), `KnowledgeService`, eight routes under
+  `/v1/admin/ai/knowledge`, the tool `knowledge.search` for every agent, the splitter and the
+  limits in `@suskii/shared`, the card kind `source`, and the **Knowledge base** page (add a
+  file, read its passages, download it, change its title or audience, archive and restore
+  it, try a question).
+- **Data source health**: `GET /v1/admin/data-sources/health` and its section on the data
+  sources page.
+- **The audit log narrowed to the assistant** (`area=assistant`), linked from the assistant
+  page for staff who may read the log.
+- The tools snapshot of the evals (38 tools), both new tables in the data registry and the
+  records of processing, the knowledge and switch actions in the audit list, three menu
+  entries, the console's copy.
+- Documents: amendments to ADR-102, ADR-105 and ADR-107, section 7.4 of the launch
+  checklist, the access control, data classification and business limits pages, the price
+  intelligence runbook.
+
+**How to try it** (local stack; no model and no vendor is called)
+
+1. `pnpm infra:up`, `pnpm --filter @suskii/api db:deploy`, `db:seed`, then `pnpm dev` with
+   `AGENT_SERVICE=mock`. `pnpm --filter @suskii/api staff:bootstrap` makes the first super
+   admin; sign in to the console on port 3001.
+2. **Knowledge base.** Add a Markdown file with a few headings for "Travellers", open
+   "Passages", then "Try a question" with a question the file answers. Change it to "Staff
+   only" and search again as a traveller: nothing is found.
+3. **Activity.** Ask something on "Ask the assistant", then open "Assistant activity": the
+   run is listed with its agent and outcome; "Trace" shows the tools it called. A traveller's
+   conversation (start one with `POST /v1/agent/conversations` and `POST /v1/agent/chat`)
+   opens with any address or number in it removed, and the audit log (Assistant, "The
+   assistant's audit log") shows the reading.
+4. **Cost.** Set `AGENT_MODEL_PRICES` (see `.env.example`) to see figures other than zero on
+   "Assistant cost and quality".
+5. **One agent.** On "Assistant", switch "Hotels" off: a question about hotels is then
+   answered by the general agent.
+
+**What changed from the plan**
+
+- **Plain text and Markdown only** in the knowledge base, a search vector written with the
+  row, any word of a question matching, a language instead of a locale, and no signed links
+  (ADR-105, amendments).
+- **The limits are shown, not edited.** The brief asks for "agent, model and limit
+  configuration"; what can be changed in the console is each agent's level and switch and
+  each tool's level. Run limits, caps and model prices are settings of the environment.
+- **Not built here, moved to H**: a recipe proposal for a site in drift, the results of the
+  evals in the console, and an alert on the month's forecast.
+
+**Found while building, and fixed**
+
+- **A conversation read could miss its own answer.** The messages were read before the run,
+  so a read that fell between the answer being stored and the run ending said that nothing
+  was running and showed no answer; the staff chat then stopped polling. Found by the
+  console's chat journey; the run is read first.
+- **The search preview stayed as it was after a document changed**: the page refreshed the
+  list only, and asking the same question again answered from what was already shown. Found
+  by the console's knowledge journey; a change now refreshes everything read from the
+  knowledge base, and the same question asked again is searched again.
+- The audit log is never emptied between tests, so a test that counted knowledge entries saw
+  another test's; it now reads its own document's entries.
+
+**Known limits, kept in view**
+
+- **Nothing checks a knowledge document for personal data.** The form says none belongs in
+  one; the people with `ai:manage` are trusted to keep it so.
+- **Nothing is read from a PDF or an office file.**
+- **Cost is an estimate** from reported tokens at configured prices; with no price set for a
+  model, its runs cost nothing on the page. No invoice is read.
+- **Everyone with `ai:read` can open a traveller's conversation**, masked and audited. The
+  owner decides whether that should be fewer people.
+- **The console shows no eval result**; the evals run in CI (`agent-eval.yml`) and locally.
+- The cost and quality queries aggregate `agent_runs` at read time; they are bounded to 90
+  days and are not cached.

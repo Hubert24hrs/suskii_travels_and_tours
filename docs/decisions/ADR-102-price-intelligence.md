@@ -168,3 +168,8 @@ A person approves recipes; nothing approves itself.
   owner's keys is the check that confirms each adapter before its vendor is enabled.
 - **The register** is rendered by `price-intel:register` from one environment's registry; the
   repository keeps the page of an empty one.
+- **Health is read from the attempts** (sub-phase F). `GET /v1/admin/data-sources/health`
+  counts, for each vendor and each site over the last hours (24 unless asked, a week at
+  most), the tries, those that gave a usable page and those the site refused, the median
+  time, and the cost per usable page and per price kept; it says which vendor's breaker is
+  open and which sites' pages stopped yielding prices. Nothing new is stored for it.
