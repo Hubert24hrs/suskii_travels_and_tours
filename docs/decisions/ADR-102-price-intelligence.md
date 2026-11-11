@@ -184,5 +184,10 @@ A person approves recipes; nothing approves itself.
   declares no priced thing of a known type, the answer is `nothing_priced` and a person
   writes selectors, as before. The proposal goes to the approvals queue (ADR-107); "a person
   writes and changes recipes" still holds, since saving it is the approver's own change.
+- **A blocked site comes back in two steps.** Approving a blocked site is refused (409
+  `price-source-blocked`): it goes back to review first, then is approved on a new basis, each
+  step audited as someone's. The runbook had said so since sub-phase C; until sub-phase H the
+  API took a blocked site straight to approved and the console offered it. Found on the
+  console's own page, while taking pictures of it.
 - **Alert rules** (`infra/observability/alerts`): a parser drift and a budget at its cap
   each raise a ticket from the alerts the code already counts; neither pages.

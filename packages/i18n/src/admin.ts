@@ -126,6 +126,8 @@ export const adminMessages = {
       'This booking is not waiting to be booked: it is unpaid, held, already booked or refunded.',
     'price-source-exists': 'That site is already listed.',
     'price-source-status': 'The site already has that status, or just changed. Reload.',
+    'price-source-blocked':
+      'This site is blocked. Send it back to review first, then approve it with its new basis.',
     'price-source-findings-unknown':
       "Record what the site's robots file and terms say about automated access first.",
     'price-source-needs-permission':

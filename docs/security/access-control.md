@@ -97,7 +97,9 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   on and changing a budget also need step-up; switching off does not. An approval is refused
   until someone recorded what the site's robots file and terms say, and takes only a licence
   or a permission when either disallows automated access. Changing what an approver agreed to
-  (vendors, proxy class, findings, page addresses, rate) sends the site back to review. The
+  (vendors, proxy class, findings, page addresses, rate) sends the site back to review. A
+  blocked site cannot be approved directly (409 `price-source-blocked`): it goes back to
+  review first. The
   sweep (`/v1/internal/price-intel/sweep`) takes only the worker's token. The agent service has
   no route here and holds no vendor key: it reaches prices only through tools. A recipe for a
   site in drift is worked out by a rule from the page that was kept (`sources.propose_recipe`,

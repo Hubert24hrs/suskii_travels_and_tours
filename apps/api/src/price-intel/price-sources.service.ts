@@ -244,6 +244,11 @@ export class PriceSourcesService {
     const source = await this.get(sourceId);
     const policy = source.policy;
     if (!policy) throw new NotFoundException();
+    // A site is blocked for a reason: it asked, or counsel withdrew the basis. It comes back
+    // in two steps, each audited as someone's: back to review, then an approval on a new basis.
+    if (policy.status === 'blocked') {
+      throw conflict('price-source-blocked', 'Send the site back to review first');
+    }
     if (looksPersonal(approval.basisReference)) {
       throw new ProblemDetailsException(
         HttpStatus.UNPROCESSABLE_ENTITY,

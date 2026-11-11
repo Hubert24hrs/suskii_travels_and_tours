@@ -78,7 +78,7 @@ document id, a ticket; not a contact detail). It is audited with who approved an
 
 Changing what the approver agreed to (the vendors, the highest proxy class, the robots and
 terms findings, the page addresses, the rate or the concurrency) sends an approved site back
-to review. Changing a recipe does not: a recipe is how a page is read, not what was agreed.
+to review. A blocked site is never approved in one step: send it back to review first. Changing a recipe does not: a recipe is how a page is read, not what was agreed.
 
 Then print the register for counsel:
 `pnpm --filter @suskii/api price-intel:register` (`docs/legal/scraping-register.md` is the
