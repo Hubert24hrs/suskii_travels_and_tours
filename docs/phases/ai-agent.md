@@ -763,6 +763,10 @@ or Helm yet (H).
   knowledge base, and the same question asked again is searched again.
 - The audit log is never emptied between tests, so a test that counted knowledge entries saw
   another test's; it now reads its own document's entries.
+- **The gate caught a list I had not updated.** A test names exactly which admin operations
+  need a fresh authenticator code; the single-agent switch carries the check and was not in
+  the list, so the first full run of the API suite failed there (839 of 840). The list, this
+  guide and the access control page now name it, and the suite ran again in full.
 
 **Known limits, kept in view**
 
@@ -776,3 +780,44 @@ or Helm yet (H).
 - **The console shows no eval result**; the evals run in CI (`agent-eval.yml`) and locally.
 - The cost and quality queries aggregate `agent_runs` at read time; they are bounded to 90
   days and are not cached.
+
+**Test results** (local, 2026-11-11). The long suites ran on commit `f8f5025`, the last one
+that changes what the API and the website do. The API suite had one failure there (the
+step-up list above); after the fix the full API suite, the console suite and every
+workspace's unit tests ran again on `4effea1`, the head of the branch. The commits between
+the two change a console page (the runs list refreshing itself), formatting and documents.
+
+| Check                                                  | Result                           | On        |
+| ------------------------------------------------------ | -------------------------------- | --------- |
+| `pnpm lint`                                            | 15 of 15 workspaces              | `f8f5025` |
+| `pnpm typecheck`                                       | 14 of 14 workspaces              | `f8f5025` |
+| `pnpm test` (unit, every workspace)                    | 12 of 12 tasks                   | `4effea1` |
+| API unit (`test:cov`, with the 80% gates)              | 74 suites, 808 tests             | `f8f5025` |
+| API e2e (full, `test:e2e:cov`)                         | 78 suites, 840 tests             | `4effea1` |
+| of which the knowledge base and the insights           | 15 tests                         | `4effea1` |
+| `@suskii/agent`                                        | 58 tests (10 in the three evals) | `4effea1` |
+| `@suskii/shared`                                       | 385 tests                        | `4effea1` |
+| Web e2e (Chromium and slow 3G)                         | 242 tests                        | `f8f5025` |
+| Mobile (Jest)                                          | 50 suites, 319 tests             | `f8f5025` |
+| Admin e2e                                              | 31 tests                         | `4effea1` |
+| `pnpm check:migrations` (46 migrations)                | pass                             | `4effea1` |
+| `pnpm security:checklist --check`, `pnpm format:check` | pass                             | `4effea1` |
+| `pnpm test:scripts`                                    | 13 tests                         | `4effea1` |
+
+| Eval (recorded answers) | Result                                              | Pass mark          |
+| ----------------------- | --------------------------------------------------- | ------------------ |
+| `eval:agent-routing`    | 78 of 81 (96.3%); 16 by rule without a model call   | 95%                |
+| `eval:agent-grounding`  | no invention shown; 15 of 16 grounded answers shown | 0 shown, 90% shown |
+| `eval:agent-safety`     | 28 of 28 held; no violation                         | 0 violations       |
+
+Before this sub-phase: API e2e 76 suites and 806 tests, admin e2e 24 tests, `@suskii/shared`
+378 tests. Not run: no model, no vendor and no supplier was called; the evals ran on recorded
+answers, and the staff agents still have no eval of their own (planned in H).
+
+**Decisions needed from the owner**
+
+- The documents the assistant should answer rules from, as text or Markdown, and who keeps
+  them current.
+- Whether everyone with the assistant's pages may open travellers' conversations (masked and
+  audited), or fewer people.
+- The model prices (`AGENT_MODEL_PRICES`), and the forecast above which someone is told.
