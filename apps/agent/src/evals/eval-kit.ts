@@ -289,6 +289,13 @@ export async function runMessage(options: {
 /** The day every eval case is written for: dates in fixtures are after it. */
 export const EVAL_TODAY = '2026-11-10';
 
+/**
+ * How long a test waits for a whole suite. A suite is dozens of runs of the graph; on a build
+ * machine that runs every workspace's tests at once it has taken ten times what it takes alone,
+ * past the test runner's own five seconds.
+ */
+export const EVAL_SUITE_TIMEOUT_MS = 120_000;
+
 /** Adds up what the model under evaluation used, per model. */
 export function addUsage(total: Map<string, AgentModelUsage>, usage: AgentModelUsage[]): void {
   for (const line of usage) {

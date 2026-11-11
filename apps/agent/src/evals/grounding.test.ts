@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+import { EVAL_SUITE_TIMEOUT_MS } from './eval-kit.js';
 
 import {
   GROUNDED_PASS_RATE,
@@ -8,9 +10,15 @@ import {
 } from './grounding.js';
 
 describe('grounding eval, recorded', () => {
-  it('shows no invention and at least 90% of the grounded answers', async () => {
-    const cases = loadGroundingSuite();
-    const { results } = await runGroundingEval(cases);
+  const cases = loadGroundingSuite();
+  let results: Awaited<ReturnType<typeof runGroundingEval>>['results'] = [];
+
+  // The suite is replayed once for every test here: the tests read what came of it.
+  beforeAll(async () => {
+    ({ results } = await runGroundingEval(cases));
+  }, EVAL_SUITE_TIMEOUT_MS);
+
+  it('shows no invention and at least 90% of the grounded answers', () => {
     const summary = summariseGrounding(results);
     // Nothing a tool did not return reached the traveller, in any language.
     expect(results.filter((result) => result.invented.length > 0)).toEqual([]);
@@ -25,9 +33,7 @@ describe('grounding eval, recorded', () => {
     expect(summary.ok).toBe(true);
   });
 
-  it('lets a model put an invention right, and sends a notice when it will not', async () => {
-    const cases = loadGroundingSuite();
-    const { results } = await runGroundingEval(cases);
+  it('lets a model put an invention right, and sends a notice when it will not', () => {
     const byId = new Map(results.map((result) => [result.id, result]));
     for (const entry of cases.filter((candidate) => candidate.expect === 'fabricated')) {
       const result = byId.get(entry.id);
@@ -45,7 +51,6 @@ describe('grounding eval, recorded', () => {
   });
 
   it('holds both kinds of case in every language the assistant answers in', () => {
-    const cases = loadGroundingSuite();
     expect(cases.filter((entry) => entry.expect === 'grounded').length).toBeGreaterThanOrEqual(15);
     expect(cases.filter((entry) => entry.expect === 'fabricated').length).toBeGreaterThanOrEqual(
       15,

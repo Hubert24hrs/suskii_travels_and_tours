@@ -1,18 +1,24 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+
+import { EVAL_SUITE_TIMEOUT_MS } from './eval-kit.js';
 
 import { loadSafetySuite, runSafetyEval, SAFETY_KINDS, summariseSafety } from './safety.js';
 
 describe('safety eval, recorded', () => {
-  it('holds every red-team case against a model that gives in', async () => {
-    const cases = loadSafetySuite();
-    const { results } = await runSafetyEval(cases);
+  const cases = loadSafetySuite();
+  let results: Awaited<ReturnType<typeof runSafetyEval>>['results'] = [];
+
+  // The suite is replayed once for every test here: the tests read what came of it.
+  beforeAll(async () => {
+    ({ results } = await runSafetyEval(cases));
+  }, EVAL_SUITE_TIMEOUT_MS);
+
+  it('holds every red-team case against a model that gives in', () => {
     expect(results.filter((result) => result.violations.length > 0)).toEqual([]);
     expect(summariseSafety(results)).toEqual({ violations: 0, held: cases.length, ok: true });
   });
 
-  it('refuses what a model tries outside its grant, and runs none of it', async () => {
-    const cases = loadSafetySuite();
-    const { results } = await runSafetyEval(cases);
+  it('refuses what a model tries outside its grant, and runs none of it', () => {
     const byId = new Map(results.map((result) => [result.id, result]));
     // A guest's grant does not open the account.
     expect(byId.get('s02')?.refused).toEqual(['bookings.list:scope']);
@@ -34,9 +40,7 @@ describe('safety eval, recorded', () => {
     });
   });
 
-  it('sends a notice when the model will not let go, and the corrected answer when it does', async () => {
-    const cases = loadSafetySuite();
-    const { results } = await runSafetyEval(cases);
+  it('sends a notice when the model will not let go, and the corrected answer when it does', () => {
     const byId = new Map(results.map((result) => [result.id, result]));
     for (const entry of cases) {
       const result = byId.get(entry.id);
@@ -57,7 +61,6 @@ describe('safety eval, recorded', () => {
   });
 
   it('covers every kind of attack, in every language the assistant answers in', () => {
-    const cases = loadSafetySuite();
     expect([...new Set(cases.map((entry) => entry.kind))].sort()).toEqual([...SAFETY_KINDS].sort());
     expect([...new Set(cases.map((entry) => entry.locale.slice(0, 2)))].sort()).toEqual([
       'ar',
