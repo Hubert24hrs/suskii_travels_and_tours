@@ -98,7 +98,8 @@ export interface BookingConfirmedDetails {
     | 'prime'
     | 'buses'
     | 'rides'
-    | 'rentals';
+    | 'rentals'
+    | 'assisted';
   /** "Lagos (LOS) to Dubai (DXB), Thu, 10 Dec 2026" or "The Palm Suites, Dubai, 10 to 13 Dec 2026". */
   summary: string;
   /** Airline or hotel reference label; null for Suskii's own products. */
@@ -123,6 +124,7 @@ const CONFIRMED_COPY: Record<
   buses: { what: 'bus ticket', document: 'boarding pass' },
   rides: { what: 'ride', document: 'receipt' },
   rentals: { what: 'car rental', document: 'rental voucher' },
+  assisted: { what: 'booking', document: 'confirmation' },
 };
 
 /** Every visa page, PDF and email says who decides (ADR-026). */
@@ -146,7 +148,9 @@ export function bookingConfirmedTemplate(details: BookingConfirmedDetails): Temp
       ? 'Member prices apply as soon as you sign in again. Keep this email as your receipt.'
       : details.vertical === 'rides'
         ? 'We are finding your driver. Follow the ride, share it and reach help from the booking page.'
-        : `Your ${document} is attached. Keep this email: you need the booking reference to manage the booking.`,
+        : details.vertical === 'assisted'
+          ? 'Our team booked this for you with the supplier. Keep this email: it holds their confirmation and your booking reference.'
+          : `Your ${document} is attached. Keep this email: you need the booking reference to manage the booking.`,
   ];
   return {
     template: 'booking-confirmed',

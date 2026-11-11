@@ -391,6 +391,7 @@ export class DataExportService {
       privacyRequests: await this.privacyRequests(userId),
       trips: await this.trips(userId),
       assistant: await this.assistant(userId),
+      assistedQuotes: await this.assistedQuotes(userId),
     };
 
     return {
@@ -676,6 +677,28 @@ export class DataExportService {
         askedAt: iso(confirmation.createdAt),
         answeredAt: confirmation.decidedAt ? iso(confirmation.decidedAt) : null,
       })),
+    }));
+  }
+
+  /** Requests to have a price confirmed by a person (ADR-104), and how each ended. */
+  private async assistedQuotes(userId: string): Promise<unknown> {
+    const rows = await this.prisma.assistedQuote.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row) => ({
+      reference: row.reference,
+      product: row.product,
+      title: row.title,
+      request: row.request,
+      currency: row.currency,
+      status: row.status,
+      closedReason: row.closedReason,
+      // What was offered, in the words the traveller was shown; the supplier's name and the
+      // proof are Suskii's own records.
+      offered: row.details,
+      offeredUntil: row.offerExpiresAt ? iso(row.offerExpiresAt) : null,
+      createdAt: iso(row.createdAt),
     }));
   }
 

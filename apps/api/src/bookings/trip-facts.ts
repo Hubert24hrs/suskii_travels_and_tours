@@ -21,7 +21,8 @@ export function tripFacts(payload: ItemPayload): TripFacts | null {
     return {
       countryCode: inhouseCountry(payload),
       cityName: payload.kind === 'visa' ? null : payload.cityName,
-      timeZone: payload.kind === 'visa' ? null : payload.timeZone,
+      // An assisted booking's place is in staff's words: no zone is known for it.
+      timeZone: payload.kind === 'visa' || payload.kind === 'assisted' ? null : payload.timeZone,
       startDate: start,
       endDate: end,
       travellers: payload.travellers,

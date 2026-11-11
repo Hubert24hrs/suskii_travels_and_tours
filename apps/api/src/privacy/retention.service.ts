@@ -58,6 +58,8 @@ export const RETENTION_RULES = [
   'ad-conversions',
   // Metasearch landings (ADR-081).
   'metasearch-landings',
+  // Assisted quotes (ADR-104).
+  'assisted-quotes',
   // Suskii Agent (ADR-105).
   'agent-conversations',
   'agent-runs',
@@ -129,6 +131,8 @@ export const RETENTION_DAYS = {
   'metasearch-landings': 400,
   /** After the conversation was resolved and last touched: two years to answer a dispute. */
   'support-conversations': 730,
+  /** After a request closed or became a booking: 13 months, as fare history is kept. */
+  'assisted-quotes': 400,
   /** After the last message of a conversation with the assistant (ADR-105). */
   'agent-conversations': 365,
   /** Runs and their tool calls: 13 months of cost and quality history (ADR-105). */
@@ -426,6 +430,15 @@ export class RetentionService {
       'support-conversations': counts(
         await this.prisma.supportConversation.deleteMany({
           where: { status: 'resolved', updatedAt: { lt: before('support-conversations') } },
+        }),
+      ),
+      // Open requests are still owed an answer; the rest go once nobody can ask about them.
+      'assisted-quotes': counts(
+        await this.prisma.assistedQuote.deleteMany({
+          where: {
+            status: { notIn: ['requested', 'offered'] },
+            updatedAt: { lt: before('assisted-quotes') },
+          },
         }),
       ),
       // Before the conversations: a thread without a conversation is purged too, so one deleted

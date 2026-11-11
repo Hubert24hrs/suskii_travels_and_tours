@@ -220,6 +220,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/assisted-quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requests to verify and paid bookings to book, oldest first */
+        get: operations["adminListAssistedQuotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/assisted-quotes/{assistedQuoteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One request, with what was verified and its booking */
+        get: operations["adminGetAssistedQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/assisted-quotes/{assistedQuoteId}/booked": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The paid booking was booked with the supplier: record its confirmation
+         * @description Only this confirms the booking: it moves to `CONFIRMED` and the traveller gets the confirmation email with the supplier's reference. 409 `assisted-booking-not-waiting` when the booking is unpaid, held for a payment review, already booked or already refunded.
+         */
+        post: operations["adminMarkAssistedQuoteBooked"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/assisted-quotes/{assistedQuoteId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** It cannot be had: close the request and tell the traveller */
+        post: operations["adminCloseAssistedQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/assisted-quotes/{assistedQuoteId}/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The live price was verified with the supplier: make the offer
+         * @description Creates the offer the traveller can book for `ASSISTED_QUOTE_VALID_MINUTES` and tells them. The traveller's price is the supplier's price through the pricing rules of the `assisted` vertical, never below it. Verifying again replaces the offer. 409 `assisted-quote-closed` once it was withdrawn, closed or booked.
+         */
+        post: operations["adminOfferAssistedQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/assisted-quotes/{assistedQuoteId}/unbookable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The paid booking could not be booked: refund it in full
+         * @description The booking moves to `REFUND_PENDING` and everything the traveller paid goes back through the refund pipeline. 409 `assisted-booking-not-waiting` when there is nothing waiting to be booked.
+         */
+        post: operations["adminMarkAssistedQuoteUnbookable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/audit-logs": {
         parameters: {
             query?: never;
@@ -5419,6 +5530,23 @@ export interface paths {
         patch: operations["updateMe"];
         trace?: never;
     };
+    "/v1/me/assisted-quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My requests and their answers, newest first */
+        get: operations["listAssistedQuotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/bookings": {
         parameters: {
             query?: never;
@@ -6760,6 +6888,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/quotes/assisted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a price to be confirmed by a person
+         * @description For something seen at an indicative price (send its `observationId`) or something the ordinary search does not sell. It holds places, dates and head counts only: no names and no contact details (422). A person verifies the live price with the supplier and answers with an offer, or says it cannot be had; a request nobody answered closes as `expired`. Up to five can wait at once (409 `assisted-quote-limit`). 404 while assisted quotes are switched off.
+         */
+        post: operations["requestAssistedQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/quotes/assisted/{assistedQuoteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of my requests
+         * @description With `status` `offered`, `offer.quoteId` is an ordinary quote: read it with `GET /v1/quotes/{quoteId}` and book it with `POST /v1/bookings` before `offer.expiresAt`. The booking is paid as any other, then booked by a person with the supplier; it is `CONFIRMED` only once they have the confirmation, and refunded in full if it cannot be booked.
+         */
+        get: operations["getAssistedQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/quotes/assisted/{assistedQuoteId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * I no longer want this
+         * @description For a request that is waiting or on offer. One that became a booking is cancelled as a booking (409 `assisted-quote-closed`).
+         */
+        post: operations["withdrawAssistedQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/rentals/reservations/{reservationId}": {
         parameters: {
             query?: never;
@@ -7544,6 +7732,78 @@ export interface components {
                 agents: ("concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive")[];
             }[];
         };
+        AdminAssistedQuote: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            product: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "other";
+            title: string;
+            request: {
+                /** @default null */
+                origin: string | null;
+                destination: string;
+                startDate: string;
+                /** @default null */
+                endDate: string | null;
+                adults: number;
+                /** @default 0 */
+                children: number;
+            };
+            currency: string;
+            /** @enum {string} */
+            status: "requested" | "offered" | "unavailable" | "expired" | "withdrawn" | "booked";
+            closedReason: string | null;
+            indicative: {
+                price: components["schemas"]["Money"];
+                source: string;
+                /** Format: date-time */
+                seenAt: string;
+            } | null;
+            offer: {
+                /** Format: uuid */
+                quoteId: string;
+                total: components["schemas"]["Money"];
+                details: {
+                    title: string;
+                    summary: string;
+                    startDate: string;
+                    endDate: string;
+                    /** @default null */
+                    cityName: string | null;
+                    /** @default null */
+                    countryCode: string | null;
+                    refundable: boolean;
+                };
+                /** Format: date-time */
+                expiresAt: string;
+            } | null;
+            bookingId: string | null;
+            /** Format: date-time */
+            answerBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            userId: string;
+            supplierName: string | null;
+            supplierPrice: components["schemas"]["Money"] | null;
+            evidenceUrl: string | null;
+            verifiedBy: string | null;
+            verifiedAt: string | null;
+            booking: {
+                /** Format: uuid */
+                id: string;
+                reference: string;
+                /** @enum {string} */
+                status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
+                waitsToBeBooked: boolean;
+                supplierReference: string | null;
+                evidenceUrl: string | null;
+            } | null;
+        };
+        AdminAssistedQuoteList: {
+            quotes: components["schemas"]["AdminAssistedQuote"][];
+        };
         AdminBookingContact: {
             email: string;
             phone: string;
@@ -7591,7 +7851,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             /** Format: date-time */
             createdAt: string;
             total: components["schemas"]["Money"];
@@ -7779,7 +8039,7 @@ export interface components {
                 }[];
                 byVertical: {
                     /** @enum {string} */
-                    vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+                    vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
                     count: number;
                 }[];
             };
@@ -8003,7 +8263,7 @@ export interface components {
             code: string;
             label: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             active: boolean;
             sortOrder: number;
             channel: ("web" | "mobile") | null;
@@ -8059,7 +8319,7 @@ export interface components {
         AdminMarkupRule: {
             name: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             priority: number;
             active: boolean;
             channel: ("web" | "mobile") | null;
@@ -8243,7 +8503,7 @@ export interface components {
             currency: string | null;
             maxDiscountMinor: number | null;
             minSpendMinor: number | null;
-            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals")[];
+            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted")[];
             validFrom: string | null;
             validTo: string | null;
             maxRedemptions: number | null;
@@ -8659,7 +8919,7 @@ export interface components {
             rateBps: number;
             /** @enum {string} */
             basis: "margin" | "full";
-            vertical: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals") | null;
+            vertical: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted") | null;
             active: boolean;
             registrationNumber: string | null;
             validFrom: string | null;
@@ -8933,6 +9193,103 @@ export interface components {
             countryName: string;
             timeZone: string;
         };
+        AssistedItem: {
+            product: {
+                /** Format: uuid */
+                id: string;
+                slug: string;
+                title: string;
+                sample: boolean;
+                artKey: string | null;
+            };
+            /** @enum {string} */
+            kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "other";
+            summary: string;
+            startDate: string;
+            endDate: string;
+            cityName: string | null;
+            countryCode: string | null;
+            travellers: components["schemas"]["TravellerCounts"];
+            refundable: boolean;
+            /** Format: uuid */
+            quoteId: string;
+            supplierReference: string | null;
+        };
+        AssistedQuote: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            product: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "other";
+            title: string;
+            request: {
+                /** @default null */
+                origin: string | null;
+                destination: string;
+                startDate: string;
+                /** @default null */
+                endDate: string | null;
+                adults: number;
+                /** @default 0 */
+                children: number;
+            };
+            currency: string;
+            /** @enum {string} */
+            status: "requested" | "offered" | "unavailable" | "expired" | "withdrawn" | "booked";
+            closedReason: string | null;
+            indicative: {
+                price: components["schemas"]["Money"];
+                source: string;
+                /** Format: date-time */
+                seenAt: string;
+            } | null;
+            offer: {
+                /** Format: uuid */
+                quoteId: string;
+                total: components["schemas"]["Money"];
+                details: {
+                    title: string;
+                    summary: string;
+                    startDate: string;
+                    endDate: string;
+                    /** @default null */
+                    cityName: string | null;
+                    /** @default null */
+                    countryCode: string | null;
+                    refundable: boolean;
+                };
+                /** Format: date-time */
+                expiresAt: string;
+            } | null;
+            bookingId: string | null;
+            /** Format: date-time */
+            answerBy: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AssistedQuoteInputInput: {
+            /** @enum {string} */
+            product: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "other";
+            title: string;
+            request: {
+                /** @default null */
+                origin?: string | null;
+                destination: string;
+                startDate: string;
+                /** @default null */
+                endDate?: string | null;
+                adults: number;
+                /** @default 0 */
+                children?: number;
+            };
+            /** @enum {string} */
+            currency: "NGN" | "USD" | "GBP" | "EUR" | "GHS" | "KES" | "ZAR";
+            /** @default null */
+            observationId?: string | null;
+        };
+        AssistedQuoteList: {
+            quotes: components["schemas"]["AssistedQuote"][];
+        };
         AttestationChallenge: {
             challenge: string;
             /** Format: date-time */
@@ -8984,6 +9341,11 @@ export interface components {
             mfaEnabled: boolean;
             hasPassword: boolean;
         };
+        BookedAssistedQuoteInput: {
+            supplierReference: string;
+            /** Format: uri */
+            evidenceUrl: string;
+        };
         Booking: {
             /** Format: uuid */
             id: string;
@@ -8991,7 +9353,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             /** Format: date-time */
             createdAt: string;
             paymentDeadline: string | null;
@@ -9045,6 +9407,7 @@ export interface components {
             visa: components["schemas"]["VisaItem"] | null;
             addon: components["schemas"]["AddonItem"] | null;
             membership: components["schemas"]["MembershipItem"] | null;
+            assisted?: components["schemas"]["AssistedItem"] | null;
             bus: components["schemas"]["BusItem"] | null;
             ride: components["schemas"]["RideItem"] | null;
             rental: components["schemas"]["RentalItem"] | null;
@@ -9243,7 +9606,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             /** Format: date-time */
             createdAt: string;
             total: components["schemas"]["Money"];
@@ -9528,6 +9891,10 @@ export interface components {
                 name: string;
             }[];
         };
+        CloseAssistedQuoteInput: {
+            /** @enum {string} */
+            reason: "sold_out" | "price_not_available" | "supplier_declined" | "not_sold_by_suskii" | "duplicate" | "other";
+        };
         Company: {
             /** Format: uuid */
             id: string;
@@ -9551,7 +9918,7 @@ export interface components {
             /** @enum {string} */
             status: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             /** Format: date-time */
             createdAt: string;
             total: components["schemas"]["Money"];
@@ -10439,7 +10806,7 @@ export interface components {
             code: string;
             label: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             active: boolean;
             sortOrder: number;
             channel: ("web" | "mobile") | null;
@@ -10459,7 +10826,7 @@ export interface components {
             code?: string;
             label?: string;
             /** @enum {string} */
-            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             active?: boolean;
             sortOrder?: number;
             channel?: ("web" | "mobile") | null;
@@ -11189,7 +11556,7 @@ export interface components {
         MarkupRuleInputInput: {
             name: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             priority: number;
             active: boolean;
             channel: ("web" | "mobile") | null;
@@ -11213,7 +11580,7 @@ export interface components {
         MarkupRulePatchInput: {
             name?: string;
             /** @enum {string} */
-            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             priority?: number;
             active?: boolean;
             channel?: ("web" | "mobile") | null;
@@ -11563,6 +11930,23 @@ export interface components {
             preferences: components["schemas"]["NotificationPreference"][];
             phoneVerified: boolean;
             marketingConsent: boolean;
+        };
+        OfferAssistedQuoteInput: {
+            supplierName: string;
+            supplierPrice: components["schemas"]["MoneyInput"];
+            /** Format: uri */
+            evidenceUrl: string;
+            details: {
+                title: string;
+                summary: string;
+                startDate: string;
+                endDate: string;
+                /** @default null */
+                cityName?: string | null;
+                /** @default null */
+                countryCode?: string | null;
+                refundable: boolean;
+            };
         };
         OfficerVisaApplication: {
             /** Format: uuid */
@@ -12490,7 +12874,7 @@ export interface components {
             currency: string | null;
             maxDiscountMinor: number | null;
             minSpendMinor: number | null;
-            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals")[];
+            verticals: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted")[];
             validFrom: string | null;
             validTo: string | null;
             maxRedemptions: number | null;
@@ -12507,7 +12891,7 @@ export interface components {
             currency?: string | null;
             maxDiscountMinor?: number | null;
             minSpendMinor?: number | null;
-            verticals?: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals")[];
+            verticals?: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted")[];
             validFrom?: string | null;
             validTo?: string | null;
             maxRedemptions?: number | null;
@@ -12557,7 +12941,7 @@ export interface components {
             /** Format: uuid */
             quoteId: string;
             /** @enum {string} */
-            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+            vertical: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             currency: string;
             /** Format: date-time */
             expiresAt: string;
@@ -12582,6 +12966,7 @@ export interface components {
             visa: components["schemas"]["VisaItem"] | null;
             addon: components["schemas"]["AddonItem"] | null;
             membership: components["schemas"]["MembershipItem"] | null;
+            assisted?: components["schemas"]["AssistedItem"] | null;
             bus: components["schemas"]["BusItem"] | null;
             ride: components["schemas"]["RideItem"] | null;
             rental: components["schemas"]["RentalItem"] | null;
@@ -13030,6 +13415,7 @@ export interface components {
             trips: number;
             "ad-conversions": number;
             "metasearch-landings": number;
+            "assisted-quotes": number;
             "agent-conversations": number;
             "agent-runs": number;
             "agent-threads": number;
@@ -13664,7 +14050,7 @@ export interface components {
             rateBps: number;
             /** @enum {string} */
             basis: "margin" | "full";
-            vertical: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals") | null;
+            vertical: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted") | null;
             active: boolean;
             registrationNumber: string | null;
             validFrom: string | null;
@@ -13677,7 +14063,7 @@ export interface components {
             rateBps?: number;
             /** @enum {string} */
             basis?: "margin" | "full";
-            vertical?: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals") | null;
+            vertical?: ("flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted") | null;
             active?: boolean;
             registrationNumber?: string | null;
             validFrom?: string | null;
@@ -13921,6 +14307,10 @@ export interface components {
             label?: string;
             value?: string | null;
             sortOrder?: number;
+        };
+        UnbookableAssistedQuoteInput: {
+            /** @enum {string} */
+            reason: "sold_out" | "price_changed" | "supplier_declined";
         };
         UnverifyTrustSignalRequestInput: {
             reason: string;
@@ -14825,6 +15215,214 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminListAssistedQuotes: {
+        parameters: {
+            query?: {
+                queue?: "to_verify" | "to_book" | "all";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAssistedQuoteList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAssistedQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assistedQuoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAssistedQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminMarkAssistedQuoteBooked: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                assistedQuoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookedAssistedQuoteInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAssistedQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminCloseAssistedQuote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                assistedQuoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseAssistedQuoteInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAssistedQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminOfferAssistedQuote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                assistedQuoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferAssistedQuoteInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAssistedQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminMarkAssistedQuoteUnbookable: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                assistedQuoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnbookableAssistedQuoteInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAssistedQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminListAuditLogs: {
         parameters: {
             query?: {
@@ -14861,7 +15459,7 @@ export interface operations {
             query?: {
                 q?: string;
                 status?: "DRAFT" | "PRICED" | "HELD" | "AWAITING_PAYMENT" | "PARTIALLY_PAID" | "PAID" | "TICKETING" | "CONFIRMED" | "FAILED" | "CANCELLED" | "REFUND_PENDING" | "REFUNDED" | "EXPIRED";
-                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
                 from?: string;
                 to?: string;
                 cursor?: string;
@@ -17568,7 +18166,7 @@ export interface operations {
     adminListFeeRules: {
         parameters: {
             query?: {
-                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             };
             header?: never;
             path?: never;
@@ -17665,7 +18263,7 @@ export interface operations {
     adminListMarkupRules: {
         parameters: {
             query?: {
-                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals";
+                vertical?: "flights" | "hotels" | "packages" | "tours" | "visa" | "travel_addons" | "prime" | "buses" | "rides" | "rentals" | "assisted";
             };
             header?: never;
             path?: never;
@@ -24943,6 +25541,32 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    listAssistedQuotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistedQuoteList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     listMyBookings: {
         parameters: {
             query?: {
@@ -27476,6 +28100,103 @@ export interface operations {
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
+        };
+    };
+    requestAssistedQuote: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours. */
+                "Idempotency-Key": string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistedQuoteInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistedQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    getAssistedQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assistedQuoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistedQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    withdrawAssistedQuote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                assistedQuoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistedQuote"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
         };
     };
     getRentalReservation: {

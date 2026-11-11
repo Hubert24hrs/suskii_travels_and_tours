@@ -455,15 +455,26 @@ export class BookingsService {
     if (payload.kind === 'hotel' && !('query' in payload)) throw quoteExpired();
     // A membership, ride or rental belongs to the account that asked for its quote (ADR-030,
     // ADR-049): rides need an account for tracking and safety, rentals for the licence check,
-    // handovers and the deposit refund.
+    // handovers and the deposit refund. An assisted offer was verified for one traveller's
+    // request and is theirs alone (ADR-104).
     if (
-      (payload.kind === 'membership' || payload.kind === 'ride' || payload.kind === 'rental') &&
+      (payload.kind === 'membership' ||
+        payload.kind === 'ride' ||
+        payload.kind === 'rental' ||
+        payload.kind === 'assisted') &&
       (!userId || quote.userId !== userId)
     ) {
       throw new NotFoundException();
     }
-    // Company trips (ADR-078) need an account; memberships and on-demand rides are personal.
-    if (input.company && (!userId || payload.kind === 'membership' || payload.kind === 'ride')) {
+    // Company trips (ADR-078) need an account; memberships, on-demand rides and assisted
+    // offers are personal.
+    if (
+      input.company &&
+      (!userId ||
+        payload.kind === 'membership' ||
+        payload.kind === 'ride' ||
+        payload.kind === 'assisted')
+    ) {
       throw companyBookingUnavailable();
     }
 

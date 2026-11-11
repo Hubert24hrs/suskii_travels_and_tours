@@ -22,6 +22,7 @@ import {
   type PerPersonIssue,
   type PerPersonPrices,
   type PrimeBenefits,
+  type AssistedQuoteProduct,
   type PrimePeriod,
   type RentalCategory,
   type RentalExtraChoice,
@@ -68,6 +69,8 @@ export type InhouseQuoteRequest =
       linkToken: string | null;
     }
   | { kind: 'membership'; planSlug: string; currency: string }
+  // An assisted quote (ADR-104) is offered by staff, never quoted by a client.
+  | { kind: 'assisted'; quoteId: string }
   // The hold token is never echoed: the hold id alone cannot be used by someone else.
   | { kind: 'bus'; tripId: string; holdId: string }
   | {
@@ -194,6 +197,29 @@ export interface MembershipItemPayload extends InhouseBase {
   startDate: string;
   endDate: string;
   request: Extract<InhouseQuoteRequest, { kind: 'membership' }>;
+}
+
+/**
+ * Something a person verified with its supplier for one traveller's request (ADR-104): a
+ * hotel, a flight, a transfer. Staff book it by hand after payment, so it carries what was
+ * verified in words; the supplier's name stays on the quote, never here.
+ */
+export interface AssistedItemPayload extends InhouseBase {
+  kind: 'assisted';
+  /** The assisted quote the offer was made from; the re-check reads it. */
+  quoteId: string;
+  product: AssistedQuoteProduct;
+  /** What is included and the supplier's terms, as staff wrote them (plain text). */
+  summary: string;
+  startDate: string;
+  endDate: string;
+  cityName: string | null;
+  countryCode: string | null;
+  /** Whether the supplier refunds a cancellation. Cancelling goes through support either way. */
+  refundable: boolean;
+  /** The supplier's verified price for all of it. */
+  unitPrice: Money;
+  request: Extract<InhouseQuoteRequest, { kind: 'assisted' }>;
 }
 
 /** A terminal as a ticket shows it. */
@@ -335,6 +361,7 @@ export type InhouseItemPayload =
   | VisaItemPayload
   | AddonItemPayload
   | MembershipItemPayload
+  | AssistedItemPayload
   | BusItemPayload
   | RideItemPayload
   | RentalItemPayload;
@@ -347,6 +374,7 @@ export const INHOUSE_KINDS: readonly InhouseKind[] = [
   'visa',
   'addon',
   'membership',
+  'assisted',
   'bus',
   'ride',
   'rental',
@@ -358,6 +386,7 @@ export const INHOUSE_VERTICAL: Readonly<Record<InhouseKind, Vertical>> = {
   visa: 'visa',
   addon: 'travel_addons',
   membership: 'prime',
+  assisted: 'assisted',
   bus: 'buses',
   ride: 'rides',
   rental: 'rentals',
@@ -388,7 +417,7 @@ export function inhouseBasePrice(
     base = result.total;
   } else if (payload.kind === 'visa') {
     base = multiply(payload.unitPrice, travellerTotal(payload.travellers));
-  } else if (payload.kind === 'membership') {
+  } else if (payload.kind === 'membership' || payload.kind === 'assisted') {
     base = payload.unitPrice;
   } else if (payload.kind === 'ride') {
     base = payload.fare.total;
@@ -440,6 +469,7 @@ export function inhouseCountry(payload: InhouseItemPayload): string | null {
       return payload.countryCode;
     case 'membership':
       return null;
+    case 'assisted':
     case 'bus':
     case 'ride':
     case 'rental':
@@ -470,6 +500,7 @@ export function inhouseDates(payload: InhouseItemPayload): { start: string; end:
     case 'package':
     case 'addon':
     case 'membership':
+    case 'assisted':
       return { start: payload.startDate, end: payload.endDate };
     case 'ride':
       return { start: payload.startDate, end: payload.startDate };
@@ -510,7 +541,10 @@ export function cancellationClock(payload: InhouseItemPayload): {
   const { start } = inhouseDates(payload);
   return {
     startDate: start,
-    timeZone: payload.kind === 'visa' || payload.kind === 'membership' ? 'UTC' : payload.timeZone,
+    timeZone:
+      payload.kind === 'visa' || payload.kind === 'membership' || payload.kind === 'assisted'
+        ? 'UTC'
+        : payload.timeZone,
   };
 }
 
@@ -519,8 +553,12 @@ export function cancellationClock(payload: InhouseItemPayload): {
  * whose refunds go through staff (ADR-030).
  */
 export function cancellationTiers(payload: InhouseItemPayload): CancellationTier[] | null {
-  // Rides are cancelled through the ride, under the fare rule's fee (ADR-051).
-  return payload.kind === 'visa' || payload.kind === 'membership' || payload.kind === 'ride'
+  // Rides are cancelled through the ride, under the fare rule's fee (ADR-051); an assisted
+  // booking under its supplier's terms, by the people who booked it (ADR-104).
+  return payload.kind === 'visa' ||
+    payload.kind === 'membership' ||
+    payload.kind === 'ride' ||
+    payload.kind === 'assisted'
     ? null
     : payload.cancellationPolicy;
 }
@@ -537,6 +575,8 @@ export function inhouseOfferId(payload: InhouseItemPayload): string {
       return `addon:${payload.productId}`;
     case 'membership':
       return `prime:${payload.productId}`;
+    case 'assisted':
+      return `assisted:${payload.quoteId}`;
     case 'bus':
       return `bus:${payload.tripId}`;
     case 'ride':

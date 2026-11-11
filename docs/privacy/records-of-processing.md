@@ -249,6 +249,19 @@ Answer conversations on the website, the app and WhatsApp, tied to bookings, wit
 | `SupportConversation` | Retention sweep `support-conversations`: 730 days after the event | delete |
 | `SupportMessage` | With its SupportConversation | delete |
 
+### Assisted quotes
+
+Take a request to have a price confirmed by a person, verify it with the supplier and offer it for booking through the ordinary checkout. A request holds places, dates and head counts; who travels is entered at checkout (ADR-104).
+
+- **Lawful basis:** Contract: needed for the service the person asked for
+- **People:** Travellers with an account
+- **Data:** Itineraries, bookings, tickets and vouchers
+- **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Email relay (SMTP)
+
+| Table | Retention | On account deletion |
+| --- | --- | --- |
+| `AssistedQuote` | Retention sweep `assisted-quotes`: 400 days after the event | delete |
+
 ### AI trip search
 
 Turn a described trip into the flight form; nothing is stored and the text is scrubbed first (ADR-061).
@@ -318,5 +331,5 @@ Who receives personal data, where it processes it and the basis for sending it a
 
 ## Coverage
 
-All 82 tables that hold personal data belong to an activity above;
+All 83 tables that hold personal data belong to an activity above;
 the other 56 hold reference or operational data only.

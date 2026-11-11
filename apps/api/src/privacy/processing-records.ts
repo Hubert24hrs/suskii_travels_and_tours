@@ -469,6 +469,17 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
     recipients: [...hosting, 'email_relay', 'whatsapp', 'anthropic'],
   },
   {
+    id: 'assisted-quotes',
+    name: 'Assisted quotes',
+    purpose:
+      'Take a request to have a price confirmed by a person, verify it with the supplier and offer it for booking through the ordinary checkout. A request holds places, dates and head counts; who travels is entered at checkout (ADR-104).',
+    basis: ['contract'],
+    subjects: ['travellers'],
+    categories: ['trips'],
+    models: ['AssistedQuote'],
+    recipients: [...hosting, 'email_relay'],
+  },
+  {
     id: 'ai-search',
     name: 'AI trip search',
     purpose:

@@ -233,6 +233,11 @@ export type AuditAction =
   | 'agent.paused'
   | 'agent.resumed'
   | 'agent.autonomy_changed'
+  // Assisted quotes (ADR-104)
+  | 'assisted_quote.offered'
+  | 'assisted_quote.closed'
+  | 'assisted_quote.booked'
+  | 'assisted_quote.unbookable'
   // Price intelligence (ADR-102)
   | 'price_intel.source_created'
   | 'price_intel.source_updated'

@@ -30,6 +30,7 @@ export function reviewableKind(payload: ItemPayload): ReviewableItemKind | null 
     case 'visa':
     case 'addon':
     case 'membership':
+    case 'assisted':
     case 'ride':
       return null;
   }
@@ -61,6 +62,7 @@ export function subjectRefOf(payload: ItemPayload): SubjectRef | null {
     case 'visa':
     case 'addon':
     case 'membership':
+    case 'assisted':
     case 'ride':
       return null;
   }

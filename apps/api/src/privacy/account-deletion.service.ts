@@ -212,6 +212,8 @@ export class AccountDeletionService {
         await tx.notificationPreference.deleteMany({ where: { userId } });
         await tx.notification.deleteMany({ where: { userId } });
         await tx.priceAlert.deleteMany({ where: { userId } });
+        // Requests for a quote hold no names; a booking made from one keeps its own record.
+        await tx.assistedQuote.deleteMany({ where: { userId } });
         await tx.referralCode.deleteMany({ where: { userId } });
         await tx.idempotencyKey.deleteMany({ where: { scope: `user:${userId}` } });
         await tx.emergencyContact.deleteMany({ where: { userId } });

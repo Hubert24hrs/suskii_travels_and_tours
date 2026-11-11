@@ -66,6 +66,9 @@ export class QuotesService {
     const quote = await this.prisma.offer.findUnique({ where: { id: quoteId } });
     if (!quote) throw new NotFoundException();
     const payload = fromJsonValue<ItemPayload>(quote.payload);
+    // An assisted offer was verified for one traveller's request and is theirs alone (ADR-104).
+    if (payload.kind === 'assisted' && quote.userId !== caller.userId)
+      throw new NotFoundException();
     if (quote.expiresAt.getTime() <= Date.now()) throw offerUnavailable(payload.request);
 
     const [pricer, fx, client] = await Promise.all([

@@ -43,6 +43,7 @@ const VERTICALS = [
   'buses',
   'rides',
   'rentals',
+  'assisted',
 ];
 
 type StaffRefundReason = Schemas['CreateRefundRequestInput']['reason'];

@@ -956,3 +956,23 @@ export {
   type SourcePolicyBasis,
   type SourcePolicyStatus,
 } from './price-intel';
+export {
+  ASSISTED_BOOKING_FAILURES,
+  ASSISTED_QUOTE_CLOSE_REASONS,
+  ASSISTED_QUOTE_OPEN_LIMIT,
+  ASSISTED_QUOTE_PRODUCTS,
+  ASSISTED_QUOTE_REFERENCE_PATTERN,
+  ASSISTED_QUOTE_STATUSES,
+  ASSISTED_QUOTE_TITLE_MAX,
+  assistedOfferDetailsSchema,
+  assistedQuoteBookable,
+  assistedQuoteInputSchema,
+  assistedQuoteRequestSchema,
+  type AssistedBookingFailure,
+  type AssistedOfferDetails,
+  type AssistedQuoteCloseReason,
+  type AssistedQuoteInput,
+  type AssistedQuoteProduct,
+  type AssistedQuoteRequest,
+  type AssistedQuoteStatus,
+} from './assisted-quotes';

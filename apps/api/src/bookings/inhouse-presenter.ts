@@ -7,6 +7,7 @@ import { documentDateTime } from '../documents/booking-pdf';
 import type { ItemPayload } from './booking-pricing';
 import type {
   addonItemSchema,
+  assistedItemSchema,
   busItemSchema,
   rideItemSchema,
   rentalItemSchema,
@@ -25,6 +26,7 @@ export type VisaItemDto = z.infer<typeof visaItemSchema>;
 export type AddonItemDto = z.infer<typeof addonItemSchema>;
 export type VisaApplicationSummaryDto = z.infer<typeof visaApplicationSummarySchema>;
 export type MembershipItemDto = z.infer<typeof membershipItemSchema>;
+export type AssistedItemDto = z.infer<typeof assistedItemSchema>;
 export type BusItemDto = z.infer<typeof busItemSchema>;
 export type RideItemDto = z.infer<typeof rideItemSchema>;
 export type RentalItemDto = z.infer<typeof rentalItemSchema>;
@@ -35,6 +37,7 @@ export interface InhouseSections {
   visa: VisaItemDto | null;
   addon: AddonItemDto | null;
   membership: MembershipItemDto | null;
+  assisted: AssistedItemDto | null;
   bus: BusItemDto | null;
   ride: RideItemDto | null;
   rental: RentalItemDto | null;
@@ -46,6 +49,7 @@ export const NO_INHOUSE: InhouseSections = {
   visa: null,
   addon: null,
   membership: null,
+  assisted: null,
   bus: null,
   ride: null,
   rental: null,
@@ -74,6 +78,8 @@ export function inhouseSections(
     membershipTerm?: { startsAt: Date; endsAt: Date } | null;
     rideId?: string | null;
     rental?: RentalReservationDto | null;
+    /** The supplier's confirmation of an assisted booking, once staff recorded it (ADR-104). */
+    supplierReference?: string | null;
   } = {},
 ): InhouseSections {
   switch (payload.kind) {
@@ -168,6 +174,23 @@ export function inhouseSections(
                 endsAt: context.membershipTerm.endsAt.toISOString(),
               }
             : null,
+        },
+      };
+    case 'assisted':
+      return {
+        ...NO_INHOUSE,
+        assisted: {
+          product: product(payload),
+          kind: payload.product,
+          summary: payload.summary,
+          startDate: payload.startDate,
+          endDate: payload.endDate,
+          cityName: payload.cityName,
+          countryCode: payload.countryCode,
+          travellers: counts(payload),
+          refundable: payload.refundable,
+          quoteId: payload.quoteId,
+          supplierReference: context.supplierReference ?? null,
         },
       };
     case 'bus':
@@ -284,6 +307,8 @@ export function inhouseSummary(payload: InhouseItemPayload): string {
       return `${payload.title}, travelling ${documentDateTime(payload.travelDate)}`;
     case 'membership':
       return `${payload.title} (${payload.period === 'year' ? 'yearly' : 'monthly'} membership)`;
+    case 'assisted':
+      return `${payload.title}, ${documentDateTime(payload.startDate)} to ${documentDateTime(payload.endDate)}`;
     case 'bus':
       return `${payload.title}, ${documentDateTime(payload.departsAtLocal)}, seats ${payload.seats.join(', ')}`;
     case 'rental':

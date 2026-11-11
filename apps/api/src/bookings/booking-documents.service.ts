@@ -68,6 +68,8 @@ const DOCUMENT_TYPE: Record<ItemPayload['kind'], BookingDocumentType | null> = {
   addon: 'addon_voucher',
   visa: 'visa_confirmation',
   membership: null,
+  // What staff booked by hand has its supplier's own confirmation; ours is the email (ADR-104).
+  assisted: null,
   bus: 'bus_ticket',
   // A ride's receipt is its confirmation email and the booking page (ADR-049); a rental's
   // pickup details live on the booking page and its record is the signed handover (ADR-051).
@@ -211,7 +213,12 @@ export class BookingDocumentsService {
     const total = money(booking.totalMinor, booking.currency);
     const serviceTaxes = documentTaxes(booking);
     const issuedAt = booking.confirmedAt ?? new Date();
-    if (payload.kind === 'membership' || payload.kind === 'ride' || payload.kind === 'rental') {
+    if (
+      payload.kind === 'membership' ||
+      payload.kind === 'ride' ||
+      payload.kind === 'rental' ||
+      payload.kind === 'assisted'
+    ) {
       throw new Error(`${payload.kind} bookings have no document`);
     }
     if (payload.kind === 'bus') {
@@ -340,7 +347,10 @@ export class BookingDocumentsService {
   private async renderInhouse(
     booking: BookingRecord,
     item: BookingRecord['items'][number],
-    payload: Exclude<InhouseItemPayload, { kind: 'membership' | 'bus' | 'ride' | 'rental' }>,
+    payload: Exclude<
+      InhouseItemPayload,
+      { kind: 'membership' | 'bus' | 'ride' | 'rental' | 'assisted' }
+    >,
     total: ReturnType<typeof money>,
     issuedAt: Date,
     serviceTaxes: DocumentTax[],

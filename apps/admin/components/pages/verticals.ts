@@ -13,6 +13,8 @@ export const VERTICALS = [
   'buses',
   'rides',
   'rentals',
+  // Assisted quotes (ADR-104): its fee rule is what a verified quote earns.
+  'assisted',
 ] as const;
 export type Vertical = (typeof VERTICALS)[number];
 

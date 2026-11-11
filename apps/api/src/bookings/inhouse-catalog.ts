@@ -327,6 +327,23 @@ export class InhouseCatalog {
         if (payload.startDate < localDate(now, 'UTC')) throw unavailable('Start date has passed');
         return { ...payload, unitPrice: storedMoney(addon.price) };
       }
+      case 'assisted': {
+        // Staff may have verified the supplier's price again since the offer was made: the
+        // quote holds the one that stands. A quote that closed sells nothing (ADR-104).
+        const quote = await this.prisma.assistedQuote.findUnique({
+          where: { id: payload.quoteId },
+          select: { status: true, supplierMinor: true, currency: true, offerExpiresAt: true },
+        });
+        const onOffer = quote?.status === 'offered' || quote?.status === 'booked';
+        if (!quote || !onOffer || quote.supplierMinor === null) {
+          throw unavailable('The assisted quote is no longer on offer');
+        }
+        if (payload.startDate < localDate(now, 'UTC')) throw unavailable('Start date has passed');
+        return {
+          ...payload,
+          unitPrice: money(quote.supplierMinor, quote.currency),
+        };
+      }
       case 'membership': {
         // Price and benefits as the plan stands now, for the country the quote was priced for
         // (ADR-082); the term is fixed at confirmation.

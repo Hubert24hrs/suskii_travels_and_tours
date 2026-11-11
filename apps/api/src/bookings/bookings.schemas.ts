@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  ASSISTED_QUOTE_PRODUCTS,
   ADDON_DETAIL_FIELDS,
   ADDON_PRICING_BASES,
   ADDON_PRODUCT_TYPES,
@@ -72,6 +73,7 @@ export const bookingVerticalSchema = z.enum([
   'buses',
   'rides',
   'rentals',
+  'assisted',
 ]);
 const boardSchema = z.enum(['room_only', 'breakfast_included', 'half_board', 'full_board']);
 
@@ -321,6 +323,31 @@ export const membershipItemSchema = named(
     term: z.object({ startsAt: timestamp, endsAt: timestamp }).nullable().meta({
       description:
         'Set once the booking is confirmed; a member buying again extends from their current end.',
+    }),
+  }),
+);
+
+/**
+ * Something a person verified with its supplier and books by hand (ADR-104). `summary` is what
+ * staff wrote about what is included and the supplier's terms; `supplierReference` is the
+ * supplier's own confirmation, once staff have booked it.
+ */
+export const assistedItemSchema = named(
+  'AssistedItem',
+  z.object({
+    product: productRefSchema,
+    kind: z.enum(ASSISTED_QUOTE_PRODUCTS),
+    summary: z.string(),
+    startDate: isoDate,
+    endDate: isoDate,
+    cityName: z.string().nullable(),
+    countryCode: z.string().length(2).nullable(),
+    travellers: travellerCountsDtoSchema,
+    refundable: z.boolean(),
+    quoteId: z.uuid().meta({ description: 'The assisted quote it was offered from.' }),
+    supplierReference: z.string().nullable().meta({
+      description:
+        "The supplier's confirmation, once staff have booked it; the booking is `CONFIRMED` only then.",
     }),
   }),
 );
@@ -588,6 +615,10 @@ export const quoteSchema = named(
     visa: visaItemSchema.nullable(),
     addon: addonItemSchema.nullable(),
     membership: membershipItemSchema.nullable(),
+    assisted: assistedItemSchema.nullable().optional().meta({
+      description:
+        'Something a person verified and books by hand (ADR-104); absent or null otherwise.',
+    }),
     bus: busItemSchema.nullable(),
     ride: rideItemSchema.nullable(),
     rental: rentalItemSchema.nullable(),
@@ -951,6 +982,10 @@ export const bookingSchema = named(
     visa: visaItemSchema.nullable(),
     addon: addonItemSchema.nullable(),
     membership: membershipItemSchema.nullable(),
+    assisted: assistedItemSchema.nullable().optional().meta({
+      description:
+        'Something a person verified and books by hand (ADR-104); absent or null otherwise.',
+    }),
     bus: busItemSchema.nullable(),
     ride: rideItemSchema.nullable(),
     rental: rentalItemSchema.nullable(),

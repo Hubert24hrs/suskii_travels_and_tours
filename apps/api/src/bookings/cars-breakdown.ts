@@ -82,6 +82,7 @@ export function carsPriceBreakdown(payload: ItemPayload, fare: Money): PriceLine
     case 'visa':
     case 'addon':
     case 'membership':
+    case 'assisted':
       return null;
   }
   const charged = parts.filter((part) => part.weight > 0n);

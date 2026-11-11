@@ -232,6 +232,7 @@ export const adminMessages = {
     buses: 'Buses',
     rides: 'Rides',
     rentals: 'Car rental',
+    assisted: 'Assisted quotes',
   },
   bookingStatus: {
     DRAFT: 'Draft',

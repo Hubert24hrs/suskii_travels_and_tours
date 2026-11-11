@@ -83,7 +83,8 @@ const NOT_OWNED: Record<string, string> = {
  * Owned resources that only accounts can have: anonymous callers get 401, as on `/v1/me`. A
  * confirmation the assistant asks for is one: a guest's conversation never gets one (ADR-107).
  */
-const ACCOUNT_ONLY = /^\/v1\/(me|rides|rentals\/reservations|trips|agent\/confirmations)\//;
+const ACCOUNT_ONLY =
+  /^\/v1\/(me|rides|rentals\/reservations|trips|agent\/confirmations|quotes\/assisted)\//;
 
 interface Fixture {
   flightBookingId: string;
@@ -117,6 +118,7 @@ interface Fixture {
   agentRunId: string;
   agentMessageId: string;
   agentConfirmationId: string;
+  assistedQuoteId: string;
 }
 
 interface Case {
@@ -277,6 +279,8 @@ const CASES: Record<string, Case> = {
   declineAgentConfirmation: {
     path: (f) => `/v1/agent/confirmations/${f.agentConfirmationId}/decline`,
   },
+  getAssistedQuote: { path: (f) => `/v1/quotes/assisted/${f.assistedQuoteId}` },
+  withdrawAssistedQuote: { path: (f) => `/v1/quotes/assisted/${f.assistedQuoteId}/withdraw` },
 };
 
 interface Operation {
@@ -710,9 +714,24 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       },
     });
 
+    // A request to have a price confirmed by a person (ADR-104), still waiting.
+    const assisted = await ctx
+      .http()
+      .post('/v1/quotes/assisted')
+      .set(auth)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({
+        product: 'hotel',
+        title: 'Matrix Hotel, standard room',
+        request: { destination: 'Lagos', startDate: inDays(30), endDate: inDays(32), adults: 1 },
+        currency: 'NGN',
+      })
+      .expect(201);
+
     return {
       agentConversationId,
       agentConfirmationId: confirmation.id,
+      assistedQuoteId: assisted.body.id as string,
       agentRunId: said.body.runId as string,
       agentMessageId: answer?.id ?? '',
       tripId: combined.body.id as string,

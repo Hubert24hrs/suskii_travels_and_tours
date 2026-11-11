@@ -46,6 +46,7 @@ export const EXPORT_SECTIONS = [
   'privacyRequests',
   'trips',
   'assistant',
+  'assistedQuotes',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -697,6 +698,12 @@ export const DATA_REGISTRY = {
     deletion: 'none',
     retention: { kind: 'parent', parent: 'PrivacyBreach' },
     note: 'What one regulator was told about a breach, when it was due and their reference.',
+  },
+  AssistedQuote: {
+    section: 'assistedQuotes',
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'assisted-quotes' },
+    note: 'A request to have a price confirmed by a person (ADR-104): what was wanted (places, dates, head counts), the price seen elsewhere, what staff verified and the offer made. No names or contacts; who travels is on the booking. Deleted with the account; closed ones are purged after 400 days.',
   },
   // --- Suskii Agent (ADR-101 to ADR-107) ----------------------------------------------------
   AgentConversation: {

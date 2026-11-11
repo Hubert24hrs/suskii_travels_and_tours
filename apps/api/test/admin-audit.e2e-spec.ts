@@ -1173,6 +1173,111 @@ describe('admin audit coverage (e2e)', () => {
     expect(budget.body).toMatchObject({ dailyCapMicroUsd: 5_000, set: true });
   });
 
+  it('assisted quotes: an offer, a closed request, booked by hand and unbookable', async () => {
+    const traveller = await signUp(ctx, 'audit-quote@example.com');
+    const headers = bearer(traveller.accessToken);
+    const ask = async (): Promise<string> =>
+      (
+        await ctx
+          .http()
+          .post('/v1/quotes/assisted')
+          .set(headers)
+          .set('Idempotency-Key', idempotencyKey())
+          .send({
+            product: 'hotel',
+            title: 'Audit Hotel, standard room',
+            request: {
+              destination: 'Lagos',
+              startDate: inDays(30),
+              endDate: inDays(32),
+              adults: 1,
+            },
+            currency: 'NGN',
+          })
+          .expect(201)
+      ).body.id as string;
+    const verified = {
+      supplierName: 'Audit Wholesale',
+      supplierPrice: { amountMinor: 12_000_000, currency: 'NGN' },
+      evidenceUrl: 'https://files.suskii.test/audit/price.pdf',
+      details: {
+        title: 'Audit Hotel, standard room',
+        summary: 'Two nights for one, room only. Not refundable.',
+        startDate: inDays(30),
+        endDate: inDays(32),
+        refundable: false,
+      },
+    };
+    /** The offer booked and paid by the traveller: a booking that waits to be booked by hand. */
+    const paidFrom = async (assistedQuoteId: string): Promise<void> => {
+      const offered = await audited('adminOfferAssistedQuote', { assistedQuoteId }, (request) =>
+        request.send(verified),
+      );
+      const quoteId = (offered.body as { offer: { quoteId: string } }).offer.quoteId;
+      const created = await ctx
+        .http()
+        .post('/v1/bookings')
+        .set(headers)
+        .set('Idempotency-Key', idempotencyKey())
+        .send({
+          quoteId,
+          contact: { email: 'audit-quote@example.com', phone: '+2348012345678' },
+          passengers: [
+            {
+              type: 'adult',
+              title: 'ms',
+              gender: 'f',
+              givenNames: 'Ngozi',
+              surname: 'Eze',
+              dateOfBirth: '1990-04-01',
+              nationality: 'NG',
+            },
+          ],
+          termsVersion: BOOKING_TERMS_VERSION,
+          acceptTerms: true,
+        })
+        .expect(201);
+      const payment = await ctx
+        .http()
+        .post(`/v1/bookings/${created.body.booking.id as string}/payments`)
+        .set(headers)
+        .set('Idempotency-Key', idempotencyKey())
+        .expect(201);
+      const reference = (payment.body.checkoutUrl as string).split('/').pop() ?? '';
+      await ctx
+        .http()
+        .post(`/v1/payments/mock/${reference}/complete`)
+        .send({ outcome: 'succeeded' })
+        .expect(200);
+      await ctx.background.drain();
+    };
+
+    const first = await ask();
+    await paidFrom(first);
+    const booked = await audited(
+      'adminMarkAssistedQuoteBooked',
+      { assistedQuoteId: first },
+      (request) =>
+        request.send({
+          supplierReference: 'AUD-1001',
+          evidenceUrl: 'https://files.suskii.test/audit/confirmation.pdf',
+        }),
+    );
+    expect(booked.body).toMatchObject({ booking: { status: 'CONFIRMED' } });
+
+    const second = await ask();
+    await paidFrom(second);
+    await audited('adminMarkAssistedQuoteUnbookable', { assistedQuoteId: second }, (request) =>
+      request.send({ reason: 'supplier_declined' }),
+    );
+
+    const third = await ask();
+    const closed = await audited('adminCloseAssistedQuote', { assistedQuoteId: third }, (request) =>
+      request.send({ reason: 'not_sold_by_suskii' }),
+    );
+    expect(closed.body).toMatchObject({ status: 'unavailable' });
+  });
+
   it('covered every admin mutation', () => {
     const missing = MUTATIONS.map((op) => op.operationId).filter((id) => !covered.has(id));
     expect(missing).toEqual([]);
