@@ -112,6 +112,8 @@ export interface StackState {
   assistedQuote: { id: string; reference: string };
   /** A promo code the assistant prepared for the assistant asker (ADR-107). */
   approval: { id: string; code: string };
+  /** A recipe for a site an assistant prepared for the same person (ADR-102). */
+  recipeApproval: { id: string; version: string };
   /** The quote traveller's conversation with the assistant; its message holds an address. */
   assistantConversation: { reference: string };
   /** The run's own database, for the few states a browser cannot reach (an aged session). */

@@ -188,7 +188,6 @@ describe('what the assistant never does or asks', () => {
       ["I've just confirmed the hotel for you.", 'confirmed'],
       ['I have sent NGN 500,000.00 to that account.', 'paid'],
       ['I have charged your card.', 'paid'],
-      ['I have approved your refund.', 'refunded'],
       ['I have refunded the fare.', 'refunded'],
       ['I have cancelled the booking.', 'cancelled'],
       ["J'ai annulé votre réservation.", 'cancelled'],
@@ -200,6 +199,8 @@ describe('what the assistant never does or asks', () => {
       expect([answer, outcomeClaims(answer)]).toEqual([answer, [claim]]);
       expect(unsupportedOutcomes(answer, [])).toEqual([claim]);
     }
+    // Approving a refund is two claims: that it was decided, and that the money goes back.
+    expect(outcomeClaims('I have approved your refund.')).toEqual(['refunded', 'approved']);
     // What it may say about itself.
     for (const answer of [
       'I have checked your booking.',
@@ -209,6 +210,44 @@ describe('what the assistant never does or asks', () => {
     ]) {
       expect([answer, outcomeClaims(answer)]).toEqual([answer, []]);
     }
+  });
+
+  it('never says that what it prepared in the turn was approved', () => {
+    const waits = [{ key: 'approvalstatus', value: 'pending' }];
+    for (const answer of [
+      'Done. The new recipe is approved and the site reads again.',
+      'The promo code was approved.',
+      'I have approved it for you.',
+      "J'ai approuvé la demande.",
+      'O código foi aprovado.',
+      'تمت الموافقة على الطلب',
+    ]) {
+      expect([answer, unsupportedOutcomes(answer, waits)]).toEqual([answer, ['approved']]);
+    }
+    // What it may say of a proposal that waits.
+    for (const answer of [
+      'I prepared the recipe. It waits for someone else to approve it.',
+      'It has not been approved yet.',
+      'Once it is approved, the site is read with the new recipe.',
+      'It needs to be approved by someone who manages data sources.',
+    ]) {
+      expect([answer, unsupportedOutcomes(answer, waits)]).toEqual([answer, []]);
+    }
+    // Without a proposal in the turn, "approved" is a word about what a tool counted or a
+    // status it returned: two sites are approved, a company trip was approved.
+    expect(unsupportedOutcomes('Two sites are approved and one is in review.', [])).toEqual([]);
+    expect(
+      unsupportedOutcomes('Your trip was approved by your company.', [
+        { key: 'company.approvalstatus', value: 'approved' },
+      ]),
+    ).toEqual([]);
+    // A status that says approved supports it even beside a proposal that waits.
+    expect(
+      unsupportedOutcomes('The earlier request was approved.', [
+        ...waits,
+        { key: 'requests.approvalstatus', value: 'approved' },
+      ]),
+    ).toEqual([]);
   });
 
   it('catches a request for card details, codes, passwords and document numbers', () => {

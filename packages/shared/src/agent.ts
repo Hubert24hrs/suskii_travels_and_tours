@@ -183,15 +183,17 @@ export type AgentConfirmationAmount = (typeof AGENT_CONFIRMATION_AMOUNTS)[number
 /**
  * What a staff agent may prepare for a person to decide (ADR-107). Approving one runs the
  * ordinary service as the person who approved: a refund request still needs its own second
- * approver, and a promo code is created switched off.
+ * approver, a promo code is created switched off, and a recipe for a site whose pages stopped
+ * reading (ADR-102) is saved as that person's change to the site.
  */
-export const AGENT_APPROVAL_KINDS = ['refund_request', 'promo_code'] as const;
+export const AGENT_APPROVAL_KINDS = ['refund_request', 'promo_code', 'source_recipe'] as const;
 export type AgentApprovalKind = (typeof AGENT_APPROVAL_KINDS)[number];
 
 /** The permission a person needs, besides `ai:approve`, to approve each kind. */
 export const AGENT_APPROVAL_PERMISSIONS = {
   refund_request: 'refunds:request',
   promo_code: 'deals:manage',
+  source_recipe: 'datasources:manage',
 } as const satisfies Record<AgentApprovalKind, Permission>;
 
 /**

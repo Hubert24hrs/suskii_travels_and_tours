@@ -225,6 +225,25 @@ function fromStructuredData(root: HTMLElement, types: readonly string[]): Raw[] 
   return raws;
 }
 
+/**
+ * How many priced items each schema.org type yields from a page's structured data, for the
+ * types that yield any. It reads as `extract` does, so what is counted is what would be
+ * stored. Used to propose a recipe for a page the current one cannot read (ADR-102).
+ */
+export function pricedByType<T extends string>(
+  html: string,
+  types: readonly T[],
+  context: { domain: string; currency: string },
+): Map<T, number> {
+  const root = parse(html, { comment: false });
+  const counts = new Map<T, number>();
+  for (const type of types) {
+    const items = toItems(fromStructuredData(root, [type]), 'structured_data', context);
+    if (items.length > 0) counts.set(type, items.length);
+  }
+  return counts;
+}
+
 // --- selectors --------------------------------------------------------------------------------
 
 type FieldSelector = string | { selector: string; attribute: string };

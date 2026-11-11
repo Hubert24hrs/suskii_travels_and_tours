@@ -211,7 +211,7 @@ export interface paths {
         put?: never;
         /**
          * Approve: the ordinary service carries it out as the approver
-         * @description A refund request is created as the approver's (it then waits for its own second approver, as every staff refund does); a promo code is created switched off. Needs the kind's own permission besides `ai:approve` (403), and someone other than the person who asked (403 `own-approval`). If the ordinary service refuses it, the proposal ends as `failed` and nothing changed. 409 `approval-decided` once it was decided or lapsed.
+         * @description A refund request is created as the approver's (it then waits for its own second approver, as every staff refund does); a promo code is created switched off; a recipe is saved to its site as the approver's change, unless the recipe changed since (then the proposal ends as `failed`). Needs the kind's own permission besides `ai:approve` (403), and someone other than the person who asked (403 `own-approval`). If the ordinary service refuses it, the proposal ends as `failed` and nothing changed. 409 `approval-decided` once it was decided or lapsed.
          */
         post: operations["adminApproveAgentApproval"];
         delete?: never;
@@ -9863,7 +9863,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "refund_request" | "promo_code";
+            kind: "refund_request" | "promo_code" | "source_recipe";
             /** @enum {string} */
             status: "pending" | "approved" | "rejected" | "expired" | "failed";
             /** @enum {string} */

@@ -1,19 +1,29 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { z } from 'zod';
 
-import { isoDateSchema, money, toWire } from '@suskii/shared';
+import { isoDateSchema, money, PRICE_PRODUCTS, toWire } from '@suskii/shared';
 
 import { AdminDashboardService } from '../../admin/admin-dashboard.service';
 import { promoCheck } from '../../admin/admin-promos.schemas';
 import { AdminPromosService } from '../../admin/admin-promos.service';
 import { STAFF_REFUND_REASONS, bookingVerticalSchema } from '../../bookings/bookings.schemas';
 import { PrismaService } from '../../infra/prisma.service';
+import { MAX_ITEMS } from '../../price-intel/extraction';
 import { PriceIntelAdminService } from '../../price-intel/price-intel-admin.service';
+import { PRICED_SCHEMA_TYPES } from '../../price-intel/recipe-proposals';
+import { RecipeProposalsService } from '../../price-intel/recipe-proposals.service';
 import type { AgentGrant } from '../agent-grants';
 import { agentTool, AgentToolError, AgentToolRegistry } from '../agent-tool';
 import { AgentApprovalsService } from '../approvals/agent-approvals.service';
 
-import { issueCodes, moneyOut, problemCodes, problemsSchema, utcTime } from './tool-support';
+import {
+  guarded,
+  issueCodes,
+  moneyOut,
+  problemCodes,
+  problemsSchema,
+  utcTime,
+} from './tool-support';
 
 const count = z.number().int();
 const period = z.object({
@@ -27,6 +37,11 @@ const proposalOut = z.object({
   waitsForApproval: z.boolean(),
   wasAlreadyWaiting: z.boolean(),
   approvalId: z.uuid().nullable(),
+  /**
+   * `pending` while the proposal waits. A status the answer guard reads: with it in the turn,
+   * an answer that says the thing was approved is refused.
+   */
+  approvalStatus: z.enum(['pending', 'none']),
 });
 
 /**
@@ -44,6 +59,7 @@ export class StaffTools implements OnModuleInit {
     private readonly dashboard: AdminDashboardService,
     private readonly promos: AdminPromosService,
     private readonly intel: PriceIntelAdminService,
+    private readonly recipes: RecipeProposalsService,
     private readonly approvals: AgentApprovalsService,
   ) {}
 
@@ -530,10 +546,84 @@ export class StaffTools implements OnModuleInit {
         },
       }),
     );
+
+    this.registry.register(
+      agentTool({
+        name: 'sources.drifting',
+        description:
+          'The sites whose pages stopped yielding prices to their recipe (parser drift): the site, since when, the recipe version that stopped reading, and the products a page was kept for. A kept page is what a recipe can be proposed from; it is kept for a week.',
+        tier: 'read',
+        scope: 'datasources',
+        agents: ['price_intel', 'executive'],
+        input: z.object({}),
+        output: z.object({
+          sites: z
+            .array(
+              z.object({
+                sourceId: z.uuid(),
+                site: z.string(),
+                driftingSince: z.string(),
+                recipeVersion: z.string(),
+                keptPages: z.array(z.enum(PRICE_PRODUCTS)),
+              }),
+            )
+            .max(30),
+        }),
+        run: async () => ({
+          sites: (await this.recipes.drifting()).slice(0, 30).map((site) => ({
+            sourceId: site.sourceId,
+            site: site.domain,
+            driftingSince: utcTime(site.since),
+            recipeVersion: site.parserVersion,
+            keptPages: site.keptPages,
+          })),
+        }),
+      }),
+    );
+
+    this.registry.register(
+      agentTool({
+        name: 'sources.propose_recipe',
+        description:
+          'Prepares a recipe for one product of a site in drift, for a person to decide. A rule works it out from the page kept when nothing could be read: the schema.org types on that page that carry a price and that the recipe does not read yet. It changes nothing: the proposal waits in the approvals queue, and someone other than the person you are working for, who may manage data sources, approves or rejects it. When there is nothing to propose, `problems` says why: no_recipe, no_kept_page, recipe_reads_page (the recipe as it stands reads the kept page; saving it closes the incident), nothing_priced (a person has to write selectors) or recipe_full.',
+        tier: 'propose',
+        scope: 'datasources',
+        agents: ['price_intel'],
+        input: z.object({ sourceId: z.uuid(), product: z.enum(PRICE_PRODUCTS) }),
+        output: z.object({
+          ...proposalOut.shape,
+          /** The schema.org types the proposed recipe adds. */
+          addedTypes: z.array(z.enum(PRICED_SCHEMA_TYPES)).max(10),
+          /** Priced items the proposed recipe read from the kept page. */
+          itemsReadFromKeptPage: z.number().int().min(0).max(MAX_ITEMS),
+        }),
+        run: async (input, { grant, agent }) => {
+          const draft = await guarded(() => this.recipes.draft(input.sourceId, input.product));
+          if ('refused' in draft) {
+            return { ...this.proposed([draft.refused]), addedTypes: [], itemsReadFromKeptPage: 0 };
+          }
+          const proposal = await this.propose(grant, agent, 'source_recipe', {
+            subject: { type: 'price_source', id: draft.sourceId },
+            payload: draft,
+          });
+          return {
+            ...proposal,
+            addedTypes: proposal.waitsForApproval ? draft.addedTypes : [],
+            itemsReadFromKeptPage: proposal.waitsForApproval ? draft.itemsRead : 0,
+          };
+        },
+      }),
+    );
   }
 
   private proposed(problems: string[]): z.infer<typeof proposalOut> {
-    return { problems, waitsForApproval: false, wasAlreadyWaiting: false, approvalId: null };
+    return {
+      problems,
+      waitsForApproval: false,
+      wasAlreadyWaiting: false,
+      approvalId: null,
+      approvalStatus: 'none',
+    };
   }
 
   /** Puts a proposal in the queue for the staff member the run works for. */
@@ -560,6 +650,7 @@ export class StaffTools implements OnModuleInit {
       waitsForApproval: true,
       wasAlreadyWaiting: !result.created,
       approvalId: result.id,
+      approvalStatus: 'pending',
     };
   }
 }

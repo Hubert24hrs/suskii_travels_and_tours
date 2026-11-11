@@ -787,6 +787,15 @@
       "signedIn": true,
       "expect": ["business_intelligence", "executive"],
       "recorded": "finance_prep"
+    },
+    {
+      "id": "r98",
+      "audience": "staff",
+      "message": "Which sites have stopped giving prices to their recipe, and can you prepare a fix for the first one?",
+      "locale": "en-NG",
+      "signedIn": true,
+      "expect": ["price_intel", "executive"],
+      "recorded": "price_intel"
     }
   ]
 }

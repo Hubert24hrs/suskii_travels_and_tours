@@ -62,13 +62,75 @@ const money = (value: unknown): Money | null => {
     : null;
 };
 
+/** A recipe's methods in the order they are tried, with the types a structured one reads. */
+function recipeMethods(recipe: unknown): string[] {
+  if (typeof recipe !== 'object' || recipe === null) return [];
+  const { methods } = recipe as { methods?: unknown };
+  if (!Array.isArray(methods)) return [];
+  return methods.flatMap((entry: unknown) => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const { method, types } = entry as { method?: unknown; types?: unknown };
+    if (typeof method !== 'string') return [];
+    const listed = Array.isArray(types)
+      ? types.filter((type): type is string => typeof type === 'string')
+      : [];
+    return [listed.length > 0 ? `${method} (${listed.join(', ')})` : method];
+  });
+}
+
 /**
  * What approving would do, read from the proposal itself. The payload is the kind's own form
- * (a refund request, a promo code); anything unexpected is simply not shown.
+ * (a refund request, a promo code, a recipe for a site); anything unexpected is simply not
+ * shown.
  */
 function payloadItems(approval: Approval): { term: string; value: ReactNode }[] {
   const payload = approval.payload;
   const none = t('common.none');
+  if (approval.kind === 'source_recipe') {
+    const recipe = payload.recipe;
+    const version =
+      typeof recipe === 'object' && recipe !== null
+        ? text((recipe as { version?: unknown }).version)
+        : null;
+    const added = Array.isArray(payload.addedTypes)
+      ? payload.addedTypes.filter((entry): entry is string => typeof entry === 'string')
+      : [];
+    const product = text(payload.product);
+    const methods = recipeMethods(recipe);
+    const read = whole(payload.itemsRead);
+    return [
+      {
+        term: t('approvals.site'),
+        value: (
+          <Link href="/data-sources" className={LINK}>
+            {t('approvals.openSites')}
+          </Link>
+        ),
+      },
+      {
+        term: t('approvals.recipeProduct'),
+        value: product ? label('dataSources.productNames', product) : none,
+      },
+      {
+        term: t('approvals.recipeReplaces'),
+        value: text(payload.replaces) ? <code>{text(payload.replaces)}</code> : none,
+      },
+      { term: t('approvals.recipeVersion'), value: version ? <code>{version}</code> : none },
+      {
+        term: t('approvals.recipeAdds'),
+        value: added.length > 0 ? <code>{added.join(', ')}</code> : none,
+      },
+      {
+        term: t('approvals.recipeMethods'),
+        value:
+          methods.length > 0 ? <code className="break-all">{methods.join(' \u2192 ')}</code> : none,
+      },
+      {
+        term: t('approvals.recipeItemsRead'),
+        value: read === null ? none : format.number(read),
+      },
+    ];
+  }
   if (approval.kind === 'refund_request') {
     const bookingId = text(payload.bookingId);
     const amount = money(payload.amount);
@@ -164,7 +226,9 @@ function ApproveAction({ approval, name }: { approval: Approval; name: string })
       question={
         approval.kind === 'refund_request'
           ? t('approvals.approveRefundQuestion')
-          : t('approvals.approvePromoQuestion')
+          : approval.kind === 'source_recipe'
+            ? t('approvals.approveRecipeQuestion')
+            : t('approvals.approvePromoQuestion')
       }
       onConfirm={() =>
         approve.mutate({
@@ -277,6 +341,9 @@ function ApprovalCard({ approval }: { approval: Approval }) {
           ...payloadItems(approval),
         ]}
       />
+      {approval.kind === 'source_recipe' ? (
+        <p className="font-body text-body-sm text-muted">{t('approvals.recipeNote')}</p>
+      ) : null}
       {pending && mine ? (
         <p className="font-body text-body-sm text-muted">{t('approvals.ownNote')}</p>
       ) : null}
@@ -295,11 +362,24 @@ function ApprovalCard({ approval }: { approval: Approval }) {
         <p className="flex flex-wrap items-center gap-2 font-body text-body-sm text-foreground">
           {approval.result.type === 'refund'
             ? t('approvals.resultRefund')
-            : t('approvals.resultPromo')}
-          <Link href={approval.result.type === 'refund' ? '/refunds' : '/promos'} className={LINK}>
+            : approval.result.type === 'price_source'
+              ? t('approvals.resultRecipe')
+              : t('approvals.resultPromo')}
+          <Link
+            href={
+              approval.result.type === 'refund'
+                ? '/refunds'
+                : approval.result.type === 'price_source'
+                  ? '/data-sources'
+                  : '/promos'
+            }
+            className={LINK}
+          >
             {approval.result.type === 'refund'
               ? t('approvals.seeRefunds')
-              : t('approvals.seePromos')}
+              : approval.result.type === 'price_source'
+                ? t('approvals.openSites')
+                : t('approvals.seePromos')}
           </Link>
         </p>
       ) : null}

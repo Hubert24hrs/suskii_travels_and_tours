@@ -175,7 +175,13 @@ describe('staff agents (ADR-107)', () => {
   it('runs a staff tool only for the agent it belongs to, and holds a proposal to its status', async () => {
     const h = harness([tool('finance.draft_refund_request', ['finance_prep'])], {
       'finance.draft_refund_request': () =>
-        ok({ problems: [], proposed: true, approvalId: CONFIRMATION, approvalStatus: 'pending' }),
+        ok({
+          problems: [],
+          waitsForApproval: true,
+          wasAlreadyWaiting: false,
+          approvalId: CONFIRMATION,
+          approvalStatus: 'pending',
+        }),
     });
     const said = await h.send('Prepare a refund of the booking', {
       context: { ...STAFF, agents: ['finance_prep'] },

@@ -72,8 +72,17 @@ export function checkGrounding(answer: string, sources: readonly string[]): Grou
   return { ok: issues.size === 0, issues: [...issues], figures: missing.slice(0, 12) };
 }
 
-/** What only the platform's records may say happened (ADR-107). */
-export const AGENT_OUTCOME_CLAIMS = ['confirmed', 'paid', 'refunded', 'cancelled'] as const;
+/**
+ * What only the platform's records may say happened (ADR-107). `approved` is a person's
+ * decision in the approvals queue: an agent prepares, and never says it was decided.
+ */
+export const AGENT_OUTCOME_CLAIMS = [
+  'confirmed',
+  'paid',
+  'refunded',
+  'cancelled',
+  'approved',
+] as const;
 export type AgentOutcomeClaim = (typeof AGENT_OUTCOME_CLAIMS)[number];
 
 /**
@@ -125,6 +134,16 @@ const CLAIM_PATTERNS: Readonly<Record<AgentOutcomeClaim, readonly RegExp[]>> = {
     /\bI(?:['’]ve|\s+have)?(?:\s+(?:just|now|already))*\s+cancell?ed\b/gi,
     /\bj['’]ai\s+(?:bien\s+)?annulé(?![\p{L}])/giu,
     /\bcancelei\b/gi,
+  ],
+  approved: [
+    /\b(?:is|are|was|were|been|now|don)\s+(?:successfully\s+|already\s+|fully\s+)?approved\b/gi,
+    /\b(?:est|sont|a été|ont été)\s+(?:bien\s+)?approuvée?s?(?![\p{L}])/giu,
+    /\b(?:foi|foram|está|estão)\s+aprovad[oa]s?\b/gi,
+    /\b(?:imeidhinishwa|umeidhinishwa|zimeidhinishwa)\b/gi,
+    /(?:تم|تمّ|تمت)\s*(?:الموافقة|اعتماد)/g,
+    /\bI(?:['’]ve|\s+have)?(?:\s+(?:just|now|already))*\s+approved\b/gi,
+    /\bj['’]ai\s+(?:bien\s+)?approuvé(?![\p{L}])/giu,
+    /\baprovei\b/gi,
   ],
 };
 
@@ -188,18 +207,29 @@ const SUPPORT: Readonly<Record<AgentOutcomeClaim, (fact: StatusFact) => boolean>
     fact.value === 'refunded' || (fact.key.includes('refund') && fact.value === 'succeeded'),
   cancelled: (fact) =>
     fact.value === 'cancelled' || (fact.key.includes('cancel') && fact.value === 'succeeded'),
+  approved: (fact) => fact.value === 'approved',
 };
+
+/** A proposal the turn put in the approvals queue: it waits for a person. */
+const waitsForApproval = (fact: StatusFact): boolean =>
+  fact.key.endsWith('approvalstatus') && fact.value === 'pending';
 
 /**
  * The outcomes an answer states that no status in the turn's facts supports. Only the
  * platform's records may say a booking, a payment, a refund or a cancellation happened: a
- * traveller's word, a screenshot or a model's guess never does.
+ * traveller's word, a screenshot or a model's guess never does. And what an agent prepared in
+ * the turn waits for a person: it is never said to be approved.
  */
 export function unsupportedOutcomes(
   answer: string,
   statuses: readonly StatusFact[],
 ): AgentOutcomeClaim[] {
-  return outcomeClaims(answer).filter((claim) => !statuses.some((fact) => SUPPORT[claim](fact)));
+  return outcomeClaims(answer).filter((claim) => {
+    if (statuses.some((fact) => SUPPORT[claim](fact))) return false;
+    // "Approved" is said of much that a tool only counted (sites, requests). It is refused
+    // where the turn itself put something in the queue: that waits, and was not approved.
+    return claim !== 'approved' || statuses.some(waitsForApproval);
+  });
 }
 
 /**

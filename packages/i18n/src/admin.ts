@@ -2143,7 +2143,11 @@ export const adminMessages = {
       failed: 'Refused at approval',
       expired: 'Ran out of time',
     },
-    kinds: { refund_request: 'Refund request', promo_code: 'Promo code' },
+    kinds: {
+      refund_request: 'Refund request',
+      promo_code: 'Promo code',
+      source_recipe: 'Recipe for a site',
+    },
     alsoWaiting: 'Also waiting for a person',
     quotesToVerify: {
       one: '{count} assisted quote to verify',
@@ -2169,6 +2173,18 @@ export const adminMessages = {
       'Request this refund as yours? It then follows the ordinary refund rule: a second person approves it before any money moves.',
     approvePromoQuestion:
       'Create this promo code? It is created switched off. Switching it on is a separate step on the promo page.',
+    approveRecipeQuestion:
+      'Save this recipe to the site as your change? The site is read with it from then on and its drift incident closes. If someone changed the recipe since, nothing is saved.',
+    site: 'Site',
+    openSites: 'Open data sources',
+    recipeProduct: 'Product',
+    recipeReplaces: 'Replaces version',
+    recipeVersion: 'New version',
+    recipeAdds: 'Types it adds',
+    recipeMethods: 'Methods, in the order tried',
+    recipeItemsRead: 'Priced items it read from the kept page',
+    recipeNote:
+      'Worked out by a rule from the page that was kept when nothing could be read: the schema.org types on it that carry a price. No model read the page.',
     approved: 'Approved.',
     failedToast: 'It could not be carried out. Nothing changed.',
     failedNote: 'The ordinary action refused it when it was approved. Nothing changed.',
@@ -2187,6 +2203,7 @@ export const adminMessages = {
     result: 'Result',
     resultRefund: 'A refund request was created.',
     resultPromo: 'The promo code was created, switched off.',
+    resultRecipe: 'The recipe was saved to the site.',
     seeRefunds: 'Open refunds',
     seePromos: 'Open promo codes',
     booking: 'Booking',

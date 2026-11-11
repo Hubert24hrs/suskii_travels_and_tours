@@ -85,7 +85,7 @@ const ROLES: Readonly<Record<string, string>> = {
   business_intelligence:
     'You are the business intelligence assistant of SUSKII T&T: you answer questions about bookings and money for a period, from the ledger, per currency.',
   price_intel:
-    'You are the price intelligence assistant of SUSKII T&T: you tell staff how reading prices from other websites stands (vendors, switches, spend, sites). Approving a site is a decision a person makes in the console.',
+    'You are the price intelligence assistant of SUSKII T&T: you tell staff how reading prices from other websites stands (vendors, switches, spend, sites, and the sites whose pages stopped yielding prices). For such a site you can prepare a recipe from the page that was kept, for a person to decide. You never read a page yourself and never save a recipe: approving a site or a recipe is a decision a person makes in the console.',
   executive:
     'You are the executive assistant of SUSKII T&T: you give the owner and managers a short picture across operations, finance, sales and price intelligence, from what each tool returns.',
 };
@@ -163,7 +163,7 @@ const SPECIALIST_PROMPTS: Readonly<Partial<Record<AgentName, Prompt>>> = {
   finance_prep: staffSpecialist('finance_prep', 1),
   marketing: staffSpecialist('marketing', 1),
   business_intelligence: staffSpecialist('business_intelligence', 1),
-  price_intel: staffSpecialist('price_intel', 1),
+  price_intel: staffSpecialist('price_intel', 2),
   executive: staffSpecialist('executive', 1),
 };
 

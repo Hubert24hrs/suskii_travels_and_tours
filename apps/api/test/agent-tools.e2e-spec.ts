@@ -190,7 +190,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the tools with their tiers: five prepare something, six ask for a tap, and the staff tools are staff only', async () => {
+  it('ships the tools with their tiers: six prepare something, six ask for a tap, and the staff tools are staff only', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -234,7 +234,9 @@ describe('customer agent tools (e2e)', () => {
       'quotes.list',
       'quotes.request',
       'reports.sales',
+      'sources.drifting',
       'sources.overview',
+      'sources.propose_recipe',
       'support.faqs',
       'support.handover',
       'tours.search',
@@ -247,6 +249,7 @@ describe('customer agent tools (e2e)', () => {
       'finance.draft_refund_request',
       'marketing.draft_promo',
       'quotes.request',
+      'sources.propose_recipe',
       'support.handover',
       'trips.plan',
     ]);
@@ -278,7 +281,7 @@ describe('customer agent tools (e2e)', () => {
       ]);
       expect([tool.name, tool.tier === 'commit']).toEqual([tool.name, false]);
     }
-    expect(tools.filter((tool) => staffTools.test(tool.name))).toHaveLength(8);
+    expect(tools.filter((tool) => staffTools.test(tool.name))).toHaveLength(10);
     // Every customer agent can bring in a person.
     const handover = tools.find((tool) => tool.name === 'support.handover');
     expect(handover?.agents).toHaveLength(10);
