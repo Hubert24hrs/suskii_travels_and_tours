@@ -9,6 +9,7 @@ import { BookingsModule } from '../bookings/bookings.module';
 import { BusesModule } from '../buses/buses.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { APP_CONFIG, type AppConfig } from '../config/config';
+import { DocumentsModule } from '../documents/documents.module';
 import { GroundModule } from '../ground/ground.module';
 import { InhouseModule } from '../inhouse/inhouse.module';
 import { PriceIntelModule } from '../price-intel/price-intel.module';
@@ -44,10 +45,13 @@ import { AgentConfirmationsService } from './confirmations/agent-confirmations.s
 import { AdminAgentInsightsController } from './insights/admin-agent-insights.controller';
 import { AgentInsightsService } from './insights/agent-insights.service';
 import { InternalAgentToolsController } from './internal-agent-tools.controller';
+import { AdminAgentKnowledgeController } from './knowledge/admin-agent-knowledge.controller';
+import { KnowledgeService } from './knowledge/knowledge.service';
 import { AccountTools } from './tools/account-tools';
 import { CatalogTools } from './tools/catalog-tools';
 import { CommitTools } from './tools/commit-tools';
 import { DisruptionTools } from './tools/disruption-tools';
+import { KnowledgeTools } from './tools/knowledge-tools';
 import { PlatformTools } from './tools/platform-tools';
 import { ProductTools } from './tools/product-tools';
 import { QuoteTools } from './tools/quote-tools';
@@ -73,6 +77,7 @@ import { WatchTools } from './tools/watch-tools';
     BookingsModule,
     BusesModule,
     CatalogModule,
+    DocumentsModule,
     GroundModule,
     InhouseModule,
     PriceIntelModule,
@@ -92,6 +97,7 @@ import { WatchTools } from './tools/watch-tools';
     AdminAgentChatController,
     AdminAgentApprovalsController,
     AdminAgentInsightsController,
+    AdminAgentKnowledgeController,
     InternalAgentToolsController,
   ],
   providers: [
@@ -116,6 +122,8 @@ import { WatchTools } from './tools/watch-tools';
     QuoteTools,
     AgentApprovalsService,
     AgentInsightsService,
+    KnowledgeService,
+    KnowledgeTools,
     StaffTools,
     SupportTools,
     AgentConversationsService,

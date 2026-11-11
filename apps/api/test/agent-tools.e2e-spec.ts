@@ -218,6 +218,7 @@ describe('customer agent tools (e2e)', () => {
       'flights.search',
       'flights.status',
       'hotels.search',
+      'knowledge.search',
       'marketing.draft_promo',
       'marketing.promos',
       'ops.queues',
@@ -252,12 +253,13 @@ describe('customer agent tools (e2e)', () => {
       'changes.accept',
       'changes.take_refund_offer',
     ]);
-    // Places and the status page are for every agent. Every other tool is either the customer
-    // agents' or the staff agents', never both; and a staff tool reads or prepares, no more.
+    // Places, the status page and the knowledge base are for every agent. Every other tool is
+    // either the customer agents' or the staff agents', never both; and a staff tool reads or
+    // prepares, no more.
     const staffAgents = [...STAFF_AGENTS] as string[];
     const staffTools = /^(ops|reports|finance|marketing|sources)\./;
     for (const tool of tools) {
-      const general = tool.name === 'catalog.places' || tool.name === 'platform.status';
+      const general = ['catalog.places', 'platform.status', 'knowledge.search'].includes(tool.name);
       const staffTool = staffTools.test(tool.name);
       expect([tool.name, tool.agents.some((agent) => staffAgents.includes(agent))]).toEqual([
         tool.name,

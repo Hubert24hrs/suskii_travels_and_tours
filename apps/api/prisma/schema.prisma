@@ -4530,3 +4530,48 @@ model ProviderBudget {
   @@unique([scope, subject])
   @@map("provider_budgets")
 }
+
+/// A document staff gave the assistant to answer from: a policy, a procedure, a guide (ADR-105).
+/// Company text, never personal data. `audience` says who may be answered from it (`customer`
+/// or `staff`) and `language` which text search configuration its passages were indexed with
+/// (values of `@suskii/shared`). The file itself is in object storage; who added or changed a
+/// document is in the audit log.
+model KnowledgeDocument {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  title        String    @db.VarChar(160)
+  audience     String    @db.VarChar(16)
+  language     String    @db.VarChar(8)
+  mediaType    String    @map("media_type") @db.VarChar(40)
+  sizeBytes    Int       @map("size_bytes")
+  sha256       String    @db.VarChar(64)
+  storageKey   String    @map("storage_key") @db.VarChar(200)
+  chunkCount   Int       @map("chunk_count")
+  /// Set while the document is out of use: its chunks stay and are never searched.
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  chunks KnowledgeChunk[]
+
+  @@index([archivedAt, audience, language])
+  @@index([sha256])
+  @@map("knowledge_documents")
+}
+
+/// A passage of a document: the document's own words under the headings above them. `search`
+/// is written with the row, in the text search configuration of the document's language
+/// (a generated column cannot choose one per row), and found through its GIN index.
+model KnowledgeChunk {
+  id         String                  @id @default(uuid(7)) @db.Uuid
+  documentId String                  @map("document_id") @db.Uuid
+  position   Int
+  heading    String?                 @db.VarChar(160)
+  body       String
+  search     Unsupported("tsvector")
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, position])
+  @@index([search], type: Gin)
+  @@map("knowledge_chunks")
+}

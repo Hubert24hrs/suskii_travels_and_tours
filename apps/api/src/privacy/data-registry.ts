@@ -745,6 +745,13 @@ export const DATA_REGISTRY = {
   AgentSetting: reference(
     'Autonomy levels of agents and tools (ADR-107). Who changed one is in the audit log.',
   ),
+  // --- Knowledge base (ADR-105): company text the assistant answers from ---------------------
+  KnowledgeDocument: reference(
+    'A document staff uploaded for the assistant to answer from (a policy, a procedure, a guide): title, audience, language, size and hash; the file is in object storage. Company text, no personal data. Archived, never deleted; who added or changed it is in the audit log.',
+  ),
+  KnowledgeChunk: reference(
+    "A passage of a knowledge document, in the document's own words, with its full-text search vector. No personal data.",
+  ),
   // --- Price intelligence (ADR-102): public prices, nothing about a person -------------------
   PriceSource: reference(
     'A website whose public prices may be read: its market, products, page addresses and recipes. No personal data.',

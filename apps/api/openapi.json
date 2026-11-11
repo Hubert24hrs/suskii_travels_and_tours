@@ -1211,6 +1211,619 @@
         ]
       }
     },
+    "/v1/admin/ai/knowledge": {
+      "get": {
+        "operationId": "adminListKnowledge",
+        "summary": "Documents of the knowledge base, newest change first",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "false",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocumentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      },
+      "post": {
+        "operationId": "adminAddKnowledge",
+        "summary": "Add a document to the knowledge base",
+        "description": "Raw body: plain text or Markdown in UTF-8, at most 512 KB, with its title, audience and language in the query. The file is virus-scanned, split into passages at its headings and searchable at once. Company text only: nothing about a person belongs in it. 409 `knowledge-duplicate` for the same file in the same audience and language, `knowledge-full` at the limit.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "audience",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "customer",
+                "staff"
+              ]
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "en",
+                "fr",
+                "sw",
+                "ar",
+                "pt"
+              ]
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The document.",
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/markdown": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Problem413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Problem415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:manage"
+        ],
+        "x-audit": [
+          "agent.knowledge_added"
+        ]
+      }
+    },
+    "/v1/admin/ai/knowledge/{documentId}": {
+      "get": {
+        "operationId": "adminGetKnowledge",
+        "summary": "A document and its passages, as the assistant reads them",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocumentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      },
+      "patch": {
+        "operationId": "adminChangeKnowledge",
+        "summary": "Change a document's title or audience",
+        "description": "The language and the text stay as uploaded: add the new version and archive the old one.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 160
+                  },
+                  "audience": {
+                    "type": "string",
+                    "enum": [
+                      "customer",
+                      "staff"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:manage"
+        ],
+        "x-audit": [
+          "agent.knowledge_changed"
+        ]
+      }
+    },
+    "/v1/admin/ai/knowledge/{documentId}/archive": {
+      "post": {
+        "operationId": "adminArchiveKnowledge",
+        "summary": "Take a document out of use",
+        "description": "The assistant stops answering from it at once. Nothing is deleted.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:manage"
+        ],
+        "x-audit": [
+          "agent.knowledge_archived"
+        ]
+      }
+    },
+    "/v1/admin/ai/knowledge/{documentId}/content": {
+      "get": {
+        "operationId": "adminGetKnowledgeContent",
+        "summary": "The file as it was uploaded",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      }
+    },
+    "/v1/admin/ai/knowledge/{documentId}/restore": {
+      "post": {
+        "operationId": "adminRestoreKnowledge",
+        "summary": "Put an archived document back in use",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:manage"
+        ],
+        "x-audit": [
+          "agent.knowledge_restored"
+        ]
+      }
+    },
+    "/v1/admin/ai/knowledge/search": {
+      "get": {
+        "operationId": "adminSearchKnowledge",
+        "summary": "What the assistant would find for a question",
+        "description": "The same search the assistant runs, for an audience and a language: the passages that match best, from documents in use. Staff see what travellers would be answered from before relying on it.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "audience",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "customer",
+              "type": "string",
+              "enum": [
+                "customer",
+                "staff"
+              ]
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "type": "string",
+              "enum": [
+                "en",
+                "fr",
+                "sw",
+                "ar",
+                "pt"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeSearch"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      }
+    },
     "/v1/admin/ai/limits": {
       "get": {
         "operationId": "adminGetAgentLimits",
@@ -41836,7 +42449,8 @@
                   "booking",
                   "trip",
                   "price",
-                  "link"
+                  "link",
+                  "source"
                 ]
               },
               "title": {
@@ -42182,7 +42796,8 @@
                     "booking",
                     "trip",
                     "price",
-                    "link"
+                    "link",
+                    "source"
                   ]
                 },
                 "title": {
@@ -54424,6 +55039,238 @@
         },
         "required": [
           "keys"
+        ],
+        "additionalProperties": false
+      },
+      "KnowledgeDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "staff"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
+            ]
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "text/plain",
+              "text/markdown"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "passages": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "archivedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "audience",
+          "language",
+          "mediaType",
+          "sizeBytes",
+          "passages",
+          "archivedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "KnowledgeDocumentDetail": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/KnowledgeDocument"
+          },
+          "passages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "position": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "heading": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "body": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "position",
+                "heading",
+                "body"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "document",
+          "passages"
+        ],
+        "additionalProperties": false
+      },
+      "KnowledgeDocumentList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeDocument"
+            }
+          },
+          "inUse": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "maxBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "items",
+          "inUse",
+          "limit",
+          "maxBytes"
+        ],
+        "additionalProperties": false
+      },
+      "KnowledgeSearch": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "passageId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "documentId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "document": {
+                  "type": "string"
+                },
+                "audience": {
+                  "type": "string",
+                  "enum": [
+                    "customer",
+                    "staff"
+                  ]
+                },
+                "language": {
+                  "type": "string",
+                  "enum": [
+                    "en",
+                    "fr",
+                    "sw",
+                    "ar",
+                    "pt"
+                  ]
+                },
+                "heading": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "body": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "passageId",
+                "documentId",
+                "document",
+                "audience",
+                "language",
+                "heading",
+                "body",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "found",
+          "hits"
         ],
         "additionalProperties": false
       },

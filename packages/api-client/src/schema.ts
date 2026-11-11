@@ -334,6 +334,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ai/knowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Documents of the knowledge base, newest change first */
+        get: operations["adminListKnowledge"];
+        put?: never;
+        /**
+         * Add a document to the knowledge base
+         * @description Raw body: plain text or Markdown in UTF-8, at most 512 KB, with its title, audience and language in the query. The file is virus-scanned, split into passages at its headings and searchable at once. Company text only: nothing about a person belongs in it. 409 `knowledge-duplicate` for the same file in the same audience and language, `knowledge-full` at the limit.
+         */
+        post: operations["adminAddKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A document and its passages, as the assistant reads them */
+        get: operations["adminGetKnowledge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a document's title or audience
+         * @description The language and the text stay as uploaded: add the new version and archive the old one.
+         */
+        patch: operations["adminChangeKnowledge"];
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/{documentId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a document out of use
+         * @description The assistant stops answering from it at once. Nothing is deleted.
+         */
+        post: operations["adminArchiveKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The file as it was uploaded */
+        get: operations["adminGetKnowledgeContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/{documentId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put an archived document back in use */
+        post: operations["adminRestoreKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the assistant would find for a question
+         * @description The same search the assistant runs, for an audience and a language: the passages that match best, from documents in use. Staff see what travellers would be answered from before relying on it.
+         */
+        get: operations["adminSearchKnowledge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ai/limits": {
         parameters: {
             query?: never;
@@ -9609,7 +9725,7 @@ export interface components {
             reason: ("disabled" | "paused" | "grant" | "unknown_tool" | "agent" | "scope" | "autonomy" | "confirmation_required" | "limit" | "invalid" | "not_found" | "refused" | "failed" | "timeout") | null;
             card: {
                 /** @enum {string} */
-                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link";
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source";
                 title: string;
                 lines: string[];
                 /** @default [] */
@@ -9675,7 +9791,7 @@ export interface components {
             notice: ("greeting" | "cannot_answer" | "limit" | "timeout" | "unavailable" | "paused") | null;
             cards: {
                 /** @enum {string} */
-                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link";
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source";
                 title: string;
                 lines: string[];
                 price?: {
@@ -12141,6 +12257,58 @@ export interface components {
             } & {
                 [key: string]: unknown;
             })[];
+        };
+        KnowledgeDocument: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            language: "en" | "fr" | "sw" | "ar" | "pt";
+            /** @enum {string} */
+            mediaType: "text/plain" | "text/markdown";
+            sizeBytes: number;
+            passages: number;
+            archivedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        KnowledgeDocumentDetail: {
+            document: components["schemas"]["KnowledgeDocument"];
+            passages: {
+                /** Format: uuid */
+                id: string;
+                position: number;
+                heading: string | null;
+                body: string;
+            }[];
+        };
+        KnowledgeDocumentList: {
+            items: components["schemas"]["KnowledgeDocument"][];
+            inUse: number;
+            limit: number;
+            maxBytes: number;
+        };
+        KnowledgeSearch: {
+            found: number;
+            hits: {
+                /** Format: uuid */
+                passageId: string;
+                /** Format: uuid */
+                documentId: string;
+                document: string;
+                /** @enum {string} */
+                audience: "customer" | "staff";
+                /** @enum {string} */
+                language: "en" | "fr" | "sw" | "ar" | "pt";
+                heading: string | null;
+                body: string;
+                /** Format: date-time */
+                updatedAt: string;
+            }[];
         };
         LedgerReconciliationRun: {
             checked: number;
@@ -16051,6 +16219,272 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminAgentCost"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListKnowledge: {
+        parameters: {
+            query?: {
+                archived?: "true" | "false";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocumentList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminAddKnowledge: {
+        parameters: {
+            query: {
+                title: string;
+                audience: "customer" | "staff";
+                language: "en" | "fr" | "sw" | "ar" | "pt";
+            };
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The document. */
+        requestBody: {
+            content: {
+                "text/plain": string;
+                "text/markdown": string;
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocument"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            413: components["responses"]["Problem413"];
+            415: components["responses"]["Problem415"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    adminGetKnowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocumentDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminChangeKnowledge: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    /** @enum {string} */
+                    audience?: "customer" | "staff";
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocument"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminArchiveKnowledge: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocument"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetKnowledgeContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRestoreKnowledge: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocument"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminSearchKnowledge: {
+        parameters: {
+            query: {
+                q: string;
+                audience?: "customer" | "staff";
+                language?: "en" | "fr" | "sw" | "ar" | "pt";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeSearch"];
                 };
             };
             400: components["responses"]["Problem400"];
