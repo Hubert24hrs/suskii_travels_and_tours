@@ -7,7 +7,7 @@ import { shareAsync } from 'expo-sharing';
 import { openSecureCache, secureCache } from '../lib/cache';
 import { tripStore } from '../lib/trips';
 import { json, mockApi, offline, renderWithApp } from '../test/app';
-import { BOOKING_ID, booking } from '../test/fixtures';
+import { BOOKING_ID, assistedItem, booking } from '../test/fixtures';
 
 import { TripScreen, shouldPoll } from './trip-screen';
 
@@ -53,6 +53,31 @@ describe('TripScreen', () => {
     expect(await screen.findByTestId('trip-built')).toHaveTextContent(/T-AB12CD/);
     await fireEvent.press(screen.getByTestId('trip-built-open'));
     expect(router.push).toHaveBeenCalledWith(`/trips/built/${TRIP_ID}`);
+  });
+
+  it('shows a paid assisted booking as waiting for a person, with what was bought (ADR-104)', async () => {
+    await tripStore.addGuestTrip(BOOKING_ID, TOKEN);
+    mockApi({
+      [GET]: () =>
+        json(
+          booking({
+            status: 'TICKETING',
+            vertical: 'assisted',
+            flight: null,
+            assisted: assistedItem,
+            documents: [],
+          }),
+        ),
+    });
+    await renderWithApp(<TripScreen />);
+
+    expect(await screen.findByTestId('assisted-booking')).toHaveTextContent(
+      /Lagoon View Hotel, sea view room/,
+    );
+    expect(screen.getByText(m.quotes.offer.verified)).toBeOnTheScreen();
+    // Not "we are working on it": a person books it, however long that takes.
+    expect(screen.getByText(m.quotes.waiting)).toBeOnTheScreen();
+    expect(screen.queryByText(m.booking.statusHelp.working)).toBeNull();
   });
 
   it('holds a company trip waiting for approval: no pay button until an approver says yes', async () => {

@@ -3559,6 +3559,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agent/conversations/{conversationId}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Say how well the assistant helped in a conversation
+         * @description A score from 1 to 5 on the caller's own conversation, once the assistant answered in it (409 `agent-conversation-unanswered` before). Rating again replaces the score.
+         */
+        put: operations["rateAgentConversation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/agent/messages/{messageId}/feedback": {
         parameters: {
             query?: never;
@@ -5971,6 +5991,51 @@ export interface paths {
         patch: operations["updateMe"];
         trace?: never;
     };
+    "/v1/me/assistant-memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the assistant remembers about me
+         * @description A short list of travel preferences (home airport, cabin, seat, preferred airlines, how to weigh price against comfort), kept only while `enabled` is true. Never free text and never a meal preference.
+         */
+        get: operations["getAssistantMemory"];
+        /**
+         * Let the assistant remember my preferences, or stop it
+         * @description Turning it off erases everything it remembered.
+         */
+        put: operations["setAssistantMemory"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/assistant-memory/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set one remembered preference
+         * @description 409 `agent-memory-off` until remembering is switched on. 422 `agent-memory-invalid` for a value the preference does not take, or a code that names no airport or airline.
+         */
+        put: operations["rememberAssistantPreference"];
+        post?: never;
+        /** Erase one remembered preference */
+        delete: operations["forgetAssistantPreference"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/assisted-quotes": {
         parameters: {
             query?: never;
@@ -7369,6 +7434,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/quotes/assisted/{assistedQuoteId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of my requests as a PDF to keep or pass on
+         * @description What was asked for and, once a person verified the price, the offer with its terms, its total and until when it can be booked. It says that an offer is not a booking, and that a price seen elsewhere was a reference. No name or contact is printed on it.
+         */
+        get: operations["downloadAssistedQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/quotes/assisted/{assistedQuoteId}/withdraw": {
         parameters: {
             query?: never;
@@ -7937,6 +8022,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trips/{tripId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The plan of one of my trips as a PDF to keep or pass on
+         * @description The route, the dates, the head counts, each part chosen with its price and where it stands, the parts still to choose, the total and what is still to pay. It says that a plan is not a booking and that an unpaid part is not reserved. No name or contact is printed on it.
+         */
+        get: operations["downloadTripPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/visa/documents/{documentId}/content": {
         parameters: {
             query?: never;
@@ -8326,6 +8431,23 @@ export interface components {
             feedback: {
                 up: number;
                 down: number;
+            };
+            ratings: {
+                rated: number;
+                averageTenths: number | null;
+                scores: {
+                    score: number;
+                    conversations: number;
+                }[];
+            };
+            funnel: {
+                conversations: number;
+                answered: number;
+                searched: number;
+                askedForAPrice: number;
+                askedToConfirm: number;
+                confirmed: number;
+                handedOver: number;
             };
             prompts: {
                 promptVersion: string;
@@ -9760,6 +9882,7 @@ export interface components {
             lastMessageAt: string;
             /** Format: date-time */
             createdAt: string;
+            rating?: number | null;
             messages: components["schemas"]["AgentMessage"][];
         };
         AgentConversationList: {
@@ -9775,6 +9898,9 @@ export interface components {
                 /** Format: date-time */
                 createdAt: string;
             }[];
+        };
+        AgentConversationRatingInput: {
+            score: number;
         };
         AgentFeedbackRequestInput: {
             feedback: ("up" | "down") | null;
@@ -9914,6 +10040,25 @@ export interface components {
             countryCode: string;
             countryName: string;
             timeZone: string;
+        };
+        AssistantMemory: {
+            enabled: boolean;
+            enabledAt: string | null;
+            items: {
+                /** @enum {string} */
+                key: "home_airport" | "cabin" | "seat" | "airlines" | "budget";
+                value: string;
+                /** @enum {string} */
+                source: "traveller" | "assistant";
+                /** Format: date-time */
+                updatedAt: string;
+            }[];
+        };
+        AssistantMemorySwitchInput: {
+            enabled: boolean;
+        };
+        AssistantMemoryValueInput: {
+            value: string;
         };
         AssistedItem: {
             product: {
@@ -23091,6 +23236,43 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    rateAgentConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guests: the access token returned when the conversation started. Account holders use their session instead. */
+                "X-Agent-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentConversationRatingInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     rateAgentMessage: {
         parameters: {
             query?: never;
@@ -27154,6 +27336,133 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    getAssistantMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMemory"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    setAssistantMemory: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantMemorySwitchInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMemory"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    rememberAssistantPreference: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                key: "home_airport" | "cabin" | "seat" | "airlines" | "budget";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantMemoryValueInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMemory"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    forgetAssistantPreference: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                key: "home_airport" | "cabin" | "seat" | "airlines" | "budget";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMemory"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     listAssistedQuotes: {
         parameters: {
             query?: never;
@@ -29780,6 +30089,34 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    downloadAssistedQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assistedQuoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     withdrawAssistedQuote: {
         parameters: {
             query?: never;
@@ -30817,6 +31154,34 @@ export interface operations {
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
+        };
+    };
+    downloadTripPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
         };
     };
     getVisaDocumentContent: {

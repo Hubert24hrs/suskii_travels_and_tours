@@ -222,6 +222,9 @@ export const api = {
       tags: ['reviews'],
       query,
     }),
+  // The assistant (ADR-101): offered only while this says it is available; null hides it.
+  agentStatus: () =>
+    apiGet<Schemas['AgentStatus']>('/v1/agent/status', { revalidate: 30, tags: ['agent'] }),
   // AI trip search (ADR-061): whether the flight tab shows the "Describe your trip" box.
   naturalSearchStatus: () =>
     apiGet<Schemas['NaturalSearchStatus']>('/v1/flights/natural-search', {

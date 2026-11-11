@@ -71,6 +71,7 @@ async function SupportLinks({ site, className }: { site: SiteContent | null; cla
 /** Utility row above the sticky bar (desktop): support contacts, manage booking, currency. */
 export async function UtilityBar({ site }: { site: SiteContent | null }) {
   const { t } = await getI18n();
+  const assistant = await assistantOffered();
   return (
     <nav
       aria-label={t('header.utilityNav')}
@@ -90,16 +91,36 @@ export async function UtilityBar({ site }: { site: SiteContent | null }) {
         >
           {t('support.link')}
         </AppLink>
+        {assistant ? (
+          <AppLink
+            href="/assistant"
+            data-testid="assistant-open"
+            className="inline-flex min-h-12 items-center font-body text-body-sm font-medium text-foreground hover:text-primary focus-visible:focus-ring"
+          >
+            {t('assistant.open')}
+          </AppLink>
+        ) : null}
         <CurrencySelect />
       </Container>
     </nav>
   );
 }
 
+/**
+ * Whether the assistant is offered (ADR-101): only while the API says it is switched on, not
+ * paused and connected; an answer the website cannot read hides it. The entry is a plain link
+ * to the assistant's own page, in the top bar and the menu: the homepage's script budget
+ * (ADR-043) has no room for a button that opens a chat, and a link costs none.
+ */
+async function assistantOffered(): Promise<boolean> {
+  return (await api.agentStatus())?.available === true;
+}
+
 /** Sticky header: the logo and wordmark, primary nav, sign in, mobile drawer. */
 export async function SiteHeader({ site }: { site: SiteContent | null }) {
   const { t } = await getI18n();
   const cars = await api.carsFeatures();
+  const assistant = await assistantOffered();
   const links = [
     ...NAV_ITEMS.map((item) => ({
       href: item.href,
@@ -119,7 +140,11 @@ export async function SiteHeader({ site }: { site: SiteContent | null }) {
             title: t('header.menuTitle'),
             close: t('common.close'),
           }}
-          links={[...links, { href: '/manage-booking', label: t('header.manageBooking') }]}
+          links={[
+            ...links,
+            { href: '/manage-booking', label: t('header.manageBooking') },
+            ...(assistant ? [{ href: '/assistant', label: t('assistant.open') }] : []),
+          ]}
           footer={
             <div className="flex flex-col gap-4">
               <CurrencySelect />

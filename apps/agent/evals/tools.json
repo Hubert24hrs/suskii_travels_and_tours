@@ -456,6 +456,76 @@
       }
     },
     {
+      "name": "company.policy",
+      "description": "The travel policy of the company the signed-in traveller books for: the highest cabin, the nightly hotel limit, how many days ahead to book and when a trip needs an approver. `member` is false when they belong to no company. A trip outside the policy can still be booked for the company, then waits for an approver before it can be paid; say that, and never say a trip is approved. Use it when someone plans a trip for work.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "hotels",
+        "trip_builder",
+        "bookings",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "documents.passports",
+      "description": "Counts of the passports saved on the signed-in traveller’s account that last long enough for a trip: how many travellers are saved, how many have a passport on file, and how many of those are valid for six months after the arrival date, run out sooner, or have run out by then. Counts only: you never learn whose. Use it before an international trip is booked and pass on `reminder`. It is a reminder and never says whether anyone may enter a country. Travellers are added and changed on the travellers page.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "tours",
+        "trip_builder",
+        "bookings",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "arrivalDate": {
+            "type": "string",
+            "description": "The day of arrival abroad."
+          }
+        },
+        "required": [
+          "arrivalDate"
+        ]
+      }
+    },
+    {
+      "name": "fares.trend",
+      "description": "How return fares on a route Suskii follows have moved: the lowest fare found in the last 30 days, the typical fare of the last 90, whether recent fares are lower, higher or about the same as before, and the month that is usually cheapest. It describes fares already found and is never a forecast: say so, pass on `basis`, and never tell a traveller to wait or to buy now. `followed` is false for a route with no fare history: say there is none. Use IATA airport codes from catalog.places.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "flights",
+        "trip_builder",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "required": [
+          "origin",
+          "destination"
+        ]
+      }
+    },
+    {
       "name": "finance.booking_payments",
       "description": "The payments of one booking, by its id, for preparing a refund request: each payment received with its amount and what of it was already refunded or is being refunded, and what is still refundable. It names no traveller.",
       "tier": "read",
@@ -893,6 +963,62 @@
       }
     },
     {
+      "name": "memory.read",
+      "description": "The travel preferences the signed-in traveller asked the assistant to remember: home airport, cabin, window or aisle, up to three preferred airlines, and whether to weigh price or comfort first. `remembering` is false when they have not agreed to it: then nothing is kept and nothing may be assumed. Use what is here as a starting point and say that you did; the traveller can always choose otherwise. They see and change these on the page the card opens.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "memory.remember",
+      "description": "Asks the signed-in traveller to confirm that the assistant should remember one travel preference. Nothing is kept when you call it: they get a card, and only their tap keeps it. Call it only after the traveller said the preference themselves and asked for it to be remembered, or agreed when you offered. Keys: `home_airport` (an IATA code from catalog.places), `cabin` (economy, premium_economy, business, first), `seat` (window, aisle), `airlines` (one to three IATA airline codes, separated by commas), `budget` (lowest, balanced, comfort). Nothing else can be remembered: never a meal, a health need, a name or a contact. It is refused while the traveller has not switched remembering on; the page that switches it on is the one memory.read links to.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "home_airport",
+              "cabin",
+              "seat",
+              "airlines",
+              "budget"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    },
+    {
       "name": "ops.queues",
       "description": "What is waiting for a person in operations right now, as counts: assisted quotes to verify, paid bookings to book by hand, bookings whose ticketing is retrying or stuck, payments held for a risk review, refunds needing review, airline changes still open (and how many are significant), support conversations past their reply time, visa applications and referrals in review.",
       "tier": "read",
@@ -1239,7 +1365,7 @@
     },
     {
       "name": "support.handover",
-      "description": "Bring in a person from the support team: opens a support conversation for the signed-in traveller with their own last messages, attached to a booking of theirs when you name one. Use it when the traveller asks for a person, or when you cannot resolve what they need. A guest gets the support page instead. After it, tell the traveller the team will answer in that conversation; never promise a time.",
+      "description": "Bring in a person from the support team: opens a support conversation for the signed-in traveller with their own last messages, attached to a booking of theirs when you name one. Use it when the traveller asks for a person, or when you cannot resolve what they need. A guest gets the support page instead; on WhatsApp the team answers in the same chat. After it, tell the traveller the team will answer in that conversation. When `teamAimsToReplyBy` is set you may say the team aims to reply by then: say it is an aim, never a promise, and give no other time.",
       "tier": "propose",
       "scope": "support",
       "agents": [

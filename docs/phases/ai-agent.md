@@ -157,13 +157,19 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
   as a trend; a shareable PDF of a plan or a quote with its validity, sources and the "to be
   confirmed" wording; company travel policy in the trip builder's answers; a handover that says
   when an answer is expected; a satisfaction question after a conversation.
+- **Built (2026-11-11)**: the outcome is under "G. Clients" below. Moved to H: shadow mode
+  and prompt versions compared before they answer, a recipe proposal for a site in drift, the
+  eval results in the console and the forecast alert. Not built: a remembered meal
+  preference (ADR-105, amendments).
 
 ### H. Hardening and delivery
 
 - Security review, a k6 chat scenario, runbook, legal register, guides, Terraform and CI for the
   new service (not applied), cost estimate, final regression run and the final report.
 - Staff cases in the routing and safety evals (the staff agents arrived in E with unit and
-  end-to-end tests but no eval of their own).
+  end-to-end tests but no eval of their own), and cases for G's tools: a fare trend is never
+  worded as a forecast, a meal or a health need is never offered to be remembered, and a
+  passport reminder is never a decision about entry.
 - Shadow mode (section 12 of the brief): a prompt version that runs beside the live one, is
   never shown, and is compared before it may answer.
 - Left by F, from sections 10 and 12 of the brief: a recipe proposal when a site's pages stop
@@ -821,3 +827,216 @@ answers, and the staff agents still have no eval of their own (planned in H).
 - Whether everyone with the assistant's pages may open travellers' conversations (masked and
   audited), or fewer people.
 - The model prices (`AGENT_MODEL_PRICES`), and the forecast above which someone is told.
+
+### G. Clients (2026-11-11)
+
+**Built**
+
+- **Copy.** The assistant, price requests, what the assistant remembers, the rating question
+  and the PDF links in the five catalogs (English serves three locales), checked like every
+  string for placeholders, plural forms and English left behind.
+- **The website.** The chat on `/assistant` with a signed-in traveller's earlier
+  conversations, result cards (an indicative price is marked as one), a source card for a
+  document, the confirmation card a traveller taps, thumbs on an answer and a rating out of
+  five once the assistant has answered. It is reached by a server-rendered link in the top
+  bar and the phone menu, so no other page carries its code. Price requests on `/quotes` and
+  `/quotes/{id}`: ask, read the verified offer with its terms and how long it can be booked,
+  withdraw, book through the ordinary checkout, save as a PDF. An assisted item's summary at
+  checkout and on the booking page. What the assistant remembers on
+  `/assistant/preferences`. "Save as a PDF" on a combined trip.
+- **The app.** The assistant screen and its history with a Maestro flow; price requests
+  under Account (`/account/quotes`), with the push path for an answered request and app
+  links for `/quotes`; an assisted item's summary at checkout and a paid one shown as
+  waiting for a person on the trip screen; what the assistant remembers
+  (`/assistant/preferences`); the rating; and PDFs of a price request and a combined trip,
+  read with the account's session, handed to the share sheet and deleted from the cache when
+  it closes.
+- **The assistant on WhatsApp** (ADR-084, ADR-101). A traveller's message is stored in its
+  support conversation as before. With `AGENT_WHATSAPP_ENABLED` (off unless set, also outside
+  production) and the assistant on, reachable and not paused, it answers there as a guest's
+  run: searches, rules from the knowledge base and the FAQs, the status page; nothing that
+  needs an account or a tap. Its first answer says it is automated and that a person is one
+  message away. A person's reply, a handover, `AGENT_WHATSAPP_MAX_REPLIES` answers (12) or
+  any failure ends its part: it writes the handover once and the thread is for people. STOP,
+  the 24-hour window and the template stay the channel's own. Support keeps a list of
+  answerers (`WhatsAppAnswerers`) the assistant registers with, so support still never
+  imports it, and the after-hours assistant (ADR-085) answers when nobody takes the message.
+- **Five tools**, 43 in all: `fares.trend` (the route's facts and how the last 30 days
+  compare with the 60 before, said as a trend and never a forecast), `documents.passports`
+  (how many saved passports last six months after arrival, as counts only),
+  `company.policy` (the caller's own company's travel rules), `memory.read` and
+  `memory.remember` (the sixth tool that needs a tap).
+- **A handover that says more** (`support.handover`): the support conversation's own reply
+  target as text and whether it is in a priority queue, which the assistant may give as an
+  aim and never a promise; and an internal note for the team with the agents that worked on
+  the conversation and the tools they called with how each ended (names and codes only).
+- **Consented memory** (ADR-105): table `agent_memories` and
+  `user_preferences.assistant_memory_at` (migration `20261124120000_agent_memory`), four
+  routes under `/v1/me/assistant-memory`, five named preferences (home airport, cabin,
+  window or aisle, up to three airlines, price or comfort first), each a code or one of a
+  fixed set. Nothing is kept until the traveller switches it on; switching it off erases all.
+- **A rating and a funnel** (ADR-106): `PUT /v1/agent/conversations/{id}/rating` (1 to 5,
+  the caller's own conversation, once the assistant answered), and on the console's quality
+  page the scores with their mean and what travellers' conversations led to (answered,
+  searched, asked a person for a price, asked to confirm, confirmed, handed over).
+- **PDFs** (`pdf-lib`, as booking documents): `GET /v1/quotes/assisted/{id}/pdf` and
+  `GET /v1/trips/{id}/pdf`, the caller's own, with a QR code to the page they come from and
+  no name, contact or payment detail. Each says what it is not: an offer is not a booking, a
+  plan is not a booking, an unpaid part is not reserved, a price seen elsewhere was a
+  reference.
+- **The journeys with the assistant off.** `E2E_AGENT=off` starts the website's test stack
+  without it; a CI step runs the assistant, search and booking suites on that stack.
+- Three migrations (49 in all), the tools snapshot of the evals, the new table in the data
+  registry, the export, account deletion and the records of processing.
+- Documents: amendments to ADR-080, ADR-084, ADR-099, ADR-101, ADR-104, ADR-105, ADR-106 and
+  ADR-107, section 7.5 of the launch checklist, the data classification, access control and
+  business limits pages, the store forms.
+
+**How to try it** (local stack; no model, no vendor and no Meta account is called)
+
+1. `pnpm infra:up`, `pnpm --filter @suskii/api db:deploy`, `db:seed`, `db:seed:demo`, then
+   `pnpm dev`, which also starts the agent service with its sample model
+   (`AGENT_MODEL_PROVIDER=mock`). The website's top bar shows "Assistant".
+2. **Chat.** Ask "what is the status?": the sample model reads the status page through the
+   tool gateway and answers; anything else gets its one fixed sentence. The rating appears
+   under the answer. (`AGENT_SERVICE=mock` answers inside the API instead, without the agent
+   service.)
+3. **Preferences.** Sign in, open "What the assistant remembers" from the chat, switch it
+   on, choose a seat, type `LOS` as the home airport. Switch it off: everything is erased.
+4. **Price requests.** Open `/quotes`, ask for a price (a phone number in the text is
+   refused before anything is sent). In the console, "Assisted quotes", make an offer. Back
+   on the website the request shows the offer: "Save as a PDF", then book it through the
+   ordinary checkout.
+5. **A trip as a PDF.** Plan a trip on `/trips`, add a part, "Save the plan as a PDF".
+6. **The app.** `pnpm --filter @suskii/mobile android`: Account offers the assistant and
+   price requests; the same journeys run there.
+7. **WhatsApp.** `agent-whatsapp.e2e-spec.ts` runs the whole exchange against the mock
+   channel (a signed inbound message, the answer, a person taking over, the reply limit,
+   STOP). A real number needs the owner's Meta app (launch checklist, section 6 item 2 and 7.5).
+8. **Off.** Start the API with `AGENT_ENABLED=false`: no page links to the assistant,
+   `/assistant` answers 404, and search and booking work as before.
+
+**What changed from the plan**
+
+- **The entry is a link, not a button that opens a dialog.** The dialog put the homepage 565
+  bytes over its 170 kB script budget (ADR-043). A server-rendered link costs no script on
+  any other page.
+- **No meal preference is remembered.** A meal request can reveal religion or health
+  (ADR-093) and waits for counsel; the list has no free text at all, so nothing personal can
+  be written into it.
+- **WhatsApp answers as a guest, and asks for no confirmation.** A contact is never linked
+  to an account by its phone number (ADR-084), so nothing that needs an account runs there,
+  and a confirmation is tapped in the app or on the website, never agreed to in a chat. A
+  run that ends in one becomes the handover.
+- **The plan PDF is the combined trip's**, with the parts chosen, their prices and where
+  each stands: the records, not a model's itinerary.
+- **The data saver changes nothing in the chat**: it loads no pictures; cards are text.
+- **Thumbs existed since D**; this sub-phase adds the score out of five for a conversation.
+- **Moved to H**: shadow mode and prompt versions compared before they answer; a recipe
+  proposal for a site in drift; the eval results in the console; the forecast alert.
+
+**The hard lines, as the clients keep them**
+
+- A client shows what the API stored: an answer the guard passed, cards a tool built, a
+  confirmation card built by `prepare()`. No client composes an answer or a price.
+- "Confirm" is the only way a commit tool runs, on the website and in the app, and goes out
+  with an `Idempotency-Key`. WhatsApp has no confirm.
+- An indicative price is marked as one on every channel, WhatsApp included, and has no link
+  to book; it is sold only through a price request a person verifies.
+- The clients say an assisted booking waits for a person after payment; nothing tells a
+  traveller that a booking or a payment succeeded before the records say so.
+- Nothing about search, booking or payment asks whether the assistant is on. The suites that
+  prove it run on a stack without it.
+
+**Found while building, and fixed**
+
+- **The chat dialog broke the homepage budget** by 565 bytes (the entry is now a link).
+- **A handover on WhatsApp would have opened a second support conversation** beside the
+  thread the traveller is already in. `support.handover` opens nothing on that channel and
+  answers that the thread is with the team.
+- **A page writer that cut long text.** The PDF writer printed one line per call, so terms a
+  person typed would have been cut at the margin. It wraps running text and keeps line
+  breaks.
+- **The web console guard** failed two new tests on responses that are meant to be refused
+  (an invalid airport code, the assistant's pages while it is off); the tests name the
+  expected refusals.
+- A reused test database kept another run's audit rows, so one count in the trips suite was
+  off there; on a fresh database the suite passes. The audit log is append-only by design.
+- **The gate caught a list I had not updated.** A test asks that every route with an id in
+  its path either proves another account gets 404 or says why nobody owns what it names.
+  The five new ones were in neither list, so the first full run of the API suite failed
+  there. The two PDFs and the rating are now called by another account, by a guest and
+  without a session (404, or 401 without a session), and the two preference routes are
+  listed with their reason: the path names a preference, and the rows are the caller's own.
+
+**Known limits, kept in view**
+
+- **WhatsApp has no language setting.** The assistant's fixed lines there (the disclosure,
+  the handover, the greeting) are English; the model answers in the language it is written
+  to.
+- **The rating is one score for a conversation**, asked on the website and in the app, not
+  on WhatsApp.
+- **The fare trend needs five days with a fare in each window**; on thin data the tool says
+  nothing about a trend.
+- **The passport reminder is a general rule** (six months after arrival), not the
+  destination's own; the tool says so and decides nothing about entry.
+- **Nothing in code stops a model from wording a trend as a forecast**, or a passport
+  reminder as a decision about entry: the tools' descriptions and the fixed sentences they
+  return say what each is, and the guard checks figures and outcomes, not tense. The new
+  tools have unit and end-to-end tests and no eval case of their own; cases for them (a
+  trend is not a forecast, a meal is never remembered, a reminder is not a guarantee) join
+  the evals in H, before the live run.
+- **The app's price requests and preferences have unit tests and no Maestro flow of their
+  own**; the assistant's flow and the phone check cover the chat.
+- **The app's full Jest run prints "A worker process has failed to exit gracefully"** once.
+  The run passes; no open handle was traced to a test of this sub-phase. Kept as an open
+  item for H.
+
+**Test results** (local, 2026-11-11). The long suites ran on commit `1d7df5e`, the last one
+that changes what the API, the website and the app do. The API suite had one failure there
+(the ownership list above); its fix is in the test file alone (`9484cad`), and that suite was
+run again on it. Every workspace's unit tests, the formatting and the checklist ran on the
+head of the branch with these documents. The pull request's checks run everything once more
+on the head.
+
+| Check                                                  | Result                                   | On        |
+| ------------------------------------------------------ | ---------------------------------------- | --------- |
+| `pnpm lint`                                            | 15 of 15 workspaces                      | `1d7df5e` |
+| `pnpm typecheck`                                       | 14 of 14 workspaces                      | `1d7df5e` |
+| `pnpm test` (unit, every workspace)                    | 12 of 12 tasks                           | head      |
+| API unit (`test:cov`, with the 80% gates)              | 76 suites, 818 tests                     | `1d7df5e` |
+| API e2e (full, `test:e2e:cov`)                         | 80 suites, 855 of 856 tests              | `1d7df5e` |
+| the ownership matrix after its fix                     | 3 of 3 tests                             | `9484cad` |
+| of which the assistant on WhatsApp                     | 8 tests                                  | `1d7df5e` |
+| of which the planning tools                            | 6 tests                                  | `1d7df5e` |
+| `@suskii/agent`                                        | 58 tests (10 in the three evals)         | head      |
+| `@suskii/shared`                                       | 390 tests                                | head      |
+| `@suskii/i18n`                                         | 34 tests                                 | head      |
+| Web e2e (Chromium and slow 3G)                         | 254 tests, 1 skipped (the off-mode case) | `1d7df5e` |
+| Web e2e with the assistant off (`E2E_AGENT=off`)       | 43 tests                                 | `1d7df5e` |
+| Mobile (Jest)                                          | 53 suites, 351 tests                     | `1d7df5e` |
+| Admin e2e                                              | 31 tests                                 | `1d7df5e` |
+| `pnpm check:migrations` (49 migrations)                | pass                                     | head      |
+| `pnpm security:checklist --check`, `pnpm format:check` | pass                                     | head      |
+| `pnpm test:scripts`                                    | 13 tests                                 | `1d7df5e` |
+
+| Eval (recorded answers) | Result                                              | Pass mark          |
+| ----------------------- | --------------------------------------------------- | ------------------ |
+| `eval:agent-routing`    | 78 of 81 (96.3%); 16 by rule without a model call   | 95%                |
+| `eval:agent-grounding`  | no invention shown; 15 of 16 grounded answers shown | 0 shown, 90% shown |
+| `eval:agent-safety`     | 28 of 28 held; no violation                         | 0 violations       |
+
+Before this sub-phase: API e2e 78 suites and 840 tests, API unit 74 suites and 808 tests, web
+e2e 242 tests, mobile 50 suites and 319 tests, admin e2e 31 tests, `@suskii/shared` 385 tests.
+Not run: no model, no vendor, no supplier and no Meta account was called; the evals ran on
+recorded answers and have no case yet for this sub-phase's tools (planned in H); the Maestro
+flows run in CI, not here; no phone was used.
+
+**Decisions needed from the owner**
+
+- Whether the assistant answers on WhatsApp (`AGENT_WHATSAPP_ENABLED`), after how many
+  answers it hands over (12), and who reads the handovers out of hours.
+- Whether a meal preference may be remembered (counsel, ADR-093).
+- The reply targets a handover may name (`SUPPORT_SLA`).
+- The wording of the PDFs' notes ("not a booking", "to be confirmed") from counsel.
+- Whether a guest may use the assistant, or only signed-in travellers.

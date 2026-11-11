@@ -115,6 +115,7 @@ import { TravellersService } from './travellers.service';
     InhouseCatalog,
     QuotesService,
     CompanyTopUps,
+    TravellersService,
   ],
 })
 export class BookingsModule {}

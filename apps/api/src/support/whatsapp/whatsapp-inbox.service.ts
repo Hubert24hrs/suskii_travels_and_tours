@@ -24,6 +24,7 @@ import { supportConversations, supportWhatsAppInbound } from '../../telemetry/me
 import { SupportAssistant } from '../assistant/support-assistant.service';
 import { customerMessageChanges, newSupportReference } from '../support.service';
 
+import { WhatsAppAnswerers } from './whatsapp-answerers';
 import { WhatsAppReplies } from './whatsapp-replies.service';
 import type { WhatsAppDelivery, WhatsAppDeliveryUpdate, WhatsAppInbound } from './whatsapp-webhook';
 
@@ -50,6 +51,7 @@ export class WhatsAppInbox {
     @Inject(REDIS) private readonly redis: Redis,
     private readonly replies: WhatsAppReplies,
     private readonly assistant: SupportAssistant,
+    private readonly answerers: WhatsAppAnswerers,
   ) {}
 
   async receive(deliveries: WhatsAppDelivery[]): Promise<void> {
@@ -88,7 +90,11 @@ export class WhatsAppInbox {
     supportWhatsAppInbound.add(1, { kind: inbound.kind, outcome: stop ? 'stop' : 'stored' });
     if (conversationId && !stop) {
       await this.replies.forwardWaiting(conversationId);
-      if (inbound.kind === 'text') this.assistant.consider(conversationId);
+      // The assistant answers when it is offered on WhatsApp (ADR-101); otherwise the
+      // after-hours assistant decides, as before (ADR-085).
+      if (inbound.kind === 'text' && !(await this.answerers.take(conversationId))) {
+        this.assistant.consider(conversationId);
+      }
     }
   }
 

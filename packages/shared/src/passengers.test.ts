@@ -6,6 +6,7 @@ import {
   hotelGuestSchema,
   passengerInputSchema,
   passportNumberSchema,
+  passportValidity,
 } from './passengers';
 
 const adult = {
@@ -115,5 +116,23 @@ describe('hotelGuestSchema and contactDetailsSchema', () => {
       contactDetailsSchema.parse({ email: ' Ngozi@Example.com ', phone: '+2348012345678' }),
     ).toEqual({ email: 'ngozi@example.com', phone: '+2348012345678' });
     expect(contactDetailsSchema.safeParse({ email: 'x', phone: '0801' }).success).toBe(false);
+  });
+});
+
+describe('passportValidity', () => {
+  it('asks for six months after arrival unless told otherwise', () => {
+    expect(passportValidity('2027-06-15', '2026-12-15')).toBe('valid');
+    expect(passportValidity('2027-06-14', '2026-12-15')).toBe('expires_soon');
+    expect(passportValidity('2026-12-15', '2026-12-15')).toBe('expires_soon');
+    expect(passportValidity('2026-12-14', '2026-12-15')).toBe('expired');
+    expect(passportValidity('2027-03-14', '2026-12-15', 3)).toBe('expires_soon');
+    expect(passportValidity('2027-03-15', '2026-12-15', 3)).toBe('valid');
+  });
+
+  it('counts months on the calendar, across a year end and a short month', () => {
+    // Six months after 31 August is the end of February: the day rolls into March.
+    expect(passportValidity('2027-03-02', '2026-08-31')).toBe('expires_soon');
+    expect(passportValidity('2027-03-03', '2026-08-31')).toBe('valid');
+    expect(passportValidity('2028-01-10', '2027-07-10')).toBe('valid');
   });
 });

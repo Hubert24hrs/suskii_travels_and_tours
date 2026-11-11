@@ -14,6 +14,29 @@ type Money = Schemas['Money'];
 
 const time = (local: string): string => local.slice(11, 16);
 
+/**
+ * Something a person verified with its supplier (ADR-104): what it is, where and when, the
+ * supplier's terms as staff wrote them, and that a person confirmed the price.
+ */
+export function AssistedDetails({ item }: { item: NonNullable<Quote['assisted']> }) {
+  const { t } = useBookingT();
+  const format = useFormatters();
+  return (
+    <>
+      <p className="font-body text-body font-bold text-foreground">{item.product.title}</p>
+      <p className="font-body text-body-sm text-foreground">
+        {item.cityName ? `${item.cityName} \u00b7 ` : ''}
+        {format.dateRange(item.startDate, item.endDate, 'medium')}
+      </p>
+      <p className="font-body text-body-sm whitespace-pre-wrap text-foreground">{item.summary}</p>
+      <p className="font-body text-body-sm text-foreground">
+        {item.refundable ? t('quotes.offer.refundable') : t('quotes.offer.nonRefundable')}
+      </p>
+      <p className="font-body text-body-sm text-muted">{t('quotes.offer.verified')}</p>
+    </>
+  );
+}
+
 export function TripSummary({ quote }: { quote: Quote }) {
   const { t } = useBookingT();
   const format = useFormatters();
@@ -76,6 +99,15 @@ export function TripSummary({ quote }: { quote: Quote }) {
       <Card className="flex flex-col gap-3 p-4">
         <h2 className="font-heading text-h4 font-bold text-heading">{t('checkout.trip')}</h2>
         <CarsDetails items={quote} inCheckout />
+      </Card>
+    );
+  }
+  if (quote.assisted) {
+    return (
+      <Card className="flex flex-col gap-3 p-4" data-testid="assisted-summary">
+        <h2 className="font-heading text-h4 font-bold text-heading">{t('checkout.trip')}</h2>
+        <AssistedDetails item={quote.assisted} />
+        <p className="font-body text-body-sm text-foreground">{t('quotes.offer.afterPayment')}</p>
       </Card>
     );
   }

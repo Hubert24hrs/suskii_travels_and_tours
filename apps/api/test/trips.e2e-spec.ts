@@ -7,6 +7,7 @@ import { MockPaymentProvider } from '../src/payments/mock-payment-provider';
 
 import { CONTACT, inDays, nextKey, passenger, staffSession } from './helpers/cars';
 import { bearer, signUp } from './helpers/flows';
+import { pdfText } from './helpers/pdf-text';
 import { localIn, rentalVehicle } from './helpers/rentals';
 import { createTestApp, resetState, type TestContext } from './helpers/test-app';
 
@@ -444,6 +445,32 @@ describe('combined trips (e2e)', () => {
     // One part alone can be paid as a trip; the other is added and paid later.
     const one = await getTrip(tripId);
     expect(one.missing).toEqual(['hotel']);
+
+    // The plan as a PDF to keep or pass on: the part chosen, what is still to choose, the
+    // total, and that a plan is not a booking. No name or contact is printed.
+    const file = await ctx
+      .http()
+      .get(`/v1/trips/${tripId}/pdf`)
+      .set(traveller.headers)
+      .buffer(true)
+      .parse((response, done) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => done(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(file.headers['content-type']).toBe('application/pdf');
+    const printed = (await pdfText(file.body as Buffer)).replace(/\n/g, ' ');
+    expect(printed).toContain(one.reference);
+    expect(printed).toContain('Flight');
+    expect(printed).toContain('To pay');
+    expect(printed).toContain('Still to choose');
+    expect(printed).toContain('Hotel');
+    expect(printed).toContain('A plan, not a booking.');
+    expect(printed).not.toMatch(/@example\.com|\+234/);
+    const other = bearer((await signUp(ctx, 'trip.reader@example.com')).accessToken);
+    await ctx.http().get(`/v1/trips/${tripId}/pdf`).set(other).expect(404);
+    await ctx.http().get(`/v1/trips/${tripId}/pdf`).expect(401);
     const first = await payTrip(tripId).expect(201);
     expect(first.body).toMatchObject({ parts: 1, amount: one.total });
     await complete(referenceOf(first.body.checkoutUrl as string));

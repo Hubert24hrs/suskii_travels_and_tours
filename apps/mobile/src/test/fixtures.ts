@@ -1039,3 +1039,88 @@ export const driverEarnings: Schemas['DriverEarnings'] = {
   rides: [],
   payouts: [],
 };
+
+// --- Price requests (ADR-104) ----------------------------------------------------------------
+
+export const PRICE_REQUEST_ID = '0192d3a0-7c1e-7b2a-9f00-00000000d401';
+
+/** What staff verified and offered: two nights with a sea view. */
+export const assistedItem: Schemas['AssistedItem'] = {
+  product: {
+    id: PRICE_REQUEST_ID,
+    slug: 'q-7k2m4x',
+    title: 'Lagoon View Hotel, sea view room',
+    sample: false,
+    artKey: null,
+  },
+  kind: 'hotel',
+  summary: 'Two nights, breakfast included. Free cancellation until 5 December.',
+  startDate: '2026-12-12',
+  endDate: '2026-12-14',
+  cityName: 'Lagos',
+  countryCode: 'NG',
+  travellers: { adults: 1, children: 0, infants: 0 },
+  refundable: true,
+  quoteId: PRICE_REQUEST_ID,
+  supplierReference: null,
+};
+
+/** The quote of a verified offer, as the checkout loads it. */
+export function assistedQuote(): Schemas['Quote'] {
+  return {
+    ...flightQuote(),
+    vertical: 'assisted',
+    flight: null,
+    assisted: assistedItem,
+    price: inhousePrice(18_500_000),
+  };
+}
+
+/** A traveller's price request: waiting for a person unless patched. */
+export function priceRequest(
+  patch: Partial<Schemas['AssistedQuote']> = {},
+): Schemas['AssistedQuote'] {
+  return {
+    id: PRICE_REQUEST_ID,
+    reference: 'Q-7K2M4X',
+    product: 'hotel',
+    title: 'Lagoon View Hotel, sea view room',
+    request: {
+      origin: null,
+      destination: 'Lagos',
+      startDate: '2026-12-12',
+      endDate: '2026-12-14',
+      adults: 2,
+      children: 0,
+    },
+    currency: 'NGN',
+    status: 'requested',
+    closedReason: null,
+    indicative: null,
+    offer: null,
+    bookingId: null,
+    answerBy: '2026-11-13T09:00:00.000Z',
+    createdAt: '2026-11-11T09:00:00.000Z',
+    ...patch,
+  };
+}
+
+/** The same request once a person has verified the price. */
+export const offeredPriceRequest = (): Schemas['AssistedQuote'] =>
+  priceRequest({
+    status: 'offered',
+    offer: {
+      quoteId: QUOTE_ID,
+      total: ngn(18_500_000),
+      details: {
+        title: assistedItem.product.title,
+        summary: assistedItem.summary,
+        startDate: assistedItem.startDate,
+        endDate: assistedItem.endDate,
+        cityName: 'Lagos',
+        countryCode: 'NG',
+        refundable: true,
+      },
+      expiresAt: '2026-11-11T11:00:00.000Z',
+    },
+  });

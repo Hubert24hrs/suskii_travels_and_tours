@@ -537,6 +537,11 @@ export const envSchema = z
     /** A grant lives for one run: the run's time limit and a margin. */
     AGENT_GRANT_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
     AGENT_RUN_TIMEOUT_MS: z.coerce.number().int().min(5000).max(600_000).default(120_000),
+    // The assistant on WhatsApp (ADR-084, ADR-101): off unless set, in every environment. It
+    // answers inside the support conversation a message opens, until a person replies.
+    AGENT_WHATSAPP_ENABLED: booleanish.default(false),
+    // Answers in one WhatsApp conversation before it is handed to people.
+    AGENT_WHATSAPP_MAX_REPLIES: z.coerce.number().int().min(1).max(50).default(12),
     /** Tool calls one run may make through the gateway. */
     AGENT_RUN_MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(100).default(24),
     /** Model turns one run may take (the router's included), and its longest answer in tokens. */

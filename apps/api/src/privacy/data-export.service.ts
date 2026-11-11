@@ -175,7 +175,8 @@ export class DataExportService {
         createdAt: iso(user.createdAt),
         updatedAt: iso(user.updatedAt),
       },
-      preferences,
+      // With what the assistant remembers, which the person chose like any other setting.
+      preferences: { ...preferences, assistantMemory: await this.assistantMemory(userId) },
       notificationPreferences: notificationPreferences.preferences,
       notifications: notifications.map((row) => ({
         createdAt: iso(row.createdAt),
@@ -663,6 +664,7 @@ export class DataExportService {
       status: row.status,
       createdAt: iso(row.createdAt),
       lastMessageAt: iso(row.lastMessageAt),
+      rating: row.rating,
       messages: row.messages.map((message) => ({
         from: message.role === 'user' ? 'you' : 'assistant',
         sentAt: iso(message.createdAt),
@@ -678,6 +680,26 @@ export class DataExportService {
         answeredAt: confirmation.decidedAt ? iso(confirmation.decidedAt) : null,
       })),
     }));
+  }
+
+  /** What the assistant remembers about the person, and when they agreed to it (ADR-105). */
+  private async assistantMemory(userId: string): Promise<unknown> {
+    const [preference, rows] = await Promise.all([
+      this.prisma.userPreference.findUnique({
+        where: { userId },
+        select: { assistantMemoryAt: true },
+      }),
+      this.prisma.agentMemory.findMany({ where: { userId }, orderBy: { key: 'asc' } }),
+    ]);
+    return {
+      agreedAt: preference?.assistantMemoryAt ? iso(preference.assistantMemoryAt) : null,
+      preferences: rows.map((row) => ({
+        preference: row.key,
+        value: row.value,
+        setBy: row.source,
+        updatedAt: iso(row.updatedAt),
+      })),
+    };
   }
 
   /** Requests to have a price confirmed by a person (ADR-104), and how each ended. */

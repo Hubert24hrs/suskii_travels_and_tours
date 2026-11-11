@@ -242,6 +242,10 @@ export const supportAssistantTokens = meter.createCounter('suskii.support.assist
 export const agentRuns = meter.createCounter('suskii.agent.runs', {
   description: 'Agent runs by outcome, agent and channel',
 });
+/** What became of a WhatsApp message the assistant took: answered, handed over and why. */
+export const agentWhatsApp = meter.createCounter('suskii.agent.whatsapp', {
+  description: 'WhatsApp messages the assistant took, by outcome',
+});
 /** What the assistant's model calls cost, in millionths of a US dollar. */
 export const agentCost = meter.createCounter('suskii.agent.cost', {
   description: 'Agent model spend in micro-dollars by model',

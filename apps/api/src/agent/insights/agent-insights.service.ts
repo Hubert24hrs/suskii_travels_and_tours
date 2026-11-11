@@ -34,6 +34,15 @@ const startOfDay = (date: Date): Date => new Date(`${day(date)}T00:00:00.000Z`);
 
 /** Outcomes that mean the run broke, as opposed to ending as designed. */
 const FAILED_OUTCOMES = ['failed', 'model_error', 'timeout'];
+/** The tools that search what Suskii sells: a conversation that ran one looked for a trip. */
+const SEARCH_TOOLS = [
+  'flights.search',
+  'hotels.search',
+  'cars.rentals',
+  'cars.buses',
+  'packages.search',
+  'tours.search',
+];
 
 interface Spend {
   runs: number;
@@ -292,6 +301,51 @@ export class AgentInsightsService {
          WHERE m.created_at >= ${from} AND m.feedback IS NOT NULL AND r.prompt_version IS NOT NULL
          GROUP BY 1, 2`,
     ]);
+    const [scores, funnel] = await Promise.all([
+      this.prisma.agentConversation.groupBy({
+        by: ['rating'],
+        where: { ratedAt: { gte: from }, rating: { not: null } },
+        _count: { _all: true },
+      }),
+      // Travellers' conversations started in the period, counted once per step they reached.
+      this.prisma.$queryRaw<
+        {
+          conversations: bigint;
+          answered: bigint;
+          searched: bigint;
+          asked_for_a_price: bigint;
+          asked_to_confirm: bigint;
+          confirmed: bigint;
+          handed_over: bigint;
+        }[]
+      >`
+        SELECT count(*) AS conversations,
+               count(*) FILTER (WHERE EXISTS (
+                 SELECT 1 FROM agent_runs r
+                  WHERE r.conversation_id = c.id AND r.outcome = 'answered')) AS answered,
+               count(*) FILTER (WHERE EXISTS (
+                 SELECT 1 FROM agent_tool_calls t JOIN agent_runs r ON r.id = t.run_id
+                  WHERE r.conversation_id = c.id AND t.status = 'ok'
+                    AND t.tool = ANY(${SEARCH_TOOLS}))) AS searched,
+               count(*) FILTER (WHERE EXISTS (
+                 SELECT 1 FROM agent_tool_calls t JOIN agent_runs r ON r.id = t.run_id
+                  WHERE r.conversation_id = c.id AND t.status = 'ok'
+                    AND t.tool = 'quotes.request')) AS asked_for_a_price,
+               count(*) FILTER (WHERE EXISTS (
+                 SELECT 1 FROM agent_confirmations k
+                  WHERE k.conversation_id = c.id)) AS asked_to_confirm,
+               count(*) FILTER (WHERE EXISTS (
+                 SELECT 1 FROM agent_confirmations k
+                  WHERE k.conversation_id = c.id AND k.status = 'confirmed')) AS confirmed,
+               count(*) FILTER (WHERE EXISTS (
+                 SELECT 1 FROM agent_runs r
+                  WHERE r.conversation_id = c.id AND r.outcome = 'handover')) AS handed_over
+          FROM agent_conversations c
+         WHERE c.created_at >= ${from} AND c.audience = 'customer'`,
+    ]);
+    const rated = scores.reduce((sum, row) => sum + row._count._all, 0);
+    const points = scores.reduce((sum, row) => sum + (row.rating ?? 0) * row._count._all, 0);
+    const reached = funnel[0];
     const runsWith = (outcome: string): number =>
       outcomes.find((row) => row.outcome === outcome)?._count._all ?? 0;
     const thumbs = (value: 'up' | 'down'): number =>
@@ -309,6 +363,23 @@ export class AgentInsightsService {
         .map((row) => ({ outcome: row.outcome ?? '', runs: row._count._all }))
         .sort((a, b) => b.runs - a.runs),
       feedback: { up: thumbs('up'), down: thumbs('down') },
+      ratings: {
+        rated,
+        averageTenths: rated > 0 ? Math.round((points * 10) / rated) : null,
+        scores: [1, 2, 3, 4, 5].map((score) => ({
+          score,
+          conversations: scores.find((row) => row.rating === score)?._count._all ?? 0,
+        })),
+      },
+      funnel: {
+        conversations: Number(reached?.conversations ?? 0n),
+        answered: Number(reached?.answered ?? 0n),
+        searched: Number(reached?.searched ?? 0n),
+        askedForAPrice: Number(reached?.asked_for_a_price ?? 0n),
+        askedToConfirm: Number(reached?.asked_to_confirm ?? 0n),
+        confirmed: Number(reached?.confirmed ?? 0n),
+        handedOver: Number(reached?.handed_over ?? 0n),
+      },
       prompts: versions.map((promptVersion) => {
         const of = (outcome?: string): number =>
           prompts

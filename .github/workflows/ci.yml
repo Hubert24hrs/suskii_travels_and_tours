@@ -25,7 +25,12 @@ env:
 jobs:
   verify:
     name: Lint, typecheck, test, build
-    runs-on: ubuntu-latest
+    # A named image, not `ubuntu-latest`: this job installs Chromium's system packages with apt
+    # and compares screenshots, so it must not change under us. When `ubuntu-latest` moved to
+    # 26.04 the browser cache missed and the package install failed to resolve the Ubuntu
+    # mirrors, before any test ran. Move to a newer image deliberately, with the screenshot
+    # baselines (visual-baselines.yml uses the same image).
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     # Throwaway services for the web and admin e2e stacks and the worker's BullMQ test. The API
     # e2e suite starts its own containers (Testcontainers). Credentials are CI-only, never real.
@@ -83,11 +88,14 @@ jobs:
 
       - name: Install Playwright Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter @suskii/ui-web exec playwright install --with-deps chromium
+        run: pnpm --filter @suskii/ui-web exec playwright install chromium
 
+      # apt adds fallback fonts to the libraries the runner image already has. When the Ubuntu
+      # mirrors cannot be reached, the script starts the browser on what the image has and the
+      # job goes on under a warning, instead of ending before a single test ran. No test is
+      # skipped: a browser that cannot start fails this step.
       - name: Install Playwright system dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm --filter @suskii/ui-web exec playwright install-deps chromium
+        run: node scripts/ci-playwright-deps.mjs
 
       - name: Check formatting
         run: pnpm format:check
@@ -162,6 +170,19 @@ jobs:
           LIGHTHOUSE_RUNS: 3
           # Every journey signs in from this runner's one address within a minute or two; the
           # per-IP limits are covered by the API e2e suite (as for the admin console).
+          E2E_RATE_LIMIT_ENABLED: 'false'
+
+      # The assistant is off in production until the owner switches it on (ADR-101). The search
+      # and booking journeys run once more on a stack without it: no page may offer it, its
+      # pages must not exist, and nothing of search or booking may depend on it.
+      - name: E2E tests (web, assistant switched off)
+        run: |
+          pnpm exec turbo run build --filter=@suskii/web --filter=@suskii/api --filter=@suskii/worker
+          pnpm --filter @suskii/web exec playwright test e2e/assistant.spec.ts e2e/search.spec.ts e2e/booking.spec.ts --project=chromium
+        env:
+          E2E_AGENT: 'off'
+          WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_web_e2e
+          WEB_E2E_REDIS_URL: redis://localhost:6379/2
           E2E_RATE_LIMIT_ENABLED: 'false'
 
       - name: Upload web test reports

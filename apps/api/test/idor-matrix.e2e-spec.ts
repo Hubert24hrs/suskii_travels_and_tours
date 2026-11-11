@@ -71,6 +71,10 @@ const NOT_OWNED: Record<string, string> = {
     "drivers only (403 otherwise); another driver's ride answers 404 (rides.e2e-spec.ts)",
   handBackRide:
     "drivers only (403 otherwise); another driver's ride answers 404 (rides.e2e-spec.ts)",
+  rememberAssistantPreference:
+    "the path names one of five preferences; the rows are the caller's own, found by session (agent-confirmations.e2e-spec.ts)",
+  forgetAssistantPreference:
+    "the path names one of five preferences; the rows are the caller's own, found by session (agent-confirmations.e2e-spec.ts)",
   getRentalVehicle: 'published fleet, by slug',
   getRentalAvailability: 'blocked periods of a published car, with no booking data',
   followPartnerLink:
@@ -257,6 +261,7 @@ const CASES: Record<string, Case> = {
     raw: { contentType: 'image/png', bytes: PNG },
   },
   getTrip: { path: (f) => `/v1/trips/${f.tripId}` },
+  downloadTripPlan: { path: (f) => `/v1/trips/${f.tripId}/pdf` },
   deleteTrip: { path: (f) => `/v1/trips/${f.tripId}` },
   addTripPart: {
     path: (f) => `/v1/trips/${f.tripId}/parts`,
@@ -266,6 +271,10 @@ const CASES: Record<string, Case> = {
   startTripPayment: { path: (f) => `/v1/trips/${f.tripId}/payments`, body: () => ({}) },
   getAgentConversation: { path: (f) => `/v1/agent/conversations/${f.agentConversationId}` },
   deleteAgentConversation: { path: (f) => `/v1/agent/conversations/${f.agentConversationId}` },
+  rateAgentConversation: {
+    path: (f) => `/v1/agent/conversations/${f.agentConversationId}/rating`,
+    body: () => ({ score: 1 }),
+  },
   getAgentRun: { path: (f) => `/v1/agent/runs/${f.agentRunId}` },
   streamAgentRun: { path: (f) => `/v1/agent/runs/${f.agentRunId}/stream` },
   rateAgentMessage: {
@@ -280,6 +289,7 @@ const CASES: Record<string, Case> = {
     path: (f) => `/v1/agent/confirmations/${f.agentConfirmationId}/decline`,
   },
   getAssistedQuote: { path: (f) => `/v1/quotes/assisted/${f.assistedQuoteId}` },
+  downloadAssistedQuote: { path: (f) => `/v1/quotes/assisted/${f.assistedQuoteId}/pdf` },
   withdrawAssistedQuote: { path: (f) => `/v1/quotes/assisted/${f.assistedQuoteId}/withdraw` },
 };
 

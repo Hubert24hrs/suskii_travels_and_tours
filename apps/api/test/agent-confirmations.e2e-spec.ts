@@ -297,6 +297,158 @@ describe('assistant confirmations (e2e)', () => {
     return request.send();
   };
 
+  it('remembers a preference only for a traveller who agreed, and only at their tap (ADR-105)', async () => {
+    const memory = (session: TokenSession = ada) =>
+      ctx.http().get('/v1/me/assistant-memory').set(as(session));
+    const kept = async (session: TokenSession = ada) =>
+      (await memory(session).expect(200)).body as {
+        enabled: boolean;
+        items: { key: string; value: string; source: string }[];
+      };
+    const conversationId = await conversationOf();
+    const remember = (args: Record<string, unknown>) =>
+      ask(conversationId, 'memory.remember', args, ada, 'flights');
+    const readBack = async () =>
+      (await ask(conversationId, 'memory.read', {}, ada, 'flights')).answer.result as unknown;
+
+    // Nothing is kept, and nothing can be, until the traveller says so themselves.
+    expect(await kept()).toEqual({ enabled: false, enabledAt: null, items: [] });
+    expect(await readBack()).toMatchObject({ remembering: false, homeAirport: null });
+    expect((await remember({ key: 'home_airport', value: 'LOS' })).answer).toEqual({
+      status: 'error',
+      reason: 'refused',
+      result: null,
+    });
+    await ctx
+      .http()
+      .put('/v1/me/assistant-memory/seat')
+      .set(as(ada))
+      .send({ value: 'window' })
+      .expect(409);
+    expect(await ctx.prisma.agentConfirmation.count()).toBe(0);
+
+    const on = await ctx
+      .http()
+      .put('/v1/me/assistant-memory')
+      .set(as(ada))
+      .send({ enabled: true })
+      .expect(200);
+    expect(on.body).toMatchObject({ enabled: true, items: [] });
+
+    // What cannot be remembered is refused before the traveller is asked anything: a place
+    // that is no airport, a meal, a sentence.
+    for (const args of [
+      { key: 'home_airport', value: 'QQQ' },
+      { key: 'seat', value: 'vegetarian meal please' },
+      { key: 'budget', value: 'call me on 0803 000 0000' },
+    ]) {
+      expect((await remember(args)).answer).toMatchObject({ status: 'error', reason: 'refused' });
+    }
+    expect((await remember({ key: 'meal', value: 'vegetarian' })).answer).toMatchObject({
+      status: 'denied',
+      reason: 'invalid',
+    });
+    expect(await ctx.prisma.agentConfirmation.count()).toBe(0);
+
+    // The agent's call keeps nothing: it becomes a card with the key and the value as codes.
+    const { answer } = await remember({ key: 'home_airport', value: 'los' });
+    expect(answer).toMatchObject({ status: 'denied', reason: 'confirmation_required' });
+    const confirmationId = answer.result?.confirmationId ?? '';
+    expect((await read(confirmationId).expect(200)).body as Confirmation).toMatchObject({
+      action: 'memory.remember',
+      status: 'pending',
+      card: { kind: 'link', title: 'home_airport', lines: ['LOS'] },
+    });
+    expect((await kept()).items).toEqual([]);
+    // Another account neither sees the card nor can answer it.
+    await read(confirmationId, bola).expect(404);
+    expect((await tap(confirmationId, 'confirm', bola)).status).toBe(404);
+
+    const heard = listen();
+    expect((await tap(confirmationId, 'confirm')).status).toBe(202);
+    await ctx.background.drain();
+    expect((await kept()).items).toEqual([
+      expect.objectContaining({ key: 'home_airport', value: 'LOS', source: 'assistant' }),
+    ]);
+    expect(heard.requests[0]?.input).toMatchObject({
+      decision: 'confirmed',
+      facts: { remembered: true, key: 'home_airport', value: 'LOS' },
+    });
+
+    // The traveller changes and adds preferences on their own page; a declined card keeps
+    // nothing.
+    await ctx
+      .http()
+      .put('/v1/me/assistant-memory/airlines')
+      .set(as(ada))
+      .send({ value: 'kq, et' })
+      .expect(200);
+    await ctx
+      .http()
+      .put('/v1/me/assistant-memory/cabin')
+      .set(as(ada))
+      .send({ value: 'first class with champagne' })
+      .expect(422);
+    const declined =
+      (await remember({ key: 'seat', value: 'aisle' })).answer.result?.confirmationId ?? '';
+    listen();
+    expect((await tap(declined, 'decline')).status).toBe(202);
+    await ctx.background.drain();
+    expect(await readBack()).toMatchObject({
+      remembering: true,
+      homeAirport: 'LOS',
+      seat: null,
+      preferredAirlines: ['KQ', 'ET'],
+      cabin: null,
+      weighs: null,
+    });
+    // Once airlines are in the catalog, a code must name one of them.
+    await ctx.prisma.airline.create({
+      data: { iataCode: 'KQ', name: 'Kenya Airways', source: 'e2e' },
+    });
+    await ctx
+      .http()
+      .put('/v1/me/assistant-memory/airlines')
+      .set(as(ada))
+      .send({ value: 'KQ,ZZ' })
+      .expect(422);
+    await ctx.prisma.airline.deleteMany({ where: { source: 'e2e' } });
+
+    // It is theirs alone, it is in their export, and one preference can be erased.
+    expect(await kept(bola)).toMatchObject({ enabled: false, items: [] });
+    await ctx.http().delete('/v1/me/assistant-memory/airlines').set(as(ada)).expect(200);
+    expect((await kept()).items.map((item) => item.key)).toEqual(['home_airport']);
+
+    // Withdrawing the agreement erases everything, and a card asked before it keeps nothing.
+    const stale =
+      (await remember({ key: 'budget', value: 'comfort' })).answer.result?.confirmationId ?? '';
+    const off = await ctx
+      .http()
+      .put('/v1/me/assistant-memory')
+      .set(as(ada))
+      .send({ enabled: false })
+      .expect(200);
+    expect(off.body).toEqual({ enabled: false, enabledAt: null, items: [] });
+    expect(await ctx.prisma.agentMemory.count()).toBe(0);
+    listen();
+    await tap(stale, 'confirm');
+    await ctx.background.drain();
+    expect(await ctx.prisma.agentMemory.count()).toBe(0);
+    expect(((await read(stale).expect(200)).body as Confirmation).status).toBe('failed');
+
+    const audited = await ctx.prisma.auditLog.findMany({
+      where: { actorUserId: ada.userId, action: { startsWith: 'agent.memory_' } },
+      orderBy: { occurredAt: 'asc' },
+      select: { action: true, metadata: true },
+    });
+    expect(audited).toEqual([
+      { action: 'agent.memory_enabled', metadata: {} },
+      { action: 'agent.memory_disabled', metadata: { erased: 1 } },
+    ]);
+    // A guest has no memory to read or switch on.
+    await ctx.http().get('/v1/me/assistant-memory').expect(401);
+  });
+
   it('turns a cancellation into a card the API built, and cancels only at the tap', async () => {
     const bookingId = await flight();
     const paid = (await booking(bookingId)).paid;

@@ -235,6 +235,8 @@ export type AuditAction =
   | 'agent.autonomy_changed'
   | 'agent.agent_switched'
   | 'agent.conversation_viewed'
+  | 'agent.memory_enabled'
+  | 'agent.memory_disabled'
   | 'agent.knowledge_added'
   | 'agent.knowledge_changed'
   | 'agent.knowledge_archived'

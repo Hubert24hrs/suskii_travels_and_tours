@@ -149,7 +149,7 @@ export function agentsFor(channel: AgentChannel): readonly AgentName[] {
 }
 
 /** A traveller's message: long enough for a trip brief, short enough to bound a model call. */
-export const AGENT_MESSAGE_MAX = 2000;
+export { AGENT_MESSAGE_MAX } from './agent-limits';
 /** A stored answer. */
 export const AGENT_ANSWER_MAX = 4000;
 /** Messages in one conversation before a new one must be started. */

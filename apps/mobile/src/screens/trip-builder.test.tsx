@@ -1,7 +1,9 @@
 import type { Schemas } from '@suskii/api-client';
 import { getMessages } from '@suskii/i18n';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { File } from 'expo-file-system';
 import { router, useLocalSearchParams } from 'expo-router';
+import { shareAsync } from 'expo-sharing';
 
 import { openHostedCheckout } from '../lib/payment';
 import { activeTrip, quoteTripComponent, tripSearchPath } from '../lib/trip-builder';
@@ -447,6 +449,28 @@ describe('BuiltTripScreen', () => {
     // Each part is an ordinary booking with its own screen.
     await fireEvent.press(screen.getByTestId('trip-view-flight'));
     expect(router.push).toHaveBeenCalledWith(`/trips/${FLIGHT_ID}`);
+  });
+
+  it('hands the plan to the share sheet as a PDF, and keeps no copy on the phone', async () => {
+    mockApi({ [`GET /v1/trips/${TRIP_ID}`]: () => json(twoParts()) });
+    const shared = jest.mocked(shareAsync);
+    const downloaded = jest.mocked(File.downloadFileAsync);
+    shared.mockClear();
+    downloaded.mockClear();
+    await renderWithApp(<BuiltTripScreen />, await signedInSession());
+
+    await fireEvent.press(await screen.findByTestId('trip-pdf'));
+    await waitFor(() => expect(shared).toHaveBeenCalledTimes(1));
+    const [url, , options] = downloaded.mock.calls[0] ?? [];
+    expect(url).toBe(`http://api.test/v1/trips/${TRIP_ID}/pdf`);
+    expect(options).toMatchObject({ headers: { Authorization: 'Bearer access-token' } });
+    expect(shared).toHaveBeenCalledWith(
+      'file:///data/cache/suskii-trip-T-AB12CD.pdf',
+      expect.objectContaining({ mimeType: 'application/pdf' }),
+    );
+    await waitFor(() =>
+      expect(new File('file:///data/cache/suskii-trip-T-AB12CD.pdf').exists).toBe(false),
+    );
   });
 
   it('deletes an unpaid trip after asking, and says so when the trip is not there', async () => {

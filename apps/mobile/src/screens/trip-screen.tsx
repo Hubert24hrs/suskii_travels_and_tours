@@ -22,6 +22,7 @@ import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
 import { RentalLicence } from '../components/cars/rental-licence';
 import { TripPlanning } from '../components/cars/trip-planning';
 import { InhouseSummary, inhouseKind } from '../components/inhouse/inhouse-summary';
+import { AssistedSummary } from '../components/quotes/assisted-summary';
 import { PartnerOffers } from '../components/partners/partner-offers';
 import { TripReviews } from '../components/reviews/trip-reviews';
 import { VoucherCard } from '../components/inhouse/voucher-card';
@@ -270,7 +271,10 @@ export function TripScreen() {
     status === 'CONFIRMED'
       ? t('booking.statusHelp.confirmed', { email: booking.contact.email })
       : BOOKING_IN_PROGRESS_STATUSES.includes(status)
-        ? t('booking.statusHelp.working')
+        ? // An assisted booking waits for a person, however long that takes (ADR-104).
+          booking.assisted
+          ? t('quotes.waiting')
+          : t('booking.statusHelp.working')
         : t(`booking.statusHelp.${helpKey(status)}`);
 
   const pay = async (options: { payInFull?: boolean; useCompanyWallet?: boolean } = {}) => {
@@ -598,6 +602,15 @@ export function TripScreen() {
               {t('booking.cars.rental.pending')}
             </Text>
           )
+        ) : null}
+
+        {booking.assisted ? (
+          <Card testID="assisted-booking" className="gap-2 p-4">
+            <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
+              {t('booking.itinerary')}
+            </Text>
+            <AssistedSummary item={booking.assisted} />
+          </Card>
         ) : null}
 
         {inhouseKind(booking) ? (

@@ -153,6 +153,13 @@ describe('assistant insights for staff (e2e)', () => {
       .set(as(ada))
       .send({ feedback: 'up' })
       .expect(200);
+    // And she says how the conversation went, out of five.
+    await ctx
+      .http()
+      .put(`/v1/agent/conversations/${adaConversation}/rating`)
+      .set(as(ada))
+      .send({ score: 4 })
+      .expect(200);
 
     // Her second turn: the guard refused the answer twice, so a notice went out.
     mock.use(async (_request, emit) => {
@@ -366,6 +373,8 @@ describe('assistant insights for staff (e2e)', () => {
       failed: number;
       outcomes: { outcome: string; runs: number }[];
       feedback: { up: number; down: number };
+      ratings: { rated: number; averageTenths: number | null; scores: unknown[] };
+      funnel: Record<string, number>;
       prompts: {
         promptVersion: string;
         runs: number;
@@ -386,6 +395,22 @@ describe('assistant insights for staff (e2e)', () => {
       { outcome: 'answered', runs: 3 },
       { outcome: 'guard_blocked', runs: 1 },
     ]);
+    // One traveller rated a conversation four out of five; the mean is kept as tenths.
+    expect(quality.ratings).toEqual({
+      rated: 1,
+      averageTenths: 40,
+      scores: [1, 2, 3, 4, 5].map((score) => ({ score, conversations: score === 4 ? 1 : 0 })),
+    });
+    // Travellers' conversations only (the staff one is not a sale), each once per step.
+    expect(quality.funnel).toEqual({
+      conversations: 2,
+      answered: 2,
+      searched: 0,
+      askedForAPrice: 0,
+      askedToConfirm: 0,
+      confirmed: 0,
+      handedOver: 0,
+    });
     expect(quality.prompts.find((row) => row.promptVersion === 'bookings@2')).toEqual({
       promptVersion: 'bookings@2',
       runs: 2,

@@ -126,3 +126,36 @@ payment, and never an instruction (ADR-107).
   a traveller's messages after `scrubQuery()`, as the model saw them, and records the read
   (`agent.conversation_viewed`) with the reader and the conversation. Runs and tool calls
   were already ids, codes and the names of arguments.
+
+## Amendments made while building it (sub-phase G, 2026-11-11)
+
+- **Memory as built.** `agent_memories` holds one row per account and preference: `home_airport`
+  (an airport code the catalog knows), `cabin`, `seat` (window or aisle), `airlines` (one to
+  three airline codes) and `budget` (price first, balanced, comfort first). A value is a code
+  or one of a fixed set, checked by `agentMemoryValue()` in `@suskii/shared`: there is nowhere
+  to write a sentence, so nothing personal can be written into it. Currency and language are
+  not remembered here: they are the site's own preferences already.
+- **No meal.** A meal can show a religion or a health condition (ADR-093); it is not on the
+  list, the tool's description forbids it and the schema has no key for it.
+- **Consent is a switch the traveller presses.** `user_preferences.assistant_memory_at` is
+  null until they switch remembering on (`PUT /v1/me/assistant-memory`, audited as
+  `agent.memory_enabled`); while it is null every write answers 409 and `memory.remember` is
+  refused before a card is shown. Switching it off erases every row in the same transaction.
+- **Two ways in, both the traveller's.** Their own page (`/assistant/preferences` on the
+  website and in the app) sets, changes and erases each preference. The assistant can only
+  ask: `memory.remember` is a `commit` tool (ADR-107), so it becomes a card naming the
+  preference and its value, and only the tap stores what the card showed. Each row says who
+  set it (`traveller` or `assistant`).
+- **What a model sees** is `memory.read`: the values, and `remembering: false` when nothing
+  may be assumed. It is told to say when it used one.
+- **The page stays while the assistant is paused**, so erasing is always possible; it answers
+  404 only while the assistant is switched off altogether, when nothing reads the rows.
+- **In the export with the other preferences**, deleted with the account, in the data
+  registry and in the records of processing, where consent joins the assistant's bases.
+- **A conversation's rating** (`agent_conversations.rating`, `rated_at`) is a score from 1 to
+  5 the traveller gives their own conversation once the assistant answered in it. It lives
+  and is deleted with the conversation, is in the export, and reaches staff only as counts
+  and a mean (ADR-106).
+- **A conversation can name the WhatsApp thread it answers in**
+  (`agent_conversations.support_conversation_id`, unique, deleted with the thread). Such a
+  conversation has no account and no guest token: only the inbox reaches it (ADR-084).

@@ -26,6 +26,7 @@ import { CancelUnderPolicy, TripExtras, VisaApplications, VoucherCard } from './
 import { CarsBooking } from './cars-booking';
 import { hasCarsItem } from './cars-details';
 import { InhouseDetails, inhouseKind } from './inhouse-details';
+import { AssistedDetails } from './summaries';
 import { chosenMethod, MethodChoice, type PaymentMethodName } from './payment-choice';
 import { PlanPanel, RefundList } from './plan-panel';
 import { FlightStatus } from './flight-status';
@@ -315,7 +316,10 @@ export function BookingView({ bookingId }: { bookingId: string }) {
     status === 'CONFIRMED'
       ? t('booking.statusHelp.confirmed', { email: booking.contact.email })
       : inProgress(status)
-        ? t(slow ? 'booking.statusHelp.slow' : 'booking.statusHelp.working')
+        ? // An assisted booking waits for a person, however long that takes (ADR-104).
+          booking.assisted
+          ? t('quotes.waiting')
+          : t(slow ? 'booking.statusHelp.slow' : 'booking.statusHelp.working')
         : t(`booking.statusHelp.${helpKey(status)}`);
   const request = booking.flight?.request ?? booking.hotel?.request;
   const kind = inhouseKind(booking);
@@ -513,6 +517,16 @@ export function BookingView({ bookingId }: { bookingId: string }) {
             </Card>
           ) : null}
           {hasCarsItem(booking) ? <CarsBooking booking={booking} reload={reload} /> : null}
+          {booking.assisted ? (
+            <Card asChild className="flex flex-col gap-3 p-4">
+              <section aria-labelledby="booking-assisted" data-testid="assisted-booking">
+                <h2 id="booking-assisted" className="font-heading text-h3 font-bold text-heading">
+                  {t('booking.itinerary')}
+                </h2>
+                <AssistedDetails item={booking.assisted} />
+              </section>
+            </Card>
+          ) : null}
           {kind ? (
             <Card asChild className="flex flex-col gap-3 p-4">
               <section aria-labelledby="booking-product">

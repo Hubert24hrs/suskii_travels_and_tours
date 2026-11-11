@@ -128,6 +128,8 @@ export const fr: Messages = {
       bookingAccess: 'Ouvre une réservation faite sans compte, dans cet onglet uniquement.',
       supportAccess:
         'Ouvre une conversation avec l’assistance commencée sans compte, dans cet onglet uniquement.',
+      assistantAccess:
+        'Garde votre conversation avec l’assistant ouverte dans cet onglet et la rouvre si vous l’avez commencée sans compte.',
       search:
         'Mémorise votre dernière recherche de vol, vos recherches d’hôtel récentes et vos lieux récents.',
       addonsName:
@@ -2678,6 +2680,7 @@ export const fr: Messages = {
       prime: 'Suskii Prime',
       referrals: 'Inviter des amis',
       alerts: 'Alertes de prix',
+      quotes: 'Demandes de prix',
       wallet: 'Portefeuille',
       company: 'Entreprise',
       privacy: 'Vos données',
@@ -3270,6 +3273,227 @@ export const fr: Messages = {
       generic: 'Votre message n’a pas pu être envoyé. Vérifiez votre connexion et réessayez.',
     },
   },
+  assistant: {
+    open: 'Demander à l’assistant',
+    title: 'Assistant Suskii',
+    close: 'Fermer',
+    intro:
+      'Posez vos questions sur les vols, les hôtels, les voitures, vos réservations ou nos règles. Je peux chercher, expliquer et préparer une modification que vous confirmez. Je ne réserve, ne paie et ne rembourse jamais seul.',
+    disclosure:
+      'Ceci est un assistant automatique. Vous pouvez demander une personne à tout moment.',
+    privacy:
+      'Ne saisissez jamais ici de numéro de carte, de mot de passe ni de numéro de passeport.',
+    messageLabel: 'Votre message',
+    placeholder: 'Écrivez votre question',
+    send: 'Envoyer',
+    thinking: 'Je m’en occupe…',
+    you: 'Vous',
+    name: 'L’assistant',
+    startAgain: 'Commencer une nouvelle conversation',
+    talkToPerson: 'Parler à une personne',
+    history: 'Conversations précédentes',
+    noHistory: 'Vous n’avez aucune conversation précédente.',
+    conversation: 'Conversation n° {reference}',
+    messagesCount: 'Messages : {count}',
+    signInForHistory:
+      'Connectez-vous pour conserver vos conversations et confirmer les modifications d’une réservation.',
+    signIn: 'Se connecter',
+    notices: {
+      greeting: 'Bonjour. Comment puis-je vous aider ?',
+      cannot_answer:
+        'Je ne peux pas répondre à cela avec ce que je peux lire. Souhaitez-vous l’aide d’une personne ?',
+      limit:
+        'La limite du jour de l’assistant est atteinte. La recherche et la réservation fonctionnent comme d’habitude.',
+      timeout: 'Cela a pris trop de temps. Veuillez reposer votre question.',
+      unavailable:
+        'L’assistant ne peut pas répondre pour le moment. La recherche et la réservation fonctionnent comme d’habitude.',
+      paused:
+        'L’assistant est en pause pour le moment. La recherche et la réservation fonctionnent comme d’habitude.',
+    },
+    errors: {
+      start: 'L’assistant n’a pas pu démarrer. Réessayez.',
+      send: 'Votre message n’a pas été envoyé. Réessayez.',
+      busy: 'L’assistant répond encore. Patientez un instant.',
+      full: 'Cette conversation est pleine. Commencez-en une nouvelle.',
+      gone: 'Cette conversation n’est plus disponible.',
+      human:
+        'Nous n’avons pas pu vérifier que vous êtes une personne. Rechargez la page et réessayez.',
+    },
+    retry: 'Réessayer',
+    feedback: {
+      up: 'Cela m’a aidé',
+      down: 'Cela ne m’a pas aidé',
+      thanks: 'Merci de nous l’avoir dit.',
+    },
+    cards: {
+      view: 'Voir',
+      indicative: 'Prix indicatif',
+      indicativeNote:
+        'Vu sur un autre site, ce n’est pas un prix Suskii. Une personne confirme le prix réel avant tout paiement.',
+      source: 'D’après nos documents',
+    },
+    rating: {
+      question: "L'assistant vous a-t-il bien aidé ?",
+      score: '{score} sur 5',
+      thanks: "Merci. Votre note nous aide à améliorer l'assistant.",
+    },
+    memory: {
+      heading: "Ce que l'assistant retient",
+      link: "Préférences de l'assistant",
+      intro:
+        "Avec votre accord, l'assistant garde quelques préférences de voyage pour que vous n'ayez pas à les répéter : votre aéroport habituel, la cabine, hublot ou couloir, vos compagnies préférées et ce qui compte le plus entre le prix et le confort. Rien d'autre n'est gardé, et jamais un repas ni un besoin de santé. Vous pouvez modifier ou effacer chaque préférence, et tout est effacé si vous désactivez cette option.",
+      off: "L'assistant ne retient rien à votre sujet.",
+      turnOn: 'Commencer à retenir mes préférences',
+      turnOff: 'Arrêter et tout effacer',
+      empty:
+        "Rien n'est encore retenu. Indiquez une préférence ici, ou dites-la à l'assistant dans une conversation puis confirmez la carte.",
+      keys: {
+        home_airport: 'Aéroport habituel',
+        cabin: 'Cabine',
+        seat: 'Siège',
+        airlines: 'Compagnies préférées',
+        budget: 'Ce qui compte le plus',
+      },
+      hints: {
+        home_airport: "Un code d'aéroport à trois lettres, par exemple LOS.",
+        airlines: "Jusqu'à trois codes de compagnie à deux caractères, par exemple KQ, ET.",
+      },
+      seats: {
+        window: 'Hublot',
+        aisle: 'Couloir',
+      },
+      budgets: {
+        lowest: 'Le prix le plus bas',
+        balanced: 'Un équilibre entre prix et confort',
+        comfort: 'Le confort',
+      },
+      notSet: 'Non défini',
+      save: 'Enregistrer',
+      erase: 'Effacer',
+      eraseLabel: 'Effacer : {preference}',
+      setBy: {
+        traveller: 'Défini par vous',
+        assistant: 'Confirmé dans une conversation',
+      },
+      saved: 'Enregistré.',
+      remembered: 'Retenu.',
+      errors: {
+        invalid: "Cette valeur n'est pas acceptée pour cette préférence.",
+        generic: "Nous n'avons pas pu enregistrer. Réessayez.",
+      },
+      signIn: "Connectez-vous pour voir ce que l'assistant retient.",
+      unavailable: "Cette page n'est pas disponible pour le moment.",
+    },
+    handover: 'Notre équipe a reçu votre question et répondra dans Aide et assistance.',
+    openSupport: 'Ouvrir Aide et assistance',
+    confirm: {
+      heading: 'Confirmez avant tout changement',
+      note: 'Rien ne se passe tant que vous n’appuyez pas sur Confirmer.',
+      confirm: 'Confirmer',
+      decline: 'Non, ne rien changer',
+      until: 'Vous pouvez confirmer jusqu’à {time}.',
+      signIn: 'Connectez-vous pour confirmer.',
+      actions: {
+        bookings_cancel: 'Annuler cette réservation',
+        changes_accept: 'Accepter les nouveaux horaires du vol',
+        changes_take_refund_offer: 'Obtenir le remboursement intégral',
+        alerts_watch: 'Surveiller ce prix',
+        alerts_stop: 'Ne plus surveiller ce prix',
+        memory_remember: 'Retenir cette préférence',
+        fallback: 'Effectuer cette modification',
+      },
+      amounts: {
+        refund: 'Remboursé à vous',
+        kept: 'Conservé selon les conditions de votre réservation',
+        target: 'M’avertir quand le prix est égal ou inférieur à',
+      },
+      statuses: {
+        confirmed:
+          'C’est fait. L’assistant vous indiquera ce que montre maintenant votre réservation.',
+        declined: 'Rien n’a été changé.',
+        expired: 'Le délai est écoulé. Redemandez si vous le souhaitez toujours.',
+        failed: 'Cela n’a pas pu être fait. Rien n’a été modifié.',
+      },
+    },
+  },
+  quotes: {
+    heading: 'Demandes de prix',
+    link: 'Demandes de prix',
+    intro:
+      'Lorsque la recherche ne propose pas ce que vous voulez, ou que vous avez vu un prix ailleurs, demandez-nous de le confirmer. Une personne de notre équipe vérifie le prix réel auprès du fournisseur et répond ici. Rien n’est débité tant que vous n’avez pas réservé l’offre.',
+    empty: 'Vous n’avez encore demandé aucun prix.',
+    signIn: 'Connectez-vous pour demander un prix et voir vos demandes.',
+    notFound: 'Cette demande n’est pas disponible. Connectez-vous avec le compte qui l’a faite.',
+    reference: 'Demande {reference}',
+    view: 'Voir la demande {reference}',
+    people: 'Adultes : {adults}. Enfants : {children}.',
+    answerBy: 'Nous répondons avant le {time}.',
+    ask: {
+      heading: 'Demander un prix',
+      product: 'De quoi s’agit-il ?',
+      products: {
+        flight: 'Un vol',
+        hotel: 'Un hôtel',
+        car: 'Une voiture',
+        transfer: 'Un transfert',
+        tour: 'Une excursion',
+        package: 'Un forfait',
+        another: 'Autre chose',
+      },
+      what: 'Ce que vous voulez, en quelques mots',
+      whatHint:
+        'Par exemple : Lagoon View Hotel, chambre vue mer. N’indiquez ni nom, ni numéro de téléphone, ni adresse e-mail.',
+      origin: 'Au départ de (facultatif)',
+      destination: 'Où',
+      startDate: 'Date de début',
+      endDate: 'Date de fin (facultatif)',
+      adults: 'Adultes',
+      children: 'Enfants',
+      submit: 'Demander ce prix',
+      sent: 'Nous avons bien reçu votre demande.',
+    },
+    statuses: {
+      requested: 'En attente de notre équipe',
+      offered: 'Prête à réserver',
+      booked: 'Réservée',
+      unavailable: 'Non disponible',
+      expired: 'Délai écoulé',
+      withdrawn: 'Retirée',
+    },
+    offer: {
+      heading: 'Notre offre',
+      total: 'Total, tout compris',
+      until: 'Vous pouvez la réserver jusqu’au {time}.',
+      book: 'Réserver cette offre',
+      refundable: 'Remboursable selon les conditions ci-dessus',
+      nonRefundable: 'Non remboursable',
+      verified: 'Une personne de notre équipe a confirmé ce prix auprès du fournisseur.',
+      afterPayment:
+        'Après votre paiement, une personne la réserve auprès du fournisseur. Votre réservation est confirmée une fois cela fait. Si elle ne peut pas être réservée, vous êtes remboursé intégralement.',
+    },
+    indicative:
+      'Vous avez vu {price} sur {source} le {date}. C’était une référence, pas notre prix.',
+    closed: {
+      sold_out: 'C’est complet.',
+      price_not_available: 'Ce prix n’est plus disponible.',
+      supplier_declined: 'Le fournisseur n’a pas pu l’accepter.',
+      not_sold_by_suskii: 'Nous ne pouvons pas vendre cela.',
+      duplicate: 'Vous l’avez déjà demandé.',
+      another: 'Cela n’a pas pu être proposé.',
+      unanswered: 'Nous n’avons pas pu répondre à temps. Veuillez redemander.',
+      offer_lapsed: 'Le délai de l’offre est écoulé. Redemandez un prix à jour.',
+    },
+    withdraw: 'Retirer cette demande',
+    pdf: 'Enregistrer cette demande en PDF',
+    viewBooking: 'Voir la réservation',
+    waiting:
+      'Payé. Une personne de notre équipe réserve cela auprès du fournisseur. Vous serez prévenu dès la confirmation.',
+    errors: {
+      limit: 'Vous avez cinq demandes en cours. Attendez une réponse ou retirez-en une.',
+      contact: 'N’indiquez ni nom, ni numéro de téléphone, ni adresse e-mail.',
+      generic: 'Nous n’avons pas pu envoyer votre demande. Vérifiez le formulaire et réessayez.',
+    },
+  },
   status: {
     heading: 'État du service',
     intro:
@@ -3319,6 +3543,7 @@ export const fr: Messages = {
       'Réunissez un vol, un hôtel, une voiture de location, un transfert aéroport et une assurance voyage, ou seulement ce dont vous avez besoin, et payez le tout en une fois.',
     intro:
       'Réunissez un vol, un hôtel, une voiture de location, un transfert aéroport et une assurance voyage, ou seulement ce dont vous avez besoin. Vous voyez un prix pour chaque élément et un total, et vous payez une seule fois.',
+    pdf: 'Enregistrer ce programme en PDF',
     components: {
       flight: 'Vol',
       hotel: 'Hôtel',

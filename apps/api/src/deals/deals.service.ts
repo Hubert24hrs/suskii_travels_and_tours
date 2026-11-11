@@ -34,7 +34,7 @@ import type {
   RefreshResult,
   routeFactsSchema,
 } from './deals.schemas';
-import { daysBefore, TYPICAL_DAYS } from './route-facts';
+import { daysBefore, fareTrend, TYPICAL_DAYS, type FareTrend } from './route-facts';
 import { RouteFactsService } from './route-facts.service';
 
 type FlightDealDto = z.infer<typeof flightDealSchema>;
@@ -161,6 +161,36 @@ export class DealsService {
       deal: snapshot ? price.deal(route, snapshot) : null,
       facts,
       relatedRoutes: related.map((entry) => this.summary(entry)),
+    };
+  }
+
+  /**
+   * What the fare history says about one route, for a caller that names its airports (the
+   * assistant, ADR-101): the route page's facts and how the last month compares with the two
+   * before it. Null when Suskii does not follow the route. A description of what was found.
+   */
+  async trend(
+    originCode: string,
+    destinationCode: string,
+    currency: string,
+    client: ClientContext,
+  ): Promise<{ slug: string; facts: RouteFactsDto | null; trend: FareTrend | null } | null> {
+    const followed = await this.prisma.dealRoute.findFirst({
+      where: { originCode, destinationCode, active: true },
+      orderBy: [{ sortOrder: 'asc' }, { slug: 'asc' }],
+      select: { id: true, slug: true },
+    });
+    if (!followed) return null;
+    const now = new Date();
+    const [route, fares] = await Promise.all([
+      this.route(followed.slug, currency, client),
+      this.routeFacts.faresFor([followed.id], now),
+    ]);
+    return {
+      slug: followed.slug,
+      facts: route.facts,
+      // No trend without the facts: both wait for enough days of fares.
+      trend: route.facts ? fareTrend(fares.get(followed.id) ?? [], now) : null,
     };
   }
 

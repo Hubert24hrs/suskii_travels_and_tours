@@ -10,6 +10,7 @@ import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
 import {
   BOOKING_ID,
   QUOTE_ID,
+  assistedQuote,
   booking,
   countries,
   flightQuote,
@@ -594,6 +595,38 @@ describe('CheckoutScreen', () => {
     const body = (await create?.json()) as { passengers: unknown[]; addonDetails?: unknown };
     expect(body.passengers).toHaveLength(1);
     expect(body).not.toHaveProperty('addonDetails');
+  });
+
+  it('books a price a person verified: what it is, its terms, one traveller, no fare line (ADR-104)', async () => {
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(assistedQuote()),
+      'GET /v1/catalog/countries': () => json(countries),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }), accessToken: TOKEN }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/payments`]: () => json(paymentSession, 201),
+    });
+    await renderWithApp(<CheckoutScreen />);
+
+    const summary = await screen.findByTestId('assisted-summary');
+    expect(summary).toHaveTextContent(/Lagoon View Hotel, sea view room/);
+    expect(summary).toHaveTextContent(/Free cancellation until 5 December/);
+    expect(screen.getByText(m.quotes.offer.verified)).toBeOnTheScreen();
+    // A person books it after payment, and the traveller is told before they pay.
+    expect(screen.getByText(m.quotes.offer.afterPayment)).toBeOnTheScreen();
+    expect(screen.getByText(m.checkout.basePrice)).toBeOnTheScreen();
+    expect(screen.getByTestId('checkout-total')).toHaveTextContent(/185,000/);
+    expect(screen.queryByTestId('passengers.0.passportNumber')).toBeNull();
+
+    await fillTraveller();
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/trips/${BOOKING_ID}`));
+    const create = calls.find((request) => request.url.endsWith('/v1/bookings'));
+    const body = (await create?.json()) as { quoteId: string; passengers: unknown[] };
+    expect(body.quoteId).toBe(QUOTE_ID);
+    expect(body.passengers).toHaveLength(1);
   });
 
   it('pays a company trip from the company wallet, or another way when it falls short (ADR-090)', async () => {

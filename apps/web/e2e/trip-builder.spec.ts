@@ -272,6 +272,12 @@ test.describe('trip builder (ADR-099)', () => {
     }
     const total = format.money(trip.total);
     await expect(page.getByTestId('trip-total')).toHaveText(total);
+    // The plan as a PDF to keep or pass on, read with the session and named by us.
+    const [plan] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('trip-pdf').click(),
+    ]);
+    expect(plan.suggestedFilename()).toMatch(/^suskii-trip-T-[A-Z0-9]{6}\.pdf$/);
     await expect(page.getByTestId('trip-state')).toHaveText(t('trips.states.open'));
     await expect(page.getByText(t('trips.page.notAdded'))).toHaveCount(0);
     await expectNoAxeViolations(page);

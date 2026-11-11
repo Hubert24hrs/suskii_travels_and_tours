@@ -118,3 +118,16 @@ currency)`: converted when the supplier charges in another currency, plus the fe
   travels (text that looks like a contact detail is refused). The traveller's names are on the
   booking, as for every booking. Quotes are in the export, deleted with the account when
   nothing is unsettled, and purged 400 days after they close.
+- **What travellers see** (sub-phase G). The website has `/quotes` and `/quotes/{id}`, the
+  app Account, Price requests (`/account/quotes`): the form, each request with where it
+  stands, the verified offer with its terms, its total and until when it can be booked, and
+  a button to the ordinary checkout. Both check the text for contact details with the shared
+  rule before anything is sent. Checkout and the booking page (the app's trip screen) show
+  what a person verified and say that a person books it after payment. The push for an
+  answered request opens the app's list; the emailed link opens the website's page, or the
+  app's screen through the app link.
+- **A request as a PDF**: `GET /v1/quotes/assisted/{id}/pdf`, the account's own (404
+  otherwise). It prints what was asked for and, once verified, the offer with its terms, its
+  total and until when it can be booked; it says that an offer is not a booking, that
+  anything not on it is still to be confirmed, and that a price seen elsewhere was a
+  reference. No name, contact or payment detail is on it.

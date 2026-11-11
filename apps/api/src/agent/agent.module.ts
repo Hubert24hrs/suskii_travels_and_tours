@@ -8,7 +8,9 @@ import { AuthModule } from '../auth/auth.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { BusesModule } from '../buses/buses.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { CompaniesModule } from '../companies/companies.module';
 import { APP_CONFIG, type AppConfig } from '../config/config';
+import { DealsModule } from '../deals/deals.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { GroundModule } from '../ground/ground.module';
 import { InhouseModule } from '../inhouse/inhouse.module';
@@ -39,12 +41,15 @@ import { AgentChatController } from './chat/agent-chat.controller';
 import { AgentChatService } from './chat/agent-chat.service';
 import { AGENT_CLIENT, HttpAgentClient, MockAgentClient } from './chat/agent-client';
 import { AgentConversationsService } from './chat/agent-conversations.service';
+import { AgentHandoverNotes } from './chat/agent-handover-notes';
 import { AgentRunLog } from './chat/agent-run-log';
 import { AgentConfirmationsController } from './confirmations/agent-confirmations.controller';
 import { AgentConfirmationsService } from './confirmations/agent-confirmations.service';
 import { AdminAgentInsightsController } from './insights/admin-agent-insights.controller';
 import { AgentInsightsService } from './insights/agent-insights.service';
 import { InternalAgentToolsController } from './internal-agent-tools.controller';
+import { AgentMemoryController } from './memory/agent-memory.controller';
+import { AgentMemoryService } from './memory/agent-memory.service';
 import { AdminAgentKnowledgeController } from './knowledge/admin-agent-knowledge.controller';
 import { KnowledgeService } from './knowledge/knowledge.service';
 import { AccountTools } from './tools/account-tools';
@@ -52,6 +57,8 @@ import { CatalogTools } from './tools/catalog-tools';
 import { CommitTools } from './tools/commit-tools';
 import { DisruptionTools } from './tools/disruption-tools';
 import { KnowledgeTools } from './tools/knowledge-tools';
+import { MemoryTools } from './tools/memory-tools';
+import { PlanningTools } from './tools/planning-tools';
 import { PlatformTools } from './tools/platform-tools';
 import { ProductTools } from './tools/product-tools';
 import { QuoteTools } from './tools/quote-tools';
@@ -60,6 +67,7 @@ import { StaffTools } from './tools/staff-tools';
 import { SupportTools } from './tools/support-tools';
 import { AgentToolCallers } from './tools/tool-support';
 import { WatchTools } from './tools/watch-tools';
+import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
 
 /**
  * Suskii Agent on the API side (ADR-101 to ADR-107): the switches, sealed grants, the tool
@@ -77,6 +85,8 @@ import { WatchTools } from './tools/watch-tools';
     BookingsModule,
     BusesModule,
     CatalogModule,
+    CompaniesModule,
+    DealsModule,
     DocumentsModule,
     GroundModule,
     InhouseModule,
@@ -93,6 +103,7 @@ import { WatchTools } from './tools/watch-tools';
     AgentController,
     AgentChatController,
     AgentConfirmationsController,
+    AgentMemoryController,
     AdminAgentController,
     AdminAgentChatController,
     AdminAgentApprovalsController,
@@ -112,6 +123,7 @@ import { WatchTools } from './tools/watch-tools';
     AgentToolsTokenGuard,
     AgentToolCallers,
     PlatformTools,
+    PlanningTools,
     CatalogTools,
     SearchTools,
     ProductTools,
@@ -124,12 +136,17 @@ import { WatchTools } from './tools/watch-tools';
     AgentInsightsService,
     KnowledgeService,
     KnowledgeTools,
+    AgentMemoryService,
+    MemoryTools,
     StaffTools,
     SupportTools,
     AgentConversationsService,
+    AgentHandoverNotes,
     AgentChatService,
     AgentConfirmationsService,
     AgentRunLog,
+    // Registers itself with the support module's WhatsApp answerers (ADR-084).
+    AgentWhatsApp,
     MockAgentClient,
     {
       // The agent service over HTTP, or the mock inside the API (tests, a stack without it).

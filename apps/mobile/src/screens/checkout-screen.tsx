@@ -34,6 +34,7 @@ import {
 } from '../components/booking/payment-options';
 import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
 import { InhouseSummary } from '../components/inhouse/inhouse-summary';
+import { AssistedSummary } from '../components/quotes/assisted-summary';
 import { Loading, Notice } from '../components/states';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
 import { problemSlug } from '../lib/api';
@@ -72,7 +73,8 @@ const formPath = (path: string): string =>
 function draftFor(quote: Quote): CheckoutDraft {
   const counts =
     quote.flight?.offer.passengers ??
-    (quote.package ?? quote.tour ?? quote.visa ?? quote.addon ?? quote.bus)?.travellers;
+    (quote.package ?? quote.tour ?? quote.visa ?? quote.addon ?? quote.bus ?? quote.assisted)
+      ?.travellers;
   // Visa assistance is for one nationality: every applicant starts with it (ADR-026).
   const passengers = counts ? passengerDrafts(counts, quote.visa?.nationality ?? '') : [];
   // Hotels name a guest per room; a ride or a rental names its one rider or renter (ADR-051).
@@ -537,6 +539,14 @@ function Checkout({ quote }: { quote: Quote }) {
           </Text>
           {hasCarsItem(quote) ? (
             <CarsSummary items={quote} inCheckout />
+          ) : quote.assisted ? (
+            // A price a person verified (ADR-104): booked by a person after payment.
+            <View testID="assisted-summary" className="gap-2">
+              <AssistedSummary item={quote.assisted} />
+              <Text className="font-body text-body-sm text-foreground">
+                {t('quotes.offer.afterPayment')}
+              </Text>
+            </View>
           ) : inhouse ? (
             <InhouseSummary items={quote} />
           ) : null}

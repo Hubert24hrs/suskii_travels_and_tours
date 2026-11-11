@@ -226,7 +226,6 @@ export class SupportAssistant {
     outcome: AnswerOutcome,
     faqs: Faq[],
   ): Promise<boolean> {
-    const id = uuidv7();
     const answer = outcome.kind === 'answer';
     const sources: AssistantSource[] | undefined = answer
       ? outcome.sources.map((source) => {
@@ -236,6 +235,33 @@ export class SupportAssistant {
             : { kind: 'fact', key: source };
         })
       : undefined;
+    const stored = await this.write(
+      conversationId,
+      channel,
+      answer ? { kind: 'text', text: outcome.text, sources } : { kind: 'handover' },
+    );
+    if (!stored) supportAssistantRuns.add(1, { outcome: 'superseded' });
+    return stored;
+  }
+
+  /**
+   * Writes one automated message, an answer or the handover, after a conditional claim on the
+   * conversation: a person who replied, or a traveller who solved it, meanwhile wins and
+   * nothing is written. The only way an automated message enters a support conversation: the
+   * after-hours assistant uses it, and so does the assistant on WhatsApp (ADR-101), which is
+   * why status, priority, assignee and SLA times are never touched here. On WhatsApp the
+   * message is then delivered inside the 24-hour window, or announced by the template.
+   */
+  async write(
+    conversationId: string,
+    channel: SupportChannel,
+    entry:
+      | { kind: 'text'; text: string; sources?: AssistantSource[] }
+      // Without words of its own a handover says the team is offline, which is what the
+      // after-hours assistant means by it.
+      | { kind: 'handover'; text?: string },
+  ): Promise<boolean> {
+    const id = uuidv7();
     const stored = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.supportConversation.updateMany({
         where: {
@@ -252,21 +278,18 @@ export class SupportAssistant {
           id,
           conversationId,
           author: 'assistant',
-          kind: answer ? 'text' : 'handover',
+          kind: entry.kind,
           bodyEncrypted: this.encryption.encrypt(
-            answer ? outcome.text : ASSISTANT_HANDOVER_TEXT,
+            entry.kind === 'text' ? entry.text : (entry.text ?? ASSISTANT_HANDOVER_TEXT),
             supportMessageContext(id),
           ),
-          ...(sources ? { assistantSources: sources } : {}),
+          ...(entry.kind === 'text' && entry.sources ? { assistantSources: entry.sources } : {}),
           deliveryStatus: channel === 'whatsapp' ? 'pending' : null,
         },
       });
       return true;
     });
-    if (!stored) {
-      supportAssistantRuns.add(1, { outcome: 'superseded' });
-      return false;
-    }
+    if (!stored) return false;
     if (channel === 'whatsapp') await this.whatsapp.deliver(id);
     return true;
   }

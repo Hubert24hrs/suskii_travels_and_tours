@@ -80,6 +80,13 @@ const STATUS_OF: Readonly<Partial<Record<AgentRunEnd['outcome'], AgentRunStatus>
   paused: 'refused',
 };
 
+/** How a run ended, for a caller that waits for it instead of reading its events. */
+export interface AgentRunResult {
+  outcome: AgentRunEnd['outcome'];
+  /** What was stored for the traveller: an answer, a notice, or nothing. */
+  message: AgentMessageDto | null;
+}
+
 /**
  * One message of a traveller, end to end (ADR-101). The API checks the switch, the pause, the
  * conversation and the spend cap, stores the words (sealed), creates the run and seals a grant
@@ -149,6 +156,32 @@ export class AgentChatService {
   }
 
   /**
+   * A traveller's WhatsApp message, answered in the support conversation it arrived in
+   * (ADR-084, ADR-101). The run is a guest's: no account and no roles, so nothing that needs
+   * an account or a tap is within its reach. Resolves once the run has ended, with what it
+   * stored; `contactKey` names the contact for the guest spend cap and is hashed here.
+   */
+  async answerWhatsApp(
+    conversation: AgentConversation,
+    text: string,
+    contactKey: string,
+  ): Promise<AgentRunResult> {
+    await this.available();
+    if (conversation.channel !== 'whatsapp' || conversation.userId !== null) {
+      throw new NotFoundException();
+    }
+    return new Promise<AgentRunResult>((resolve, reject) => {
+      this.post(
+        conversation,
+        text,
+        { guestKey: this.hmac.digest('agent-guest', `whatsapp:${contactKey}`) },
+        [],
+        resolve,
+      ).catch(reject);
+    });
+  }
+
+  /**
    * A staff member's message to the staff agents (ADR-107). Which agents answer follows from
    * that person's own permissions: someone whose roles open none of them has nobody to ask.
    */
@@ -190,6 +223,7 @@ export class AgentChatService {
     text: string,
     payer: { userId: string } | { guestKey: string },
     roles: readonly Role[],
+    ended?: (result: AgentRunResult) => void,
   ): Promise<{ runId: string; message: AgentMessageDto }> {
     if (conversation.status !== 'open') {
       throw problem(
@@ -252,7 +286,7 @@ export class AgentChatService {
       now,
       await this.settings.disabledAgents(),
     );
-    this.background.run('agent-run', () => this.execute(request, conversation, reservation));
+    this.background.run('agent-run', () => this.execute(request, conversation, reservation, ended));
     return { runId, message: this.conversations.message(stored) };
   }
 
@@ -433,13 +467,16 @@ export class AgentChatService {
     now: Date,
     disabled: readonly AgentName[],
   ): AgentRunRequest {
-    // A staff conversation lives in the console; a traveller's on the website or in the app.
+    // A staff conversation lives in the console; a traveller's on the website, in the app or
+    // in a WhatsApp thread.
     const staff = conversation.audience === 'staff';
     const channel: AgentChannel = staff
       ? 'console'
       : conversation.channel === 'app'
         ? 'app'
-        : 'web';
+        : conversation.channel === 'whatsapp'
+          ? 'whatsapp'
+          : 'web';
     const audience: AgentAudience = staff ? 'staff' : 'customer';
     const signedIn = conversation.userId !== null;
     const scopes = agentScopesFor({ userId: conversation.userId, roles: [...roles], channel });
@@ -490,9 +527,12 @@ export class AgentChatService {
     request: AgentRunRequest,
     conversation: AgentConversation,
     reservation: BudgetReservation,
+    ended?: (result: AgentRunResult) => void,
   ): Promise<void> {
     const started = Date.now();
     let end: AgentRunEnd | null = null;
+    // What a waiting caller is told when the answer could not be stored.
+    let result: AgentRunResult = { outcome: 'failed', message: null };
     try {
       await this.client.run(
         request,
@@ -518,7 +558,9 @@ export class AgentChatService {
       );
     }
     try {
-      await this.finalize(request, conversation, end ?? failedRun(), reservation, started);
+      const finished: AgentRunEnd = end ?? failedRun();
+      const message = await this.finalize(request, conversation, finished, reservation, started);
+      result = { outcome: finished.outcome, message };
     } catch (error) {
       // The answer could not be stored. The run is closed without one, so the conversation does
       // not look busy until the time limit; its reservation stands, since the model may have
@@ -535,16 +577,18 @@ export class AgentChatService {
       throw error;
     } finally {
       await this.release(conversation.id, request.runId);
+      ended?.(result);
     }
   }
 
+  /** Closes the run and stores what the traveller gets; returns that message, if any. */
   private async finalize(
     request: AgentRunRequest,
     conversation: AgentConversation,
     end: AgentRunEnd,
     reservation: BudgetReservation,
     started: number,
-  ): Promise<void> {
+  ): Promise<AgentMessageDto | null> {
     const { costMicroUsd, unpriced } = runCostMicroUsd(end.usage, this.config.AGENT_MODEL_PRICES);
     if (unpriced.length > 0) {
       this.logger.warn({ models: unpriced }, 'agent model without a price: charged at the dearest');
@@ -620,10 +664,9 @@ export class AgentChatService {
       if (lineCost > 0) agentCost.add(lineCost, { model: line.model });
     }
 
-    if (stored) {
-      await this.log
-        .append(request.runId, { type: 'message', message: this.conversations.message(stored) })
-        .catch(() => undefined);
+    const message = stored ? this.conversations.message(stored) : null;
+    if (message) {
+      await this.log.append(request.runId, { type: 'message', message }).catch(() => undefined);
     }
     await this.log
       .append(request.runId, {
@@ -632,6 +675,7 @@ export class AgentChatService {
         confirmationId: end.confirmationId,
       })
       .catch(() => undefined);
+    return message;
   }
 
   private async release(conversationId: string, runId: string): Promise<void> {

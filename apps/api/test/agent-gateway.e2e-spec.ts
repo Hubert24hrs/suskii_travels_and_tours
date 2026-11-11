@@ -232,6 +232,7 @@ describe('agent tool gateway (e2e)', () => {
       'bookings.cancel',
       'changes.accept',
       'changes.take_refund_offer',
+      'memory.remember',
     ]);
   });
 

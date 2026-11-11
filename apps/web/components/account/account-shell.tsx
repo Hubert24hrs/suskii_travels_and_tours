@@ -33,6 +33,8 @@ const SECTIONS = [
   ['/account/prime', 'prime'],
   ['/account/referrals', 'referrals'],
   ['/account/alerts', 'alerts'],
+  // Price requests (ADR-104) have a page of their own, outside this frame.
+  ['/quotes', 'quotes'],
   ['/account/wallet', 'wallet'],
   ['/account/company', 'company'],
   ['/account/privacy', 'privacy'],

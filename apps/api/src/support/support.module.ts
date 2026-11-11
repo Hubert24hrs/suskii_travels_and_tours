@@ -21,6 +21,7 @@ import {
   MockWhatsAppChannel,
   WhatsAppChannel,
 } from './whatsapp/whatsapp-channel';
+import { WhatsAppAnswerers } from './whatsapp/whatsapp-answerers';
 import { WhatsAppInbox } from './whatsapp/whatsapp-inbox.service';
 import { WhatsAppReplies } from './whatsapp/whatsapp-replies.service';
 import { WhatsAppController } from './whatsapp/whatsapp.controller';
@@ -44,6 +45,7 @@ import { WhatsAppController } from './whatsapp/whatsapp.controller';
     SupportAccess,
     SupportAnswerer,
     SupportAssistant,
+    WhatsAppAnswerers,
     WhatsAppInbox,
     WhatsAppReplies,
     MockWhatsAppChannel,
@@ -60,6 +62,7 @@ import { WhatsAppController } from './whatsapp/whatsapp.controller';
           : mock,
     },
   ],
-  exports: [SupportService],
+  // The assistant answers on WhatsApp through these (ADR-101); support never imports it.
+  exports: [SupportService, SupportAssistant, WhatsAppAnswerers],
 })
 export class SupportModule {}

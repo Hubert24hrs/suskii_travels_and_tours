@@ -100,7 +100,8 @@ function formPath(apiPath: string): string {
 function draftFor(quote: Quote): CheckoutDraft {
   const counts =
     quote.flight?.offer.passengers ??
-    (quote.package ?? quote.tour ?? quote.visa ?? quote.addon ?? quote.bus)?.travellers;
+    (quote.package ?? quote.tour ?? quote.visa ?? quote.addon ?? quote.bus ?? quote.assisted)
+      ?.travellers;
   // Visa assistance is for one nationality: every applicant starts with it (ADR-026).
   const passengers = counts ? passengerDrafts(counts, quote.visa?.nationality ?? '') : [];
   // Hotels name a guest per room; a ride or a rental names its one rider or renter (ADR-051).

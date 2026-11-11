@@ -507,6 +507,35 @@ describe('assistant chat (e2e)', () => {
     expect((await rate(answer?.id ?? '', 'sideways')).status).toBe(400);
   });
 
+  it('takes a score out of five for a conversation the assistant answered in', async () => {
+    const score = (id: string, value: unknown, session = ada) =>
+      ctx
+        .http()
+        .put(`/v1/agent/conversations/${id}/rating`)
+        .set(as(session))
+        .send({ score: value });
+    const conversation = await conversationOf();
+    // Nothing to rate before an answer.
+    expect((await score(conversation.id, 5)).status).toBe(409);
+    await runOf(await say(conversation.id, 'Hello, what can you do?'));
+
+    for (const invalid of [0, 6, 4.5, 'five']) {
+      expect((await score(conversation.id, invalid)).status).toBe(400);
+    }
+    expect((await score(conversation.id, 5, bola)).status).toBe(404);
+    const rated = await score(conversation.id, 2);
+    expect(rated.status).toBe(200);
+    expect(rated.body).toMatchObject({ id: conversation.id, rating: 2 });
+    // Saying it again replaces the score; the conversation carries it from then on.
+    await score(conversation.id, 5).expect(200);
+    expect((await read(conversation.id)) as unknown as { rating: number }).toMatchObject({
+      rating: 5,
+    });
+    expect(
+      await ctx.prisma.agentConversation.findUniqueOrThrow({ where: { id: conversation.id } }),
+    ).toMatchObject({ rating: 5 });
+  });
+
   it('deletes a conversation with its messages, and keeps the run as a count', async () => {
     const conversation = await conversationOf();
     const runId = await runOf(await say(conversation.id, 'Hello, what can you do?'));

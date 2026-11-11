@@ -22,6 +22,7 @@ const SECTIONS = [
   ['sessions', 'account.security.sessions.heading'],
   ['referrals', 'account.nav.referrals'],
   ['alerts', 'account.nav.alerts'],
+  ['quotes', 'account.nav.quotes'],
   ['company', 'account.nav.company'],
   ['privacy', 'account.nav.privacy'],
 ] as const;
@@ -69,6 +70,12 @@ export function AccountScreen() {
   });
   const balance =
     wallet.data?.balances.find((item) => item.currency === currency) ?? wallet.data?.balances[0];
+  // The assistant is offered only while the API says it is available (ADR-101): an answer
+  // the app cannot read hides it.
+  const assistant = useQuery({
+    queryKey: ['agent', 'status'],
+    queryFn: async () => (await api.GET('/v1/agent/status')).data ?? null,
+  });
 
   const notifications = async () => {
     const ok = await followAccount(api, true);
@@ -171,6 +178,15 @@ export function AccountScreen() {
         >
           {t('support.link')}
         </Button>
+        {assistant.data?.available ? (
+          <Button
+            testID="account-assistant"
+            variant="secondary"
+            onPress={() => router.push('/assistant')}
+          >
+            {t('assistant.open')}
+          </Button>
+        ) : null}
         <Button testID="account-status" variant="ghost" onPress={() => router.push('/status')}>
           {t('status.link')}
         </Button>

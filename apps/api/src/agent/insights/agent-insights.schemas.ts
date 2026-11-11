@@ -210,6 +210,28 @@ export const adminAgentQualitySchema = named(
     failed: count,
     outcomes: z.array(z.object({ outcome: z.string(), runs: count })),
     feedback: z.object({ up: count, down: count }),
+    ratings: z
+      .object({
+        rated: count,
+        /** The mean score times ten (43 is 4.3), so nothing here is a float; null when unrated. */
+        averageTenths: count.nullable(),
+        scores: z.array(z.object({ score: count, conversations: count })),
+      })
+      .meta({ description: "Travellers' own scores of a conversation, 1 to 5." }),
+    funnel: z
+      .object({
+        conversations: count,
+        answered: count,
+        searched: count,
+        askedForAPrice: count,
+        askedToConfirm: count,
+        confirmed: count,
+        handedOver: count,
+      })
+      .meta({
+        description:
+          "Travellers' conversations started in the period, and how many of them reached each step. A conversation counts once per step.",
+      }),
     prompts: z.array(
       z.object({
         promptVersion: z.string(),

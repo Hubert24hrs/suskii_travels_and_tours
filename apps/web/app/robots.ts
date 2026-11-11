@@ -29,6 +29,10 @@ export default function robots(): MetadataRoute.Robots {
           '/trips/',
           // Support conversations are private; the help page itself (/support) is not (ADR-083).
           '/support/',
+          // A traveller's conversation with the assistant (ADR-101).
+          '/assistant',
+          // A traveller's own price requests (ADR-104).
+          '/quotes',
         ],
       },
     ],

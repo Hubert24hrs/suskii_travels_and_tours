@@ -190,7 +190,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the tools with their tiers: five prepare something, five ask for a tap, and the staff tools are staff only', async () => {
+  it('ships the tools with their tiers: five prepare something, six ask for a tap, and the staff tools are staff only', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -212,6 +212,9 @@ describe('customer agent tools (e2e)', () => {
       'changes.accept',
       'changes.get',
       'changes.take_refund_offer',
+      'company.policy',
+      'documents.passports',
+      'fares.trend',
       'finance.booking_payments',
       'finance.draft_refund_request',
       'finance.overview',
@@ -221,6 +224,8 @@ describe('customer agent tools (e2e)', () => {
       'knowledge.search',
       'marketing.draft_promo',
       'marketing.promos',
+      'memory.read',
+      'memory.remember',
       'ops.queues',
       'packages.search',
       'payments.options',
@@ -252,6 +257,7 @@ describe('customer agent tools (e2e)', () => {
       'bookings.cancel',
       'changes.accept',
       'changes.take_refund_offer',
+      'memory.remember',
     ]);
     // Places, the status page and the knowledge base are for every agent. Every other tool is
     // either the customer agents' or the staff agents', never both; and a staff tool reads or
@@ -883,6 +889,8 @@ describe('customer agent tools (e2e)', () => {
       handedOver: boolean;
       alreadyOpen: boolean;
       needsTheSupportPage: boolean;
+      teamAimsToReplyBy: string | null;
+      priorityQueue: boolean;
     }>('support.handover', 'support', { category: 'booking_change', bookingId: mine.id }, grant);
     expect(answer.status).toBe('ok');
     expect(answer.result).toMatchObject({
@@ -890,6 +898,7 @@ describe('customer agent tools (e2e)', () => {
       handedOver: true,
       alreadyOpen: false,
       needsTheSupportPage: false,
+      priorityQueue: false,
     });
     await ctx.background.drain();
     const conversation = await ctx.prisma.supportConversation.findFirstOrThrow({
@@ -900,9 +909,37 @@ describe('customer agent tools (e2e)', () => {
       category: 'booking_change',
       bookingId: mine.id,
       status: 'open',
-      // The after-hours assistant is not consulted on a conversation with a topic.
-      messageCount: 1,
+      // The traveller's words and the note for staff. The after-hours assistant is not
+      // consulted on a conversation with a topic.
+      messageCount: 2,
     });
+    // The time the assistant may name is the conversation's own reply target, as text.
+    expect(conversation.responseDueAt).not.toBeNull();
+    expect(answer.result?.teamAimsToReplyBy).toBe(
+      `${conversation.responseDueAt!.toISOString().slice(0, 10)} ${conversation
+        .responseDueAt!.toISOString()
+        .slice(11, 16)} UTC`,
+    );
+
+    // Staff are told what was already looked up, in a note the traveller never sees: agent
+    // and tool names with how each call ended, and nobody's words.
+    const inbox = await staffSession(ctx, 'tools-support@suskii.test', ['support']);
+    const seen = await ctx
+      .http()
+      .get(`/v1/admin/support/conversations/${conversation.id}`)
+      .set(inbox.headers)
+      .expect(200);
+    const notes = (
+      seen.body as { messages: { author: string; internal: boolean; text: string }[] }
+    ).messages.filter((message) => message.internal);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toMatchObject({ author: 'system', internal: true });
+    expect(notes[0]!.text).toContain('Handed over by the assistant (conversation A-');
+    expect(notes[0]!.text).toContain('Agents that worked on it: concierge.');
+    expect(notes[0]!.text).toContain('Tools it called: ');
+    for (const words of ['Abuja', 'rebook', 'sample assistant']) {
+      expect(notes[0]!.text).not.toContain(words);
+    }
     expect(answer.result?.cards?.[0]).toMatchObject({
       kind: 'link',
       href: `/support/${conversation.id}`,
@@ -933,8 +970,14 @@ describe('customer agent tools (e2e)', () => {
       {},
       await grantFor({ conversationId }),
     );
-    expect(again.result).toMatchObject({ handedOver: true, alreadyOpen: true });
+    expect(again.result).toMatchObject({
+      handedOver: true,
+      alreadyOpen: true,
+      teamAimsToReplyBy: answer.result?.teamAimsToReplyBy,
+    });
     expect(await ctx.prisma.supportConversation.count()).toBe(1);
+    // And leaves no second note.
+    expect(await ctx.prisma.supportMessage.count({ where: { internal: true } })).toBe(1);
 
     // Someone else's booking cannot be attached: nothing is opened for it.
     const bolaStart = await ctx

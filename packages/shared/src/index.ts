@@ -393,16 +393,19 @@ export {
   type PassengerType,
 } from './passenger-rules';
 export {
+  PASSPORT_VALIDITY_MONTHS,
   contactDetailsSchema,
   hotelGuestSchema,
   passengerInputSchema,
   passportNumberSchema,
+  passportValidity,
   personNameSchema,
   travelDocumentSchema,
   travellerInputSchema,
   type ContactDetails,
   type HotelGuest,
   type PassengerInput,
+  type PassportValidity,
   type TravelDocument,
   type TravellerInput,
 } from './passengers';
@@ -1008,3 +1011,13 @@ export {
   type AssistedQuoteRequest,
   type AssistedQuoteStatus,
 } from './assisted-quotes';
+export {
+  AGENT_MEMORY_AIRLINES_MAX,
+  AGENT_MEMORY_BUDGETS,
+  AGENT_MEMORY_KEYS,
+  AGENT_MEMORY_SEATS,
+  agentMemoryAirlines,
+  agentMemoryValue,
+  isAgentMemoryKey,
+  type AgentMemoryKey,
+} from './agent-memory';

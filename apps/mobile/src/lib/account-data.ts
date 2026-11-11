@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { recentHotelSearches } from './recent-hotel-searches';
 
+import { assistantSession } from './assistant';
 import { documentStore } from './documents';
 import { offlineScanner } from './offline-scan';
 import { activeTrip } from './trip-builder';
@@ -20,5 +21,7 @@ export function forgetAccountData(queryClient: QueryClient): void {
   recentHotelSearches.clear();
   // The trip being built belongs to the account that started it (ADR-099).
   activeTrip.set(null);
+  // The assistant's open conversation is the account's too; the next person starts afresh.
+  void assistantSession.remember(null).catch(() => undefined);
   queryClient.clear();
 }

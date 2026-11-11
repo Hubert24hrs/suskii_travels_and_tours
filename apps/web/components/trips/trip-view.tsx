@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { browserApi, idempotencyKey, problemSlug, type Schemas } from '../../lib/browser-api';
+import { savePdf } from '../../lib/save-pdf';
 import { setActiveTrip, tripSearchHref } from '../../lib/trip-builder';
 import { AppLink } from '../app-link';
 import { chosenMethod, MethodChoice, type PaymentMethodName } from '../checkout/payment-choice';
@@ -192,6 +193,25 @@ export function TripView({
     setError(t(`trips.page.errors.${key}`));
     // A price or a part changed: show the trip as it stands now.
     if (key !== 'generic' && key !== 'tooMany' && key !== 'provider') reload();
+  };
+
+  /** The plan as a PDF to keep or pass on: what is chosen, each price and what is still open. */
+  const savePlan = async () => {
+    setBusy('pdf');
+    setError(null);
+    try {
+      const { data } = await browserApi().GET('/v1/trips/{tripId}/pdf', {
+        params: { path: { tripId: trip.id } },
+        parseAs: 'blob',
+      });
+      if (!savePdf(data, `suskii-trip-${trip.reference}.pdf`)) {
+        setError(t('trips.page.errors.generic'));
+      }
+    } catch {
+      setError(t('trips.page.errors.generic'));
+    } finally {
+      setBusy(null);
+    }
   };
 
   const deleteTrip = async () => {
@@ -490,6 +510,15 @@ export function TripView({
               {t('trips.page.delete')}
             </Button>
           )}
+          <Button
+            variant="ghost"
+            className="self-start"
+            loading={busy === 'pdf'}
+            onClick={() => void savePlan()}
+            data-testid="trip-pdf"
+          >
+            {t('trips.pdf')}
+          </Button>
         </aside>
       </div>
     </div>

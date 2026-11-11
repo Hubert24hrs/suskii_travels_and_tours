@@ -97,3 +97,36 @@ design:
   and because a match would reveal that a number has an account.
 - **Sending every reply as a template.** This would cost more and would not let replies read as
   a conversation inside the window.
+
+## Amendment: the assistant answers in the thread (Suskii Agent, sub-phase G, 2026-11-11)
+
+- **Same thread, same tables.** With `AGENT_WHATSAPP_ENABLED` (off unless set, in every
+  environment) the Suskii Agent (ADR-101) answers a traveller's WhatsApp message inside the
+  support conversation the message already opened: its answers are `support_messages` with
+  the author `assistant`, sent by `WhatsAppReplies` like a person's. Staff read the whole
+  exchange where they work, and a reply from a person ends the assistant's part for good.
+- **Support never imports the assistant.** `WhatsAppInbox` asks a list of answerers
+  (`WhatsAppAnswerers`) whether one takes the message; the agent module registers itself.
+  When nobody takes it, the after-hours assistant (ADR-085) is considered, as before.
+  `SupportAssistant.write` is the one way an automated message enters a support
+  conversation, for both.
+- **A guest's run, always.** A contact is not linked to an account by its phone number (see
+  the alternative rejected above), so the run has a guest's scopes: searches, rules from the
+  knowledge base and the FAQs, the status page. Nothing that reads a booking or needs a
+  confirmation runs there; a run that ends in a confirmation becomes the handover.
+- **It says what it is.** The first answer in a thread starts with one line: this is an
+  automated assistant, and a person replies here when asked. A price read on another site
+  is marked as indicative there as everywhere (ADR-104). Cards go out as plain lines with a
+  link to the website; no template of ours is used for an answer.
+- **It ends in a handover, once.** A person's reply, the assistant's own handover,
+  `AGENT_WHATSAPP_MAX_REPLIES` answers (12), a paused or switched-off assistant, a spend cap
+  or any failure: the assistant writes one handover message, leaves an internal note with
+  the agents and tools that had worked on the thread (names and outcome codes), and answers
+  no more there. `support.handover` opens no second conversation on this channel.
+- **The channel's rules are unchanged.** STOP, the 24-hour window, the template outside it
+  and delivery states are `WhatsAppReplies`' and apply to the assistant's messages as to a
+  person's. A STOP message is never sent to a model. One run per thread at a time (a Redis
+  lock), and the traveller's last three unanswered messages are read as one question.
+- **English for the fixed lines.** A WhatsApp thread has no language setting; the
+  disclosure, the greeting and the handover line are English, and the model answers in the
+  language it is written to.
