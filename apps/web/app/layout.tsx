@@ -8,7 +8,6 @@ import { preconnect } from 'react-dom';
 import { ErrorReporting } from '../components/error-reporting';
 import { SiteFooter } from '../components/layout/site-footer';
 import { SiteHeader, UtilityBar } from '../components/layout/site-header';
-import { AssistantEntry } from '../components/assistant/assistant-entry';
 import { Marketing } from '../components/marketing/marketing';
 import { StatusBanner } from '../components/status/status-banner';
 import { WebVitalsReporter } from '../components/web-vitals-reporter';
@@ -74,7 +73,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </I18nProvider>
         </main>
         <SiteFooter site={site} />
-        <AssistantEntry />
         <WebVitalsReporter />
         <ErrorReporting />
         {adTagsOn(adTags) ? (
