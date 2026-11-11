@@ -30,6 +30,7 @@ import { AgentPause } from '../agent-pause';
 import type { AgentMessageDto } from '../chat/agent-chat.schemas';
 import { AgentChatService, type AgentRunResult } from '../chat/agent-chat.service';
 import { AgentConversationsService } from '../chat/agent-conversations.service';
+import { AgentHandoverNotes } from '../chat/agent-handover-notes';
 
 /**
  * Sent before the first answer in a thread: the traveller is told what is answering and that
@@ -133,6 +134,7 @@ export class AgentWhatsApp implements WhatsAppAnswerer, OnModuleInit {
     private readonly support: SupportAssistant,
     private readonly conversations: AgentConversationsService,
     private readonly chat: AgentChatService,
+    private readonly notes: AgentHandoverNotes,
   ) {}
 
   onModuleInit(): void {
@@ -276,7 +278,10 @@ export class AgentWhatsApp implements WhatsAppAnswerer, OnModuleInit {
     return stored;
   }
 
-  /** Hands the thread to people, once. Always the end of the assistant's part in it. */
+  /**
+   * Hands the thread to people, once, and tells them in an internal note what the assistant
+   * had already looked up. Always the end of the assistant's part in the thread.
+   */
   private async handOver(
     conversationId: string,
     outcome: string,
@@ -287,6 +292,13 @@ export class AgentWhatsApp implements WhatsAppAnswerer, OnModuleInit {
       text: words ?? AGENT_WHATSAPP_HANDOVER,
     });
     agentWhatsApp.add(1, { outcome: stored ? outcome : 'superseded' });
+    if (stored) {
+      const linked = await this.prisma.agentConversation.findUnique({
+        where: { supportConversationId: conversationId },
+        select: { id: true },
+      });
+      if (linked) await this.notes.add(conversationId, linked.id, outcome);
+    }
     return false;
   }
 }

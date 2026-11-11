@@ -8,7 +8,9 @@ import { AuthModule } from '../auth/auth.module';
 import { BookingsModule } from '../bookings/bookings.module';
 import { BusesModule } from '../buses/buses.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { CompaniesModule } from '../companies/companies.module';
 import { APP_CONFIG, type AppConfig } from '../config/config';
+import { DealsModule } from '../deals/deals.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { GroundModule } from '../ground/ground.module';
 import { InhouseModule } from '../inhouse/inhouse.module';
@@ -39,6 +41,7 @@ import { AgentChatController } from './chat/agent-chat.controller';
 import { AgentChatService } from './chat/agent-chat.service';
 import { AGENT_CLIENT, HttpAgentClient, MockAgentClient } from './chat/agent-client';
 import { AgentConversationsService } from './chat/agent-conversations.service';
+import { AgentHandoverNotes } from './chat/agent-handover-notes';
 import { AgentRunLog } from './chat/agent-run-log';
 import { AgentConfirmationsController } from './confirmations/agent-confirmations.controller';
 import { AgentConfirmationsService } from './confirmations/agent-confirmations.service';
@@ -52,6 +55,7 @@ import { CatalogTools } from './tools/catalog-tools';
 import { CommitTools } from './tools/commit-tools';
 import { DisruptionTools } from './tools/disruption-tools';
 import { KnowledgeTools } from './tools/knowledge-tools';
+import { PlanningTools } from './tools/planning-tools';
 import { PlatformTools } from './tools/platform-tools';
 import { ProductTools } from './tools/product-tools';
 import { QuoteTools } from './tools/quote-tools';
@@ -78,6 +82,8 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     BookingsModule,
     BusesModule,
     CatalogModule,
+    CompaniesModule,
+    DealsModule,
     DocumentsModule,
     GroundModule,
     InhouseModule,
@@ -113,6 +119,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     AgentToolsTokenGuard,
     AgentToolCallers,
     PlatformTools,
+    PlanningTools,
     CatalogTools,
     SearchTools,
     ProductTools,
@@ -128,6 +135,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     StaffTools,
     SupportTools,
     AgentConversationsService,
+    AgentHandoverNotes,
     AgentChatService,
     AgentConfirmationsService,
     AgentRunLog,

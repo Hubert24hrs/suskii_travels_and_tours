@@ -41,6 +41,7 @@ interface AdminConversation {
   messages: {
     author: string;
     kind: string;
+    internal: boolean;
     text: string;
     delivery: { status: string; error: string | null } | null;
   }[];
@@ -161,8 +162,11 @@ describe('the assistant on whatsapp (e2e)', () => {
         .expect(200)
     ).body as AdminConversation;
   };
+  /** What was said in the thread: every message but the internal notes for staff. */
   const said = async (): Promise<[string, string, string][]> =>
-    (await thread()).messages.map((message) => [message.author, message.kind, message.text]);
+    (await thread()).messages
+      .filter((message) => !message.internal)
+      .map((message) => [message.author, message.kind, message.text]);
 
   it('answers in the thread as a guest, with the disclosure first and cards as plain lines', async () => {
     let sent: AgentRunRequest | null = null;
@@ -298,6 +302,16 @@ describe('the assistant on whatsapp (e2e)', () => {
     ]);
     // The thread is still open and owed a reply: nothing of its status or times was touched.
     expect((await thread()).status).toBe('open');
+    // Staff find a note of what was tried: names and outcomes, never anyone's words.
+    const note = await ctx.prisma.supportMessage.findFirstOrThrow({ where: { internal: true } });
+    expect(note.author).toBe('system');
+    const told = (await thread()).messages.find((message) => message.internal)?.text ?? '';
+    expect(told).toContain('Why: handover.');
+    expect(told).toContain('bookings.list denied (scope)');
+    expect(told).toContain('support.handover ok');
+    expect(told).not.toContain('talk to a person');
+    // A note is not a message to the traveller: nothing more went out on WhatsApp.
+    expect(channel.outbox).toHaveLength(1);
 
     // After a handover the thread is for people.
     mock.use(null);

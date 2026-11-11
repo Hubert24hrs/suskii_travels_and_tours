@@ -12,6 +12,7 @@ import { PrismaService } from '../../infra/prisma.service';
 import { SupportService, type SupportCaller } from '../../support/support.service';
 import { AgentToolError, agentTool, AgentToolRegistry } from '../agent-tool';
 import { AgentConversationsService } from '../chat/agent-conversations.service';
+import { AgentHandoverNotes } from '../chat/agent-handover-notes';
 
 import {
   AGENT_REQUEST_CONTEXT,
@@ -21,6 +22,7 @@ import {
   guarded,
   problemCodes,
   problemsSchema,
+  utcTime,
 } from './tool-support';
 
 /** Help articles one answer may be built from, and the words of the traveller a handover carries. */
@@ -67,7 +69,26 @@ export class SupportTools implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly support: SupportService,
     @Inject(AgentConversationsService) private readonly conversations: AgentConversationsService,
+    private readonly notes: AgentHandoverNotes,
   ) {}
+
+  /**
+   * When the team aims to reply in a support conversation: its own target (ADR-083), as text a
+   * model can repeat without working anything out. Null once nothing is owed.
+   */
+  private async aim(supportConversationId: string): Promise<{
+    teamAimsToReplyBy: string | null;
+    priorityQueue: boolean;
+  }> {
+    const row = await this.prisma.supportConversation.findUnique({
+      where: { id: supportConversationId },
+      select: { responseDueAt: true, priority: true },
+    });
+    return {
+      teamAimsToReplyBy: row?.responseDueAt ? utcTime(row.responseDueAt.toISOString()) : null,
+      priorityQueue: row !== null && row.priority !== 'normal',
+    };
+  }
 
   onModuleInit(): void {
     this.registry.register(
@@ -122,7 +143,7 @@ export class SupportTools implements OnModuleInit {
       agentTool({
         name: 'support.handover',
         description:
-          'Bring in a person from the support team: opens a support conversation for the signed-in traveller with their own last messages, attached to a booking of theirs when you name one. Use it when the traveller asks for a person, or when you cannot resolve what they need. A guest gets the support page instead; on WhatsApp the team answers in the same chat. After it, tell the traveller the team will answer in that conversation; never promise a time.',
+          'Bring in a person from the support team: opens a support conversation for the signed-in traveller with their own last messages, attached to a booking of theirs when you name one. Use it when the traveller asks for a person, or when you cannot resolve what they need. A guest gets the support page instead; on WhatsApp the team answers in the same chat. After it, tell the traveller the team will answer in that conversation. When `teamAimsToReplyBy` is set you may say the team aims to reply by then: say it is an aim, never a promise, and give no other time.',
         tier: 'propose',
         scope: 'support',
         agents: [
@@ -149,6 +170,8 @@ export class SupportTools implements OnModuleInit {
           handedOver: z.boolean(),
           alreadyOpen: z.boolean(),
           needsTheSupportPage: z.boolean(),
+          teamAimsToReplyBy: z.string().nullable(),
+          priorityQueue: z.boolean(),
           cards: cardsOut,
         }),
         run: async (input, { grant }) => {
@@ -157,16 +180,27 @@ export class SupportTools implements OnModuleInit {
             handedOver: false,
             alreadyOpen: false,
             needsTheSupportPage: true,
+            teamAimsToReplyBy: null,
+            priorityQueue: false,
             cards: card('link', 'Support', [], { href: '/support' }),
           });
           // On WhatsApp the chat is a support conversation already (ADR-084): nothing is
           // opened, and the API marks the thread for people when this run ends.
           if (grant.channel === 'whatsapp') {
+            const thread = grant.conversationId
+              ? await this.prisma.agentConversation.findUnique({
+                  where: { id: grant.conversationId },
+                  select: { supportConversationId: true },
+                })
+              : null;
             return {
               problems: [],
               handedOver: true,
               alreadyOpen: true,
               needsTheSupportPage: false,
+              ...(thread?.supportConversationId
+                ? await this.aim(thread.supportConversationId)
+                : { teamAimsToReplyBy: null, priorityQueue: false }),
               cards: [],
             };
           }
@@ -194,6 +228,7 @@ export class SupportTools implements OnModuleInit {
               handedOver: true,
               alreadyOpen: true,
               needsTheSupportPage: false,
+              ...(await this.aim(open.id)),
               cards: supportCard(open.id, open.reference),
             };
           }
@@ -237,11 +272,14 @@ export class SupportTools implements OnModuleInit {
               where: { id: grant.conversationId },
               data: { handoverConversationId: started.conversation.id },
             });
+            // Staff are told what was already looked up: names and outcomes, nobody's words.
+            await this.notes.add(started.conversation.id, grant.conversationId);
             return {
               problems: [],
               handedOver: true,
               alreadyOpen: false,
               needsTheSupportPage: false,
+              ...(await this.aim(started.conversation.id)),
               cards: supportCard(started.conversation.id, started.conversation.reference),
             };
           } catch (error) {
