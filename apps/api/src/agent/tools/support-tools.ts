@@ -221,6 +221,11 @@ export class SupportTools implements OnModuleInit {
                 HANDOVER_TOPIC,
               ),
             );
+            // The assistant's conversation says which support conversation took it over.
+            await this.prisma.agentConversation.updateMany({
+              where: { id: grant.conversationId },
+              data: { handoverConversationId: started.conversation.id },
+            });
             return {
               problems: [],
               handedOver: true,
