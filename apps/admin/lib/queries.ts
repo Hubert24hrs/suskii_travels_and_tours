@@ -17,11 +17,14 @@ export function unwrap<T>(result: { data?: T; error?: unknown }): T {
 export function useCursorPages<T extends { nextCursor: string | null }>(
   key: readonly unknown[],
   fetchPage: (cursor: string | undefined) => Promise<T>,
+  /** For a list that changes by itself (runs in progress): read again this often. */
+  options: { refetchInterval?: number } = {},
 ) {
   return useInfiniteQuery({
     queryKey: key,
     queryFn: ({ pageParam }) => fetchPage(pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
+    ...(options.refetchInterval ? { refetchInterval: options.refetchInterval } : {}),
   });
 }

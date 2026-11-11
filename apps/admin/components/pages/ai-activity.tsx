@@ -27,6 +27,7 @@ type Conversation = Schemas['AdminAgentConversationSummary'];
 
 const RUNS = '/v1/admin/ai/monitor/runs';
 const CONVERSATIONS = '/v1/admin/ai/monitor/conversations';
+const RUNS_REFRESH_MS = 15_000;
 const RUN_STATUSES: readonly RunStatus[] = [
   'running',
   'waiting',
@@ -197,12 +198,16 @@ interface RunFilters {
 
 function Runs() {
   const [filters, setFilters] = useState<RunFilters>({});
-  const pages = useCursorPages(['get', RUNS, filters], async (cursor) =>
-    unwrap(
-      await adminApi.GET(RUNS, {
-        params: { query: { ...filters, limit: 30, ...(cursor ? { cursor } : {}) } },
-      }),
-    ),
+  // Runs start and finish while the page is open: the list reads itself again.
+  const pages = useCursorPages(
+    ['get', RUNS, filters],
+    async (cursor) =>
+      unwrap(
+        await adminApi.GET(RUNS, {
+          params: { query: { ...filters, limit: 30, ...(cursor ? { cursor } : {}) } },
+        }),
+      ),
+    { refetchInterval: RUNS_REFRESH_MS },
   );
   const rows = pages.data?.pages.flatMap((page) => page.items);
   const any = { value: '', label: t('common.any') };
