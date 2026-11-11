@@ -162,6 +162,11 @@ test("staff read the assistant's runs, a traveller's conversation without contac
   await expect(total).toContainText(t('aiInsights.monthForecast'));
   await expect(total).toContainText(t('aiInsights.capGlobal'));
   await expect(page.getByTestId('quality-total')).toContainText(t('aiInsights.answered'));
+  // Travellers' own score, and what their conversations led to, each step counted once.
+  await expect(page.getByTestId('quality-total')).toContainText(t('aiInsights.rating'));
+  const funnel = page.getByTestId('quality-funnel');
+  await expect(funnel).toContainText(t('aiInsights.funnelSteps.conversations'));
+  await expect(funnel).toContainText(t('aiInsights.funnelSteps.handedOver'));
   await expect(page.getByRole('heading', { level: 2, name: t('aiInsights.limits') })).toBeVisible();
   await page.getByLabel(t('aiInsights.period')).selectOption('7');
   await expect(total).toContainText(t('aiInsights.estimated'));

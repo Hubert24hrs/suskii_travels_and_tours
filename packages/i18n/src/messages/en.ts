@@ -3207,6 +3207,58 @@ export const en = {
         'Seen on another website, not a Suskii price. A person confirms the live price before anything is paid.',
       source: 'From our documents',
     },
+    rating: {
+      question: 'How well did the assistant help?',
+      score: '{score} out of 5',
+      thanks: 'Thank you. Your rating helps us improve the assistant.',
+    },
+    memory: {
+      heading: 'What the assistant remembers',
+      link: 'Assistant preferences',
+      intro:
+        'With your say, the assistant keeps a few travel preferences so you do not repeat them: your home airport, cabin, window or aisle, the airlines you prefer and whether price or comfort comes first. Nothing else is kept, and never a meal or a health need. You can change or erase each one, and switching this off erases them all.',
+      off: 'The assistant remembers nothing about you.',
+      turnOn: 'Start remembering my preferences',
+      turnOff: 'Stop and erase everything',
+      empty:
+        'Nothing is remembered yet. Set a preference here, or tell the assistant in a chat and confirm the card.',
+      keys: {
+        home_airport: 'Home airport',
+        cabin: 'Cabin',
+        seat: 'Seat',
+        airlines: 'Preferred airlines',
+        budget: 'What comes first',
+      },
+      hints: {
+        home_airport: 'A three-letter airport code, such as LOS.',
+        airlines: 'Up to three two-letter airline codes, such as KQ, ET.',
+      },
+      seats: {
+        window: 'Window',
+        aisle: 'Aisle',
+      },
+      budgets: {
+        lowest: 'The lowest price',
+        balanced: 'A balance of price and comfort',
+        comfort: 'Comfort',
+      },
+      notSet: 'Not set',
+      save: 'Save',
+      erase: 'Erase',
+      eraseLabel: 'Erase: {preference}',
+      setBy: {
+        traveller: 'Set by you',
+        assistant: 'Confirmed in a chat',
+      },
+      saved: 'Saved.',
+      remembered: 'Remembered.',
+      errors: {
+        invalid: 'That is not a value this preference takes.',
+        generic: 'We could not save that. Try again.',
+      },
+      signIn: 'Sign in to see what the assistant remembers.',
+      unavailable: 'This page is not available right now.',
+    },
     handover: 'Our team has your question and will answer in Help and support.',
     openSupport: 'Open Help and support',
     confirm: {
@@ -3222,6 +3274,7 @@ export const en = {
         changes_take_refund_offer: 'Take the full refund',
         alerts_watch: 'Watch this price',
         alerts_stop: 'Stop watching this price',
+        memory_remember: 'Remember this preference',
         fallback: 'Make this change',
       },
       amounts: {
@@ -3304,6 +3357,7 @@ export const en = {
       offer_lapsed: 'The offer ran out of time. Ask again for a fresh price.',
     },
     withdraw: 'Withdraw this request',
+    pdf: 'Save this request as a PDF',
     viewBooking: 'View the booking',
     waiting:
       'Paid. A person on our team is booking this with the supplier. You will be told when it is confirmed.',
@@ -3362,6 +3416,7 @@ export const en = {
       'Put a flight, a hotel, a rental car, an airport transfer and travel insurance together, or only the parts you want, and pay for everything once.',
     intro:
       'Put a flight, a hotel, a rental car, an airport transfer and travel insurance together, or only the parts you want. You see a price for each part and one total, and you pay once.',
+    pdf: 'Save this plan as a PDF',
     components: {
       flight: 'Flight',
       hotel: 'Hotel',

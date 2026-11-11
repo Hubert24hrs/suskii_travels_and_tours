@@ -278,6 +278,34 @@ export class AgentConversationsService {
     return this.message(updated);
   }
 
+  /**
+   * How well the assistant helped in the caller's own conversation, 1 to 5 (404 for anyone
+   * else's). Only a conversation the assistant answered in can be rated; rating again replaces
+   * the earlier score.
+   */
+  async rate(
+    conversationId: string,
+    score: number,
+    caller: AgentCaller,
+  ): Promise<AgentConversationDto> {
+    const row = await this.load(conversationId, caller);
+    const answered = await this.prisma.agentMessage.count({
+      where: { conversationId: row.id, role: 'assistant' },
+    });
+    if (answered === 0) {
+      throw new ProblemDetailsException(
+        HttpStatus.CONFLICT,
+        'agent-conversation-unanswered',
+        'There is nothing to rate yet',
+      );
+    }
+    const rated = await this.prisma.agentConversation.update({
+      where: { id: row.id },
+      data: { rating: score, ratedAt: new Date() },
+    });
+    return this.withMessages(rated);
+  }
+
   /** Seals a message's words under its own id. */
   seal(messageId: string, text: string): string {
     return this.encryption.encrypt(text, agentMessageContext(messageId));
@@ -325,6 +353,7 @@ export class AgentConversationsService {
       activeRunId,
       lastMessageAt: row.lastMessageAt.toISOString(),
       createdAt: row.createdAt.toISOString(),
+      rating: row.rating,
       messages: messages.map((message) => this.message(message)),
     };
   }

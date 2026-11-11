@@ -3559,6 +3559,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agent/conversations/{conversationId}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Say how well the assistant helped in a conversation
+         * @description A score from 1 to 5 on the caller's own conversation, once the assistant answered in it (409 `agent-conversation-unanswered` before). Rating again replaces the score.
+         */
+        put: operations["rateAgentConversation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/agent/messages/{messageId}/feedback": {
         parameters: {
             query?: never;
@@ -8372,6 +8392,23 @@ export interface components {
                 up: number;
                 down: number;
             };
+            ratings: {
+                rated: number;
+                averageTenths: number | null;
+                scores: {
+                    score: number;
+                    conversations: number;
+                }[];
+            };
+            funnel: {
+                conversations: number;
+                answered: number;
+                searched: number;
+                askedForAPrice: number;
+                askedToConfirm: number;
+                confirmed: number;
+                handedOver: number;
+            };
             prompts: {
                 promptVersion: string;
                 runs: number;
@@ -9805,6 +9842,7 @@ export interface components {
             lastMessageAt: string;
             /** Format: date-time */
             createdAt: string;
+            rating?: number | null;
             messages: components["schemas"]["AgentMessage"][];
         };
         AgentConversationList: {
@@ -9820,6 +9858,9 @@ export interface components {
                 /** Format: date-time */
                 createdAt: string;
             }[];
+        };
+        AgentConversationRatingInput: {
+            score: number;
         };
         AgentFeedbackRequestInput: {
             feedback: ("up" | "down") | null;
@@ -23150,6 +23191,43 @@ export interface operations {
             };
             400: components["responses"]["Problem400"];
             404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    rateAgentConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Guests: the access token returned when the conversation started. Account holders use their session instead. */
+                "X-Agent-Token"?: string;
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentConversationRatingInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

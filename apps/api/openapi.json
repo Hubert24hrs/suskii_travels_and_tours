@@ -17098,6 +17098,86 @@
         }
       }
     },
+    "/v1/agent/conversations/{conversationId}/rating": {
+      "put": {
+        "operationId": "rateAgentConversation",
+        "summary": "Say how well the assistant helped in a conversation",
+        "description": "A score from 1 to 5 on the caller's own conversation, once the assistant answered in it (409 `agent-conversation-unanswered` before). Rating again replaces the score.",
+        "tags": [
+          "Assistant"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Agent-Token",
+            "in": "header",
+            "required": false,
+            "description": "Guests: the access token returned when the conversation started. Account holders use their session instead.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentConversationRatingInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConversation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/agent/messages/{messageId}/feedback": {
       "put": {
         "operationId": "rateAgentMessage",
@@ -35311,6 +35391,107 @@
             ],
             "additionalProperties": false
           },
+          "ratings": {
+            "type": "object",
+            "properties": {
+              "rated": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "averageTenths": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "scores": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "score": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "conversations": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "score",
+                    "conversations"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "rated",
+              "averageTenths",
+              "scores"
+            ],
+            "additionalProperties": false
+          },
+          "funnel": {
+            "type": "object",
+            "properties": {
+              "conversations": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "answered": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "searched": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "askedForAPrice": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "askedToConfirm": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "confirmed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "handedOver": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "conversations",
+              "answered",
+              "searched",
+              "askedForAPrice",
+              "askedToConfirm",
+              "confirmed",
+              "handedOver"
+            ],
+            "additionalProperties": false
+          },
           "prompts": {
             "type": "array",
             "items": {
@@ -35367,6 +35548,8 @@
           "failed",
           "outcomes",
           "feedback",
+          "ratings",
+          "funnel",
           "prompts"
         ],
         "additionalProperties": false
@@ -42866,6 +43049,18 @@
             "type": "string",
             "format": "date-time"
           },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "messages": {
             "type": "array",
             "items": {
@@ -42940,6 +43135,19 @@
           "conversations"
         ],
         "additionalProperties": false
+      },
+      "AgentConversationRatingInput": {
+        "type": "object",
+        "properties": {
+          "score": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          }
+        },
+        "required": [
+          "score"
+        ]
       },
       "AgentFeedbackRequestInput": {
         "type": "object",

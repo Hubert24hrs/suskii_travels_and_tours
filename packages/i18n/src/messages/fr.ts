@@ -3332,6 +3332,58 @@ export const fr: Messages = {
         'Vu sur un autre site, ce n’est pas un prix Suskii. Une personne confirme le prix réel avant tout paiement.',
       source: 'D’après nos documents',
     },
+    rating: {
+      question: "L'assistant vous a-t-il bien aidé ?",
+      score: '{score} sur 5',
+      thanks: "Merci. Votre note nous aide à améliorer l'assistant.",
+    },
+    memory: {
+      heading: "Ce que l'assistant retient",
+      link: "Préférences de l'assistant",
+      intro:
+        "Avec votre accord, l'assistant garde quelques préférences de voyage pour que vous n'ayez pas à les répéter : votre aéroport habituel, la cabine, hublot ou couloir, vos compagnies préférées et ce qui compte le plus entre le prix et le confort. Rien d'autre n'est gardé, et jamais un repas ni un besoin de santé. Vous pouvez modifier ou effacer chaque préférence, et tout est effacé si vous désactivez cette option.",
+      off: "L'assistant ne retient rien à votre sujet.",
+      turnOn: 'Commencer à retenir mes préférences',
+      turnOff: 'Arrêter et tout effacer',
+      empty:
+        "Rien n'est encore retenu. Indiquez une préférence ici, ou dites-la à l'assistant dans une conversation puis confirmez la carte.",
+      keys: {
+        home_airport: 'Aéroport habituel',
+        cabin: 'Cabine',
+        seat: 'Siège',
+        airlines: 'Compagnies préférées',
+        budget: 'Ce qui compte le plus',
+      },
+      hints: {
+        home_airport: "Un code d'aéroport à trois lettres, par exemple LOS.",
+        airlines: "Jusqu'à trois codes de compagnie à deux caractères, par exemple KQ, ET.",
+      },
+      seats: {
+        window: 'Hublot',
+        aisle: 'Couloir',
+      },
+      budgets: {
+        lowest: 'Le prix le plus bas',
+        balanced: 'Un équilibre entre prix et confort',
+        comfort: 'Le confort',
+      },
+      notSet: 'Non défini',
+      save: 'Enregistrer',
+      erase: 'Effacer',
+      eraseLabel: 'Effacer : {preference}',
+      setBy: {
+        traveller: 'Défini par vous',
+        assistant: 'Confirmé dans une conversation',
+      },
+      saved: 'Enregistré.',
+      remembered: 'Retenu.',
+      errors: {
+        invalid: "Cette valeur n'est pas acceptée pour cette préférence.",
+        generic: "Nous n'avons pas pu enregistrer. Réessayez.",
+      },
+      signIn: "Connectez-vous pour voir ce que l'assistant retient.",
+      unavailable: "Cette page n'est pas disponible pour le moment.",
+    },
     handover: 'Notre équipe a reçu votre question et répondra dans Aide et assistance.',
     openSupport: 'Ouvrir Aide et assistance',
     confirm: {
@@ -3347,6 +3399,7 @@ export const fr: Messages = {
         changes_take_refund_offer: 'Obtenir le remboursement intégral',
         alerts_watch: 'Surveiller ce prix',
         alerts_stop: 'Ne plus surveiller ce prix',
+        memory_remember: 'Retenir cette préférence',
         fallback: 'Effectuer cette modification',
       },
       amounts: {
@@ -3431,6 +3484,7 @@ export const fr: Messages = {
       offer_lapsed: 'Le délai de l’offre est écoulé. Redemandez un prix à jour.',
     },
     withdraw: 'Retirer cette demande',
+    pdf: 'Enregistrer cette demande en PDF',
     viewBooking: 'Voir la réservation',
     waiting:
       'Payé. Une personne de notre équipe réserve cela auprès du fournisseur. Vous serez prévenu dès la confirmation.',
@@ -3489,6 +3543,7 @@ export const fr: Messages = {
       'Réunissez un vol, un hôtel, une voiture de location, un transfert aéroport et une assurance voyage, ou seulement ce dont vous avez besoin, et payez le tout en une fois.',
     intro:
       'Réunissez un vol, un hôtel, une voiture de location, un transfert aéroport et une assurance voyage, ou seulement ce dont vous avez besoin. Vous voyez un prix pour chaque élément et un total, et vous payez une seule fois.',
+    pdf: 'Enregistrer ce programme en PDF',
     components: {
       flight: 'Vol',
       hotel: 'Hôtel',

@@ -664,6 +664,7 @@ export class DataExportService {
       status: row.status,
       createdAt: iso(row.createdAt),
       lastMessageAt: iso(row.lastMessageAt),
+      rating: row.rating,
       messages: row.messages.map((message) => ({
         from: message.role === 'user' ? 'you' : 'assistant',
         sentAt: iso(message.createdAt),

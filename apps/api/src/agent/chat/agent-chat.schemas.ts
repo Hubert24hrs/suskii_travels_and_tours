@@ -84,8 +84,15 @@ export const agentConversationSchema = named(
     activeRunId: uuid.nullable(),
     lastMessageAt: timestamp,
     createdAt: timestamp,
+    /** How well the assistant helped, 1 to 5, once the traveller said; absent in older answers. */
+    rating: z.number().int().min(1).max(5).nullable().optional(),
     messages: z.array(agentMessageSchema),
   }),
+);
+
+export const agentRatingSchema = named(
+  'AgentConversationRating',
+  z.object({ score: z.number().int().min(1).max(5) }),
 );
 export type AgentConversationDto = z.infer<typeof agentConversationSchema>;
 

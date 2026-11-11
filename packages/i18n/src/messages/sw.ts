@@ -3288,6 +3288,58 @@ export const sw: Messages = {
         'Imeonekana kwenye tovuti nyingine, si bei ya Suskii. Mtu huthibitisha bei halisi kabla ya malipo yoyote.',
       source: 'Kutoka kwenye nyaraka zetu',
     },
+    rating: {
+      question: 'Msaidizi alikusaidia kwa kiasi gani?',
+      score: '{score} kati ya 5',
+      thanks: 'Asante. Tathmini yako inatusaidia kuboresha msaidizi.',
+    },
+    memory: {
+      heading: 'Mambo ambayo msaidizi anakumbuka',
+      link: 'Mapendeleo ya msaidizi',
+      intro:
+        'Ukikubali, msaidizi huhifadhi mapendeleo machache ya safari ili usiyarudie: uwanja wako wa ndege wa nyumbani, daraja, dirishani au njiani, mashirika ya ndege unayopendelea, na kipi kitangulie kati ya bei na starehe. Hakuna kingine kinachohifadhiwa, na kamwe si chakula wala hitaji la afya. Unaweza kubadilisha au kufuta kila pendeleo, na ukizima hili yote yanafutwa.',
+      off: 'Msaidizi hakumbuki chochote kukuhusu.',
+      turnOn: 'Anza kukumbuka mapendeleo yangu',
+      turnOff: 'Acha na ufute yote',
+      empty:
+        'Hakuna kilichohifadhiwa bado. Weka pendeleo hapa, au mwambie msaidizi kwenye mazungumzo kisha uthibitishe kadi.',
+      keys: {
+        home_airport: 'Uwanja wa ndege wa nyumbani',
+        cabin: 'Daraja',
+        seat: 'Kiti',
+        airlines: 'Mashirika ya ndege unayopendelea',
+        budget: 'Kinachotangulia',
+      },
+      hints: {
+        home_airport: 'Msimbo wa uwanja wa ndege wa herufi tatu, kama LOS.',
+        airlines: 'Hadi misimbo mitatu ya mashirika ya ndege ya herufi mbili, kama KQ, ET.',
+      },
+      seats: {
+        window: 'Dirishani',
+        aisle: 'Njiani',
+      },
+      budgets: {
+        lowest: 'Bei ya chini kabisa',
+        balanced: 'Uwiano wa bei na starehe',
+        comfort: 'Starehe',
+      },
+      notSet: 'Haijawekwa',
+      save: 'Hifadhi',
+      erase: 'Futa',
+      eraseLabel: 'Futa: {preference}',
+      setBy: {
+        traveller: 'Umeweka wewe',
+        assistant: 'Imethibitishwa kwenye mazungumzo',
+      },
+      saved: 'Imehifadhiwa.',
+      remembered: 'Imekumbukwa.',
+      errors: {
+        invalid: 'Thamani hiyo haikubaliki kwa pendeleo hili.',
+        generic: 'Hatukuweza kuhifadhi. Jaribu tena.',
+      },
+      signIn: 'Ingia ili uone mambo ambayo msaidizi anakumbuka.',
+      unavailable: 'Ukurasa huu haupatikani kwa sasa.',
+    },
     handover: 'Timu yetu imepokea swali lako na itajibu kwenye Msaada na usaidizi.',
     openSupport: 'Fungua Msaada na usaidizi',
     confirm: {
@@ -3303,6 +3355,7 @@ export const sw: Messages = {
         changes_take_refund_offer: 'Chukua marejesho kamili',
         alerts_watch: 'Fuatilia bei hii',
         alerts_stop: 'Acha kufuatilia bei hii',
+        memory_remember: 'Kumbuka pendeleo hili',
         fallback: 'Fanya badiliko hili',
       },
       amounts: {
@@ -3385,6 +3438,7 @@ export const sw: Messages = {
       offer_lapsed: 'Muda wa ofa umeisha. Omba tena upate bei mpya.',
     },
     withdraw: 'Ondoa ombi hili',
+    pdf: 'Hifadhi ombi hili kama PDF',
     viewBooking: 'Tazama nafasi uliyohifadhi',
     waiting:
       'Imelipwa. Mtu wa timu yetu anaihifadhi kwa msambazaji. Utaarifiwa itakapothibitishwa.',
@@ -3443,6 +3497,7 @@ export const sw: Messages = {
       'Unganisha ndege, hoteli, gari la kukodi, usafiri wa uwanja wa ndege na bima ya safari, au sehemu unazotaka tu, kisha ulipe kila kitu mara moja.',
     intro:
       'Unganisha ndege, hoteli, gari la kukodi, usafiri wa uwanja wa ndege na bima ya safari, au sehemu unazotaka tu. Unaona bei ya kila sehemu na jumla moja, kisha unalipa mara moja.',
+    pdf: 'Hifadhi mpango huu kama PDF',
     components: {
       flight: 'Ndege',
       hotel: 'Hoteli',

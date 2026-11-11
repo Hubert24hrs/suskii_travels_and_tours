@@ -34,6 +34,7 @@ import {
   agentConversationParamsSchema,
   agentConversationSchema,
   agentFeedbackSchema,
+  agentRatingSchema,
   agentMessageParamsSchema,
   agentMessageSchema,
   agentRunParamsSchema,
@@ -246,6 +247,29 @@ export class AgentChatController {
     const after = Number.isSafeInteger(last) && last > 0 ? Math.min(last, 1000) : query.after;
     const events = await this.chat.stream(params.runId, after, agentCaller(request));
     return new StreamableFile(events, { type: 'text/event-stream; charset=utf-8' });
+  }
+
+  @Put('conversations/:conversationId/rating')
+  @RateLimit(AGENT_LIMITS.messageIp)
+  @Contract({
+    operationId: 'rateAgentConversation',
+    summary: 'Say how well the assistant helped in a conversation',
+    description:
+      "A score from 1 to 5 on the caller's own conversation, once the assistant answered in it (409 `agent-conversation-unanswered` before). Rating again replaces the score.",
+    tags: TAGS,
+    headers: [AGENT_TOKEN_HEADER],
+    params: agentConversationParamsSchema,
+    body: agentRatingSchema,
+    responses: { 200: agentConversationSchema },
+    errors: [400, 404, 409],
+  })
+  rate(
+    @Param() params: z.infer<typeof agentConversationParamsSchema>,
+    @Body() body: z.infer<typeof agentRatingSchema>,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<z.infer<typeof agentConversationSchema>> {
+    this.flags.require();
+    return this.conversations.rate(params.conversationId, body.score, agentCaller(request));
   }
 
   @Put('messages/:messageId/feedback')

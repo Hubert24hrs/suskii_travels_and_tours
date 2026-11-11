@@ -211,7 +211,43 @@ function QualitySection({ quality }: { quality: Quality }) {
                 percent: shareOf(quality.feedback.down, rated),
               }),
             },
+            {
+              term: t('aiInsights.rating'),
+              value:
+                quality.ratings.averageTenths === null
+                  ? t('aiInsights.notRated')
+                  : t('aiInsights.ratingValue', {
+                      average: format.number(quality.ratings.averageTenths / 10),
+                      count: format.number(quality.ratings.rated),
+                    }),
+            },
           ]}
+        />
+      </div>
+      <h3 className="font-heading text-h5 font-bold text-heading">{t('aiInsights.funnel')}</h3>
+      <p className="font-body text-body-sm text-muted">{t('aiInsights.funnelIntro')}</p>
+      <div data-testid="quality-funnel">
+        <DetailList
+          items={(
+            [
+              ['conversations', quality.funnel.conversations],
+              ['answered', quality.funnel.answered],
+              ['searched', quality.funnel.searched],
+              ['askedForAPrice', quality.funnel.askedForAPrice],
+              ['askedToConfirm', quality.funnel.askedToConfirm],
+              ['confirmed', quality.funnel.confirmed],
+              ['handedOver', quality.funnel.handedOver],
+            ] as const
+          ).map(([step, count]) => ({
+            term: t(`aiInsights.funnelSteps.${step}`),
+            value:
+              step === 'conversations'
+                ? format.number(count)
+                : t('aiInsights.share', {
+                    count: format.number(count),
+                    percent: shareOf(count, quality.funnel.conversations),
+                  }),
+          }))}
         />
       </div>
       <h3 className="font-heading text-h5 font-bold text-heading">{t('aiInsights.prompts')}</h3>

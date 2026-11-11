@@ -3302,6 +3302,58 @@ export const pt: Messages = {
         'Visto noutro site, não é um preço da Suskii. Uma pessoa confirma o preço real antes de qualquer pagamento.',
       source: 'Dos nossos documentos',
     },
+    rating: {
+      question: 'O assistente ajudou-o bem?',
+      score: '{score} em 5',
+      thanks: 'Obrigado. A sua avaliação ajuda-nos a melhorar o assistente.',
+    },
+    memory: {
+      heading: 'O que o assistente guarda',
+      link: 'Preferências do assistente',
+      intro:
+        'Com o seu acordo, o assistente guarda algumas preferências de viagem para que não tenha de as repetir: o seu aeroporto habitual, a cabine, janela ou corredor, as companhias aéreas que prefere e o que conta mais entre o preço e o conforto. Nada mais é guardado, e nunca uma refeição nem uma necessidade de saúde. Pode alterar ou apagar cada preferência, e desativar esta opção apaga todas.',
+      off: 'O assistente não guarda nada sobre si.',
+      turnOn: 'Começar a guardar as minhas preferências',
+      turnOff: 'Parar e apagar tudo',
+      empty:
+        'Ainda nada foi guardado. Defina uma preferência aqui, ou diga-a ao assistente numa conversa e confirme o cartão.',
+      keys: {
+        home_airport: 'Aeroporto habitual',
+        cabin: 'Cabine',
+        seat: 'Lugar',
+        airlines: 'Companhias aéreas preferidas',
+        budget: 'O que conta mais',
+      },
+      hints: {
+        home_airport: 'Um código de aeroporto de três letras, por exemplo LOS.',
+        airlines: 'Até três códigos de companhia aérea de dois caracteres, por exemplo KQ, ET.',
+      },
+      seats: {
+        window: 'Janela',
+        aisle: 'Corredor',
+      },
+      budgets: {
+        lowest: 'O preço mais baixo',
+        balanced: 'Um equilíbrio entre preço e conforto',
+        comfort: 'O conforto',
+      },
+      notSet: 'Não definido',
+      save: 'Guardar',
+      erase: 'Apagar',
+      eraseLabel: 'Apagar: {preference}',
+      setBy: {
+        traveller: 'Definido por si',
+        assistant: 'Confirmado numa conversa',
+      },
+      saved: 'Guardado.',
+      remembered: 'Ficou guardado.',
+      errors: {
+        invalid: 'Esse valor não é aceite para esta preferência.',
+        generic: 'Não foi possível guardar. Tente novamente.',
+      },
+      signIn: 'Inicie sessão para ver o que o assistente guarda.',
+      unavailable: 'Esta página não está disponível de momento.',
+    },
     handover: 'A nossa equipa recebeu a sua pergunta e responde em Ajuda e apoio.',
     openSupport: 'Abrir Ajuda e apoio',
     confirm: {
@@ -3317,6 +3369,7 @@ export const pt: Messages = {
         changes_take_refund_offer: 'Receber o reembolso total',
         alerts_watch: 'Acompanhar este preço',
         alerts_stop: 'Deixar de acompanhar este preço',
+        memory_remember: 'Guardar esta preferência',
         fallback: 'Fazer esta alteração',
       },
       amounts: {
@@ -3399,6 +3452,7 @@ export const pt: Messages = {
       offer_lapsed: 'O prazo da oferta terminou. Peça de novo para obter um preço atual.',
     },
     withdraw: 'Retirar este pedido',
+    pdf: 'Guardar este pedido em PDF',
     viewBooking: 'Ver a reserva',
     waiting:
       'Pago. Uma pessoa da nossa equipa está a reservar junto do fornecedor. Será avisado quando estiver confirmado.',
@@ -3457,6 +3511,7 @@ export const pt: Messages = {
       'Junte um voo, um hotel, um carro de aluguer, um transfer do aeroporto e um seguro de viagem, ou só as partes que quiser, e pague tudo de uma vez.',
     intro:
       'Junte um voo, um hotel, um carro de aluguer, um transfer do aeroporto e um seguro de viagem, ou só as partes que quiser. Vê um preço por cada parte e um total, e paga uma única vez.',
+    pdf: 'Guardar este plano em PDF',
     components: {
       flight: 'Voo',
       hotel: 'Hotel',
