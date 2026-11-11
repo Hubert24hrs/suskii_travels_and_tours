@@ -150,6 +150,11 @@ api_env = {
   # PRICE_INTEL_VENDORS = "firecrawl,oxylabs"
   # OXYLABS_USERNAME    = "REPLACE"
   # BRIGHT_DATA_ZONE    = "REPLACE"
+  # Assisted quotes (ADR-104) need people on shift to verify prices and book by hand; they
+  # stay off until the owner names who works that queue (launch checklist, section 7.3).
+  # ASSISTED_QUOTES_ENABLED      = "true"
+  # ASSISTED_QUOTE_VALID_MINUTES = "120"
+  # ASSISTED_QUOTE_REQUEST_HOURS = "48"
   # PRICE_INTEL_BOT_URL = "https://REPLACE/price-bot"
   # What each vendor charges, in millionths of a US dollar per page (vendor:class=cost):
   # PRICE_INTEL_COSTS   = "firecrawl:datacenter=1000,oxylabs:unblocker=2500"

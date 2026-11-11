@@ -7,11 +7,16 @@ import {
   AGENT_TOOL_NAME_PATTERN,
   AGENT_TOOL_TIERS,
   isForbiddenAgentTool,
+  type AgentCard,
+  type AgentConfirmationAmount,
   type AgentName,
   type AgentScope,
   type AgentToolDenial,
   type AgentToolTier,
+  type MoneyWire,
 } from '@suskii/shared';
+
+import type { RequestContext } from '../common/request-context';
 
 import type { AgentGrant } from './agent-grants';
 
@@ -21,6 +26,34 @@ export interface AgentToolContext {
   agent: AgentName;
   /** Aborted when the gateway gives up on the call. */
   signal: AbortSignal;
+  /**
+   * At the traveller's tap only: what `prepare` said the tool would do (a quoted refund), so
+   * the action that runs is the one the card showed.
+   */
+  expected?: Record<string, unknown> | null;
+  /**
+   * At the traveller's tap only: the request the tap came in, so what the ordinary service
+   * records about the action says where the traveller was, not where the assistant runs.
+   */
+  request?: RequestContext;
+}
+
+/** What a traveller is asked to confirm, built from the API's own records (ADR-107). */
+export interface AgentConfirmationDraft {
+  card: {
+    kind: AgentCard['kind'];
+    /** What it is about: a booking as "Lagos (LOS) to Abuja (ABV), Air Peace". No names. */
+    title: string;
+    /** Facts the traveller should see before tapping: dates and times. No sentences. */
+    lines: string[];
+    /** The money the action returns or keeps, each under a code the client words. */
+    amounts?: { code: AgentConfirmationAmount; amount: MoneyWire }[];
+    ref?: AgentCard['ref'];
+  };
+  /** Handed back to `run` at the tap as `context.expected`. */
+  expected?: Record<string, unknown>;
+  /** When what the card promises ends sooner than a confirmation does (a refund quote). */
+  expiresAt?: Date;
 }
 
 /**
@@ -40,6 +73,12 @@ export interface AgentTool<Input = unknown, Output = unknown> {
   agents: readonly AgentName[];
   input: z.ZodType<Input>;
   output: z.ZodType<Output>;
+  /**
+   * `commit` tools only. Checks, for the grant's caller, that the action can be taken now and
+   * says what the traveller will be asked to confirm. It changes nothing. The gateway stores
+   * the answer as a confirmation; `run` is then called only at the traveller's own tap.
+   */
+  prepare?(input: Input, context: AgentToolContext): Promise<AgentConfirmationDraft>;
   run(input: Input, context: AgentToolContext): Promise<Output>;
 }
 
@@ -92,6 +131,11 @@ export class AgentToolRegistry {
     }
     if (tool.agents.length === 0 || tool.agents.some((agent) => !AGENT_NAMES.includes(agent))) {
       throw new Error(`Agent tool "${tool.name}" must name the agents that may call it`);
+    }
+    if ((tool.tier === 'commit') !== (typeof tool.prepare === 'function')) {
+      throw new Error(
+        `Agent tool "${tool.name}": a commit says what will be confirmed (prepare), and only a commit does`,
+      );
     }
     if (tool.description.trim().length < 20) {
       throw new Error(`Agent tool "${tool.name}" needs a description the model can use`);

@@ -79,8 +79,12 @@ const NOT_OWNED: Record<string, string> = {
   partnerPostback: "affiliate network callback, authenticated by the network's secret",
 };
 
-/** Owned resources that only accounts can have: anonymous callers get 401, as on `/v1/me`. */
-const ACCOUNT_ONLY = /^\/v1\/(me|rides|rentals\/reservations|trips)\//;
+/**
+ * Owned resources that only accounts can have: anonymous callers get 401, as on `/v1/me`. A
+ * confirmation the assistant asks for is one: a guest's conversation never gets one (ADR-107).
+ */
+const ACCOUNT_ONLY =
+  /^\/v1\/(me|rides|rentals\/reservations|trips|agent\/confirmations|quotes\/assisted)\//;
 
 interface Fixture {
   flightBookingId: string;
@@ -113,6 +117,8 @@ interface Fixture {
   agentConversationId: string;
   agentRunId: string;
   agentMessageId: string;
+  agentConfirmationId: string;
+  assistedQuoteId: string;
 }
 
 interface Case {
@@ -266,6 +272,15 @@ const CASES: Record<string, Case> = {
     path: (f) => `/v1/agent/messages/${f.agentMessageId}/feedback`,
     body: () => ({ feedback: 'down' }),
   },
+  getAgentConfirmation: { path: (f) => `/v1/agent/confirmations/${f.agentConfirmationId}` },
+  confirmAgentConfirmation: {
+    path: (f) => `/v1/agent/confirmations/${f.agentConfirmationId}/confirm`,
+  },
+  declineAgentConfirmation: {
+    path: (f) => `/v1/agent/confirmations/${f.agentConfirmationId}/decline`,
+  },
+  getAssistedQuote: { path: (f) => `/v1/quotes/assisted/${f.assistedQuoteId}` },
+  withdrawAssistedQuote: { path: (f) => `/v1/quotes/assisted/${f.assistedQuoteId}/withdraw` },
 };
 
 interface Operation {
@@ -684,8 +699,39 @@ describe('IDOR matrix (e2e): other people’s resources answer 404', () => {
       (message) => message.role === 'assistant',
     );
 
+    // Something the assistant asked the owner to confirm (ADR-107), still waiting.
+    const confirmation = await ctx.prisma.agentConfirmation.create({
+      data: {
+        conversationId: agentConversationId,
+        runId: said.body.runId as string,
+        userId: owner.userId,
+        agent: 'bookings',
+        tool: 'bookings.cancel',
+        arguments: { bookingId: tripFlight.bookingId },
+        card: { kind: 'booking', title: 'Lagos (LOS) to Abuja (ABV)', lines: [], amounts: [] },
+        expected: { refund: null },
+        expiresAt: new Date(Date.now() + 15 * 60_000),
+      },
+    });
+
+    // A request to have a price confirmed by a person (ADR-104), still waiting.
+    const assisted = await ctx
+      .http()
+      .post('/v1/quotes/assisted')
+      .set(auth)
+      .set('Idempotency-Key', idempotencyKey())
+      .send({
+        product: 'hotel',
+        title: 'Matrix Hotel, standard room',
+        request: { destination: 'Lagos', startDate: inDays(30), endDate: inDays(32), adults: 1 },
+        currency: 'NGN',
+      })
+      .expect(201);
+
     return {
       agentConversationId,
+      agentConfirmationId: confirmation.id,
+      assistedQuoteId: assisted.body.id as string,
       agentRunId: said.body.runId as string,
       agentMessageId: answer?.id ?? '',
       tripId: combined.body.id as string,

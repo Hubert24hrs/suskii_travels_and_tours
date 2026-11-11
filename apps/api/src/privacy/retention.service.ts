@@ -58,9 +58,12 @@ export const RETENTION_RULES = [
   'ad-conversions',
   // Metasearch landings (ADR-081).
   'metasearch-landings',
+  // Assisted quotes (ADR-104).
+  'assisted-quotes',
   // Suskii Agent (ADR-105).
   'agent-conversations',
   'agent-runs',
+  'agent-approvals',
   // The assistant's working state, outside Prisma (ADR-103).
   'agent-threads',
   // Price intelligence (ADR-102).
@@ -129,10 +132,14 @@ export const RETENTION_DAYS = {
   'metasearch-landings': 400,
   /** After the conversation was resolved and last touched: two years to answer a dispute. */
   'support-conversations': 730,
+  /** After a request closed or became a booking: 13 months, as fare history is kept. */
+  'assisted-quotes': 400,
   /** After the last message of a conversation with the assistant (ADR-105). */
   'agent-conversations': 365,
   /** Runs and their tool calls: 13 months of cost and quality history (ADR-105). */
   'agent-runs': 400,
+  /** What agents prepared and who decided it: 13 months, as the runs behind them (ADR-107). */
+  'agent-approvals': 400,
   /** A thread's checkpoints, after the conversation's last message (ADR-103). */
   'agent-threads': 30,
   /** What was asked of which site and how it ended: three months of operations history. */
@@ -428,6 +435,15 @@ export class RetentionService {
           where: { status: 'resolved', updatedAt: { lt: before('support-conversations') } },
         }),
       ),
+      // Open requests are still owed an answer; the rest go once nobody can ask about them.
+      'assisted-quotes': counts(
+        await this.prisma.assistedQuote.deleteMany({
+          where: {
+            status: { notIn: ['requested', 'offered'] },
+            updatedAt: { lt: before('assisted-quotes') },
+          },
+        }),
+      ),
       // Before the conversations: a thread without a conversation is purged too, so one deleted
       // below loses its checkpoints on this run or the next.
       'agent-threads': await this.threads.purgeIdle(before('agent-threads')),
@@ -440,6 +456,11 @@ export class RetentionService {
       'agent-runs': counts(
         await this.prisma.agentRun.deleteMany({
           where: { startedAt: { lt: before('agent-runs') } },
+        }),
+      ),
+      'agent-approvals': counts(
+        await this.prisma.agentApproval.deleteMany({
+          where: { createdAt: { lt: before('agent-approvals') } },
         }),
       ),
       // Unread pages first, so a job that goes below leaves no object behind.

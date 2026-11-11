@@ -10,5 +10,6 @@ import { PriceAlertsService } from './price-alerts.service';
   imports: [SearchModule],
   controllers: [PriceAlertsController, InternalPriceAlertsController],
   providers: [PriceAlertsService],
+  exports: [PriceAlertsService],
 })
 export class AlertsModule {}

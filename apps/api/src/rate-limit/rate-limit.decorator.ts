@@ -172,6 +172,11 @@ export const AGENT_LIMITS = {
   readIp: { name: 'agent-read-ip', limit: 240, windowSeconds: 60, by: 'ip' },
 } as const satisfies Record<string, RateLimitPolicy>;
 
+/** Assisted quotes (ADR-104): each request is work for a person, so they are capped per account. */
+export const ASSISTED_QUOTE_LIMITS = {
+  requestUser: { name: 'assisted-quote-user', limit: 10, windowSeconds: 3600, by: 'user' },
+} as const satisfies Record<string, RateLimitPolicy>;
+
 /** Company accounts (ADR-078): invitations send email, so they are capped per account. */
 export const COMPANY_LIMITS = {
   createUser: { name: 'company-create-user', limit: 5, windowSeconds: 3600, by: 'user' },

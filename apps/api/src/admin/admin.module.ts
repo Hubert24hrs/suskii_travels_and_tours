@@ -44,5 +44,7 @@ import { AdminUsersService } from './admin-users.service';
     AdminDealsService,
     AdminContentService,
   ],
+  // The assistant's staff tools read the dashboard and prepare promo codes (ADR-107).
+  exports: [AdminDashboardService, AdminPromosService],
 })
 export class AdminModule {}

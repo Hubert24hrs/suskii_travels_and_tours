@@ -163,6 +163,8 @@ export class TicketingService {
             status: 'TICKETING',
             nextTicketingAt: null,
             updatedAt: { lt: new Date(now.getTime() - STALLED_AFTER_MS) },
+            // What a person books by hand is not stalled: it waits for them (ADR-104).
+            vertical: { not: 'assisted' },
           },
         ],
       },
@@ -197,6 +199,12 @@ export class TicketingService {
     }
     if (booking.status !== 'TICKETING') return 'skipped';
     if (booking.nextTicketingAt && booking.nextTicketingAt > now) return 'skipped';
+    // An assisted booking is booked by a person (ADR-104): it stays here, paid and waiting,
+    // until staff record the supplier's confirmation (`confirmByHand`) or that it could not
+    // be booked (`abandon`). No attempt is counted for it.
+    if (booking.items.some((item) => !item.bookedAt && itemPayload(item).kind === 'assisted')) {
+      return 'skipped';
+    }
 
     const attempt = booking.ticketingAttempts + 1;
     await this.prisma.booking.update({
@@ -472,6 +480,58 @@ export class TicketingService {
     return 'exhausted';
   }
 
+  /**
+   * Staff booked a paid assisted booking with its supplier (ADR-104): the supplier's
+   * confirmation goes on the item and the booking is confirmed as any other, with its email.
+   * False when the booking is not waiting to be booked (unpaid, held by a risk review, done).
+   */
+  async confirmByHand(bookingId: string, supplierReference: string): Promise<boolean> {
+    // A booking paid a moment ago may not have been picked up yet.
+    await this.process(bookingId);
+    const booking = await this.bookings.reload(bookingId);
+    const item = booking.items.find((candidate) => itemPayload(candidate).kind === 'assisted');
+    if (booking.status !== 'TICKETING' || !item || item.bookedAt) return false;
+    const claimed = await this.prisma.bookingItem.updateMany({
+      where: { id: item.id, bookedAt: null },
+      data: { supplierReference, bookedAt: new Date() },
+    });
+    if (claimed.count === 0) return false;
+    return (await this.process(bookingId)) === 'confirmed';
+  }
+
+  /**
+   * Staff could not book a paid assisted booking (ADR-104): everything paid goes back, as
+   * when ticketing gives up. False when the booking is not waiting to be booked.
+   */
+  async abandon(bookingId: string, reason: string): Promise<boolean> {
+    await this.process(bookingId);
+    const booking = await this.bookings.reload(bookingId);
+    const item = booking.items.find((candidate) => itemPayload(candidate).kind === 'assisted');
+    if (booking.status !== 'TICKETING' || !item || item.bookedAt) return false;
+    const refundIds = await this.prisma.$transaction(async (tx) => {
+      await this.transitions.apply(
+        tx,
+        { id: booking.id, status: 'TICKETING' },
+        'ticketing_exhausted',
+        SYSTEM_ACTOR,
+        { reason, data: { nextTicketingAt: null } },
+      );
+      await this.audit.record(
+        {
+          action: 'booking.ticketing_failed',
+          actorType: 'system',
+          targetType: 'booking',
+          targetId: booking.id,
+          metadata: { reason, final: true, byHand: true },
+        },
+        tx,
+      );
+      return this.refunds.refundBookingBalance(tx, booking, 'ticketing_failed');
+    });
+    this.refunds.executeLater(refundIds);
+    return true;
+  }
+
   /** A held order that will not be paid any more is released at the airline (best effort). */
   private async releaseHold(item: BookingItemRecord, payload: ItemPayload): Promise<void> {
     if (payload.kind !== 'flight' || !item.supplierOrderId || item.bookedAt) return;
@@ -538,6 +598,8 @@ export class TicketingService {
 function supplierLabel(payload: ItemPayload): string | null {
   if (payload.kind === 'flight') return 'Airline booking reference';
   if (payload.kind === 'hotel') return 'Hotel confirmation number';
+  // What staff booked by hand carries its supplier's own confirmation (ADR-104).
+  if (payload.kind === 'assisted') return 'Confirmation number';
   return null;
 }
 

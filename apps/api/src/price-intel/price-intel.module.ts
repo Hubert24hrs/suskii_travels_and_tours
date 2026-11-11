@@ -101,6 +101,6 @@ function enabledProviders(config: AppConfig, mock: MockScrapeProvider): ScrapePr
     PriceIntelService,
     PriceIntelAdminService,
   ],
-  exports: [PriceIntelService, PriceSourcesService, MockScrapeProvider],
+  exports: [PriceIntelService, PriceSourcesService, PriceIntelAdminService, MockScrapeProvider],
 })
 export class PriceIntelModule {}

@@ -78,6 +78,7 @@ api_env = {
   # AGENT_URL, and AGENT_RUN_TOKEN and AGENT_TOOLS_TOKEN in extra_secrets.
   # Price intelligence (ADR-102) stays off too. To try it here with the mock vendor, which
   # reads nothing real: PRICE_INTEL_ENABLED = "true" (allow_mock_providers above permits it).
+  # Assisted quotes (ADR-104) are on here unless ASSISTED_QUOTES_ENABLED = "false".
 }
 
 web_env = {

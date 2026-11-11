@@ -47,18 +47,23 @@ test('shows a picture and the type on each card, and filters by property type', 
   await expectNoAxeViolations(page);
 
   // The type filter lists what the search found; choosing one narrows the list on the API.
-  const resort = page.getByLabel(new RegExp(`^${t('results.propertyTypes.resort')} \\(\\d+\\)$`));
-  const label = (await resort.locator('xpath=ancestor-or-self::label').textContent()) ?? '';
-  const expected = Number(/\((\d+)\)/.exec(label)?.[1] ?? '0');
+  // Which types a city has depends on its demo inventory (drawn from the city's id, which is
+  // new in every database), so the test takes the first type listed, whatever it is.
+  const types = page.getByRole('group', { name: t('results.filters.propertyType') });
+  const choice = types.getByRole('checkbox').first();
+  const label = (await choice.locator('xpath=ancestor-or-self::label').textContent()) ?? '';
+  const [, typeName = '', count = '0'] = /^(.+) \((\d+)\)$/.exec(label.trim()) ?? [];
+  const expected = Number(count);
+  expect(typeName).not.toBe('');
   expect(expected).toBeGreaterThan(0);
-  await resort.check();
-  await expect(page).toHaveURL(/types=resort/);
+  await choice.check();
+  await expect(page).toHaveURL(/types=[a-z_]+/);
   await expect(page.locator('#hotel-results-count')).toContainText(String(expected));
   await expect
     .poll(async () => {
       const cards = await hotels.all();
       const texts = await Promise.all(cards.map((card) => card.textContent()));
-      return texts.every((text) => text?.includes(t('results.propertyTypes.resort')));
+      return texts.length > 0 && texts.every((text) => text?.includes(typeName));
     })
     .toBe(true);
 });

@@ -9,6 +9,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, DiscoveryModule } from '@nestjs
 import { AccountsModule } from './accounts/accounts.module';
 import { AdminModule } from './admin/admin.module';
 import { AlertsModule } from './alerts/alerts.module';
+import { AssistedQuotesModule } from './assisted-quotes/assisted-quotes.module';
 import { AttestationGuard } from './attestation/attestation.guard';
 import { AttestationModule } from './attestation/attestation.module';
 import { AuditModule } from './audit/audit.module';
@@ -116,6 +117,7 @@ export class AppModule implements NestModule {
         PrivacyModule,
         PrimeModule,
         AlertsModule,
+        AssistedQuotesModule,
         ReferralsModule,
         RemindersModule,
         ReviewsModule,

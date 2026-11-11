@@ -10,6 +10,7 @@ import {
   type MoneyWire,
 } from '@suskii/shared';
 
+import type { BookingDto, BookingSummaryDto } from '../../bookings/bookings.schemas';
 import type { BookingCaller } from '../../bookings/bookings.service';
 import { ProblemDetailsException } from '../../common/problem-details';
 import type { RequestContext } from '../../common/request-context';
@@ -56,11 +57,14 @@ export class AgentToolCallers {
     return grant.userId;
   }
 
-  /** The caller as the booking services know one: by session only, never a guest token. */
-  async booking(grant: AgentGrant): Promise<BookingCaller> {
+  /**
+   * The caller as the booking services know one: by session only, never a guest token.
+   * `request` is the traveller's own request at a tap (ADR-107); a tool call has none.
+   */
+  async booking(grant: AgentGrant, request?: RequestContext): Promise<BookingCaller> {
     return {
       client: await this.client(grant),
-      context: AGENT_REQUEST_CONTEXT,
+      context: request ?? AGENT_REQUEST_CONTEXT,
       token: null,
       attestation: null,
     };
@@ -140,6 +144,27 @@ export const utcTime = (iso: string): string => `${iso.slice(0, 10)} ${iso.slice
 /** "Lagos (LOS)", or the code alone when the catalog has no city for it. */
 export const placeText = (point: { code: string; cityName: string | null }): string =>
   point.cityName ? `${point.cityName} (${point.code})` : point.code;
+
+/** Statuses under which a booking has been cancelled, whatever happened to its money since. */
+export const cancelledStatuses: ReadonlySet<BookingDto['status']> = new Set([
+  'CANCELLED',
+  'REFUND_PENDING',
+  'REFUNDED',
+]);
+
+/** "Lagos (LOS) to London (LHR), Air Peace": what a booking is, without a name or a code. */
+export function bookingLine(booking: BookingSummaryDto): string {
+  if (booking.flight) {
+    return `${placeText(booking.flight.origin)} to ${placeText(booking.flight.destination)}, ${booking.flight.airline}`;
+  }
+  if (booking.hotel) return `${booking.hotel.name}, ${booking.hotel.cityName}`;
+  if (booking.product) {
+    return booking.product.cityName
+      ? `${booking.product.title}, ${booking.product.cityName}`
+      : booking.product.title;
+  }
+  return booking.vertical;
+}
 
 const LINKS = /\b(?:https?:\/\/|www\.)\S+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gi;
 

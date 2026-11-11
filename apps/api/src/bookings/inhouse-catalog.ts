@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import {
   cancellationPolicySchema,
@@ -32,7 +32,9 @@ import type {
   TravelPackage,
   VisaProduct,
 } from '../generated/prisma/client';
+import { assistedQuotesEnabled } from '../assisted-quotes/assisted-quotes-flag';
 import { SALES_CLOSE_MINUTES } from '../buses/bus-holds.service';
+import { APP_CONFIG, type AppConfig } from '../config/config';
 import { PrismaService } from '../infra/prisma.service';
 import { storedBenefits } from '../prime/prime-status';
 import { rentalOptionCharges, rentalOptions, rentalRates } from '../rentals/rental-options';
@@ -99,7 +101,10 @@ type TourRow = TourDeparture & { tour: Tour & { city: City } };
  */
 @Injectable()
 export class InhouseCatalog {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+  ) {}
 
   async packageDeparture(departureId: string, now = new Date()): Promise<PackageRow> {
     const row = await this.prisma.packageDeparture.findUnique({
@@ -326,6 +331,27 @@ export class InhouseCatalog {
         const addon = await this.addon(payload.productId);
         if (payload.startDate < localDate(now, 'UTC')) throw unavailable('Start date has passed');
         return { ...payload, unitPrice: storedMoney(addon.price) };
+      }
+      case 'assisted': {
+        // Staff may have verified the supplier's price again since the offer was made: the
+        // quote holds the one that stands. A quote that closed sells nothing (ADR-104).
+        const quote = await this.prisma.assistedQuote.findUnique({
+          where: { id: payload.quoteId },
+          select: { status: true, supplierMinor: true, currency: true, offerExpiresAt: true },
+        });
+        const onOffer = quote?.status === 'offered' || quote?.status === 'booked';
+        // Switched off, nothing new is sold: an offer made before cannot be paid for now.
+        if (!assistedQuotesEnabled(this.config)) {
+          throw unavailable('Assisted quotes are not offered');
+        }
+        if (!quote || !onOffer || quote.supplierMinor === null) {
+          throw unavailable('The assisted quote is no longer on offer');
+        }
+        if (payload.startDate < localDate(now, 'UTC')) throw unavailable('Start date has passed');
+        return {
+          ...payload,
+          unitPrice: money(quote.supplierMinor, quote.currency),
+        };
       }
       case 'membership': {
         // Price and benefits as the plan stands now, for the country the quote was priced for

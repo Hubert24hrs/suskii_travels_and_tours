@@ -39,6 +39,123 @@
       }
     },
     {
+      "name": "alerts.list",
+      "description": "The signed-in traveller's own price watches on flight routes: the route, the date or month, the price they asked to be told below, the last price seen and whether the watch still runs.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "concierge",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "alerts.stop",
+      "description": "Asks the signed-in traveller to confirm ending one of their own price watches. Nothing ends when you call it: only their tap on the card does. Use the alertId from alerts.list.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "concierge",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "alertId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "alertId"
+        ]
+      }
+    },
+    {
+      "name": "alerts.watch",
+      "description": "Asks the signed-in traveller to confirm watching the price of a flight route for one date or one month. Nothing is watched when you call it: the traveller gets a card and only their tap starts the watch, after which they are told when the price drops. Call it only after they asked to be told about a price.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "concierge",
+        "trip_builder"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "description": "IATA code of the departure airport."
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "description": "IATA code of the arrival airport."
+          },
+          "departureDate": {
+            "description": "One departure date (YYYY-MM-DD). Give this or departureMonth.",
+            "type": "string"
+          },
+          "departureMonth": {
+            "description": "A whole month (YYYY-MM). Give this or departureDate.",
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          },
+          "cabinClass": {
+            "default": "economy",
+            "type": "string",
+            "enum": [
+              "economy",
+              "premium_economy",
+              "business",
+              "first"
+            ]
+          },
+          "tellMeBelowMinor": {
+            "description": "A price in minor units of the conversation's currency: only prices at or below it are announced. Leave out to hear of every drop.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 1000000000000
+          }
+        },
+        "required": [
+          "origin",
+          "destination"
+        ]
+      }
+    },
+    {
+      "name": "bookings.cancel",
+      "description": "Asks the signed-in traveller to confirm cancelling one of their own bookings. Nothing is cancelled when you call it: the traveller gets a card with what comes back and what is kept, and only their tap cancels. Call it only after they said they want to cancel, and read bookings.get first. 'refused' means it cannot be cancelled online: offer the support team.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "bookings",
+        "disruption"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
       "name": "bookings.get",
       "description": "One of the signed-in traveller's own bookings: its status, what was paid and what is due, the trip itself (places, local times, bags, room, cancellation terms), open airline changes, documents ready and refunds. Quote only what the facts say; the booking page holds the tickets and the actions.",
       "tier": "read",
@@ -269,6 +386,162 @@
       }
     },
     {
+      "name": "changes.accept",
+      "description": "Asks the signed-in traveller to confirm accepting the new flights after the airline changed a booking of theirs. Nothing is accepted when you call it: the traveller gets a card with the new times, and only their tap tells the airline. Call it only after they said they accept, and read bookings.get first. 'refused' means it cannot be accepted online: offer the support team.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "disruption",
+        "bookings"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
+      "name": "changes.get",
+      "description": "What the airline changed on one of the signed-in traveller's own ticketed bookings: the flights as booked and as they are now, whether the change is significant, whether it can be accepted online, and the full refund on offer when there is one. Read it before changes.accept or changes.take_refund_offer. With no open change it says so. The card opens the same search again, for a traveller who wants to look at other flights first; refunding and rebooking are separate steps.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "disruption",
+        "bookings",
+        "support"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
+      "name": "changes.take_refund_offer",
+      "description": "Asks the signed-in traveller to confirm taking the full refund the airline's change entitles them to, instead of the new flights. Nothing happens when you call it: the traveller gets a card with the amount, and only their tap cancels the flights with the airline and starts the refund. Call it only when bookings.get says a full refund is offered and the traveller said they want it. 'refused' means it cannot be taken online: offer the support team.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "disruption",
+        "bookings"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
+      "name": "finance.booking_payments",
+      "description": "The payments of one booking, by its id, for preparing a refund request: each payment received with its amount and what of it was already refunded or is being refunded, and what is still refundable. It names no traveller.",
+      "tier": "read",
+      "scope": "finance",
+      "agents": [
+        "finance_prep"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
+      "name": "finance.draft_refund_request",
+      "description": "Prepares a refund request for a person to decide: which payment of which booking, how much (in minor units of the payment currency, never above what is still refundable) and why, as one of the reasons. It refunds nothing and requests nothing: the draft waits in the approvals queue, someone other than the person you are working for approves or rejects it, and an approved one becomes an ordinary refund request with its own second approver. Read finance.booking_payments first.",
+      "tier": "propose",
+      "scope": "finance",
+      "agents": [
+        "finance_prep"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "customer_cancellation",
+              "goodwill",
+              "supplier_cancellation",
+              "ticketing_failed",
+              "duplicate_payment",
+              "other"
+            ]
+          },
+          "cancelBooking": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bookingId",
+          "paymentId",
+          "amountMinor",
+          "reason"
+        ]
+      }
+    },
+    {
+      "name": "finance.overview",
+      "description": "What finance has open right now: refunds awaiting a second approver and refunds needing review, reconciliation discrepancies still open by kind, driver payouts not yet settled, and refund requests an agent prepared that wait for approval.",
+      "tier": "read",
+      "scope": "finance",
+      "agents": [
+        "finance_prep",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
       "name": "flights.search",
       "description": "Search flights for given airports, dates and travellers, with the price the traveller would pay now. Use IATA codes from catalog.places. Leave returnDate out for a one-way trip. Prices are for every traveller together, taxes and fees included. Offers marked sample are demo fares, not real ones.",
       "tier": "read",
@@ -358,6 +631,30 @@
       }
     },
     {
+      "name": "flights.status",
+      "description": "How the flights of one of the signed-in traveller's own bookings are running: on time, delayed (by how long, with the new times), cancelled, diverted, departed or landed, with terminal, gate and baggage belt when known. 'followed: false' means live status is not on for this booking and the booked times are shown. A cancelled flight here is information: any refund comes from changes.get, never from you.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "disruption",
+        "bookings",
+        "support"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "bookingId"
+        ]
+      }
+    },
+    {
       "name": "hotels.search",
       "description": "Search places to stay in a city for given dates and guests, with the price the traveller would pay now for the whole stay. Use a city id from catalog.places. Stays marked sample are demo inventory, not real hotels.",
       "tier": "read",
@@ -442,6 +739,133 @@
           "checkIn",
           "checkOut"
         ]
+      }
+    },
+    {
+      "name": "marketing.draft_promo",
+      "description": "Prepares a promo code for a person to decide: the code (4 to 20 letters and digits), a percentage in basis points (1000 is 10%) or a fixed amount in minor units of a currency, where it applies, its dates and how often it may be used. It creates nothing: the draft waits in the approvals queue, someone other than the person you are working for approves or rejects it, and an approved one is created switched off for a person to switch on.",
+      "tier": "propose",
+      "scope": "marketing",
+      "agents": [
+        "marketing"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 20
+          },
+          "internalNote": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "gives": {
+            "type": "string",
+            "enum": [
+              "percentage",
+              "fixed"
+            ]
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "maxDiscountMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "minSpendMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "products": {
+            "default": [],
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "flights",
+                "hotels",
+                "packages",
+                "tours",
+                "visa",
+                "travel_addons",
+                "prime",
+                "buses",
+                "rides",
+                "rentals",
+                "assisted"
+              ]
+            }
+          },
+          "validFrom": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "validTo": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "usesAllowed": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "usesPerAccount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "needsAnAccount": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "gives",
+          "value"
+        ]
+      }
+    },
+    {
+      "name": "marketing.promos",
+      "description": "The promo codes that are switched on: each code, what it gives (basis points for a percentage, minor units for a fixed amount), where it applies, until when, and how often it was used.",
+      "tier": "read",
+      "scope": "marketing",
+      "agents": [
+        "marketing",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "ops.queues",
+      "description": "What is waiting for a person in operations right now, as counts: assisted quotes to verify, paid bookings to book by hand, bookings whose ticketing is retrying or stuck, payments held for a risk review, refunds needing review, airline changes still open (and how many are significant), support conversations past their reply time, visa applications and referrals in review.",
+      "tier": "read",
+      "scope": "ops",
+      "agents": [
+        "operations",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
       }
     },
     {
@@ -537,6 +961,205 @@
         "finance_prep",
         "marketing",
         "business_intelligence",
+        "executive"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "prices.indicative",
+      "description": "Prices seen on other websites for a flight (origin and destination as IATA codes), a hotel, a car, a transfer or a tour (place by name), on given dates. These are NOT Suskii's prices and cannot be booked: each was seen on the site named, at the time given, and may have changed. Always say so, and that a person confirms the live price before anything is paid. Never call one confirmed or available. Use it only when the ordinary search has nothing suitable or the traveller asks what it costs elsewhere; quotes.request asks for one to be confirmed.",
+      "tier": "read",
+      "scope": "search",
+      "agents": [
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string",
+            "enum": [
+              "flight",
+              "hotel",
+              "car",
+              "transfer",
+              "tour"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "destination": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "place": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "adults": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "product",
+          "from"
+        ]
+      }
+    },
+    {
+      "name": "quotes.list",
+      "description": "The signed-in traveller's own requests to have a price confirmed, newest first: what was asked, whether a person has answered, the price on offer and until when it can be booked, or why it closed. 'became_a_booking' is not a confirmation: read the booking for where it stands. The traveller books an offer on its page; you cannot book it.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "concierge",
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "bookings",
+        "payments",
+        "support",
+        "disruption"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "quotes.request",
+      "description": "Asks the support team to confirm a live price for the signed-in traveller: for an indicative price (give its observationId) or for something the ordinary search does not sell. It books and promises nothing: a person checks with the supplier and answers with an offer the traveller can book, or says it cannot be had. Give what is wanted in a few words (no names, no contact details), the place, the dates and how many travel. Tell the traveller it is a request, and when an answer is expected.",
+      "tier": "propose",
+      "scope": "quotes",
+      "agents": [
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string",
+            "enum": [
+              "flight",
+              "hotel",
+              "car",
+              "transfer",
+              "tour",
+              "package",
+              "other"
+            ]
+          },
+          "what": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "origin": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string"
+          },
+          "adults": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "children": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "observationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "product",
+          "what",
+          "destination",
+          "startDate"
+        ]
+      }
+    },
+    {
+      "name": "reports.sales",
+      "description": "Bookings and money for a period, from the ledger: bookings made, by status and by product, money received, paid from wallets and refunded per currency (never converted), accounts created, active Suskii Prime members and the most booked flight routes. At most a year at a time.",
+      "tier": "read",
+      "scope": "reports",
+      "agents": [
+        "business_intelligence",
+        "executive",
+        "marketing"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "First UTC day; 30 days back by default.",
+            "type": "string"
+          },
+          "to": {
+            "description": "Last UTC day, inclusive; today by default.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "sources.overview",
+      "description": "How price intelligence stands: whether it is switched on, each vendor and whether its key works, what is switched off, what reading has cost today and this month against each cap, and how many sites are in review, approved and blocked. Approving a site is a person's decision in the console.",
+      "tier": "read",
+      "scope": "datasources",
+      "agents": [
+        "price_intel",
         "executive"
       ],
       "parameters": {

@@ -512,6 +512,16 @@ export const envSchema = z
      */
     AGENT_ENABLED: booleanish.optional(),
     PRICE_INTEL_ENABLED: booleanish.optional(),
+    /**
+     * Assisted quotes (ADR-104): a traveller asks for a price to be confirmed by a person, and
+     * staff answer with an offer. The same rule: on outside production, off in production
+     * unless set, because it needs people on shift.
+     */
+    ASSISTED_QUOTES_ENABLED: booleanish.optional(),
+    /** How long a verified offer can be booked before staff must verify the price again. */
+    ASSISTED_QUOTE_VALID_MINUTES: z.coerce.number().int().min(15).max(1440).default(120),
+    /** A request nobody answered by then closes as expired, and the traveller is told. */
+    ASSISTED_QUOTE_REQUEST_HOURS: z.coerce.number().int().min(1).max(336).default(48),
     /** Where the API reaches the agent service; unset means the agent is unavailable. */
     AGENT_URL: z.url().optional(),
     /** A private network only: allows an http AGENT_URL in production (ADR-038). */

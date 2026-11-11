@@ -75,6 +75,7 @@ model User {
   referralsMade           Referral[]               @relation("Referrer")
   referredBy              Referral?                @relation("Referee")
   priceAlerts             PriceAlert[]
+  assistedQuotes          AssistedQuote[]
   operatorMemberships     OperatorMember[]
   driver                  Driver?
   rides                   Ride[]                   @relation("RideRider")
@@ -429,6 +430,8 @@ enum Vertical {
   buses
   rides
   rentals
+  /// Assisted quotes (ADR-104): something a person verified with its supplier and books by hand.
+  assisted
 }
 
 enum CabinClass {
@@ -906,6 +909,8 @@ enum BookingItemType {
   bus
   ride
   rental
+  /// Assisted quotes (ADR-104).
+  assisted
 }
 
 /// Where a booking item's seats on a departure stand (ADR-025).
@@ -4011,6 +4016,94 @@ enum AgentFeedback {
   down
 }
 
+/// `pending` until the traveller taps; `confirmed` once the action ran; `declined` by the
+/// traveller; `expired` when they wrote something else or the time ran out; `failed` when the
+/// ordinary service refused the action at the tap.
+enum AgentConfirmationStatus {
+  pending
+  confirmed
+  declined
+  expired
+  failed
+}
+
+/// What an assisted quote is for (ADR-104).
+enum AssistedQuoteProduct {
+  flight
+  hotel
+  car
+  transfer
+  tour
+  package
+  other
+}
+
+/// `requested` waits for a person; `offered` has an offer the traveller can book until it
+/// lapses; `booked` became a booking; the rest are closed.
+enum AssistedQuoteStatus {
+  requested
+  offered
+  unavailable
+  expired
+  withdrawn
+  booked
+}
+
+/// A request to have a price confirmed by a person (ADR-104): what the traveller wants, the
+/// price seen elsewhere it came from, and, once staff verified it with the supplier, the offer
+/// they can book through the ordinary checkout. It holds places, dates and head counts; who
+/// travels is entered at checkout, never here.
+model AssistedQuote {
+  id                 String               @id @default(uuid(7)) @db.Uuid
+  /// What support and the traveller call it: `Q-` and six characters.
+  reference          String               @unique @db.VarChar(12)
+  userId             String               @map("user_id") @db.Uuid
+  product            AssistedQuoteProduct
+  /// What is wanted, in a few words (a hotel's name, a route). No personal data.
+  title              String               @db.VarChar(160)
+  /// Places, dates and head counts (`assistedQuoteRequestSchema`).
+  request            Json
+  currency           String               @db.Char(3)
+  /// The observation it came from (ADR-102), when there was one. Not a foreign key:
+  /// observations are purged on their own schedule; what it showed is copied here.
+  observationId      String?              @map("observation_id") @db.Uuid
+  referenceMinor     BigInt?              @map("reference_minor")
+  /// The currency that price was shown in, which may not be the quote's.
+  referenceCurrency  String?              @map("reference_currency") @db.Char(3)
+  referenceSource    String?              @map("reference_source") @db.VarChar(120)
+  referenceSeenAt    DateTime?            @map("reference_seen_at") @db.Timestamptz(3)
+  status             AssistedQuoteStatus  @default(requested)
+  /// Why it closed, as a code (`ASSISTED_QUOTE_CLOSE_REASONS`).
+  closedReason       String?              @map("closed_reason") @db.VarChar(40)
+  /// Who sells it to Suskii, as staff verified. Internal: never shown to the traveller.
+  supplierName       String?              @map("supplier_name") @db.VarChar(120)
+  /// The supplier's live price for all of it, as staff verified.
+  supplierMinor      BigInt?              @map("supplier_minor")
+  /// The currency the supplier charges in, which may not be the quote's.
+  supplierCurrency   String?              @map("supplier_currency") @db.Char(3)
+  /// Where the proof of that price is kept (https). Internal.
+  evidenceUrl        String?              @map("evidence_url") @db.VarChar(500)
+  /// What exactly is offered, as verified (`assistedOfferDetailsSchema`): shown to the traveller.
+  details            Json?
+  verifiedBy         String?              @map("verified_by") @db.Uuid
+  verifiedAt         DateTime?            @map("verified_at") @db.Timestamptz(3)
+  /// The offer the traveller books (an ordinary `Offer`, supplier `suskii`).
+  offerId            String?              @unique @map("offer_id") @db.Uuid
+  offerExpiresAt     DateTime?            @map("offer_expires_at") @db.Timestamptz(3)
+  /// Where the proof of the supplier's confirmation is kept, once staff booked it. Internal.
+  bookingEvidenceUrl String?              @map("booking_evidence_url") @db.VarChar(500)
+  /// A request nobody answered by now is closed as `expired`.
+  expiresAt          DateTime             @map("expires_at") @db.Timestamptz(3)
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("assisted_quotes")
+}
+
 /// A conversation with the assistant. `audience`, `channel` and `agent` names are values of
 /// `@suskii/shared` (`AGENT_AUDIENCES`, `AGENT_CHANNELS`, `AGENT_NAMES`): text, so a new one is
 /// not a type change (expand/contract).
@@ -4038,11 +4131,12 @@ model AgentConversation {
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user     User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  booking  Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  handover SupportConversation? @relation(fields: [handoverConversationId], references: [id], onDelete: SetNull)
-  messages AgentMessage[]
-  runs     AgentRun[]
+  user          User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking       Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  handover      SupportConversation? @relation(fields: [handoverConversationId], references: [id], onDelete: SetNull)
+  messages      AgentMessage[]
+  runs          AgentRun[]
+  confirmations AgentConfirmation[]
 
   @@index([userId, lastMessageAt])
   @@index([lastMessageAt])
@@ -4122,6 +4216,85 @@ model AgentRun {
 
 /// One call through the tool gateway: the tool, its tier, the outcome and the names of the
 /// arguments. Argument values and results are never stored.
+/// What a traveller is asked to confirm before a commit runs (ADR-107). An agent can only ask
+/// for one: the card is built by the API from its own records, and only the traveller's tap,
+/// with their own session, runs the action through the ordinary service.
+model AgentConfirmation {
+  id             String                  @id @default(uuid(7)) @db.Uuid
+  conversationId String                  @map("conversation_id") @db.Uuid
+  /// The run that asked. Not a foreign key: runs are purged on their own schedule.
+  runId          String                  @map("run_id") @db.Uuid
+  /// Who must tap: the conversation's owner when it was asked for.
+  userId         String                  @map("user_id") @db.Uuid
+  agent          String                  @db.VarChar(32)
+  tool           String                  @db.VarChar(64)
+  /// The tool's validated input: ids and choices, never a person's words.
+  arguments      Json
+  /// What the card shows: a kind, a title, lines, an amount as `Money` and the record it is
+  /// about. Trip facts and prices; never a name, a contact detail or a document.
+  card           Json
+  /// What the tool is given again at the tap so it does what was shown (a quoted refund).
+  expected       Json?
+  status         AgentConfirmationStatus @default(pending)
+  /// Why it failed, as a code (`AGENT_TOOL_DENIALS`); null otherwise.
+  reason         String?                 @db.VarChar(40)
+  /// What the records said after the tap, as facts under keys: all an agent may say about it.
+  result         Json?
+  expiresAt      DateTime                @map("expires_at") @db.Timestamptz(3)
+  decidedAt      DateTime?               @map("decided_at") @db.Timestamptz(3)
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, id])
+  @@index([userId, status])
+  @@map("agent_confirmations")
+}
+
+/// `pending` waits for a person; `approved` was carried out by the ordinary service; `failed`
+/// that service refused it at approval; `rejected` and `expired` did nothing.
+enum AgentApprovalStatus {
+  pending
+  approved
+  rejected
+  expired
+  failed
+}
+
+/// Something a staff agent prepared for a person to decide (ADR-107): a refund request, a promo
+/// code. It changes nothing until someone other than the person who asked approves it, and
+/// approving runs the ordinary service as that approver. `kind` and `agent` are values of
+/// `@suskii/shared`: text, so a new one is not a type change (expand/contract).
+model AgentApproval {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  kind           String              @db.VarChar(32)
+  /// The staff member whose question to an agent produced it. They cannot decide it.
+  requestedBy    String              @map("requested_by") @db.Uuid
+  agent          String              @db.VarChar(32)
+  /// The run that proposed it. Not a foreign key: runs are purged on their own schedule.
+  runId          String              @map("run_id") @db.Uuid
+  conversationId String?             @map("conversation_id") @db.Uuid
+  /// The record it is about (a booking), when it has one.
+  subjectType    String?             @map("subject_type") @db.VarChar(32)
+  subjectId      String?             @map("subject_id") @db.Uuid
+  /// What would be done, as the kind's own schema: ids, amounts and codes.
+  payload        Json
+  status         AgentApprovalStatus @default(pending)
+  decidedBy      String?             @map("decided_by") @db.Uuid
+  decidedAt      DateTime?           @map("decided_at") @db.Timestamptz(3)
+  /// Why it was rejected or failed, as a code.
+  reason         String?             @db.VarChar(40)
+  /// What approving it created: a refund, a promo code.
+  resultType     String?             @map("result_type") @db.VarChar(32)
+  resultId       String?             @map("result_id") @db.Uuid
+  expiresAt      DateTime            @map("expires_at") @db.Timestamptz(3)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@index([requestedBy, status])
+  @@map("agent_approvals")
+}
+
 model AgentToolCall {
   id           String              @id @default(uuid(7)) @db.Uuid
   runId        String              @map("run_id") @db.Uuid

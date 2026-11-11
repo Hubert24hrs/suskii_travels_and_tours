@@ -6,6 +6,65 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Suskii Agent, sub-phase E: confirmations, assisted quotes and staff agents (2026-11-11)
+
+What the assistant may set in motion, and who decides it (ADR-104, ADR-107). Built and off in
+production: nothing answers until the owner sets `AGENT_ENABLED` and `ASSISTED_QUOTES_ENABLED`.
+No website, app or console screen offers any of it yet; the queues are worked through the
+admin API until the console pages of sub-phase F.
+
+#### Added
+
+- **Confirmations.** A tool that changes something never runs when an agent calls it. The API
+  reads its own records, builds a card (what, the amounts, the booking it is about), stores it
+  and answers the agent only with its id. The traveller reads the card and taps confirm with
+  their own session and an `Idempotency-Key`, or declines; the tap runs the ordinary service
+  and the assistant is told what the records then hold. One card per conversation, for 15
+  minutes; a new message ends it, so "yes" typed in the chat confirms nothing; a card whose
+  facts changed does nothing. Routes: `GET /v1/agent/confirmations/{id}`, `POST .../confirm`,
+  `POST .../decline`.
+- **Five tools that need a tap**: cancelling a booking under its own policy (the refund is on
+  the card), accepting an airline's new times, taking the full refund after a significant
+  airline change (the airline cancels first), and starting or stopping a price watch.
+- **Reads for a disrupted trip**: how a booked flight is running and what the airline changed.
+- **Assisted quotes.** A traveller asks for a price to be confirmed (`POST /v1/quotes/assisted`);
+  staff verify it with the supplier and record the price and where the proof is kept; the API
+  makes an ordinary offer from it, bookable by that account for two hours through the ordinary
+  checkout. After payment the booking waits for a person, who records the supplier's
+  confirmation (the booking is then confirmed) or that it cannot be booked (everything is
+  refunded). Staff queue: `/v1/admin/assisted-quotes`. A new vertical, `assisted`.
+- **Indicative prices in the chat.** The assistant can show prices seen on approved websites,
+  each marked indicative with where and when it was seen, and can ask for one to be confirmed.
+  It never calls one bookable.
+- **Six staff agents in the console** (`/v1/admin/ai/conversations`, `/v1/admin/ai/chat`):
+  operations, finance preparation, marketing, business intelligence, price intelligence and an
+  executive assistant. A staff member reaches the agents their own permissions open, and an
+  agent reads what that person may read: eight tools returning counts, amounts and ids.
+- **The approvals queue** (`/v1/admin/ai/approvals`). A staff agent can prepare a refund
+  request or a promo code; the proposal changes nothing. Someone other than the person who
+  asked, holding `ai:approve` and the permission for that kind of thing, approves or rejects
+  it. An approved refund request is the approver's own ordinary request and still waits for
+  its second approver; an approved promo code is created switched off.
+- Settings `ASSISTED_QUOTES_ENABLED`, `ASSISTED_QUOTE_VALID_MINUTES` (120) and
+  `ASSISTED_QUOTE_REQUEST_HOURS` (48); tables `agent_confirmations`, `assisted_quotes` and
+  `agent_approvals`, each in the data registry, the export where it is a traveller's, account
+  deletion, retention and the records of processing.
+
+#### Changed
+
+- The customer specialists' prompts are version 2: they know that some actions wait for the
+  traveller's tap and that an indicative price is not an offer. The three evals pass on
+  recorded answers with them.
+- A handover from the assistant is linked to the conversation it came from.
+
+#### Mobile contract
+
+`vertical` in quote and booking answers gains `assisted`, and both gain an optional `assisted`
+section. Such bookings exist only once assisted quotes are offered to travellers. A build from
+before the clients of sub-phase G lists an assisted booking under its reference without a
+product label, and ignores the push path `/account/quotes` (the notification still arrives).
+No other answer changes; the confirmation, quote and console routes are new.
+
 ### Suskii Agent, sub-phase D: the agent service (2026-11-10)
 
 The assistant's own service, the chat routes and the tools the customer agents call (ADR-101,

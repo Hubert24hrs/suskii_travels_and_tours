@@ -23,6 +23,7 @@ import { AgentPause } from './agent-pause';
 import { AgentSettingsService } from './agent-settings.service';
 import { AgentToolError, AgentToolRegistry, type AgentTool } from './agent-tool';
 import type { agentToolAnswerSchema, agentToolCallSchema } from './agent.schemas';
+import { AgentConfirmationsService } from './confirmations/agent-confirmations.service';
 
 export type AgentToolCall = z.infer<typeof agentToolCallSchema>;
 export type AgentToolAnswer = z.infer<typeof agentToolAnswerSchema>;
@@ -59,7 +60,9 @@ class ToolTimeout extends Error {}
  * a run that is still running; the run has calls left; the tool exists and is this agent's; the
  * grant opens the tool's scope; the tier may run at the current autonomy; the arguments fit.
  * Only then does the tool run, as the grant's caller, and only what its output schema names
- * goes back. Each call is recorded with the names of its arguments, never their values.
+ * goes back. A `commit` tool does not run at all: the gateway asks it what the traveller
+ * would be confirming, stores that as a confirmation and answers with its id (ADR-107). Each
+ * call is recorded with the names of its arguments, never their values.
  */
 @Injectable()
 export class AgentToolGateway {
@@ -72,6 +75,7 @@ export class AgentToolGateway {
     private readonly grants: AgentGrants,
     private readonly registry: AgentToolRegistry,
     private readonly settings: AgentSettingsService,
+    private readonly confirmations: AgentConfirmationsService,
     private readonly errors: ErrorReporter,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
@@ -116,8 +120,7 @@ export class AgentToolGateway {
     const agent = agentOf(request.agent, grant);
     if (!agent || !tool.agents.includes(agent)) return refuse('agent');
     if (!grant.scopes.includes(tool.scope)) return refuse('scope');
-    // A commit is never run from here: it becomes a confirmation a person taps (ADR-107).
-    if (tool.tier === 'commit') return refuse('confirmation_required');
+    // Advice only prepares nothing: not a draft, and not a confirmation either.
     if (!tierRuns(tool.tier, await this.settings.autonomyFor(agent, tool.name))) {
       return refuse('autonomy');
     }
@@ -134,14 +137,31 @@ export class AgentToolGateway {
     }
 
     const abort = new AbortController();
+    const context = { grant, agent, signal: abort.signal };
     let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new ToolTimeout()), AGENT_TOOL_TIMEOUT_MS);
+    });
     try {
-      const output = await Promise.race([
-        tool.run(input.data, { grant, agent, signal: abort.signal }),
-        new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(() => reject(new ToolTimeout()), AGENT_TOOL_TIMEOUT_MS);
-        }),
-      ]);
+      if (tool.tier === 'commit') {
+        // A commit is never run from here: it becomes a confirmation a person taps (ADR-107).
+        const confirmationId = await Promise.race([
+          this.confirmation(tool, input.data, context),
+          timeout,
+        ]);
+        return await this.finish(
+          grant,
+          recorded,
+          tool,
+          request.agent,
+          'confirmation_required',
+          argumentKeys,
+          started,
+          undefined,
+          confirmationId ? { confirmationId } : null,
+        );
+      }
+      const output = await Promise.race([tool.run(input.data, context), timeout]);
       // Parsing strips every field the tool's schema does not name before a model sees it.
       const result = tool.output.parse(output);
       agentToolDuration.record(Date.now() - started, { tool: tool.name });
@@ -165,6 +185,28 @@ export class AgentToolGateway {
     }
   }
 
+  /**
+   * What a commit tool would do, stored for the traveller to confirm. The tool checks, as the
+   * grant's caller, that the action can be taken and says what the card shows; it changes
+   * nothing. Only an account in a conversation can be asked: anyone else gets the bare refusal.
+   */
+  private async confirmation(
+    tool: AgentTool,
+    input: unknown,
+    context: { grant: AgentGrant; agent: AgentName; signal: AbortSignal },
+  ): Promise<string | null> {
+    const { grant, agent } = context;
+    if (!tool.prepare || !grant.userId || !grant.conversationId) return null;
+    const draft = await tool.prepare(input, context);
+    return this.confirmations.ask(
+      { ...grant, userId: grant.userId, conversationId: grant.conversationId },
+      agent,
+      tool,
+      input,
+      draft,
+    );
+  }
+
   private async finish(
     grant: AgentGrant | null,
     recorded: string,
@@ -174,6 +216,7 @@ export class AgentToolGateway {
     argumentKeys: string[],
     started: number,
     issues?: AgentToolAnswer['issues'],
+    result: Record<string, unknown> | null = null,
   ): Promise<AgentToolAnswer> {
     agentToolCalls.add(1, { tool: recorded, tier: tool?.tier ?? 'none', outcome: reason });
     if (grant) {
@@ -189,7 +232,7 @@ export class AgentToolGateway {
       ).catch(() => undefined);
     }
     const status = STATUS_OF[reason];
-    return { status, reason, result: null, ...(issues ? { issues } : {}) };
+    return { status, reason, result, ...(issues ? { issues } : {}) };
   }
 
   private async record(

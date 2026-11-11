@@ -46,6 +46,7 @@ export const EXPORT_SECTIONS = [
   'privacyRequests',
   'trips',
   'assistant',
+  'assistedQuotes',
 ] as const;
 export type ExportSection = (typeof EXPORT_SECTIONS)[number];
 
@@ -698,6 +699,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'parent', parent: 'PrivacyBreach' },
     note: 'What one regulator was told about a breach, when it was due and their reference.',
   },
+  AssistedQuote: {
+    section: 'assistedQuotes',
+    deletion: 'delete',
+    retention: { kind: 'rule', rule: 'assisted-quotes' },
+    note: 'A request to have a price confirmed by a person (ADR-104): what was wanted (places, dates, head counts), the price seen elsewhere, what staff verified and the offer made. No names or contacts; who travels is on the booking. Deleted with the account; closed ones are purged after 400 days.',
+  },
   // --- Suskii Agent (ADR-101 to ADR-107) ----------------------------------------------------
   AgentConversation: {
     section: 'assistant',
@@ -710,6 +717,18 @@ export const DATA_REGISTRY = {
     deletion: 'delete',
     retention: { kind: 'parent', parent: 'AgentConversation' },
     note: 'Messages of a conversation with the assistant (bodies encrypted per message), the result cards shown beside them and the sources of an answer. The export holds what the person and the assistant wrote.',
+  },
+  AgentConfirmation: {
+    section: 'assistant',
+    deletion: 'delete',
+    retention: { kind: 'parent', parent: 'AgentConversation' },
+    note: 'What the assistant asked the person to confirm (ADR-107): the action, the card they saw (trip facts and money, no names or contacts), their answer and what the records held afterwards. Goes with its conversation.',
+  },
+  AgentApproval: {
+    section: null,
+    deletion: 'retain',
+    retention: { kind: 'rule', rule: 'agent-approvals' },
+    note: 'What a staff agent prepared for a person to decide (ADR-107): its kind, exactly what would be done (ids, amounts and codes), which staff member asked and who decided. Staff ids only; nothing about a traveller beyond a booking id. Purged 400 days after it was made.',
   },
   AgentRun: {
     section: null,

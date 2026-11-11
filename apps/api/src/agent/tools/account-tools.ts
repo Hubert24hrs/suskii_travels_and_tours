@@ -20,6 +20,8 @@ import { agentTool, AgentToolRegistry } from '../agent-tool';
 import {
   AGENT_REQUEST_CONTEXT,
   AgentToolCallers,
+  bookingLine,
+  cancelledStatuses,
   card,
   cardsOut,
   guarded,
@@ -33,9 +35,6 @@ import {
 
 type TripDto = z.infer<typeof tripSchema>;
 
-/** Statuses under which a booking has been cancelled, whatever happened to its money since. */
-const CANCELLED = new Set<BookingDto['status']>(['CANCELLED', 'REFUND_PENDING', 'REFUNDED']);
-
 /**
  * A status as the outcome check reads it (ADR-107): what the records say, in the words the
  * check knows. An answer may say "confirmed", "paid", "refunded" or "cancelled" only when one of
@@ -43,22 +42,8 @@ const CANCELLED = new Set<BookingDto['status']>(['CANCELLED', 'REFUND_PENDING', 
  */
 const statuses = (status: BookingDto['status']) => ({
   bookingStatus: status.toLowerCase(),
-  cancellationStatus: CANCELLED.has(status) ? 'succeeded' : 'none',
+  cancellationStatus: cancelledStatuses.has(status) ? 'succeeded' : 'none',
 });
-
-/** "Lagos (LOS) to London (LHR), Air Peace": what a booking is, without a name or a code. */
-function bookingLine(booking: BookingSummaryDto): string {
-  if (booking.flight) {
-    return `${placeText(booking.flight.origin)} to ${placeText(booking.flight.destination)}, ${booking.flight.airline}`;
-  }
-  if (booking.hotel) return `${booking.hotel.name}, ${booking.hotel.cityName}`;
-  if (booking.product) {
-    return booking.product.cityName
-      ? `${booking.product.title}, ${booking.product.cityName}`
-      : booking.product.title;
-  }
-  return booking.vertical;
-}
 
 const bookingCard = (booking: BookingSummaryDto): AgentCard[] =>
   card(

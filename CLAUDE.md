@@ -85,9 +85,13 @@ Firecrawl, Apify, Browse AI, Oxylabs and Bright Data adapters with our own fetch
 failover, budgets, kill switches, parser drift, observations and the register) and D (the
 agent service `apps/agent`: a supervisor graph with ten customer specialists, a guard in code
 on every answer, checkpoints in a schema of their own; the chat routes; sixteen tools for the
-customer agents; routing, grounding and safety evals on recorded answers) are done; E to H
-follow in order (`docs/phases/ai-agent.md`): assisted quotes, confirmations and staff agents,
-the console, the clients, hardening. No client offers the assistant yet. The vendor adapters
+customer agents; routing, grounding and safety evals on recorded answers) and E (confirmations
+a traveller taps and five tools that need one; flight status, airline changes and price watch
+for the assistant; assisted quotes, from a request through a person's verified offer to a
+booking a person confirms; six staff agents in the console with eight tools; the approvals
+queue) are done; F to H follow in order (`docs/phases/ai-agent.md`): the console, the clients,
+hardening. No client offers the assistant yet, and the console has no page for it: the queues
+are worked through the admin API. The vendor adapters
 wait for one run of `scrapers-sandbox.yml` with the owner's keys, and the agents for one run of
 `agent-eval.yml` with `LLM_API_KEY`. Nothing of it runs in production until the owner sets
 `AGENT_ENABLED` and `PRICE_INTEL_ENABLED` and approves each web source.
@@ -972,6 +976,63 @@ Tooling notes for agents:
 - A handover is `support.handover`: an ordinary support conversation (ADR-083) under the topic
   `assistant_handover`, whose first message is the traveller's own last messages, never a
   model's words. A new topic is a `SUPPORT_TOPICS` value with a label in every catalog.
+- A `commit` tool has a `prepare()` beside its `run()` (the registry refuses one without the
+  other). `prepare()` reads the records and returns the card (`kind`, `title`, `lines`,
+  `amounts` under the codes of `AGENT_CONFIRMATION_AMOUNTS`, `ref`) and `expected`: what must
+  still hold at the tap. `run()` gets `expected` back and does what the card showed or throws
+  `AgentToolError('refused')`; it calls the ordinary service with
+  `AgentToolCallers.booking(grant, request)`. A card holds trip facts and money, never a name
+  or a contact.
+- Confirmations change only through `AgentConfirmationsService` (`ask`, `decide`): one pending
+  per conversation, a new message expires it, the tap claims the row with a conditional update
+  and runs the tool with a grant built from the traveller's session. Never run a commit tool
+  any other way, never take "yes" in the chat for a tap, and never add a route an agent could
+  call to decide one. The assistant is resumed with the stored `result` only.
+- Staff agents (`STAFF_AGENTS`) answer only in the console, through `/v1/admin/ai`
+  (`AgentChatService.sendForStaff`): the agents on offer are `staffAgentsFor()` over the
+  scopes the person's own permissions open, and a conversation is its owner's alone
+  (`loadForStaff`; the travellers' routes never open one). A staff tool lives in
+  `src/agent/tools/staff-tools.ts`, names a staff scope, returns counts, amounts, ids and
+  codes (never a traveller's name, contact or booking reference) and is never a `commit`.
+- What a staff agent prepares goes only through `AgentApprovalsService.propose()` into
+  `agent_approvals`, as the kind's own schema (`AGENT_APPROVAL_KINDS`); the tool answers with
+  `proposalOut`. Deciding (`approve`, `reject`) needs `ai:approve`, the kind's permission
+  (`AGENT_APPROVAL_PERMISSIONS`) and another person than the one who asked; approving takes an
+  `Idempotency-Key` (it can create a refund request) and runs the
+  ordinary service as the approver, with that service's own rules (a refund request still
+  meets its second approver; a promo code is created switched off). A new kind is a value in
+  `AGENT_APPROVAL_KINDS`, a permission, a schema, a branch in `carryOut()` and cases in
+  `agent-staff.e2e-spec.ts`. Never let an approval skip a check the ordinary route makes.
+
+### Assisted quotes (apps/api/src/assisted-quotes, packages/shared assisted-quotes; ADR-104)
+
+- A price a person verified is sold through an assisted quote, and only that way: a request
+  (`requested`), staff's verified supplier price with where the proof is kept (`offered`: an
+  ordinary `Offer`, vertical and item kind `assisted`, supplier `suskii`), the ordinary
+  checkout and payment, then a person's confirmation. Quotes change only through
+  `AssistedQuotesService`; never create an `assisted` offer elsewhere.
+- A quote is its account's (404 for anyone else, also on the offer's quote and at booking),
+  needs a session, and holds a title in a few words, places, dates and head counts
+  (`assistedQuoteInputSchema` refuses text that looks like a contact detail). Five open per
+  account; a request lapses after `ASSISTED_QUOTE_REQUEST_HOURS`, an offer after
+  `ASSISTED_QUOTE_VALID_MINUTES`; both are checked on every read.
+- The price is the verified supplier price through `PricingService.pricer('assisted', ...)`
+  (fee rules of the vertical `assisted`, code `assisted_quote`; none seeded), never below it.
+  The price seen on the web is a reference on the quote for staff, never the offer's price.
+- A paid assisted booking stays in `TICKETING` until staff act: `TicketingService.confirmByHand`
+  (the supplier's reference, with proof) moves it to `CONFIRMED`; `abandon` moves it to
+  `REFUND_PENDING` and refunds everything. The ticketing sweep skips the vertical. Nothing is
+  charged after payment: a price that moved is `unbookable` and a new offer.
+- An assisted booking is the asker's own: never a company booking, no payment plan, no PDF, no
+  review. Fields of the `assisted` section in quote and booking answers stay optional for
+  older app builds.
+- `ASSISTED_QUOTES_ENABLED` (on outside production, off in production unless set;
+  `assistedQuotesEnabled()` in `assisted-quotes-flag.ts`) stops what starts something new: a
+  request, an offer, a payment for an offer (the re-check refuses it), and what a traveller
+  reads (404). It never closes staff's queue or the ways out (`close`, `booked`,
+  `unbookable`): a booking someone paid for must still be booked or refunded. Keep a new
+  route on the right side of that line. The list is `GET /v1/me/assisted-quotes` (a path
+  under `/v1/quotes` would be read as a quote id).
 
 ### The agent service (apps/agent; ADR-101, ADR-103, ADR-106, ADR-107)
 
@@ -989,6 +1050,10 @@ Tooling notes for agents:
   nothing and hosted tracing is refused at start-up. `MockAgentModel` replays scripted turns
   (`scripted()`), and unscripted says one fixed sentence (asked about the "status" it calls
   `platform.status` once).
+- A run is for travellers or for staff (`context.audience`), never both: staff runs keep only
+  staff agents, are routed by `STAFF_ROUTER_PROMPT` (never by the travellers' keyword rules in
+  `pre-router.ts`) and fall back to the executive assistant. Staff agents work under
+  `staffRules`; a new one needs a role, a route line and a prompt there.
 - A prompt is a versioned record (`src/prompts/prompts.ts`): change its text and its version
   together. A change to a prompt, a tool or a model keeps the three evals passing on recorded
   answers (`src/evals/*.test.ts`, fixtures in `evals/`) and is re-run against the model
@@ -1706,5 +1771,14 @@ with the agent service (sub-phase D): one run of `agent-eval.yml` with `LLM_API_
 assistant answers travellers; the provider's data retention terms for conversations; the price
 of each model in `AGENT_MODEL_PRICES` when the provider's list changes; the help articles the
 assistant answers rules from; who answers a handover and when; whether guests may use the
-assistant or only signed-in travellers; and its spend caps. Every owner action is listed, step
-by step, in `docs/owner/launch-checklist.md`.
+assistant or only signed-in travellers; and its spend caps. Added with assisted quotes,
+confirmations and staff agents (sub-phase E): who verifies prices and books assisted bookings
+by hand, during which hours, and the time a traveller is promised an answer in
+(`ASSISTED_QUOTE_REQUEST_HOURS`, default 48); the fee an assisted quote earns (a fee rule on
+the vertical `assisted`; none is seeded, so it earns nothing today); where proof of a
+supplier's price and confirmation is kept (the forms take an https address); whether to offer
+assisted quotes in production (`ASSISTED_QUOTES_ENABLED`); who works the approvals queue,
+given that the person who asked an agent can never decide its proposal; which further kinds
+of proposal the staff agents should prepare (today a refund request and a promo code); and
+whether the staff agents should be offered in production at all. Every owner action is listed,
+step by step, in `docs/owner/launch-checklist.md`.

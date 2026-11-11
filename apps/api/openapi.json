@@ -487,6 +487,299 @@
         ]
       }
     },
+    "/v1/admin/ai/approvals": {
+      "get": {
+        "operationId": "adminListAgentApprovals",
+        "summary": "What agents prepared for a person to decide, oldest first",
+        "description": "`alsoWaiting` counts the assisted quotes to verify and the paid bookings to book by hand, which are decided on their own page (`/v1/admin/assisted-quotes`).",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected",
+                "expired",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentApprovalList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      }
+    },
+    "/v1/admin/ai/approvals/{approvalId}": {
+      "get": {
+        "operationId": "adminGetAgentApproval",
+        "summary": "One proposal, with exactly what approving it would do",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "approvalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentApproval"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      }
+    },
+    "/v1/admin/ai/approvals/{approvalId}/approve": {
+      "post": {
+        "operationId": "adminApproveAgentApproval",
+        "summary": "Approve: the ordinary service carries it out as the approver",
+        "description": "A refund request is created as the approver's (it then waits for its own second approver, as every staff refund does); a promo code is created switched off. Needs the kind's own permission besides `ai:approve` (403), and someone other than the person who asked (403 `own-approval`). If the ordinary service refuses it, the proposal ends as `failed` and nothing changed. 409 `approval-decided` once it was decided or lapsed.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "approvalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentApproval"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:approve"
+        ],
+        "x-audit": [
+          "agent.approval_approved"
+        ]
+      }
+    },
+    "/v1/admin/ai/approvals/{approvalId}/reject": {
+      "post": {
+        "operationId": "adminRejectAgentApproval",
+        "summary": "Reject: nothing is done",
+        "description": "Needs the kind's own permission besides `ai:approve`, and someone other than the person who asked, as approving does.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "approvalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectAgentApprovalInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentApproval"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:approve"
+        ],
+        "x-audit": [
+          "agent.approval_rejected"
+        ]
+      }
+    },
     "/v1/admin/ai/autonomy": {
       "put": {
         "operationId": "adminSetAgentAutonomy",
@@ -559,6 +852,210 @@
           "agent.autonomy_changed"
         ],
         "x-step-up": true
+      }
+    },
+    "/v1/admin/ai/chat": {
+      "post": {
+        "operationId": "adminSendAgentMessage",
+        "summary": "Ask the staff agents something",
+        "description": "Answers 202 with the run to read (`GET /v1/admin/ai/runs/{runId}`). The agents that may answer are the ones whose part of the platform the caller's own permissions open; with none, 403. What an agent prepares (a refund request, a promo code) waits in the approvals queue for someone else to decide.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentChatRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentChatStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ],
+        "x-audit": [
+          "agent.staff_message_sent"
+        ]
+      }
+    },
+    "/v1/admin/ai/conversations": {
+      "post": {
+        "operationId": "adminStartAgentConversation",
+        "summary": "Start a conversation with the staff agents",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartStaffAgentConversationRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConversation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ],
+        "x-audit": [
+          "agent.staff_conversation_started"
+        ]
+      }
+    },
+    "/v1/admin/ai/conversations/{conversationId}": {
+      "get": {
+        "operationId": "adminGetAgentConversation",
+        "summary": "One of the staff member's own conversations, with its messages",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConversation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
       }
     },
     "/v1/admin/ai/overview": {
@@ -821,6 +1318,531 @@
         "x-step-up": true
       }
     },
+    "/v1/admin/ai/runs/{runId}": {
+      "get": {
+        "operationId": "adminGetAgentRun",
+        "summary": "The events of one of the staff member's own runs",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRunEvents"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      }
+    },
+    "/v1/admin/assisted-quotes": {
+      "get": {
+        "operationId": "adminListAssistedQuotes",
+        "summary": "Requests to verify and paid bookings to book, oldest first",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "to_verify",
+              "type": "string",
+              "enum": [
+                "to_verify",
+                "to_book",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAssistedQuoteList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      }
+    },
+    "/v1/admin/assisted-quotes/{assistedQuoteId}": {
+      "get": {
+        "operationId": "adminGetAssistedQuote",
+        "summary": "One request, with what was verified and its booking",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "assistedQuoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAssistedQuote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:read"
+        ]
+      }
+    },
+    "/v1/admin/assisted-quotes/{assistedQuoteId}/booked": {
+      "post": {
+        "operationId": "adminMarkAssistedQuoteBooked",
+        "summary": "The paid booking was booked with the supplier: record its confirmation",
+        "description": "Only this confirms the booking: it moves to `CONFIRMED` and the traveller gets the confirmation email with the supplier's reference. 409 `assisted-booking-not-waiting` when the booking is unpaid, held for a payment review, already booked or already refunded.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "assistedQuoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookedAssistedQuoteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAssistedQuote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "bookings:manage"
+        ],
+        "x-audit": [
+          "assisted_quote.booked"
+        ]
+      }
+    },
+    "/v1/admin/assisted-quotes/{assistedQuoteId}/close": {
+      "post": {
+        "operationId": "adminCloseAssistedQuote",
+        "summary": "It cannot be had: close the request and tell the traveller",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "assistedQuoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseAssistedQuoteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAssistedQuote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:approve"
+        ],
+        "x-audit": [
+          "assisted_quote.closed"
+        ]
+      }
+    },
+    "/v1/admin/assisted-quotes/{assistedQuoteId}/offer": {
+      "post": {
+        "operationId": "adminOfferAssistedQuote",
+        "summary": "The live price was verified with the supplier: make the offer",
+        "description": "Creates the offer the traveller can book for `ASSISTED_QUOTE_VALID_MINUTES` and tells them. The traveller's price is the supplier's price through the pricing rules of the `assisted` vertical, never below it. Verifying again replaces the offer. 409 `assisted-quote-closed` once it was withdrawn, closed or booked.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "assistedQuoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferAssistedQuoteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAssistedQuote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "ai:approve"
+        ],
+        "x-audit": [
+          "assisted_quote.offered"
+        ]
+      }
+    },
+    "/v1/admin/assisted-quotes/{assistedQuoteId}/unbookable": {
+      "post": {
+        "operationId": "adminMarkAssistedQuoteUnbookable",
+        "summary": "The paid booking could not be booked: refund it in full",
+        "description": "The booking moves to `REFUND_PENDING` and everything the traveller paid goes back through the refund pipeline. 409 `assisted-booking-not-waiting` when there is nothing waiting to be booked.",
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "assistedQuoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnbookableAssistedQuoteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAssistedQuote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        },
+        "x-admin-permissions": [
+          "bookings:manage"
+        ],
+        "x-audit": [
+          "assisted_quote.unbookable"
+        ]
+      }
+    },
     "/v1/admin/audit-logs": {
       "get": {
         "operationId": "adminListAuditLogs",
@@ -960,7 +1982,8 @@
                 "prime",
                 "buses",
                 "rides",
-                "rentals"
+                "rentals",
+                "assisted"
               ]
             }
           },
@@ -7040,7 +8063,8 @@
                 "prime",
                 "buses",
                 "rides",
-                "rentals"
+                "rentals",
+                "assisted"
               ]
             }
           }
@@ -7250,7 +8274,8 @@
                 "prime",
                 "buses",
                 "rides",
-                "rentals"
+                "rentals",
+                "assisted"
               ]
             }
           }
@@ -14394,6 +15419,200 @@
           },
           "400": {
             "$ref": "#/components/responses/Problem400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/agent/confirmations/{confirmationId}": {
+      "get": {
+        "operationId": "getAgentConfirmation",
+        "summary": "What the assistant asks the traveller to confirm",
+        "description": "The card is built by the API from its own records: what will be done, to which booking or trip, and the money it moves. `status` is `pending` until the traveller answers or 15 minutes pass.",
+        "tags": [
+          "Assistant"
+        ],
+        "parameters": [
+          {
+            "name": "confirmationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfirmation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/agent/confirmations/{confirmationId}/confirm": {
+      "post": {
+        "operationId": "confirmAgentConfirmation",
+        "summary": "The traveller's tap: do what the card says",
+        "description": "Runs the action through the ordinary service as the signed-in traveller, exactly as the card showed it (a refund that changed since is refused, and `status` becomes `failed` with a `reason`). The assistant then says what the records hold in the run named by `runId`. 409 `confirmation-decided` or `confirmation-expired` when it is no longer waiting.",
+        "tags": [
+          "Assistant"
+        ],
+        "parameters": [
+          {
+            "name": "confirmationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecidedAgentConfirmation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/agent/confirmations/{confirmationId}/decline": {
+      "post": {
+        "operationId": "declineAgentConfirmation",
+        "summary": "The traveller says no",
+        "description": "Nothing is done. The assistant is told and answers in the run named by `runId`. 409 when the confirmation is no longer waiting.",
+        "tags": [
+          "Assistant"
+        ],
+        "parameters": [
+          {
+            "name": "confirmationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecidedAgentConfirmation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
           },
           "404": {
             "$ref": "#/components/responses/Problem404"
@@ -23045,6 +24264,46 @@
         }
       }
     },
+    "/v1/me/assisted-quotes": {
+      "get": {
+        "operationId": "listAssistedQuotes",
+        "summary": "My requests and their answers, newest first",
+        "tags": [
+          "Quotes"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistedQuoteList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/me/bookings": {
       "get": {
         "operationId": "listMyBookings",
@@ -28203,6 +29462,198 @@
         }
       }
     },
+    "/v1/quotes/assisted": {
+      "post": {
+        "operationId": "requestAssistedQuote",
+        "summary": "Ask for a price to be confirmed by a person",
+        "description": "For something seen at an indicative price (send its `observationId`) or something the ordinary search does not sell. It holds places, dates and head counts only: no names and no contact details (422). A person verifies the live price with the supplier and answers with an offer, or says it cannot be had; a request nobody answered closes as `expired`. Up to five can wait at once (409 `assisted-quote-limit`). 404 while assisted quotes are switched off.",
+        "tags": [
+          "Quotes"
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique key (8-128 chars) per logical operation; retries with the same key replay the first response for 24 hours.",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssistedQuoteInputInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistedQuote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem422"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/quotes/assisted/{assistedQuoteId}": {
+      "get": {
+        "operationId": "getAssistedQuote",
+        "summary": "One of my requests",
+        "description": "With `status` `offered`, `offer.quoteId` is an ordinary quote: read it with `GET /v1/quotes/{quoteId}` and book it with `POST /v1/bookings` before `offer.expiresAt`. The booking is paid as any other, then booked by a person with the supplier; it is `CONFIRMED` only once they have the confirmation, and refunded in full if it cannot be booked.",
+        "tags": [
+          "Quotes"
+        ],
+        "parameters": [
+          {
+            "name": "assistedQuoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistedQuote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
+    "/v1/quotes/assisted/{assistedQuoteId}/withdraw": {
+      "post": {
+        "operationId": "withdrawAssistedQuote",
+        "summary": "I no longer want this",
+        "description": "For a request that is waiting or on offer. One that became a booking is cancelled as a booking (409 `assisted-quote-closed`).",
+        "tags": [
+          "Quotes"
+        ],
+        "parameters": [
+          {
+            "name": "assistedQuoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "description": "Required when the request is authenticated with session cookies: echo the csrf cookie value.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistedQuote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem409"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/rentals/reservations/{reservationId}": {
       "get": {
         "operationId": "getRentalReservation",
@@ -31589,6 +33040,391 @@
         ],
         "additionalProperties": false
       },
+      "AdminAssistedQuote": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "product": {
+            "type": "string",
+            "enum": [
+              "flight",
+              "hotel",
+              "car",
+              "transfer",
+              "tour",
+              "package",
+              "other"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "origin": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 80
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "destination": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 80
+              },
+              "startDate": {
+                "type": "string"
+              },
+              "endDate": {
+                "default": null,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "adults": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              "children": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8
+              }
+            },
+            "required": [
+              "origin",
+              "destination",
+              "startDate",
+              "endDate",
+              "adults",
+              "children"
+            ],
+            "additionalProperties": false
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "offered",
+              "unavailable",
+              "expired",
+              "withdrawn",
+              "booked"
+            ]
+          },
+          "closedReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indicative": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "price": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "seenAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "price",
+                  "source",
+                  "seenAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offer": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "quoteId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "total": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "details": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 160
+                      },
+                      "summary": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 1200
+                      },
+                      "startDate": {
+                        "type": "string"
+                      },
+                      "endDate": {
+                        "type": "string"
+                      },
+                      "cityName": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 80
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "countryCode": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "refundable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "title",
+                      "summary",
+                      "startDate",
+                      "endDate",
+                      "cityName",
+                      "countryCode",
+                      "refundable"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "quoteId",
+                  "total",
+                  "details",
+                  "expiresAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bookingId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answerBy": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplierName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supplierPrice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verifiedBy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verifiedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "booking": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reference": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "DRAFT",
+                      "PRICED",
+                      "HELD",
+                      "AWAITING_PAYMENT",
+                      "PARTIALLY_PAID",
+                      "PAID",
+                      "TICKETING",
+                      "CONFIRMED",
+                      "FAILED",
+                      "CANCELLED",
+                      "REFUND_PENDING",
+                      "REFUNDED",
+                      "EXPIRED"
+                    ]
+                  },
+                  "waitsToBeBooked": {
+                    "type": "boolean"
+                  },
+                  "supplierReference": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "evidenceUrl": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "reference",
+                  "status",
+                  "waitsToBeBooked",
+                  "supplierReference",
+                  "evidenceUrl"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "product",
+          "title",
+          "request",
+          "currency",
+          "status",
+          "closedReason",
+          "indicative",
+          "offer",
+          "bookingId",
+          "answerBy",
+          "createdAt",
+          "userId",
+          "supplierName",
+          "supplierPrice",
+          "evidenceUrl",
+          "verifiedBy",
+          "verifiedAt",
+          "booking"
+        ],
+        "additionalProperties": false
+      },
+      "AdminAssistedQuoteList": {
+        "type": "object",
+        "properties": {
+          "quotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminAssistedQuote"
+            }
+          }
+        },
+        "required": [
+          "quotes"
+        ],
+        "additionalProperties": false
+      },
       "AdminBookingContact": {
         "type": "object",
         "properties": {
@@ -31871,7 +33707,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "createdAt": {
@@ -32733,7 +34570,8 @@
                         "prime",
                         "buses",
                         "rides",
-                        "rentals"
+                        "rentals",
+                        "assisted"
                       ]
                     },
                     "count": {
@@ -33856,7 +35694,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "active": {
@@ -34172,7 +36011,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "priority": {
@@ -35188,7 +37028,8 @@
                 "prime",
                 "buses",
                 "rides",
-                "rentals"
+                "rentals",
+                "assisted"
               ]
             }
           },
@@ -37437,7 +39278,8 @@
                   "prime",
                   "buses",
                   "rides",
-                  "rentals"
+                  "rentals",
+                  "assisted"
                 ]
               },
               {
@@ -37719,6 +39561,204 @@
         ],
         "additionalProperties": false
       },
+      "AgentApproval": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "refund_request",
+              "promo_code"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "expired",
+              "failed"
+            ]
+          },
+          "agent": {
+            "type": "string",
+            "enum": [
+              "concierge",
+              "flights",
+              "hotels",
+              "cars",
+              "tours",
+              "trip_builder",
+              "bookings",
+              "payments",
+              "support",
+              "disruption",
+              "price_intel",
+              "operations",
+              "finance_prep",
+              "marketing",
+              "business_intelligence",
+              "executive"
+            ]
+          },
+          "requestedBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mayDecide": {
+            "type": "boolean"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payload": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decidedBy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decidedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "agent",
+          "requestedBy",
+          "mayDecide",
+          "subject",
+          "payload",
+          "reason",
+          "decidedBy",
+          "decidedAt",
+          "result",
+          "expiresAt",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "AgentApprovalList": {
+        "type": "object",
+        "properties": {
+          "approvals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentApproval"
+            }
+          },
+          "alsoWaiting": {
+            "type": "object",
+            "properties": {
+              "assistedQuotesToVerify": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "assistedBookingsToBook": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "assistedQuotesToVerify",
+              "assistedBookingsToBook"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "approvals",
+          "alsoWaiting"
+        ],
+        "additionalProperties": false
+      },
       "AgentAutonomyInputInput": {
         "type": "object",
         "properties": {
@@ -37814,6 +39854,174 @@
         "required": [
           "runId",
           "message"
+        ],
+        "additionalProperties": false
+      },
+      "AgentConfirmation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "declined",
+              "expired",
+              "failed"
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "disabled",
+                  "paused",
+                  "grant",
+                  "unknown_tool",
+                  "agent",
+                  "scope",
+                  "autonomy",
+                  "confirmation_required",
+                  "limit",
+                  "invalid",
+                  "not_found",
+                  "refused",
+                  "failed",
+                  "timeout"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "card": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "flight",
+                  "hotel",
+                  "car",
+                  "transfer",
+                  "tour",
+                  "package",
+                  "visa",
+                  "booking",
+                  "trip",
+                  "price",
+                  "link"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "lines": {
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "amounts": {
+                "default": [],
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "refund",
+                        "kept",
+                        "target"
+                      ]
+                    },
+                    "amount": {
+                      "$ref": "#/components/schemas/Money"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "amount"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "ref": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "booking",
+                      "trip",
+                      "support"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "kind",
+              "title",
+              "lines",
+              "amounts"
+            ],
+            "additionalProperties": false
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "conversationId",
+          "action",
+          "status",
+          "reason",
+          "card",
+          "expiresAt",
+          "decidedAt"
         ],
         "additionalProperties": false
       },
@@ -38734,6 +40942,484 @@
         ],
         "additionalProperties": false
       },
+      "AssistedItem": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "sample": {
+                "type": "boolean"
+              },
+              "artKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "title",
+              "sample",
+              "artKey"
+            ],
+            "additionalProperties": false
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "flight",
+              "hotel",
+              "car",
+              "transfer",
+              "tour",
+              "package",
+              "other"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "cityName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "countryCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "travellers": {
+            "$ref": "#/components/schemas/TravellerCounts"
+          },
+          "refundable": {
+            "type": "boolean"
+          },
+          "quoteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplierReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "product",
+          "kind",
+          "summary",
+          "startDate",
+          "endDate",
+          "cityName",
+          "countryCode",
+          "travellers",
+          "refundable",
+          "quoteId",
+          "supplierReference"
+        ],
+        "additionalProperties": false
+      },
+      "AssistedQuote": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "product": {
+            "type": "string",
+            "enum": [
+              "flight",
+              "hotel",
+              "car",
+              "transfer",
+              "tour",
+              "package",
+              "other"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "origin": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 80
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "destination": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 80
+              },
+              "startDate": {
+                "type": "string"
+              },
+              "endDate": {
+                "default": null,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "adults": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              "children": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8
+              }
+            },
+            "required": [
+              "origin",
+              "destination",
+              "startDate",
+              "endDate",
+              "adults",
+              "children"
+            ],
+            "additionalProperties": false
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "offered",
+              "unavailable",
+              "expired",
+              "withdrawn",
+              "booked"
+            ]
+          },
+          "closedReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indicative": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "price": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "seenAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "price",
+                  "source",
+                  "seenAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offer": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "quoteId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "total": {
+                    "$ref": "#/components/schemas/Money"
+                  },
+                  "details": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 160
+                      },
+                      "summary": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 1200
+                      },
+                      "startDate": {
+                        "type": "string"
+                      },
+                      "endDate": {
+                        "type": "string"
+                      },
+                      "cityName": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 80
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "countryCode": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "refundable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "title",
+                      "summary",
+                      "startDate",
+                      "endDate",
+                      "cityName",
+                      "countryCode",
+                      "refundable"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "quoteId",
+                  "total",
+                  "details",
+                  "expiresAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bookingId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answerBy": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "product",
+          "title",
+          "request",
+          "currency",
+          "status",
+          "closedReason",
+          "indicative",
+          "offer",
+          "bookingId",
+          "answerBy",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "AssistedQuoteInputInput": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string",
+            "enum": [
+              "flight",
+              "hotel",
+              "car",
+              "transfer",
+              "tour",
+              "package",
+              "other"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "origin": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 80
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "destination": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 80
+              },
+              "startDate": {
+                "type": "string"
+              },
+              "endDate": {
+                "default": null,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "adults": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              "children": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8
+              }
+            },
+            "required": [
+              "destination",
+              "startDate",
+              "adults"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "NGN",
+              "USD",
+              "GBP",
+              "EUR",
+              "GHS",
+              "KES",
+              "ZAR"
+            ]
+          },
+          "observationId": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "product",
+          "title",
+          "request",
+          "currency"
+        ]
+      },
+      "AssistedQuoteList": {
+        "type": "object",
+        "properties": {
+          "quotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssistedQuote"
+            }
+          }
+        },
+        "required": [
+          "quotes"
+        ],
+        "additionalProperties": false
+      },
       "AttestationChallenge": {
         "type": "object",
         "properties": {
@@ -38965,6 +41651,24 @@
         ],
         "additionalProperties": false
       },
+      "BookedAssistedQuoteInput": {
+        "type": "object",
+        "properties": {
+          "supplierReference": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9/_-]{2,39}$"
+          },
+          "evidenceUrl": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          }
+        },
+        "required": [
+          "supplierReference",
+          "evidenceUrl"
+        ]
+      },
       "Booking": {
         "type": "object",
         "properties": {
@@ -39005,7 +41709,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "createdAt": {
@@ -39321,6 +42026,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/MembershipItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assisted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssistedItem"
               },
               {
                 "type": "null"
@@ -40414,7 +43129,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "createdAt": {
@@ -41694,6 +44410,25 @@
         ],
         "additionalProperties": false
       },
+      "CloseAssistedQuoteInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "sold_out",
+              "price_not_available",
+              "supplier_declined",
+              "not_sold_by_suskii",
+              "duplicate",
+              "other"
+            ]
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
       "Company": {
         "type": "object",
         "properties": {
@@ -41802,7 +44537,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "createdAt": {
@@ -44925,6 +47661,30 @@
         ],
         "additionalProperties": false
       },
+      "DecidedAgentConfirmation": {
+        "type": "object",
+        "properties": {
+          "confirmation": {
+            "$ref": "#/components/schemas/AgentConfirmation"
+          },
+          "runId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "confirmation",
+          "runId"
+        ],
+        "additionalProperties": false
+      },
       "DeleteAccountRequestInput": {
         "type": "object",
         "properties": {
@@ -46103,7 +48863,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "active": {
@@ -46262,7 +49023,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "active": {
@@ -49832,7 +52594,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "priority": {
@@ -50068,7 +52831,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "priority": {
@@ -51831,6 +54595,86 @@
           "marketingConsent"
         ],
         "additionalProperties": false
+      },
+      "OfferAssistedQuoteInput": {
+        "type": "object",
+        "properties": {
+          "supplierName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "supplierPrice": {
+            "$ref": "#/components/schemas/MoneyInput"
+          },
+          "evidenceUrl": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          },
+          "details": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 160
+              },
+              "summary": {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 1200
+              },
+              "startDate": {
+                "type": "string"
+              },
+              "endDate": {
+                "type": "string"
+              },
+              "cityName": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 80
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "countryCode": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "refundable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "title",
+              "summary",
+              "startDate",
+              "endDate",
+              "refundable"
+            ]
+          }
+        },
+        "required": [
+          "supplierName",
+          "supplierPrice",
+          "evidenceUrl",
+          "details"
+        ]
       },
       "OfficerVisaApplication": {
         "type": "object",
@@ -56785,7 +59629,8 @@
                 "prime",
                 "buses",
                 "rides",
-                "rentals"
+                "rentals",
+                "assisted"
               ]
             }
           },
@@ -56939,7 +59784,8 @@
                 "prime",
                 "buses",
                 "rides",
-                "rentals"
+                "rentals",
+                "assisted"
               ]
             }
           },
@@ -57185,7 +60031,8 @@
               "prime",
               "buses",
               "rides",
-              "rentals"
+              "rentals",
+              "assisted"
             ]
           },
           "currency": {
@@ -57330,6 +60177,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/MembershipItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assisted": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssistedItem"
               },
               {
                 "type": "null"
@@ -57884,6 +60741,24 @@
         "required": [
           "email",
           "password"
+        ]
+      },
+      "RejectAgentApprovalInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "not_needed",
+              "wrong_amount",
+              "wrong_details",
+              "duplicate",
+              "other"
+            ]
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "RejectPaymentReviewRequestInput": {
@@ -59658,12 +62533,22 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "assisted-quotes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "agent-conversations": {
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
           },
           "agent-runs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "agent-approvals": {
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
@@ -59752,8 +62637,10 @@
           "trips",
           "ad-conversions",
           "metasearch-landings",
+          "assisted-quotes",
           "agent-conversations",
           "agent-runs",
+          "agent-approvals",
           "agent-threads",
           "scrape-jobs",
           "price-observations",
@@ -62148,6 +65035,26 @@
           }
         }
       },
+      "StartStaffAgentConversationRequestInput": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en-NG",
+              "en-GB",
+              "en-US",
+              "fr",
+              "sw",
+              "ar",
+              "pt"
+            ]
+          }
+        },
+        "required": [
+          "locale"
+        ]
+      },
       "StartSupportConversationRequestInput": {
         "type": "object",
         "properties": {
@@ -62851,7 +65758,8 @@
                   "prime",
                   "buses",
                   "rides",
-                  "rentals"
+                  "rentals",
+                  "assisted"
                 ]
               },
               {
@@ -62952,7 +65860,8 @@
                   "prime",
                   "buses",
                   "rides",
-                  "rentals"
+                  "rentals",
+                  "assisted"
                 ]
               },
               {
@@ -64169,6 +67078,22 @@
             "maximum": 10000
           }
         }
+      },
+      "UnbookableAssistedQuoteInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "sold_out",
+              "price_changed",
+              "supplier_declined"
+            ]
+          }
+        },
+        "required": [
+          "reason"
+        ]
       },
       "UnverifyTrustSignalRequestInput": {
         "type": "object",

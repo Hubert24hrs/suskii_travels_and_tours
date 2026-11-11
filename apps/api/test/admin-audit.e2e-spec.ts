@@ -1,6 +1,7 @@
 import { addDays, BOOKING_TERMS_VERSION, localDate } from '@suskii/shared';
 import type { Response } from 'supertest';
 
+import { AgentApprovalsService } from '../src/agent/approvals/agent-approvals.service';
 import { MockPaymentProvider } from '../src/payments/mock-payment-provider';
 
 import {
@@ -86,6 +87,9 @@ describe('admin audit coverage (e2e)', () => {
       // Only the risk review case sends a card: a foreign card holds its payments (ADR-040).
       CLIENT_COUNTRY_HEADER: 'cf-ipcountry',
       PAYMENT_RISK_REVIEW_SCORE: 30,
+      // The staff agents answer from the mock inside the API.
+      AGENT_ENABLED: true,
+      AGENT_SERVICE: 'mock',
     });
     await ctx.background.drain();
     await resetState(ctx);
@@ -1116,6 +1120,63 @@ describe('admin audit coverage (e2e)', () => {
     expect(level.body).toEqual({ subject: 'agent', name: 'concierge', level: 'manual', set: true });
   });
 
+  it('staff agents: a conversation, a question and the approvals queue', async () => {
+    const conversation = await audited('adminStartAgentConversation', {}, (request) =>
+      request.send({ locale: 'en-NG' }),
+    );
+    const conversationId = (conversation.body as { id: string }).id;
+    const asked = await audited('adminSendAgentMessage', {}, (request) =>
+      request.send({ conversationId, text: 'What is waiting for a person today?' }),
+    );
+    await ctx.background.drain();
+    const runId = (asked.body as { runId: string }).runId;
+
+    /** What an agent prepared for the admin: decided by the other super admin, never by them. */
+    const proposed = async (code: string): Promise<string> => {
+      const made = await ctx.app.get(AgentApprovalsService).propose({
+        kind: 'promo_code',
+        requestedBy: admin.userId,
+        agent: 'marketing',
+        runId,
+        conversationId,
+        subject: null,
+        payload: {
+          code,
+          description: null,
+          type: 'percentage',
+          value: 1000,
+          currency: null,
+          maxDiscountMinor: null,
+          minSpendMinor: null,
+          verticals: [],
+          validFrom: null,
+          validTo: null,
+          maxRedemptions: null,
+          maxRedemptionsPerUser: null,
+          requiresAccount: true,
+          active: true,
+        },
+      });
+      if (!('id' in made)) throw new Error('The proposal was refused');
+      return made.id;
+    };
+    const approved = await audited(
+      'adminApproveAgentApproval',
+      { approvalId: await proposed('E2EAGENT10') },
+      (request) => request.set('Idempotency-Key', idempotencyKey()).send({}),
+      approver,
+    );
+    expect(approved.body).toMatchObject({ status: 'approved', result: { type: 'promo_code' } });
+    const promo = await ctx.prisma.promoCode.findUniqueOrThrow({ where: { code: 'E2EAGENT10' } });
+    expect(promo.active).toBe(false);
+    await audited(
+      'adminRejectAgentApproval',
+      { approvalId: await proposed('E2EAGENT20') },
+      (request) => request.send({ reason: 'not_needed' }),
+      approver,
+    );
+  });
+
   it('price intelligence: a site, its decisions, a read, a switch and a budget', async () => {
     const domain = 'audit-hotels.example.com';
     const created = await audited('adminCreatePriceSource', {}, (request) =>
@@ -1171,6 +1232,111 @@ describe('admin audit coverage (e2e)', () => {
       }),
     );
     expect(budget.body).toMatchObject({ dailyCapMicroUsd: 5_000, set: true });
+  });
+
+  it('assisted quotes: an offer, a closed request, booked by hand and unbookable', async () => {
+    const traveller = await signUp(ctx, 'audit-quote@example.com');
+    const headers = bearer(traveller.accessToken);
+    const ask = async (): Promise<string> =>
+      (
+        await ctx
+          .http()
+          .post('/v1/quotes/assisted')
+          .set(headers)
+          .set('Idempotency-Key', idempotencyKey())
+          .send({
+            product: 'hotel',
+            title: 'Audit Hotel, standard room',
+            request: {
+              destination: 'Lagos',
+              startDate: inDays(30),
+              endDate: inDays(32),
+              adults: 1,
+            },
+            currency: 'NGN',
+          })
+          .expect(201)
+      ).body.id as string;
+    const verified = {
+      supplierName: 'Audit Wholesale',
+      supplierPrice: { amountMinor: 12_000_000, currency: 'NGN' },
+      evidenceUrl: 'https://files.suskii.test/audit/price.pdf',
+      details: {
+        title: 'Audit Hotel, standard room',
+        summary: 'Two nights for one, room only. Not refundable.',
+        startDate: inDays(30),
+        endDate: inDays(32),
+        refundable: false,
+      },
+    };
+    /** The offer booked and paid by the traveller: a booking that waits to be booked by hand. */
+    const paidFrom = async (assistedQuoteId: string): Promise<void> => {
+      const offered = await audited('adminOfferAssistedQuote', { assistedQuoteId }, (request) =>
+        request.send(verified),
+      );
+      const quoteId = (offered.body as { offer: { quoteId: string } }).offer.quoteId;
+      const created = await ctx
+        .http()
+        .post('/v1/bookings')
+        .set(headers)
+        .set('Idempotency-Key', idempotencyKey())
+        .send({
+          quoteId,
+          contact: { email: 'audit-quote@example.com', phone: '+2348012345678' },
+          passengers: [
+            {
+              type: 'adult',
+              title: 'ms',
+              gender: 'f',
+              givenNames: 'Ngozi',
+              surname: 'Eze',
+              dateOfBirth: '1990-04-01',
+              nationality: 'NG',
+            },
+          ],
+          termsVersion: BOOKING_TERMS_VERSION,
+          acceptTerms: true,
+        })
+        .expect(201);
+      const payment = await ctx
+        .http()
+        .post(`/v1/bookings/${created.body.booking.id as string}/payments`)
+        .set(headers)
+        .set('Idempotency-Key', idempotencyKey())
+        .expect(201);
+      const reference = (payment.body.checkoutUrl as string).split('/').pop() ?? '';
+      await ctx
+        .http()
+        .post(`/v1/payments/mock/${reference}/complete`)
+        .send({ outcome: 'succeeded' })
+        .expect(200);
+      await ctx.background.drain();
+    };
+
+    const first = await ask();
+    await paidFrom(first);
+    const booked = await audited(
+      'adminMarkAssistedQuoteBooked',
+      { assistedQuoteId: first },
+      (request) =>
+        request.send({
+          supplierReference: 'AUD-1001',
+          evidenceUrl: 'https://files.suskii.test/audit/confirmation.pdf',
+        }),
+    );
+    expect(booked.body).toMatchObject({ booking: { status: 'CONFIRMED' } });
+
+    const second = await ask();
+    await paidFrom(second);
+    await audited('adminMarkAssistedQuoteUnbookable', { assistedQuoteId: second }, (request) =>
+      request.send({ reason: 'supplier_declined' }),
+    );
+
+    const third = await ask();
+    const closed = await audited('adminCloseAssistedQuote', { assistedQuoteId: third }, (request) =>
+      request.send({ reason: 'not_sold_by_suskii' }),
+    );
+    expect(closed.body).toMatchObject({ status: 'unavailable' });
   });
 
   it('covered every admin mutation', () => {

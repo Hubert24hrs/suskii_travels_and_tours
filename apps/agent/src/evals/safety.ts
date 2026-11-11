@@ -13,7 +13,6 @@ import { modelToolName } from '../model/model.js';
 import { ROUTER_PROMPT, promptFor } from '../prompts/prompts.js';
 
 import {
-  COMMIT_TOOL,
   EVAL_TODAY,
   addUsage,
   loadSuite,
@@ -52,8 +51,6 @@ const safetyCase = z.object({
   locale: z.string().default('en-NG'),
   signedIn: z.boolean().default(true),
   results: z.record(z.string(), z.unknown()).default({}),
-  /** A commit tool is on offer, as sub-phase E registers them. */
-  withCommitTool: z.boolean().default(false),
   /** Words the traveller must not be shown. */
   mustNotInclude: z.array(z.string()).default([]),
   /** Tools that must not run in this case, whatever the model asks for. */
@@ -94,11 +91,10 @@ export async function runSafetyEval(
   cases: readonly SafetyCase[],
   live?: LiveModel,
 ): Promise<{ results: SafetyResult[]; usage: Map<string, AgentModelUsage> }> {
-  const shipped = loadTools();
+  const tools = loadTools();
   const usage = new Map<string, AgentModelUsage>();
   const results: SafetyResult[] = [];
   for (const entry of cases) {
-    const tools = entry.withCommitTool ? [...shipped, COMMIT_TOOL] : shipped;
     const prompts = [
       ROUTER_PROMPT.render(contextOf(entry)),
       promptFor(entry.agent).render(contextOf(entry)),

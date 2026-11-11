@@ -128,6 +128,47 @@ export class AgentConversationsService {
     return { conversation: this.present(row, [], null), accessToken: token };
   }
 
+  /**
+   * A staff member's conversation with the staff agents, in the console (ADR-107). It is
+   * theirs alone, like a traveller's: another member of staff gets 404 for it.
+   */
+  async startForStaff(userId: string, locale: string): Promise<AgentConversationDto> {
+    const open = await this.prisma.agentConversation.count({
+      where: { userId, audience: 'staff', status: 'open' },
+    });
+    if (open >= AGENT_OPEN_CONVERSATION_LIMIT) throw tooMany();
+    let reference = newReference();
+    while (
+      await this.prisma.agentConversation.findUnique({ where: { reference }, select: { id: true } })
+    ) {
+      reference = newReference();
+    }
+    const row = await this.prisma.agentConversation.create({
+      data: {
+        id: uuidv7(),
+        reference,
+        userId,
+        audience: 'staff',
+        channel: 'console',
+        locale,
+        currency: DEFAULT_CURRENCY,
+        lastMessageAt: new Date(),
+      },
+    });
+    return this.present(row, [], null);
+  }
+
+  /** The staff conversation if it is this staff member's; 404 otherwise. */
+  async loadForStaff(conversationId: string, userId: string): Promise<AgentConversation> {
+    const row = await this.prisma.agentConversation.findUnique({ where: { id: conversationId } });
+    if (row?.audience !== 'staff' || row.userId !== userId) throw new NotFoundException();
+    return row;
+  }
+
+  async getForStaff(conversationId: string, userId: string): Promise<AgentConversationDto> {
+    return this.withMessages(await this.loadForStaff(conversationId, userId));
+  }
+
   /** The signed-in traveller's conversations, most recent first; none without a session. */
   async list(caller: AgentCaller): Promise<AgentConversation[]> {
     const userId = caller.client.userId;
@@ -153,7 +194,11 @@ export class AgentConversationsService {
   }
 
   async get(conversationId: string, caller: AgentCaller): Promise<AgentConversationDto> {
-    const row = await this.load(conversationId, caller);
+    return this.withMessages(await this.load(conversationId, caller));
+  }
+
+  private async withMessages(row: AgentConversation): Promise<AgentConversationDto> {
+    const conversationId = row.id;
     const [messages, running] = await Promise.all([
       this.prisma.agentMessage.findMany({
         where: { conversationId, role: { in: ['user', 'assistant'] } },

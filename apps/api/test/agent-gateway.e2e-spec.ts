@@ -75,6 +75,8 @@ describe('agent tool gateway (e2e)', () => {
         agents: ['bookings'],
         input: z.object({}),
         output: z.object({}),
+        prepare: () =>
+          Promise.resolve({ card: { kind: 'trip', title: 'A trip (test only)', lines: [] } }),
         run: () => Promise.reject(new Error('a commit must never run from the gateway')),
       }),
     );
@@ -217,11 +219,20 @@ describe('agent tool gateway (e2e)', () => {
       expect(tool.description.length).toBeGreaterThan(20);
       expect(tool.parameters.type).toBe('object');
     }
-    // Nothing shipped commits (the test tools aside): a commit only ever becomes a confirmation
-    // a person taps. The tools that prepare something are named in `agent-tools.e2e-spec.ts`.
-    for (const tool of tools.filter((entry) => !entry.name.startsWith('testing.'))) {
-      expect([tool.name, tool.tier === 'commit']).toEqual([tool.name, false]);
-    }
+    // The tools that change something are few and named, here and in `agent-tools.e2e-spec.ts`:
+    // a new one is a decision, not a side effect of a change. None of them runs from the
+    // gateway; each becomes a confirmation a person taps (`agent-confirmations.e2e-spec.ts`).
+    expect(
+      tools
+        .filter((entry) => entry.tier === 'commit' && !entry.name.startsWith('testing.'))
+        .map((entry) => entry.name),
+    ).toEqual([
+      'alerts.stop',
+      'alerts.watch',
+      'bookings.cancel',
+      'changes.accept',
+      'changes.take_refund_offer',
+    ]);
   });
 
   it('runs a read tool for the grant and records the call without its values', async () => {

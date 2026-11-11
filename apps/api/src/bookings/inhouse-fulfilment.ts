@@ -59,6 +59,9 @@ export class InhouseFulfilment {
     item: BookingItemRecord,
     payload: InhouseItemPayload,
   ): Promise<void> {
+    // What staff booked by hand is fulfilled by them: its confirmation and `bookedAt` are
+    // already on the item, and nothing of ours is issued (ADR-104).
+    if (payload.kind === 'assisted') return;
     if (payload.kind === 'visa') {
       await this.openApplications(tx, booking, payload);
     } else if (payload.kind === 'membership') {

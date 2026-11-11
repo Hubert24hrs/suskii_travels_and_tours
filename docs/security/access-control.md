@@ -45,15 +45,43 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
   capturing a payment, paying out, posting to the ledger, changing a price rule and confirming a
   booking cannot be registered as tools at all (`isForbiddenAgentTool`; the API refuses to
   start). `test/agent-gateway.e2e-spec.ts` covers each refusal.
-- **The tools themselves** (ADR-107): sixteen for the customer agents, every one calling the
-  ordinary service as the grant's caller (`BookingsService.load()`, `TripsService.get()`,
-  `SupportService.start()`), so another person's booking, trip or conversation is `not_found`,
-  as the API answers 404. Fourteen only read. Two prepare something and are the only ones that
-  write: `trips.plan` starts a combined trip for the signed-in traveller (it books and holds
-  nothing) and `support.handover` opens one support conversation with the traveller's own last
-  messages. None commits. A guest's grant carries no `account` scope, so the bookings, payments
-  and trips tools are refused before they run. `test/agent-tools.e2e-spec.ts` covers each tool,
-  and `test/agent-service.e2e-spec.ts` the chain with the agent service as its own process.
+- **The tools themselves** (ADR-107): 37. Twenty-seven are the customer agents', each calling
+  the ordinary service as the grant's caller (`BookingsService.load()`, `TripsService.get()`,
+  `SupportService.start()`), so another person's booking, trip, quote or conversation is
+  `not_found`, as the API answers 404. Nineteen of them only read. Three prepare something:
+  `trips.plan` starts a combined trip for the signed-in traveller (it books and holds nothing),
+  `support.handover` opens one support conversation with the traveller's own last messages,
+  and `quotes.request` asks staff to confirm a price (ADR-104). Five commit and never run from
+  the gateway (`bookings.cancel`, `changes.accept`, `changes.take_refund_offer`,
+  `alerts.watch`, `alerts.stop`): each becomes a confirmation. A guest's grant carries no
+  `account` scope, so the bookings, payments and trips tools are refused before they run.
+  Eight are the staff agents', in the console only: six read counts, amounts and ids and two
+  prepare a proposal for the approvals queue. Two (`catalog.places`, `platform.status`) are for
+  every agent. `test/agent-tools.e2e-spec.ts` covers the customer tools,
+  `test/agent-staff.e2e-spec.ts` the staff tools, and `test/agent-service.e2e-spec.ts` the
+  chain with the agent service as its own process.
+- **Confirmations** (`/v1/agent/confirmations/{id}`, ADR-107): the card and the tap belong to
+  the signed-in owner of the conversation (404 for anyone else, 401 without a session). The
+  tap carries the traveller's session and an `Idempotency-Key`, claims the row with a
+  conditional update and runs the tool with a grant built from that session; the agent service
+  holds no route to it. A new message, 15 minutes or a changed fact ends a card without doing
+  anything; a tap is refused while the assistant is paused.
+- **Assisted quotes** (ADR-104): a request, its offer and its booking belong to the account
+  that asked (404 for anyone else, also on the offer's quote and at booking). Staff with
+  `ai:read` see the queue; `ai:approve` records the verified price or closes a request;
+  `bookings:manage` records the supplier's confirmation or marks a paid booking unbookable
+  (which refunds it). Every change is audited. While `ASSISTED_QUOTES_ENABLED` is off a
+  traveller's routes answer 404, no offer is made and none can be paid for; staff can still
+  finish or close what is open.
+- **Staff agents and approvals** (`/v1/admin/ai`, ADR-107): staff with `ai:read` talk to the
+  agents whose scope their own permissions open (`STAFF_AGENT_SCOPES`), and every tool is
+  checked against the grant's scopes again; a conversation and its runs are their owner's
+  alone (404 for other staff, and for the travellers' routes). What an agent prepares is a row
+  in `agent_approvals`. Deciding it needs `ai:approve`, the kind's own permission
+  (`refunds:request` for a refund request, `deals:manage` for a promo code) and to be someone
+  other than the person who asked (403 `own-approval`); approving runs the ordinary service as
+  the approver, so a refund request still meets its own second approver. No tool decides an
+  approval (`isForbiddenAgentTool`).
 - **The assistant's chat routes** (`/v1/agent/*`): a conversation opens to its owner's session,
   or to a guest's token shown once after a human check and stored as an HMAC (`agent-access`);
   a run, its events and a thumb on an answer belong to the conversation they are part of.
@@ -119,6 +147,9 @@ cannot use. Designs: ADR-007 (authorisation), ADR-015 (guest access), ADR-033 an
 | Privacy registers (`/v1/admin/privacy`)                                                          | Staff with `privacy:manage` (privacy officers, super admins): rights requests (email shown masked) and breaches (details only on the breach itself); every change audited with ids and outcomes only (ADR-089)                                                                                                                                                          |
 | The assistant's switches (`/v1/admin/ai`)                                                        | Staff with `ai:read` (operations, finance, support, super admins) see the overview: whether it is on and paused, the day's model spend, run counts, autonomy levels and the tools. Pausing needs `ai:manage` (super admins) and nothing more; releasing the pause and changing an autonomy level also need step-up. Each change is audited with codes only (ADR-107)    |
 | Conversations with the assistant                                                                 | Their owner's session, or a guest's `X-Agent-Token` (shown once, stored as an HMAC); a run's events and a message's feedback go with the conversation. The agent service never reads the tables and reaches a person's data only through the tool gateway with that person's grant (ADR-101); its own role sees only the `agent` schema (ADR-103)                       |
+| Confirmations of the assistant's actions                                                         | The signed-in owner of the conversation only: the card is read and tapped with their session (and an `Idempotency-Key`); no agent and no staff route decides one (ADR-107)                                                                                                                                                                                              |
+| Assisted quotes (`/v1/quotes/assisted`, `/v1/admin/assisted-quotes`)                             | The account that asked; staff with `ai:read` see the queue, `ai:approve` verifies or closes, `bookings:manage` records the supplier's confirmation or that it cannot be booked; all audited (ADR-104)                                                                                                                                                                   |
+| Staff agents and the approvals queue (`/v1/admin/ai`)                                            | Staff with `ai:read`, each to the agents their own permissions open and to their own conversations only; a proposal is decided by someone else holding `ai:approve` and the kind's permission, audited (ADR-107)                                                                                                                                                        |
 | Price sources, their policies, reads and observations (`/v1/admin/data-sources`)                 | Staff with `ai:read` see them; staff with `datasources:manage` (super admins today; no other role holds it) list, change, decide and read a site, switch reading off and set budgets; approving, switching back on and raising a budget also need step-up. They hold no personal data: a read records places, dates and head counts, never who asked (ADR-102)          |
 
 Anything a caller may not access answers **404**, never 403, so ids cannot be probed. Ownership

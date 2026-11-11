@@ -267,6 +267,7 @@ export function toBookingDto(
       membershipTerm: view.membershipTerm,
       rideId: view.rideId,
       rental: view.rental,
+      supplierReference: item?.supplierReference ?? null,
     }),
     voucher: view.voucher
       ? {

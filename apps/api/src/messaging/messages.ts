@@ -261,3 +261,37 @@ export function supportReplyMessage(details: {
     },
   };
 }
+
+/**
+ * An assisted quote was answered (ADR-104). The price itself is on the page: a message says
+ * only that there is an answer and how long an offer lasts.
+ */
+export function assistedQuoteMessage(details: {
+  reference: string;
+  outcome: 'offered' | 'unavailable';
+  url: string;
+  validMinutes: number;
+}): NotificationContent {
+  const offered = details.outcome === 'offered';
+  const lead = offered
+    ? `We confirmed a live price for your request ${details.reference}. You can book it for the next ${details.validMinutes} minutes; after that we check the price again.`
+    : `We could not get what you asked for in request ${details.reference}. The page says why, and you can ask again.`;
+  return {
+    category: 'booking',
+    template: offered ? 'assisted-quote-offered' : 'assisted-quote-unavailable',
+    email: simpleEmail(
+      offered
+        ? `Your quote ${details.reference} is ready`
+        : `About your request ${details.reference}`,
+      offered ? 'Your quote is ready' : 'We could not confirm it',
+      [lead],
+      { label: offered ? 'See the quote' : 'See the request', url: details.url },
+    ),
+    text: `${BRAND.name}: ${offered ? `your quote ${details.reference} is ready. Open the app or website to book it.` : `we could not confirm your request ${details.reference}. Open the app or website to see why.`}`,
+    push: {
+      title: offered ? `Quote ${details.reference} is ready` : `Request ${details.reference}`,
+      body: offered ? 'A live price was confirmed for you.' : 'We could not confirm it.',
+      path: '/account/quotes',
+    },
+  };
+}

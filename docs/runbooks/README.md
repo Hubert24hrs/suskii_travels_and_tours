@@ -23,6 +23,7 @@ exist.
 | [Personal data breach](personal-data-breach.md)       | Personal data may have leaked, been changed or lost; regulator clocks              |
 | [Data rights requests](data-rights-requests.md)       | Someone asks to see, correct or delete their data; a request is overdue            |
 | [Price intelligence](price-intelligence.md)           | A site asks us to stop reading it, a budget or drift alert, a vendor to switch off |
+| [Assisted quotes and approvals](assisted-quotes.md)   | A quote waits to be verified or booked by hand, or a proposal waits for a decision |
 
 ## Every incident
 

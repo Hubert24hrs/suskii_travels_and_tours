@@ -126,6 +126,23 @@ export function agentScopesFor(caller: {
   return caller.userId ? [...GUEST_SCOPES, 'account'] : [...GUEST_SCOPES];
 }
 
+/**
+ * The part of the platform each staff agent works in. A staff member reaches an agent only
+ * when their own permissions open its scope: an agent never knows more than the person asking.
+ */
+export const STAFF_AGENT_SCOPES = {
+  price_intel: 'datasources',
+  operations: 'ops',
+  finance_prep: 'finance',
+  marketing: 'marketing',
+  business_intelligence: 'reports',
+  executive: 'reports',
+} as const satisfies Record<(typeof STAFF_AGENTS)[number], AgentScope>;
+
+/** The staff agents a grant's scopes open, in catalogue order. */
+export const staffAgentsFor = (scopes: readonly AgentScope[]): (typeof STAFF_AGENTS)[number][] =>
+  STAFF_AGENTS.filter((agent) => scopes.includes(STAFF_AGENT_SCOPES[agent]));
+
 /** The agents a caller may reach on a channel: staff agents never answer outside the console. */
 export function agentsFor(channel: AgentChannel): readonly AgentName[] {
   return channel === 'console' ? STAFF_AGENTS : CUSTOMER_AGENTS;
@@ -139,6 +156,70 @@ export const AGENT_ANSWER_MAX = 4000;
 export const AGENT_CONVERSATION_MESSAGE_LIMIT = 200;
 /** Open conversations one account may have. */
 export const AGENT_OPEN_CONVERSATION_LIMIT = 20;
+
+/**
+ * How a confirmation ended (ADR-107): `pending` until the traveller taps, `confirmed` once the
+ * action ran, `declined` by them, `expired` when they wrote something else or the time ran
+ * out, `failed` when the ordinary service refused the action at the tap.
+ */
+export const AGENT_CONFIRMATION_STATUSES = [
+  'pending',
+  'confirmed',
+  'declined',
+  'expired',
+  'failed',
+] as const;
+export type AgentConfirmationStatus = (typeof AGENT_CONFIRMATION_STATUSES)[number];
+/** How long a confirmation waits for the tap. */
+export const AGENT_CONFIRMATION_MINUTES = 15;
+/**
+ * What an amount on a confirmation card is, as a code the clients put into words: what comes
+ * back to the traveller, what is kept under the terms they booked on, and a price they asked
+ * to be told about.
+ */
+export const AGENT_CONFIRMATION_AMOUNTS = ['refund', 'kept', 'target'] as const;
+export type AgentConfirmationAmount = (typeof AGENT_CONFIRMATION_AMOUNTS)[number];
+
+/**
+ * What a staff agent may prepare for a person to decide (ADR-107). Approving one runs the
+ * ordinary service as the person who approved: a refund request still needs its own second
+ * approver, and a promo code is created switched off.
+ */
+export const AGENT_APPROVAL_KINDS = ['refund_request', 'promo_code'] as const;
+export type AgentApprovalKind = (typeof AGENT_APPROVAL_KINDS)[number];
+
+/** The permission a person needs, besides `ai:approve`, to approve each kind. */
+export const AGENT_APPROVAL_PERMISSIONS = {
+  refund_request: 'refunds:request',
+  promo_code: 'deals:manage',
+} as const satisfies Record<AgentApprovalKind, Permission>;
+
+/**
+ * `pending` waits for a person; `approved` was carried out; `rejected` by a person; `expired`
+ * nobody decided in time; `failed` the ordinary service refused it at approval.
+ */
+export const AGENT_APPROVAL_STATUSES = [
+  'pending',
+  'approved',
+  'rejected',
+  'expired',
+  'failed',
+] as const;
+export type AgentApprovalStatus = (typeof AGENT_APPROVAL_STATUSES)[number];
+
+export const AGENT_APPROVAL_REJECT_REASONS = [
+  'not_needed',
+  'wrong_amount',
+  'wrong_details',
+  'duplicate',
+  'other',
+] as const;
+export type AgentApprovalRejectReason = (typeof AGENT_APPROVAL_REJECT_REASONS)[number];
+
+/** How long a proposal waits before it lapses: the facts it rests on go stale. */
+export const AGENT_APPROVAL_DAYS = 7;
+/** Proposals one staff member's conversations may have waiting at once. */
+export const AGENT_APPROVAL_OPEN_LIMIT = 20;
 
 /** `S-…` is support (ADR-083) and `T-…` a trip (ADR-099); an agent conversation is `A-…`. */
 export const AGENT_REFERENCE_PATTERN = /^A-[A-Z0-9]{6}$/;

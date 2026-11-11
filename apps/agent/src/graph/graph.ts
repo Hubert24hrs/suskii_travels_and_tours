@@ -9,6 +9,7 @@ import {
 import {
   AGENT_ANSWER_MAX,
   CUSTOMER_AGENTS,
+  STAFF_AGENTS,
   asksForSecrets,
   checkGrounding,
   leaksInstructions,
@@ -36,7 +37,13 @@ import {
   type ModelToolSpec,
   type ModelTurn,
 } from '../model/model.js';
-import { ROUTER_PROMPT, promptFor, promptRef, rewriteInstruction } from '../prompts/prompts.js';
+import {
+  ROUTER_PROMPT,
+  STAFF_ROUTER_PROMPT,
+  promptFor,
+  promptRef,
+  rewriteInstruction,
+} from '../prompts/prompts.js';
 import { GatewayError, type ToolDescription, type ToolGateway } from '../tools/gateway.js';
 import { cardsOf, renderForModel, statusFactsOf } from '../tools/render.js';
 
@@ -228,12 +235,18 @@ const routerContext = (history: readonly ModelMessage[]): ModelMessage[] =>
 export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver) {
   const { request, models, emit } = deps;
   const { context, limits } = request;
-  const allowed = context.agents.filter((agent) =>
-    (CUSTOMER_AGENTS as readonly AgentName[]).includes(agent),
-  );
-  const fallbackAgent: AgentName = allowed.includes('concierge')
-    ? 'concierge'
-    : (allowed[0] ?? 'concierge');
+  // A run is for travellers or for staff, never both: the audience picks the catalogue, and
+  // the request names which of its agents this caller reaches.
+  const staff = context.audience === 'staff';
+  const catalogue: readonly AgentName[] = staff ? STAFF_AGENTS : CUSTOMER_AGENTS;
+  const allowed = context.agents.filter((agent) => catalogue.includes(agent));
+  const generalist: AgentName = staff ? 'executive' : 'concierge';
+  const fallbackAgent: AgentName = allowed.includes(generalist)
+    ? generalist
+    : (allowed[0] ?? generalist);
+  const router = staff ? STAFF_ROUTER_PROMPT : ROUTER_PROMPT;
+  // A router is told only about the agents this run can open.
+  const routing = { ...context, agents: allowed };
 
   const outOfTime = (): boolean => deps.signal.aborted;
 
@@ -291,7 +304,8 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
         },
       };
     }
-    const obvious = obviousAgent(text);
+    // The rules that need no model were written for travellers' requests.
+    const obvious = staff ? null : obviousAgent(text);
     if (obvious && allowed.includes(obvious)) {
       return { turn: { ...state.turn, agent: obvious, agents: [obvious] } };
     }
@@ -302,8 +316,8 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
     emit({ type: 'status', agent: fallbackAgent, phase: 'routing' });
     const asked = await ask(state.turn, 'router', {
       role: 'router',
-      prompt: { id: ROUTER_PROMPT.id, version: ROUTER_PROMPT.version },
-      system: ROUTER_PROMPT.render(context),
+      prompt: { id: router.id, version: router.version },
+      system: router.render(routing),
       messages: [
         ...routerContext(state.history),
         {
@@ -329,7 +343,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
       maxOutputTokens: 128,
       signal: deps.signal,
     });
-    const turn = { ...asked.turn, prompts: [...asked.turn.prompts, promptRef(ROUTER_PROMPT)] };
+    const turn = { ...asked.turn, prompts: [...asked.turn.prompts, promptRef(router)] };
     if (asked.failure === 'timeout')
       return { turn: { ...turn, result: ended('timeout', 'timeout') } };
     // A router that fails or answers nonsense is not a reason to fail the traveller: the
@@ -556,10 +570,7 @@ export function buildAgentGraph(deps: RunDeps, checkpointer: BaseCheckpointSaver
     const tooLong = draft.length > AGENT_ANSWER_MAX;
     // Its own instructions read back, or its tools by name: not something a traveller is told.
     const disclosed =
-      leaksInstructions(draft, [
-        ROUTER_PROMPT.render(context),
-        promptFor(turn.agent).render(context),
-      ]) ||
+      leaksInstructions(draft, [router.render(routing), promptFor(turn.agent).render(context)]) ||
       namedTools(
         draft,
         deps.tools.map((tool) => tool.name),

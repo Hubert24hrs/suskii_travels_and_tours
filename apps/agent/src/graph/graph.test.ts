@@ -64,7 +64,7 @@ describe('routing (ADR-106)', () => {
     const { end } = await h.send('Please track my booking');
     expect(end).toMatchObject({ agent: 'bookings', agents: ['bookings'], outcome: 'answered' });
     expect(h.model.requests.map((entry) => entry.request.role)).toEqual(['specialist']);
-    expect(end.prompts).toEqual(['bookings@1']);
+    expect(end.prompts).toEqual(['bookings@2']);
   });
 
   it('asks the router model for everything else, and offers it only the agents switched on', async () => {
@@ -76,7 +76,7 @@ describe('routing (ADR-106)', () => {
       }),
     });
     expect(end).toMatchObject({ agent: 'hotels', outcome: 'answered' });
-    expect(end.prompts).toEqual(['router@1', 'hotels@1']);
+    expect(end.prompts).toEqual(['router@1', 'hotels@2']);
     const router = h.model.requests[0]?.request;
     expect(router?.toolChoice).toEqual({ name: ROUTE_TOOL });
     expect(
@@ -100,6 +100,101 @@ describe('routing (ADR-106)', () => {
     });
     expect(broken.end).toMatchObject({ agent: 'concierge', outcome: 'answered' });
     expect(broken.end.answer?.text).toBe(MOCK_SPECIALIST_ANSWER);
+  });
+});
+
+describe('staff agents (ADR-107)', () => {
+  const STAFF = {
+    audience: 'staff',
+    channel: 'console',
+    locale: 'en-NG',
+    currency: 'NGN',
+    country: 'NG',
+    signedIn: true,
+    today: '2026-11-10',
+  } as const;
+
+  it("routes a staff member's message among the staff agents their permissions open", async () => {
+    const h = harness();
+    const { end } = await h.send('How many refunds are waiting?', {
+      // A traveller's agent in a staff request is dropped: the audience picks the catalogue.
+      context: { ...STAFF, agents: ['flights', 'operations', 'finance_prep', 'executive'] },
+      script: scripted({
+        router: [route('finance_prep')],
+        specialist: [{ text: 'I will look.' }],
+      }),
+    });
+    expect(end).toMatchObject({ agent: 'finance_prep', outcome: 'answered' });
+    expect(end.prompts).toEqual(['staff_router@1', 'finance_prep@1']);
+    const [router, specialist] = h.model.requests.map((entry) => entry.request);
+    expect(
+      (router?.tools[0]?.parameters.properties as { agent: { enum: string[] } }).agent.enum,
+    ).toEqual(['operations', 'finance_prep', 'executive']);
+    // The staff router describes only the agents on offer.
+    expect(router?.system).toContain('finance_prep:');
+    expect(router?.system).not.toContain('marketing:');
+    expect(router?.system).not.toContain('flights');
+    // A staff agent works under the staff rules: proposals wait for another person.
+    expect(specialist?.system).toContain('approvals queue');
+    expect(specialist?.system).toContain('finance preparation assistant');
+  });
+
+  it("does not read a staff member's message with the travellers' rules", async () => {
+    const h = harness();
+    const { end } = await h.send('Please track my booking', {
+      context: { ...STAFF, agents: ['operations', 'executive'] },
+      script: scripted({ router: [route('operations')] }),
+    });
+    expect(end.agent).toBe('operations');
+    expect(h.model.requests.map((entry) => entry.request.role)).toEqual(['router', 'specialist']);
+  });
+
+  it('opens the only agent a person reaches without the router, and the executive otherwise', async () => {
+    const one = harness();
+    const only = await one.send('What is waiting today?', {
+      context: { ...STAFF, agents: ['operations'] },
+    });
+    expect(only.end).toMatchObject({ agent: 'operations', agents: ['operations'] });
+    expect(one.model.requests.map((entry) => entry.request.role)).toEqual(['specialist']);
+
+    const h = harness();
+    const off = await h.send('Draft a promo code', {
+      context: { ...STAFF, agents: ['operations', 'executive'] },
+      script: scripted({ router: [route('marketing')] }),
+    });
+    expect(off.end.agent).toBe('executive');
+    // Without the executive, the first agent the person reaches answers.
+    const none = await h.send('Draft a promo code', {
+      threadId: '0193a000-0000-7000-8000-00000000cccc',
+      context: { ...STAFF, agents: ['operations', 'finance_prep'] },
+      script: scripted({ router: [{ fail: 'rejected' }] }),
+    });
+    expect(none.end.agent).toBe('operations');
+  });
+
+  it('runs a staff tool only for the agent it belongs to, and holds a proposal to its status', async () => {
+    const h = harness([tool('finance.draft_refund_request', ['finance_prep'])], {
+      'finance.draft_refund_request': () =>
+        ok({ problems: [], proposed: true, approvalId: CONFIRMATION, approvalStatus: 'pending' }),
+    });
+    const said = await h.send('Prepare a refund of the booking', {
+      context: { ...STAFF, agents: ['finance_prep'] },
+      script: scripted({
+        specialist: [
+          call('finance.draft_refund_request', { bookingId: CONFIRMATION, reason: 'duplicate' }),
+          // The proposal waits: saying it was refunded is refused by the guard.
+          { text: 'The refund was approved and the money has been refunded.' },
+          { text: 'I prepared the request. It waits for someone else to approve it.' },
+        ],
+      }),
+    });
+    expect(said.end.outcome).toBe('answered');
+    expect(said.end.answer?.text).toBe(
+      'I prepared the request. It waits for someone else to approve it.',
+    );
+    expect(h.gateway.calls.map((entry) => [entry.tool, entry.call.agent])).toEqual([
+      ['finance.draft_refund_request', 'finance_prep'],
+    ]);
   });
 });
 

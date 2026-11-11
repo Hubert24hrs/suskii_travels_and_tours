@@ -60,20 +60,7 @@ export function loadSuite<T>(name: string, schema: z.ZodType<T>): T {
   return schema.parse(fixture(name));
 }
 
-/** A commit tool as sub-phase E registers them, for cases about confirmations. */
-export const COMMIT_TOOL: EvalTool = {
-  name: 'bookings.cancel',
-  description: "Cancel one of the traveller's own bookings under its terms, after they confirm.",
-  tier: 'commit',
-  scope: 'account',
-  agents: ['bookings'],
-  parameters: {
-    type: 'object',
-    properties: { bookingId: { type: 'string' } },
-    required: ['bookingId'],
-    additionalProperties: false,
-  },
-};
+/** The confirmation the miniature gateway answers a commit tool with. */
 export const EVAL_CONFIRMATION_ID = '0193a000-0000-7000-8000-0000000c0ffe';
 
 export interface ToolAttempt {

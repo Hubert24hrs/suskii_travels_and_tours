@@ -128,3 +128,58 @@ input.
   report: it is not a fault of ours.
 - **A supplier's names** (hotel, area, room) reach a model without links, addresses or markup,
   because an answer may quote a contact a tool returned.
+- **Confirmations are built** (sub-phase E). A `commit` tool has a `prepare()` beside its
+  `run()`: the gateway calls `prepare()`, which reads the records and answers what the card
+  shows (a kind, a title, lines, amounts as `Money` under the codes `refund`, `kept` and
+  `target`, the record it is about) and what must still hold at the tap (`expected`, such as
+  the quoted refund). The gateway stores that as an `agent_confirmations` row and answers the
+  model `confirmation_required` with its id; nothing else happened. The traveller reads the
+  card (`GET /v1/agent/confirmations/{id}`) and taps `confirm` (their own session and an
+  `Idempotency-Key`) or `decline`. The tap claims the row with a conditional update, runs the
+  tool with a grant built from the session, never the model's, and stores what the records
+  then say as facts under keys; the assistant is resumed with those facts and may say no more
+  than they hold. A card whose facts changed (the refund is no longer what was shown) does
+  nothing and says so.
+- **One card at a time.** A conversation has at most one pending confirmation (a partial
+  unique index); a new message expires it, so "yes, do it" typed in the chat confirms nothing.
+  A card lives 15 minutes, or as long as the quote under it. A tap is refused while the
+  assistant is paused (503), and at autonomy `manual` no card is prepared at all.
+- **Five commit tools**: `bookings.cancel` (the product's own cancellation, with the refund
+  the policy gives shown on the card), `changes.accept` (an airline's new times),
+  `changes.take_refund_offer` (the full refund after a significant change, ADR-073: the airline
+  cancels first), `alerts.watch` and `alerts.stop` (a price watch, ADR-032). Each calls the
+  ordinary service as the traveller. Creating a booking and starting a payment are not tools:
+  the assistant gives a link to the ordinary checkout.
+- **The approvals queue is built** (`agent_approvals`, `/v1/admin/ai/approvals`) for what a
+  staff agent prepares. Two kinds exist: `refund_request` and `promo_code`. A proposal holds
+  exactly what would be done, as the kind's own schema (ids, amounts, codes), and changes
+  nothing. Deciding needs `ai:approve`, the kind's own permission (`refunds:request`,
+  `deals:manage`) and to be someone other than the person whose question produced it (403
+  `own-approval`). Approving takes an `Idempotency-Key`, claims the row and runs the ordinary
+  service as the approver: a
+  refund request is the approver's own and still waits for its second approver where the
+  threshold says so, so no step of maker-checker is skipped; a promo code is created switched
+  off. If the ordinary service refuses, the proposal ends as `failed` and nothing changed. A
+  proposal lapses after seven days; one person has at most twenty waiting; the same proposal
+  asked twice is one row.
+- **Assisted quotes have their own queue** (ADR-104); the approvals list counts them. Source
+  approvals stay on the data sources page with step-up (ADR-102). Campaign spend and drift
+  recipes are not built: no agent prepares them yet.
+- **Staff agents answer in the console only**, to staff with `ai:read`
+  (`/v1/admin/ai/conversations`, `/v1/admin/ai/chat`). A person reaches the agents whose part
+  of the platform their own permissions open (`STAFF_AGENT_SCOPES`: operations with
+  `bookings:manage`, finance preparation with `refunds:request`, marketing with
+  `deals:manage`, business intelligence and the executive assistant with `reports:read`, price
+  intelligence with `datasources:manage`), and each tool is checked against the grant's scopes
+  again. A staff conversation is its owner's alone (404 for every other staff member) and is
+  never opened by the travellers' routes. The audit log records that a question was asked, in
+  which conversation and run, never its words.
+- **Eight staff tools**, six that read and two that prepare: `ops.queues`, `reports.sales`,
+  `finance.overview`, `finance.booking_payments`, `marketing.promos`, `sources.overview`,
+  `finance.draft_refund_request` and `marketing.draft_promo`. They return counts, amounts, ids
+  and codes; none returns a traveller's name, contact or booking reference. A refund reason is
+  one of the staff refund reasons, so a model's sentence (or a traveller's screenshot retold)
+  never becomes the reason on a refund.
+- **Autonomy as built** has two effective levels for a tool that prepares or commits: `manual`
+  prepares nothing, and `supervised` prepares for a person. `autonomous` changes nothing yet:
+  no tool acts without a person, and none will until an eval and the owner say so.
