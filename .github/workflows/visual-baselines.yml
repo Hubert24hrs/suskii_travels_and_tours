@@ -13,7 +13,8 @@ permissions:
 jobs:
   screenshots:
     name: Update ui-web screenshots
-    runs-on: ubuntu-latest
+    # The same image as the CI job that compares these screenshots (ci.yml, `verify`).
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Only this job may push, and only the screenshot directory is committed.
     permissions:
