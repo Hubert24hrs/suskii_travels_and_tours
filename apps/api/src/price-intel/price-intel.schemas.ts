@@ -328,11 +328,9 @@ export const priceIntelHealthSchema = named(
           .min(0)
           .nullable()
           .meta({ description: 'What a read that gave a usable page cost, on average.' }),
-        breakerOpen: z
-          .boolean()
-          .meta({
-            description: 'The vendor is being skipped everywhere until its breaker closes.',
-          }),
+        breakerOpen: z.boolean().meta({
+          description: 'The vendor is being skipped everywhere until its breaker closes.',
+        }),
       }),
     ),
     sites: z
