@@ -147,6 +147,8 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
 
 - Security review, a k6 chat scenario, runbook, legal register, guides, Terraform and CI for the
   new service (not applied), cost estimate, final regression run and the final report.
+- Staff cases in the routing and safety evals (the staff agents arrived in E with unit and
+  end-to-end tests but no eval of their own).
 
 ## Evaluation thresholds
 
@@ -491,3 +493,175 @@ answer changes; the chat routes are new.
 
 **Not done here**: no client offers the assistant (G), the console has no screen for it (F),
 nothing commits (E), and the agent service has no image, Terraform or Helm yet (H).
+
+### E. Confirmations, assisted quotes and staff agents (2026-11-11)
+
+**Built**
+
+- **Confirmations** (ADR-107). `agent_confirmations`, `AgentConfirmationsService` and three
+  routes (`GET /v1/agent/confirmations/{id}`, `POST .../confirm`, `POST .../decline`). A
+  `commit` tool has a `prepare()` beside its `run()`; the gateway calls `prepare()`, stores
+  the card and answers the model `confirmation_required` with its id. The traveller's tap
+  (their session, an `Idempotency-Key`) claims the row, runs the tool with a grant built from
+  that session and resumes the assistant with what the records then hold. One card per
+  conversation, 15 minutes, ended by a new message; refused while paused.
+- **Five commit tools**: `bookings.cancel`, `changes.accept`, `changes.take_refund_offer`,
+  `alerts.watch`, `alerts.stop`. **Three reads** beside them: `flights.status`, `changes.get`,
+  `alerts.list`.
+- **Assisted quotes** (ADR-104). `@suskii/shared` rules (`assisted-quotes.ts`), the
+  `assisted_quotes` table, `AssistedQuotesService`, the traveller's routes
+  (`POST /v1/quotes/assisted`, `GET /v1/quotes/assisted/{id}`, `.../withdraw`,
+  `GET /v1/me/assisted-quotes`) and staff's (`/v1/admin/assisted-quotes`: the queues, `offer`,
+  `close`, `booked`, `unbookable`). On the booking pipeline as vertical and item kind
+  `assisted`: priced from the verified supplier price with the vertical's fee rules, booked
+  and paid through the ordinary checkout, then held in `TICKETING` until staff record the
+  supplier's confirmation (`CONFIRMED`) or that it cannot be booked (`REFUND_PENDING`, all
+  refunded). Messages to the traveller when a quote is answered. Settings
+  `ASSISTED_QUOTES_ENABLED`, `ASSISTED_QUOTE_VALID_MINUTES`, `ASSISTED_QUOTE_REQUEST_HOURS`.
+- **Indicative prices for the assistant**: `prices.indicative` (approved sites only, each
+  price marked indicative with where and when it was seen), `quotes.request` and
+  `quotes.list`.
+- **Staff agents** (ADR-107). Console chat (`/v1/admin/ai/conversations`, `/v1/admin/ai/chat`,
+  `/v1/admin/ai/runs/{id}`) for staff with `ai:read`, to the agents their own permissions
+  open; eight staff tools (`ops.queues`, `reports.sales`, `finance.overview`,
+  `finance.booking_payments`, `finance.draft_refund_request`, `marketing.promos`,
+  `marketing.draft_promo`, `sources.overview`); in the agent service a staff router, a role
+  for each of the six agents and the rules they work under.
+- **The approvals queue**: `agent_approvals`, `AgentApprovalsService`,
+  `/v1/admin/ai/approvals` (list with the assisted-quote counts, one, `approve`, `reject`). Two
+  kinds: a refund request and a promo code.
+- Version 2 of the customer specialists' prompts; the tools snapshot of the evals (37 tools);
+  counters for confirmations, proposals and assisted quotes; each new table in the data
+  registry, the export where it is a traveller's, account deletion, retention and the records
+  of processing.
+- Documents: amendments to ADR-104 and ADR-107, the runbook
+  `docs/runbooks/assisted-quotes.md`, section 7.3 of the launch checklist, the access control,
+  data classification and business limits pages.
+
+**How to try it** (local stack; no model and no supplier is called)
+
+1. `pnpm infra:up`, `pnpm --filter @suskii/api db:deploy`, `db:seed`, then `pnpm dev`. Set
+   `AGENT_SERVICE=mock` to have the API answer without the agent service.
+2. **An assisted quote.** Signed in as a traveller: `POST /v1/quotes/assisted` with an
+   `Idempotency-Key` and `{"product":"hotel","title":"A room by the lagoon","request":
+{"destination":"Lagos","startDate":"2027-01-10","endDate":"2027-01-12","adults":2},
+"currency":"NGN"}`. As staff (`pnpm --filter @suskii/api staff:bootstrap` makes the first
+   super admin): `GET /v1/admin/assisted-quotes?queue=to_verify`, then `POST
+/v1/admin/assisted-quotes/{id}/offer` with the supplier's name, price, the address of the
+   proof and the details. The traveller's `GET /v1/quotes/assisted/{id}` now carries an offer
+   with a `quoteId`: book it with `POST /v1/bookings` and pay on the mock provider's page. The
+   booking stays in `TICKETING` until staff `POST .../booked` with the supplier's reference.
+3. **A confirmation.** `apps/api/test/agent-confirmations.e2e-spec.ts` is the shortest way to
+   see one: a script plays the agent, calls `bookings.cancel` through the gateway and gets
+   only a confirmation id; the traveller's tap cancels.
+4. **A staff agent and an approval.** As staff: `POST /v1/admin/ai/conversations` with
+   `{"locale":"en-NG"}`, then `POST /v1/admin/ai/chat`. With the agent service running on the
+   mock model, "How many refunds are waiting?" is routed to finance preparation.
+   `apps/api/test/agent-staff.e2e-spec.ts` shows a draft refund request reaching
+   `GET /v1/admin/ai/approvals` and being approved by another person.
+
+**What changed from the plan**
+
+- **Assisted quotes have a queue of their own**, counted in the approvals list
+  (`alsoWaiting`): verifying a price and booking by hand have their own forms.
+- **Indicative prices are shown by the assistant only.** Search never imports price
+  intelligence, so no result list carries a `web-intel` row (ADR-104, amendments).
+- **Creating a booking and starting a payment are not tools.** The assistant links to the
+  ordinary checkout; the five commit tools act on a booking that already exists.
+- **A price that moved after payment is refunded, not charged**: no consent step asks a
+  traveller for more after they paid.
+- **Two kinds of proposal** exist. Campaign spend and drift recipes have no agent preparing
+  them; source approvals stay on the data sources page with step-up.
+- **No console page yet**: the queues are worked through the admin API until F.
+
+**Found while building, and fixed**
+
+- **The switch could strand a paid booking.** `ASSISTED_QUOTES_ENABLED=false` answered 404 on
+  every route, staff's included, so a booking already paid could be neither booked nor
+  refunded. Found while writing the runbook. Off now stops only what is new; a test books by
+  hand on an instance where the feature is off.
+- **A proposal asked twice became two rows**: the stored payload came back from `jsonb` with
+  its keys in another order, so the comparison failed. Found by the staff suite; payloads are
+  now compared in a canonical form.
+- **Rejecting needed only `ai:approve`.** A person who could not approve a kind could still
+  reject it. Both decisions now need the kind's own permission.
+- **Starting a staff conversation with an empty body created a row**, which the admin route
+  matrix refuses for any mutation. The console now states its language.
+- `GET /v1/quotes/assisted` was read as the quote with the id "assisted"; the list moved to
+  `GET /v1/me/assisted-quotes`.
+- One commit of mine (`3c1122a`) went in while a suite was still failing: the agent service
+  test expected the first prompt version after the bump to the second. Fixed in the next
+  commit (`69f8d34`); nothing was pushed to the base in between.
+- **A flaky test from the hotel content work** (ADR-096) failed in the first web run of this
+  gate: the demo hotels of a city are drawn from the city's id, which is new in every
+  database, and this run's Lagos had no resort for the test to filter by. The test now takes
+  whichever property type the search lists; it passed on two more fresh databases and in the
+  full web run.
+
+**Known limits, kept in view**
+
+- **The staff agents have no eval of their own.** The three evals cover the customer agents;
+  staff routing and the staff rules are covered by unit tests of the graph and by the API
+  suite with a scripted agent. Staff cases join the routing and safety evals in H, before the
+  owner's run against the model.
+- **Nothing sweeps the queues.** A request, an offer and a proposal lapse when they are next
+  read; a traveller is not told at the moment a request runs out of time.
+- **An approval is claimed before it is carried out.** If the process stopped between the two
+  steps, the row would read `approved` with no result. The list shows the missing result; no
+  alert does.
+- The message that tells a traveller their quote is answered links to a page the clients of
+  G build.
+- A staff tool answers with totals for at most a year and with at most 30 promo codes.
+
+**Test results** (local, 2026-11-11: every suite on commit `831f6d6`, the last one that
+changes code, except the web suite, which ran again in full on `faba55e` after the test fix
+above; the commits after change documents only)
+
+| Check                                                  | Result                           |
+| ------------------------------------------------------ | -------------------------------- |
+| `pnpm lint`                                            | 15 of 15 workspaces              |
+| `pnpm typecheck`                                       | 14 of 14 workspaces              |
+| `pnpm test` (unit, every workspace)                    | 12 of 12 tasks                   |
+| API unit (`test:cov`, with the 80% gates)              | 74 suites, 808 tests             |
+| API e2e (full, `test:e2e:cov`)                         | 76 suites, 806 tests             |
+| of which the seven agent suites                        | 76 tests                         |
+| of which assisted quotes                               | 9 tests                          |
+| `@suskii/agent`                                        | 58 tests (10 in the three evals) |
+| `@suskii/shared`                                       | 378 tests                        |
+| `@suskii/worker`                                       | 52 tests                         |
+| Web e2e (Chromium and slow 3G)                         | 242 tests                        |
+| Mobile (Jest)                                          | 50 suites, 319 tests             |
+| Admin e2e                                              | 24 tests                         |
+| `pnpm check:migrations` (45 migrations)                | pass                             |
+| `pnpm security:checklist --check`, `pnpm format:check` | pass                             |
+| `pnpm test:scripts`                                    | 13 tests                         |
+
+| Eval (recorded answers) | Result                                              | Pass mark          |
+| ----------------------- | --------------------------------------------------- | ------------------ |
+| `eval:agent-routing`    | 78 of 81 (96.3%); 16 by rule without a model call   | 95%                |
+| `eval:agent-grounding`  | no invention shown; 15 of 16 grounded answers shown | 0 shown, 90% shown |
+| `eval:agent-safety`     | 28 of 28 held; no violation                         | 0 violations       |
+
+Before this sub-phase: API e2e 73 suites and 755 tests, `@suskii/agent` 54 tests,
+`@suskii/shared` 373 tests. The first web run of the gate had one failure (240 of 242, one not
+run), the flaky test described above.
+
+**Not run, and why**: no model was called (`LLM_API_KEY` is the owner's), so how a real model
+routes a staff question, uses the staff tools and words a proposal is unmeasured; no supplier
+was called, because an assisted booking is made by a person.
+
+**Open for the owner** (`docs/owner/launch-checklist.md`, section 7.3): who verifies assisted
+quotes and books them by hand, and during which hours; the fee an assisted quote earns (none
+today); where proof of a supplier's price and confirmation is kept; who decides what the staff
+assistants prepare; whether to switch assisted quotes and the staff assistants on in
+production.
+
+**Mobile contract**: `vertical` in quote and booking answers gains `assisted`, and both gain
+an optional `assisted` section. Such bookings exist only once assisted quotes are offered to
+travellers. A build from before the clients of G lists an assisted booking under its reference
+without a product label and ignores the push path `/account/quotes` (the notification still
+arrives). No other answer changes; the confirmation, quote and console routes are new.
+
+**Not done here**: the console has no page for any of this (F), no client offers the
+assistant, a confirmation card or a quote (G), and the agent service has no image, Terraform
+or Helm yet (H).
