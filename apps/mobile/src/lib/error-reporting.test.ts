@@ -1,4 +1,4 @@
-import { installErrorReporting } from './error-reporting';
+import type * as ErrorReportingModule from './error-reporting';
 
 jest.mock('../config', () => ({
   appConfig: {
@@ -7,6 +7,22 @@ jest.mock('../config', () => ({
     variant: 'preview',
   },
 }));
+
+/**
+ * The module as a fresh start of the app loads it. The reporter is made once and keeps the
+ * `fetch` it found then, so each test loads the module after putting its own `fetch` in place.
+ */
+function installErrorReporting(): void {
+  let fresh: typeof ErrorReportingModule | undefined;
+  jest.isolateModules(() => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    fresh = require('./error-reporting') as typeof ErrorReportingModule;
+  });
+  fresh?.installErrorReporting();
+}
+
+/** Lets every pending promise callback run. */
+const settled = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 describe('installErrorReporting', () => {
   const original = ErrorUtils.getGlobalHandler();
@@ -44,10 +60,33 @@ describe('installErrorReporting', () => {
     installErrorReporting();
 
     ErrorUtils.getGlobalHandler()(new Error('fatal'), true);
-    await Promise.resolve();
+    await settled();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(previous).not.toHaveBeenCalled();
     sendReport(new Response(null, { status: 200 }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await settled();
     expect(previous).toHaveBeenCalledTimes(1);
+  });
+
+  it('goes down all the same when the report of a fatal error does not leave in time', async () => {
+    jest.useFakeTimers();
+    try {
+      // A report that never gets an answer.
+      global.fetch = jest.fn(() => new Promise<Response>(() => undefined));
+      const previous = jest.fn();
+      ErrorUtils.setGlobalHandler(previous);
+      installErrorReporting();
+
+      ErrorUtils.getGlobalHandler()(new Error('fatal'), true);
+      await jest.advanceTimersByTimeAsync(1400);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(previous).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(200);
+      expect(previous).toHaveBeenCalledTimes(1);
+      // Nothing of the handler outlives it.
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
