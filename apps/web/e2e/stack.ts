@@ -269,6 +269,11 @@ export async function startStack(options: { adTags?: boolean } = {}): Promise<St
       // switches it on, to run the booking journeys with no assistant anywhere.
       AGENT_ENABLED: process.env.E2E_AGENT === 'off' ? 'false' : 'true',
       AGENT_SERVICE: 'mock',
+      // A load test sends every guest's message from one address: it lifts the assistant's
+      // per-address spend cap, as it switches the per-address rate limits off.
+      ...(process.env.E2E_AGENT_GUEST_DAILY_MICROUSD
+        ? { AGENT_GUEST_DAILY_MICROUSD: process.env.E2E_AGENT_GUEST_DAILY_MICROUSD }
+        : {}),
       // Cloudflare's country header, as deployed (Prime country prices, ADR-082). Behind the
       // hosted test server's tunnel Cloudflare sets it; tests send it themselves.
       CLIENT_COUNTRY_HEADER: 'cf-ipcountry',

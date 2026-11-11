@@ -246,9 +246,10 @@ jobs:
       - name: Build Storybook
         run: pnpm build:storybook ${{ env.AFFECTED }}
 
-  # k6 load test (ADR-045): catalog reads and the guest booking journey against the e2e stack
-  # with mock suppliers, judged on PROJECT_SPEC.json#/performance/api_targets. Its own runner, so
-  # the other suites do not skew the latencies.
+  # k6 load test (ADR-045): catalog reads, the guest booking journey and a guest's conversation
+  # with the assistant (answered by the mock inside the API) against the e2e stack with mock
+  # suppliers, judged on PROJECT_SPEC.json#/performance/api_targets. Its own runner, so the
+  # other suites do not skew the latencies.
   load:
     name: Load test (k6)
     runs-on: ubuntu-latest
@@ -316,6 +317,8 @@ jobs:
           WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_load
           WEB_E2E_REDIS_URL: redis://localhost:6379/5
           E2E_RATE_LIMIT_ENABLED: 'false'
+          # Every guest of the load test writes from one address (US$1,000 a day).
+          E2E_AGENT_GUEST_DAILY_MICROUSD: '1000000000'
 
       - name: k6
         run: '"$RUNNER_TEMP/k6" run --summary-export=k6-summary.json load/k6/api.js'
