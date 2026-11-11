@@ -78,8 +78,9 @@ describe('CompanyScreen', () => {
     expect(await screen.findByTestId('company-role')).toHaveTextContent(
       m.account.company.yourRole.replace('{role}', m.account.company.roles.approver),
     );
+    // The trips come from a request of their own, which may answer after the company's.
     expect(
-      within(screen.getByTestId(`company-trip-${TRIP_ID}`)).getByText(
+      within(await screen.findByTestId(`company-trip-${TRIP_ID}`)).getByText(
         m.booking.company.status.pending,
       ),
     ).toBeOnTheScreen();
