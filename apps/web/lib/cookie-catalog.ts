@@ -102,6 +102,14 @@ export const COOKIE_CATALOG: readonly CookieEntry[] = [
     duration: 'tab',
   },
   {
+    name: 'suskii.agent.*',
+    kind: 'sessionStorage',
+    category: 'necessary',
+    provider: 'suskii',
+    purpose: 'assistantAccess',
+    duration: 'tab',
+  },
+  {
     name: 'suskii:search:*',
     kind: 'localStorage',
     category: 'necessary',

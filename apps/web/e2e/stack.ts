@@ -264,6 +264,11 @@ export async function startStack(options: { adTags?: boolean } = {}): Promise<St
       ROUTE_FACTS_MIN_DAYS: '1',
       // The after-hours assistant answers at any hour here (no staffed hours), with the mock model.
       SUPPORT_ASSISTANT_ENABLED: 'true',
+      // The assistant (ADR-101) answers from the mock inside the API: no agent service and no
+      // model. `E2E_AGENT=off` starts the stack without it, as production is until the owner
+      // switches it on, to run the booking journeys with no assistant anywhere.
+      AGENT_ENABLED: process.env.E2E_AGENT === 'off' ? 'false' : 'true',
+      AGENT_SERVICE: 'mock',
       // Cloudflare's country header, as deployed (Prime country prices, ADR-082). Behind the
       // hosted test server's tunnel Cloudflare sets it; tests send it themselves.
       CLIENT_COUNTRY_HEADER: 'cf-ipcountry',

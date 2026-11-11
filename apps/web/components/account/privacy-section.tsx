@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { forgetBookingTokens } from '../../lib/booking-token';
 import { forgetTripBuilder } from '../../lib/trip-builder';
 import { forgetSupportTokens } from '../../lib/support-token';
+import { forgetAgentConversations } from '../../lib/agent-chat';
 import { browserApi, type Schemas } from '../../lib/browser-api';
 import { forgetSession } from '../../lib/session';
 
@@ -124,6 +125,7 @@ function DeleteCard({ requirements }: { requirements: Requirements }) {
       forgetBookingTokens();
       forgetTripBuilder();
       forgetSupportTokens();
+      forgetAgentConversations();
       setDeleted(true);
       setTimeout(() => {
         router.replace('/');
