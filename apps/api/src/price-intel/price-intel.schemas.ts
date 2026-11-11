@@ -296,6 +296,65 @@ export const scrapeJobListSchema = named(
   z.object({ items: z.array(scrapeJobSchema) }),
 );
 
+// --- How reading has gone ----------------------------------------------------------------------
+
+export const priceIntelHealthQuerySchema = z.object({
+  hours: z.coerce.number().int().min(1).max(168).default(24),
+});
+
+const reads = {
+  attempts: z.number().int().min(0),
+  ok: z.number().int().min(0),
+  blocked: z.number().int().min(0),
+  /** Shares of the attempts in basis points; null without an attempt. */
+  successRateBps: z.number().int().min(0).max(10_000).nullable(),
+  blockRateBps: z.number().int().min(0).max(10_000).nullable(),
+  medianMs: z.number().int().min(0).nullable(),
+  costMicroUsd: z.number().int().min(0),
+};
+
+export const priceIntelHealthSchema = named(
+  'PriceIntelHealth',
+  z.object({
+    from: timestamp,
+    to: timestamp,
+    vendors: z.array(
+      z.object({
+        vendor: z.enum(SCRAPE_VENDORS),
+        ...reads,
+        costPerSuccessMicroUsd: z
+          .number()
+          .int()
+          .min(0)
+          .nullable()
+          .meta({ description: 'What a read that gave a usable page cost, on average.' }),
+        breakerOpen: z
+          .boolean()
+          .meta({
+            description: 'The vendor is being skipped everywhere until its breaker closes.',
+          }),
+      }),
+    ),
+    sites: z
+      .array(
+        z.object({
+          domain: z.string(),
+          ...reads,
+          observations: z.number().int().min(0),
+          costPerObservationMicroUsd: z
+            .number()
+            .int()
+            .min(0)
+            .nullable()
+            .meta({ description: 'What one price that was kept cost, on average.' }),
+        }),
+      )
+      .max(30),
+    drift: z.array(z.object({ domain: z.string(), since: timestamp, parserVersion: z.string() })),
+  }),
+);
+export type PriceIntelHealth = z.infer<typeof priceIntelHealthSchema>;
+
 // --- Switches, budgets and vendor health --------------------------------------------------------
 
 export const killSwitchInputSchema = named(

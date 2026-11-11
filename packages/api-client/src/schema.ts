@@ -1102,6 +1102,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/data-sources/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How reading has gone: each vendor and site, breakers and drift
+         * @description Over the last hours (24 unless asked): attempts, the share that gave a usable page and the share the site refused, the median time and the cost per usable read and per price kept. `breakerOpen` says a vendor is being skipped everywhere; `drift` lists the sites whose pages stopped yielding prices.
+         */
+        get: operations["adminGetPriceIntelHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/data-sources/jobs": {
         parameters: {
             query?: never;
@@ -12968,6 +12988,43 @@ export interface components {
             dailyCapMicroUsd: number;
             monthlyCapMicroUsd: number;
         };
+        PriceIntelHealth: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            vendors: {
+                /** @enum {string} */
+                vendor: "firecrawl" | "apify" | "browse_ai" | "oxylabs" | "bright_data" | "direct" | "mock";
+                attempts: number;
+                ok: number;
+                blocked: number;
+                successRateBps: number | null;
+                blockRateBps: number | null;
+                medianMs: number | null;
+                costMicroUsd: number;
+                costPerSuccessMicroUsd: number | null;
+                breakerOpen: boolean;
+            }[];
+            sites: {
+                domain: string;
+                attempts: number;
+                ok: number;
+                blocked: number;
+                successRateBps: number | null;
+                blockRateBps: number | null;
+                medianMs: number | null;
+                costMicroUsd: number;
+                observations: number;
+                costPerObservationMicroUsd: number | null;
+            }[];
+            drift: {
+                domain: string;
+                /** Format: date-time */
+                since: string;
+                parserVersion: string;
+            }[];
+        };
         PriceIntelOverview: {
             enabled: boolean;
             vendors: {
@@ -17392,6 +17449,34 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetPriceIntelHealth: {
+        parameters: {
+            query?: {
+                hours?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceIntelHealth"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
