@@ -139,7 +139,8 @@ export const RECIPIENTS = {
   whatsapp: {
     name: 'Meta WhatsApp Cloud API',
     role: 'processor',
-    receives: "The traveller's WhatsApp number and support messages (ADR-084)",
+    receives:
+      "The traveller's WhatsApp number and support messages, and the assistant's answers in that thread when it is on for WhatsApp (ADR-084)",
     location: 'United States and Ireland',
     transfer: 'processor_terms',
     status: 'not contracted',
@@ -494,7 +495,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
     id: 'assistant',
     name: 'The assistant (Suskii Agent)',
     purpose:
-      'Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change. The agent service keeps each conversation as the model saw it in a schema of its own, deleted with the conversation and 30 days after its last turn. With the traveller’s consent it remembers a short list of travel preferences (codes and fixed choices, no free text, no meal preference), which they see, change and erase (ADR-101, ADR-103, ADR-105, ADR-107).',
+      'Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change. The agent service keeps each conversation as the model saw it in a schema of its own, deleted with the conversation and 30 days after its last turn. With the traveller’s consent it remembers a short list of travel preferences (codes and fixed choices, no free text, no meal preference), which they see, change and erase. When the owner turns it on for WhatsApp, it answers a traveller’s message inside the support conversation, as a guest without an account (ADR-084, ADR-101, ADR-103, ADR-105, ADR-107).',
     basis: ['contract', 'legitimate_interests', 'consent'],
     subjects: ['travellers', 'guests', 'staff'],
     categories: ['communications', 'trips', 'preferences'],
@@ -507,7 +508,7 @@ export const PROCESSING_ACTIVITIES: readonly ProcessingActivity[] = [
       'AgentRun',
       'AgentToolCall',
     ],
-    recipients: [...hosting, 'anthropic'],
+    recipients: [...hosting, 'anthropic', 'whatsapp'],
   },
   {
     id: 'privacy',
