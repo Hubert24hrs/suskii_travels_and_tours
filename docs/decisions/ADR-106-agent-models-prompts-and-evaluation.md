@@ -113,3 +113,14 @@ keep the recorded suites passing and be re-run live before it answers travellers
 - **The sample assistant calls one tool by itself**: asked about the "status", the mock model
   reads the status page through the gateway, so a stack without a model shows the service, a
   grant and the gateway working together (`agent-service.e2e-spec.ts`).
+- **Travellers score a conversation** (sub-phase G). Beside the thumbs on an answer, a
+  conversation takes one score from 1 to 5 (`PUT /v1/agent/conversations/{id}/rating`),
+  asked once the assistant has answered and changeable. The console's quality page shows
+  how many scored, each score's count and the mean in tenths (an integer, never a float).
+- **A funnel from the records.** The same page shows what travellers' conversations of the
+  period led to: started, answered, ran a search, asked a person for a price, were asked to
+  confirm, confirmed, were handed over. A conversation counts once per step; staff
+  conversations are left out; it is computed from runs, tool calls and confirmations at read
+  time, with no table of its own and no third-party analytics.
+- **Still to come in H**: a prompt version that runs in the shadow of the live one and is
+  compared before it may answer, and the eval results in the console.

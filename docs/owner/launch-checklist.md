@@ -265,9 +265,9 @@ and reach your support team. It never books, pays, refunds or confirms anything 
 shows options, opens the ordinary pages and brings in a person. For a few actions on the
 traveller's own booking (cancelling it under its policy, accepting an airline's new times,
 taking the airline's full refund, watching a price) it shows a card with exactly what would
-happen, and nothing happens unless the traveller taps to confirm. It is built and off, and no
-website or app screen offers it yet (that comes with the client work). What is yours to do
-before it answers anyone:
+happen, and nothing happens unless the traveller taps to confirm. It is built and off: the
+website and the app show it only once it is switched on (7.5 says what travellers then see).
+What is yours to do before it answers anyone:
 
 1. **The model key.** The same `LLM_API_KEY` as the after-hours assistant (an Anthropic API
    key), as a repository secret:
@@ -422,3 +422,42 @@ the console (Add-ons). Tell us if a combined trip should get a discount.
 
 Tell Claude which step is done (never the key itself). Claude then turns the setting on, runs or
 reads the check, fixes anything the real provider answers differently, and updates this list.
+
+### 7.5 What travellers see of the assistant (optional)
+
+Built with the website and the app; all of it is hidden while the assistant is off (7.2), and
+search, booking and payment work the same either way (tested on a stack without it).
+
+1. **Where it is.** The website shows "Assistant" in the top bar and the phone menu, leading
+   to its own page; the app offers it from Account. A traveller can ask without an account;
+   a booking, a price request and remembered preferences need one. Say if only signed-in
+   travellers should be able to use it.
+2. **Price requests.** A traveller asks for a price to be confirmed (website: Price
+   requests; app: Account, Price requests), your team verifies it in the console (7.3), and
+   the traveller books it through the ordinary checkout. They can save a request, and a
+   combined trip, as a PDF. Have counsel read the notes printed on both ("an offer is not a
+   booking", "to be confirmed", "a plan is not a booking").
+3. **What the assistant remembers.** Nothing, until a traveller switches it on under
+   "What the assistant remembers": then a home airport, a cabin, window or aisle, up to
+   three airlines and whether price or comfort comes first. They see, change and erase each,
+   and switching it off erases all. A meal preference is not remembered: it can reveal
+   religion or health, and waits for counsel's view (ADR-093). Your privacy policy should
+   name this, with consent as its basis.
+4. **The assistant on WhatsApp** (off unless you set `AGENT_WHATSAPP_ENABLED`). It needs
+   WhatsApp support first (section 6, item 2). It then answers a traveller's WhatsApp
+   message in the same thread your team reads: searches and rules only, nothing about an
+   account, and no confirmations. Its first answer says it is automated. It hands over to
+   your team when asked, when it cannot help, after 12 answers
+   (`AGENT_WHATSAPP_MAX_REPLIES`), or the moment one of your people replies; after that it
+   says nothing more in that thread. Decide whether to offer it, and who reads the handovers
+   out of hours. Meta bills these messages as it bills your team's replies, and your privacy
+   policy must say that an automated assistant may answer there.
+5. **When a traveller asks for a person**, the assistant says when your team aims to reply,
+   from your own reply targets (`SUPPORT_SLA`, section 6 item 1), as an aim and never a
+   promise. Set targets you can keep.
+6. **How it is doing.** After an answer a traveller can score the conversation out of five.
+   Console, "Assistant cost and quality", shows the scores and what conversations led to
+   (searched, asked a person for a price, confirmed something, handed over).
+7. **Store forms.** Conversations with the assistant and remembered preferences are now on
+   the privacy forms page (`docs/release/data-safety.md`); confirm the answers before the
+   next store release.

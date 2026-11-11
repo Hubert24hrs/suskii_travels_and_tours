@@ -185,3 +185,13 @@ builds that predate it ignore the field. Every other change is a new route.
 - One confirmation email for the whole trip (each booking sends its own today), and a view of
   trips in the console (staff see the bookings and each one's trip reference).
 - Paying a trip in installments or from a wallet.
+
+## Amendment: the plan as a PDF (Suskii Agent, sub-phase G, 2026-11-11)
+
+`GET /v1/trips/{tripId}/pdf` prints the caller's own trip (404 otherwise): the route, the
+dates and the head counts, each part chosen with its price and where it stands, the parts
+still to choose, the total and what is still to pay, with a QR code to the trip's page. It is
+drawn from the trip's records at the moment it is asked for, never stored, and holds no name,
+contact or payment detail, as the plan itself holds none. It says that a plan is not a
+booking and that an unpaid part is not reserved. The website saves it from the trip page; the
+app hands it to the share sheet and deletes its cache copy when the sheet closes.

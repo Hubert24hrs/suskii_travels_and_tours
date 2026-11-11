@@ -126,3 +126,16 @@ assistant. Search, checkout, payment and the console never call the agent servic
   model may have been billed.
 - **The service has no route for a caller without the API's token**: it answers 404, as the
   API does for a route that is switched off.
+- **The website's entry is a link** (sub-phase G). A button that opened the chat in a dialog
+  put the homepage 565 bytes over its script budget (ADR-043). The top bar and the phone
+  menu carry a server-rendered link to `/assistant`, shown only while the status says the
+  assistant is available: no script on any other page, and the chat's code loads only where
+  the chat is. The app offers it from Account on the same answer.
+- **Three channels, one run.** `web` and `app` start a run with `POST /v1/agent/chat`;
+  `whatsapp` starts it from the support inbox (`AgentChatService.answerWhatsApp`, ADR-084)
+  and waits for the run's end, since there is no client to poll. The grant's channel is the
+  one the conversation was opened on; a tool may read it (`support.handover` opens nothing
+  on WhatsApp) and never a model's word for it.
+- **Off means absent.** With the assistant off, `/assistant` and `/assistant/preferences`
+  answer 404 and nothing links to them; the app shows no entry. The website's assistant,
+  search and booking suites run in CI on a stack started without it (`E2E_AGENT=off`).

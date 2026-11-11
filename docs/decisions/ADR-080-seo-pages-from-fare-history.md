@@ -49,3 +49,14 @@ only the single cheapest snapshot for 7 days.
   before.
 - More departure offsets (`DEALS_DEPARTURE_OFFSETS_DAYS`) give richer month data at the cost of
   more supplier searches; the owner can widen them.
+
+## Amendment: a trend, never a forecast (Suskii Agent, sub-phase G, 2026-11-11)
+
+`fareTrend()` in `route-facts.ts` compares the median of each day's cheapest fare over the
+last 30 days with the 60 days before: `lower` or `higher` when the move is more than 5% of
+the earlier figure, `steady` inside that band, and nothing at all with fewer than five days
+of fares in either window. It is a pure rule over the same history as the route facts,
+compared in `usd_minor`, and no model takes part in it. The assistant's `fares.trend` tool is
+its only reader today and returns it with a fixed sentence: these are fares already found,
+not a forecast, and only a search shows a price that can be booked. A page that shows the
+trend later carries the same sentence.

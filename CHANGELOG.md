@@ -6,6 +6,79 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Suskii Agent, sub-phase G: the clients (2026-11-11)
+
+What travellers see of the assistant: on the website, in the app and on WhatsApp (ADR-080,
+ADR-084, ADR-099, ADR-101, ADR-104 to ADR-107). All of it is hidden while the assistant is
+off, which it is in production until the owner switches it on; search, booking and payment
+are tested on a stack without it.
+
+#### Added
+
+- **The assistant on the website**: the chat on `/assistant` with a signed-in traveller's
+  earlier conversations, result cards (an indicative price is marked as one), a source card
+  for a document, the confirmation card a traveller taps, thumbs on an answer and a score out
+  of five. The top bar and the phone menu link to it only while the API says it is
+  available; no other page carries its code.
+- **The assistant in the app**: the chat and its history from Account, with a Maestro flow.
+  A guest's first message carries the device attestation; the conversation's id and token
+  stay in the secure store.
+- **Price requests for travellers** (ADR-104): the website's `/quotes` and `/quotes/{id}` and
+  the app's Account, Price requests. Ask for a price (contact details are refused before
+  anything is sent), read the verified offer with its terms and how long it can be booked,
+  withdraw, book through the ordinary checkout. Checkout, the booking page and the app's
+  trip screen show an assisted item and say that a person books it after payment. The push
+  for an answered request opens the app's list.
+- **The assistant on WhatsApp** (ADR-084): with `AGENT_WHATSAPP_ENABLED` it answers a
+  traveller's message inside the support conversation the message opened, as a guest's run
+  (searches and rules; nothing about an account, no confirmations). Its first answer says it
+  is automated. A person's reply, a handover, `AGENT_WHATSAPP_MAX_REPLIES` answers (12) or
+  any failure ends its part with one handover and an internal note for the team. STOP, the
+  24-hour window and the template are the channel's own.
+- **What the assistant remembers** (ADR-105): for a traveller who switched it on, a home
+  airport, a cabin, window or aisle, up to three airlines and whether price or comfort comes
+  first; each a code or a fixed choice, never free text, never a meal. Routes under
+  `/v1/me/assistant-memory`, the page `/assistant/preferences` on the website and in the
+  app, and the tools `memory.read` and `memory.remember` (a card; only the tap keeps it).
+  Table `agent_memories`; in the export, deleted with the account.
+- **Three planning tools**: `fares.trend` (the last 30 days against the 60 before, said as a
+  trend and never a forecast), `documents.passports` (how many saved passports last six
+  months after arrival, counts only, with a reminder that the destination decides) and
+  `company.policy` (the caller's own company's travel rules).
+- **A handover that says more**: `support.handover` returns the team's reply target as text
+  and whether the conversation is in a priority queue; the team gets an internal note with
+  the agents that worked on it and the tools they called (names and outcome codes only).
+- **A score for a conversation, and a funnel** (ADR-106):
+  `PUT /v1/agent/conversations/{id}/rating`; the console's quality page shows the scores and
+  what travellers' conversations led to (answered, searched, asked a person for a price,
+  asked to confirm, confirmed, handed over).
+- **A price request and a combined trip as PDFs**: `GET /v1/quotes/assisted/{id}/pdf` and
+  `GET /v1/trips/{id}/pdf`, the caller's own, with a QR code to their page and no name,
+  contact or payment detail. Each says what it is not: an offer is not a booking, a plan is
+  not a booking, an unpaid part is not reserved. Saved from the website; shared from the app.
+- **Settings**: `AGENT_WHATSAPP_ENABLED` (off unless set, in every environment) and
+  `AGENT_WHATSAPP_MAX_REPLIES` (12).
+- **CI**: the website's assistant, search and booking suites run once more on a stack
+  started without the assistant (`E2E_AGENT=off`).
+
+#### Changed
+
+- The app's API contract only gains: seven routes and one optional field (`rating` on a
+  conversation's answer). No route or field an older app build reads was removed or changed,
+  compared on the generated API description. The handover tool's answer to a model gains
+  `teamAimsToReplyBy` and `priorityQueue`.
+- `SupportAssistant.write` is the one way an automated message enters a support
+  conversation; the WhatsApp inbox asks a list of answerers before the after-hours assistant.
+- The PDF page writer wraps running text and keeps line breaks.
+- The records of processing name Meta as a recipient of the assistant's answers on WhatsApp.
+
+#### Fixed
+
+- The chat first opened in a dialog from a button on every page, which put the homepage 565
+  bytes over its 170 kB script budget; the entry is a server-rendered link.
+- A handover asked for on WhatsApp would have opened a second support conversation beside
+  the thread; the tool opens nothing there.
+
 ### Suskii Agent, sub-phase F: the console (2026-11-11)
 
 Everything staff need to run the assistant, in the console (ADR-102, ADR-105, ADR-107). Built

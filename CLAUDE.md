@@ -92,9 +92,13 @@ booking a person confirms; six staff agents in the console with eight tools; the
 queue) and F (the console: the assistant's switches and one agent's switch, the staff chat,
 approvals, assisted quotes, data sources with their health, runs with their tool calls,
 travellers' conversations masked and audited, estimated cost with a forecast, quality, the
-limits in force and the knowledge base the assistant answers rules from) are done; G and H
-follow in order (`docs/phases/ai-agent.md`): the clients, hardening. No website or app screen
-offers the assistant yet. The vendor adapters
+limits in force and the knowledge base the assistant answers rules from) and G (the
+clients: the website's chat on `/assistant`, price requests on the website and in the app,
+the app's assistant, the assistant on WhatsApp inside the support thread, what the assistant
+remembers for a traveller who agreed, a score for a conversation and a funnel, a price
+request and a combined trip as PDFs, and the journeys tested with the assistant off) are
+done; H (hardening and delivery) follows (`docs/phases/ai-agent.md`). The website and the app
+offer the assistant only while `GET /v1/agent/status` says it is available. The vendor adapters
 wait for one run of `scrapers-sandbox.yml` with the owner's keys, and the agents for one run of
 `agent-eval.yml` with `LLM_API_KEY`. Nothing of it runs in production until the owner sets
 `AGENT_ENABLED` and `PRICE_INTEL_ENABLED` and approves each web source.
@@ -963,7 +967,17 @@ Tooling notes for agents:
   account deletion, retention and the records of processing in the same change, and
   `resetState` in the e2e helpers.
 - Clients read `GET /v1/agent/status` and offer the assistant only while `available` is true;
-  an answer they cannot read hides it. Search, booking and payment never depend on it.
+  an answer they cannot read hides it. Search, booking and payment never depend on it: the
+  website's off-mode suite (`E2E_AGENT=off`, a CI step) runs the assistant, search and
+  booking specs on a stack without it. A page that offers or needs the assistant gets a case
+  in `assistant.spec.ts`'s off-mode block.
+- The clients draw what the API stored (an answer the guard passed, cards a tool built, the
+  confirmation card) and compose nothing. The website's entry is the server-rendered link in
+  `site-header.tsx`, never a client button on every page (the homepage budget has no room);
+  `/assistant` and `/assistant/preferences` answer 404 while the assistant is off, and the
+  preferences page stays open while it is paused, so erasing is always possible. The app
+  keeps the open conversation's id and a guest's token in `assistantSession`
+  (`lib/assistant.ts`, secure store) and offers the assistant from Account.
 - Chat (`src/agent/chat`): `POST /v1/agent/chat` stores the message (sealed), starts the run in
   the background and answers 202; events are read from the run's log in Redis as a stream
   (`GET /v1/agent/runs/{id}/stream`) or by polling. One run per conversation
@@ -986,6 +1000,34 @@ Tooling notes for agents:
 - A handover is `support.handover`: an ordinary support conversation (ADR-083) under the topic
   `assistant_handover`, whose first message is the traveller's own last messages, never a
   model's words. A new topic is a `SUPPORT_TOPICS` value with a label in every catalog.
+- A handover names an aim, never a promise: the tool returns the support conversation's own
+  reply target as text (`teamAimsToReplyBy`) and `priorityQueue`, and the assistant gives no
+  other time. What staff are told goes only through `AgentHandoverNotes` (an internal note:
+  agents, tool names and outcome codes, never a traveller's or a model's words).
+- The assistant on WhatsApp (`src/agent/whatsapp`, ADR-084) answers only through
+  `AgentWhatsApp`, which registers with support's `WhatsAppAnswerers` (support never imports
+  the agent), runs a guest's message with `AgentChatService.answerWhatsApp` and writes only
+  through `SupportAssistant.write`. `AGENT_WHATSAPP_ENABLED` is off unless set, in every
+  environment. One handover per thread and nothing after it or after a person's reply; a run
+  that ends in a confirmation, a failure or a cap is the handover. `support.handover` opens
+  nothing on that channel. Never give such a run an account scope, never send STOP text to
+  a model, and keep the first answer's disclosure.
+- What the assistant remembers (`src/agent/memory`, ADR-105) changes only through
+  `AgentMemoryService` (`setEnabled`, `put`, `remove`); nothing is kept while
+  `assistant_memory_at` is null, and switching it off erases every row. A value passes
+  `agentMemoryValue()` (`@suskii/shared`): a code the catalog knows or one of a fixed set. A
+  new preference is a key in `AGENT_MEMORY_KEYS` with such a rule and a label in every
+  catalog: never free text, never a meal or anything that can show health or religion. The
+  assistant stores only through `memory.remember`'s card; both clients put a value into
+  words with `memoryValueText()`.
+- A conversation's score is set only through `AgentConversationsService.rate()` by its
+  owner; staff see counts, a mean in tenths and the funnel (`AgentInsightsService`, computed
+  at read time). A new search tool joins `SEARCH_TOOLS` there, or the funnel misses it.
+- Planning tools (`src/agent/tools/planning-tools.ts`): `fares.trend` always returns
+  `FARE_TREND_BASIS` (a trend over fares already found, never a forecast; the rule is
+  `fareTrend()` in `route-facts.ts`); `documents.passports` returns counts from
+  `passportValidity()` with `PASSPORT_REMINDER`, never a name, a number or a date of a
+  document; `company.policy` reads the caller's own membership.
 - A `commit` tool has a `prepare()` beside its `run()` (the registry refuses one without the
   other). `prepare()` reads the records and returns the card (`kind`, `title`, `lines`,
   `amounts` under the codes of `AGENT_CONFIRMATION_AMOUNTS`, `ref`) and `expected`: what must
@@ -1064,6 +1106,17 @@ Tooling notes for agents:
   `unbookable`): a booking someone paid for must still be booked or refunded. Keep a new
   route on the right side of that line. The list is `GET /v1/me/assisted-quotes` (a path
   under `/v1/quotes` would be read as a quote id).
+- Travellers' screens: the website's `/quotes` and `/quotes/{id}` (private, not indexed) and
+  the app's `/account/quotes`; both refuse contact details with the shared rule before a
+  request is sent and book only through the ordinary checkout. The push path for an answered
+  request is `/account/quotes`.
+- A price request and a combined trip print as PDFs (`src/documents/plan-pdf.ts`; routes
+  `/v1/quotes/assisted/{id}/pdf`, `/v1/trips/{id}/pdf`): the caller's own (404 otherwise),
+  drawn from the records when asked for and never stored, with no name, contact or payment
+  detail, and each says what it is not (an offer or a plan is not a booking; an unpaid part
+  is not reserved; a price seen elsewhere was a reference). Running text goes through
+  `Writer.paragraph`. The website saves with `savePdf()`; the app shares with
+  `sharePlanPdf()` and deletes its cache copy when the sheet closes.
 
 ### The agent service (apps/agent; ADR-101, ADR-103, ADR-106, ADR-107)
 
@@ -1820,5 +1873,11 @@ or Markdown, since nothing is read from a PDF) and who keeps them current; who h
 whether every role with `ai:read` (operations, finance, support) should be able to open
 travellers' conversations, which are shown with contact details removed and audited; the
 model prices in `AGENT_MODEL_PRICES`, without which every cost reads as nothing; and the
-forecast above which someone should be told. Every owner action is listed,
+forecast above which someone should be told. Added with the clients (sub-phase G): whether
+the assistant answers on WhatsApp (`AGENT_WHATSAPP_ENABLED`), after how many answers it
+hands over (12) and who reads the handovers out of hours; whether a meal preference may be
+remembered (counsel, ADR-093); the reply targets a handover may name (`SUPPORT_SLA`);
+counsel's reading of the notes on the PDFs ("an offer is not a booking", "to be confirmed");
+whether guests may use the assistant; and confirmation of the store form answers for
+conversations with the assistant and remembered preferences. Every owner action is listed,
 step by step, in `docs/owner/launch-checklist.md`.

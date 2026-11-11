@@ -193,3 +193,21 @@ input.
   provider's invoice is the actual cost; nothing reads it.
 - **The limits are shown, not edited.** Run limits, spend caps and model prices are settings
   of the environment; changing one is a deployment, reviewed like any other.
+- **A sixth commit tool** (sub-phase G): `memory.remember` (ADR-105). Its card names one
+  preference and its value; the tap stores exactly that, and only for a traveller who had
+  switched remembering on.
+- **Three tools that only read, for planning**: `fares.trend` (ADR-080, a trend and never a
+  forecast), `documents.passports` (how many of the account's saved passports last six
+  months after the arrival date, run out sooner or have run out: counts only, with a fixed
+  reminder that the destination's rule decides and that this is no decision about entry) and
+  `company.policy` (the caller's own company's cabin, hotel, advance and approval rules,
+  read through their membership). None returns a name, a document number or a date of a
+  person's document.
+- **A handover names an aim, never a promise.** `support.handover` returns the support
+  conversation's own reply target as text and whether it is in a priority queue; the
+  assistant may say when the team aims to reply and gives no other time. The team gets an
+  internal note with the agents that worked on the conversation and the tools they called
+  with how each call ended: names and codes, never a traveller's or a model's words, and
+  never shown to the traveller.
+- **No confirmation outside the app and the website.** On WhatsApp a run that ends in a
+  confirmation becomes the handover (ADR-084): "yes" in a chat is never a tap.
