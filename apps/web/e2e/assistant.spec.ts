@@ -146,6 +146,61 @@ test('an answer is read with its note, in words, whatever the assistant wrote', 
   await expectNoAxeViolations(page);
 });
 
+test('a price seen on another site is marked indicative, with where and when it was seen', async ({
+  page,
+}) => {
+  test.skip(OFF, WHY);
+  await page.goto('/assistant');
+  const chat = page.getByTestId('assistant-chat');
+  await chat.getByLabel(t('assistant.messageLabel')).fill(QUESTION);
+  await chat.getByTestId('assistant-send').click();
+  const answer = chat.getByTestId('assistant-message-assistant');
+  await expect(answer).toContainText(/sample assistant/, { timeout: 20_000 });
+
+  // The card as `prices.indicative` builds it (ADR-102, ADR-104): the thing priced, the site
+  // and the time it was seen there, the price and the mark. No site is approved on this
+  // stack, so the card is put on the API's own answer on its way to the page.
+  const seen = 'rooms.example.com, 2026-11-11 09:30 UTC';
+  await page.route('**/v1/agent/conversations/*', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    const body = (await response.json()) as {
+      messages: { role: string; kind: string; cards: unknown[] }[];
+    };
+    for (const message of body.messages) {
+      if (message.role !== 'assistant' || message.kind !== 'text') continue;
+      message.cards = [
+        {
+          kind: 'price',
+          title: 'Harbour View Hotel',
+          lines: [seen],
+          price: { amountMinor: 8_500_000, currency: 'NGN' },
+          indicative: true,
+        },
+        { kind: 'link', title: 'LOS → LHR', lines: [], href: '/flights/lagos-to-london' },
+      ];
+    }
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto('/assistant');
+
+  const cards = answer.getByRole('listitem');
+  await expect(cards).toHaveCount(2);
+  const price = cards.filter({ hasText: 'Harbour View Hotel' });
+  await expect(price.getByText(t('assistant.cards.indicative'), { exact: true })).toBeVisible();
+  await expect(price.getByText(t('assistant.cards.indicativeNote'))).toBeVisible();
+  await expect(price.getByText(seen)).toBeVisible();
+  await expect(price).toContainText('85,000');
+  // An indicative price leads nowhere to book, and a price of ours carries no such mark.
+  await expect(price.getByRole('link')).toHaveCount(0);
+  const ours = cards.filter({ hasText: 'LOS → LHR' });
+  await expect(ours.getByText(t('assistant.cards.indicative'), { exact: true })).toHaveCount(0);
+  await expectNoAxeViolations(page);
+});
+
 test('the menu on a phone leads to the assistant too', async ({ page }) => {
   test.skip(OFF, WHY);
   await page.setViewportSize({ width: 390, height: 844 });
