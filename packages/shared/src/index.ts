@@ -120,6 +120,25 @@ export {
   type StatusFact,
 } from './agent-grounding';
 export {
+  KNOWLEDGE_AUDIENCES,
+  KNOWLEDGE_HEADING_MAX,
+  KNOWLEDGE_LANGUAGES,
+  KNOWLEDGE_MAX_BYTES,
+  KNOWLEDGE_MAX_DOCUMENTS,
+  KNOWLEDGE_MAX_PASSAGES,
+  KNOWLEDGE_MEDIA_TYPES,
+  KNOWLEDGE_PASSAGE_CHARS,
+  KNOWLEDGE_SEARCH_CONFIG,
+  KNOWLEDGE_TITLE_MAX,
+  knowledgeLanguage,
+  knowledgePassages,
+  looksLikeText,
+  type KnowledgeAudience,
+  type KnowledgeLanguage,
+  type KnowledgeMediaType,
+  type KnowledgePassage,
+} from './knowledge';
+export {
   AGENT_CARD_KINDS,
   AGENT_MESSAGE_KINDS,
   AGENT_NOTICES,
