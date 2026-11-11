@@ -31,6 +31,8 @@ export default function robots(): MetadataRoute.Robots {
           '/support/',
           // A traveller's conversation with the assistant (ADR-101).
           '/assistant',
+          // A traveller's own price requests (ADR-104).
+          '/quotes',
         ],
       },
     ],

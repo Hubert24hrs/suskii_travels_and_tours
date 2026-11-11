@@ -12,4 +12,6 @@ export const pickBookingMessages = (messages: Messages): BookingFlowMessages => 
   partners: messages.partners,
   reviews: messages.reviews,
   support: messages.support,
+  // An assisted booking says who verified its price and who books it (ADR-104).
+  quotes: messages.quotes,
 });

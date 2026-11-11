@@ -15,6 +15,7 @@ export type BookingFlowMessages = Pick<
   | 'partners'
   | 'reviews'
   | 'support'
+  | 'quotes'
 >;
 
 export const useBookingT = () => useTranslator<BookingFlowMessages>();
