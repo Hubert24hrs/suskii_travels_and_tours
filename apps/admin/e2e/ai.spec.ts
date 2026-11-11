@@ -126,7 +126,32 @@ test('a super admin pauses the assistant, releases it with a fresh code and sets
   await expect(tools.getByRole('row', { name: /bookings\.cancel/ })).toContainText(
     t('ai.tiers.commit'),
   );
+
+  // One agent is switched off and on again; the general agent has no switch.
+  const autonomy = page.getByRole('table', { name: t('ai.autonomyCaption') });
+  const hotels = autonomy.getByRole('row', { name: new RegExp(t('ai.agents.hotels')) });
+  const switchName = (action: string) =>
+    t('ai.switchLabel', { action, name: t('ai.agents.hotels') });
+  await expect(hotels.getByText(t('ai.agentOn'), { exact: true })).toBeVisible();
+  const concierge = autonomy.getByRole('row', { name: new RegExp(t('ai.agents.concierge')) });
+  await expect(concierge).toContainText(t('ai.alwaysOn'));
+  await expect(concierge.getByRole('button', { name: /Switch/ })).toHaveCount(0);
+  await hotels.getByRole('button', { name: switchName(t('ai.switchOff')) }).click();
+  await page.getByRole('button', { name: t('common.yes') }).click();
+  await expect(hotels.getByText(t('ai.agentOff'), { exact: true })).toBeVisible();
+  await hotels.getByRole('button', { name: switchName(t('ai.switchOn')) }).click();
+  await page.getByRole('button', { name: t('common.yes') }).click();
+  await expect(hotels.getByText(t('ai.agentOn'), { exact: true })).toBeVisible();
   await expectNoAxeViolations(page);
+
+  // The audit log, narrowed to the assistant, names what was just done.
+  await page.getByRole('link', { name: t('ai.openAudit') }).click();
+  await expect(page.getByRole('heading', { level: 1, name: t('audit.title') })).toBeVisible();
+  await expect(page.getByLabel(t('audit.filterArea'))).toHaveValue('assistant');
+  const log = page.getByRole('table', { name: t('audit.title') });
+  await expect(log).toContainText('agent.agent_switched');
+  await expect(log).toContainText('agent.autonomy_changed');
+  await expect(log).toContainText('agent.resumed');
 });
 
 test('staff ask the assistant, and what it prepared for them is someone else to decide', async ({
@@ -355,6 +380,19 @@ test('a super admin lists a site, approves it with a basis, reads it and switche
       .getByRole('row', { name: new RegExp(domain) })
       .first(),
   ).toContainText(t('dataSources.jobStatuses.succeeded'));
+
+  // How reading has gone: the one try gave a usable page, and the mock is not being skipped.
+  const health = page.getByTestId('source-health');
+  await expect(
+    health
+      .getByRole('table', { name: t('dataSources.healthSitesCaption') })
+      .getByRole('row', { name: new RegExp(domain) }),
+  ).toContainText('1 (100%)');
+  await expect(
+    health
+      .getByRole('table', { name: t('dataSources.healthVendorsCaption') })
+      .getByRole('row', { name: new RegExp(t('dataSources.vendorNames.mock')) }),
+  ).toContainText(t('dataSources.breakerClosed'));
 
   // Switching a site off takes effect at once; switching it back on is a second decision.
   await page.getByTestId('stop-reading').click();

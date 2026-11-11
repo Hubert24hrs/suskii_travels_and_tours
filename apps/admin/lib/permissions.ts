@@ -48,6 +48,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/approvals', label: 'nav.approvals', anyOf: ['ai:read'] },
   { href: '/assisted-quotes', label: 'nav.assistedQuotes', anyOf: ['ai:read'] },
   { href: '/data-sources', label: 'nav.dataSources', anyOf: ['ai:read'] },
+  { href: '/ai-activity', label: 'nav.aiActivity', anyOf: ['ai:read'] },
+  { href: '/ai-insights', label: 'nav.aiInsights', anyOf: ['ai:read'] },
+  { href: '/knowledge', label: 'nav.knowledge', anyOf: ['ai:read'] },
 ];
 
 export function grantedPermissions(roles: readonly Role[]): ReadonlySet<Permission> {

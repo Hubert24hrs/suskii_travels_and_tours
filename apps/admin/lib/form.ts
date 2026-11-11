@@ -19,6 +19,17 @@ export function minorFromInput(value: string, currency: string): number | null {
 export const usdFromMicro = (microUsd: number): string =>
   format.money({ amountMinor: Math.round(microUsd / 10_000), currency: 'USD' });
 
+/**
+ * Small amounts of model or vendor spend, to a hundredth of a cent: one run costs a fraction
+ * of a cent, which whole cents would show as nothing.
+ */
+export const usdFineFromMicro = (microUsd: number): string =>
+  `$${(microUsd / 1_000_000).toFixed(4)}`;
+
+/** A share of a total as a whole percentage ("42%"); a dash when the total is nothing. */
+export const shareOf = (part: number, total: number): string =>
+  total > 0 ? `${Math.round((part * 100) / total)}%` : '\u2014';
+
 /** Millionths of a US dollar from a dollar input ("2.50" -> 2500000); null or NaN as above. */
 export function microFromUsdInput(value: string): number | null {
   const cents = minorFromInput(value, 'USD');

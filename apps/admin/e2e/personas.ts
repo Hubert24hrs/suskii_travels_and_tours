@@ -74,6 +74,10 @@ export const PERSONAS = {
   quoteTraveller: { roles: [], enrolled: false },
   /** Lists a site, approves it with a basis, reads it and switches it off (ADR-102). */
   sourceManager: { roles: ['super_admin'], enrolled: true },
+  /** Adds a document to the knowledge base, checks what it answers, archives it (ADR-105). */
+  knowledgeManager: { roles: ['super_admin'], enrolled: true },
+  /** Reads the assistant's runs, a traveller's masked conversation, cost and quality. */
+  insightsReader: { roles: ['operations'], enrolled: true },
 } as const satisfies Record<string, { roles: readonly Role[]; enrolled: boolean }>;
 
 export type PersonaKey = keyof typeof PERSONAS;
@@ -106,6 +110,8 @@ export interface StackState {
   assistedQuote: { id: string; reference: string };
   /** A promo code the assistant prepared for the assistant asker (ADR-107). */
   approval: { id: string; code: string };
+  /** The quote traveller's conversation with the assistant; its message holds an address. */
+  assistantConversation: { reference: string };
   /** The run's own database, for the few states a browser cannot reach (an aged session). */
   databaseUrl: string;
 }

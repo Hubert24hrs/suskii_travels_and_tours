@@ -16,7 +16,13 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 
 import { $api, type Schemas } from '../../lib/api';
 import { csvCell, saveText } from '../../lib/download';
-import { fieldIssues, microFromUsdInput, usdFromMicro } from '../../lib/form';
+import {
+  fieldIssues,
+  microFromUsdInput,
+  shareOf,
+  usdFineFromMicro,
+  usdFromMicro,
+} from '../../lib/form';
 import { format, label, t } from '../../lib/i18n';
 import { RequirePermission } from '../console-shell';
 import { useStaffSession } from '../staff-session';
@@ -43,6 +49,7 @@ type Switch = Overview['switches'][number];
 type Budget = Schemas['PriceIntelBudget'];
 type Observation = Schemas['PriceObservation'];
 type ReadResult = Schemas['PriceReadResult'];
+type Health = Schemas['PriceIntelHealth'];
 type SourceInput = Schemas['PriceSourceInputInput'];
 type SourcePatch = Schemas['PriceSourcePatchInput'];
 
@@ -1250,6 +1257,154 @@ function RegisterSection() {
  * needs `datasources:manage`, and approving a site, switching reading back on and setting a
  * budget also an authenticator code.
  */
+const HEALTH_WINDOWS = [24, 72, 168] as const;
+type HealthWindow = (typeof HEALTH_WINDOWS)[number];
+
+/** What a row of reading holds, for a vendor or for a site. */
+interface Reads {
+  attempts: number;
+  ok: number;
+  blocked: number;
+  medianMs: number | null;
+  costMicroUsd: number;
+}
+
+const rate = (count: number, total: number) =>
+  t('dataSources.shareOfTries', { count: format.number(count), percent: shareOf(count, total) });
+
+const readColumns = <Row extends Reads>() =>
+  [
+    {
+      key: 'attempts',
+      header: t('dataSources.attempts'),
+      cell: (row: Row) => format.number(row.attempts),
+    },
+    {
+      key: 'usable',
+      header: t('dataSources.usable'),
+      cell: (row: Row) => rate(row.ok, row.attempts),
+    },
+    {
+      key: 'refused',
+      header: t('dataSources.refused'),
+      cell: (row: Row) => rate(row.blocked, row.attempts),
+    },
+    {
+      key: 'median',
+      header: t('dataSources.medianTime'),
+      cell: (row: Row) =>
+        row.medianMs === null
+          ? t('common.none')
+          : t('dataSources.milliseconds', { ms: format.number(row.medianMs) }),
+    },
+    {
+      key: 'spent',
+      header: t('dataSources.spent'),
+      cell: (row: Row) => usdFineFromMicro(row.costMicroUsd),
+    },
+  ] as const;
+
+const perUnit = (micro: number | null) =>
+  micro === null ? t('common.none') : usdFineFromMicro(micro);
+
+function HealthTables({ health }: { health: Health }) {
+  return (
+    <div className="flex flex-col gap-4" data-testid="source-health">
+      <DataTable
+        caption={t('dataSources.healthVendorsCaption')}
+        rows={health.vendors}
+        rowKey={(row) => row.vendor}
+        columns={[
+          {
+            key: 'vendor',
+            header: t('dataSources.vendor'),
+            cell: (row) => label('dataSources.vendorNames', row.vendor),
+          },
+          ...readColumns<Health['vendors'][number]>(),
+          {
+            key: 'perUsable',
+            header: t('dataSources.costPerUsable'),
+            cell: (row) => perUnit(row.costPerSuccessMicroUsd),
+          },
+          {
+            key: 'breaker',
+            header: t('dataSources.breaker'),
+            cell: (row) => (
+              <StatusBadge tone={row.breakerOpen ? 'warning' : 'success'}>
+                {row.breakerOpen ? t('dataSources.breakerOpen') : t('dataSources.breakerClosed')}
+              </StatusBadge>
+            ),
+          },
+        ]}
+      />
+      <DataTable
+        caption={t('dataSources.healthSitesCaption')}
+        rows={health.sites}
+        rowKey={(row) => row.domain}
+        empty={t('dataSources.noAttempts')}
+        columns={[
+          {
+            key: 'site',
+            header: t('dataSources.site'),
+            cell: (row) => <code className="break-all">{row.domain}</code>,
+          },
+          ...readColumns<Health['sites'][number]>(),
+          {
+            key: 'kept',
+            header: t('dataSources.pricesKept'),
+            cell: (row) => format.number(row.observations),
+          },
+          {
+            key: 'perPrice',
+            header: t('dataSources.costPerPrice'),
+            cell: (row) => perUnit(row.costPerObservationMicroUsd),
+          },
+        ]}
+      />
+      {health.drift.length > 0 ? (
+        <div role="alert" className="flex flex-col gap-1">
+          <p className="font-body text-body-sm font-bold text-danger">
+            {t('dataSources.driftOpen')}
+          </p>
+          <ul className="flex flex-col gap-1">
+            {health.drift.map((incident) => (
+              <li key={incident.domain} className="font-body text-body-sm text-foreground">
+                {t('dataSources.driftRow', {
+                  domain: incident.domain,
+                  time: format.dateTime(incident.since),
+                  version: incident.parserVersion,
+                })}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** How reading has gone in a period: per vendor and per site, with breakers and drift. */
+function HealthSection() {
+  const [hours, setHours] = useState<HealthWindow>(24);
+  const query = $api.useQuery('get', `${ROOT}/health`, { params: { query: { hours } } });
+  return (
+    <Section title={t('dataSources.health')} intro={t('dataSources.healthIntro')}>
+      <SelectField
+        className="max-w-popover"
+        label={t('dataSources.healthWindow')}
+        name="hours"
+        value={String(hours)}
+        options={HEALTH_WINDOWS.map((value) => ({
+          value: String(value),
+          label: label('dataSources.healthWindows', `h${String(value)}`),
+        }))}
+        onChange={(event) => setHours(Number(event.target.value) as HealthWindow)}
+      />
+      <QueryState query={query}>{(health) => <HealthTables health={health} />}</QueryState>
+    </Section>
+  );
+}
+
 export function DataSourcesPage() {
   const { can } = useStaffSession();
   const manage = can('datasources:manage');
@@ -1266,6 +1421,7 @@ export function DataSourcesPage() {
         <QueryState query={overview}>
           {(data) => <OverviewSection overview={data} manage={manage} />}
         </QueryState>
+        <HealthSection />
         <h2 className="font-heading text-h3 font-bold text-heading">{t('dataSources.sites')}</h2>
         <p className="font-body text-body-sm text-muted">{t('dataSources.sitesIntro')}</p>
         <QueryState query={sites}>

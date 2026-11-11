@@ -3,6 +3,7 @@
 import {
   AGENT_AUTONOMY_LEVELS,
   AGENT_PAUSE_REASONS,
+  ALWAYS_ON_AGENTS,
   agentAudience,
   type AgentAutonomy,
   type AgentName,
@@ -10,6 +11,7 @@ import {
 } from '@suskii/shared';
 import { Button, useToast } from '@suskii/ui-web';
 import { useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 
 import { $api, type Schemas } from '../../lib/api';
@@ -239,8 +241,45 @@ const LevelCell = ({ setting }: { setting: Setting }) => (
   </span>
 );
 
+/**
+ * Switches one agent off or on. Its questions go to the general agent while it is off; the
+ * two general agents cannot be switched off (pause the assistant instead). The API asks for an
+ * authenticator code.
+ */
+function SwitchAction({ agent, enabled }: { agent: AgentName; enabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const refresh = useRefresh();
+  const change = $api.useMutation('put', '/v1/admin/ai/agents/{agent}', {
+    onSuccess: async () => {
+      setOpen(false);
+      toast({ title: t('ai.switched'), variant: 'success' });
+      await refresh();
+    },
+  });
+  const name = label('ai.agents', agent);
+  const action = enabled ? t('ai.switchOff') : t('ai.switchOn');
+  return (
+    <ConfirmAction
+      triggerLabel={action}
+      triggerAriaLabel={t('ai.switchLabel', { action, name })}
+      question={enabled ? t('ai.switchOffQuestion', { name }) : t('ai.switchOnQuestion', { name })}
+      onConfirm={() => change.mutate({ params: { path: { agent } }, body: { enabled: !enabled } })}
+      pending={change.isPending}
+      error={change.error}
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) change.reset();
+      }}
+    />
+  );
+}
+
 function Autonomy({ overview, manage }: { overview: Overview; manage: boolean }) {
   const agents = overview.autonomy.filter((setting) => setting.subject === 'agent');
+  const off = new Set<string>(overview.disabledAgents);
+  const alwaysOn = (name: string) => (ALWAYS_ON_AGENTS as readonly string[]).includes(name);
   return (
     <Section title={t('ai.autonomy')} intro={t('ai.autonomyIntro')}>
       <DataTable
@@ -254,6 +293,18 @@ function Autonomy({ overview, manage }: { overview: Overview; manage: boolean })
             header: t('ai.audience'),
             cell: (row) => label('ai.audiences', agentAudience(row.name as AgentName)),
           },
+          {
+            key: 'answers',
+            header: t('ai.answers'),
+            cell: (row) =>
+              alwaysOn(row.name) ? (
+                <StatusBadge tone="neutral">{t('ai.alwaysOn')}</StatusBadge>
+              ) : (
+                <StatusBadge tone={off.has(row.name) ? 'warning' : 'success'}>
+                  {off.has(row.name) ? t('ai.agentOff') : t('ai.agentOn')}
+                </StatusBadge>
+              ),
+          },
           { key: 'level', header: t('ai.level'), cell: (row) => <LevelCell setting={row} /> },
           ...(manage
             ? [
@@ -261,7 +312,12 @@ function Autonomy({ overview, manage }: { overview: Overview; manage: boolean })
                   key: 'actions',
                   header: t('common.actions'),
                   cell: (row: Setting) => (
-                    <LevelDialog setting={row} name={label('ai.agents', row.name)} />
+                    <span className="flex flex-wrap gap-2">
+                      <LevelDialog setting={row} name={label('ai.agents', row.name)} />
+                      {alwaysOn(row.name) ? null : (
+                        <SwitchAction agent={row.name as AgentName} enabled={!off.has(row.name)} />
+                      )}
+                    </span>
                   ),
                 },
               ]
@@ -336,6 +392,37 @@ function Tools({ overview, manage }: { overview: Overview; manage: boolean }) {
   );
 }
 
+const MORE = [
+  { href: '/ai-activity', label: 'ai.openActivity' },
+  { href: '/ai-insights', label: 'ai.openInsights' },
+  { href: '/knowledge', label: 'ai.openKnowledge' },
+] as const;
+
+/** Where the rest of the assistant's pages are; the audit link only for staff who may read it. */
+function More({ audit }: { audit: boolean }) {
+  const link = 'inline-flex min-h-6 items-center font-body text-body-sm text-primary underline';
+  return (
+    <Section title={t('ai.more')} intro={t('ai.moreIntro')}>
+      <ul className="flex flex-wrap gap-4">
+        {MORE.map((item) => (
+          <li key={item.href}>
+            <Link href={item.href} className={link}>
+              {t(item.label)}
+            </Link>
+          </li>
+        ))}
+        {audit ? (
+          <li>
+            <Link href="/audit?area=assistant" className={link}>
+              {t('ai.openAudit')}
+            </Link>
+          </li>
+        ) : null}
+      </ul>
+    </Section>
+  );
+}
+
 /**
  * The AI control centre (ADR-107): whether the assistant answers, what it spent, how far each
  * agent and tool may go, and the pause switch. Reading needs `ai:read`; pausing, releasing and
@@ -356,6 +443,7 @@ export function AiControlPage() {
               <State overview={overview} manage={manage} />
               <Autonomy overview={overview} manage={manage} />
               <Tools overview={overview} manage={manage} />
+              <More audit={can('audit:read')} />
             </div>
           )}
         </QueryState>

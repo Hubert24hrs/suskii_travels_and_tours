@@ -62,6 +62,9 @@ test('operations staff create a promo code but cannot open pricing', async ({ pa
     t('nav.approvals'),
     t('nav.assistedQuotes'),
     t('nav.dataSources'),
+    t('nav.aiActivity'),
+    t('nav.aiInsights'),
+    t('nav.knowledge'),
   ]);
   await page.goto('/pricing');
   await expect(alertWith(page, t('common.forbidden'))).toBeVisible();

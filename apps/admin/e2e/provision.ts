@@ -366,6 +366,49 @@ async function assistedQuoteRequest(
   });
 }
 
+/** What the traveller wrote to the assistant: the address must never reach a staff screen. */
+export const TRAVELLER_ADDRESS = 'ada.private@example.com';
+
+/**
+ * The quote traveller asks the assistant one thing and gets the mock's answer, so the console
+ * has a run and a conversation to show. Their message holds a contact detail.
+ */
+async function assistantConversation(api: Api, traveller: Persona): Promise<{ reference: string }> {
+  const session = await signIn(api, traveller.email, traveller.password);
+  if (!session.accessToken) throw new Error('The quote traveller should not have MFA');
+  const headers = bearer(session.accessToken);
+  interface Conversation {
+    id: string;
+    reference: string;
+    activeRunId: string | null;
+    messages: unknown[];
+  }
+  const started = await api.call<{ conversation: Conversation }>(
+    'POST',
+    '/v1/agent/conversations',
+    { headers, body: {} },
+  );
+  const { id, reference } = started.conversation;
+  await api.call('POST', '/v1/agent/chat', {
+    headers,
+    body: {
+      conversationId: id,
+      text: `Please write to ${TRAVELLER_ADDRESS} about my trip to Abuja.`,
+    },
+  });
+  // The answer arrives in the background: wait until the run has finished.
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const now = await api.call<Conversation>('GET', `/v1/agent/conversations/${id}`, {
+      headers,
+    });
+    if (now.activeRunId === null && now.messages.length >= 2) {
+      return { reference };
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+  }
+  throw new Error('The assistant did not answer the provisioned conversation');
+}
+
 /**
  * A promo code a staff agent prepared for the asker. Only the agent service can put one in the
  * queue (through the tool gateway, with a grant of a running run), so the row is written as the
@@ -493,6 +536,7 @@ export async function provision(
   const company = await companyAccount(api, personas.companyOwner);
   const assistedQuote = await assistedQuoteRequest(api, personas.quoteTraveller);
   const approval = await preparedPromo(runSql, personas.assistantAsker);
+  const conversation = await assistantConversation(api, personas.quoteTraveller);
 
   return {
     personas,
@@ -505,5 +549,6 @@ export async function provision(
     company,
     assistedQuote,
     approval,
+    assistantConversation: conversation,
   };
 }
