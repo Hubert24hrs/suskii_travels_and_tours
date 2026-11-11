@@ -41,6 +41,8 @@ import { AgentConversationsService } from './chat/agent-conversations.service';
 import { AgentRunLog } from './chat/agent-run-log';
 import { AgentConfirmationsController } from './confirmations/agent-confirmations.controller';
 import { AgentConfirmationsService } from './confirmations/agent-confirmations.service';
+import { AdminAgentInsightsController } from './insights/admin-agent-insights.controller';
+import { AgentInsightsService } from './insights/agent-insights.service';
 import { InternalAgentToolsController } from './internal-agent-tools.controller';
 import { AccountTools } from './tools/account-tools';
 import { CatalogTools } from './tools/catalog-tools';
@@ -89,6 +91,7 @@ import { WatchTools } from './tools/watch-tools';
     AdminAgentController,
     AdminAgentChatController,
     AdminAgentApprovalsController,
+    AdminAgentInsightsController,
     InternalAgentToolsController,
   ],
   providers: [
@@ -112,6 +115,7 @@ import { WatchTools } from './tools/watch-tools';
     WatchTools,
     QuoteTools,
     AgentApprovalsService,
+    AgentInsightsService,
     StaffTools,
     SupportTools,
     AgentConversationsService,

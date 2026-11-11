@@ -1118,6 +1118,13 @@ describe('admin audit coverage (e2e)', () => {
       request.send({ subject: 'agent', name: 'concierge', level: 'manual' }),
     );
     expect(level.body).toEqual({ subject: 'agent', name: 'concierge', level: 'manual', set: true });
+    const off = await audited('adminSwitchAgent', { agent: 'hotels' }, (request) =>
+      request.send({ enabled: false }),
+    );
+    expect(off.body).toEqual({ agent: 'hotels', enabled: false });
+    await audited('adminSwitchAgent', { agent: 'hotels' }, (request) =>
+      request.send({ enabled: true }),
+    );
   });
 
   it('staff agents: a conversation, a question and the approvals queue', async () => {

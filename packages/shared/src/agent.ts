@@ -291,6 +291,16 @@ export type AgentAutonomySubject = (typeof AGENT_AUTONOMY_SUBJECTS)[number];
 export const agentAutonomyKey = (subject: AgentAutonomySubject, name: string): string =>
   `autonomy.${subject}.${name}`;
 
+/** The `agent_settings` key of an agent's own switch: stored only while the agent is off. */
+export const agentEnabledKey = (agent: AgentName): string => `enabled.agent.${agent}`;
+
+/**
+ * The agents a run falls back to (one for travellers, one for staff). They cannot be switched
+ * off one by one: with them gone there would be nobody to answer, which is what the pause is
+ * for.
+ */
+export const ALWAYS_ON_AGENTS: readonly AgentName[] = ['concierge', 'executive'];
+
 /**
  * The level a call runs at: the stricter of the tool's and the agent's, each the default when
  * staff set none. A tool set to `manual` stays manual whatever its agent is allowed.

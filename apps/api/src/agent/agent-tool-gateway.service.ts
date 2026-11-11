@@ -120,10 +120,11 @@ export class AgentToolGateway {
     const agent = agentOf(request.agent, grant);
     if (!agent || !tool.agents.includes(agent)) return refuse('agent');
     if (!grant.scopes.includes(tool.scope)) return refuse('scope');
+    const policy = await this.settings.policyFor(agent, tool.name);
+    // An agent staff switched off calls nothing, whatever the agent service names.
+    if (!policy.enabled) return refuse('agent');
     // Advice only prepares nothing: not a draft, and not a confirmation either.
-    if (!tierRuns(tool.tier, await this.settings.autonomyFor(agent, tool.name))) {
-      return refuse('autonomy');
-    }
+    if (!tierRuns(tool.tier, policy.autonomy)) return refuse('autonomy');
 
     const input = tool.input.safeParse(request.arguments);
     if (!input.success) {

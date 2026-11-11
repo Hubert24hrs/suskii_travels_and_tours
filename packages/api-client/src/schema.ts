@@ -143,6 +143,26 @@ export interface paths {
         patch: operations["adminUpdateAddon"];
         trace?: never;
     };
+    "/v1/admin/ai/agents/{agent}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Switch one agent off or back on
+         * @description An agent that is off is not offered to the router and its tools are refused. The concierge and the executive assistant, which answer when no other fits, cannot be switched off one by one (409 `agent-always-on`): the pause stops everything.
+         */
+        put: operations["adminSwitchAgent"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ai/approvals": {
         parameters: {
             query?: never;
@@ -294,6 +314,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ai/cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the assistant cost, by day, agent, model, channel and account
+         * @description Estimates: the tokens the models reported at the configured prices. The provider's invoice is the actual cost. The month's forecast carries the spend so far to the month's end at the same daily rate.
+         */
+        get: operations["adminGetAgentCost"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The limits and model prices the assistant runs under
+         * @description Read from the configuration of this environment; changed in its settings.
+         */
+        get: operations["adminGetAgentLimits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/monitor/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Travellers' conversations with the assistant, newest first
+         * @description Ids, channel, language and counts only. Staff members' own conversations with the staff agents are never listed.
+         */
+        get: operations["adminListAgentConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/monitor/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One traveller's conversation, with contact details removed
+         * @description The messages as the model saw them: email addresses, phone numbers, card-like and document-like numbers are removed. Every read is recorded in the audit log with the conversation id.
+         */
+        get: operations["adminGetAgentConversationMasked"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/monitor/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Runs of the assistant, newest first
+         * @description Operations records: which agents and model worked, tokens, estimated cost, steps and how the run ended, as codes. Never what was said.
+         */
+        get: operations["adminListAgentRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/monitor/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One run with every tool it called
+         * @description Each call through the tool gateway in order: the tool, its tier, whether it ran or why it was refused, how long it took and the names of its arguments. Argument values and results are never stored.
+         */
+        get: operations["adminGetAgentRunTrace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ai/overview": {
         parameters: {
             query?: never;
@@ -328,6 +468,23 @@ export interface paths {
          * @description Takes effect within seconds: no run starts and no tool runs. Clients fall back to the ordinary screens. Needs no second check, so it is one press in an incident.
          */
         post: operations["adminPauseAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How answers fared: outcomes, handovers, refused answers, thumbs, per prompt version */
+        get: operations["adminGetAgentQuality"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7850,6 +8007,141 @@ export interface components {
             /** Format: uuid */
             bookingId: string;
         };
+        AdminAgentConversation: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp" | "console";
+            locale: string;
+            userId: string | null;
+            /** @enum {string} */
+            status: "open" | "closed";
+            messageCount: number;
+            handedOver: boolean;
+            /** Format: date-time */
+            lastMessageAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            messages: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                role: "user" | "assistant";
+                /** @enum {string} */
+                kind: "text" | "handover" | "notice";
+                agent: string | null;
+                text: string;
+                notice: ("greeting" | "cannot_answer" | "limit" | "timeout" | "unavailable" | "paused") | null;
+                cards: number;
+                feedback: ("up" | "down") | null;
+                runId: string | null;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        AdminAgentConversationPage: {
+            items: components["schemas"]["AdminAgentConversationSummary"][];
+            nextCursor: string | null;
+        };
+        AdminAgentConversationSummary: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp" | "console";
+            locale: string;
+            userId: string | null;
+            /** @enum {string} */
+            status: "open" | "closed";
+            messageCount: number;
+            handedOver: boolean;
+            /** Format: date-time */
+            lastMessageAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminAgentCost: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @constant */
+            basis: "usage_at_configured_prices";
+            total: {
+                runs: number;
+                inputTokens: number;
+                outputTokens: number;
+                costMicroUsd: number;
+            };
+            byDay: {
+                /** Format: date */
+                day: string;
+                runs: number;
+                costMicroUsd: number;
+            }[];
+            byAgent: {
+                agent: string;
+                runs: number;
+                inputTokens: number;
+                outputTokens: number;
+                costMicroUsd: number;
+            }[];
+            byModel: {
+                model: string;
+                runs: number;
+                inputTokens: number;
+                outputTokens: number;
+                costMicroUsd: number;
+            }[];
+            byChannel: {
+                /** @enum {string} */
+                channel: "web" | "app" | "whatsapp" | "console";
+                /** @enum {string} */
+                audience: "customer" | "staff";
+                runs: number;
+                costMicroUsd: number;
+            }[];
+            topAccounts: {
+                /** Format: uuid */
+                userId: string;
+                runs: number;
+                costMicroUsd: number;
+            }[];
+            month: {
+                toDateMicroUsd: number;
+                forecastMicroUsd: number;
+                daysElapsed: number;
+                daysInMonth: number;
+            };
+            caps: {
+                globalDailyMicroUsd: number;
+                userDailyMicroUsd: number;
+                guestDailyMicroUsd: number;
+            };
+        };
+        AdminAgentLimits: {
+            runMaxSteps: number;
+            runMaxToolCalls: number;
+            runTimeoutMs: number;
+            grantTtlSeconds: number;
+            maxOutputTokens: number;
+            runReserveMicroUsd: number;
+            userDailyMicroUsd: number;
+            guestDailyMicroUsd: number;
+            globalDailyMicroUsd: number;
+            confirmationMinutes: number;
+            approvalDays: number;
+            messageMax: number;
+            conversationMessageLimit: number;
+            models: {
+                model: string;
+                inputPerMillion: number;
+                outputPerMillion: number;
+                cacheReadPerMillion: number;
+                cacheWritePerMillion: number;
+            }[];
+        };
         AdminAgentOverview: {
             enabled: boolean;
             priceIntelEnabled: boolean;
@@ -7870,6 +8162,7 @@ export interface components {
                 failedToday: number;
             };
             autonomy: components["schemas"]["AgentAutonomySetting"][];
+            disabledAgents: ("concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive")[];
             tools: {
                 name: string;
                 description: string;
@@ -7879,6 +8172,111 @@ export interface components {
                 scope: "catalog" | "search" | "quotes" | "account" | "support" | "ops" | "finance" | "marketing" | "reports" | "datasources";
                 agents: ("concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive")[];
             }[];
+        };
+        AdminAgentQuality: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            runs: number;
+            answered: number;
+            handovers: number;
+            guardBlocked: number;
+            failed: number;
+            outcomes: {
+                outcome: string;
+                runs: number;
+            }[];
+            feedback: {
+                up: number;
+                down: number;
+            };
+            prompts: {
+                promptVersion: string;
+                runs: number;
+                answered: number;
+                guardBlocked: number;
+                up: number;
+                down: number;
+            }[];
+        };
+        AdminAgentRun: {
+            /** Format: uuid */
+            id: string;
+            conversationId: string | null;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp" | "console";
+            agent: string;
+            agents: string[];
+            trigger: string;
+            /** @enum {string} */
+            status: "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "refused";
+            outcome: string | null;
+            model: string | null;
+            promptVersion: string | null;
+            inputTokens: number;
+            outputTokens: number;
+            costMicroUsd: number;
+            steps: number;
+            toolCallCount: number;
+            /** Format: date-time */
+            startedAt: string;
+            finishedAt: string | null;
+            durationMs: number | null;
+        };
+        AdminAgentRunPage: {
+            items: components["schemas"]["AdminAgentRun"][];
+            nextCursor: string | null;
+        };
+        AdminAgentRunTrace: {
+            /** Format: uuid */
+            id: string;
+            conversationId: string | null;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp" | "console";
+            agent: string;
+            agents: string[];
+            trigger: string;
+            /** @enum {string} */
+            status: "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "refused";
+            outcome: string | null;
+            model: string | null;
+            promptVersion: string | null;
+            inputTokens: number;
+            outputTokens: number;
+            costMicroUsd: number;
+            steps: number;
+            toolCallCount: number;
+            /** Format: date-time */
+            startedAt: string;
+            finishedAt: string | null;
+            durationMs: number | null;
+            toolCalls: {
+                /** Format: uuid */
+                id: string;
+                agent: string;
+                tool: string;
+                tier: ("read" | "propose" | "commit") | "none";
+                /** @enum {string} */
+                status: "ok" | "denied" | "error" | "timeout";
+                reason: string | null;
+                argumentKeys: string[];
+                durationMs: number;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        AdminAgentSwitch: {
+            /** @enum {string} */
+            agent: "concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive";
+            enabled: boolean;
+        };
+        AdminAgentSwitchInputInput: {
+            enabled: boolean;
         };
         AdminAssistedQuote: {
             /** Format: uuid */
@@ -15277,6 +15675,42 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminSwitchAgent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                agent: "concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminAgentSwitchInputInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentSwitch"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminListAgentApprovals: {
         parameters: {
             query?: {
@@ -15542,6 +15976,179 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminGetAgentCost: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentCost"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentLimits"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListAgentConversations: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentConversationPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentConversationMasked: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListAgentRuns: {
+        parameters: {
+            query?: {
+                status?: "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "refused";
+                agent?: "concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive";
+                audience?: "customer" | "staff";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentRunPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentRunTrace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentRunTrace"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminGetAgentOverview: {
         parameters: {
             query?: never;
@@ -15602,6 +16209,34 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentQuality: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentQuality"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

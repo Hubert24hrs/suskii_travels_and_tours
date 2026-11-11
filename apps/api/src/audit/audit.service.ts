@@ -233,6 +233,8 @@ export type AuditAction =
   | 'agent.paused'
   | 'agent.resumed'
   | 'agent.autonomy_changed'
+  | 'agent.agent_switched'
+  | 'agent.conversation_viewed'
   | 'agent.approval_proposed'
   | 'agent.approval_approved'
   | 'agent.approval_rejected'

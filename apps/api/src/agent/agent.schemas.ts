@@ -132,6 +132,9 @@ export const adminAgentOverviewSchema = named(
       failedToday: z.number().int().min(0),
     }),
     autonomy: z.array(agentAutonomySettingSchema),
+    disabledAgents: z
+      .array(z.enum(AGENT_NAMES))
+      .meta({ description: 'Agents staff switched off: not offered to the router.' }),
     tools: z.array(agentToolDescriptionSchema.omit({ parameters: true })),
   }),
 );

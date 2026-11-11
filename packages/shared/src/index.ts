@@ -79,6 +79,8 @@ export {
   STAFF_SCOPE_PERMISSIONS,
   agentAudience,
   agentAutonomyKey,
+  agentEnabledKey,
+  ALWAYS_ON_AGENTS,
   agentScopesFor,
   agentsFor,
   STAFF_AGENT_SCOPES,
