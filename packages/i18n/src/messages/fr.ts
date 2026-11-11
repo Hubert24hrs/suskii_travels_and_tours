@@ -128,6 +128,8 @@ export const fr: Messages = {
       bookingAccess: 'Ouvre une réservation faite sans compte, dans cet onglet uniquement.',
       supportAccess:
         'Ouvre une conversation avec l’assistance commencée sans compte, dans cet onglet uniquement.',
+      assistantAccess:
+        'Garde votre conversation avec l’assistant ouverte dans cet onglet et la rouvre si vous l’avez commencée sans compte.',
       search:
         'Mémorise votre dernière recherche de vol, vos recherches d’hôtel récentes et vos lieux récents.',
       addonsName:
@@ -3268,6 +3270,97 @@ export const fr: Messages = {
       full: 'Cette conversation est pleine. Commencez-en une nouvelle pour continuer à nous écrire.',
       email: 'Indiquez une adresse e-mail pour que nous puissions vous prévenir de notre réponse.',
       generic: 'Votre message n’a pas pu être envoyé. Vérifiez votre connexion et réessayez.',
+    },
+  },
+  assistant: {
+    open: 'Demander à l’assistant',
+    title: 'Assistant Suskii',
+    close: 'Fermer',
+    intro:
+      'Posez vos questions sur les vols, les hôtels, les voitures, vos réservations ou nos règles. Je peux chercher, expliquer et préparer une modification que vous confirmez. Je ne réserve, ne paie et ne rembourse jamais seul.',
+    disclosure:
+      'Ceci est un assistant automatique. Vous pouvez demander une personne à tout moment.',
+    privacy:
+      'Ne saisissez jamais ici de numéro de carte, de mot de passe ni de numéro de passeport.',
+    messageLabel: 'Votre message',
+    placeholder: 'Écrivez votre question',
+    send: 'Envoyer',
+    thinking: 'Je m’en occupe…',
+    you: 'Vous',
+    name: 'L’assistant',
+    startAgain: 'Commencer une nouvelle conversation',
+    talkToPerson: 'Parler à une personne',
+    fullPage: 'Ouvrir en pleine page',
+    history: 'Conversations précédentes',
+    noHistory: 'Vous n’avez aucune conversation précédente.',
+    conversation: 'Conversation n° {reference}',
+    messagesCount: 'Messages : {count}',
+    signInForHistory:
+      'Connectez-vous pour conserver vos conversations et confirmer les modifications d’une réservation.',
+    signIn: 'Se connecter',
+    notices: {
+      greeting: 'Bonjour. Comment puis-je vous aider ?',
+      cannot_answer:
+        'Je ne peux pas répondre à cela avec ce que je peux lire. Souhaitez-vous l’aide d’une personne ?',
+      limit:
+        'La limite du jour de l’assistant est atteinte. La recherche et la réservation fonctionnent comme d’habitude.',
+      timeout: 'Cela a pris trop de temps. Veuillez reposer votre question.',
+      unavailable:
+        'L’assistant ne peut pas répondre pour le moment. La recherche et la réservation fonctionnent comme d’habitude.',
+      paused:
+        'L’assistant est en pause pour le moment. La recherche et la réservation fonctionnent comme d’habitude.',
+    },
+    errors: {
+      start: 'L’assistant n’a pas pu démarrer. Réessayez.',
+      send: 'Votre message n’a pas été envoyé. Réessayez.',
+      busy: 'L’assistant répond encore. Patientez un instant.',
+      full: 'Cette conversation est pleine. Commencez-en une nouvelle.',
+      gone: 'Cette conversation n’est plus disponible.',
+      human:
+        'Nous n’avons pas pu vérifier que vous êtes une personne. Rechargez la page et réessayez.',
+    },
+    retry: 'Réessayer',
+    feedback: {
+      up: 'Cela m’a aidé',
+      down: 'Cela ne m’a pas aidé',
+      thanks: 'Merci de nous l’avoir dit.',
+    },
+    cards: {
+      view: 'Voir',
+      indicative: 'Prix indicatif',
+      indicativeNote:
+        'Vu sur un autre site, ce n’est pas un prix Suskii. Une personne confirme le prix réel avant tout paiement.',
+      source: 'D’après nos documents',
+    },
+    handover: 'Notre équipe a reçu votre question et répondra dans Aide et assistance.',
+    openSupport: 'Ouvrir Aide et assistance',
+    confirm: {
+      heading: 'Confirmez avant tout changement',
+      note: 'Rien ne se passe tant que vous n’appuyez pas sur Confirmer.',
+      confirm: 'Confirmer',
+      decline: 'Non, ne rien changer',
+      until: 'Vous pouvez confirmer jusqu’à {time}.',
+      signIn: 'Connectez-vous pour confirmer.',
+      actions: {
+        bookings_cancel: 'Annuler cette réservation',
+        changes_accept: 'Accepter les nouveaux horaires du vol',
+        changes_take_refund_offer: 'Obtenir le remboursement intégral',
+        alerts_watch: 'Surveiller ce prix',
+        alerts_stop: 'Ne plus surveiller ce prix',
+        fallback: 'Effectuer cette modification',
+      },
+      amounts: {
+        refund: 'Remboursé à vous',
+        kept: 'Conservé selon les conditions de votre réservation',
+        target: 'M’avertir quand le prix est égal ou inférieur à',
+      },
+      statuses: {
+        confirmed:
+          'C’est fait. L’assistant vous indiquera ce que montre maintenant votre réservation.',
+        declined: 'Rien n’a été changé.',
+        expired: 'Le délai est écoulé. Redemandez si vous le souhaitez toujours.',
+        failed: 'Cela n’a pas pu être fait. Rien n’a été modifié.',
+      },
     },
   },
   status: {

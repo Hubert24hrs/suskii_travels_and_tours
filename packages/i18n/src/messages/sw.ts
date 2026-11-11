@@ -133,6 +133,8 @@ export const sw: Messages = {
       bookingAccess: 'Hufungua uhifadhi uliofanya kama mgeni, katika kichupo hiki pekee.',
       supportAccess:
         'Hufungua mazungumzo ya usaidizi uliyoanzisha bila akaunti, katika kichupo hiki pekee.',
+      assistantAccess:
+        'Huweka mazungumzo yako na msaidizi wazi katika kichupo hiki, na kuyafungua tena ikiwa uliyaanzisha bila akaunti.',
       search:
         'Hukumbuka utafutaji wako wa mwisho wa safari ya ndege, utafutaji wako wa hoteli wa hivi karibuni na maeneo ya hivi karibuni.',
       addonsName: 'Hujaza jina lako la ukoo unapotafuta huduma za ziada za uhifadhi.',
@@ -3228,6 +3230,92 @@ export const sw: Messages = {
       full: 'Mazungumzo haya yamejaa. Anzisha mapya ili uendelee kutuandikia.',
       email: 'Weka anwani ya barua pepe ili tukujulishe tukijibu.',
       generic: 'Hatukuweza kutuma ujumbe wako. Angalia muunganisho wako kisha ujaribu tena.',
+    },
+  },
+  assistant: {
+    open: 'Muulize msaidizi',
+    title: 'Msaidizi wa Suskii',
+    close: 'Funga',
+    intro:
+      'Uliza kuhusu ndege, hoteli, magari, nafasi ulizohifadhi au kanuni zetu. Ninaweza kutafuta, kueleza na kuandaa badiliko ili ulithibitishe. Sihifadhi nafasi, silipi wala sirejeshi pesa peke yangu.',
+    disclosure: 'Huyu ni msaidizi wa kiotomatiki. Unaweza kuomba mtu wakati wowote.',
+    privacy: 'Usiandike hapa namba za kadi, manenosiri wala namba za pasipoti.',
+    messageLabel: 'Ujumbe wako',
+    placeholder: 'Andika swali lako',
+    send: 'Tuma',
+    thinking: 'Ninashughulikia…',
+    you: 'Wewe',
+    name: 'Msaidizi',
+    startAgain: 'Anza mazungumzo mapya',
+    talkToPerson: 'Ongea na mtu',
+    fullPage: 'Fungua kwenye ukurasa kamili',
+    history: 'Mazungumzo ya awali',
+    noHistory: 'Huna mazungumzo ya awali.',
+    conversation: 'Mazungumzo {reference}',
+    messagesCount: 'Jumbe: {count}',
+    signInForHistory:
+      'Ingia ili kuhifadhi mazungumzo yako na kuthibitisha mabadiliko ya nafasi uliyohifadhi.',
+    signIn: 'Ingia',
+    notices: {
+      greeting: 'Habari. Nikusaidie nini?',
+      cannot_answer: 'Siwezi kujibu hilo kwa ninachoweza kusoma. Ungependa mtu akusaidie?',
+      limit:
+        'Kikomo cha leo cha msaidizi kimefikiwa. Kutafuta na kuhifadhi nafasi kunaendelea kama kawaida.',
+      timeout: 'Hilo limechukua muda mrefu mno. Tafadhali uliza tena.',
+      unavailable:
+        'Msaidizi hawezi kujibu kwa sasa. Kutafuta na kuhifadhi nafasi kunaendelea kama kawaida.',
+      paused:
+        'Msaidizi amesimamishwa kwa sasa. Kutafuta na kuhifadhi nafasi kunaendelea kama kawaida.',
+    },
+    errors: {
+      start: 'Msaidizi hakuweza kuanza. Jaribu tena.',
+      send: 'Ujumbe wako haukutumwa. Jaribu tena.',
+      busy: 'Msaidizi bado anajibu. Subiri kidogo.',
+      full: 'Mazungumzo haya yamejaa. Anza mapya.',
+      gone: 'Mazungumzo haya hayapatikani tena.',
+      human: 'Hatukuweza kuhakikisha kuwa wewe ni mtu. Pakia ukurasa upya kisha ujaribu tena.',
+    },
+    retry: 'Jaribu tena',
+    feedback: {
+      up: 'Hili limenisaidia',
+      down: 'Hili halijanisaidia',
+      thanks: 'Asante kwa kutuambia.',
+    },
+    cards: {
+      view: 'Tazama',
+      indicative: 'Bei ya makadirio',
+      indicativeNote:
+        'Imeonekana kwenye tovuti nyingine, si bei ya Suskii. Mtu huthibitisha bei halisi kabla ya malipo yoyote.',
+      source: 'Kutoka kwenye nyaraka zetu',
+    },
+    handover: 'Timu yetu imepokea swali lako na itajibu kwenye Msaada na usaidizi.',
+    openSupport: 'Fungua Msaada na usaidizi',
+    confirm: {
+      heading: 'Thibitisha kabla ya chochote kubadilika',
+      note: 'Hakuna kinachofanyika hadi ubonyeze Thibitisha.',
+      confirm: 'Thibitisha',
+      decline: 'Hapana, acha ilivyo',
+      until: 'Unaweza kuthibitisha hadi {time}.',
+      signIn: 'Ingia ili kuthibitisha hili.',
+      actions: {
+        bookings_cancel: 'Ghairi nafasi hii',
+        changes_accept: 'Kubali saa mpya za ndege',
+        changes_take_refund_offer: 'Chukua marejesho kamili',
+        alerts_watch: 'Fuatilia bei hii',
+        alerts_stop: 'Acha kufuatilia bei hii',
+        fallback: 'Fanya badiliko hili',
+      },
+      amounts: {
+        refund: 'Utarejeshewa',
+        kept: 'Kinabaki kwa masharti uliyohifadhi nayo',
+        target: 'Niambie bei ikifika au kushuka chini ya',
+      },
+      statuses: {
+        confirmed: 'Imefanyika. Msaidizi atakueleza nafasi yako inavyoonekana sasa.',
+        declined: 'Imeachwa ilivyokuwa.',
+        expired: 'Muda umeisha. Uliza tena ikiwa bado unataka.',
+        failed: 'Hili halikuweza kufanyika. Hakuna kilichobadilishwa.',
+      },
     },
   },
   status: {

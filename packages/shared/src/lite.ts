@@ -365,6 +365,8 @@ export {
   type SupportStatus,
   type SupportTopic,
 } from './support';
+// The assistant's message limit, for the chat box (ADR-101).
+export { AGENT_MESSAGE_MAX } from './agent-limits';
 
 export {
   MAX_SEAT_SELECTIONS,
