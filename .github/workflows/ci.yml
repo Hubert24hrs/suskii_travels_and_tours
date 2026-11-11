@@ -88,11 +88,14 @@ jobs:
 
       - name: Install Playwright Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter @suskii/ui-web exec playwright install --with-deps chromium
+        run: pnpm --filter @suskii/ui-web exec playwright install chromium
 
+      # apt adds fallback fonts to the libraries the runner image already has. When the Ubuntu
+      # mirrors cannot be reached, the script starts the browser on what the image has and the
+      # job goes on under a warning, instead of ending before a single test ran. No test is
+      # skipped: a browser that cannot start fails this step.
       - name: Install Playwright system dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm --filter @suskii/ui-web exec playwright install-deps chromium
+        run: node scripts/ci-playwright-deps.mjs
 
       - name: Check formatting
         run: pnpm format:check
