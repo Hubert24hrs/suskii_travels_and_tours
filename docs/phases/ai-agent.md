@@ -157,6 +157,19 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
   as a trend; a shareable PDF of a plan or a quote with its validity, sources and the "to be
   confirmed" wording; company travel policy in the trip builder's answers; a handover that says
   when an answer is expected; a satisfaction question after a conversation.
+- **Progress (2026-11-11), in the order built.** Done: the assistant's copy and the price
+  request copy in the five catalogs (English serves three locales); the website's chat on
+  `/assistant` with history, result cards, the confirmation card and feedback, reached by a
+  server-rendered link in the top bar and the phone menu (a button that opened a dialog put
+  the homepage 565 bytes over its script budget, so the entry costs no script anywhere else);
+  price requests on the website (`/quotes`, `/quotes/{id}`) and an assisted item at checkout
+  and on the booking page; the app's assistant screen and history with a Maestro flow. Left,
+  in this order: the assistant over WhatsApp (an inbound message answered inside the support
+  conversation it already opens, guest scopes only, staff take over by replying, STOP and the
+  24-hour window as the support channel has them); price requests in the app and the push
+  path for an answered quote; then the section 12 items above (memory, fare trend, the PDF,
+  company policy, the handover's expected time, the satisfaction question) and a passport
+  validity warning in the visa tool's answer.
 
 ### H. Hardening and delivery
 
