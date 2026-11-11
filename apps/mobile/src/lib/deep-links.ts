@@ -85,7 +85,18 @@ function webPath({ path, query, fragment }: Parts): IncomingLink {
   if (first === 'hotels' && second === 'search' && segments.length === 2)
     return searchLink('hotels', query);
   if (first === 'deals' && segments.length === 1) return { path: '/deals' };
+  // Price requests (ADR-104): the link in the email about an answered request.
+  if (first === 'quotes') return quotesLink(segments.slice(1));
   return HOME;
+}
+
+/** The price requests of the account, or one of them; anything else under them opens Home. */
+function quotesLink(rest: string[]): IncomingLink {
+  const [id] = rest;
+  if (rest.length === 0) return { path: '/account/quotes' };
+  return rest.length === 1 && id && UUID.test(id)
+    ? { path: `/account/quotes/${id.toLowerCase()}` }
+    : HOME;
 }
 
 /** Paths of the app itself (`suskii://trips/{id}`, notification paths). */
@@ -101,6 +112,7 @@ function appPath({ path, query }: Parts): IncomingLink {
   // A combined trip (ADR-099), where its hosted checkout hands the traveller back.
   if (first === 'trips' && second === 'built' && third && UUID.test(third) && segments.length === 3)
     return { path: `/trips/built/${third.toLowerCase()}` };
+  if (first === 'account' && second === 'quotes') return quotesLink(segments.slice(2));
   if (
     (first === 'deals' ||
       first === 'account' ||
@@ -149,6 +161,8 @@ const NOTIFICATION_SCREENS = new Set([
   '/account/referrals',
   // Company trips waiting for an approver (ADR-078).
   '/account/company',
+  // A price request a person has answered (ADR-104).
+  '/account/quotes',
 ]);
 
 /**

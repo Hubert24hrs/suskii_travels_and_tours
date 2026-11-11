@@ -44,6 +44,9 @@ const linkPaths = [
   { path: '/flights/search' },
   { path: '/hotels/search' },
   { path: '/deals' },
+  // Price requests (ADR-104): the emailed link to an answered request.
+  { path: '/quotes' },
+  { pathPrefix: '/quotes/' },
 ];
 
 export default ({ config }: ConfigContext): ExpoConfig => ({

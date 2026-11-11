@@ -98,6 +98,30 @@ describe('resolveIncomingUrl', () => {
   });
 });
 
+describe('price requests (ADR-104)', () => {
+  it('opens the list or one request from the emailed website link', () => {
+    expect(resolveIncomingUrl(`https://${WEB}/quotes`, WEB)).toEqual({ path: '/account/quotes' });
+    expect(resolveIncomingUrl(`https://${WEB}/quotes/${ID.toUpperCase()}`, WEB)).toEqual({
+      path: `/account/quotes/${ID}`,
+    });
+    expect(resolveIncomingUrl(`https://${WEB}/quotes/not-a-uuid`, WEB)).toEqual({ path: '/' });
+    expect(resolveIncomingUrl(`https://${WEB}/quotes/${ID}/offer`, WEB)).toEqual({ path: '/' });
+    expect(resolveIncomingUrl(`https://evil.example/quotes/${ID}`, WEB)).toEqual({ path: '/' });
+  });
+
+  it('opens them from the app scheme and from a card of the assistant', () => {
+    expect(resolveIncomingUrl('suskii://account/quotes', WEB)).toEqual({
+      path: '/account/quotes',
+    });
+    expect(resolveIncomingUrl(`suskii://account/quotes/${ID}`, WEB)).toEqual({
+      path: `/account/quotes/${ID}`,
+    });
+    expect(resolveIncomingUrl('suskii://account/quotes/not-a-uuid', WEB)).toEqual({ path: '/' });
+    // A card's path inside the site, as the assistant's answer carries it.
+    expect(resolveIncomingUrl(`/quotes/${ID}`, WEB)).toEqual({ path: `/account/quotes/${ID}` });
+  });
+});
+
 describe('the assistant (ADR-101)', () => {
   it('opens the chat from the app scheme, and nothing under it', () => {
     expect(resolveIncomingUrl('suskii://assistant', WEB)).toEqual({ path: '/assistant' });
@@ -139,6 +163,9 @@ describe('resolveNotificationPath', () => {
     expect(resolveNotificationPath('/account')).toBe('/account');
     expect(resolveNotificationPath('/account/alerts')).toBe('/account/alerts');
     expect(resolveNotificationPath('/account/company')).toBe('/account/company');
+    // An answered price request (ADR-104): the list, never a path with an id of its own.
+    expect(resolveNotificationPath('/account/quotes')).toBe('/account/quotes');
+    expect(resolveNotificationPath(`/account/quotes/${ID}`)).toBeNull();
     expect(resolveNotificationPath('/prime')).toBe('/prime');
     expect(resolveNotificationPath(`/support/${ID.toUpperCase()}`)).toBe(`/support/${ID}`);
     expect(resolveNotificationPath('/support/not-a-uuid')).toBeNull();

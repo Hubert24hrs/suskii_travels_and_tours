@@ -4,7 +4,15 @@
  */
 
 /** Paths the app handles; everything else stays on the web. */
-export const APP_LINK_PATHS = ['/bookings/*', '/flights/search', '/hotels/search', '/deals'];
+export const APP_LINK_PATHS = [
+  '/bookings/*',
+  '/flights/search',
+  '/hotels/search',
+  '/deals',
+  // Price requests (ADR-104): the emailed link to an answered request.
+  '/quotes',
+  '/quotes/*',
+];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SCHEME = /^[a-z][a-z0-9+.-]{1,30}$/;

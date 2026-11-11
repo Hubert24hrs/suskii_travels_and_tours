@@ -38,6 +38,8 @@ test.describe('mobile app links', () => {
               { '/': '/flights/search' },
               { '/': '/hotels/search' },
               { '/': '/deals' },
+              { '/': '/quotes' },
+              { '/': '/quotes/*' },
             ],
           },
         ],
