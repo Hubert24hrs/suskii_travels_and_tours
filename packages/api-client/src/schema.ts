@@ -334,6 +334,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ai/evals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Runs of the agent evals that staff recorded
+         * @description The latest run of each suite against recorded answers and against a model, and the history: counts, the ids of the cases that did not pass, the models and the commit. Never a message, an answer or a prompt.
+         */
+        get: operations["adminListAgentEvals"];
+        put?: never;
+        /**
+         * Record one run of an agent eval
+         * @description The body is the file the eval command wrote with `--json` (also the artifact of the agent eval workflow). A record is the recorder's statement that the run happened, audited as theirs; it changes nothing about how the assistant answers. The same run a second time is a 409 `eval-already-recorded`.
+         */
+        post: operations["adminRecordAgentEval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ai/knowledge": {
         parameters: {
             query?: never;
@@ -8360,6 +8384,51 @@ export interface components {
                 userDailyMicroUsd: number;
                 guestDailyMicroUsd: number;
             };
+        };
+        AdminAgentEval: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            suite: "routing" | "grounding" | "safety";
+            /** @enum {string} */
+            mode: "recorded" | "live";
+            passed: boolean;
+            cases: number;
+            held: number;
+            figures: {
+                [key: string]: number;
+            };
+            failed: string[];
+            models: string[];
+            commit: string | null;
+            /** Format: date-time */
+            ranAt: string;
+            /** Format: date-time */
+            recordedAt: string;
+        };
+        AdminAgentEvalInputInput: {
+            /** @enum {string} */
+            suite: "routing" | "grounding" | "safety";
+            /** @enum {string} */
+            mode: "recorded" | "live";
+            passed: boolean;
+            cases: number;
+            held: number;
+            figures: {
+                [key: string]: number;
+            };
+            /** @default [] */
+            failed?: string[];
+            /** @default [] */
+            models?: string[];
+            /** @default null */
+            commit?: string | null;
+            /** Format: date-time */
+            ranAt: string;
+        };
+        AdminAgentEvals: {
+            latest: components["schemas"]["AdminAgentEval"][];
+            recent: components["schemas"]["AdminAgentEval"][];
         };
         AdminAgentLimits: {
             runMaxSteps: number;
@@ -16388,6 +16457,67 @@ export interface operations {
             400: components["responses"]["Problem400"];
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListAgentEvals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentEvals"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRecordAgentEval: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminAgentEvalInputInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentEval"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            422: components["responses"]["Problem422"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

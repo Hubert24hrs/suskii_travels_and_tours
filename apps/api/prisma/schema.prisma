@@ -4389,6 +4389,32 @@ model AgentSetting {
   @@map("agent_settings")
 }
 
+/// One run of an agent eval that staff recorded (ADR-106): which suite, against recorded
+/// answers or a model, whether it passed, counts and the ids of the cases that did not. Never
+/// a message, an answer or a prompt. Who recorded it is in the audit log.
+model AgentEvalResult {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  /// `AGENT_EVAL_SUITES`.
+  suite     String   @db.VarChar(20)
+  /// `AGENT_EVAL_MODES`: `recorded` answers, or `live` against a model.
+  mode      String   @db.VarChar(20)
+  passed    Boolean
+  cases     Int
+  held      Int
+  /// The suite's figures by name (`AGENT_EVAL_FIGURES`): counts only.
+  figures   Json
+  failed    String[] @default([])
+  /// The models under evaluation; none for recorded answers.
+  models    String[] @default([])
+  commit    String?  @db.VarChar(40)
+  ranAt     DateTime @map("ran_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([suite, mode, ranAt])
+  @@index([ranAt])
+  @@map("agent_eval_results")
+}
+
 // ---------------------------------------------------------------------------------------------
 // Price intelligence (ADR-102): public prices read from websites no supplier covers. A site is
 // read only under its policy, which starts closed. Nothing here is a price Suskii sells at

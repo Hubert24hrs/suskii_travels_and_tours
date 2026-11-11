@@ -47,6 +47,7 @@ import { AgentRunLog } from './chat/agent-run-log';
 import { AgentConfirmationsController } from './confirmations/agent-confirmations.controller';
 import { AgentConfirmationsService } from './confirmations/agent-confirmations.service';
 import { AdminAgentInsightsController } from './insights/admin-agent-insights.controller';
+import { AgentEvalsService } from './insights/agent-evals.service';
 import { AgentInsightsService } from './insights/agent-insights.service';
 import { InternalAgentToolsController } from './internal-agent-tools.controller';
 import { AgentMemoryController } from './memory/agent-memory.controller';
@@ -135,6 +136,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     QuoteTools,
     AgentApprovalsService,
     AgentInsightsService,
+    AgentEvalsService,
     KnowledgeService,
     KnowledgeTools,
     AgentMemoryService,

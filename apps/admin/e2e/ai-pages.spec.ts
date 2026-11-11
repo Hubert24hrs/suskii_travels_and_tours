@@ -25,8 +25,24 @@ const POLICY = [
 
 const QUESTION = 'What happens when the airline cancels my flight?';
 
-// The same file a second time is a 409 the browser logs before the page says why.
-test.use({ allowedConsoleErrors: [/status of 409/] });
+/** What the eval command writes with `--json` for a run against recorded answers. */
+const EVAL_RUN = {
+  suite: 'routing',
+  mode: 'recorded',
+  passed: true,
+  cases: 97,
+  held: 93,
+  figures: { routed: 93, byRule: 41, passMarkPercent: 90 },
+  failed: ['r59', 'r67', 'r80', 'r97'],
+  models: [],
+  commit: '41cc5bc0d2f1a9e8b7c6d5e4f3a2b1c0d9e8f7a6',
+  ranAt: '2026-11-10T09:00:00.000Z',
+};
+
+// The same file a second time is a 409, and a file that is no result a 400, which the browser
+// logs before the page says why. One pattern: Playwright reads a list of two as a value with
+// its options.
+test.use({ allowedConsoleErrors: [/status of 40[09]/] });
 
 test('a super admin adds a document, checks what it answers, limits it to staff and archives it', async ({
   page,
@@ -115,6 +131,56 @@ test('a super admin adds a document, checks what it answers, limits it to staff 
   await expectNoAxeViolations(page);
 });
 
+test('a super admin records a run of an eval from the file the eval command wrote', async ({
+  page,
+  stack,
+}) => {
+  await signIn(page, stack, 'evalRecorder');
+  await page.goto('/ai-insights');
+  const evals = page.getByTestId('quality-evals');
+  await expect(evals).toContainText(t('aiInsights.evalsEmpty'));
+
+  const choose = async (name: string, content: string) => {
+    await page.getByTestId('record-eval').click();
+    const dialog = page.getByRole('dialog', { name: t('aiInsights.evalRecord') });
+    await dialog.getByTestId('eval-file').setInputFiles({
+      name,
+      mimeType: 'application/json',
+      buffer: Buffer.from(content, 'utf8'),
+    });
+    await dialog.getByRole('button', { name: t('aiInsights.evalRecordSubmit') }).click();
+    return dialog;
+  };
+
+  // A file that is not JSON never leaves the browser; one that is JSON but no result is
+  // refused by the API. Both are said in the same words.
+  const text = await choose('notes.json', 'routing passed, 93 of 97');
+  await expect(alertWith(page, t('aiInsights.evalNotResult'))).toBeVisible();
+  await expectNoAxeViolations(page);
+  await text.getByRole('button', { name: t('common.close') }).click();
+  const other = await choose('other.json', JSON.stringify({ ...EVAL_RUN, figures: { made: 1 } }));
+  await expect(alertWith(page, t('aiInsights.evalNotResult'))).toBeVisible();
+  await other.getByRole('button', { name: t('common.close') }).click();
+
+  // The result itself: the suite, what it ran against, the count, its figures by name, the
+  // cases that did not pass and the commit.
+  await choose('agent-eval-routing.json', JSON.stringify(EVAL_RUN));
+  await expectToast(page, t('aiInsights.evalRecorded'));
+  const row = evals.getByRole('row', { name: new RegExp(t('aiInsights.evalSuites.routing')) });
+  await expect(row).toContainText(t('aiInsights.evalModes.recorded'));
+  await expect(row).toContainText(t('aiInsights.evalPassed'));
+  await expect(row).toContainText(t('aiInsights.ofCases', { count: '93', cases: '97' }));
+  await expect(row).toContainText(`${t('aiInsights.evalFigureNames.byRule')}: 41`);
+  await expect(row).toContainText('r59, r67, r80, r97');
+  await expect(row).toContainText('41cc5bc');
+  await expectNoAxeViolations(page);
+
+  // The same run a second time is refused, in words.
+  const again = await choose('agent-eval-routing.json', JSON.stringify(EVAL_RUN));
+  await expect(alertWith(page, adminMessages.problems['eval-already-recorded'])).toBeVisible();
+  await again.getByRole('button', { name: t('common.close') }).click();
+});
+
 test("staff read the assistant's runs, a traveller's conversation without contact details, and its cost", async ({
   page,
   stack,
@@ -172,6 +238,10 @@ test("staff read the assistant's runs, a traveller's conversation without contac
   const shadow = page.getByTestId('quality-shadow');
   await expect(shadow).toContainText(t('aiInsights.shadowNone'));
   await expect(shadow).toContainText(t('aiInsights.shadowEmpty'));
+  // The eval runs are theirs to read; recording one is for those who manage the assistant.
+  await expect(page.getByRole('heading', { level: 2, name: t('aiInsights.evals') })).toBeVisible();
+  await expect(page.getByTestId('quality-evals')).toBeVisible();
+  await expect(page.getByTestId('record-eval')).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 2, name: t('aiInsights.limits') })).toBeVisible();
   await page.getByLabel(t('aiInsights.period')).selectOption('7');
   await expect(total).toContainText(t('aiInsights.estimated'));

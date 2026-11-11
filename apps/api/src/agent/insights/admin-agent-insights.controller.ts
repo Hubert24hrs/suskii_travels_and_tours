@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Put, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import type { z } from 'zod';
 
-import type { AgentName } from '@suskii/shared';
+import type { AgentEvalResult, AgentName } from '@suskii/shared';
 
 import { staffActor } from '../../admin/admin-helpers';
 import { CurrentAuth, type AuthContext } from '../../auth/auth-context';
@@ -10,12 +10,17 @@ import { AdminRoute, StepUp } from '../../auth/decorators';
 import { Contract } from '../../contract/contract';
 import { AgentSettingsService } from '../agent-settings.service';
 
+import { AgentEvalsService } from './agent-evals.service';
+
 import {
   adminAgentConversationPageSchema,
   adminAgentConversationParamsSchema,
   adminAgentConversationQuerySchema,
   adminAgentConversationSchema,
   adminAgentCostSchema,
+  adminAgentEvalInputSchema,
+  adminAgentEvalSchema,
+  adminAgentEvalsSchema,
   adminAgentLimitsSchema,
   adminAgentParamsSchema,
   adminAgentQualitySchema,
@@ -28,6 +33,8 @@ import {
   adminAgentWindowQuerySchema,
   type AdminAgentConversation,
   type AdminAgentCost,
+  type AdminAgentEval,
+  type AdminAgentEvals,
   type AdminAgentLimits,
   type AdminAgentQuality,
   type AdminAgentRunQuery,
@@ -47,6 +54,7 @@ export class AdminAgentInsightsController {
   constructor(
     private readonly insights: AgentInsightsService,
     private readonly settings: AgentSettingsService,
+    private readonly evals: AgentEvalsService,
   ) {}
 
   @Get('monitor/runs')
@@ -161,6 +169,42 @@ export class AdminAgentInsightsController {
   })
   limits(): AdminAgentLimits {
     return this.insights.limits();
+  }
+
+  @Get('evals')
+  @AdminRoute('ai:read')
+  @Contract({
+    operationId: 'adminListAgentEvals',
+    summary: 'Runs of the agent evals that staff recorded',
+    description:
+      'The latest run of each suite against recorded answers and against a model, and the history: counts, the ids of the cases that did not pass, the models and the commit. Never a message, an answer or a prompt.',
+    tags: TAGS,
+    responses: { 200: adminAgentEvalsSchema },
+    errors: [403],
+  })
+  listEvals(): Promise<AdminAgentEvals> {
+    return this.evals.list();
+  }
+
+  @Post('evals')
+  @AdminRoute('ai:manage')
+  @Contract({
+    operationId: 'adminRecordAgentEval',
+    summary: 'Record one run of an agent eval',
+    description:
+      "The body is the file the eval command wrote with `--json` (also the artifact of the agent eval workflow). A record is the recorder's statement that the run happened, audited as theirs; it changes nothing about how the assistant answers. The same run a second time is a 409 `eval-already-recorded`.",
+    tags: TAGS,
+    body: adminAgentEvalInputSchema,
+    responses: { 201: adminAgentEvalSchema },
+    errors: [403, 409, 422],
+    audit: ['agent.eval_recorded'],
+  })
+  recordEval(
+    @CurrentAuth() auth: AuthContext,
+    @Body() body: AgentEvalResult,
+    @Req() request: Request,
+  ): Promise<AdminAgentEval> {
+    return this.evals.record(body, staffActor(auth, request));
   }
 
   @Put('agents/:agent')

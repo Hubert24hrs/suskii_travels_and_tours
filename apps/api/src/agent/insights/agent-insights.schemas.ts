@@ -3,10 +3,13 @@ import { z } from 'zod';
 import {
   AGENT_AUDIENCES,
   AGENT_CHANNELS,
+  AGENT_EVAL_MODES,
+  AGENT_EVAL_SUITES,
   AGENT_MESSAGE_KINDS,
   AGENT_NAMES,
   AGENT_NOTICES,
   AGENT_TOOL_TIERS,
+  agentEvalResultSchema,
 } from '@suskii/shared';
 
 import { named } from '../../contract/contract';
@@ -319,3 +322,39 @@ export const adminAgentSwitchSchema = named(
   'AdminAgentSwitch',
   z.object({ agent: z.enum(AGENT_NAMES), enabled: z.boolean() }),
 );
+
+// --- Eval runs staff recorded (ADR-106) ---------------------------------------------------------
+
+/** The file the eval command writes with `--json`, as it is. */
+export const adminAgentEvalInputSchema = named('AdminAgentEvalInput', agentEvalResultSchema);
+
+const evalFields = {
+  id: uuid,
+  suite: z.enum(AGENT_EVAL_SUITES),
+  mode: z.enum(AGENT_EVAL_MODES),
+  passed: z.boolean(),
+  cases: count,
+  held: count,
+  /** The suite's own figures by name: counts and a pass mark, never text. */
+  figures: z.record(z.string(), count),
+  /** The ids of the cases that did not pass. */
+  failed: z.array(z.string()),
+  /** The models under evaluation; none for recorded answers. */
+  models: z.array(z.string()),
+  commit: z.string().nullable(),
+  ranAt: timestamp,
+  recordedAt: timestamp,
+};
+
+export const adminAgentEvalSchema = named('AdminAgentEval', z.object(evalFields));
+export type AdminAgentEval = z.infer<typeof adminAgentEvalSchema>;
+
+export const adminAgentEvalsSchema = named(
+  'AdminAgentEvals',
+  z.object({
+    /** The latest run of each suite, against recorded answers and against a model. */
+    latest: z.array(adminAgentEvalSchema),
+    recent: z.array(adminAgentEvalSchema),
+  }),
+);
+export type AdminAgentEvals = z.infer<typeof adminAgentEvalsSchema>;

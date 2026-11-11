@@ -1125,6 +1125,17 @@ describe('admin audit coverage (e2e)', () => {
     await audited('adminSwitchAgent', { agent: 'hotels' }, (request) =>
       request.send({ enabled: true }),
     );
+    await audited('adminRecordAgentEval', {}, (request) =>
+      request.send({
+        suite: 'safety',
+        mode: 'recorded',
+        passed: true,
+        cases: 38,
+        held: 38,
+        figures: { violations: 0 },
+        ranAt: '2026-11-10T09:00:00.000Z',
+      }),
+    );
   });
 
   it('knowledge base: add, change, archive and restore', async () => {
