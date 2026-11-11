@@ -234,6 +234,8 @@ export class AccountDeletionService {
           tx,
         );
         await tx.agentConversation.deleteMany({ where: { userId } });
+        // What the assistant remembered about them goes too (ADR-105).
+        await tx.agentMemory.deleteMany({ where: { userId } });
         if (user.email) {
           await tx.newsletterSubscription.deleteMany({ where: { email: user.email } });
         }

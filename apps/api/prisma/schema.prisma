@@ -86,6 +86,7 @@ model User {
   companyTopUps           CompanyWalletTopUp[]     @relation("CompanyTopUpRequester")
   supportConversations    SupportConversation[]    @relation("SupportOwner")
   agentConversations      AgentConversation[]
+  agentMemories           AgentMemory[]
   assignedSupport         SupportConversation[]    @relation("SupportAssignee")
   supportMessages         SupportMessage[]         @relation("SupportStaffAuthor")
   privacyRequests         PrivacyRequest[]
@@ -2015,6 +2016,9 @@ model UserPreference {
   /// Marketing consent: when and where it was given (opt-in); null when not given or withdrawn.
   marketingConsentAt     DateTime? @map("marketing_consent_at") @db.Timestamptz(3)
   marketingConsentSource String?   @map("marketing_consent_source")
+  /// When the traveller agreed that the assistant may remember travel preferences (ADR-105);
+  /// null while it remembers nothing.
+  assistantMemoryAt      DateTime? @map("assistant_memory_at") @db.Timestamptz(3)
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -4319,6 +4323,25 @@ model AgentToolCall {
   @@index([runId, id])
   @@index([tool, createdAt])
   @@map("agent_tool_calls")
+}
+
+/// One travel preference the assistant remembers for a traveller who agreed to it (ADR-105):
+/// a named key (`AGENT_MEMORY_KEYS`) and a value from a fixed set or a code, never free text
+/// and never a sensitive category. The traveller sees, changes and erases each one.
+model AgentMemory {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  key       String   @db.VarChar(24)
+  value     String   @db.VarChar(40)
+  /// `traveller` (set on their own page) or `assistant` (confirmed with a tap in a chat).
+  source    String   @db.VarChar(12)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("agent_memories")
 }
 
 /// A setting staff control the assistant with (`AGENT_SETTING_KEYS`): the autonomy level of an

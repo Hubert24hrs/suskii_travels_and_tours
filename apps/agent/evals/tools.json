@@ -963,6 +963,62 @@
       }
     },
     {
+      "name": "memory.read",
+      "description": "The travel preferences the signed-in traveller asked the assistant to remember: home airport, cabin, window or aisle, up to three preferred airlines, and whether to weigh price or comfort first. `remembering` is false when they have not agreed to it: then nothing is kept and nothing may be assumed. Use what is here as a starting point and say that you did; the traveller can always choose otherwise. They see and change these on the page the card opens.",
+      "tier": "read",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "memory.remember",
+      "description": "Asks the signed-in traveller to confirm that the assistant should remember one travel preference. Nothing is kept when you call it: they get a card, and only their tap keeps it. Call it only after the traveller said the preference themselves and asked for it to be remembered, or agreed when you offered. Keys: `home_airport` (an IATA code from catalog.places), `cabin` (economy, premium_economy, business, first), `seat` (window, aisle), `airlines` (one to three IATA airline codes, separated by commas), `budget` (lowest, balanced, comfort). Nothing else can be remembered: never a meal, a health need, a name or a contact. It is refused while the traveller has not switched remembering on; the page that switches it on is the one memory.read links to.",
+      "tier": "commit",
+      "scope": "account",
+      "agents": [
+        "flights",
+        "hotels",
+        "cars",
+        "tours",
+        "trip_builder",
+        "concierge"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "home_airport",
+              "cabin",
+              "seat",
+              "airlines",
+              "budget"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    },
+    {
       "name": "ops.queues",
       "description": "What is waiting for a person in operations right now, as counts: assisted quotes to verify, paid bookings to book by hand, bookings whose ticketing is retrying or stuck, payments held for a risk review, refunds needing review, airline changes still open (and how many are significant), support conversations past their reply time, visa applications and referrals in review.",
       "tier": "read",

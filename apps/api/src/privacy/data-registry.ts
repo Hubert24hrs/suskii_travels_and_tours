@@ -712,6 +712,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'rule', rule: 'agent-conversations' },
     note: "A conversation with the assistant: channel, language, currency, the edge's country, the booking it was opened from and a guest's token HMAC. Deleted with the account or by the person; purged a year after its last message.",
   },
+  AgentMemory: {
+    section: 'preferences',
+    deletion: 'delete',
+    retention: { kind: 'account' },
+    note: 'The travel preferences the assistant remembers for a traveller who agreed (ADR-105): home airport, cabin, window or aisle, preferred airlines and how to weigh price against comfort. Codes and fixed choices only, never free text and never a meal preference. The person sees, changes and erases each; switching memory off erases all; deleted with the account.',
+  },
   AgentMessage: {
     section: 'assistant',
     deletion: 'delete',

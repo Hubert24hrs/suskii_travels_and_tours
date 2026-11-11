@@ -190,7 +190,7 @@ describe('customer agent tools (e2e)', () => {
     }
   };
 
-  it('ships the tools with their tiers: five prepare something, five ask for a tap, and the staff tools are staff only', async () => {
+  it('ships the tools with their tiers: five prepare something, six ask for a tap, and the staff tools are staff only', async () => {
     const response = await ctx
       .http()
       .get('/v1/internal/agent-tools')
@@ -224,6 +224,8 @@ describe('customer agent tools (e2e)', () => {
       'knowledge.search',
       'marketing.draft_promo',
       'marketing.promos',
+      'memory.read',
+      'memory.remember',
       'ops.queues',
       'packages.search',
       'payments.options',
@@ -255,6 +257,7 @@ describe('customer agent tools (e2e)', () => {
       'bookings.cancel',
       'changes.accept',
       'changes.take_refund_offer',
+      'memory.remember',
     ]);
     // Places, the status page and the knowledge base are for every agent. Every other tool is
     // either the customer agents' or the staff agents', never both; and a staff tool reads or

@@ -48,6 +48,8 @@ import { AgentConfirmationsService } from './confirmations/agent-confirmations.s
 import { AdminAgentInsightsController } from './insights/admin-agent-insights.controller';
 import { AgentInsightsService } from './insights/agent-insights.service';
 import { InternalAgentToolsController } from './internal-agent-tools.controller';
+import { AgentMemoryController } from './memory/agent-memory.controller';
+import { AgentMemoryService } from './memory/agent-memory.service';
 import { AdminAgentKnowledgeController } from './knowledge/admin-agent-knowledge.controller';
 import { KnowledgeService } from './knowledge/knowledge.service';
 import { AccountTools } from './tools/account-tools';
@@ -55,6 +57,7 @@ import { CatalogTools } from './tools/catalog-tools';
 import { CommitTools } from './tools/commit-tools';
 import { DisruptionTools } from './tools/disruption-tools';
 import { KnowledgeTools } from './tools/knowledge-tools';
+import { MemoryTools } from './tools/memory-tools';
 import { PlanningTools } from './tools/planning-tools';
 import { PlatformTools } from './tools/platform-tools';
 import { ProductTools } from './tools/product-tools';
@@ -100,6 +103,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     AgentController,
     AgentChatController,
     AgentConfirmationsController,
+    AgentMemoryController,
     AdminAgentController,
     AdminAgentChatController,
     AdminAgentApprovalsController,
@@ -132,6 +136,8 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     AgentInsightsService,
     KnowledgeService,
     KnowledgeTools,
+    AgentMemoryService,
+    MemoryTools,
     StaffTools,
     SupportTools,
     AgentConversationsService,

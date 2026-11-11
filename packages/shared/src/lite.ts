@@ -367,6 +367,17 @@ export {
 } from './support';
 // The assistant's message limit, for the chat box (ADR-101).
 export { AGENT_MESSAGE_MAX } from './agent-limits';
+// What the assistant may remember, for the page where a traveller sees and changes it.
+export {
+  AGENT_MEMORY_AIRLINES_MAX,
+  AGENT_MEMORY_BUDGETS,
+  AGENT_MEMORY_KEYS,
+  AGENT_MEMORY_SEATS,
+  agentMemoryAirlines,
+  agentMemoryValue,
+  isAgentMemoryKey,
+  type AgentMemoryKey,
+} from './agent-memory';
 
 export {
   MAX_SEAT_SELECTIONS,

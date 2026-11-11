@@ -275,9 +275,9 @@ Nothing is stored.
 
 ### The assistant (Suskii Agent)
 
-Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change. The agent service keeps each conversation as the model saw it in a schema of its own, deleted with the conversation and 30 days after its last turn (ADR-101, ADR-103, ADR-105, ADR-107).
+Answer travellers and staff in a conversation: find, compare, plan, quote and explain through the ordinary services. The model gets scrubbed text and facts under keys; a person confirms every change. The agent service keeps each conversation as the model saw it in a schema of its own, deleted with the conversation and 30 days after its last turn. With the traveller’s consent it remembers a short list of travel preferences (codes and fixed choices, no free text, no meal preference), which they see, change and erase (ADR-101, ADR-103, ADR-105, ADR-107).
 
-- **Lawful basis:** Contract: needed for the service the person asked for; Legitimate interests: security, fraud prevention and service quality
+- **Lawful basis:** Contract: needed for the service the person asked for; Legitimate interests: security, fraud prevention and service quality; Consent: given, recorded and withdrawable
 - **People:** Travellers with an account; Guests who book without an account, and the passengers they name; Suskii staff
 - **Data:** Support messages and notifications; Itineraries, bookings, tickets and vouchers; Settings, consent choices and alerts
 - **Recipients:** Google Cloud (Cloud SQL, Cloud Run, Cloud Storage, Secret Manager); Cloudflare (edge, WAF, Turnstile); Anthropic Messages API
@@ -287,6 +287,7 @@ Answer travellers and staff in a conversation: find, compare, plan, quote and ex
 | `AgentConversation` | Retention sweep `agent-conversations`: 365 days after the event | delete |
 | `AgentMessage` | With its AgentConversation | delete |
 | `AgentConfirmation` | With its AgentConversation | delete |
+| `AgentMemory` | While the account exists; deletion applies its treatment | delete |
 | `AgentApproval` | Retention sweep `agent-approvals`: 400 days after the event | retain |
 | `AgentRun` | Retention sweep `agent-runs`: 400 days after the event | retain |
 | `AgentToolCall` | With its AgentRun | retain |
@@ -332,5 +333,5 @@ Who receives personal data, where it processes it and the basis for sending it a
 
 ## Coverage
 
-All 84 tables that hold personal data belong to an activity above;
+All 85 tables that hold personal data belong to an activity above;
 the other 58 hold reference or operational data only.
