@@ -9,8 +9,32 @@ import { expect, expectNoAxeViolations, t, test } from './fixtures';
  */
 
 const QUESTION = 'What documents do I need to fly to Abuja?';
+/** `E2E_AGENT=off` starts the stack without the assistant, as production is until switched on. */
+const OFF = process.env.E2E_AGENT === 'off';
+const WHY = 'the assistant is switched off in this run';
+
+test.describe('with the assistant switched off', () => {
+  test.skip(!OFF, 'the assistant is on in this run');
+  // Its pages answer 404 on purpose.
+  test.use({ allowedConsoleErrors: [/status of 404/] });
+
+  test('no page offers it, its pages do not exist, and search still works', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/flights');
+    await expect(page.getByTestId('assistant-open')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: t('assistant.open') })).toHaveCount(0);
+    // The search form is there as always: nothing of it waits for the assistant.
+    await expect(page.getByRole('button', { name: t('search.flights.submit') })).toBeVisible();
+
+    for (const path of ['/assistant', '/assistant/preferences']) {
+      const response = await page.goto(path);
+      expect(response?.status(), path).toBe(404);
+    }
+  });
+});
 
 test('a visitor asks the assistant and keeps the conversation in the tab', async ({ page }) => {
+  test.skip(OFF, WHY);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/flights');
   // The entry is a link: no page but the assistant's own carries any of its code.
@@ -72,6 +96,7 @@ test('a visitor asks the assistant and keeps the conversation in the tab', async
 });
 
 test('the menu on a phone leads to the assistant too', async ({ page }) => {
+  test.skip(OFF, WHY);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.getByRole('button', { name: t('header.openMenu') }).click();
@@ -85,6 +110,7 @@ test('the menu on a phone leads to the assistant too', async ({ page }) => {
 });
 
 test.describe('what the assistant remembers (ADR-105)', () => {
+  test.skip(OFF, WHY);
   // A code that names no airport is refused with 422 on purpose.
   test.use({ allowedConsoleErrors: [/status of 422/] });
 

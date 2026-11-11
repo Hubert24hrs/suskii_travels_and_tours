@@ -124,3 +124,74 @@ test('a traveller asks for a price, sees it waiting, reads an offer and withdraw
   await page.goto(url);
   await expect(page.getByTestId('quote-missing')).toContainText(t('quotes.notFound'));
 });
+
+test('the checkout of an offer shows what a person verified, and that a person books it', async ({
+  page,
+  request,
+}) => {
+  // Verifying a price needs staff, so the offer's quote here is a real quote of the stack
+  // (a sample tour) with the assisted item put on it in the browser: what is checked is the
+  // page, with the shape the API answers for an assisted offer.
+  const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+  const tour = (await (
+    await request.get(`${API}/v1/tours/sample-dubai-desert-evening?adults=1`)
+  ).json()) as { departures: { id: string; bookable: boolean }[] };
+  const departure = tour.departures.find((candidate) => candidate.bookable);
+  expect(departure, 'a bookable sample departure').toBeDefined();
+  const { quoteId } = (await (
+    await request.post(`${API}/v1/inhouse-quotes`, {
+      data: {
+        kind: 'tour',
+        departureId: departure?.id,
+        travellers: { adults: 1, children: 0, infants: 0 },
+      },
+    })
+  ).json()) as { quoteId: string };
+
+  await page.route(`**/v1/quotes/${quoteId}`, async (route) => {
+    const response = await route.fetch();
+    const quote = (await response.json()) as Record<string, unknown>;
+    await route.fulfill({
+      response,
+      json: {
+        ...quote,
+        vertical: 'assisted',
+        tour: null,
+        assisted: {
+          product: {
+            id: quoteId,
+            slug: 'q-7k2m4x',
+            title: 'Lagoon View Hotel, sea view room',
+            sample: false,
+            artKey: null,
+          },
+          kind: 'hotel',
+          summary: 'Three nights with breakfast. Free cancellation until seven days before.',
+          startDate: isoDaysFromToday(30),
+          endDate: isoDaysFromToday(33),
+          cityName: 'Lagos',
+          countryCode: 'NG',
+          travellers: { adults: 1, children: 0, infants: 0 },
+          refundable: true,
+          quoteId,
+          supplierReference: null,
+        },
+      },
+    });
+  });
+  await page.goto(`/checkout/${quoteId}`);
+
+  const summary = page.getByTestId('assisted-summary');
+  await expect(summary).toContainText('Lagoon View Hotel, sea view room');
+  await expect(summary).toContainText('Lagos');
+  await expect(summary).toContainText('Three nights with breakfast');
+  await expect(summary).toContainText(t('quotes.offer.refundable'));
+  await expect(summary).toContainText(t('quotes.offer.verified'));
+  // Said before anything is paid: a person books it, and it is refunded if they cannot.
+  await expect(summary).toContainText(t('quotes.offer.afterPayment'));
+  // One traveller to name, as the offer was verified for.
+  await expect(page.getByTestId('passenger-0')).toBeVisible();
+  await expect(page.getByTestId('passenger-1')).toHaveCount(0);
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  await expectNoAxeViolations(page);
+});

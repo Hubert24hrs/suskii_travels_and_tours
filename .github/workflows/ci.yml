@@ -164,6 +164,19 @@ jobs:
           # per-IP limits are covered by the API e2e suite (as for the admin console).
           E2E_RATE_LIMIT_ENABLED: 'false'
 
+      # The assistant is off in production until the owner switches it on (ADR-101). The search
+      # and booking journeys run once more on a stack without it: no page may offer it, its
+      # pages must not exist, and nothing of search or booking may depend on it.
+      - name: E2E tests (web, assistant switched off)
+        run: |
+          pnpm exec turbo run build --filter=@suskii/web --filter=@suskii/api --filter=@suskii/worker
+          pnpm --filter @suskii/web exec playwright test e2e/assistant.spec.ts e2e/search.spec.ts e2e/booking.spec.ts --project=chromium
+        env:
+          E2E_AGENT: 'off'
+          WEB_E2E_DATABASE_URL: postgresql://suskii:suskii_ci@localhost:5432/suskii_web_e2e
+          WEB_E2E_REDIS_URL: redis://localhost:6379/2
+          E2E_RATE_LIMIT_ENABLED: 'false'
+
       - name: Upload web test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
