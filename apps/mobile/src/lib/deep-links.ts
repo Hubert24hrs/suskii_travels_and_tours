@@ -102,7 +102,11 @@ function appPath({ path, query }: Parts): IncomingLink {
   if (first === 'trips' && second === 'built' && third && UUID.test(third) && segments.length === 3)
     return { path: `/trips/built/${third.toLowerCase()}` };
   if (
-    (first === 'deals' || first === 'account' || first === 'prime' || first === 'support') &&
+    (first === 'deals' ||
+      first === 'account' ||
+      first === 'prime' ||
+      first === 'support' ||
+      first === 'assistant') &&
     !second
   )
     return { path: `/${first}` };

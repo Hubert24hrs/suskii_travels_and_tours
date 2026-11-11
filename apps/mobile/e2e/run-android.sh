@@ -30,6 +30,7 @@ if [ "$status" -eq 0 ]; then
 fi
 run_flow inhouse-tour
 run_flow support
+run_flow assistant
 # The stack's database is new on every run, so the account's address can stay the same.
 run_flow trip-builder -e TRIP_EMAIL=maestro.trip@example.com \
   -e "PASSPORT_EXPIRY=$(date -u -d '+3000 days' +%F)"

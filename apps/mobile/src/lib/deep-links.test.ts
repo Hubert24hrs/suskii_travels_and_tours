@@ -98,6 +98,13 @@ describe('resolveIncomingUrl', () => {
   });
 });
 
+describe('the assistant (ADR-101)', () => {
+  it('opens the chat from the app scheme, and nothing under it', () => {
+    expect(resolveIncomingUrl('suskii://assistant', WEB)).toEqual({ path: '/assistant' });
+    expect(resolveIncomingUrl('suskii://assistant/history', WEB)).toEqual({ path: '/' });
+  });
+});
+
 describe('support links (ADR-083)', () => {
   it('opens Help and support or one conversation from the app scheme', () => {
     expect(resolveIncomingUrl('suskii://support', WEB)).toEqual({ path: '/support' });
