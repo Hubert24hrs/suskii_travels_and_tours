@@ -172,6 +172,54 @@ export function promptFor(agent: AgentName): Prompt {
   return SPECIALIST_PROMPTS[agent] ?? specialist('concierge', 2);
 }
 
+/** The prompts one run works with: the two routers and each agent's own. */
+export interface PromptSet {
+  router(audience: AgentRunContext['audience']): Prompt;
+  specialist(agent: AgentName): Prompt;
+}
+
+/** The prompts that answer travellers and staff. */
+export const LIVE_PROMPTS: PromptSet = {
+  router: (audience) => (audience === 'staff' ? STAFF_ROUTER_PROMPT : ROUTER_PROMPT),
+  specialist: promptFor,
+};
+
+/**
+ * Candidates (ADR-106): versions that are written, reviewed and shipped but answer nobody. A
+ * candidate runs only in the shadow of a live turn, when the API asks for it by its reference,
+ * and what it writes is never sent, stored or shown: only how it did is. It has the id of the
+ * prompt it would replace (`router`, `staff_router` or an agent) and a higher version. To make
+ * one live, move its text into the prompt above with its version, after the evals pass with it
+ * and its shadow figures were read (docs/guides/adding-an-agent.md). None is waiting today.
+ */
+export const CANDIDATE_PROMPTS: readonly Prompt[] = [];
+
+/**
+ * The live prompts with the named candidates in place of the ones they would replace. `unknown`
+ * lists references this build does not ship: the caller then runs nothing.
+ */
+export function promptsWith(
+  refs: readonly string[],
+  candidates: readonly Prompt[] = CANDIDATE_PROMPTS,
+): { prompts: PromptSet; unknown: string[] } {
+  const chosen = new Map<string, Prompt>();
+  const unknown: string[] = [];
+  for (const ref of refs) {
+    const candidate = candidates.find((prompt) => promptRef(prompt) === ref);
+    if (candidate) chosen.set(candidate.id, candidate);
+    else unknown.push(ref);
+  }
+  return {
+    prompts: {
+      router: (audience) =>
+        chosen.get(audience === 'staff' ? STAFF_ROUTER_PROMPT.id : ROUTER_PROMPT.id) ??
+        LIVE_PROMPTS.router(audience),
+      specialist: (agent) => chosen.get(promptFor(agent).id) ?? promptFor(agent),
+    },
+    unknown,
+  };
+}
+
 /** After the guard refused an answer: what to take out, without quoting the answer back. */
 export function rewriteInstruction(missing: {
   figures: readonly number[];

@@ -180,6 +180,9 @@ export const agentRunInputSchema = z.discriminatedUnion('kind', [
 ]);
 export type AgentRunInput = z.infer<typeof agentRunInputSchema>;
 
+/** A prompt and its version (`flights@3`): what a run records and a candidate is named by. */
+const promptRef = z.string().regex(/^[a-z_]{2,32}@\d{1,4}$/);
+
 export const agentRunRequestSchema = z.object({
   runId: uuid,
   /** The conversation: one thread of checkpoints (ADR-103). */
@@ -189,8 +192,30 @@ export const agentRunRequestSchema = z.object({
   context: agentRunContextSchema,
   limits: agentRunLimitsSchema,
   input: agentRunInputSchema,
+  /**
+   * Candidate prompt versions to try in the shadow of this turn (ADR-106): after the answer has
+   * gone out, the same turn is run again with them, never shown and without calling a tool.
+   * The API decides which runs are shadowed; the agent service knows only the candidates it
+   * ships.
+   */
+  shadow: z.object({ prompts: z.array(promptRef).min(1).max(8) }).optional(),
 });
 export type AgentRunRequest = z.infer<typeof agentRunRequestSchema>;
+
+/**
+ * What came of a shadow turn. `compared`: it ran to its end with a candidate in use.
+ * `not_used`: the turn never reached a prompt that has a candidate, so there is nothing to
+ * compare. `unknown_prompt`: this build does not ship a candidate that was asked for. `busy`:
+ * too many shadow turns at once. `failed`: it ran out of time or broke.
+ */
+export const AGENT_SHADOW_STATUSES = [
+  'compared',
+  'not_used',
+  'unknown_prompt',
+  'busy',
+  'failed',
+] as const;
+export type AgentShadowStatus = (typeof AGENT_SHADOW_STATUSES)[number];
 
 /** What one model billed in a run: the API prices it from its own table (ADR-106). */
 export const agentModelUsageSchema = z.object({
@@ -243,10 +268,30 @@ export const agentRunEventSchema = z.discriminatedUnion('type', [
     /** With `confirmation`: the pending confirmation the API created for the traveller's tap. */
     confirmationId: uuid.nullable(),
     /** The prompts that produced the answer (`flights@3`), so a bad one can be traced. */
-    prompts: z.array(z.string().regex(/^[a-z_]{2,32}@\d{1,4}$/)).max(8),
+    prompts: z.array(promptRef).max(8),
     steps: z.number().int().min(0).max(100),
+    usage: z.array(agentModelUsageSchema).max(4),
+  }),
+  /**
+   * At most one line after `end`, and only when the request asked for a shadow turn: how the
+   * candidates did on the same turn, as codes and counts. It carries no answer: what a
+   * candidate wrote is never sent, stored or shown.
+   */
+  z.object({
+    type: z.literal('shadow'),
+    status: z.enum(AGENT_SHADOW_STATUSES),
+    /** The candidates that took part (all that were asked for when none did). */
+    prompts: z.array(promptRef).max(8),
+    /** How the shadow turn ended and which agent answered it; null unless it was compared. */
+    outcome: z.enum(AGENT_RUN_OUTCOMES).nullable(),
+    agent: agentName.nullable(),
+    steps: z.number().int().min(0).max(100),
+    /** Tool calls answered from what the live turn's tools returned, and calls that were not. */
+    replayed: z.number().int().min(0).max(1000),
+    missed: z.number().int().min(0).max(1000),
     usage: z.array(agentModelUsageSchema).max(4),
   }),
 ]);
 export type AgentRunEvent = z.infer<typeof agentRunEventSchema>;
 export type AgentRunEnd = Extract<AgentRunEvent, { type: 'end' }>;
+export type AgentRunShadow = Extract<AgentRunEvent, { type: 'shadow' }>;

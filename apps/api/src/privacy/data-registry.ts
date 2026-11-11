@@ -748,6 +748,12 @@ export const DATA_REGISTRY = {
     retention: { kind: 'parent', parent: 'AgentRun' },
     note: 'A call through the tool gateway: tool, tier, outcome code, duration and the names of its arguments; never their values or the result.',
   },
+  AgentShadowRun: {
+    section: null,
+    deletion: 'retain',
+    retention: { kind: 'parent', parent: 'AgentRun' },
+    note: 'How candidate prompts did on a turn they ran in the shadow of (ADR-106): the candidates, the agent, an outcome code, counts of tool calls replayed and missed, tokens and cost. What a candidate wrote never leaves the agent service, so no words are here. Gone with its run.',
+  },
   AgentSetting: reference(
     'Autonomy levels of agents and tools (ADR-107). Who changed one is in the audit log.',
   ),

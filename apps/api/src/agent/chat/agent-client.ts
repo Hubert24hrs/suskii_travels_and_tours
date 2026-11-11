@@ -54,9 +54,30 @@ export interface HttpAgentClientOptions {
 const MAX_LINE_BYTES = 64 * 1024;
 
 /**
+ * What may still be read once a run has ended: the one line about its shadow turn (ADR-106),
+ * and only when the request asked for one. Everything else after an `end` is dropped.
+ */
+function afterEnd(request: AgentRunRequest): {
+  takes(event: AgentRunEvent): boolean;
+  done(): boolean;
+} {
+  let open = request.shadow !== undefined;
+  return {
+    takes: (event) => {
+      if (!open || event.type !== 'shadow') return false;
+      open = false;
+      return true;
+    },
+    done: () => !open,
+  };
+}
+
+/**
  * Calls the agent service's `POST /runs` and reads its newline-delimited events. Every line is
  * parsed with the shared schema; a line that does not fit, a broken stream or an unreachable
- * service ends the run as `failed`, and a second `end` is ignored.
+ * service ends the run as `failed`, and a second `end` is ignored. When the request asked for
+ * a shadow turn, the stream is read on after the `end` for the one line about it: the caller
+ * has the `end` by then and does not wait for more.
  */
 export class HttpAgentClient extends AgentClient {
   readonly name = 'http';
@@ -73,8 +94,14 @@ export class HttpAgentClient extends AgentClient {
     signal: AbortSignal,
   ): Promise<void> {
     let ended = false;
+    const trailer = afterEnd(request);
     const emit = async (event: AgentRunEvent): Promise<void> => {
-      if (ended) return;
+      if (ended) {
+        if (trailer.takes(event)) await onEvent(event);
+        return;
+      }
+      // A shadow line before the end is not one: nothing was answered yet.
+      if (event.type === 'shadow') return;
       if (event.type === 'end') ended = true;
       await onEvent(event);
     };
@@ -114,7 +141,7 @@ export class HttpAgentClient extends AgentClient {
           }
           newline = buffer.indexOf('\n');
         }
-        if (ended) break;
+        if (ended && trailer.done()) break;
       }
     } catch {
       await emit(failedRun(signal.aborted ? 'timeout' : 'failed'));
@@ -163,11 +190,16 @@ export class MockAgentClient extends AgentClient {
   async run(request: AgentRunRequest, onEvent: AgentEventHandler): Promise<void> {
     this.requests.push(request);
     let ended = false;
+    const trailer = afterEnd(request);
     const emit = async (event: AgentRunEvent): Promise<void> => {
-      if (ended) return;
       const parsed = agentRunEventSchema.safeParse(event);
+      if (ended) {
+        if (parsed.success && trailer.takes(parsed.data)) await onEvent(parsed.data);
+        return;
+      }
       // The mock is held to the same wire as the real service.
       const safe = parsed.success ? parsed.data : failedRun();
+      if (safe.type === 'shadow') return;
       if (safe.type === 'end') ended = true;
       await onEvent(safe);
     };
@@ -204,5 +236,20 @@ export class MockAgentClient extends AgentClient {
         },
       ],
     });
+    // The sample assistant ships no candidate prompts: asked for a shadow turn, it says so,
+    // as the agent service does for a candidate it does not know (ADR-106).
+    if (request.shadow) {
+      await emit({
+        type: 'shadow',
+        status: 'unknown_prompt',
+        prompts: request.shadow.prompts,
+        outcome: null,
+        agent: null,
+        steps: 0,
+        replayed: 0,
+        missed: 0,
+        usage: [],
+      });
+    }
   }
 }

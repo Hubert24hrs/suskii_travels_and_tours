@@ -8371,6 +8371,8 @@ export interface components {
             userDailyMicroUsd: number;
             guestDailyMicroUsd: number;
             globalDailyMicroUsd: number;
+            shadowSamplePercent: number;
+            shadowDailyMicroUsd: number;
             confirmationMinutes: number;
             approvalDays: number;
             messageMax: number;
@@ -8457,6 +8459,23 @@ export interface components {
                 up: number;
                 down: number;
             }[];
+            shadow: {
+                candidates: string[];
+                samplePercent: number;
+                dailyCapMicroUsd: number;
+                spentTodayMicroUsd: number;
+                prompts: {
+                    prompt: string;
+                    turns: number;
+                    compared: number;
+                    answered: number;
+                    guardBlocked: number;
+                    sameAgent: number;
+                    replayedCalls: number;
+                    missedCalls: number;
+                    costMicroUsd: number;
+                }[];
+            };
         };
         AdminAgentRun: {
             /** Format: uuid */

@@ -285,6 +285,95 @@ function QualitySection({ quality }: { quality: Quality }) {
           },
         ]}
       />
+      <h3 className="font-heading text-h5 font-bold text-heading">{t('aiInsights.shadow')}</h3>
+      <p className="font-body text-body-sm text-muted">{t('aiInsights.shadowIntro')}</p>
+      <div data-testid="quality-shadow" className="flex flex-col gap-3">
+        <DetailList
+          items={[
+            {
+              term: t('aiInsights.shadowCandidates'),
+              value:
+                quality.shadow.candidates.length > 0 ? (
+                  <code className="break-all">{quality.shadow.candidates.join(', ')}</code>
+                ) : (
+                  t('aiInsights.shadowNone')
+                ),
+            },
+            {
+              term: t('aiInsights.shadowSample'),
+              value: t('aiInsights.percentOfTurns', {
+                percent: format.number(quality.shadow.samplePercent),
+              }),
+            },
+            {
+              term: t('aiInsights.shadowSpend'),
+              value: t('aiInsights.ofCap', {
+                spent: usdFineFromMicro(quality.shadow.spentTodayMicroUsd),
+                cap: usdFromMicro(quality.shadow.dailyCapMicroUsd),
+              }),
+            },
+          ]}
+        />
+        <DataTable
+          caption={t('aiInsights.shadow')}
+          rows={quality.shadow.prompts}
+          rowKey={(row) => row.prompt}
+          empty={t('aiInsights.shadowEmpty')}
+          columns={[
+            {
+              key: 'prompt',
+              header: t('aiInsights.shadowCandidate'),
+              cell: (row) => <code className="break-all">{row.prompt}</code>,
+            },
+            {
+              key: 'compared',
+              header: t('aiInsights.shadowCompared'),
+              cell: (row) =>
+                t('aiInsights.ofTurns', {
+                  count: format.number(row.compared),
+                  turns: format.number(row.turns),
+                }),
+            },
+            {
+              key: 'answered',
+              header: t('aiInsights.shadowAnswered'),
+              cell: (row) =>
+                t('aiInsights.share', {
+                  count: format.number(row.answered),
+                  percent: shareOf(row.answered, row.compared),
+                }),
+            },
+            {
+              key: 'guard',
+              header: t('aiInsights.guardBlocked'),
+              cell: (row) => format.number(row.guardBlocked),
+            },
+            {
+              key: 'agent',
+              header: t('aiInsights.shadowSameAgent'),
+              cell: (row) =>
+                t('aiInsights.share', {
+                  count: format.number(row.sameAgent),
+                  percent: shareOf(row.sameAgent, row.compared),
+                }),
+            },
+            {
+              key: 'missed',
+              header: t('aiInsights.shadowMissed'),
+              cell: (row) =>
+                t('aiInsights.ofCalls', {
+                  count: format.number(row.missedCalls),
+                  calls: format.number(row.missedCalls + row.replayedCalls),
+                }),
+            },
+            {
+              key: 'cost',
+              header: t('aiInsights.cost'),
+              cell: (row) => usdFineFromMicro(row.costMicroUsd),
+            },
+          ]}
+        />
+      </div>
       <h3 className="font-heading text-h5 font-bold text-heading">{t('aiInsights.outcomes')}</h3>
       <DataTable
         caption={t('aiInsights.outcomes')}
@@ -326,6 +415,13 @@ function LimitsSection({ limits }: { limits: Limits }) {
           { term: t('aiInsights.capGlobal'), value: usdFromMicro(limits.globalDailyMicroUsd) },
           { term: t('aiInsights.capUser'), value: usdFromMicro(limits.userDailyMicroUsd) },
           { term: t('aiInsights.capGuest'), value: usdFromMicro(limits.guestDailyMicroUsd) },
+          {
+            term: t('aiInsights.shadowSample'),
+            value: t('aiInsights.percentOfTurns', {
+              percent: format.number(limits.shadowSamplePercent),
+            }),
+          },
+          { term: t('aiInsights.capShadow'), value: usdFromMicro(limits.shadowDailyMicroUsd) },
           {
             term: t('aiInsights.confirmationMinutes'),
             value: t('aiInsights.minutes', { count: format.number(limits.confirmationMinutes) }),

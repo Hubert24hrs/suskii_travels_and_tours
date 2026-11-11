@@ -167,6 +167,11 @@ test("staff read the assistant's runs, a traveller's conversation without contac
   const funnel = page.getByTestId('quality-funnel');
   await expect(funnel).toContainText(t('aiInsights.funnelSteps.conversations'));
   await expect(funnel).toContainText(t('aiInsights.funnelSteps.handedOver'));
+  // Candidate prompts tried in the shadow (ADR-106): none is named on this stack, and the
+  // page says so instead of showing an empty comparison as if one had run.
+  const shadow = page.getByTestId('quality-shadow');
+  await expect(shadow).toContainText(t('aiInsights.shadowNone'));
+  await expect(shadow).toContainText(t('aiInsights.shadowEmpty'));
   await expect(page.getByRole('heading', { level: 2, name: t('aiInsights.limits') })).toBeVisible();
   await page.getByLabel(t('aiInsights.period')).selectOption('7');
   await expect(total).toContainText(t('aiInsights.estimated'));

@@ -153,6 +153,7 @@ export {
   AGENT_MESSAGE_KINDS,
   AGENT_NOTICES,
   AGENT_RUN_OUTCOMES,
+  AGENT_SHADOW_STATUSES,
   agentAnswerSchema,
   agentCardPathSchema,
   agentCardSchema,
@@ -177,6 +178,8 @@ export {
   type AgentRunLimits,
   type AgentRunOutcome,
   type AgentRunRequest,
+  type AgentRunShadow,
+  type AgentShadowStatus,
 } from './agent-protocol';
 export {
   PERMISSIONS,

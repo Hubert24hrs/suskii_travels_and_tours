@@ -40,6 +40,9 @@ const freePort = (): Promise<number> =>
     });
   });
 
+/** A candidate prompt no build ships: the service must say so, never run it. */
+const CANDIDATE = 'concierge@99';
+
 describe('the assistant end to end, with the agent service as its own process (e2e)', () => {
   let ctx: TestContext;
   let agent: ChildProcess | null = null;
@@ -69,6 +72,10 @@ describe('the assistant end to end, with the agent service as its own process (e
       AGENT_TOOLS_TOKEN: TOOLS_TOKEN,
       AGENT_RUN_TOKEN: RUN_TOKEN,
       AGENT_RUN_TIMEOUT_MS: 20_000,
+      // Every turn asks for a candidate prompt in its shadow (ADR-106). The service ships
+      // none, so each run is followed by one line saying so: the whole wire, at no cost.
+      AGENT_SHADOW_PROMPTS: [CANDIDATE],
+      AGENT_SHADOW_SAMPLE_PERCENT: 100,
     });
     // The agent service calls the gateway back, so the API listens on a real port.
     await ctx.app.listen(0, '127.0.0.1');
@@ -174,6 +181,21 @@ describe('the assistant end to end, with the agent service as its own process (e
     expect(run.outputTokens).toBeGreaterThan(0);
     // The thread is the conversation, checkpointed by the service in its own schema.
     expect(await checkpoints(conversationId)).toBeGreaterThan(0);
+
+    // The line about the shadow turn came after the answer, over the same stream, and was
+    // kept: this build knows no such candidate, called no model for it and spent nothing.
+    expect(await ctx.prisma.agentShadowRun.findUnique({ where: { runId } })).toMatchObject({
+      status: 'unknown_prompt',
+      prompts: [CANDIDATE],
+      liveAgent: 'concierge',
+      agent: null,
+      outcome: null,
+      steps: 0,
+      costMicroUsd: 0n,
+    });
+    // Nothing of it is in the traveller's thread.
+    expect(await checkpoints(`shadow-${runId}`)).toBe(0);
+    expect(await messages(conversationId)).toHaveLength(2);
   });
 
   it('runs a tool through the gateway with the grant the API sealed for the run', async () => {

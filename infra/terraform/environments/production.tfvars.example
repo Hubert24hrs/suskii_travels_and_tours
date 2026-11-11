@@ -144,6 +144,11 @@ api_env = {
   # The assistant answers on WhatsApp only with its own switch as well (and
   # WHATSAPP_SUPPORT_PROVIDER = "cloud" above); people still take over by replying:
   # AGENT_WHATSAPP_ENABLED = "true"
+  # A candidate prompt version is tried beside a share of turns, never shown, only when both
+  # are set (ADR-106); its model calls have their own daily cap in micro-dollars:
+  # AGENT_SHADOW_PROMPTS        = "flights@3"
+  # AGENT_SHADOW_SAMPLE_PERCENT = "5"
+  # AGENT_SHADOW_DAILY_MICROUSD = "2000000"
   # Price intelligence reads only sites approved in the console, through the vendors named
   # here; each vendor's key goes in extra_secrets (FIRECRAWL_API_KEY, APIFY_TOKEN,
   # BROWSE_AI_API_KEY, OXYLABS_PASSWORD, BRIGHT_DATA_API_KEY). The mock vendor is refused in

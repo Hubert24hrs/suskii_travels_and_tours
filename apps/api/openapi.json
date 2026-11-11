@@ -35123,6 +35123,16 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "shadowSamplePercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "shadowDailyMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "confirmationMinutes": {
             "type": "integer",
             "minimum": 0,
@@ -35193,6 +35203,8 @@
           "userDailyMicroUsd",
           "guestDailyMicroUsd",
           "globalDailyMicroUsd",
+          "shadowSamplePercent",
+          "shadowDailyMicroUsd",
           "confirmationMinutes",
           "approvalDays",
           "messageMax",
@@ -35640,6 +35652,103 @@
               ],
               "additionalProperties": false
             }
+          },
+          "shadow": {
+            "type": "object",
+            "properties": {
+              "candidates": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "samplePercent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "dailyCapMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "spentTodayMicroUsd": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "prompts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "prompt": {
+                      "type": "string"
+                    },
+                    "turns": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "compared": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "answered": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "guardBlocked": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "sameAgent": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "replayedCalls": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "missedCalls": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "costMicroUsd": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "prompt",
+                    "turns",
+                    "compared",
+                    "answered",
+                    "guardBlocked",
+                    "sameAgent",
+                    "replayedCalls",
+                    "missedCalls",
+                    "costMicroUsd"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "candidates",
+              "samplePercent",
+              "dailyCapMicroUsd",
+              "spentTodayMicroUsd",
+              "prompts"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -35654,7 +35763,8 @@
           "feedback",
           "ratings",
           "funnel",
-          "prompts"
+          "prompts",
+          "shadow"
         ],
         "additionalProperties": false
       },

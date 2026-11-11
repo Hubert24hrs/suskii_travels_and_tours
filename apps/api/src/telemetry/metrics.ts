@@ -246,6 +246,10 @@ export const agentRuns = meter.createCounter('suskii.agent.runs', {
 export const agentWhatsApp = meter.createCounter('suskii.agent.whatsapp', {
   description: 'WhatsApp messages the assistant took, by outcome',
 });
+/** What became of the shadow turns asked for (ADR-106): compared, or why not. */
+export const agentShadowTurns = meter.createCounter('suskii.agent.shadow', {
+  description: 'Shadow turns of candidate prompts, by status',
+});
 /** What the assistant's model calls cost, in millionths of a US dollar. */
 export const agentCost = meter.createCounter('suskii.agent.cost', {
   description: 'Agent model spend in micro-dollars by model',

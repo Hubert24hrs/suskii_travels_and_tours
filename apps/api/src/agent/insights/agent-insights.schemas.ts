@@ -242,6 +242,33 @@ export const adminAgentQualitySchema = named(
         down: count,
       }),
     ),
+    shadow: z
+      .object({
+        /** The candidates named in the settings, and the share of turns they are tried on. */
+        candidates: z.array(z.string()),
+        samplePercent: count,
+        dailyCapMicroUsd: microUsd,
+        spentTodayMicroUsd: microUsd,
+        prompts: z.array(
+          z.object({
+            prompt: z.string(),
+            /** Turns it was asked for on, and those it actually took part in. */
+            turns: count,
+            compared: count,
+            answered: count,
+            guardBlocked: count,
+            /** Compared turns that ended with the agent that answered the traveller. */
+            sameAgent: count,
+            replayedCalls: count,
+            missedCalls: count,
+            costMicroUsd: microUsd,
+          }),
+        ),
+      })
+      .meta({
+        description:
+          'Candidate prompt versions tried in the shadow of travellers’ turns (ADR-106). Every turn they were tried on was answered by the live prompt, so `answered` out of `compared` is how the candidate did where the live one succeeded. A candidate answers nobody: what it wrote is never kept. Costs are estimates.',
+      }),
   }),
 );
 export type AdminAgentQuality = z.infer<typeof adminAgentQualitySchema>;
@@ -260,6 +287,8 @@ export const adminAgentLimitsSchema = named(
     userDailyMicroUsd: microUsd,
     guestDailyMicroUsd: microUsd,
     globalDailyMicroUsd: microUsd,
+    shadowSamplePercent: count,
+    shadowDailyMicroUsd: microUsd,
     confirmationMinutes: count,
     approvalDays: count,
     messageMax: count,

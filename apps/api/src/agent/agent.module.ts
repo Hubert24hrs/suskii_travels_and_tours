@@ -31,6 +31,7 @@ import { AgentGrants } from './agent-grants';
 import { AgentPause } from './agent-pause';
 import { AgentToolsTokenGuard } from './agent-service-route';
 import { AgentSettingsService } from './agent-settings.service';
+import { AgentShadows } from './shadow/agent-shadows.service';
 import { AgentToolRegistry } from './agent-tool';
 import { AgentToolGateway } from './agent-tool-gateway.service';
 import { AgentController } from './agent.controller';
@@ -142,6 +143,7 @@ import { AgentWhatsApp } from './whatsapp/agent-whatsapp.service';
     SupportTools,
     AgentConversationsService,
     AgentHandoverNotes,
+    AgentShadows,
     AgentChatService,
     AgentConfirmationsService,
     AgentRunLog,

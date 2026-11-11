@@ -291,6 +291,7 @@ Answer travellers and staff in a conversation: find, compare, plan, quote and ex
 | `AgentApproval` | Retention sweep `agent-approvals`: 400 days after the event | retain |
 | `AgentRun` | Retention sweep `agent-runs`: 400 days after the event | retain |
 | `AgentToolCall` | With its AgentRun | retain |
+| `AgentShadowRun` | With its AgentRun | retain |
 
 ### Data rights requests and breach records
 
@@ -333,5 +334,5 @@ Who receives personal data, where it processes it and the basis for sending it a
 
 ## Coverage
 
-All 85 tables that hold personal data belong to an activity above;
+All 86 tables that hold personal data belong to an activity above;
 the other 58 hold reference or operational data only.
