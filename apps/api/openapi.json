@@ -3044,6 +3044,17 @@
             }
           },
           {
+            "name": "area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "assistant"
+              ]
+            }
+          },
+          {
             "name": "actorUserId",
             "in": "query",
             "required": false,

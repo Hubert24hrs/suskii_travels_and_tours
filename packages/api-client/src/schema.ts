@@ -17013,6 +17013,7 @@ export interface operations {
                 cursor?: string;
                 limit?: number;
                 action?: string;
+                area?: "assistant";
                 actorUserId?: string;
             };
             header?: never;

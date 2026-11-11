@@ -479,6 +479,21 @@ describe('knowledge base (e2e)', () => {
       passages: 3,
       sizeBytes: Buffer.byteLength(REFUNDS),
     });
+    // The audit log narrowed to the assistant holds these, and nothing of another area.
+    const area = await ctx
+      .http()
+      .get('/v1/admin/audit-logs?area=assistant&limit=100')
+      .set(root.headers)
+      .expect(200);
+    const actions = (area.body as { items: { action: string; targetId: string | null }[] }).items;
+    expect(actions.length).toBeGreaterThanOrEqual(5);
+    for (const row of actions) {
+      expect(row.action).toMatch(/^(agent|assisted_quote|price_intel)\./);
+    }
+    expect(actions.filter((row) => row.targetId === document.id)).toHaveLength(5);
+    expect(
+      (await ctx.http().get('/v1/admin/audit-logs?area=everything').set(root.headers)).status,
+    ).toBe(400);
     expect(audit[1]?.metadata).toEqual({ changes: { title: { changed: true } } });
     expect(audit[2]?.metadata).toEqual({
       changes: { audience: { from: 'customer', to: 'staff' } },
