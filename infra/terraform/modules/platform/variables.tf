@@ -57,6 +57,7 @@ variable "images" {
     worker  = string
     web     = string
     admin   = string
+    agent   = optional(string, "us-docker.pkg.dev/cloudrun/container/hello")
   })
   default = {
     api     = "us-docker.pkg.dev/cloudrun/container/hello"
@@ -65,6 +66,17 @@ variable "images" {
     web     = "us-docker.pkg.dev/cloudrun/container/hello"
     admin   = "us-docker.pkg.dev/cloudrun/container/hello"
   }
+}
+
+variable "deploy_agent" {
+  description = <<-EOT
+    Creates the agent service (ADR-101) with the others: its identity, its database role's URL,
+    the secrets it reads and the Cloud Run service, reachable from the VPC only. It does nothing
+    without deploy_services. The assistant stays off until AGENT_URL and AGENT_ENABLED are set in
+    api_env, which is the owner's decision.
+  EOT
+  type        = bool
+  default     = false
 }
 
 variable "database" {
@@ -178,6 +190,23 @@ variable "worker_env" {
   description = "Extra non-secret worker settings (refresh intervals, SENTRY_DSN, ...)."
   type        = map(string)
   default     = {}
+}
+
+variable "agent_env" {
+  description = <<-EOT
+    Non-secret settings of the agent service: AGENT_MODEL_PROVIDER, AGENT_MODEL_ROUTER,
+    AGENT_MODEL_SPECIALIST, AGENT_MODEL_FALLBACK, AGENT_MAX_CONCURRENT_RUNS, LOG_LEVEL. Its tokens
+    and the model provider's key are secrets and never go here.
+  EOT
+  type        = map(string)
+  default     = {}
+  validation {
+    condition = alltrue([
+      for key in keys(var.agent_env) :
+      !can(regex("(SECRET|TOKEN|PASSWORD|PRIVATE|_KEY$|DATABASE_URL$)", key))
+    ])
+    error_message = "agent_env must not hold secrets; their values go in Secret Manager."
+  }
 }
 
 variable "web_env" {

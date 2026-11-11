@@ -150,6 +150,43 @@ In the repository settings, create the environments `staging` and `production`:
   can send.
 - `curl -sI https://<api host>/v1/status` twice: the second answer carries `cf-cache-status: HIT`.
 
+## The agent service
+
+The assistant's own service (ADR-101) is not created by default. To add it to an environment
+that already runs:
+
+1. **Its secrets first.** A service cannot start on a secret without a value. Add
+   `"AGENT_RUN_TOKEN"`, `"AGENT_TOOLS_TOKEN"` and `"LLM_API_KEY"` to `extra_secrets`, apply, then
+   give each a value:
+
+   ```bash
+   pnpm --filter @suskii/api keys:generate   # prints AGENT_RUN_TOKEN and AGENT_TOOLS_TOKEN
+   add AGENT_RUN_TOKEN
+   add AGENT_TOOLS_TOKEN
+   add LLM_API_KEY                           # the model provider's key
+   ```
+
+   Then set `deploy_agent = true` (and `agent_env`, `scaling.agent`) and apply again. Terraform
+   adds the identity `suskii-<environment>-agent`, lets it read those three secrets and its own
+   `AGENT_DATABASE_URL`, which Terraform writes itself, and creates the service on Google's
+   placeholder image.
+
+2. **Deploy.** Run the Deploy workflow. The migrate job now also reads the agent's URL and
+   creates its database role, limited to the `agent` schema (ADR-103); the workflow then rolls
+   the agent's image out. Its revision takes traffic once `/ready` answers, which needs that
+   role.
+3. **Point the API at it.** `terraform output agent_internal_url`, set that as `AGENT_URL` in
+   `api_env`, apply.
+4. **Check before switching on.** Run the agent evals against the model (Actions, Agent evals)
+   and record the results in the console. `AGENT_ENABLED = "true"` in `api_env` is the owner's
+   decision; until then the website and the app do not show the assistant.
+
+What it can reach: the API's tool gateway (with `AGENT_TOOLS_TOKEN`), its own schema in the
+database, and the model provider over HTTPS. What reaches it: traffic from this VPC only, and
+of that only requests with `AGENT_RUN_TOKEN` start anything. It has no route through the load
+balancer. To remove it: unset `AGENT_ENABLED` and `AGENT_URL`, apply, then set
+`deploy_agent = false` and apply.
+
 ## Day two
 
 - **Database passwords.** Raise `database_password_version` and apply, then run the Deploy
@@ -178,4 +215,5 @@ In the repository settings, create the environments `staging` and `production`:
 | Where | What                                                                          |
 | ----- | ----------------------------------------------------------------------------- |
 | CI    | `terraform fmt -check`, `terraform validate` of `live/` and TFLint on modules |
+| CI    | The compose rehearsal deploys the agent service and checks its two doors      |
 | Local | `terraform plan` against an environment, with its credentials                 |

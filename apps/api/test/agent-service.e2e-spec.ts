@@ -104,7 +104,7 @@ describe('the assistant end to end, with the agent service as its own process (e
     const deadline = Date.now() + 60_000;
     for (;;) {
       if (agent.exitCode !== null) throw new Error(`the agent service stopped: ${output}`);
-      const ready = await fetch(`${agentUrl}/health`)
+      const ready = await fetch(`${agentUrl}/ready`)
         .then((response) => response.ok)
         .catch(() => false);
       if (ready) break;

@@ -5,7 +5,8 @@
 # only relaxations are declared, as the env schema demands:
 #   - ALLOW_MOCK_PROVIDERS=true (suppliers, payments, messages: the staging escape hatch);
 #   - *_ALLOW_PLAINTEXT=true on the private compose network (no TLS between containers).
-# Keys come from `.env.release` (throwaway, written by the rehearsal with keys:generate; git-ignored).
+# Keys come from `.env.release` (throwaway, written by the rehearsal with keys:generate; git-ignored);
+# the agent service reads only its two tokens, from `.env.release.agent`.
 # Host ports bind to 127.0.0.1 only.
 name: suskii-release
 
@@ -32,6 +33,12 @@ x-api-env: &api-env
   OBJECT_STORAGE_BUCKET: suskii-documents
   OBJECT_STORAGE_ACCESS_KEY_ID: release-rehearsal
   OBJECT_STORAGE_SECRET_ACCESS_KEY: release-rehearsal-secret
+  # The assistant (ADR-101), as a deployed environment that switched it on has it: the agent
+  # service is a separate container, reached only with the run token. Its model is the mock.
+  AGENT_ENABLED: 'true'
+  AGENT_SERVICE: http
+  AGENT_URL: http://agent:4200
+  AGENT_ALLOW_PLAINTEXT: 'true'
 
 services:
   postgres:
@@ -65,10 +72,12 @@ services:
   # the app role from DATABASE_APP_URL.
   migrate:
     image: ${SUSKII_MIGRATE_IMAGE:-suskii-api-migrate:local}
-    # Exactly what the Cloud Run job and the Helm hook get: the two database URLs, nothing else.
+    # Exactly what the Cloud Run job and the Helm hook get: the database URLs, nothing else. The
+    # third creates the agent service's role, which sees only the `agent` schema (ADR-103).
     environment:
       DATABASE_URL: postgresql://suskii:release-rehearsal@postgres:5432/suskii?sslmode=disable
       DATABASE_APP_URL: postgresql://suskii_app:release-rehearsal-app-password@postgres:5432/suskii?sslmode=disable
+      DATABASE_AGENT_URL: postgresql://suskii_agent:release-rehearsal-agent-password@postgres:5432/suskii?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,6 +128,30 @@ services:
       API_INTERNAL_ALLOW_PLAINTEXT: 'true'
     depends_on:
       api:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+
+  # The agent service (ADR-101). It gets its own two tokens and nothing of the API's keys
+  # (.env.release.agent, written by the rehearsal), connects to PostgreSQL as its own role, and
+  # has no published port: only the API reaches it.
+  agent:
+    image: ${SUSKII_AGENT_IMAGE:-suskii-agent:local}
+    env_file: [.env.release.agent]
+    environment:
+      NODE_ENV: production
+      ALLOW_MOCK_PROVIDERS: 'true'
+      AGENT_MODEL_PROVIDER: mock
+      LOG_LEVEL: info
+      AGENT_PORT: '4200'
+      API_INTERNAL_URL: http://api:4000
+      API_INTERNAL_ALLOW_PLAINTEXT: 'true'
+      AGENT_DATABASE_URL: postgresql://suskii_agent:release-rehearsal-agent-password@postgres:5432/suskii?sslmode=disable
+      AGENT_DATABASE_ALLOW_PLAINTEXT: 'true'
+    depends_on:
+      postgres:
         condition: service_healthy
     read_only: true
     tmpfs: [/tmp]

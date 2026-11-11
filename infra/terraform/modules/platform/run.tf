@@ -1,7 +1,8 @@
-# The four services and the migration job (created once deploy_services is true). Public services
-# accept traffic only from the load balancer; the worker only from the VPC. Every revision sends
-# all its traffic through the VPC, so calls to the API's run.app URL stay internal and outbound
-# calls leave from the NAT addresses.
+# The four services and the migration job (created once deploy_services is true), and the agent
+# service with deploy_agent. Public services accept traffic only from the load balancer; the
+# worker and the agent service only from the VPC. Every revision sends all its traffic through
+# the VPC, so calls to the API's run.app URL stay internal and outbound calls leave from the NAT
+# addresses.
 
 locals {
   network = {
@@ -10,6 +11,9 @@ locals {
     tags       = [local.run_tag]
   }
   origins = { for name, host in var.hosts : name => "https://${host}" }
+
+  # Few instances by default: a run is a long streamed request and one instance takes twenty.
+  agent_scaling = lookup(var.scaling, "agent", { min = 0, max = 3 })
 
   # Overridable defaults, then the operator's settings, then what the platform fixes.
   api_env = merge(
@@ -112,6 +116,53 @@ module "worker" {
   ]
 }
 
+# The agent service (ADR-101). It has no public route and no load balancer backend: only traffic
+# from this VPC arrives, and the API presents the run token (the invoker IAM check is off, as
+# for the API's own internal routes, which the worker calls with its token). Its database role
+# sees the `agent` schema only (ADR-103), and its one way into the platform is the API's tool
+# gateway. Set AGENT_URL in api_env to the agent_internal_url output once it exists.
+module "agent" {
+  count  = var.deploy_services && var.deploy_agent ? 1 : 0
+  source = "../run-service"
+
+  project_id      = var.project_id
+  region          = var.region
+  name            = "${local.name}-agent"
+  image           = var.images.agent
+  service_account = google_service_account.runtime["agent"].email
+  ingress         = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  public          = true
+  env = merge(
+    { LOG_LEVEL = "info", AGENT_MODEL_PROVIDER = "anthropic" },
+    var.agent_env,
+    {
+      NODE_ENV                       = "production"
+      AGENT_PORT                     = "8080"
+      API_INTERNAL_URL               = module.api[0].uri
+      AGENT_DATABASE_ALLOW_PLAINTEXT = "true" # Cloud SQL socket: the connector encrypts the hop
+    },
+  )
+  secrets             = lookup(local.secret_readers, "agent", toset([]))
+  min_instances       = local.agent_scaling.min
+  max_instances       = local.agent_scaling.max
+  memory              = "1Gi"
+  concurrency         = 20     # AGENT_MAX_CONCURRENT_RUNS: no more than one instance will run
+  request_timeout     = "300s" # a run is at most two minutes, and a shadow turn may follow it
+  startup_path        = "/ready"
+  liveness_path       = "/health"
+  cloud_sql_instance  = google_sql_database_instance.main.connection_name
+  network             = local.network
+  labels              = local.labels
+  deletion_protection = var.environment == "production"
+
+  depends_on = [
+    google_secret_manager_secret_iam_member.readers,
+    google_project_iam_member.sql_clients,
+    google_project_iam_member.telemetry,
+    google_compute_router_nat.nat,
+  ]
+}
+
 module "web" {
   count  = var.deploy_services ? 1 : 0
   source = "../run-service"
@@ -179,7 +230,8 @@ module "admin" {
 
 # The database step of every release (migrations, the reference seed, then the app role), run by
 # the pipeline before a new API revision takes traffic (ADR-060). It connects as the schema owner
-# and reads the app's URL only to set that role's password.
+# and reads the app's URL only to set that role's password; with deploy_agent, the agent's URL
+# too, for the same reason.
 resource "google_cloud_run_v2_job" "migrate" {
   count               = var.deploy_services ? 1 : 0
   project             = var.project_id
@@ -237,6 +289,19 @@ resource "google_cloud_run_v2_job" "migrate" {
             secret_key_ref {
               secret  = google_secret_manager_secret.app["DATABASE_URL"].secret_id
               version = "latest"
+            }
+          }
+        }
+
+        dynamic "env" {
+          for_each = var.deploy_agent ? ["AGENT_DATABASE_URL"] : []
+          content {
+            name = "DATABASE_AGENT_URL"
+            value_source {
+              secret_key_ref {
+                secret  = google_secret_manager_secret.app[env.value].secret_id
+                version = "latest"
+              }
             }
           }
         }

@@ -37,6 +37,11 @@ variable "deploy_services" {
   default = false
 }
 
+variable "deploy_agent" {
+  type    = bool
+  default = false
+}
+
 variable "images" {
   type = object({
     api     = string
@@ -44,6 +49,7 @@ variable "images" {
     worker  = string
     web     = string
     admin   = string
+    agent   = optional(string, "us-docker.pkg.dev/cloudrun/container/hello")
   })
   default = {
     api     = "us-docker.pkg.dev/cloudrun/container/hello"
@@ -95,6 +101,11 @@ variable "worker_env" {
 }
 
 variable "web_env" {
+  type    = map(string)
+  default = {}
+}
+
+variable "agent_env" {
   type    = map(string)
   default = {}
 }

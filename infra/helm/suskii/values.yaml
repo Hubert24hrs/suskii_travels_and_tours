@@ -17,6 +17,7 @@ images:
   worker: { repository: suskii-worker, tag: local, digest: '' }
   web: { repository: suskii-web, tag: local, digest: '' }
   admin: { repository: suskii-admin, tag: local, digest: '' }
+  agent: { repository: suskii-agent, tag: local, digest: '' }
 
 # Secrets are created outside the chart (External Secrets Operator, Secret Manager CSI driver or
 # `kubectl create secret`), never in values. Keys are the environment variable names.
@@ -33,10 +34,15 @@ secrets:
   # FIRECRAWL_API_KEY, APIFY_TOKEN, BROWSE_AI_API_KEY, OXYLABS_PASSWORD and
   # BRIGHT_DATA_API_KEY for the web-data vendors price intelligence uses, ADR-102).
   api: suskii-api
-  # DATABASE_URL (the schema owner) and DATABASE_APP_URL (the app role).
+  # DATABASE_URL (the schema owner) and DATABASE_APP_URL (the app role); with the agent
+  # service, DATABASE_AGENT_URL too (its role, which the database step creates, ADR-103).
   migrate: suskii-migrate
   # REDIS_URL, REDIS_TLS_CA, INTERNAL_API_TOKEN.
   worker: suskii-worker
+  # Read only when agent.enabled: AGENT_RUN_TOKEN, AGENT_TOOLS_TOKEN, AGENT_DATABASE_URL (the
+  # agent's own role, sslmode=require unless AGENT_DATABASE_ALLOW_PLAINTEXT) and LLM_API_KEY.
+  # None of the API's keys.
+  agent: suskii-agent
 
 api:
   replicas: 2
@@ -73,6 +79,20 @@ worker:
   replicas: 1
   env:
     LOG_LEVEL: info
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits: { memory: 1Gi }
+
+# The agent service (ADR-101), off by default: the assistant's graphs, reached only by the API.
+# When enabled, set AGENT_URL in api.env to http://<release>-agent (and AGENT_ALLOW_PLAINTEXT
+# with a mesh); AGENT_ENABLED stays the owner's decision. Its settings: AGENT_MODEL_PROVIDER,
+# AGENT_MODEL_ROUTER, AGENT_MODEL_SPECIALIST, AGENT_MODEL_FALLBACK, AGENT_MAX_CONCURRENT_RUNS.
+agent:
+  enabled: false
+  replicas: 1
+  env:
+    LOG_LEVEL: info
+    AGENT_MODEL_PROVIDER: anthropic
   resources:
     requests: { cpu: 100m, memory: 384Mi }
     limits: { memory: 1Gi }

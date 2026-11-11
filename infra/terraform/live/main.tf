@@ -20,6 +20,7 @@ module "platform" {
   github_repository         = var.github_repository
   github_environment        = var.environment
   deploy_services           = var.deploy_services
+  deploy_agent              = var.deploy_agent
   images                    = var.images
   database                  = var.database
   database_password_version = var.database_password_version
@@ -28,6 +29,7 @@ module "platform" {
   api_env                   = var.api_env
   worker_env                = var.worker_env
   web_env                   = var.web_env
+  agent_env                 = var.agent_env
   extra_secrets             = var.extra_secrets
   allow_mock_providers      = var.allow_mock_providers
   origin_auth_secret        = var.origin_auth_secret
