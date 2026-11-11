@@ -4,6 +4,7 @@ import { PricingService } from '../src/pricing/pricing.service';
 
 import { CONTACT, inDays, nextKey, passenger, payInFull, staffSession } from './helpers/cars';
 import { bearer, login, signUp, type TokenSession } from './helpers/flows';
+import { pdfText } from './helpers/pdf-text';
 import {
   createTestApp,
   E2E_INTERNAL_TOKEN,
@@ -199,6 +200,33 @@ describe('assisted quotes (e2e)', () => {
       offer: { total: SUPPLIER_PRICE, details: { title: 'Eko Signature, sea view room' } },
     });
     expect(JSON.stringify(ready)).not.toMatch(/Wholesale Rooms|files\.suskii\.test/);
+
+    // The offer as a PDF to keep or pass on: what it is, its total, until when, and that it
+    // is not a booking. Nothing of the supplier, the proof or the traveller is printed.
+    const file = await ctx
+      .http()
+      .get(`/v1/quotes/assisted/${quote.id}/pdf`)
+      .set(as(ada))
+      .buffer(true)
+      .parse((response, done) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => done(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(file.headers['content-type']).toBe('application/pdf');
+    expect(file.headers['content-disposition']).toBe(
+      `attachment; filename="suskii-price-request-${quote.reference}.pdf"`,
+    );
+    const printed = (await pdfText(file.body as Buffer)).replace(/\n/g, ' ');
+    expect(printed).toContain(quote.reference);
+    expect(printed).toContain('Eko Signature, sea view room');
+    expect(printed).toContain('Offer ready to book');
+    expect(printed).toContain('It is an offer, not a booking');
+    expect(printed).not.toMatch(/Wholesale Rooms|files\.suskii\.test|quote-ada@example\.com/);
+    // Someone else's request has no PDF either.
+    await ctx.http().get(`/v1/quotes/assisted/${quote.id}/pdf`).set(as(bola)).expect(404);
+    await ctx.http().get(`/v1/quotes/assisted/${quote.id}/pdf`).expect(401);
     const lasts = Date.parse(ready.offer?.expiresAt ?? '') - Date.now();
     expect(lasts).toBeGreaterThan(115 * 60_000);
     expect(lasts).toBeLessThanOrEqual(120 * 60_000);

@@ -7434,6 +7434,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/quotes/assisted/{assistedQuoteId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of my requests as a PDF to keep or pass on
+         * @description What was asked for and, once a person verified the price, the offer with its terms, its total and until when it can be booked. It says that an offer is not a booking, and that a price seen elsewhere was a reference. No name or contact is printed on it.
+         */
+        get: operations["downloadAssistedQuote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/quotes/assisted/{assistedQuoteId}/withdraw": {
         parameters: {
             query?: never;
@@ -7996,6 +8016,26 @@ export interface paths {
          * @description Re-prices each unpaid part with its supplier first. A changed total answers 409 `price-changed` with that booking's `priceChange`: accept it with the booking's `price-consent`, then call this again. A part that sold out answers 410 and leaves the total. When every part holds, one checkout opens for the sum; the provider's webhook then settles each booking. 409 `trip-nothing-to-pay` when no part is waiting for payment.
          */
         post: operations["startTripPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{tripId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The plan of one of my trips as a PDF to keep or pass on
+         * @description The route, the dates, the head counts, each part chosen with its price and where it stands, the parts still to choose, the total and what is still to pay. It says that a plan is not a booking and that an unpaid part is not reserved. No name or contact is printed on it.
+         */
+        get: operations["downloadTripPlan"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -30049,6 +30089,34 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    downloadAssistedQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assistedQuoteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     withdrawAssistedQuote: {
         parameters: {
             query?: never;
@@ -31086,6 +31154,34 @@ export interface operations {
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
             503: components["responses"]["Problem503"];
+        };
+    };
+    downloadTripPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tripId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
         };
     };
     getVisaDocumentContent: {

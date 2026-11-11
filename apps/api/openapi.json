@@ -31146,6 +31146,58 @@
         }
       }
     },
+    "/v1/quotes/assisted/{assistedQuoteId}/pdf": {
+      "get": {
+        "operationId": "downloadAssistedQuote",
+        "summary": "One of my requests as a PDF to keep or pass on",
+        "description": "What was asked for and, once a person verified the price, the offer with its terms, its total and until when it can be booked. It says that an offer is not a booking, and that a price seen elsewhere was a reference. No name or contact is printed on it.",
+        "tags": [
+          "Quotes"
+        ],
+        "parameters": [
+          {
+            "name": "assistedQuoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/quotes/assisted/{assistedQuoteId}/withdraw": {
       "post": {
         "operationId": "withdrawAssistedQuote",
@@ -33439,6 +33491,58 @@
           },
           "503": {
             "$ref": "#/components/responses/Problem503"
+          }
+        }
+      }
+    },
+    "/v1/trips/{tripId}/pdf": {
+      "get": {
+        "operationId": "downloadTripPlan",
+        "summary": "The plan of one of my trips as a PDF to keep or pass on",
+        "description": "The route, the dates, the head counts, each part chosen with its price and where it stands, the parts still to choose, the total and what is still to pay. It says that a plan is not a booking and that an unpaid part is not reserved. No name or contact is printed on it.",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
           }
         }
       }

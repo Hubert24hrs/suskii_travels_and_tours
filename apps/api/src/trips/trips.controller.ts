@@ -5,18 +5,24 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Param,
   Post,
   Req,
+  StreamableFile,
 } from '@nestjs/common';
 import type { z } from 'zod';
+
+import { fromWire, type TripComponent, type TripPartState } from '@suskii/shared';
 
 import { DeviceAttested } from '../attestation/attestation.guard';
 import { ATTESTATION_HEADER } from '../attestation/attestation.schemas';
 import { CurrentAuth, type AuthContext, type AuthenticatedRequest } from '../auth/auth-context';
 import { bookingCaller } from '../bookings/booking-caller';
 import { requestContext } from '../common/request-context';
-import { Contract } from '../contract/contract';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import { Contract, fileResponse } from '../contract/contract';
+import { renderTripPlanPdf } from '../documents/plan-pdf';
 import { BOOKING_LIMITS, RateLimit } from '../rate-limit/rate-limit.decorator';
 
 import { TripCheckoutService } from './trip-checkout.service';
@@ -36,6 +42,38 @@ import { TripsService } from './trips.service';
 type TripView = z.infer<typeof tripSchema>;
 const TAGS = ['Trips'];
 
+// The plan's PDF is written in English, like the other documents.
+const PART_NAMES: Record<TripComponent, string> = {
+  flight: 'Flight',
+  hotel: 'Hotel',
+  car: 'Rental car',
+  transfer: 'Airport transfer',
+  insurance: 'Travel insurance',
+};
+const PART_STATES: Record<TripPartState, string> = {
+  to_pay: 'To pay',
+  paying: 'Payment started',
+  paid: 'Paid',
+  confirmed: 'Confirmed',
+  closed: 'No longer part of the trip',
+};
+const place = (point: { code: string; cityName: string | null }): string =>
+  point.cityName ? `${point.cityName} (${point.code})` : point.code;
+
+/** What a part is, in one line: a route and airline, a hotel and city, or a product's title. */
+function partLine(booking: TripView['parts'][number]['booking']): string {
+  if (booking.flight) {
+    return `${place(booking.flight.origin)} to ${place(booking.flight.destination)}, ${booking.flight.airline}`;
+  }
+  if (booking.hotel) return `${booking.hotel.name}, ${booking.hotel.cityName}`;
+  if (booking.product) {
+    return booking.product.cityName
+      ? `${booking.product.title}, ${booking.product.cityName}`
+      : booking.product.title;
+  }
+  return booking.reference;
+}
+
 /**
  * Combined trips (ADR-099): a signed-in traveller plans a trip, adds bookings made in the
  * ordinary way as its parts (a flight, a hotel, a rental car, an airport transfer, travel
@@ -47,6 +85,7 @@ export class TripsController {
   constructor(
     private readonly trips: TripsService,
     private readonly checkout: TripCheckoutService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   @Post('trips')
@@ -94,6 +133,52 @@ export class TripsController {
   })
   get(@Param('tripId') tripId: string, @CurrentAuth() auth: AuthContext): Promise<TripView> {
     return this.trips.get(tripId, auth.userId);
+  }
+
+  @Get('trips/:tripId/pdf')
+  @Contract({
+    operationId: 'downloadTripPlan',
+    summary: 'The plan of one of my trips as a PDF to keep or pass on',
+    description:
+      'The route, the dates, the head counts, each part chosen with its price and where it stands, the parts still to choose, the total and what is still to pay. It says that a plan is not a booking and that an unpaid part is not reserved. No name or contact is printed on it.',
+    tags: TAGS,
+    params: tripIdParamsSchema,
+    responses: { 200: fileResponse('application/pdf') },
+    errors: [404],
+  })
+  async pdf(
+    @Param('tripId') tripId: string,
+    @CurrentAuth() auth: AuthContext,
+  ): Promise<StreamableFile> {
+    const trip = await this.trips.get(tripId, auth.userId);
+    const bytes = await renderTripPlanPdf({
+      reference: trip.reference,
+      issuedAt: new Date(),
+      link: `${this.config.WEB_APP_URL.replace(/\/$/, '')}/trips/${trip.id}`,
+      origin: place(trip.plan.origin),
+      destination: place(trip.plan.destination),
+      departDate: trip.plan.departDate,
+      returnDate: trip.plan.returnDate,
+      adults: trip.plan.adults,
+      children: trip.plan.children,
+      // A part that was cancelled or refunded is no longer in the total, so not in the plan.
+      parts: trip.parts
+        .filter((part) => part.state !== 'closed')
+        .map((part) => ({
+          part: PART_NAMES[part.component],
+          what: partLine(part.booking),
+          state: PART_STATES[part.state],
+          price: fromWire(part.booking.total),
+        })),
+      missing: trip.missing.map((component) => PART_NAMES[component]),
+      total: fromWire(trip.total),
+      due: fromWire(trip.due),
+    });
+    return new StreamableFile(bytes, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="suskii-trip-${trip.reference}.pdf"`,
+      length: bytes.byteLength,
+    });
   }
 
   @Delete('trips/:tripId')

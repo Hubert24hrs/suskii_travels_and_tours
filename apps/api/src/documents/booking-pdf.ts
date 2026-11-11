@@ -170,7 +170,8 @@ export function documentDateTime(local: string): string {
 
 const duration = (minutes: number): string => `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 
-class Writer {
+/** Writes one A4 page from the top down. Shared by every document Suskii generates. */
+export class Writer {
   private y = PAGE[1] - MARGIN;
 
   constructor(
@@ -193,6 +194,29 @@ class Writer {
   line(value: string, options: { size?: number; bold?: boolean; color?: RGB } = {}) {
     this.text(value, options);
     this.y -= (options.size ?? 10) + 6;
+  }
+
+  /**
+   * Running text, wrapped at the right margin; line breaks in `value` are kept. For words a
+   * person wrote (an offer's terms), which no fixed line can hold.
+   */
+  paragraph(value: string, options: { size?: number; color?: RGB } = {}) {
+    const size = options.size ?? 10;
+    const width = PAGE[0] - 2 * MARGIN;
+    // Split before the text is cleaned: a line break is not a printable character.
+    for (const block of value.split(/\r?\n/)) {
+      let line = '';
+      for (const word of block.split(/\s+/).filter(Boolean)) {
+        const candidate = line ? `${line} ${word}` : word;
+        if (line && this.regular.widthOfTextAtSize(pdfText(candidate), size) > width) {
+          this.line(line, options);
+          line = word;
+        } else {
+          line = candidate;
+        }
+      }
+      this.line(line, options);
+    }
   }
 
   /** Label and value columns on one row. */
@@ -250,7 +274,8 @@ function writeServiceTaxes(writer: Writer, taxes: readonly DocumentTax[] | undef
   for (const number of numbers) writer.pair('Tax registration', number);
 }
 
-async function newDocument(title: string, reference: string, qrValue: string = reference) {
+/** A new page with the brand, the document's title and a QR code in the corner. */
+export async function newDocument(title: string, reference: string, qrValue: string = reference) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${title} ${reference}`);
   pdf.setAuthor('Suskii Travels and Tour');

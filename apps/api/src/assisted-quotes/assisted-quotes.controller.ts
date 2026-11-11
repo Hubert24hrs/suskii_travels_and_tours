@@ -1,10 +1,22 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  Post,
+  StreamableFile,
+} from '@nestjs/common';
 import type { z } from 'zod';
 
-import type { AssistedQuoteInput } from '@suskii/shared';
+import { fromWire, type AssistedQuoteInput } from '@suskii/shared';
 
 import { CurrentAuth, type AuthContext } from '../auth/auth-context';
-import { Contract } from '../contract/contract';
+import { APP_CONFIG, type AppConfig } from '../config/config';
+import { Contract, fileResponse } from '../contract/contract';
+import { renderPriceRequestPdf } from '../documents/plan-pdf';
 import { ASSISTED_QUOTE_LIMITS, RateLimit } from '../rate-limit/rate-limit.decorator';
 
 import {
@@ -24,7 +36,10 @@ const TAGS = ['Quotes'];
  */
 @Controller('quotes/assisted')
 export class AssistedQuotesController {
-  constructor(private readonly quotes: AssistedQuotesService) {}
+  constructor(
+    private readonly quotes: AssistedQuotesService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+  ) {}
 
   @Post()
   @RateLimit(ASSISTED_QUOTE_LIMITS.requestUser)
@@ -62,6 +77,64 @@ export class AssistedQuotesController {
     @Param('assistedQuoteId') id: string,
   ): Promise<z.infer<typeof assistedQuoteSchema>> {
     return this.quotes.get(id, auth.userId);
+  }
+
+  @Get(':assistedQuoteId/pdf')
+  @Contract({
+    operationId: 'downloadAssistedQuote',
+    summary: 'One of my requests as a PDF to keep or pass on',
+    description:
+      'What was asked for and, once a person verified the price, the offer with its terms, its total and until when it can be booked. It says that an offer is not a booking, and that a price seen elsewhere was a reference. No name or contact is printed on it.',
+    tags: TAGS,
+    params: assistedQuoteParamsSchema,
+    responses: { 200: fileResponse('application/pdf') },
+    errors: [404],
+  })
+  async pdf(
+    @CurrentAuth() auth: AuthContext,
+    @Param('assistedQuoteId') id: string,
+  ): Promise<StreamableFile> {
+    const quote = await this.quotes.get(id, auth.userId);
+    const { offer, indicative, request } = quote;
+    const bytes = await renderPriceRequestPdf({
+      reference: quote.reference,
+      issuedAt: new Date(),
+      link: `${this.config.WEB_APP_URL.replace(/\/$/, '')}/quotes/${quote.id}`,
+      product: quote.product,
+      title: quote.title,
+      origin: request.origin,
+      destination: request.destination,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      adults: request.adults,
+      children: request.children,
+      status: quote.status,
+      answerBy: new Date(quote.answerBy),
+      indicative: indicative
+        ? {
+            price: fromWire(indicative.price),
+            source: indicative.source,
+            seenAt: new Date(indicative.seenAt),
+          }
+        : null,
+      offer: offer
+        ? {
+            title: offer.details.title,
+            summary: offer.details.summary,
+            startDate: offer.details.startDate,
+            endDate: offer.details.endDate,
+            place: offer.details.cityName,
+            refundable: offer.details.refundable,
+            total: fromWire(offer.total),
+            expiresAt: new Date(offer.expiresAt),
+          }
+        : null,
+    });
+    return new StreamableFile(bytes, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="suskii-price-request-${quote.reference}.pdf"`,
+      length: bytes.byteLength,
+    });
   }
 
   @Post(':assistedQuoteId/withdraw')
