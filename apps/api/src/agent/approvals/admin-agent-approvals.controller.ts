@@ -13,7 +13,6 @@ import type { Request } from 'express';
 import type { z } from 'zod';
 
 import { staffActor } from '../../admin/admin-helpers';
-import { AssistedQuotesService } from '../../assisted-quotes/assisted-quotes.service';
 import { CurrentAuth, type AuthContext } from '../../auth/auth-context';
 import { AdminRoute } from '../../auth/decorators';
 import { Contract } from '../../contract/contract';
@@ -45,7 +44,6 @@ const decider = (auth: AuthContext, request: Request): ApprovalDecider => ({
 export class AdminAgentApprovalsController {
   constructor(
     private readonly approvals: AgentApprovalsService,
-    private readonly quotes: AssistedQuotesService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -68,18 +66,15 @@ export class AdminAgentApprovalsController {
   ): Promise<z.infer<typeof agentApprovalListSchema>> {
     const [approvals, toVerify, toBook] = await Promise.all([
       this.approvals.list(query.status, query.limit, decider(auth, request)),
-      this.quotes.enabled()
-        ? this.prisma.assistedQuote.count({ where: { status: 'requested' } })
-        : 0,
-      this.quotes.enabled()
-        ? this.prisma.bookingItem.count({
-            where: {
-              type: 'assisted',
-              bookedAt: null,
-              booking: { status: { in: ['PAID', 'TICKETING'] } },
-            },
-          })
-        : 0,
+      // Counted whether or not assisted quotes are still offered: what waits, waits.
+      this.prisma.assistedQuote.count({ where: { status: 'requested' } }),
+      this.prisma.bookingItem.count({
+        where: {
+          type: 'assisted',
+          bookedAt: null,
+          booking: { status: { in: ['PAID', 'TICKETING'] } },
+        },
+      }),
     ]);
     return {
       approvals,

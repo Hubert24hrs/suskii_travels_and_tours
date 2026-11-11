@@ -3,7 +3,7 @@ import { BOOKING_TERMS_VERSION } from '@suskii/shared';
 import { PricingService } from '../src/pricing/pricing.service';
 
 import { CONTACT, inDays, nextKey, passenger, payInFull, staffSession } from './helpers/cars';
-import { bearer, signUp, type TokenSession } from './helpers/flows';
+import { bearer, login, signUp, type TokenSession } from './helpers/flows';
 import {
   createTestApp,
   E2E_INTERNAL_TOKEN,
@@ -599,22 +599,75 @@ describe('assisted quotes (e2e)', () => {
     });
   });
 
-  it('answers 404 everywhere while assisted quotes are switched off', async () => {
+  it('stops requests, offers and payments while switched off, and still lets staff finish what was paid', async () => {
+    // While it is on: a request that waits, an offer booked but not paid, and a paid booking.
+    const waiting = (await ask().expect(201)).body as Quote;
+    const unpaid = await offered();
+    const unpaidBooking = (await booked(unpaid)).body.booking.id as string;
+    const paid = await offered();
+    const paidBooking = (await booked(paid)).body.booking.id as string;
+    await payInFull(ctx, paidBooking, as(ada));
+
     const off = await createTestApp({ RATE_LIMIT_ENABLED: false, ASSISTED_QUOTES_ENABLED: false });
     try {
-      const session = await signUp(off, 'quote-off@example.com');
-      const headers = bearer(session.accessToken);
+      // Another instance signs with its own keys: the same people sign in to it again.
+      const adaOff = bearer((await login(off, 'quote-ada@example.com')).accessToken);
+      const opsOff = (await staffSession(off, 'quote-ops-off@suskii.test', ['operations'])).headers;
+      // For a traveller the routes are gone.
       expect(
         (
           await off
             .http()
             .post('/v1/quotes/assisted')
-            .set(headers)
+            .set(adaOff)
             .set('Idempotency-Key', nextKey('e2e-quote-off'))
             .send(request())
         ).status,
       ).toBe(404);
-      expect((await off.http().get('/v1/me/assisted-quotes').set(headers)).status).toBe(404);
+      expect((await off.http().get('/v1/me/assisted-quotes').set(adaOff)).status).toBe(404);
+      expect((await off.http().get(`/v1/quotes/assisted/${paid.id}`).set(adaOff)).status).toBe(404);
+      // Nothing new is sold: no offer is made, and an offer made before cannot be paid for.
+      expect(
+        (
+          await off
+            .http()
+            .post(`/v1/admin/assisted-quotes/${waiting.id}/offer`)
+            .set(opsOff)
+            .send(verified())
+        ).status,
+      ).toBe(404);
+      const pay = await off
+        .http()
+        .post(`/v1/bookings/${unpaidBooking}/payments`)
+        .set(adaOff)
+        .set('Idempotency-Key', nextKey('e2e-quote-off-pay'))
+        .send({});
+      expect(pay.status).toBeGreaterThanOrEqual(400);
+      expect(pay.status).toBeLessThan(500);
+      expect(await ctx.prisma.payment.count({ where: { bookingId: unpaidBooking } })).toBe(0);
+
+      // What a traveller already paid for is still finished by a person.
+      const toBook = await off
+        .http()
+        .get('/v1/admin/assisted-quotes?queue=to_book')
+        .set(opsOff)
+        .expect(200);
+      expect((toBook.body.quotes as AdminQuote[]).map((quote) => quote.id)).toEqual([paid.id]);
+      await off
+        .http()
+        .post(`/v1/admin/assisted-quotes/${paid.id}/booked`)
+        .set(opsOff)
+        .send({ supplierReference: 'EKO-77', evidenceUrl: EVIDENCE })
+        .expect(200);
+      await off.background.drain();
+      expect((await booking(paidBooking)).status).toBe('CONFIRMED');
+      // And a request that waits can still be closed, so nobody waits for nothing.
+      await off
+        .http()
+        .post(`/v1/admin/assisted-quotes/${waiting.id}/close`)
+        .set(opsOff)
+        .send({ reason: 'not_sold_by_suskii' })
+        .expect(200);
     } finally {
       await off.background.drain();
       await off.close();

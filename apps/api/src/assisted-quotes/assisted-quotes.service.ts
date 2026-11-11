@@ -33,6 +33,7 @@ import { toPriceDto } from '../pricing/pricing.schemas';
 import { withCurrentTier } from '../prime/prime-status';
 import { assistedQuotes } from '../telemetry/metrics';
 
+import { assistedQuotesEnabled } from './assisted-quotes-flag';
 import type {
   AdminAssistedQuoteDto,
   AssistedQuoteDto,
@@ -44,10 +45,6 @@ const HOUR_MS = 3_600_000;
 
 const problem = (status: number, slug: string, title: string, detail?: string) =>
   new ProblemDetailsException(status, slug, title, detail);
-
-/** On when set; unset means on outside production and off in production (ADR-104). */
-export const assistedQuotesEnabled = (config: AppConfig): boolean =>
-  config.ASSISTED_QUOTES_ENABLED ?? config.NODE_ENV !== 'production';
 
 /**
  * Assisted quotes (ADR-104). A traveller asks for a price to be confirmed by a person: for
@@ -75,7 +72,12 @@ export class AssistedQuotesService {
     return assistedQuotesEnabled(this.config);
   }
 
-  /** Throws 404 while assisted quotes are off, as if the routes did not exist. */
+  /**
+   * Throws 404 while assisted quotes are off, as if the routes did not exist. It guards what
+   * starts something new (a request, an offer) and what a traveller reads. Staff's queue and
+   * the ways out of an open quote (close, booked, unbookable) stay open: a booking someone
+   * already paid for must still be booked or refunded after the switch is turned off.
+   */
   require(): void {
     if (!this.enabled()) throw new NotFoundException();
   }
@@ -177,7 +179,6 @@ export class AssistedQuotesService {
     queue: 'to_verify' | 'to_book' | 'all',
     limit: number,
   ): Promise<AdminAssistedQuoteDto[]> {
-    this.require();
     await this.expireDue({});
     if (queue === 'to_book') {
       // Paid, and waiting for a person to book it with the supplier: oldest payment first.
@@ -208,7 +209,6 @@ export class AssistedQuotesService {
   }
 
   async forStaff(id: string): Promise<AdminAssistedQuoteDto> {
-    this.require();
     await this.expireDue({ id });
     const row = await this.prisma.assistedQuote.findUnique({ where: { id } });
     if (!row) throw new NotFoundException();
@@ -226,6 +226,8 @@ export class AssistedQuotesService {
     staff: StaffActor,
     now = new Date(),
   ): Promise<AdminAssistedQuoteDto> {
+    // An offer is something new to sell: none is made while assisted quotes are off.
+    this.require();
     const before = await this.forStaff(id);
     if (before.booking) throw this.closed();
     if (!['requested', 'offered', 'expired'].includes(before.status)) throw this.closed();
