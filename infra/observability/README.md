@@ -27,6 +27,9 @@ gain `_total`, and units become suffixes. For example, `suskii.ticketing.oldest_
   database connections, supplier latency and errors.
 - `dashboards/suskii-web-vitals.json`: LCP, INP and CLS at the 75th percentile, by page template
   and device, against the spec's targets.
+- `dashboards/suskii-assistant.json`: the assistant's runs and how they ended, run and tool
+  duration, estimated model cost per hour and for the month, confirmations and proposals,
+  candidate prompts in the shadow, and reads of web price sources.
 - `alerts/suskii.rules.yml`: Prometheus alert rules. `severity: page` means money or tickets are at
   risk now; `severity: ticket` can wait for working hours. Each alert names its runbook.
 - `alerts/suskii.rules.test.yml`: unit tests for the rules.

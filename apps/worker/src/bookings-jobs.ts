@@ -2,6 +2,7 @@ import { UnrecoverableError } from 'bullmq';
 
 import {
   InternalApiError,
+  type AgentCostCheck,
   type AdConversionRun,
   type BookingsApi,
   type DriverPayoutRun,
@@ -86,6 +87,14 @@ export const PRICE_INTEL_JOB = {
   sweep: 'price-intel-sweep',
 } as const;
 
+/**
+ * The assistant (ADR-106): the API compares this month's estimated cost with the figure
+ * operations are told at, and tells them once. The worker only keeps the clock.
+ */
+export const AGENT_JOB = {
+  costCheck: 'agent-cost-check',
+} as const;
+
 export interface BookingJobDeps {
   api: BookingsApi;
   logger: Logger;
@@ -122,6 +131,7 @@ export async function processBookingJob(
   | ReviewInvitationRun
   | AdConversionRun
   | PriceIntelSweepRun
+  | AgentCostCheck
   | LedgerReconciliationRun
   | DriverPayoutRun
 > {
@@ -230,6 +240,16 @@ export async function processBookingJob(
       if (result.read > 0) deps.logger.info(result, 'stale price answers re-read');
       if (result.failed > 0) {
         deps.logger.warn({ failed: result.failed }, 'scheduled price reads failed');
+      }
+      return result;
+    }
+    case AGENT_JOB.costCheck: {
+      const result = await sweep(() => deps.api.checkAgentCost());
+      if (result.told) {
+        deps.logger.warn(
+          { level: result.level, forecastMicroUsd: result.forecastMicroUsd },
+          "operations were told about the assistant's cost this month",
+        );
       }
       return result;
     }

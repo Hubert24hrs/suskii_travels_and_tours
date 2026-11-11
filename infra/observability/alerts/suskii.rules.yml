@@ -394,3 +394,74 @@ groups:
           description: >-
             Wrong bank details are retried once the driver updates them; other failures retry on
             the next run. Check the payout list under Finance for a common reason.
+
+  # The assistant (ADR-106, ADR-107) and price intelligence (ADR-102). Neither is on the path
+  # of search, booking or payment, so nothing here pages: these are for working hours.
+  - name: suskii-assistant
+    rules:
+      - alert: AssistantRunsFailing
+        expr: >-
+          sum(increase(suskii_agent_runs_total{outcome=~"failed|model_error|timeout"}[30m])) > 10
+          and
+          sum(increase(suskii_agent_runs_total{outcome=~"failed|model_error|timeout"}[30m]))
+            / sum(increase(suskii_agent_runs_total[30m])) > 0.2
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Many of the assistant's runs are failing"
+          description: >-
+            The model provider or the agent service is failing, and people read a notice instead
+            of an answer. Search, booking and payment do not depend on it. Pause the assistant if
+            it lasts.
+          runbook: docs/runbooks/ai-agent.md
+
+      - alert: AssistantAnswersRefused
+        expr: >-
+          sum(increase(suskii_agent_runs_total{outcome="guard_blocked"}[1h])) > 20
+          and
+          sum(increase(suskii_agent_runs_total{outcome="guard_blocked"}[1h]))
+            / sum(increase(suskii_agent_runs_total[1h])) > 0.3
+        labels:
+          severity: ticket
+        annotations:
+          summary: "The guard is refusing many of the assistant's answers"
+          description: >-
+            Answers hold figures, contacts or outcomes the tools did not return, twice in a row.
+            Nothing wrong was shown, but people get a notice instead of an answer: a prompt, a
+            tool or a model has drifted. Switch the agent off or roll the prompt back.
+          runbook: docs/runbooks/ai-agent.md
+
+      - alert: AssistantMonthlyCost
+        expr: sum by (level) (increase(suskii_agent_cost_alerts_total[1h])) > 0
+        labels:
+          severity: ticket
+        annotations:
+          summary: "The assistant's estimated cost this month: {{ $labels.level }}"
+          description: >-
+            The month's estimated model spend is heading past the figure set
+            (AGENT_MONTHLY_ALERT_MICROUSD), or is past it. An estimate from token counts at the
+            configured prices, not an invoice. Nothing was paused.
+          runbook: docs/runbooks/ai-agent.md
+
+      - alert: PriceIntelParserDrift
+        expr: sum(increase(suskii_price_intel_alerts_total{kind="drift"}[1h])) > 0
+        labels:
+          severity: ticket
+        annotations:
+          summary: "A site's pages stopped yielding prices to its recipe"
+          description: >-
+            Reads of the site now start at the recipe's next method. A person changes the recipe,
+            or approves one the price intelligence assistant prepared from the kept page.
+          runbook: docs/runbooks/price-intelligence.md
+
+      - alert: PriceIntelBudgetReached
+        expr: sum(increase(suskii_price_intel_alerts_total{kind="budget", level="100"}[1h])) > 0
+        labels:
+          severity: ticket
+        annotations:
+          summary: 'A price intelligence budget reached its cap'
+          description: >-
+            A vendor or a site is at its daily or monthly cap and is not read again until the
+            period ends. Indicative prices there are shown as stale, or not at all.
+          runbook: docs/runbooks/price-intelligence.md

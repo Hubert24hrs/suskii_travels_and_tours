@@ -243,6 +243,8 @@ test("staff read the assistant's runs, a traveller's conversation without contac
   await expect(page.getByTestId('quality-evals')).toBeVisible();
   await expect(page.getByTestId('record-eval')).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 2, name: t('aiInsights.limits') })).toBeVisible();
+  // No monthly figure is set on this stack, and the page says what that means.
+  await expect(page.getByText(t('aiInsights.monthlyAlertNone'))).toBeVisible();
   await page.getByLabel(t('aiInsights.period')).selectOption('7');
   await expect(total).toContainText(t('aiInsights.estimated'));
   await expectNoAxeViolations(page);

@@ -1923,6 +1923,8 @@ export const adminMessages = {
     capUser: 'Daily cap, one account',
     capGuest: 'Daily cap, one guest',
     capShadow: 'Daily cap, candidate prompts',
+    monthlyAlert: "Month's estimated cost at which operations are told",
+    monthlyAlertNone: 'Not set: nobody is told',
     byDay: 'By day',
     byAgent: 'By agent',
     byModel: 'By model',

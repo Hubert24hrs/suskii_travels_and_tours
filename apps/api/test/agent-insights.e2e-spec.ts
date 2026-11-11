@@ -4,7 +4,12 @@ import { MockAgentClient } from '../src/agent/chat/agent-client';
 
 import { staffSession } from './helpers/cars';
 import { bearer, signUp, type TokenSession } from './helpers/flows';
-import { createTestApp, resetState, type TestContext } from './helpers/test-app';
+import {
+  createTestApp,
+  E2E_INTERNAL_TOKEN,
+  resetState,
+  type TestContext,
+} from './helpers/test-app';
 
 /**
  * What staff see of the assistant's work (ADR-105, ADR-107): runs with the tools they called,
@@ -114,6 +119,9 @@ describe('assistant insights for staff (e2e)', () => {
       AGENT_MODEL_PRICES: {
         'mock-specialist': { input: 2_000_000, output: 10_000_000, cacheRead: 0, cacheWrite: 0 },
       },
+      // Half a cent: the runs below cost more, so the month is past the figure to tell at.
+      AGENT_MONTHLY_ALERT_MICROUSD: 5000,
+      OPS_ALERT_EMAIL: 'ops-insights@suskii.test',
     });
     mock = ctx.app.get(MockAgentClient);
     await ctx.background.drain();
@@ -429,6 +437,7 @@ describe('assistant insights for staff (e2e)', () => {
       runMaxToolCalls: 24,
       runTimeoutMs: 120_000,
       globalDailyMicroUsd: 50_000_000,
+      monthlyAlertMicroUsd: 5000,
       confirmationMinutes: 15,
       approvalDays: 7,
       models: [
@@ -439,6 +448,68 @@ describe('assistant insights for staff (e2e)', () => {
         },
       ],
     });
+  });
+
+  it("tells operations once when the month's cost is past the figure set, and pauses nothing", async () => {
+    const check = () =>
+      ctx
+        .http()
+        .post('/v1/internal/agent/cost-check')
+        .set('Authorization', `Bearer ${E2E_INTERNAL_TOKEN}`);
+    // The worker's route: not for staff, a traveller or anyone without the worker's token.
+    await ctx.http().post('/v1/internal/agent/cost-check').expect(401);
+    await ctx.http().post('/v1/internal/agent/cost-check').set(root.headers).expect(401);
+
+    ctx.emails.outbox.length = 0;
+    // The audit log is append-only and outlives a run of this suite: count from here.
+    const alerts = () => ctx.prisma.auditLog.count({ where: { action: 'agent.cost_alert' } });
+    const before = await alerts();
+    const spent = (await ctx.prisma.agentRun.aggregate({ _sum: { costMicroUsd: true } }))._sum
+      .costMicroUsd;
+    const first = (await check().expect(200)).body as {
+      toDateMicroUsd: number;
+      forecastMicroUsd: number;
+      alertAtMicroUsd: number;
+      level: string | null;
+      told: boolean;
+    };
+    expect(first).toMatchObject({
+      toDateMicroUsd: Number(spent),
+      alertAtMicroUsd: 5000,
+      level: 'spent',
+      told: true,
+    });
+    expect(first.toDateMicroUsd).toBeGreaterThanOrEqual(TOTAL_COST);
+    expect(first.forecastMicroUsd).toBeGreaterThanOrEqual(first.toDateMicroUsd);
+
+    // Told once: an audit entry by the system and one message to the operations mailbox, in
+    // amounts, with what the figures are.
+    expect(await alerts()).toBe(before + 1);
+    const logged = await ctx.prisma.auditLog.findFirstOrThrow({
+      where: { action: 'agent.cost_alert' },
+      orderBy: { occurredAt: 'desc' },
+    });
+    expect(logged).toMatchObject({ actorType: 'system', actorUserId: null });
+    expect(logged.metadata).toMatchObject({
+      level: 'spent',
+      alertAtUsd: '0.01',
+      basis: expect.stringContaining('not an invoice') as string,
+    });
+    const mails = ctx.emails.outbox.filter((mail) => mail.to === 'ops-insights@suskii.test');
+    expect(mails).toHaveLength(1);
+    expect(mails[0]?.subject).toBe('[ops] assistant cost');
+    expect(mails[0]?.text).toContain('level: spent');
+
+    // The next sweep sees the same month and says nothing more.
+    expect((await check().expect(200)).body).toMatchObject({ level: 'spent', told: false });
+    expect(await alerts()).toBe(before + 1);
+    expect(ctx.emails.outbox.filter((mail) => mail.to === 'ops-insights@suskii.test')).toHaveLength(
+      1,
+    );
+    // It only tells: the assistant still answers.
+    await say(bolaConversation, 'Are you still there?', bola);
+    const last = await ctx.prisma.agentRun.findFirstOrThrow({ orderBy: { startedAt: 'desc' } });
+    expect(last.status).toBe('succeeded');
   });
 
   it('switches one agent off: it is offered to no run and its tools are refused', async () => {

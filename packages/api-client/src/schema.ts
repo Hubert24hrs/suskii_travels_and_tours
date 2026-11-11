@@ -5577,6 +5577,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/agent/cost-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare the month's estimated cost of the assistant with the figure to tell at
+         * @description Reads this UTC month's settled cost of the assistant's runs and its forecast at the same daily rate. When a figure is set (`AGENT_MONTHLY_ALERT_MICROUSD`) and the forecast, after the first days of the month, or the spend itself reaches it, operations are told once a month per level. It pauses nothing and changes no cap.
+         */
+        post: operations["checkAgentCost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/bookings/expire-due": {
         parameters: {
             query?: never;
@@ -8440,6 +8460,7 @@ export interface components {
             userDailyMicroUsd: number;
             guestDailyMicroUsd: number;
             globalDailyMicroUsd: number;
+            monthlyAlertMicroUsd: number;
             shadowSamplePercent: number;
             shadowDailyMicroUsd: number;
             confirmationMinutes: number;
@@ -9989,6 +10010,13 @@ export interface components {
         };
         AgentConversationRatingInput: {
             score: number;
+        };
+        AgentCostCheck: {
+            toDateMicroUsd: number;
+            forecastMicroUsd: number;
+            alertAtMicroUsd: number;
+            level: ("forecast" | "spent") | null;
+            told: boolean;
         };
         AgentFeedbackRequestInput: {
             feedback: ("up" | "down") | null;
@@ -26791,6 +26819,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentToolAnswer"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    checkAgentCost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentCostCheck"];
                 };
             };
             400: components["responses"]["Problem400"];

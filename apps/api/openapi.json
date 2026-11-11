@@ -24496,6 +24496,52 @@
         }
       }
     },
+    "/v1/internal/agent/cost-check": {
+      "post": {
+        "operationId": "checkAgentCost",
+        "summary": "Compare the month's estimated cost of the assistant with the figure to tell at",
+        "description": "Reads this UTC month's settled cost of the assistant's runs and its forecast at the same daily rate. When a figure is set (`AGENT_MONTHLY_ALERT_MICROUSD`) and the forecast, after the first days of the month, or the spend itself reaches it, operations are told once a month per level. It pauses nothing and changes no cap.",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "internalToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentCostCheck"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem404"
+          },
+          "426": {
+            "$ref": "#/components/responses/Problem426"
+          },
+          "429": {
+            "$ref": "#/components/responses/Problem429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem500"
+          }
+        }
+      }
+    },
     "/v1/internal/bookings/expire-due": {
       "post": {
         "operationId": "expireDueBookings",
@@ -35437,6 +35483,11 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "monthlyAlertMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "shadowSamplePercent": {
             "type": "integer",
             "minimum": 0,
@@ -35517,6 +35568,7 @@
           "userDailyMicroUsd",
           "guestDailyMicroUsd",
           "globalDailyMicroUsd",
+          "monthlyAlertMicroUsd",
           "shadowSamplePercent",
           "shadowDailyMicroUsd",
           "confirmationMinutes",
@@ -43678,6 +43730,51 @@
         "required": [
           "score"
         ]
+      },
+      "AgentCostCheck": {
+        "type": "object",
+        "properties": {
+          "toDateMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "forecastMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "alertAtMicroUsd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "forecast",
+                  "spent"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "told": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "toDateMicroUsd",
+          "forecastMicroUsd",
+          "alertAtMicroUsd",
+          "level",
+          "told"
+        ],
+        "additionalProperties": false
       },
       "AgentFeedbackRequestInput": {
         "type": "object",

@@ -149,6 +149,10 @@ api_env = {
   # AGENT_SHADOW_PROMPTS        = "flights@3"
   # AGENT_SHADOW_SAMPLE_PERCENT = "5"
   # AGENT_SHADOW_DAILY_MICROUSD = "2000000"
+  # Operations are told once when the assistant's estimated cost of the month is heading past
+  # this figure and once when it is past it (micro-dollars; 40000000 is US$40). It stops
+  # nothing: the daily caps do.
+  # AGENT_MONTHLY_ALERT_MICROUSD = "40000000"
   # Price intelligence reads only sites approved in the console, through the vendors named
   # here; each vendor's key goes in extra_secrets (FIRECRAWL_API_KEY, APIFY_TOKEN,
   # BROWSE_AI_API_KEY, OXYLABS_PASSWORD, BRIGHT_DATA_API_KEY). The mock vendor is refused in

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   ACCOUNT_JOB,
+  AGENT_JOB,
   BOOKING_JOB,
   FINANCE_JOB,
   PRICE_INTEL_JOB,
@@ -33,6 +34,15 @@ const fakeApi = (overrides: Partial<BookingsApi> = {}): BookingsApi => ({
   runReviewInvitations: vi.fn(() => Promise.resolve({ planned: 3, sent: 2, skipped: 1 })),
   runAdConversions: vi.fn(() => Promise.resolve({ sent: 2, retried: 1, failed: 1, withdrawn: 0 })),
   sweepPriceIntel: vi.fn(() => Promise.resolve({ sources: 2, read: 3, failed: 1 })),
+  checkAgentCost: vi.fn(() =>
+    Promise.resolve({
+      toDateMicroUsd: 15_000_000,
+      forecastMicroUsd: 45_000_000,
+      alertAtMicroUsd: 40_000_000,
+      level: 'forecast' as const,
+      told: true,
+    }),
+  ),
   runRetention: vi.fn(() =>
     Promise.resolve({
       sessions: 3,
@@ -197,6 +207,39 @@ describe('account sweeps', () => {
       'ad conversions sent',
     );
     expect(log.warn).toHaveBeenCalledWith({ failed: 1 }, 'ad conversions given up after retries');
+  });
+
+  it("has the assistant's monthly cost checked and says so only when operations were told (ADR-106)", async () => {
+    const log = logger();
+    await expect(
+      processBookingJob({ name: AGENT_JOB.costCheck }, { api: fakeApi(), logger: log }),
+    ).resolves.toMatchObject({ level: 'forecast', told: true });
+    expect(log.warn).toHaveBeenCalledWith(
+      { level: 'forecast', forecastMicroUsd: 45_000_000 },
+      "operations were told about the assistant's cost this month",
+    );
+
+    // Already told this month, or nothing to tell: the sweep is silent.
+    const quiet = logger();
+    await processBookingJob(
+      { name: AGENT_JOB.costCheck },
+      {
+        api: fakeApi({
+          checkAgentCost: vi.fn(() =>
+            Promise.resolve({
+              toDateMicroUsd: 15_000_000,
+              forecastMicroUsd: 45_000_000,
+              alertAtMicroUsd: 40_000_000,
+              level: 'forecast' as const,
+              told: false,
+            }),
+          ),
+        }),
+        logger: quiet,
+      },
+    );
+    expect(quiet.info).not.toHaveBeenCalled();
+    expect(quiet.warn).not.toHaveBeenCalled();
   });
 
   it('re-reads stale price answers and warns when reads failed (ADR-102)', async () => {

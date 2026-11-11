@@ -278,6 +278,11 @@ export const agentConfirmations = meter.createCounter('suskii.agent.confirmation
   description: 'Confirmations by tool and outcome: asked, confirmed, declined, failed, expired',
 });
 
+/** Times operations were told about the month's estimated cost (ADR-106). */
+export const agentCostAlerts = meter.createCounter('suskii.agent.cost_alerts', {
+  description: 'Monthly cost alerts told, by level: forecast or spent',
+});
+
 /** What staff agents prepared, by kind and what became of it (ADR-107). */
 export const agentApprovals = meter.createCounter('suskii.agent.approvals', {
   description: 'Proposals by kind and outcome: proposed, approved, rejected, failed, expired',

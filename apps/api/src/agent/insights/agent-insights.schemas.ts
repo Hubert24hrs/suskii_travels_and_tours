@@ -14,6 +14,8 @@ import {
 
 import { named } from '../../contract/contract';
 
+import { COST_ALERT_LEVELS } from './agent-cost';
+
 const timestamp = z.iso.datetime();
 const uuid = z.uuid();
 const count = z.number().int().min(0);
@@ -290,6 +292,8 @@ export const adminAgentLimitsSchema = named(
     userDailyMicroUsd: microUsd,
     guestDailyMicroUsd: microUsd,
     globalDailyMicroUsd: microUsd,
+    /** The month's estimated cost at which operations are told; 0 when none is set. */
+    monthlyAlertMicroUsd: microUsd,
     shadowSamplePercent: count,
     shadowDailyMicroUsd: microUsd,
     confirmationMinutes: count,
@@ -322,6 +326,23 @@ export const adminAgentSwitchSchema = named(
   'AdminAgentSwitch',
   z.object({ agent: z.enum(AGENT_NAMES), enabled: z.boolean() }),
 );
+
+// --- The month's cost against the figure operations are told at (ADR-106) -----------------------
+
+export const agentCostCheckSchema = named(
+  'AgentCostCheck',
+  z.object({
+    toDateMicroUsd: microUsd,
+    forecastMicroUsd: microUsd,
+    /** 0 when no figure is set. */
+    alertAtMicroUsd: microUsd,
+    /** What the month calls for: nothing, a forecast past the figure, or spend past it. */
+    level: z.enum(COST_ALERT_LEVELS).nullable(),
+    /** True when this check told operations; an alert is told once a month per level. */
+    told: z.boolean(),
+  }),
+);
+export type AgentCostCheck = z.infer<typeof agentCostCheckSchema>;
 
 // --- Eval runs staff recorded (ADR-106) ---------------------------------------------------------
 

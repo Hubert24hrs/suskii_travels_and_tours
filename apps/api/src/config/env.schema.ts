@@ -579,6 +579,12 @@ export const envSchema = z
     AGENT_GUEST_DAILY_MICROUSD: z.coerce.number().int().min(0).default(120_000),
     AGENT_GLOBAL_DAILY_MICROUSD: z.coerce.number().int().min(0).default(50_000_000),
     /**
+     * The estimated cost of a UTC month at which operations are told, once when the month is
+     * heading past it and once when it is past it (ADR-106). 0 tells nobody. It only tells:
+     * the daily caps are what stops spending.
+     */
+    AGENT_MONTHLY_ALERT_MICROUSD: z.coerce.number().int().min(0).default(0),
+    /**
      * Shadow turns (ADR-106): candidate prompt versions (`flights@3`) the agent service ships,
      * tried beside this share of travellers' turns after the answer has gone out, and never
      * shown. None by default, and nothing runs while the share is 0. A shadow turn is paid

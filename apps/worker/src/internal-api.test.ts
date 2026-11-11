@@ -140,6 +140,13 @@ describe('internal API client', () => {
       invitations: { planned: 2, sent: 1, skipped: 0 },
       'ad-conversions': { sent: 1, retried: 0, failed: 0, withdrawn: 0 },
       'price-intel': { sources: 1, read: 2, failed: 0 },
+      agent: {
+        toDateMicroUsd: 9400,
+        forecastMicroUsd: 25_000,
+        alertAtMicroUsd: 0,
+        level: null,
+        told: false,
+      },
     };
     const fetch = vi.fn((request: Request) =>
       Promise.resolve(reply(200, replies[request.url.split('/').at(-2) ?? ''] ?? {})),
@@ -155,6 +162,7 @@ describe('internal API client', () => {
     await expect(api.runReviewInvitations()).resolves.toEqual({ planned: 2, sent: 1, skipped: 0 });
     await expect(api.runAdConversions()).resolves.toMatchObject({ sent: 1 });
     await expect(api.sweepPriceIntel()).resolves.toEqual({ sources: 1, read: 2, failed: 0 });
+    await expect(api.checkAgentCost()).resolves.toMatchObject({ level: null, told: false });
     expect(fetch.mock.calls.map(([request]) => request.url)).toEqual([
       'http://api.internal:4000/v1/internal/price-alerts/run',
       'http://api.internal:4000/v1/internal/reminders/run',
@@ -162,6 +170,7 @@ describe('internal API client', () => {
       'http://api.internal:4000/v1/internal/reviews/invitations/run',
       'http://api.internal:4000/v1/internal/ad-conversions/run',
       'http://api.internal:4000/v1/internal/price-intel/sweep',
+      'http://api.internal:4000/v1/internal/agent/cost-check',
     ]);
   });
 

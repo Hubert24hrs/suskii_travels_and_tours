@@ -426,6 +426,13 @@ function LimitsSection({ limits }: { limits: Limits }) {
           { term: t('aiInsights.capUser'), value: usdFromMicro(limits.userDailyMicroUsd) },
           { term: t('aiInsights.capGuest'), value: usdFromMicro(limits.guestDailyMicroUsd) },
           {
+            term: t('aiInsights.monthlyAlert'),
+            value:
+              limits.monthlyAlertMicroUsd > 0
+                ? usdFromMicro(limits.monthlyAlertMicroUsd)
+                : t('aiInsights.monthlyAlertNone'),
+          },
+          {
             term: t('aiInsights.shadowSample'),
             value: t('aiInsights.percentOfTurns', {
               percent: format.number(limits.shadowSamplePercent),

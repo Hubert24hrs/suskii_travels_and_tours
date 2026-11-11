@@ -5,6 +5,7 @@ import { type Redis } from 'ioredis';
 import {
   ACCOUNT_JOB,
   BOOKING_JOB,
+  AGENT_JOB,
   BOOKINGS_QUEUE,
   FINANCE_JOB,
   PRICE_INTEL_JOB,
@@ -94,6 +95,11 @@ export function createBookingsQueue(
         PRICE_INTEL_JOB.sweep,
         { every: config.PRICE_INTEL_SWEEP_MINUTES * 60_000, immediately: true },
         { name: PRICE_INTEL_JOB.sweep, opts },
+      );
+      await activeQueue.upsertJobScheduler(
+        AGENT_JOB.costCheck,
+        { every: config.AGENT_COST_CHECK_MINUTES * 60_000, immediately: true },
+        { name: AGENT_JOB.costCheck, opts },
       );
       await activeQueue.upsertJobScheduler(
         FINANCE_JOB.reconcileLedger,
