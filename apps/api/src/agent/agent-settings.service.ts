@@ -4,6 +4,8 @@ import {
   AGENT_AUTONOMY_LEVELS,
   AGENT_NAMES,
   agentAutonomyKey,
+  agentEnabledKey,
+  ALWAYS_ON_AGENTS,
   DEFAULT_AGENT_AUTONOMY,
   effectiveAutonomy,
   raisesAutonomy,
@@ -46,11 +48,75 @@ export class AgentSettingsService {
 
   /** The level a call by `agent` to `tool` runs at: the stricter of the two settings. */
   async autonomyFor(agent: AgentName, tool: string): Promise<AgentAutonomy> {
-    const keys = [agentAutonomyKey('agent', agent), agentAutonomyKey('tool', tool)];
+    return (await this.policyFor(agent, tool)).autonomy;
+  }
+
+  /**
+   * What the gateway needs to know about a call, in one read: whether the agent is switched
+   * on, and the level the call runs at.
+   */
+  async policyFor(
+    agent: AgentName,
+    tool: string,
+  ): Promise<{ enabled: boolean; autonomy: AgentAutonomy }> {
+    const keys = [
+      agentAutonomyKey('agent', agent),
+      agentAutonomyKey('tool', tool),
+      agentEnabledKey(agent),
+    ];
     const rows = await this.prisma.agentSetting.findMany({ where: { key: { in: keys } } });
-    const value = (key: string | undefined): AgentAutonomy | undefined =>
-      levelOf(rows.find((row) => row.key === key)?.value);
-    return effectiveAutonomy(value(keys[0]), value(keys[1]));
+    const stored = (key: string | undefined): unknown => rows.find((row) => row.key === key)?.value;
+    return {
+      enabled: stored(keys[2]) !== false,
+      autonomy: effectiveAutonomy(levelOf(stored(keys[0])), levelOf(stored(keys[1]))),
+    };
+  }
+
+  /** The agents staff switched off. A missing row means on. */
+  async disabledAgents(): Promise<AgentName[]> {
+    const rows = await this.prisma.agentSetting.findMany({
+      where: { key: { startsWith: 'enabled.agent.' } },
+    });
+    const off = new Set(rows.filter((row) => row.value === false).map((row) => row.key));
+    return AGENT_NAMES.filter((agent) => off.has(agentEnabledKey(agent)));
+  }
+
+  /**
+   * Switches one agent off or back on. An agent that is off is not offered to the router and
+   * its tools are refused; the two a run falls back to stay on (the pause stops everything).
+   */
+  async setAgentEnabled(
+    agent: AgentName,
+    enabled: boolean,
+    staff: StaffActor,
+  ): Promise<{ agent: AgentName; enabled: boolean }> {
+    if (!enabled && ALWAYS_ON_AGENTS.includes(agent)) {
+      throw conflict(
+        'agent-always-on',
+        'This agent answers when no other fits; pause the assistant to stop it',
+      );
+    }
+    const key = agentEnabledKey(agent);
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.agentSetting.findUnique({ where: { key } });
+      const was = current?.value !== false;
+      if (was === enabled) {
+        throw conflict('agent-switch-unchanged', 'The agent is already switched that way');
+      }
+      if (enabled) await tx.agentSetting.delete({ where: { key } });
+      else await tx.agentSetting.create({ data: { key, value: false } });
+      await this.audit.record(
+        {
+          action: 'agent.agent_switched',
+          actorUserId: staff.userId,
+          targetType: 'agent_agent',
+          metadata: { agent, enabled },
+          context: staff.context,
+        },
+        tx,
+      );
+      return { agent, enabled };
+    });
   }
 
   /** Every agent and registered tool with its level, for the console. */

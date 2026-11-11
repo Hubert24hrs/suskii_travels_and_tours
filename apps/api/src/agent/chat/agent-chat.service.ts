@@ -19,6 +19,7 @@ import {
   staffAgentsFor,
   type AgentAudience,
   type AgentChannel,
+  type AgentName,
   type AgentRunEnd,
   type AgentRunRequest,
   type Role,
@@ -39,6 +40,7 @@ import { AgentBudget } from '../agent-budget';
 import { AgentFlags } from '../agent-flags';
 import { AgentGrants } from '../agent-grants';
 import { AgentPause } from '../agent-pause';
+import { AgentSettingsService } from '../agent-settings.service';
 
 import type { AgentMessageDto, AgentStreamEvent } from './agent-chat.schemas';
 import { AGENT_CLIENT, AgentClient, failedRun } from './agent-client';
@@ -97,6 +99,7 @@ export class AgentChatService {
     private readonly conversations: AgentConversationsService,
     private readonly flags: AgentFlags,
     private readonly pause: AgentPause,
+    private readonly settings: AgentSettingsService,
     private readonly budget: AgentBudget,
     private readonly grants: AgentGrants,
     private readonly log: AgentRunLog,
@@ -247,6 +250,7 @@ export class AgentChatService {
       { kind: 'message', text: scrubQuery(text) || SCRUBBED_AWAY },
       roles,
       now,
+      await this.settings.disabledAgents(),
     );
     this.background.run('agent-run', () => this.execute(request, conversation, reservation));
     return { runId, message: this.conversations.message(stored) };
@@ -274,7 +278,14 @@ export class AgentChatService {
       await this.release(conversation.id, runId);
       throw error;
     }
-    const request = this.request(runId, conversation, input, roles, now);
+    const request = this.request(
+      runId,
+      conversation,
+      input,
+      roles,
+      now,
+      await this.settings.disabledAgents(),
+    );
     this.background.run('agent-run', () => this.execute(request, conversation, reservation));
     return runId;
   }
@@ -420,6 +431,7 @@ export class AgentChatService {
     input: AgentRunRequest['input'],
     roles: readonly Role[],
     now: Date,
+    disabled: readonly AgentName[],
   ): AgentRunRequest {
     // A staff conversation lives in the console; a traveller's on the website or in the app.
     const staff = conversation.audience === 'staff';
@@ -456,8 +468,11 @@ export class AgentChatService {
         locale: conversation.locale,
         currency: conversation.currency,
         country: conversation.country,
-        // A staff member reaches the agents their own permissions open, and no others.
-        agents: staff ? staffAgentsFor(scopes) : [...CUSTOMER_AGENTS],
+        // A staff member reaches the agents their own permissions open, and no others; an
+        // agent staff switched off is offered to nobody.
+        agents: (staff ? staffAgentsFor(scopes) : [...CUSTOMER_AGENTS]).filter(
+          (agent) => !disabled.includes(agent),
+        ),
         signedIn,
         today: localDate(now, DEFAULT_SEARCH_TIME_ZONE),
       },

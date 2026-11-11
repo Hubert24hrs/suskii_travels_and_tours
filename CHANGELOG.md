@@ -6,6 +6,66 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Suskii Agent, sub-phase F: the console (2026-11-11)
+
+Everything staff need to run the assistant, in the console (ADR-102, ADR-105, ADR-107). Built
+and off in production with the assistant itself; no website or app screen offers the
+assistant yet (sub-phase G).
+
+#### Added
+
+- **Eight console pages**, shown to staff with `ai:read`; every action is shown only to staff
+  who hold its permission and is checked again by the API.
+  - **Assistant**: whether it answers, the day's spend and runs, the pause (one press, no
+    code) and its release (authenticator code), how far each agent and tool may go, and a
+    switch for a single agent.
+  - **Ask the assistant**: the staff chat with the six staff agents.
+  - **Approvals**: what a staff agent prepared, decided by someone other than the person who
+    asked.
+  - **Assisted quotes**: the queue of prices to verify and of paid bookings to book by hand.
+  - **Data sources**: the sites prices are read from with their approval, budgets, kill
+    switches, last reads, the register for counsel, and how reading has gone.
+  - **Assistant activity**: every run with the tools it called, and travellers' conversations
+    with contact details removed.
+  - **Assistant cost and quality**: estimated spend by agent, model, channel, day and account
+    with a forecast for the month, the answers the guard refused, handovers and feedback by
+    prompt version, and the limits in force.
+  - **Knowledge base**: the documents the assistant answers rules from.
+- **A knowledge base** (ADR-105). Staff with `ai:manage` add a plain text or Markdown file
+  (512 KB, virus-scanned, checked to be text); it is split into passages at its headings and
+  found with PostgreSQL full-text search in the document's language. The new tool
+  `knowledge.search` answers a traveller's assistant from documents written for travellers
+  and a staff agent from those and the staff ones, in the conversation's language and then in
+  English, and names each document read on a card. Documents are archived, never deleted.
+  Routes under `/v1/admin/ai/knowledge`; tables `knowledge_documents` and `knowledge_chunks`.
+- **What staff see of the assistant's work**: `GET /v1/admin/ai/monitor/runs` and
+  `.../runs/{id}` (agents, model, tokens, estimated cost, steps, the outcome as a code, and
+  each tool call with the names of its arguments, never a value),
+  `GET /v1/admin/ai/monitor/conversations` and `.../conversations/{id}` (a traveller's words
+  with contact details, card-like and document-like numbers removed; every read is audited),
+  `GET /v1/admin/ai/cost`, `/quality` and `/limits`.
+- **One agent's switch**: `PUT /v1/admin/ai/agents/{agent}` (`ai:manage`, step-up, audited).
+  A switched-off agent's questions go to the general agent; the two general agents have no
+  switch.
+- **Data source health**: `GET /v1/admin/data-sources/health` gives, per vendor and per site,
+  the tries, the share that gave a usable page and the share the site refused, the median
+  time, the cost per usable page and per price kept, open breakers and drift.
+- **The audit log narrowed to the assistant**: `GET /v1/admin/audit-logs?area=assistant`.
+
+#### Fixed
+
+- A conversation read while its answer was being stored could say that nothing was running
+  and show no answer; the run is now read before the messages. Found by the console's chat
+  journey.
+
+#### Notes
+
+- Every cost in the console is an estimate: the tokens the models reported at the configured
+  prices (`AGENT_MODEL_PRICES`). The provider's invoice is the actual cost.
+- Nothing is read from a PDF or an office file: save a policy as text or Markdown.
+- Mobile contract: no answer the app reads changed. Cards gain the kind `source`; the app
+  shows no assistant yet.
+
 ### Suskii Agent, sub-phase E: confirmations, assisted quotes and staff agents (2026-11-11)
 
 What the assistant may set in motion, and who decides it (ADR-104, ADR-107). Built and off in

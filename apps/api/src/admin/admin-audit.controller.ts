@@ -5,7 +5,7 @@ import { AdminRoute } from '../auth/decorators';
 import { Contract } from '../contract/contract';
 import { PrismaService } from '../infra/prisma.service';
 
-import { auditLogPageSchema, auditLogQuerySchema } from './admin.schemas';
+import { AUDIT_AREA_PREFIXES, auditLogPageSchema, auditLogQuerySchema } from './admin.schemas';
 
 @Controller('admin/audit-logs')
 export class AdminAuditController {
@@ -28,6 +28,13 @@ export class AdminAuditController {
     const rows = await this.prisma.auditLog.findMany({
       where: {
         ...(query.action ? { action: query.action } : {}),
+        ...(query.area
+          ? {
+              OR: AUDIT_AREA_PREFIXES[query.area].map((prefix) => ({
+                action: { startsWith: prefix },
+              })),
+            }
+          : {}),
         ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
         ...(query.cursor ? { id: { lt: query.cursor } } : {}),
       },

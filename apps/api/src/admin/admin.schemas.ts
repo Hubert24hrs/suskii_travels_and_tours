@@ -43,10 +43,20 @@ export const auditLogPageSchema = named(
   z.object({ items: z.array(auditLogEntrySchema), nextCursor: z.uuid().nullable() }),
 );
 
+/** Areas the audit log can be narrowed to, each a set of action prefixes. */
+export const AUDIT_AREAS = ['assistant'] as const;
+export const AUDIT_AREA_PREFIXES = {
+  assistant: ['agent.', 'assisted_quote.', 'price_intel.'],
+} as const satisfies Record<(typeof AUDIT_AREAS)[number], readonly string[]>;
+
 export const auditLogQuerySchema = z.object({
   cursor: z.uuid().optional().meta({ description: 'Id of the last entry of the previous page.' }),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   action: z.string().max(100).optional(),
+  area: z.enum(AUDIT_AREAS).optional().meta({
+    description:
+      'Entries of one area: `assistant` is everything the assistant, its queues and the price sources recorded.',
+  }),
   actorUserId: z.uuid().optional(),
 });
 

@@ -37,8 +37,9 @@ test('a super admin verifies a trust signal with evidence and the site shows it'
 test('operations staff create a promo code but cannot open pricing', async ({ page, stack }) => {
   await signIn(page, stack, 'operations');
   // Operations run bookings, deals, company accounts (ADR-078), the ground network (Cars,
-  // ADR-049) and status page incidents (ADR-087), and read the metasearch report (ADR-081);
-  // pricing, content, the audit log, payouts and visa work are not theirs.
+  // ADR-049) and status page incidents (ADR-087), read the metasearch report (ADR-081) and
+  // see the assistant with its queues (ADR-107); pricing, content, the audit log, payouts and
+  // visa work are not theirs.
   expect(await navLabels(page)).toEqual([
     t('nav.dashboard'),
     t('nav.bookings'),
@@ -56,6 +57,14 @@ test('operations staff create a promo code but cannot open pricing', async ({ pa
     t('nav.drivers'),
     t('nav.rides'),
     t('nav.rentals'),
+    t('nav.ai'),
+    t('nav.assistant'),
+    t('nav.approvals'),
+    t('nav.assistedQuotes'),
+    t('nav.dataSources'),
+    t('nav.aiActivity'),
+    t('nav.aiInsights'),
+    t('nav.knowledge'),
   ]);
   await page.goto('/pricing');
   await expect(alertWith(page, t('common.forbidden'))).toBeVisible();

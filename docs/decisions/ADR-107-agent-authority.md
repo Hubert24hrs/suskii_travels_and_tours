@@ -183,3 +183,13 @@ input.
 - **Autonomy as built** has two effective levels for a tool that prepares or commits: `manual`
   prepares nothing, and `supervised` prepares for a person. `autonomous` changes nothing yet:
   no tool acts without a person, and none will until an eval and the owner say so.
+- **One agent can be switched off** (sub-phase F): `PUT /v1/admin/ai/agents/{agent}` with
+  `ai:manage` and step-up, audited (`agent.agent_switched`). A switched-off agent is left out
+  of a run's agents, so its questions go to the general agent, and the gateway refuses a tool
+  call made in its name (`agent`). The two general agents (`concierge`, `executive`) have no
+  switch: pausing the assistant is the way to stop those.
+- **Cost in the console is an estimate and says so**: the tokens the models reported at
+  `AGENT_MODEL_PRICES`, with the month so far carried to its end at the same daily rate. The
+  provider's invoice is the actual cost; nothing reads it.
+- **The limits are shown, not edited.** Run limits, spend caps and model prices are settings
+  of the environment; changing one is a deployment, reviewed like any other.

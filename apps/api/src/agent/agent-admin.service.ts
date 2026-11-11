@@ -35,14 +35,16 @@ export class AgentAdminService {
 
   async overview(now = new Date()): Promise<AdminAgentOverview> {
     const dayStart = new Date(`${now.toISOString().slice(0, 10)}T00:00:00.000Z`);
-    const [pause, todayMicroUsd, today, waiting, failedToday, autonomy] = await Promise.all([
-      this.pauseSwitch.state(),
-      this.budget.spentToday(now),
-      this.prisma.agentRun.count({ where: { startedAt: { gte: dayStart } } }),
-      this.prisma.agentRun.count({ where: { status: 'waiting' } }),
-      this.prisma.agentRun.count({ where: { status: 'failed', startedAt: { gte: dayStart } } }),
-      this.settings.autonomy(),
-    ]);
+    const [pause, todayMicroUsd, today, waiting, failedToday, autonomy, disabledAgents] =
+      await Promise.all([
+        this.pauseSwitch.state(),
+        this.budget.spentToday(now),
+        this.prisma.agentRun.count({ where: { startedAt: { gte: dayStart } } }),
+        this.prisma.agentRun.count({ where: { status: 'waiting' } }),
+        this.prisma.agentRun.count({ where: { status: 'failed', startedAt: { gte: dayStart } } }),
+        this.settings.autonomy(),
+        this.settings.disabledAgents(),
+      ]);
     return {
       enabled: this.flags.enabled(),
       priceIntelEnabled: this.flags.priceIntel(),
@@ -51,6 +53,7 @@ export class AgentAdminService {
       spend: { todayMicroUsd, dailyCapMicroUsd: this.config.AGENT_GLOBAL_DAILY_MICROUSD },
       runs: { today, waiting, failedToday },
       autonomy,
+      disabledAgents,
       tools: this.tools.describe().map(({ name, description, tier, scope, agents }) => ({
         name,
         description,

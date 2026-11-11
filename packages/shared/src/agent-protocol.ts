@@ -69,6 +69,8 @@ export const AGENT_CARD_KINDS = [
   'trip',
   'price',
   'link',
+  // A document of the knowledge base an answer drew on (ADR-105).
+  'source',
 ] as const;
 export type AgentCardKind = (typeof AGENT_CARD_KINDS)[number];
 

@@ -143,6 +143,26 @@ export interface paths {
         patch: operations["adminUpdateAddon"];
         trace?: never;
     };
+    "/v1/admin/ai/agents/{agent}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Switch one agent off or back on
+         * @description An agent that is off is not offered to the router and its tools are refused. The concierge and the executive assistant, which answer when no other fits, cannot be switched off one by one (409 `agent-always-on`): the pause stops everything.
+         */
+        put: operations["adminSwitchAgent"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ai/approvals": {
         parameters: {
             query?: never;
@@ -294,6 +314,242 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ai/cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the assistant cost, by day, agent, model, channel and account
+         * @description Estimates: the tokens the models reported at the configured prices. The provider's invoice is the actual cost. The month's forecast carries the spend so far to the month's end at the same daily rate.
+         */
+        get: operations["adminGetAgentCost"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Documents of the knowledge base, newest change first */
+        get: operations["adminListKnowledge"];
+        put?: never;
+        /**
+         * Add a document to the knowledge base
+         * @description Raw body: plain text or Markdown in UTF-8, at most 512 KB, with its title, audience and language in the query. The file is virus-scanned, split into passages at its headings and searchable at once. Company text only: nothing about a person belongs in it. 409 `knowledge-duplicate` for the same file in the same audience and language, `knowledge-full` at the limit.
+         */
+        post: operations["adminAddKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A document and its passages, as the assistant reads them */
+        get: operations["adminGetKnowledge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a document's title or audience
+         * @description The language and the text stay as uploaded: add the new version and archive the old one.
+         */
+        patch: operations["adminChangeKnowledge"];
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/{documentId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a document out of use
+         * @description The assistant stops answering from it at once. Nothing is deleted.
+         */
+        post: operations["adminArchiveKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The file as it was uploaded */
+        get: operations["adminGetKnowledgeContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/{documentId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put an archived document back in use */
+        post: operations["adminRestoreKnowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/knowledge/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the assistant would find for a question
+         * @description The same search the assistant runs, for an audience and a language: the passages that match best, from documents in use. Staff see what travellers would be answered from before relying on it.
+         */
+        get: operations["adminSearchKnowledge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The limits and model prices the assistant runs under
+         * @description Read from the configuration of this environment; changed in its settings.
+         */
+        get: operations["adminGetAgentLimits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/monitor/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Travellers' conversations with the assistant, newest first
+         * @description Ids, channel, language and counts only. Staff members' own conversations with the staff agents are never listed.
+         */
+        get: operations["adminListAgentConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/monitor/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One traveller's conversation, with contact details removed
+         * @description The messages as the model saw them: email addresses, phone numbers, card-like and document-like numbers are removed. Every read is recorded in the audit log with the conversation id.
+         */
+        get: operations["adminGetAgentConversationMasked"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/monitor/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Runs of the assistant, newest first
+         * @description Operations records: which agents and model worked, tokens, estimated cost, steps and how the run ended, as codes. Never what was said.
+         */
+        get: operations["adminListAgentRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/monitor/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One run with every tool it called
+         * @description Each call through the tool gateway in order: the tool, its tier, whether it ran or why it was refused, how long it took and the names of its arguments. Argument values and results are never stored.
+         */
+        get: operations["adminGetAgentRunTrace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ai/overview": {
         parameters: {
             query?: never;
@@ -328,6 +584,23 @@ export interface paths {
          * @description Takes effect within seconds: no run starts and no tool runs. Clients fall back to the ordinary screens. Needs no second check, so it is one press in an incident.
          */
         post: operations["adminPauseAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ai/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How answers fared: outcomes, handovers, refused answers, thumbs, per prompt version */
+        get: operations["adminGetAgentQuality"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -938,6 +1211,26 @@ export interface paths {
          * @description In millionths of a US dollar. At a cap nothing more is read until the period ends.
          */
         put: operations["adminSetPriceIntelBudget"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data-sources/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How reading has gone: each vendor and site, breakers and drift
+         * @description Over the last hours (24 unless asked): attempts, the share that gave a usable page and the share the site refused, the median time and the cost per usable read and per price kept. `breakerOpen` says a vendor is being skipped everywhere; `drift` lists the sites whose pages stopped yielding prices.
+         */
+        get: operations["adminGetPriceIntelHealth"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -7850,6 +8143,141 @@ export interface components {
             /** Format: uuid */
             bookingId: string;
         };
+        AdminAgentConversation: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp" | "console";
+            locale: string;
+            userId: string | null;
+            /** @enum {string} */
+            status: "open" | "closed";
+            messageCount: number;
+            handedOver: boolean;
+            /** Format: date-time */
+            lastMessageAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            messages: {
+                /** Format: uuid */
+                id: string;
+                /** @enum {string} */
+                role: "user" | "assistant";
+                /** @enum {string} */
+                kind: "text" | "handover" | "notice";
+                agent: string | null;
+                text: string;
+                notice: ("greeting" | "cannot_answer" | "limit" | "timeout" | "unavailable" | "paused") | null;
+                cards: number;
+                feedback: ("up" | "down") | null;
+                runId: string | null;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        AdminAgentConversationPage: {
+            items: components["schemas"]["AdminAgentConversationSummary"][];
+            nextCursor: string | null;
+        };
+        AdminAgentConversationSummary: {
+            /** Format: uuid */
+            id: string;
+            reference: string;
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp" | "console";
+            locale: string;
+            userId: string | null;
+            /** @enum {string} */
+            status: "open" | "closed";
+            messageCount: number;
+            handedOver: boolean;
+            /** Format: date-time */
+            lastMessageAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminAgentCost: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @constant */
+            basis: "usage_at_configured_prices";
+            total: {
+                runs: number;
+                inputTokens: number;
+                outputTokens: number;
+                costMicroUsd: number;
+            };
+            byDay: {
+                /** Format: date */
+                day: string;
+                runs: number;
+                costMicroUsd: number;
+            }[];
+            byAgent: {
+                agent: string;
+                runs: number;
+                inputTokens: number;
+                outputTokens: number;
+                costMicroUsd: number;
+            }[];
+            byModel: {
+                model: string;
+                runs: number;
+                inputTokens: number;
+                outputTokens: number;
+                costMicroUsd: number;
+            }[];
+            byChannel: {
+                /** @enum {string} */
+                channel: "web" | "app" | "whatsapp" | "console";
+                /** @enum {string} */
+                audience: "customer" | "staff";
+                runs: number;
+                costMicroUsd: number;
+            }[];
+            topAccounts: {
+                /** Format: uuid */
+                userId: string;
+                runs: number;
+                costMicroUsd: number;
+            }[];
+            month: {
+                toDateMicroUsd: number;
+                forecastMicroUsd: number;
+                daysElapsed: number;
+                daysInMonth: number;
+            };
+            caps: {
+                globalDailyMicroUsd: number;
+                userDailyMicroUsd: number;
+                guestDailyMicroUsd: number;
+            };
+        };
+        AdminAgentLimits: {
+            runMaxSteps: number;
+            runMaxToolCalls: number;
+            runTimeoutMs: number;
+            grantTtlSeconds: number;
+            maxOutputTokens: number;
+            runReserveMicroUsd: number;
+            userDailyMicroUsd: number;
+            guestDailyMicroUsd: number;
+            globalDailyMicroUsd: number;
+            confirmationMinutes: number;
+            approvalDays: number;
+            messageMax: number;
+            conversationMessageLimit: number;
+            models: {
+                model: string;
+                inputPerMillion: number;
+                outputPerMillion: number;
+                cacheReadPerMillion: number;
+                cacheWritePerMillion: number;
+            }[];
+        };
         AdminAgentOverview: {
             enabled: boolean;
             priceIntelEnabled: boolean;
@@ -7870,6 +8298,7 @@ export interface components {
                 failedToday: number;
             };
             autonomy: components["schemas"]["AgentAutonomySetting"][];
+            disabledAgents: ("concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive")[];
             tools: {
                 name: string;
                 description: string;
@@ -7879,6 +8308,111 @@ export interface components {
                 scope: "catalog" | "search" | "quotes" | "account" | "support" | "ops" | "finance" | "marketing" | "reports" | "datasources";
                 agents: ("concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive")[];
             }[];
+        };
+        AdminAgentQuality: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            runs: number;
+            answered: number;
+            handovers: number;
+            guardBlocked: number;
+            failed: number;
+            outcomes: {
+                outcome: string;
+                runs: number;
+            }[];
+            feedback: {
+                up: number;
+                down: number;
+            };
+            prompts: {
+                promptVersion: string;
+                runs: number;
+                answered: number;
+                guardBlocked: number;
+                up: number;
+                down: number;
+            }[];
+        };
+        AdminAgentRun: {
+            /** Format: uuid */
+            id: string;
+            conversationId: string | null;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp" | "console";
+            agent: string;
+            agents: string[];
+            trigger: string;
+            /** @enum {string} */
+            status: "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "refused";
+            outcome: string | null;
+            model: string | null;
+            promptVersion: string | null;
+            inputTokens: number;
+            outputTokens: number;
+            costMicroUsd: number;
+            steps: number;
+            toolCallCount: number;
+            /** Format: date-time */
+            startedAt: string;
+            finishedAt: string | null;
+            durationMs: number | null;
+        };
+        AdminAgentRunPage: {
+            items: components["schemas"]["AdminAgentRun"][];
+            nextCursor: string | null;
+        };
+        AdminAgentRunTrace: {
+            /** Format: uuid */
+            id: string;
+            conversationId: string | null;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            channel: "web" | "app" | "whatsapp" | "console";
+            agent: string;
+            agents: string[];
+            trigger: string;
+            /** @enum {string} */
+            status: "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "refused";
+            outcome: string | null;
+            model: string | null;
+            promptVersion: string | null;
+            inputTokens: number;
+            outputTokens: number;
+            costMicroUsd: number;
+            steps: number;
+            toolCallCount: number;
+            /** Format: date-time */
+            startedAt: string;
+            finishedAt: string | null;
+            durationMs: number | null;
+            toolCalls: {
+                /** Format: uuid */
+                id: string;
+                agent: string;
+                tool: string;
+                tier: ("read" | "propose" | "commit") | "none";
+                /** @enum {string} */
+                status: "ok" | "denied" | "error" | "timeout";
+                reason: string | null;
+                argumentKeys: string[];
+                durationMs: number;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        AdminAgentSwitch: {
+            /** @enum {string} */
+            agent: "concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive";
+            enabled: boolean;
+        };
+        AdminAgentSwitchInputInput: {
+            enabled: boolean;
         };
         AdminAssistedQuote: {
             /** Format: uuid */
@@ -9191,7 +9725,7 @@ export interface components {
             reason: ("disabled" | "paused" | "grant" | "unknown_tool" | "agent" | "scope" | "autonomy" | "confirmation_required" | "limit" | "invalid" | "not_found" | "refused" | "failed" | "timeout") | null;
             card: {
                 /** @enum {string} */
-                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link";
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source";
                 title: string;
                 lines: string[];
                 /** @default [] */
@@ -9257,7 +9791,7 @@ export interface components {
             notice: ("greeting" | "cannot_answer" | "limit" | "timeout" | "unavailable" | "paused") | null;
             cards: {
                 /** @enum {string} */
-                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link";
+                kind: "flight" | "hotel" | "car" | "transfer" | "tour" | "package" | "visa" | "booking" | "trip" | "price" | "link" | "source";
                 title: string;
                 lines: string[];
                 price?: {
@@ -11724,6 +12258,58 @@ export interface components {
                 [key: string]: unknown;
             })[];
         };
+        KnowledgeDocument: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            language: "en" | "fr" | "sw" | "ar" | "pt";
+            /** @enum {string} */
+            mediaType: "text/plain" | "text/markdown";
+            sizeBytes: number;
+            passages: number;
+            archivedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        KnowledgeDocumentDetail: {
+            document: components["schemas"]["KnowledgeDocument"];
+            passages: {
+                /** Format: uuid */
+                id: string;
+                position: number;
+                heading: string | null;
+                body: string;
+            }[];
+        };
+        KnowledgeDocumentList: {
+            items: components["schemas"]["KnowledgeDocument"][];
+            inUse: number;
+            limit: number;
+            maxBytes: number;
+        };
+        KnowledgeSearch: {
+            found: number;
+            hits: {
+                /** Format: uuid */
+                passageId: string;
+                /** Format: uuid */
+                documentId: string;
+                document: string;
+                /** @enum {string} */
+                audience: "customer" | "staff";
+                /** @enum {string} */
+                language: "en" | "fr" | "sw" | "ar" | "pt";
+                heading: string | null;
+                body: string;
+                /** Format: date-time */
+                updatedAt: string;
+            }[];
+        };
         LedgerReconciliationRun: {
             checked: number;
             discrepancies: number;
@@ -12569,6 +13155,43 @@ export interface components {
             subject: string;
             dailyCapMicroUsd: number;
             monthlyCapMicroUsd: number;
+        };
+        PriceIntelHealth: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            vendors: {
+                /** @enum {string} */
+                vendor: "firecrawl" | "apify" | "browse_ai" | "oxylabs" | "bright_data" | "direct" | "mock";
+                attempts: number;
+                ok: number;
+                blocked: number;
+                successRateBps: number | null;
+                blockRateBps: number | null;
+                medianMs: number | null;
+                costMicroUsd: number;
+                costPerSuccessMicroUsd: number | null;
+                breakerOpen: boolean;
+            }[];
+            sites: {
+                domain: string;
+                attempts: number;
+                ok: number;
+                blocked: number;
+                successRateBps: number | null;
+                blockRateBps: number | null;
+                medianMs: number | null;
+                costMicroUsd: number;
+                observations: number;
+                costPerObservationMicroUsd: number | null;
+            }[];
+            drift: {
+                domain: string;
+                /** Format: date-time */
+                since: string;
+                parserVersion: string;
+            }[];
         };
         PriceIntelOverview: {
             enabled: boolean;
@@ -15277,6 +15900,42 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminSwitchAgent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                agent: "concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminAgentSwitchInputInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentSwitch"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminListAgentApprovals: {
         parameters: {
             query?: {
@@ -15542,6 +16201,445 @@ export interface operations {
             500: components["responses"]["Problem500"];
         };
     };
+    adminGetAgentCost: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentCost"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListKnowledge: {
+        parameters: {
+            query?: {
+                archived?: "true" | "false";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocumentList"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminAddKnowledge: {
+        parameters: {
+            query: {
+                title: string;
+                audience: "customer" | "staff";
+                language: "en" | "fr" | "sw" | "ar" | "pt";
+            };
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The document. */
+        requestBody: {
+            content: {
+                "text/plain": string;
+                "text/markdown": string;
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocument"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            409: components["responses"]["Problem409"];
+            413: components["responses"]["Problem413"];
+            415: components["responses"]["Problem415"];
+            422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+            503: components["responses"]["Problem503"];
+        };
+    };
+    adminGetKnowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocumentDetail"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminChangeKnowledge: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    /** @enum {string} */
+                    audience?: "customer" | "staff";
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocument"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminArchiveKnowledge: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocument"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetKnowledgeContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminRestoreKnowledge: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required when the request is authenticated with session cookies: echo the csrf cookie value. */
+                "X-CSRF-Token"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDocument"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminSearchKnowledge: {
+        parameters: {
+            query: {
+                q: string;
+                audience?: "customer" | "staff";
+                language?: "en" | "fr" | "sw" | "ar" | "pt";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeSearch"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentLimits"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListAgentConversations: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentConversationPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentConversationMasked: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentConversation"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminListAgentRuns: {
+        parameters: {
+            query?: {
+                status?: "running" | "waiting" | "succeeded" | "failed" | "cancelled" | "refused";
+                agent?: "concierge" | "flights" | "hotels" | "cars" | "tours" | "trip_builder" | "bookings" | "payments" | "support" | "disruption" | "price_intel" | "operations" | "finance_prep" | "marketing" | "business_intelligence" | "executive";
+                audience?: "customer" | "staff";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentRunPage"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentRunTrace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentRunTrace"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
+            404: components["responses"]["Problem404"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
     adminGetAgentOverview: {
         parameters: {
             query?: never;
@@ -15602,6 +16700,34 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             409: components["responses"]["Problem409"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetAgentQuality: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAgentQuality"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];
@@ -15887,6 +17013,7 @@ export interface operations {
                 cursor?: string;
                 limit?: number;
                 action?: string;
+                area?: "assistant";
                 actorUserId?: string;
             };
             header?: never;
@@ -16757,6 +17884,34 @@ export interface operations {
             401: components["responses"]["Problem401"];
             403: components["responses"]["Problem403"];
             422: components["responses"]["Problem422"];
+            426: components["responses"]["Problem426"];
+            429: components["responses"]["Problem429"];
+            500: components["responses"]["Problem500"];
+        };
+    };
+    adminGetPriceIntelHealth: {
+        parameters: {
+            query?: {
+                hours?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceIntelHealth"];
+                };
+            };
+            400: components["responses"]["Problem400"];
+            401: components["responses"]["Problem401"];
+            403: components["responses"]["Problem403"];
             426: components["responses"]["Problem426"];
             429: components["responses"]["Problem429"];
             500: components["responses"]["Problem500"];

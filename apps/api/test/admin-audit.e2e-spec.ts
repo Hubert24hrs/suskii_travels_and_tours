@@ -1118,6 +1118,28 @@ describe('admin audit coverage (e2e)', () => {
       request.send({ subject: 'agent', name: 'concierge', level: 'manual' }),
     );
     expect(level.body).toEqual({ subject: 'agent', name: 'concierge', level: 'manual', set: true });
+    const off = await audited('adminSwitchAgent', { agent: 'hotels' }, (request) =>
+      request.send({ enabled: false }),
+    );
+    expect(off.body).toEqual({ agent: 'hotels', enabled: false });
+    await audited('adminSwitchAgent', { agent: 'hotels' }, (request) =>
+      request.send({ enabled: true }),
+    );
+  });
+
+  it('knowledge base: add, change, archive and restore', async () => {
+    const added = await audited('adminAddKnowledge', {}, (request) =>
+      request
+        .query({ title: 'Audit policy', audience: 'customer', language: 'en' })
+        .set('content-type', 'text/plain')
+        .send(Buffer.from('Refunds reach the original payment method.', 'utf8')),
+    );
+    const documentId = (added.body as { id: string }).id;
+    await audited('adminChangeKnowledge', { documentId }, (request) =>
+      request.send({ audience: 'staff' }),
+    );
+    await audited('adminArchiveKnowledge', { documentId }, none);
+    await audited('adminRestoreKnowledge', { documentId }, none);
   });
 
   it('staff agents: a conversation, a question and the approvals queue', async () => {

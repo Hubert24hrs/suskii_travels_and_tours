@@ -19,11 +19,14 @@ import { PriceIntelSwitches, type KillSwitch } from './price-intel-switches';
 import type {
   BudgetInput,
   KillSwitchInput,
+  PriceIntelHealth,
   PriceIntelOverview,
   scrapeJobListSchema,
   scrapingRegisterSchema,
 } from './price-intel.schemas';
 import { PriceIntelService } from './price-intel.service';
+import { PriceSourcesService } from './price-sources.service';
+import { ScrapeBreakers } from './scrape-breakers';
 import { SCRAPE_PROVIDERS, type ScrapeProviders } from './scrape-providers';
 import { scrapingRegisterRows } from './scraping-register';
 
@@ -44,6 +47,8 @@ export class PriceIntelAdminService {
     private readonly switches: PriceIntelSwitches,
     private readonly budget: PriceIntelBudget,
     private readonly intel: PriceIntelService,
+    private readonly sources: PriceSourcesService,
+    private readonly breakers: ScrapeBreakers,
     @Inject(SCRAPE_PROVIDERS) private readonly providers: ScrapeProviders,
   ) {}
 
@@ -73,6 +78,111 @@ export class PriceIntelAdminService {
       switches: await this.switches.list(),
       budgets: await this.budgets(sources.map((source) => source.domain)),
       sources: { review: count('review'), approved: count('approved'), blocked: count('blocked') },
+    };
+  }
+
+  /**
+   * How reading has gone in the last hours: each vendor's and each site's attempts, the share
+   * that gave a usable page and the share the site refused, the median time, what it cost per
+   * usable read and per price kept, which vendors are being skipped, and the sites whose pages
+   * stopped yielding prices.
+   */
+  async health(hours: number, now = new Date()): Promise<PriceIntelHealth> {
+    const from = new Date(now.getTime() - hours * 3_600_000);
+    interface ReadRow {
+      attempts: bigint;
+      ok: bigint;
+      blocked: bigint;
+      median_ms: number | null;
+      cost: bigint | null;
+    }
+    const [vendorRows, siteRows, kept, drift] = await Promise.all([
+      this.prisma.$queryRaw<(ReadRow & { vendor: string })[]>`
+        SELECT vendor,
+               count(*) AS attempts,
+               count(*) FILTER (WHERE outcome = 'ok') AS ok,
+               count(*) FILTER (WHERE outcome = 'blocked') AS blocked,
+               percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_ms) AS median_ms,
+               sum(cost_micro_usd) AS cost
+          FROM scrape_attempts
+         WHERE created_at >= ${from}
+         GROUP BY vendor`,
+      this.prisma.$queryRaw<(ReadRow & { source_id: string; domain: string })[]>`
+        SELECT s.id AS source_id, s.domain,
+               count(*) AS attempts,
+               count(*) FILTER (WHERE a.outcome = 'ok') AS ok,
+               count(*) FILTER (WHERE a.outcome = 'blocked') AS blocked,
+               percentile_cont(0.5) WITHIN GROUP (ORDER BY a.duration_ms) AS median_ms,
+               sum(a.cost_micro_usd) AS cost
+          FROM scrape_attempts a
+          JOIN scrape_jobs j ON j.id = a.job_id
+          JOIN price_sources s ON s.id = j.source_id
+         WHERE a.created_at >= ${from}
+         GROUP BY s.id, s.domain
+         ORDER BY attempts DESC
+         LIMIT 30`,
+      this.prisma.priceObservation.groupBy({
+        by: ['sourceId'],
+        where: { observedAt: { gte: from }, status: { not: 'rejected' } },
+        _count: { _all: true },
+      }),
+      this.sources.list(),
+    ]);
+    const reads = (row: ReadRow) => {
+      const attempts = Number(row.attempts);
+      const ok = Number(row.ok);
+      const blocked = Number(row.blocked);
+      const share = (part: number): number | null =>
+        attempts > 0 ? Math.round((part * 10_000) / attempts) : null;
+      return {
+        attempts,
+        ok,
+        blocked,
+        successRateBps: share(ok),
+        blockRateBps: share(blocked),
+        medianMs: row.median_ms === null ? null : Math.round(row.median_ms),
+        costMicroUsd: Number(row.cost ?? 0n),
+      };
+    };
+    const vendors = await Promise.all(
+      [...this.providers.keys()].map(async (vendor) => {
+        const row = vendorRows.find((candidate) => candidate.vendor === vendor);
+        const line = reads(row ?? { attempts: 0n, ok: 0n, blocked: 0n, median_ms: null, cost: 0n });
+        return {
+          vendor,
+          ...line,
+          costPerSuccessMicroUsd: line.ok > 0 ? Math.round(line.costMicroUsd / line.ok) : null,
+          breakerOpen: await this.breakers.vendorOpen(vendor),
+        };
+      }),
+    );
+    return {
+      from: from.toISOString(),
+      to: now.toISOString(),
+      vendors,
+      sites: siteRows.map((row) => {
+        const line = reads(row);
+        const observations =
+          kept.find((candidate) => candidate.sourceId === row.source_id)?._count._all ?? 0;
+        return {
+          domain: row.domain,
+          ...line,
+          observations,
+          costPerObservationMicroUsd:
+            observations > 0 ? Math.round(line.costMicroUsd / observations) : null,
+        };
+      }),
+      drift: drift.flatMap((site) =>
+        site.drift
+          ? [
+              {
+                domain: site.domain,
+                since: site.drift.since,
+                parserVersion: site.drift.parserVersion,
+              },
+            ]
+          : [],
+      ),
     };
   }
 

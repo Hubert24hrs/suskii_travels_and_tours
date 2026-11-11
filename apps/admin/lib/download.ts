@@ -35,3 +35,25 @@ export async function downloadFile(path: string, name: string): Promise<boolean>
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
   return true;
 }
+
+/**
+ * A CSV cell: quoted when it holds a separator, and never starting with a character a
+ * spreadsheet would read as a formula.
+ */
+export function csvCell(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\n\r]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
+}
+
+/** Saves text the page already holds (a table as CSV) as a file. */
+export function saveText(name: string, text: string, type = 'text/csv'): void {
+  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.rel = 'noopener';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}

@@ -96,6 +96,15 @@ export class ScrapeBreakers {
     await this.redis.set(openKey(vendor), '1', 'PX', ms);
   }
 
+  /** True while the vendor's own breaker is open (on every site). Open when unreadable. */
+  async vendorOpen(vendor: ScrapeVendor): Promise<boolean> {
+    try {
+      return (await this.redis.exists(openKey(vendor))) > 0;
+    } catch {
+      return true;
+    }
+  }
+
   /** Which of these vendors are open on the site right now, for the console. */
   async openAmong(vendors: readonly ScrapeVendor[], domain: string): Promise<ScrapeVendor[]> {
     const open: ScrapeVendor[] = [];

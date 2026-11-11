@@ -29,6 +29,8 @@ import {
   killSwitchInputSchema,
   killSwitchListSchema,
   observationQuerySchema,
+  priceIntelHealthQuerySchema,
+  priceIntelHealthSchema,
   priceIntelOverviewSchema,
   priceObservationListSchema,
   priceReadInputSchema,
@@ -43,6 +45,7 @@ import {
   sourceIdParamsSchema,
   type BudgetInput,
   type KillSwitchInput,
+  type PriceIntelHealth,
   type PriceIntelOverview,
   type PriceReadInput,
   type PriceReadResult,
@@ -109,6 +112,22 @@ export class AdminPriceIntelController {
   })
   register(): Promise<z.infer<typeof scrapingRegisterSchema>> {
     return this.admin.register();
+  }
+
+  @Get('health')
+  @AdminRoute('ai:read')
+  @Contract({
+    operationId: 'adminGetPriceIntelHealth',
+    summary: 'How reading has gone: each vendor and site, breakers and drift',
+    description:
+      'Over the last hours (24 unless asked): attempts, the share that gave a usable page and the share the site refused, the median time and the cost per usable read and per price kept. `breakerOpen` says a vendor is being skipped everywhere; `drift` lists the sites whose pages stopped yielding prices.',
+    tags: TAGS,
+    query: priceIntelHealthQuerySchema,
+    responses: { 200: priceIntelHealthSchema },
+    errors: [403],
+  })
+  health(@Query() query: z.infer<typeof priceIntelHealthQuerySchema>): Promise<PriceIntelHealth> {
+    return this.admin.health(query.hours);
   }
 
   @Get('jobs')

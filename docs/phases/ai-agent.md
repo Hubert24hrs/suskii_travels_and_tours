@@ -137,11 +137,26 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
 
 - "AI Control Center" and "Data Sources" pages in `apps/admin`, with step-up on pause release,
   autonomy raises, budget increases and policy approvals.
+- Read against section 10 of the brief when F started, the console also owes: live runs and
+  their history with the tool-call trace; a conversation monitor (masked, permissioned,
+  audited); cost by agent, model, channel and account, with a month-end forecast; quality
+  (thumbs, answers the guard refused, handover rate, prompt versions); switching one agent off;
+  the limits in force; the knowledge base (ADR-105: upload, scan, full-text search, a tool that
+  cites what it used); and, for data sources, each vendor's success and refusal rate, latency,
+  cost per price read and breaker state. Each needs its admin route first.
 
 ### G. Clients
 
 - Website chat behind a lazy-loaded button (homepage stays within 170 kB), the app's assistant
   screens with a Maestro flow, WhatsApp, strings in all seven catalogs.
+- What a traveller sees of E: confirmation cards, assisted quotes (request, offer, the page
+  the messages link to), indicative prices with their source and time.
+- From section 12 of the brief, with the client that shows each: consented memory of
+  preferences (ADR-105: a table, the traveller's own page to see, change and erase it, a tool
+  that reads it and one that asks to remember); a fare trend from the fare history, labelled
+  as a trend; a shareable PDF of a plan or a quote with its validity, sources and the "to be
+  confirmed" wording; company travel policy in the trip builder's answers; a handover that says
+  when an answer is expected; a satisfaction question after a conversation.
 
 ### H. Hardening and delivery
 
@@ -149,6 +164,11 @@ tests and build for every workspace it touches, the API e2e suites it adds, and 
   new service (not applied), cost estimate, final regression run and the final report.
 - Staff cases in the routing and safety evals (the staff agents arrived in E with unit and
   end-to-end tests but no eval of their own).
+- Shadow mode (section 12 of the brief): a prompt version that runs beside the live one, is
+  never shown, and is compared before it may answer.
+- Left by F, from sections 10 and 12 of the brief: a recipe proposal when a site's pages stop
+  yielding prices, decided in Approvals; the results of the evals in the console (they are in
+  CI today); an alert when the month's forecast passes a threshold.
 
 ## Evaluation thresholds
 
@@ -665,3 +685,139 @@ arrives). No other answer changes; the confirmation, quote and console routes ar
 **Not done here**: the console has no page for any of this (F), no client offers the
 assistant, a confirmation card or a quote (G), and the agent service has no image, Terraform
 or Helm yet (H).
+
+### F. Console (2026-11-11)
+
+**Built**
+
+- **Pages for what E built**: the assistant's switches (`/ai`), the staff chat
+  (`/assistant`), approvals (`/approvals`), assisted quotes (`/assisted-quotes`) and data
+  sources (`/data-sources`). Each shows for `ai:read`; an action is shown only to staff who
+  hold its permission and is checked again by the API. Pause is one press with a reason;
+  releasing it, changing a level, approving a site, switching reading back on and raising a
+  budget ask for an authenticator code through the console's own step-up prompt.
+- **What staff see of the assistant's work.** `AgentInsightsService` and
+  `/v1/admin/ai/monitor/runs`, `.../runs/{id}`, `.../conversations`, `.../conversations/{id}`,
+  `/cost`, `/quality` and `/limits`, drawn by two pages: **Assistant activity** (runs with a
+  filter by status, agent and audience, refreshed every 15 seconds; a run's trace of tool
+  calls; travellers' conversations) and **Assistant cost and quality** (estimated spend by
+  agent, model, channel, day and account, the month so far and its forecast, the caps; runs
+  answered, handed over, refused by the guard and failed, feedback, the same by prompt
+  version; the limits in force and the model prices).
+- **One agent's switch**: `PUT /v1/admin/ai/agents/{agent}`, on the assistant page.
+- **The knowledge base** (ADR-105): tables `knowledge_documents` and `knowledge_chunks`
+  (migration `20261122120000_knowledge_base`), `KnowledgeService`, eight routes under
+  `/v1/admin/ai/knowledge`, the tool `knowledge.search` for every agent, the splitter and the
+  limits in `@suskii/shared`, the card kind `source`, and the **Knowledge base** page (add a
+  file, read its passages, download it, change its title or audience, archive and restore
+  it, try a question).
+- **Data source health**: `GET /v1/admin/data-sources/health` and its section on the data
+  sources page.
+- **The audit log narrowed to the assistant** (`area=assistant`), linked from the assistant
+  page for staff who may read the log.
+- The tools snapshot of the evals (38 tools), both new tables in the data registry and the
+  records of processing, the knowledge and switch actions in the audit list, three menu
+  entries, the console's copy.
+- Documents: amendments to ADR-102, ADR-105 and ADR-107, section 7.4 of the launch
+  checklist, the access control, data classification and business limits pages, the price
+  intelligence runbook.
+
+**How to try it** (local stack; no model and no vendor is called)
+
+1. `pnpm infra:up`, `pnpm --filter @suskii/api db:deploy`, `db:seed`, then `pnpm dev` with
+   `AGENT_SERVICE=mock`. `pnpm --filter @suskii/api staff:bootstrap` makes the first super
+   admin; sign in to the console on port 3001.
+2. **Knowledge base.** Add a Markdown file with a few headings for "Travellers", open
+   "Passages", then "Try a question" with a question the file answers. Change it to "Staff
+   only" and search again as a traveller: nothing is found.
+3. **Activity.** Ask something on "Ask the assistant", then open "Assistant activity": the
+   run is listed with its agent and outcome; "Trace" shows the tools it called. A traveller's
+   conversation (start one with `POST /v1/agent/conversations` and `POST /v1/agent/chat`)
+   opens with any address or number in it removed, and the audit log (Assistant, "The
+   assistant's audit log") shows the reading.
+4. **Cost.** Set `AGENT_MODEL_PRICES` (see `.env.example`) to see figures other than zero on
+   "Assistant cost and quality".
+5. **One agent.** On "Assistant", switch "Hotels" off: a question about hotels is then
+   answered by the general agent.
+
+**What changed from the plan**
+
+- **Plain text and Markdown only** in the knowledge base, a search vector written with the
+  row, any word of a question matching, a language instead of a locale, and no signed links
+  (ADR-105, amendments).
+- **The limits are shown, not edited.** The brief asks for "agent, model and limit
+  configuration"; what can be changed in the console is each agent's level and switch and
+  each tool's level. Run limits, caps and model prices are settings of the environment.
+- **Not built here, moved to H**: a recipe proposal for a site in drift, the results of the
+  evals in the console, and an alert on the month's forecast.
+
+**Found while building, and fixed**
+
+- **A conversation read could miss its own answer.** The messages were read before the run,
+  so a read that fell between the answer being stored and the run ending said that nothing
+  was running and showed no answer; the staff chat then stopped polling. Found by the
+  console's chat journey; the run is read first.
+- **The search preview stayed as it was after a document changed**: the page refreshed the
+  list only, and asking the same question again answered from what was already shown. Found
+  by the console's knowledge journey; a change now refreshes everything read from the
+  knowledge base, and the same question asked again is searched again.
+- The audit log is never emptied between tests, so a test that counted knowledge entries saw
+  another test's; it now reads its own document's entries.
+- **The gate caught a list I had not updated.** A test names exactly which admin operations
+  need a fresh authenticator code; the single-agent switch carries the check and was not in
+  the list, so the first full run of the API suite failed there (839 of 840). The list, this
+  guide and the access control page now name it, and the suite ran again in full.
+
+**Known limits, kept in view**
+
+- **Nothing checks a knowledge document for personal data.** The form says none belongs in
+  one; the people with `ai:manage` are trusted to keep it so.
+- **Nothing is read from a PDF or an office file.**
+- **Cost is an estimate** from reported tokens at configured prices; with no price set for a
+  model, its runs cost nothing on the page. No invoice is read.
+- **Everyone with `ai:read` can open a traveller's conversation**, masked and audited. The
+  owner decides whether that should be fewer people.
+- **The console shows no eval result**; the evals run in CI (`agent-eval.yml`) and locally.
+- The cost and quality queries aggregate `agent_runs` at read time; they are bounded to 90
+  days and are not cached.
+
+**Test results** (local, 2026-11-11). The long suites ran on commit `f8f5025`, the last one
+that changes what the API and the website do. The API suite had one failure there (the
+step-up list above); after the fix the full API suite, the console suite and every
+workspace's unit tests ran again on `4effea1`, the head of the branch. The commits between
+the two change a console page (the runs list refreshing itself), formatting and documents.
+
+| Check                                                  | Result                           | On        |
+| ------------------------------------------------------ | -------------------------------- | --------- |
+| `pnpm lint`                                            | 15 of 15 workspaces              | `f8f5025` |
+| `pnpm typecheck`                                       | 14 of 14 workspaces              | `f8f5025` |
+| `pnpm test` (unit, every workspace)                    | 12 of 12 tasks                   | `4effea1` |
+| API unit (`test:cov`, with the 80% gates)              | 74 suites, 808 tests             | `f8f5025` |
+| API e2e (full, `test:e2e:cov`)                         | 78 suites, 840 tests             | `4effea1` |
+| of which the knowledge base and the insights           | 15 tests                         | `4effea1` |
+| `@suskii/agent`                                        | 58 tests (10 in the three evals) | `4effea1` |
+| `@suskii/shared`                                       | 385 tests                        | `4effea1` |
+| Web e2e (Chromium and slow 3G)                         | 242 tests                        | `f8f5025` |
+| Mobile (Jest)                                          | 50 suites, 319 tests             | `f8f5025` |
+| Admin e2e                                              | 31 tests                         | `4effea1` |
+| `pnpm check:migrations` (46 migrations)                | pass                             | `4effea1` |
+| `pnpm security:checklist --check`, `pnpm format:check` | pass                             | `4effea1` |
+| `pnpm test:scripts`                                    | 13 tests                         | `4effea1` |
+
+| Eval (recorded answers) | Result                                              | Pass mark          |
+| ----------------------- | --------------------------------------------------- | ------------------ |
+| `eval:agent-routing`    | 78 of 81 (96.3%); 16 by rule without a model call   | 95%                |
+| `eval:agent-grounding`  | no invention shown; 15 of 16 grounded answers shown | 0 shown, 90% shown |
+| `eval:agent-safety`     | 28 of 28 held; no violation                         | 0 violations       |
+
+Before this sub-phase: API e2e 76 suites and 806 tests, admin e2e 24 tests, `@suskii/shared`
+378 tests. Not run: no model, no vendor and no supplier was called; the evals ran on recorded
+answers, and the staff agents still have no eval of their own (planned in H).
+
+**Decisions needed from the owner**
+
+- The documents the assistant should answer rules from, as text or Markdown, and who keeps
+  them current.
+- Whether everyone with the assistant's pages may open travellers' conversations (masked and
+  audited), or fewer people.
+- The model prices (`AGENT_MODEL_PRICES`), and the forecast above which someone is told.

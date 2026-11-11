@@ -1,19 +1,33 @@
 'use client';
 
 import { Button } from '@suskii/ui-web';
+import { useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
 import { adminApi } from '../../lib/api';
 import { format, t } from '../../lib/i18n';
 import { unwrap, useCursorPages } from '../../lib/queries';
 import { RequirePermission } from '../console-shell';
-import { DataTable, PageHeader, QueryState, TextField } from '../ui';
+import { DataTable, PageHeader, QueryState, SelectField, TextField } from '../ui';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Areas the log can be narrowed to; the assistant's pages link here with one chosen. */
+const AREAS = ['assistant'] as const;
+type Area = (typeof AREAS)[number];
+const areaOf = (value: string | null): Area | '' =>
+  value && (AREAS as readonly string[]).includes(value) ? (value as Area) : '';
+
 export function AuditPage() {
-  const [filters, setFilters] = useState<{ action?: string; actorUserId?: string }>({});
-  const [draft, setDraft] = useState({ action: '', actorUserId: '' });
+  const initialArea = areaOf(useSearchParams().get('area'));
+  const [filters, setFilters] = useState<{ action?: string; actorUserId?: string; area?: Area }>(
+    initialArea ? { area: initialArea } : {},
+  );
+  const [draft, setDraft] = useState<{ action: string; actorUserId: string; area: Area | '' }>({
+    action: '',
+    actorUserId: '',
+    area: initialArea,
+  });
   const pages = useCursorPages(['get', '/v1/admin/audit-logs', filters], async (cursor) =>
     unwrap(
       await adminApi.GET('/v1/admin/audit-logs', {
@@ -27,6 +41,7 @@ export function AuditPage() {
     setFilters({
       ...(draft.action.trim() ? { action: draft.action.trim() } : {}),
       ...(UUID.test(draft.actorUserId.trim()) ? { actorUserId: draft.actorUserId.trim() } : {}),
+      ...(draft.area ? { area: draft.area } : {}),
     });
   };
   return (
@@ -54,6 +69,18 @@ export function AuditPage() {
             }
           />
         </div>
+        <SelectField
+          label={t('audit.filterArea')}
+          name="area"
+          value={draft.area}
+          options={[
+            { value: '', label: t('audit.areas.all') },
+            ...AREAS.map((value) => ({ value, label: t(`audit.areas.${value}`) })),
+          ]}
+          onChange={(event) =>
+            setDraft((current) => ({ ...current, area: areaOf(event.target.value) }))
+          }
+        />
         <Button type="submit">{t('common.apply')}</Button>
       </form>
       <QueryState query={{ ...pages, data: rows }}>

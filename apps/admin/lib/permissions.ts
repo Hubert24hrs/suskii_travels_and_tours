@@ -41,6 +41,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/rides', label: 'nav.rides', anyOf: ['safety:manage', 'ground:manage'] },
   { href: '/rentals', label: 'nav.rentals', anyOf: ['ground:manage'] },
   { href: '/finance', label: 'nav.finance', anyOf: ['finance:reconcile'] },
+  // The assistant (ADR-101 to ADR-107): its switches, the staff chat, the two queues a person
+  // works, and the sites prices are read from. Reading needs ai:read; each change its own right.
+  { href: '/ai', label: 'nav.ai', anyOf: ['ai:read'] },
+  { href: '/assistant', label: 'nav.assistant', anyOf: ['ai:read'] },
+  { href: '/approvals', label: 'nav.approvals', anyOf: ['ai:read'] },
+  { href: '/assisted-quotes', label: 'nav.assistedQuotes', anyOf: ['ai:read'] },
+  { href: '/data-sources', label: 'nav.dataSources', anyOf: ['ai:read'] },
+  { href: '/ai-activity', label: 'nav.aiActivity', anyOf: ['ai:read'] },
+  { href: '/ai-insights', label: 'nav.aiInsights', anyOf: ['ai:read'] },
+  { href: '/knowledge', label: 'nav.knowledge', anyOf: ['ai:read'] },
 ];
 
 export function grantedPermissions(roles: readonly Role[]): ReadonlySet<Permission> {

@@ -904,6 +904,100 @@ describe('price intelligence (e2e)', () => {
     expect(await throttle.penalty('slow.example.com', Date.now() + 30 * 60_000)).toBe(1);
   });
 
+  it('says how reading has gone: each vendor and site, breakers and what a price cost', async () => {
+    const good = await approved();
+    const refused = await approved({ maxProxyClass: 'datacenter' });
+    await read(good.id);
+    mock.script(refused.domain, [
+      { fail: 'blocked', httpStatus: 403 },
+      { fail: 'blocked', httpStatus: 403 },
+    ]);
+    await read(refused.id);
+    const spent = async (domain: string) =>
+      Number(
+        (
+          await ctx.prisma.scrapeJob.aggregate({
+            where: { source: { domain } },
+            _sum: { costMicroUsd: true },
+          })
+        )._sum.costMicroUsd ?? 0n,
+      );
+    const kept = await ctx.prisma.priceObservation.count({ where: { sourceId: good.id } });
+    expect(kept).toBeGreaterThan(0);
+
+    const response = await ctx.http().get('/v1/admin/data-sources/health').set(as(support));
+    expect(response.status).toBe(200);
+    const health = response.body as {
+      from: string;
+      to: string;
+      vendors: Record<string, unknown>[];
+      sites: Record<string, unknown>[];
+      drift: unknown[];
+    };
+    expect(Date.parse(health.to) - Date.parse(health.from)).toBe(24 * 3_600_000);
+    const goodCost = await spent(good.domain);
+    const refusedCost = await spent(refused.domain);
+    // Three attempts through the one vendor: one usable page, two refusals.
+    expect(health.vendors).toEqual([
+      {
+        vendor: 'mock',
+        attempts: 3,
+        ok: 1,
+        blocked: 2,
+        successRateBps: 3333,
+        blockRateBps: 6667,
+        medianMs: expect.any(Number) as unknown,
+        costMicroUsd: goodCost + refusedCost,
+        costPerSuccessMicroUsd: goodCost + refusedCost,
+        breakerOpen: false,
+      },
+    ]);
+    // The busier site first; what a kept price cost only where one was kept.
+    expect(health.sites).toEqual([
+      {
+        domain: refused.domain,
+        attempts: 2,
+        ok: 0,
+        blocked: 2,
+        successRateBps: 0,
+        blockRateBps: 10_000,
+        medianMs: expect.any(Number) as unknown,
+        costMicroUsd: refusedCost,
+        observations: 0,
+        costPerObservationMicroUsd: null,
+      },
+      {
+        domain: good.domain,
+        attempts: 1,
+        ok: 1,
+        blocked: 0,
+        successRateBps: 10_000,
+        blockRateBps: 0,
+        medianMs: expect.any(Number) as unknown,
+        costMicroUsd: goodCost,
+        observations: kept,
+        costPerObservationMicroUsd: Math.round(goodCost / kept),
+      },
+    ]);
+    expect(health.drift).toEqual([]);
+
+    // A vendor whose quota is spent is shown as skipped, and an old window holds nothing.
+    const third = await approved();
+    mock.script(third.domain, [{ fail: 'quota_exhausted', retryAfterMs: 30_000 }]);
+    await read(third.id);
+    const after = (await ctx.http().get('/v1/admin/data-sources/health?hours=1').set(as(support)))
+      .body as { vendors: { breakerOpen: boolean; attempts: number }[] };
+    expect(after.vendors[0]).toMatchObject({ breakerOpen: true, attempts: 4 });
+    expect(
+      (await ctx.http().get('/v1/admin/data-sources/health?hours=0').set(as(support))).status,
+    ).toBe(400);
+    // Nobody without the assistant's read permission.
+    const outsider = await staffSession(ctx, 'intel-content@suskii.test', ['content_manager']);
+    expect((await ctx.http().get('/v1/admin/data-sources/health').set(as(outsider))).status).toBe(
+      403,
+    );
+  });
+
   it('gives the register of sites and the reads with their attempts', async () => {
     const open = await approved();
     const closed = await create();
