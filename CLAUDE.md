@@ -892,8 +892,13 @@ Tooling notes for agents:
   (`lib/recent-hotel-searches.ts` on both clients: checked again when read, dropped after
   check-in, cleared with the account's data in the app). Never send them to the API.
 - "Things to do" on a hotel page is `PartnerOffers` with the hotel's country and city (ADR-069);
-  "Tonight in {city}" on the website's hotels page takes its dates from the browser's clock, so
+  "Tonight in {city}" on the website's hotels page takes its instant from the browser's clock, so
   it renders there and sits under the destinations, where it moves nothing (ADR-075).
+- "Today" or "tonight" somewhere is the place's own date: `todayIn(timeZone)` in `@suskii/shared`
+  (UTC for a place without a zone), the rule the hotel search checks a check-in with. Never date
+  a link or a default by the visitor's or the device's calendar: late in a Lagos evening it is
+  already tomorrow in Dubai, and the search refuses that date as in the past. A test of such a
+  date pins the clock (`page.clock.setFixedTime`): a suite that only runs by day never meets it.
 
 ### Combined trips (apps/api/src/trips, packages/shared trips; ADR-099)
 
