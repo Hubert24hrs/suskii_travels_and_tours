@@ -33,6 +33,8 @@ locals {
   labels   = merge({ app = "suskii", environment = var.environment, managed_by = "terraform" }, var.labels)
 
   apis = toset([
+    # Ask Suskii's model, Gemini on Vertex AI (ADR-112), called only while assistant_model is vertex.
+    "aiplatform.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "compute.googleapis.com",
@@ -190,6 +192,26 @@ resource "google_project_iam_member" "vm" {
   project  = var.project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.vm.email}"
+}
+
+# Ask Suskii's model (ADR-112): one permission, to call a model on Vertex AI, and nothing else of
+# Vertex AI (no datasets, endpoints, training or tuning). The machine holds it only while the
+# assistant answers with Vertex AI; scripts/gcp/deploy-vm.sh also gives it to the build identity,
+# which runs the evals against the model (infra/gcp/cloudbuild.agent-eval.yaml).
+resource "google_project_iam_custom_role" "model_caller" {
+  project     = var.project_id
+  role_id     = "suskiiModelCaller"
+  title       = "Suskii model caller"
+  description = "Calls a model on Vertex AI for Ask Suskii, and nothing else (ADR-112)."
+  permissions = ["aiplatform.endpoints.predict"]
+  depends_on  = [google_project_service.apis]
+}
+
+resource "google_project_iam_member" "vm_model_caller" {
+  count   = var.assistant_model == "vertex" ? 1 : 0
+  project = var.project_id
+  role    = google_project_iam_custom_role.model_caller.id
+  member  = "serviceAccount:${google_service_account.vm.email}"
 }
 
 # --- Images -------------------------------------------------------------------------------------
@@ -407,18 +429,19 @@ resource "google_compute_instance" "backend" {
     suskii-deploy           = file("${path.module}/../../gcp/vm/deploy.sh")
     suskii-backup           = file("${path.module}/../../gcp/vm/backup.sh")
     suskii-settings = jsonencode({
-      project_id        = var.project_id
-      environment       = var.environment
-      registry          = local.registry
-      api_host          = local.api_host
-      sites             = var.sites
-      web_host          = local.web_host
-      admin_host        = local.admin_host
-      documents_bucket  = google_storage_bucket.documents.name
-      backups_bucket    = google_storage_bucket.backups.name
-      assistant_enabled = var.assistant_enabled
-      assistant_model   = var.assistant_model
-      sample_catalogue  = var.sample_catalogue
+      project_id         = var.project_id
+      environment        = var.environment
+      registry           = local.registry
+      api_host           = local.api_host
+      sites              = var.sites
+      web_host           = local.web_host
+      admin_host         = local.admin_host
+      documents_bucket   = google_storage_bucket.documents.name
+      backups_bucket     = google_storage_bucket.backups.name
+      assistant_enabled  = var.assistant_enabled
+      assistant_model    = var.assistant_model
+      assistant_location = var.assistant_location != "" ? var.assistant_location : var.region
+      sample_catalogue   = var.sample_catalogue
     })
   }
 

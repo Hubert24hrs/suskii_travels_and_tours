@@ -82,12 +82,22 @@ variable "assistant_enabled" {
 }
 
 variable "assistant_model" {
-  description = "What answers for Ask Suskii: gemini or anthropic with the key in LLM_API_KEY, or mock, the stand-in that calls no provider."
+  description = "What answers for Ask Suskii: vertex (Gemini on Vertex AI as the machine's own identity, no key, ADR-112), gemini or anthropic with the key in LLM_API_KEY, or mock, the stand-in that calls no provider."
   type        = string
   default     = "mock"
   validation {
-    condition     = contains(["gemini", "anthropic", "mock"], var.assistant_model)
-    error_message = "Use gemini, anthropic or mock."
+    condition     = contains(["vertex", "gemini", "anthropic", "mock"], var.assistant_model)
+    error_message = "Use vertex, gemini, anthropic or mock."
+  }
+}
+
+variable "assistant_location" {
+  description = "With vertex: where Vertex AI processes the assistant's requests, a region or global. Empty: the machine's own region."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.assistant_location == "" || can(regex("^(global|[a-z]+-[a-z]+[0-9]+)$", var.assistant_location))
+    error_message = "Use a region such as europe-west2, or global."
   }
 }
 

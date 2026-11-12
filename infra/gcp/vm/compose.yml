@@ -121,6 +121,12 @@ services:
       # The assistant is its own container. The API never waits on it: with this off, or the
       # container down, every search, booking and payment route answers as before.
       AGENT_ENABLED: ${SUSKII_ASSISTANT_ENABLED:?}
+      # Its spend on this machine, in micro-dollars a day (ADR-112): far below the defaults, which
+      # are sized for production. Estimates at the model's list price; past one, a new message
+      # is told the assistant has reached today's limit, and nothing else on the platform changes.
+      AGENT_GLOBAL_DAILY_MICROUSD: '2000000'
+      AGENT_USER_DAILY_MICROUSD: '1000000'
+      AGENT_GUEST_DAILY_MICROUSD: '200000'
       AGENT_SERVICE: http
       AGENT_URL: http://agent:4200
     depends_on:
