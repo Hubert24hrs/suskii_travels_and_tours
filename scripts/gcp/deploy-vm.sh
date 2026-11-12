@@ -26,6 +26,8 @@
 #                                           its secret is in the secret TURNSTILE_SECRET_KEY
 #   SAMPLE_CATALOGUE=true|false             a testing backend's sample packages, tours, buses and
 #                                           rental cars, every one marked as a sample
+#   MAILBOX=true|false                      a testing backend's mailbox: every email the API
+#                                           sends lands there and goes no further (ADR-113)
 #   MACHINE_TYPE=e2-medium|e2-small         the machine's size (a change restarts it)
 # And for one run only:
 #   SUSKII_TAG=<tag>                        release images that are built already
@@ -130,6 +132,11 @@ case "${SAMPLE_CATALOGUE:-}" in
   "") ;;
   true | false) set_setting sample_catalogue "$SAMPLE_CATALOGUE" ;;
   *) stop "SAMPLE_CATALOGUE must be true or false." ;;
+esac
+case "${MAILBOX:-}" in
+  "") ;;
+  true | false) set_setting mailbox "$MAILBOX" ;;
+  *) stop "MAILBOX must be true or false." ;;
 esac
 case "${MACHINE_TYPE:-}" in
   "") ;;
@@ -302,6 +309,7 @@ $(if [ "$SITES_ON" = "true" ]; then printf '  Website              %s\n  Admin c
   Machine              $INSTANCE, $(terraform output -raw address)
   Assistant's model    $(setting assistant_model)
   Sample catalogue     $(if [ "$(setting sample_catalogue)" = "true" ]; then echo on; else echo off; fi)
+  Mailbox              $(if [ -n "$(terraform output -raw mailbox_url)" ]; then echo "$(terraform output -raw mailbox_url) (user suskii, password in the secret MAILBOX_PASSWORD)"; else echo off; fi)
   Last release         $outcome
 
 To run it again after new code is merged: git pull, then the same command.
@@ -315,7 +323,10 @@ To open the website's sign-up and guest forms: create a Turnstile widget for the
   TURNSTILE_SITE_KEY=<its site key> bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To show sample packages, tours, buses and rental cars on this testing backend (or to stop):
   SAMPLE_CATALOGUE=true bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
-To make the first admin (after that person has signed up), from the machine's SSH button:
+To keep every email the API sends in a mailbox on the machine, on a testing backend:
+  MAILBOX=true bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
+To make the first admin (after that person has signed up and opened the link in the email
+  that confirms their address), from the machine's SSH button:
   sudo /opt/suskii/ops scripts/staff-bootstrap.ts --email THEIR@ADDRESS --yes
 ------------------------------------------------------------------------------------------------
 EOF2

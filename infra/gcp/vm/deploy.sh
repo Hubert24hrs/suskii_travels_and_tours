@@ -32,13 +32,15 @@ setting() { python3 -c 'import json, sys; print(json.load(open("/opt/suskii/sett
 # The website and the console run here when the settings say so and their images are named.
 SITES=false
 if [ "$(setting sites)" = "True" ] && [ -n "${SITES_TAG:-}" ]; then SITES=true; fi
-md instance/attributes/suskii-caddyfile >/opt/suskii/Caddyfile.new
+# A testing backend's mailbox (ADR-113): the API's email lands in it and stops there.
+MAILBOX=false
+if [ "$(setting mailbox)" = "True" ]; then MAILBOX=true; fi
+# Only root reads the Caddyfile: with the mailbox it holds the hash of the mailbox's password.
+# It is finished, compared and put in place after the keys.
+(umask 077 && md instance/attributes/suskii-caddyfile >/opt/suskii/Caddyfile.new)
 if [ "$SITES" = true ]; then
   md instance/attributes/suskii-caddyfile-sites >>/opt/suskii/Caddyfile.new
 fi
-CADDY_CHANGED=false
-cmp -s /opt/suskii/Caddyfile.new /opt/suskii/Caddyfile || CADDY_CHANGED=true
-mv /opt/suskii/Caddyfile.new /opt/suskii/Caddyfile
 status "deploying $RELEASE"
 
 # The keys: read as the VM's own identity, written to files only root can read, in memory.
@@ -105,6 +107,14 @@ write(
 )
 write("worker.env", {"REDIS_URL": redis_url, "INTERNAL_API_TOKEN": secret("INTERNAL_API_TOKEN")})
 
+# The mailbox's password, for the next step to hash (ADR-113): a file only root reads, in
+# memory, deleted as soon as the hash exists.
+mailbox = bool(settings.get("mailbox"))
+if mailbox:
+    descriptor = os.open("/run/suskii/mailbox.password", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "w") as out:
+        out.write(secret("MAILBOX_PASSWORD"))
+
 # The assistant's own file: its two tokens, its own database role and what answers. With
 # vertex it calls Gemini on Vertex AI as this machine, with a short-lived token from the metadata
 # server and no key at all (ADR-112); a model key is read only for a provider that needs one.
@@ -138,6 +148,8 @@ write(
         "SUSKII_DOCUMENTS_BUCKET": settings["documents_bucket"],
         "SUSKII_ASSISTANT_ENABLED": "true" if settings["assistant_enabled"] else "false",
         "SUSKII_SAMPLE_CATALOGUE": "true" if settings.get("sample_catalogue") else "false",
+        "SUSKII_EMAIL_PROVIDER": "smtp" if mailbox else "mock",
+        "SUSKII_MAIL_HOST": settings.get("mail_host") or "mail.suskii.example",
     },
     mode=0o644,
 )
@@ -161,12 +173,32 @@ exec docker compose --env-file /opt/suskii/compose.env -f /opt/suskii/compose.ym
 OPS
 chmod 0755 /opt/suskii/ops
 
-STEP=images
-if [ "$SITES" = true ]; then
-  compose --profile release --profile sites pull --quiet
-else
-  compose --profile release pull --quiet
+# The mailbox's page (ADR-113) answers only with its password, which Caddy checks against a
+# bcrypt hash. The hash is made again only when the password in Secret Manager changes, so a
+# release does not reload Caddy for nothing; the password goes in on standard input only.
+STEP=mailbox-key
+if [ "$MAILBOX" = true ]; then
+  FINGERPRINT="$(sha256sum </run/suskii/mailbox.password | cut -c1-64)"
+  if [ "$(cut -d' ' -f1 /opt/suskii/mailbox-auth 2>/dev/null || true)" != "$FINGERPRINT" ]; then
+    CADDY_IMAGE="$(compose config --images | grep -m1 '^caddy:')"
+    HASH="$( (cat /run/suskii/mailbox.password && echo) |
+      docker run --rm -i --network none "$CADDY_IMAGE" caddy hash-password)"
+    (umask 077 && printf '%s %s\n' "$FINGERPRINT" "$HASH" >/opt/suskii/mailbox-auth)
+  fi
+  md instance/attributes/suskii-caddyfile-mailbox |
+    python3 -c 'import sys; sys.stdout.write(sys.stdin.read().replace("@MAILBOX_PASSWORD_HASH@", sys.argv[1]))' \
+      "$(cut -d' ' -f2 /opt/suskii/mailbox-auth)" >>/opt/suskii/Caddyfile.new
 fi
+rm -f /run/suskii/mailbox.password
+CADDY_CHANGED=false
+cmp -s /opt/suskii/Caddyfile.new /opt/suskii/Caddyfile || CADDY_CHANGED=true
+mv /opt/suskii/Caddyfile.new /opt/suskii/Caddyfile
+
+STEP=images
+PROFILES=(--profile release)
+if [ "$SITES" = true ]; then PROFILES+=(--profile sites); fi
+if [ "$MAILBOX" = true ]; then PROFILES+=(--profile mailbox); fi
+compose "${PROFILES[@]}" pull --quiet
 
 STEP=data
 compose up -d --wait --wait-timeout 180 postgres redis
@@ -182,6 +214,17 @@ fi
 
 STEP=database
 compose --profile release run --rm migrate
+
+# The mailbox before the API, which sends to it (ADR-113). Switched off, it goes, and so does
+# the mail it kept.
+STEP=mailbox
+if [ "$MAILBOX" = true ]; then
+  install -d -o 1000 -g 1000 -m 0700 /mnt/data/mailbox
+  compose --profile mailbox up -d --wait --wait-timeout 120 mailbox
+else
+  compose --profile mailbox rm -fs mailbox >/dev/null 2>&1 || true
+  rm -rf /mnt/data/mailbox /opt/suskii/mailbox-auth
+fi
 
 # The platform. Caddy asks for its certificates on its own, in the background, and takes a
 # changed list of names without dropping a connection.
@@ -273,9 +316,28 @@ SITES_DOOR=""
 if [ "$SITES" = true ]; then
   SITES_DOOR="; website: $(door "https://$(setting web_host)/robots.txt"); console: $(door "https://$(setting admin_host)/sign-in")"
 fi
+# The mailbox must refuse whoever has no password: 401 is right. A page that answers without it
+# is stopped at once and reported.
+MAIL_DOOR=""
+if [ "$MAILBOX" = true ]; then
+  CODE=""
+  for _ in $(seq 1 36); do
+    CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$(setting mail_host)/" || true)"
+    if [ "$CODE" = "401" ] || [ "$CODE" = "200" ]; then break; fi
+    sleep 5
+  done
+  case "$CODE" in
+    401) MAIL_DOOR="; mailbox: locked" ;;
+    200)
+      compose --profile mailbox stop mailbox >/dev/null 2>&1 || true
+      MAIL_DOOR="; mailbox: stopped, it answered without its password"
+      ;;
+    *) MAIL_DOOR="; mailbox: not answering yet" ;;
+  esac
+fi
 
 STEP=tidy
 docker image prune -af --filter until=48h >/dev/null 2>&1 || true
 echo "$RELEASE" >/run/suskii/deployed
 MEMORY="$(free -m | awk '/^Mem:/ { print $3 " of " $2 " MB in use" }')"
-status "ok $RELEASE; assistant: $ASSISTANT; https://$HOST: $DOOR$SITES_DOOR$SAMPLE; memory: $MEMORY"
+status "ok $RELEASE; assistant: $ASSISTANT; https://$HOST: $DOOR$SITES_DOOR$MAIL_DOOR$SAMPLE; memory: $MEMORY"

@@ -75,6 +75,12 @@ variable "sample_catalogue" {
   default     = false
 }
 
+variable "mailbox" {
+  description = "A testing backend only (ADR-113): every email the API sends lands in a mailbox on the machine and goes no further, read at mail.endpoints.<project>.cloud.goog with the password in the secret MAILBOX_PASSWORD. Refused in an environment named production."
+  type        = bool
+  default     = false
+}
+
 variable "assistant_enabled" {
   description = "AGENT_ENABLED on the API. False takes Ask Suskii out of the picture; nothing else changes."
   type        = bool
