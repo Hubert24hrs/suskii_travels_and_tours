@@ -458,6 +458,10 @@ export function AssistantScreen() {
         return;
       }
       setText('');
+      // A read of the conversation that started before the message was stored must not land
+      // on top of this: it would drop the message and, with no run in it, stop the polling
+      // before the answer arrives.
+      await queryClient.cancelQueries({ queryKey: ['agent', 'conversation', current.id] });
       // The traveller's message shows at once; the run it started is then followed.
       queryClient.setQueryData(
         ['agent', 'conversation', current.id],
