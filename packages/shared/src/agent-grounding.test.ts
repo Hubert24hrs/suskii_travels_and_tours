@@ -7,6 +7,7 @@ import {
   leaksInstructions,
   namedTools,
   outcomeClaims,
+  plainAnswerText,
   unsupportedOutcomes,
 } from './agent-grounding';
 
@@ -276,5 +277,50 @@ describe('what the assistant never does or asks', () => {
     ]) {
       expect([answer, asksForSecrets(answer)]).toEqual([answer, false]);
     }
+  });
+});
+
+describe('plainAnswerText (ADR-112)', () => {
+  it('turns a Markdown answer into the plain text the clients draw', () => {
+    const markdown = [
+      '## Flights on 10 December',
+      'I found **two direct flights** from Lagos to Abuja:',
+      '',
+      '',
+      '1. **Air Peace** (Economy)',
+      '   * Departs Lagos: 07:15',
+      '   * Price: NGN 96,500.00',
+      '- Ibom Air, __refundable__, `QI 0304`',
+      '+ *Free* cancellation until 3 December',
+      '---',
+      'Shall I hold one?',
+    ].join('\n');
+    expect(plainAnswerText(markdown)).toBe(
+      [
+        'Flights on 10 December',
+        'I found two direct flights from Lagos to Abuja:',
+        '',
+        '1. Air Peace (Economy)',
+        '   • Departs Lagos: 07:15',
+        '   • Price: NGN 96,500.00',
+        '• Ibom Air, refundable, QI 0304',
+        '• Free cancellation until 3 December',
+        '',
+        'Shall I hold one?',
+      ].join('\n'),
+    );
+  });
+
+  it('leaves plain words, figures, links and names with stars or underscores alone', () => {
+    for (const text of [
+      'Three flights leave on Friday, from NGN 96,500.',
+      'Open https://suskii.example/trips/a_b_c to see it.',
+      'The trip_builder agent and 5 * 3 = 15 stay as written.',
+      'Room 2*4 is booked.',
+    ]) {
+      expect(plainAnswerText(text)).toBe(text);
+    }
+    expect(plainAnswerText('  \n**\n')).toBe('**');
+    expect(plainAnswerText('---\n***')).toBe('');
   });
 });
