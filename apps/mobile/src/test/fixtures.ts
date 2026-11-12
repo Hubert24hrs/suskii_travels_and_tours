@@ -355,6 +355,30 @@ export function inhouseQuote(kind: 'package' | 'tour'): Schemas['Quote'] {
   };
 }
 
+/** An airport transfer on its own: it asks for the flight, its arrival time and the address. */
+export function transferQuote(): Schemas['Quote'] {
+  return {
+    ...flightQuote(),
+    vertical: 'travel_addons',
+    flight: null,
+    addon: {
+      product: product('Airport transfer (sample)', 'sample-airport-transfer'),
+      type: 'airport_transfer',
+      pricingBasis: 'per_booking',
+      units: 1,
+      startDate: '2026-12-05',
+      endDate: '2026-12-05',
+      countryCode: 'NG',
+      cityName: 'Lagos',
+      travellers: { adults: 1, children: 0, infants: 0 },
+      requiredDetails: ['flight_number', 'arrival_time', 'pickup_address'],
+      cancellationPolicy: tiers,
+      linkedBooking: null,
+    },
+    price: inhousePrice(2_500_000),
+  };
+}
+
 /** Two nights in Lagos, with the city tax paid at the hotel. */
 export function hotelQuote(): Schemas['Quote'] {
   return {

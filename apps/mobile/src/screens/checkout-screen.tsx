@@ -1,7 +1,9 @@
 import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
 import {
+  addDays,
   BOOKING_TERMS_VERSION,
+  earliestToday,
   FLIGHT_NUMBER_PATTERN,
   flightFacts,
   inhouseFacts,
@@ -33,12 +35,14 @@ import {
   type PlanChoiceValue,
 } from '../components/booking/payment-options';
 import { CarsSummary, hasCarsItem } from '../components/cars/cars-summary';
+import { DateTimeField } from '../components/date-field';
 import { InhouseSummary } from '../components/inhouse/inhouse-summary';
 import { AssistedSummary } from '../components/quotes/assisted-summary';
 import { Loading, Notice } from '../components/states';
 import { useSensitiveScreen } from '../hooks/use-sensitive-screen';
 import { problemSlug } from '../lib/api';
 import { attestationHeader } from '../lib/attestation';
+import type { DateBounds } from '../lib/dates';
 import { openHostedCheckout, startPayment } from '../lib/payment';
 import { activeTrip, quoteTripComponent, useActiveTrip } from '../lib/trip-builder';
 import { followBooking } from '../lib/push';
@@ -116,6 +120,18 @@ function checkAddonDetails(
       issues[`addonDetails.${field}`] = 'invalid';
   }
   return issues;
+}
+
+/**
+ * The days a transfer's arrival time can fall on (ADR-114): the extra's own dates and a day
+ * either side, since a late flight lands after midnight, and never a day already past everywhere.
+ */
+function arrivalDates(addon: NonNullable<Quote['addon']>): DateBounds {
+  const today = earliestToday();
+  const first = addDays(addon.startDate, -1);
+  const min = first < today ? today : first;
+  const last = addDays(addon.endDate, 1);
+  return { min, max: last < min ? min : last };
 }
 
 /** Whether travellers give passport details: required abroad, optional on domestic flights. */
@@ -651,17 +667,14 @@ function Checkout({ quote }: { quote: Quote }) {
                 }
               />
             ) : null}
-            {detailFields.includes('arrivalTime') ? (
-              <Input
+            {quote.addon && detailFields.includes('arrivalTime') ? (
+              <DateTimeField
                 testID="addonDetails.arrivalTime"
                 label={t('checkout.addonDetails.arrivalTime')}
-                hint={t('mobile.checkout.dateTimeHint')}
                 value={details.arrivalTime}
-                onChangeText={(arrivalTime) =>
-                  setDetails((current) => ({ ...current, arrivalTime }))
-                }
-                keyboardType="numbers-and-punctuation"
-                maxLength={16}
+                onChange={(arrivalTime) => setDetails((current) => ({ ...current, arrivalTime }))}
+                {...arrivalDates(quote.addon)}
+                opensOn={quote.addon.startDate}
                 error={issue('addonDetails.arrivalTime')}
               />
             ) : null}

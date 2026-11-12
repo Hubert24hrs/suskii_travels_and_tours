@@ -1,7 +1,8 @@
 # ADR-109: Ask Suskii: Gemini, one button that moves, bookings prepared for the traveller, and plain copy
 
 - Status: Accepted; amended by ADR-112 (Gemini through Vertex AI with no key, and Gemini 3.5
-  Flash in place of 2.5 Flash, which Google refused to the owner's new project)
+  Flash in place of 2.5 Flash, which Google refused to the owner's new project) and ADR-114 (the
+  app's typed dates became date and time pickers)
 - Date: 2026-11-12
 - Deciders: the owner (asked for it after trying the test app, with a reference picture),
   Claude Code (implementer)
@@ -173,7 +174,8 @@ What stays, and why:
 
 - A format a field needs. The app's typed dates are still entered as `2026-12-01` and
   `2026-12-01T14:30`, and the hint shows that form. The right fix is a date and time picker on
-  those 12 fields; it is a change of its own.
+  those 12 fields; it is a change of its own. (Done in ADR-114: the fields are pickers, and no
+  string shows that form.)
 - French and Portuguese spelling. "Peut-être", "avez-vous" and "fim-de-semana" are how those
   words are written; removing the hyphen would be a spelling mistake.
 - Addresses of pages (`/travel-add-ons`), which are names for machines and for search engines;

@@ -99,13 +99,11 @@ tags:
     id: passengers.0.surname
 - inputText: Okafor
 - hideKeyboard
-- scrollUntilVisible:
-    element:
-      id: passengers.0.dateOfBirth
-- tapOn:
-    id: passengers.0.dateOfBirth
-- inputText: 1990-04-21
-- hideKeyboard
+- runFlow:
+    file: subflows/choose-date.yaml
+    env:
+      FIELD: passengers.0.dateOfBirth
+      DATE: '1990-04-21'
 - scrollUntilVisible:
     element:
       id: passengers.0.nationality

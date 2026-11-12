@@ -1178,10 +1178,17 @@ export const sw: Messages = {
       noResults:
         'Hakuna kinacholingana na utafutaji huu. Jaribu tarehe, maeneo au vichujio vingine.',
     },
+    datePicker: {
+      chooseDate: 'Chagua tarehe',
+      chooseDateTime: 'Chagua tarehe na saa',
+      chooseYear: 'Chagua mwaka',
+      chooseMonth: 'Chagua mwezi',
+      time: 'Saa kwa mfumo wa saa 24',
+      hour: 'Saa',
+      minutes: 'Dakika',
+    },
     checkout: {
       title: 'Malipo',
-      dateHint: 'Mwaka-mwezi-siku, kwa mfano 1990-04-21',
-      dateTimeHint: 'Tarehe na saa ya huko kwa mfumo wa saa 24, kwa mfano 2026-12-01T14:30',
       payOnProvider:
         'Unalipa kwenye ukurasa salama wa mtoa huduma wa malipo. Hatuoni kadi yako kamwe.',
       viewBooking: 'Angalia uhifadhi',
@@ -1350,8 +1357,6 @@ export const sw: Messages = {
     cars: {
       title: 'Mabasi na magari',
       busTripTitle: 'Chagua viti',
-      dateHint: 'Mwaka-mwezi-siku, kwa mfano 2026-12-01',
-      dateTimeHint: 'Tarehe na saa kwa mfumo wa saa 24, kwa mfano 2026-12-01T10:00',
       searchAgain: 'Badilisha utafutaji',
       rider: 'Nani anasafiri',
       renter: 'Nani anakodi (kama kwenye leseni ya udereva)',

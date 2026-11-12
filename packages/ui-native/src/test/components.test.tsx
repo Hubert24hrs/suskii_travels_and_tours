@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Badge } from '../components/badge';
 import { Button } from '../components/button';
 import { Combobox } from '../components/combobox';
+import { DatePicker, type DatePickerProps } from '../components/date-picker';
 import { DateRangePicker, type DateRange } from '../components/date-range-picker';
 import { DealCard } from '../components/deal-card';
 import { DestinationCard } from '../components/destination-card';
@@ -256,6 +257,196 @@ describe('DateRangePicker', () => {
 
     expect(screen.getByRole('button', { name: /\b15 October 2026/ })).toBeSelected();
     expect(screen.getByRole('button', { name: 'Dates, 12-19' })).toBeOnTheScreen();
+  });
+});
+
+describe('DatePicker', () => {
+  const labels = {
+    done: 'Done',
+    close: 'Close',
+    previousMonth: 'Previous month',
+    nextMonth: 'Next month',
+    chooseYear: 'Choose a year',
+    chooseMonth: 'Choose a month',
+    time: 'Time, on the 24 hour clock',
+    hour: 'Hour',
+    minutes: 'Minutes',
+  };
+  /** What an app shows for a value: a date in words, and a time after it. */
+  const words = (value: string): string => {
+    const day = new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(`${value.slice(0, 10)}T00:00:00Z`));
+    return value.length > 10 ? `${day} at ${value.slice(11)}` : day;
+  };
+
+  function Field({
+    initial = '',
+    onChange,
+    ...props
+  }: Partial<Omit<DatePickerProps, 'onChange'>> & {
+    initial?: string;
+    onChange?: (value: string) => void;
+  }) {
+    const [value, setValue] = useState(initial);
+    return (
+      <DatePicker
+        mode="date"
+        label="Date of birth"
+        placeholder="Choose a date"
+        formatValue={words}
+        min="1906-11-12"
+        max="2026-11-12"
+        locale="en-GB"
+        labels={labels}
+        testID="dob"
+        {...props}
+        value={value}
+        onChange={(next) => {
+          setValue(next);
+          onChange?.(next);
+        }}
+      />
+    );
+  }
+
+  it('reaches a birth year through the years and the months, and keeps the day on Done', async () => {
+    const onChange = jest.fn();
+    await render(<Field start="year" onChange={onChange} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Date of birth, Choose a date' }));
+
+    expect(screen.getByRole('header', { name: 'Choose a year' })).toBeOnTheScreen();
+    expect(screen.getByTestId('dob-year-1906')).toBeOnTheScreen();
+    expect(screen.queryByTestId('dob-year-2027')).toBeNull();
+    expect(screen.getByTestId('dob-done')).toBeDisabled();
+
+    await fireEvent.press(screen.getByTestId('dob-year-1990'));
+    expect(screen.getByRole('header', { name: 'Choose a month' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'April 1990' }));
+    await fireEvent.press(screen.getByRole('button', { name: /21 April 1990/ }));
+
+    expect(screen.getByRole('button', { name: /21 April 1990/ })).toBeSelected();
+    expect(screen.getByTestId('dob-value')).toHaveTextContent('21 Apr 1990');
+    expect(onChange).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('dob-done'));
+
+    expect(onChange).toHaveBeenCalledWith('1990-04-21');
+    expect(screen.getByRole('button', { name: 'Date of birth, 21 Apr 1990' })).toBeOnTheScreen();
+  });
+
+  it('opens on the chosen month and keeps the old value when closed without Done', async () => {
+    const onChange = jest.fn();
+    await render(<Field start="year" initial="1990-04-21" onChange={onChange} />);
+    await fireEvent.press(screen.getByTestId('dob'));
+
+    expect(screen.getByTestId('dob-years')).toHaveTextContent('April 1990');
+    expect(screen.getByTestId('dob-day-1990-04-21')).toBeSelected();
+    await fireEvent.press(screen.getByTestId('dob-day-1990-04-22'));
+    expect(screen.getByTestId('dob-value')).toHaveTextContent('22 Apr 1990');
+    await fireEvent.press(screen.getByTestId('dob-sheet-close'));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Date of birth, 21 Apr 1990' })).toBeOnTheScreen();
+    // The years open on the year on show, and a year leads to its months.
+    await fireEvent.press(screen.getByTestId('dob'));
+    await fireEvent.press(screen.getByTestId('dob-years'));
+    expect(screen.getByTestId('dob-year-1990')).toBeSelected();
+    await fireEvent.press(screen.getByTestId('dob-year-1991'));
+    expect(screen.getByTestId('dob-years')).toHaveTextContent('1991');
+  });
+
+  it('offers only the days, months and years between the first and last day', async () => {
+    // A range in the past: the calendar opens on its last month whatever today is.
+    await render(<Field min="2001-03-10" max="2001-05-20" />);
+    await fireEvent.press(screen.getByTestId('dob'));
+
+    expect(screen.getByTestId('dob-years')).toHaveTextContent('May 2001');
+    expect(screen.getByRole('button', { name: 'Next month' })).toBeDisabled();
+    expect(screen.getByTestId('dob-day-2001-05-21')).toBeDisabled();
+    expect(screen.getByTestId('dob-day-2001-05-20')).toBeEnabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous month' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous month' }));
+    expect(screen.getByTestId('dob-years')).toHaveTextContent('March 2001');
+    expect(screen.getByRole('button', { name: 'Previous month' })).toBeDisabled();
+    expect(screen.getByTestId('dob-day-2001-03-09')).toBeDisabled();
+
+    await fireEvent.press(screen.getByTestId('dob-years'));
+    expect(screen.getByTestId('dob-year-2001')).toBeOnTheScreen();
+    expect(screen.queryByTestId('dob-year-2000')).toBeNull();
+    await fireEvent.press(screen.getByTestId('dob-year-2001'));
+    expect(screen.getByTestId('dob-month-2001-02')).toBeDisabled();
+    expect(screen.getByTestId('dob-month-2001-06')).toBeDisabled();
+    expect(screen.getByTestId('dob-month-2001-04')).toBeEnabled();
+  });
+
+  it('takes a time on the 24 hour clock, and Done waits until there is one', async () => {
+    const onChange = jest.fn();
+    await render(
+      <Field
+        mode="dateTime"
+        label="Pick-up"
+        placeholder="Choose a date and time"
+        min="2001-03-10"
+        max="2001-05-20"
+        testID="pickup"
+        onChange={onChange}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('pickup'));
+
+    expect(screen.getByRole('header', { name: 'Time, on the 24 hour clock' })).toBeOnTheScreen();
+    expect(screen.getByTestId('pickup-hour-00')).toBeOnTheScreen();
+    expect(screen.getByTestId('pickup-hour-23')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByTestId('pickup-day-2001-05-12'));
+    expect(screen.getByTestId('pickup-done')).toBeDisabled();
+    expect(screen.getByTestId('pickup-value')).toHaveTextContent('Choose a date and time');
+
+    // An hour alone is on the hour.
+    await fireEvent.press(screen.getByTestId('pickup-hour-14'));
+    expect(screen.getByTestId('pickup-minute-00')).toBeChecked();
+    expect(screen.getByTestId('pickup-value')).toHaveTextContent('12 May 2001 at 14:00');
+    await fireEvent.press(screen.getByRole('radio', { name: '35' }));
+    expect(screen.getByTestId('pickup-hour-14')).toBeChecked();
+    await fireEvent.press(screen.getByTestId('pickup-done'));
+    expect(onChange).toHaveBeenCalledWith('2001-05-12T14:35');
+
+    await fireEvent.press(screen.getByTestId('pickup'));
+    expect(screen.getByTestId('pickup-day-2001-05-12')).toBeSelected();
+    expect(screen.getByTestId('pickup-minute-35')).toBeChecked();
+  });
+
+  it('gives a chosen day its default time, and keeps a minute off the step as it is', async () => {
+    const onChange = jest.fn();
+    await render(
+      <Field
+        mode="dateTime"
+        label="Pick-up"
+        min="2001-03-10"
+        max="2001-05-20"
+        defaultTime="10:00"
+        testID="pickup"
+        onChange={onChange}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('pickup'));
+    await fireEvent.press(screen.getByTestId('pickup-day-2001-05-02'));
+    expect(screen.getByTestId('pickup-hour-10')).toBeChecked();
+    await fireEvent.press(screen.getByTestId('pickup-done'));
+    expect(onChange).toHaveBeenLastCalledWith('2001-05-02T10:00');
+
+    await render(
+      <Field mode="dateTime" min="2001-03-10" max="2001-05-20" initial="2001-05-12T14:37" />,
+    );
+    await fireEvent.press(screen.getByTestId('dob'));
+    expect(screen.getByTestId('dob-minute-37')).toBeChecked();
+    expect(screen.getByTestId('dob-minute-35')).not.toBeChecked();
+    await fireEvent.press(screen.getByTestId('dob-done'));
+    expect(
+      screen.getByRole('button', { name: 'Date of birth, 12 May 2001 at 14:37' }),
+    ).toBeOnTheScreen();
   });
 });
 

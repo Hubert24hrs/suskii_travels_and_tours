@@ -276,7 +276,7 @@ describe('Cars help on a trip', () => {
       await renderWithApp(<RentalSearchScreen />);
 
       expect(await screen.findByTestId(`rental-car-${rentalVehicle.slug}`)).toBeOnTheScreen();
-      expect(screen.getByTestId('rental-pickup')).toHaveDisplayValue('2026-11-05T10:00');
+      expect(screen.getByTestId('rental-pickup')).toHaveTextContent('5 Nov 2026 10:00');
       const search = new URL(calls[0]?.url ?? '');
       expect(Object.fromEntries(search.searchParams)).toEqual({
         city: 'Lagos',

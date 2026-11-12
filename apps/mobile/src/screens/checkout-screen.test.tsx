@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { openHostedCheckout } from '../lib/payment';
 import { activeTrip } from '../lib/trip-builder';
 import { tripStore } from '../lib/trips';
-import { json, mockApi, renderWithApp, signedInSession } from '../test/app';
+import { chooseDate, json, mockApi, pinClock, renderWithApp, signedInSession } from '../test/app';
 import {
   BOOKING_ID,
   QUOTE_ID,
@@ -16,6 +16,7 @@ import {
   flightQuote,
   hotelQuote,
   inhouseQuote,
+  transferQuote,
 } from '../test/fixtures';
 
 import { CheckoutScreen } from './checkout-screen';
@@ -69,7 +70,7 @@ async function fillTraveller(): Promise<void> {
   await fireEvent.press(screen.getByRole('radio', { name: m.checkout.fields.genders.m }));
   await fireEvent.changeText(screen.getByTestId('passengers.0.givenNames'), 'Adébáyọ̀');
   await fireEvent.changeText(screen.getByTestId('passengers.0.surname'), 'Okafor');
-  await fireEvent.changeText(screen.getByTestId('passengers.0.dateOfBirth'), '1990-04-21');
+  await chooseDate('passengers.0.dateOfBirth', '1990-04-21');
   await fireEvent.changeText(screen.getByLabelText(m.checkout.fields.nationality), 'nig');
   await fireEvent.press(await screen.findByRole('button', { name: 'Nigeria' }));
   await fireEvent.changeText(screen.getByTestId('contact-email'), ' ada@example.com ');
@@ -80,6 +81,10 @@ async function fillTraveller(): Promise<void> {
 describe('CheckoutScreen', () => {
   beforeEach(() => {
     jest.mocked(useLocalSearchParams).mockReturnValue({ quoteId: QUOTE_ID });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('books as a guest with device attestation, then opens the hosted payment page', async () => {
@@ -595,6 +600,51 @@ describe('CheckoutScreen', () => {
     const body = (await create?.json()) as { passengers: unknown[]; addonDetails?: unknown };
     expect(body.passengers).toHaveLength(1);
     expect(body).not.toHaveProperty('addonDetails');
+  });
+
+  it("takes a transfer's arrival time in the picker, around the transfer's day (ADR-114)", async () => {
+    pinClock('2026-11-20T09:00:00Z');
+    const { calls } = mockApi({
+      [`GET /v1/quotes/${QUOTE_ID}`]: () => json(transferQuote()),
+      'GET /v1/catalog/countries': () => json(countries),
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-10-01T09:05:00.000Z' }, 201),
+      'POST /v1/bookings': () =>
+        json({ booking: booking({ status: 'PRICED', documents: [] }), accessToken: TOKEN }, 201),
+      [`POST /v1/bookings/${BOOKING_ID}/payments`]: () => json(paymentSession, 201),
+    });
+    await renderWithApp(<CheckoutScreen />);
+    const field = await screen.findByTestId('addonDetails.arrivalTime');
+    expect(field).toHaveTextContent(m.mobile.datePicker.chooseDateTime);
+
+    // The sheet opens on the transfer's month; a late flight may land the day after.
+    await fireEvent.press(field);
+    expect(screen.getByTestId('addonDetails.arrivalTime-years')).toHaveTextContent('December 2026');
+    expect(screen.getByTestId('addonDetails.arrivalTime-day-2026-12-03')).toBeDisabled();
+    expect(screen.getByTestId('addonDetails.arrivalTime-day-2026-12-04')).toBeEnabled();
+    expect(screen.getByTestId('addonDetails.arrivalTime-day-2026-12-06')).toBeEnabled();
+    expect(screen.getByTestId('addonDetails.arrivalTime-day-2026-12-07')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('addonDetails.arrivalTime-sheet-close'));
+
+    await chooseDate('addonDetails.arrivalTime', '2026-12-05T14:35');
+    expect(field).toHaveTextContent('5 Dec 2026 14:35');
+    await fireEvent.changeText(screen.getByTestId('addonDetails.flightNumber'), 'p4 7121');
+    await fireEvent.changeText(
+      screen.getByTestId('addonDetails.pickupAddress'),
+      '12 Adeola Odeku Street, Victoria Island',
+    );
+    await fillTraveller();
+    await fireEvent.press(screen.getByTestId('checkout-submit'));
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`/trips/${BOOKING_ID}`));
+    const create = calls.find((request) => request.url.endsWith('/v1/bookings'));
+    const body = (await create?.json()) as { addonDetails: unknown };
+    // The same wall time the field always sent: the picker changes how it is entered, not what.
+    expect(body.addonDetails).toEqual({
+      flightNumber: 'P4 7121',
+      arrivalTime: '2026-12-05T14:35',
+      pickupAddress: '12 Adeola Odeku Street, Victoria Island',
+    });
   });
 
   it('books a price a person verified: what it is, its terms, one traveller, no fare line (ADR-104)', async () => {

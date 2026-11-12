@@ -4,7 +4,7 @@
 # provider) and come back to a paid trip whose parts are each confirmed.
 # Two values come from the runner with `-e` (run-android.sh, run-hosted.sh): TRIP_EMAIL, the
 # account's address (new on every run against a server that keeps its data), and PASSPORT_EXPIRY,
-# a day years ahead.
+# a day years ahead (YYYY-MM-DD), chosen in the date picker, which offers 20 years.
 appId: com.suskii.travels.e2e
 name: Trip builder
 tags:
@@ -153,13 +153,11 @@ tags:
       id: passengers.0.issuingCountry-option-NG
 - tapOn:
     id: passengers.0.issuingCountry-option-NG
-- scrollUntilVisible:
-    element:
-      id: passengers.0.passportExpiry
-- tapOn:
-    id: passengers.0.passportExpiry
-- inputText: ${PASSPORT_EXPIRY}
-- hideKeyboard
+- runFlow:
+    file: subflows/choose-date.yaml
+    env:
+      FIELD: passengers.0.passportExpiry
+      DATE: ${PASSPORT_EXPIRY}
 - runFlow: subflows/contact-and-terms.yaml
 - runFlow: subflows/add-to-trip.yaml
 - scrollUntilVisible:

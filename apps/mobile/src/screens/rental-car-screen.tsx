@@ -1,5 +1,6 @@
 import type { Schemas } from '@suskii/api-client';
 import { useFormatters } from '@suskii/i18n/react';
+import { todayIn } from '@suskii/shared';
 import { Badge, Button, Card, Input } from '@suskii/ui-native';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -8,10 +9,11 @@ import { ScrollView, Text, View } from 'react-native';
 
 import { RequireAccount } from '../components/account/require-account';
 import { Checkbox, ChoiceChips } from '../components/booking/form-controls';
+import { DateTimeField } from '../components/date-field';
 import { CancellationTiers } from '../components/inhouse/inhouse-summary';
 import { Loading, Notice } from '../components/states';
 import { problemSlug } from '../lib/api';
-import { driverAgeOf, LOCAL_DATE_TIME } from '../lib/cars';
+import { driverAgeOf, LOCAL_DATE_TIME, RENTAL_DEFAULT_TIME, rentalDates } from '../lib/cars';
 import { daysFromToday } from '../lib/dates';
 import { useApp, useT } from '../providers/app-provider';
 
@@ -80,6 +82,9 @@ function BookRental({
       return data?.places ?? [];
     },
   });
+
+  // Times are the branch's wall time, so today is the date where the car is.
+  const dates = rentalDates(todayIn(vehicle.timeZone), pickupAt);
 
   const submit = async () => {
     setError(null);
@@ -154,23 +159,21 @@ function BookRental({
       <Text accessibilityRole="header" className="font-heading text-h4 text-heading">
         {t('cars.rentals.book.heading')}
       </Text>
-      <Input
+      <DateTimeField
         testID="book-pickup"
         label={t('cars.rentals.book.pickupAt')}
-        hint={t('mobile.cars.dateTimeHint')}
         value={pickupAt}
-        onChangeText={setPickupAt}
-        keyboardType="numbers-and-punctuation"
-        maxLength={16}
+        onChange={setPickupAt}
+        {...dates.pickup}
+        defaultTime={RENTAL_DEFAULT_TIME}
       />
-      <Input
+      <DateTimeField
         testID="book-return"
         label={t('cars.rentals.book.returnAt')}
-        hint={t('mobile.cars.dateTimeHint')}
         value={returnAt}
-        onChangeText={setReturnAt}
-        keyboardType="numbers-and-punctuation"
-        maxLength={16}
+        onChange={setReturnAt}
+        {...dates.return}
+        defaultTime={RENTAL_DEFAULT_TIME}
       />
       {vehicle.chauffeurDaily ? (
         <Checkbox
@@ -310,11 +313,11 @@ export function RentalCarScreen() {
     pickupAt:
       params.pickupAt && LOCAL_DATE_TIME.test(params.pickupAt)
         ? params.pickupAt
-        : `${daysFromToday(5)}T10:00`,
+        : `${daysFromToday(5)}T${RENTAL_DEFAULT_TIME}`,
     returnAt:
       params.returnAt && LOCAL_DATE_TIME.test(params.returnAt)
         ? params.returnAt
-        : `${daysFromToday(7)}T10:00`,
+        : `${daysFromToday(7)}T${RENTAL_DEFAULT_TIME}`,
     chauffeur: params.chauffeur === 'true',
     driverAge: driverAgeOf(params.driverAge ?? '') === null ? '' : (params.driverAge ?? ''),
   };
