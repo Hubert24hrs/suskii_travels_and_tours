@@ -21,6 +21,9 @@
 #   SITES=true|false                        the website and the admin console on the machine too
 #   TURNSTILE_SITE_KEY=<key>                the public key of the website's Turnstile widget, once
 #                                           its secret is in the secret TURNSTILE_SECRET_KEY
+#   SAMPLE_CATALOGUE=true|false             a testing backend's sample packages, tours, buses and
+#                                           rental cars, every one marked as a sample
+#   MACHINE_TYPE=e2-medium|e2-small         the machine's size (a change restarts it)
 # And for one run only:
 #   SUSKII_TAG=<tag>                        release images that are built already
 set -euo pipefail
@@ -112,6 +115,16 @@ case "${SITES:-}" in
   "") ;;
   true | false) set_setting sites "$SITES" ;;
   *) stop "SITES must be true or false." ;;
+esac
+case "${SAMPLE_CATALOGUE:-}" in
+  "") ;;
+  true | false) set_setting sample_catalogue "$SAMPLE_CATALOGUE" ;;
+  *) stop "SAMPLE_CATALOGUE must be true or false." ;;
+esac
+case "${MACHINE_TYPE:-}" in
+  "") ;;
+  e2-medium | e2-small) set_setting machine_type "\"$MACHINE_TYPE\"" ;;
+  *) stop "MACHINE_TYPE must be e2-medium or e2-small." ;;
 esac
 if [ -n "${TURNSTILE_SITE_KEY:-}" ]; then
   [[ "$TURNSTILE_SITE_KEY" =~ ^[A-Za-z0-9_-]+$ ]] || stop "TURNSTILE_SITE_KEY does not look like a Turnstile site key."
@@ -285,6 +298,7 @@ $(if [ "$SITES_ON" = "true" ]; then printf '  Website              %s\n  Admin c
   Project              $PROJECT ($ZONE)
   Machine              $INSTANCE, $(terraform output -raw address)
   Assistant's model    $(setting assistant_model)
+  Sample catalogue     $(if [ "$(setting sample_catalogue)" = "true" ]; then echo on; else echo off; fi)
   Last release         $outcome
 
 To run it again after new code is merged: git pull, then the same command.
@@ -296,6 +310,8 @@ To take the assistant out of the picture (nothing else on the platform changes):
 To open the website's sign-up and guest forms: create a Turnstile widget for the website's
   name, add its secret as a version of the secret TURNSTILE_SECRET_KEY, then run:
   TURNSTILE_SITE_KEY=<its site key> bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
+To show sample packages, tours, buses and rental cars on this testing backend (or to stop):
+  SAMPLE_CATALOGUE=true bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To make the first admin (after that person has signed up), from the machine's SSH button:
   sudo /opt/suskii/ops scripts/staff-bootstrap.ts --email THEIR@ADDRESS --yes
 ------------------------------------------------------------------------------------------------
