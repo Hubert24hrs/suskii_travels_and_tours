@@ -139,6 +139,58 @@ describe('AssistantScreen', () => {
     expect(await assistantSession.current()).toBe(ID);
   }, 15_000);
 
+  it('keeps the message and waits for the answer when a read from before it lands after the send', async () => {
+    const asked = message();
+    let reads = 0;
+    let delivered = false;
+    let readArrived!: () => void;
+    const earlierRead = new Promise<void>((resolve) => {
+      readArrived = resolve;
+    });
+    let deliverEarlierRead!: () => void;
+    const chatAnswered = new Promise<void>((resolve) => {
+      deliverEarlierRead = resolve;
+    });
+    mockApi({
+      'GET /v1/agent/status': available,
+      'POST /v1/attestation/challenges': () =>
+        json({ challenge: 'challenge-1', expiresAt: '2026-11-11T09:05:00.000Z' }, 201),
+      'POST /v1/agent/conversations': () =>
+        json({ conversation: conversation(), accessToken: TOKEN }, 201),
+      'POST /v1/agent/chat': async () => {
+        // The read reached the API before the message did.
+        await earlierRead;
+        // The screen takes this answer first; the earlier read arrives just after it.
+        setTimeout(deliverEarlierRead, 50);
+        return json({ runId: RUN, message: asked }, 202);
+      },
+      [`GET /v1/agent/conversations/${ID}`]: async () => {
+        reads += 1;
+        if (reads === 1) {
+          // What the API held when this read reached it: no message yet, so no run either.
+          readArrived();
+          await chatAnswered;
+          delivered = true;
+          return json(conversation());
+        }
+        return json(conversation({ messages: [asked, answer()] }));
+      },
+    });
+    await renderWithApp(<AssistantScreen />);
+    expect(await screen.findByText(m.assistant.notices.greeting)).toBeOnTheScreen();
+
+    await fireEvent.changeText(screen.getByTestId('assistant-input'), asked.text);
+    await fireEvent.press(screen.getByTestId('assistant-send'));
+
+    await waitFor(() => expect(delivered).toBe(true));
+    // The late read changed nothing: the message stays and the run is still followed.
+    expect(await screen.findByText(asked.text)).toBeOnTheScreen();
+    expect(
+      await screen.findByText('Your fare allows a change for a fee.', {}, { timeout: 8_000 }),
+    ).toBeOnTheScreen();
+    expect(reads).toBe(2);
+  }, 15_000);
+
   it('shows a notice in words, an indicative price as one, and hands over to a person', async () => {
     await assistantSession.remember(ID);
     mockApi({

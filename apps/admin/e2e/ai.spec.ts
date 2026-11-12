@@ -162,8 +162,38 @@ test('staff ask the assistant, and what it prepared for them is someone else to 
   await page.goto('/assistant');
   await expect(page.getByRole('heading', { level: 1, name: t('assistant.title') })).toBeVisible();
   await expect(page.getByText(t('assistant.empty'))).toBeVisible();
+
+  // The page reads the new conversation as soon as it exists, while the message is still being
+  // sent. That read reaches the API first and its answer comes back after the send's: the
+  // answer must still appear. (It once stopped the page waiting, and the answer never showed.)
+  let readArrived!: () => void;
+  const earlierRead = new Promise<void>((resolve) => {
+    readArrived = resolve;
+  });
+  let releaseEarlierRead!: () => void;
+  const sendTaken = new Promise<void>((resolve) => {
+    releaseEarlierRead = resolve;
+  });
+  let held = false;
+  await page.route(/\/v1\/admin\/ai\/conversations\/[0-9a-f-]{36}$/, async (route) => {
+    if (held || route.request().method() !== 'GET') return route.fallback();
+    held = true;
+    const response = await route.fetch();
+    readArrived();
+    await sendTaken;
+    // The page may have dropped this read by now, which is what it should do.
+    await route.fulfill({ response }).catch(() => undefined);
+  });
+  await page.route('**/v1/admin/ai/chat', async (route) => {
+    await earlierRead;
+    await route.fallback();
+  });
+
   await page.getByLabel(t('assistant.message')).fill('What is waiting for a person today?');
   await page.getByRole('button', { name: t('assistant.send') }).click();
+  // The box empties once the page has the send's answer; only then does the earlier read land.
+  await expect(page.getByLabel(t('assistant.message'))).toHaveValue('');
+  releaseEarlierRead();
 
   const log = page.getByRole('log', { name: t('assistant.conversation') });
   await expect(log.getByTestId('message-user')).toContainText('What is waiting for a person');

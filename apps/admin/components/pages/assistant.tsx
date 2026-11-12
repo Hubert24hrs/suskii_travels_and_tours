@@ -100,6 +100,11 @@ export function StaffAssistantPage() {
     },
     onSuccess: async () => {
       setText('');
+      // The first read of a new conversation starts before the message is stored and can still
+      // be on its way. A refetch would wait for that read instead of making a new one, and its
+      // "nothing running" would stop the polling before the answer arrives. Drop it, then read
+      // again: this read starts after the message and its run exist.
+      await queryClient.cancelQueries({ queryKey: ['get', CONVERSATION] });
       await queryClient.invalidateQueries({ queryKey: ['get', CONVERSATION] });
     },
   });

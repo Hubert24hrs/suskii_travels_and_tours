@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### The assistant's answer always appears (2026-11-12)
+
+A check run on another pull request showed the console's assistant leaving the first answer of a
+new conversation unshown. The page reads a new conversation as soon as it exists, while the
+message is still being sent. When that read came back after the send's answer, the page took it
+over a fresh one, saw no run answering and stopped waiting. The answer was stored all along; a
+reload showed it.
+
+#### Fixed
+
+- **The console** drops a read still on its way when a message has been sent, then reads again.
+  A refetch would have waited for that read instead of making a new one.
+- **The app** drops a read still on its way before it shows the sent message and follows its
+  run. A read from before the message could land on top, drop the message and stop the polling.
+- **The API** reads a conversation's run and messages from one snapshot (`REPEATABLE READ`). A
+  message opens its run and a run stores its answer in one transaction each, so no read falls
+  between a message and its run, or between a run's end and its answer.
+
+#### Tests
+
+- The console's assistant test holds the first read until the send has been answered, and the
+  app has a test that delivers such a read late. Both fail without the fix and pass with it.
+
 ### A mailbox on the testing backend, for its first admin (2026-11-12, ADR-113)
 
 The console's first admin needs a confirmed email address, and the backend machine sent no

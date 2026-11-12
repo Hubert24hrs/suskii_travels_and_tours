@@ -237,19 +237,24 @@ export class AgentConversationsService {
 
   private async withMessages(row: AgentConversation): Promise<AgentConversationDto> {
     const conversationId = row.id;
-    // The run first, then the messages, never both at once. A run ends and stores its answer
-    // in one transaction, so a run seen as finished here has its answer in the messages read
-    // after it. Read the other way round (or in parallel), a run that ends between the two
-    // reads would show as "nothing running, no answer", and a client would stop waiting.
-    const running = await this.prisma.agentRun.findFirst({
-      where: { conversationId, status: 'running' },
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
-    const messages = await this.prisma.agentMessage.findMany({
-      where: { conversationId, role: { in: ['user', 'assistant'] } },
-      orderBy: { id: 'asc' },
-    });
+    // The run and the messages come from one snapshot. A message opens its run, and a run
+    // stores its answer as it ends, each in one transaction, so a single snapshot shows either
+    // a run still answering or its answer. Two separate reads could straddle either commit and
+    // show "nothing running, no answer", and a client would stop waiting for the answer.
+    const [running, messages] = await this.prisma.$transaction(
+      [
+        this.prisma.agentRun.findFirst({
+          where: { conversationId, status: 'running' },
+          orderBy: { id: 'desc' },
+          select: { id: true },
+        }),
+        this.prisma.agentMessage.findMany({
+          where: { conversationId, role: { in: ['user', 'assistant'] } },
+          orderBy: { id: 'asc' },
+        }),
+      ],
+      { isolationLevel: 'RepeatableRead' },
+    );
     return this.present(row, messages, running?.id ?? null);
   }
 

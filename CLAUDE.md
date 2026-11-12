@@ -1085,6 +1085,12 @@ Tooling notes for agents:
   website's off-mode suite (`E2E_AGENT=off`, a CI step) runs the assistant, search and
   booking specs on a stack without it. A page that offers or needs the assistant gets a case
   in `assistant.spec.ts`'s off-mode block.
+- A client waits for an answer by reading the conversation while `activeRunId` names a run,
+  and trusts only reads made after its send returned: before it writes what the send returned
+  into its cache, or reads again, it cancels the conversation's reads still on their way
+  (`cancelQueries`; a refetch would wait for such a read instead of making a new one). The API
+  reads a conversation's run and messages in one snapshot (`withMessages`, `REPEATABLE READ`),
+  so no read falls between a message and its run, or between a run's end and its answer.
 - The clients draw what the API stored (an answer the guard passed, cards a tool built, the
   confirmation card) and compose nothing. There is one way in, the "Ask Suskii" button
   (ADR-109), and it does not stay put. On the website it is `AskSuskii` in the root layout: a
