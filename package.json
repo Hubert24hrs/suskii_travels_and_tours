@@ -23,7 +23,7 @@
     "security:checklist": "node scripts/security-checklist.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
     "check:workflows": "node scripts/check-workflows.mjs",
-    "test:scripts": "node --test \"scripts/*.test.mjs\"",
+    "test:scripts": "node --test \"scripts/*.test.mjs\" \"scripts/gcp/*.test.mjs\"",
     "smoke": "node scripts/smoke.mjs",
     "release:rehearse": "node scripts/release-rehearsal.mjs",
     "infra:up": "docker compose up -d --wait",
