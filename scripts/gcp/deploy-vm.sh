@@ -219,9 +219,9 @@ esac
 
 # --- 7. Is it up? ------------------------------------------------------------------------------
 say "Checking $API_URL (the name and the certificate can take a few minutes the first time)"
-check() { # check <path>: the status code, after up to five minutes of trying
+check() { # check <path> <tries>: the status code, trying every five seconds
   local code=000
-  for _ in $(seq 1 60); do
+  for _ in $(seq 1 "$2"); do
     code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$API_URL$1" || true)"
     [ "$code" = "200" ] && break
     sleep 5
@@ -230,10 +230,10 @@ check() { # check <path>: the status code, after up to five minutes of trying
   [ "$code" = "200" ]
 }
 failed=0
-check /health || failed=1
-check /ready || failed=1
-check /v1/status || failed=1
-check /v1/agent/status || failed=1
+check /health 60 || failed=1
+check /ready 3 || failed=1
+check /v1/status 3 || failed=1
+check /v1/agent/status 3 || failed=1
 
 cat <<EOF2
 
@@ -255,5 +255,5 @@ To take the assistant out of the picture (nothing else on the platform changes):
 ------------------------------------------------------------------------------------------------
 EOF2
 if [ "$failed" -ne 0 ]; then
-  stop "one of the checks above did not answer 200. The machine's console: gcloud compute instances get-serial-port-output $INSTANCE --zone $ZONE"
+  stop "one of the checks above did not answer 200 from here. The machine's own report is on the line 'Last release': if it says the address answers, this network cannot reach it (open $API_URL/health in a browser). Otherwise read the machine's console: gcloud compute instances get-serial-port-output $INSTANCE --zone $ZONE"
 fi

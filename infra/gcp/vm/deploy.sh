@@ -153,7 +153,22 @@ STEP=assistant
 ASSISTANT=up
 compose up -d --wait --wait-timeout 180 agent || ASSISTANT="not healthy"
 
+# The front door as the world sees it: the name, the certificate and Caddy, asked from here.
+# The first certificate can take a few minutes, so this is reported, never a reason to fail.
+STEP=front-door
+HOST="$(python3 -c 'import json; print(json.load(open("/opt/suskii/settings.json"))["api_host"])')"
+DOOR="not answering yet"
+for _ in $(seq 1 36); do
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$HOST/health" || true)"
+  if [ "$code" = "200" ]; then
+    DOOR="answers"
+    break
+  fi
+  sleep 5
+done
+
 STEP=tidy
 docker image prune -af --filter until=48h >/dev/null 2>&1 || true
 echo "$RELEASE" >/run/suskii/deployed
-status "ok $TAG assistant: $ASSISTANT"
+MEMORY="$(free -m | awk '/^Mem:/ { print $3 " of " $2 " MB in use" }')"
+status "ok $TAG assistant: $ASSISTANT; https://$HOST: $DOOR; memory: $MEMORY"
