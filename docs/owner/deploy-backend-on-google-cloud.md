@@ -108,6 +108,13 @@ and it has a ceiling on the memory and processor time it may use. If it is slow,
 down, searching, booking and paying carry on. A chat then ends with a short "unavailable"
 note.
 
+This was tried on the live machine on 12 November 2026. The machine's permission to call
+Gemini was taken away for three minutes, as if Google's model were down. A message to Ask
+Suskii was taken in 0.2 seconds and ended 1.3 seconds later with the "unavailable" note; in
+the same minute a flight from Lagos to Abuja was searched in 0.2 seconds, booked, paid on the
+stand-in payment page and confirmed. With the permission back, Ask Suskii answered with Gemini
+again at the first try.
+
 **It answers with Google's Gemini, and nothing was needed from you** (ADR-112). The machine
 calls Gemini on Google's Vertex AI as its own Google identity, so there is no key to create,
 paste or protect. The requests are processed in London, beside the machine.
