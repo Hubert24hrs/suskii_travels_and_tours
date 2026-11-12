@@ -2,6 +2,7 @@ import { I18nProvider } from '@suskii/i18n/react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { NoAskSuskii } from '../../../components/assistant/ask-suskii';
 import { AssistantMemory } from '../../../components/assistant/assistant-memory';
 import { pickAssistantMessages } from '../../../components/assistant/assistant-messages';
 import { Breadcrumbs } from '../../../components/breadcrumbs';
@@ -32,6 +33,7 @@ export default async function AssistantPreferencesPage() {
   const { t, locale, messages } = await getI18n();
   return (
     <Container className="flex flex-col gap-8 pt-8 pb-16">
+      <NoAskSuskii />
       <Breadcrumbs
         items={[
           { name: t('assistant.title'), path: '/assistant' },

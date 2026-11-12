@@ -1,6 +1,7 @@
 import { I18nProvider } from '@suskii/i18n/react';
 import type { Metadata } from 'next';
 
+import { NoAskSuskii } from '../../../components/assistant/ask-suskii';
 import { Container } from '../../../components/layout/container';
 import { PaymentPageGuard } from '../../../components/payments/payment-page-guard';
 import { pickTripMessages } from '../../../components/trips/pick-trip-messages';
@@ -28,6 +29,7 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
   return (
     <Container className="pt-8 pb-16">
       <PaymentPageGuard />
+      <NoAskSuskii />
       <I18nProvider locale={locale} messages={pickTripMessages(messages)}>
         <TripView tripId={tripId} currency={currency} />
       </I18nProvider>

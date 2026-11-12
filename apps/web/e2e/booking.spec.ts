@@ -116,6 +116,8 @@ test.describe('flight booking', () => {
     await first.getByRole('button', { name: /^Select/ }).click();
 
     await page.waitForURL(/\/checkout\//);
+    // A page that starts a payment never shows the "Ask Suskii" button (ADR-109).
+    await expect(page.getByTestId('assistant-open')).toBeHidden();
     await expect(page.getByTestId('passenger-0')).toBeVisible();
     await expect(page.getByText(t('checkout.passportOptional'))).toBeVisible();
     await expectNoAxeViolations(page);

@@ -2,6 +2,7 @@ import { I18nProvider } from '@suskii/i18n/react';
 import type { ReactNode } from 'react';
 
 import { getI18n } from '../../lib/i18n';
+import { NoAskSuskii } from '../assistant/ask-suskii';
 import { Container } from '../layout/container';
 
 import { pickAccountMessages } from './pick-account-messages';
@@ -22,6 +23,7 @@ export async function AuthPage({
   const { locale, messages } = await getI18n();
   return (
     <Container className="flex max-w-dialog flex-col gap-6 pt-10 pb-16">
+      <NoAskSuskii />
       {heading ? (
         <div className="flex flex-col gap-2">
           <h1 className="font-heading text-h2 font-extrabold text-heading">{heading}</h1>
