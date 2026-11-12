@@ -227,6 +227,12 @@ export const envSchema = z
     SMTP_HOST: z.string().min(1).default('localhost'),
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(1025),
     SMTP_SECURE: booleanish.default(false),
+    /**
+     * Declares a mail server on the same host or a private network that offers no TLS, such as a
+     * testing backend's mailbox (ADR-113). Production otherwise sends only with STARTTLS or
+     * implicit TLS (ADR-038); never set this for a relay across the internet.
+     */
+    SMTP_ALLOW_PLAINTEXT: booleanish.default(false),
     SMTP_USER: z.string().min(1).optional(),
     SMTP_PASSWORD: z.string().min(1).optional(),
     /**
