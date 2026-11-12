@@ -41,7 +41,16 @@ describe('auth schemas', () => {
       email: 'a@b.co',
       password: 'x',
       transport: 'token',
+      // "Remember me" is on unless the form says otherwise, as every sign-in was before it.
+      remember: true,
     });
+  });
+
+  it('takes "remember me" only as a plain yes or no', () => {
+    const login = { email: 'a@b.co', password: 'x' };
+    expect(loginRequestSchema.parse({ ...login, remember: false }).remember).toBe(false);
+    expect(loginRequestSchema.safeParse({ ...login, remember: 'false' }).success).toBe(false);
+    expect(loginRequestSchema.safeParse({ ...login, remember: null }).success).toBe(false);
   });
 });
 
