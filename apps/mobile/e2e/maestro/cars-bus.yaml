@@ -12,6 +12,7 @@ tags:
     visible:
       id: flight-search-form
     timeout: 60000
+- runFlow: subflows/put-away-ask-suskii.yaml
 
 # The API answered (no unreachable-server card), so the search card has a Cars tab listing the
 # products, and home links the Cars hub while a Cars product is switched on.

@@ -13,7 +13,7 @@ import { memoryValueText } from '../components/assistant/memory-text';
 import { Loading, Notice } from '../components/states';
 import { appConfig, webHost } from '../config';
 import { problemSlug } from '../lib/api';
-import { ASSISTANT_POLL_MS, assistantSession } from '../lib/assistant';
+import { ASSISTANT_POLL_MS, assistantCardPath, assistantSession } from '../lib/assistant';
 import { attestationHeader } from '../lib/attestation';
 import { resolveIncomingUrl } from '../lib/deep-links';
 import { useApp, useT } from '../providers/app-provider';
@@ -43,15 +43,22 @@ const actionLabel = (action: string) =>
     : 'assistant.confirm.actions.fallback';
 
 /**
- * A result drawn beside an answer. Its link is a path of the website: one the app has a
- * screen for opens there (the same allowlist as an incoming link), anything else opens the
- * website in the system browser. A card never leads anywhere else.
+ * A result drawn beside an answer. Its link is a path of the website: a booking the assistant
+ * prepared opens the app's checkout, one the app has a screen for opens there (the same
+ * allowlist as an incoming link), anything else opens the website in the system browser. A
+ * card never leads anywhere else.
  */
 function ResultCard({ card }: { card: CardData }) {
   const { t } = useT();
   const format = useFormatters();
   const router = useRouter();
   const open = (href: string) => {
+    // A booking the assistant prepared is finished in the app's own checkout (ADR-109).
+    const prepared = assistantCardPath(href);
+    if (prepared) {
+      router.push(prepared);
+      return;
+    }
     const address = new URL(href, appConfig.webBaseUrl).toString();
     const inApp = resolveIncomingUrl(address, webHost());
     if (inApp.path !== '/') router.push(inApp.path);

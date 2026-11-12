@@ -1,4 +1,5 @@
-# The assistant on the phone (ADR-101): a visitor opens it from Account, reads that it is an
+# The assistant on the phone (ADR-101): a visitor opens it from the floating "Ask Suskii"
+# button (ADR-109), reads that it is an
 # automated assistant, asks a question (the app proves itself with its device attestation when
 # the conversation starts) and gets an answer. The test stack answers from the mock inside the
 # API: no model is called. Runs after the support flow in run-android.sh.
@@ -15,14 +16,15 @@ tags:
       id: flight-search-form
     timeout: 60000
 
+# "Ask Suskii" floats over Home: one button, there only while the server says the assistant
+# is available (ADR-109).
+- extendedWaitUntil:
+    visible:
+      id: ask-suskii
+    timeout: 20000
+- assertVisible: Ask Suskii
 - tapOn:
-    id: tab-account
-# The button is there only while the server says the assistant is available.
-- scrollUntilVisible:
-    element:
-      id: account-assistant
-- tapOn:
-    id: account-assistant
+    id: ask-suskii
 - extendedWaitUntil:
     visible:
       id: assistant-screen

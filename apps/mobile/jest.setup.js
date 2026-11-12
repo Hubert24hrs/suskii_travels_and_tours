@@ -27,6 +27,7 @@ jest.mock('expo-router', () => {
     router,
     useRouter: () => router,
     useLocalSearchParams: jest.fn(() => ({})),
+    usePathname: jest.fn(() => '/'),
     useFocusEffect: (effect) => useEffect(() => effect(), [effect]),
     Stack: Object.assign(Navigator, { Screen }),
     Tabs: Object.assign(Navigator, { Screen }),
