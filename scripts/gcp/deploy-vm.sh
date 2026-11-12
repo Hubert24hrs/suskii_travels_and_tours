@@ -61,7 +61,14 @@ say "Project $PROJECT, zone $ZONE"
 gcloud config set project "$PROJECT" --quiet >/dev/null 2>&1
 gcloud projects describe "$PROJECT" --format='value(projectId)' >/dev/null ||
   stop "project $PROJECT was not found, or this account cannot open it."
-if [ "$(gcloud billing projects describe "$PROJECT" --format='value(billingEnabled)' 2>/dev/null)" != "True" ]; then
+# Asked up to three times: a lost answer is not a project without billing.
+billing=""
+for _ in 1 2 3; do
+  billing="$(gcloud billing projects describe "$PROJECT" --format='value(billingEnabled)' 2>/dev/null || true)"
+  [ -n "$billing" ] && break
+  sleep 5
+done
+if [ "$billing" != "True" ]; then
   stop "billing is not switched on for $PROJECT. Link a billing account at https://console.cloud.google.com/billing/linkedaccount?project=$PROJECT and run this again."
 fi
 
