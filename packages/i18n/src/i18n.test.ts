@@ -93,17 +93,27 @@ describe('formatters', () => {
     expect(format.date('2026-12-01', 'month')).toBe('December 2026');
     expect(format.date('2026-12-01', 'monthName')).toBe('December');
     expect(createFormatters('en-US').date('2026-12-10')).toBe('Dec 10, 2026');
-    expect(format.dateRange('2026-12-10', '2026-12-17')).toBe('10–17 Dec');
+    expect(format.dateRange('2026-12-10', '2026-12-17')).toBe('10 Dec to 17 Dec');
   });
 
-  it('joins date ranges itself on engines without formatRange (Hermes)', () => {
+  it('joins the two dates of a range with a word, never a dash, in every language', () => {
+    const range = (locale: string): string =>
+      createFormatters(locale).dateRange('2026-12-10', '2026-12-17');
+    expect(range('en-NG')).toBe('10 Dec to 17 Dec');
+    expect(range('en-US')).toBe('Dec 10 to Dec 17');
+    expect(range('fr')).toMatch(/^10 déc\.? au 17 déc\.?$/);
+    expect(range('pt')).toMatch(/ a /);
+    expect(range('sw')).toMatch(/ hadi /);
+    expect(range('ar')).toMatch(/ إلى /);
+    for (const locale of ['en-NG', 'en-GB', 'en-US', 'fr', 'sw', 'ar', 'pt']) {
+      expect([locale, /[-‐‑‒–—]/.test(range(locale))]).toEqual([locale, false]);
+    }
+    // The same on an engine without formatRange (Hermes, the phone app).
     const prototype = Intl.DateTimeFormat.prototype;
     const descriptor = Object.getOwnPropertyDescriptor(prototype, 'formatRange');
     Reflect.deleteProperty(prototype, 'formatRange');
     try {
-      expect(createFormatters('en-NG').dateRange('2026-12-10', '2026-12-17')).toBe(
-        '10 Dec – 17 Dec',
-      );
+      expect(range('en-NG')).toBe('10 Dec to 17 Dec');
     } finally {
       if (descriptor) Object.defineProperty(prototype, 'formatRange', descriptor);
     }

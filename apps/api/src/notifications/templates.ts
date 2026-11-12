@@ -114,7 +114,7 @@ const CONFIRMED_COPY: Record<
   BookingConfirmedDetails['vertical'],
   { what: string; document: string }
 > = {
-  flights: { what: 'flight', document: 'e-ticket receipt' },
+  flights: { what: 'flight', document: 'ticket receipt' },
   hotels: { what: 'stay', document: 'hotel voucher' },
   packages: { what: 'holiday package', document: 'package voucher' },
   tours: { what: 'tour', document: 'tour voucher' },
@@ -435,7 +435,7 @@ export function flightStatusTemplate(details: FlightStatusAlertDetails): Templat
         `Flight ${details.flight} is now expected to leave at ${details.expected ?? 'a later time'} (local time), ${durationText(details.delayMinutes)} after the scheduled ${details.scheduled}.`,
         details.alert === 'earlier'
           ? 'This is earlier than we last told you. Please be at the airport in time for the new departure.'
-          : 'Check-in and boarding times may move with it. Keep an eye on the airport screens.',
+          : 'Check in and boarding times may move with it. Keep an eye on the airport screens.',
       );
       break;
     case 'back_on_time':

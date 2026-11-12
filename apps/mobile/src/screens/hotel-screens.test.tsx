@@ -150,7 +150,7 @@ describe('hotel results (ADR-096)', () => {
 
     expect(await screen.findAllByTestId('hotel-result')).toHaveLength(2);
     expect(screen.getAllByTestId('hotel-photo')).toHaveLength(2);
-    expect(screen.getAllByText(/4-star · Resort · Waterfront/)).toHaveLength(2);
+    expect(screen.getAllByText(/4 star · Resort · Waterfront/)).toHaveLength(2);
   });
 
   it('keeps cards to text under the data saver', async () => {
@@ -418,7 +418,7 @@ describe('hotel page (ADR-096)', () => {
     await renderWithApp(<HotelRatesScreen />);
 
     expect(await screen.findByTestId('hotel-description')).toHaveTextContent(/4-star resort/);
-    expect(screen.getByText(/4-star · Resort · Waterfront, Lagos/)).toBeOnTheScreen();
+    expect(screen.getByText(/4 star · Resort · Waterfront, Lagos/)).toBeOnTheScreen();
     // Two pictures of ours; the third URL is neither ours nor https.
     expect(screen.getByTestId('hotel-photo-0')).toHaveAccessibleName(
       'The Palm Resort: photo 1 of 2. The building',

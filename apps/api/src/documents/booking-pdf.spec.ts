@@ -11,7 +11,7 @@ import {
 } from './booking-pdf';
 
 describe('booking PDFs', () => {
-  it('renders an e-ticket receipt', async () => {
+  it('renders a ticket receipt', async () => {
     const bytes = await renderTicketPdf({
       reference: 'K7QWPM',
       airlineReference: 'RZPNXB',
@@ -57,7 +57,7 @@ describe('booking PDFs', () => {
     const pdf = await PDFDocument.load(bytes);
     expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe('%PDF-');
     expect(pdf.getPageCount()).toBe(1);
-    expect(pdf.getTitle()).toBe('E-ticket receipt K7QWPM');
+    expect(pdf.getTitle()).toBe('Ticket receipt K7QWPM');
   });
 
   it('renders a hotel voucher', async () => {

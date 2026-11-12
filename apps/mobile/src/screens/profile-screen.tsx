@@ -53,7 +53,9 @@ function ProfileForm({ preferences }: { preferences: Preferences }) {
     >
       <Card className="gap-3 p-4">
         <Text className="font-body text-body-sm text-muted">{t('account.profile.email')}</Text>
-        <Text className="font-body text-body text-foreground">{user?.email ?? '—'}</Text>
+        <Text className="font-body text-body text-foreground">
+          {user?.email ?? t('account.profile.notSet')}
+        </Text>
         {user?.email && !user.emailVerified ? (
           <Text className="font-body text-caption text-muted">
             {t('account.profile.emailUnverified')}

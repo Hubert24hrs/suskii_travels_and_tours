@@ -294,7 +294,7 @@ export async function newDocument(title: string, reference: string, qrValue: str
 }
 
 export async function renderTicketPdf(ticket: TicketDocument): Promise<Uint8Array> {
-  const { pdf, writer } = await newDocument('E-ticket receipt', ticket.reference);
+  const { pdf, writer } = await newDocument('Ticket receipt', ticket.reference);
   writer.pair('Suskii reference', ticket.reference);
   writer.pair('Airline reference (PNR)', ticket.airlineReference);
   writer.pair('Airline', `${ticket.airline.name} (${ticket.airline.code})`);
@@ -389,14 +389,14 @@ export async function renderVoucherPdf(voucher: VoucherDocument): Promise<Uint8A
       : 'Non-refundable',
   );
   writer.heading('At the hotel');
-  writer.line("Show this voucher and the lead guest's ID at check-in.");
+  writer.line("Show this voucher and the lead guest's ID at check in.");
   return pdf.save();
 }
 
 const VOUCHER_TITLES: Record<InhouseVoucherDocument['kind'], string> = {
   package: 'Package voucher',
   tour: 'Tour voucher',
-  addon: 'Add-on voucher',
+  addon: 'Travel extra voucher',
 };
 
 const SAMPLE_NOTE = 'SAMPLE: demonstration inventory, not a real booking.';

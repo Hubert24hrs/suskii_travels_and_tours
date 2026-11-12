@@ -21,6 +21,18 @@ describe('admin catalog', () => {
     }
   });
 
+  it('joins no words with a hyphen and uses no dash as punctuation (ADR-109)', () => {
+    // What stays is a format staff type or read: a date, a tax number, the aisle of a seat row.
+    const allowed = /\d{4}-\d{2}-\d{2}|\d{8}-\d{4}|"-" for the aisle|1B - 1C/g;
+    const found = leaves(adminMessages)
+      .filter(([, value]) => {
+        const text = value.replace(allowed, '');
+        return /[\p{L}\p{N}}]-[\p{L}\p{N}{]/u.test(text) || /\s-\s|[‒–—―]/.test(text);
+      })
+      .map(([key, value]) => `${key}: ${value}`);
+    expect(found).toEqual([]);
+  });
+
   it('balances placeholder braces', () => {
     for (const [key, value] of leaves(adminMessages)) {
       const opens = value.split('{').length;

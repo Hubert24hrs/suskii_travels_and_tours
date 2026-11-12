@@ -31,6 +31,18 @@ const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['minute', 60],
 ];
 
+/**
+ * The word between the two dates of a range ("10 Dec to 17 Dec"). A range is written with a
+ * word in every language: no dash, whatever the engine's own range pattern would draw.
+ */
+const RANGE_WORD: Readonly<Record<string, string>> = {
+  en: 'to',
+  fr: 'au',
+  pt: 'a',
+  sw: 'hadi',
+  ar: 'إلى',
+};
+
 /** Calendar dates ("YYYY-MM-DD") are formatted in UTC so they never shift a day. */
 const calendarDate = (value: string): Date => new Date(`${value.slice(0, 10)}T00:00:00Z`);
 
@@ -94,10 +106,10 @@ export function createFormatters(locale: string): Formatters {
     date: (value, style = 'medium') => dateFormat(style).format(calendarDate(value)),
     dateRange(start, end, style = 'short') {
       const format = dateFormat(style);
-      // Hermes (the mobile app) has no formatRange; join the two dates there.
-      return typeof format.formatRange === 'function'
-        ? format.formatRange(calendarDate(start), calendarDate(end))
-        : `${format.format(calendarDate(start))} – ${format.format(calendarDate(end))}`;
+      // Both dates in full, joined by a word: the same on every engine (Hermes has no
+      // formatRange), and without the dash an engine's range pattern draws.
+      const word = RANGE_WORD[locale.slice(0, 2).toLowerCase()] ?? 'to';
+      return `${format.format(calendarDate(start))} ${word} ${format.format(calendarDate(end))}`;
     },
     dateTime(instant, timeZone) {
       const key = timeZone ?? '';
