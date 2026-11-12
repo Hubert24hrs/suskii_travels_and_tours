@@ -105,16 +105,22 @@ write(
 )
 write("worker.env", {"REDIS_URL": redis_url, "INTERNAL_API_TOKEN": secret("INTERNAL_API_TOKEN")})
 
-# The assistant's own file: its two tokens, its model key and its own database role.
+# The assistant's own file: its two tokens, its own database role and what answers. With
+# vertex it calls Gemini on Vertex AI as this machine, with a short-lived token from the metadata
+# server and no key at all (ADR-112); a model key is read only for a provider that needs one.
 model = settings["assistant_model"]
 assistant = {
     "AGENT_RUN_TOKEN": secret("AGENT_RUN_TOKEN"),
     "AGENT_TOOLS_TOKEN": secret("AGENT_TOOLS_TOKEN"),
-    "LLM_API_KEY": secret("LLM_API_KEY"),
     "AGENT_DATABASE_URL": f"postgresql://suskii_agent:{agent}@{database}",
     "AGENT_MODEL_PROVIDER": model,
 }
-if model == "mock":
+if model == "vertex":
+    assistant["AGENT_VERTEX_PROJECT"] = project
+    assistant["AGENT_VERTEX_LOCATION"] = settings.get("assistant_location") or "europe-west2"
+elif model in ("gemini", "anthropic"):
+    assistant["LLM_API_KEY"] = secret("LLM_API_KEY")
+else:
     assistant["ALLOW_MOCK_PROVIDERS"] = "true"
 write("agent.env", assistant)
 
@@ -245,7 +251,7 @@ fi
 
 # The assistant, last and on its own: the release stands whether or not it comes up.
 STEP=assistant
-ASSISTANT=up
+ASSISTANT="up, model $(setting assistant_model)"
 compose up -d --wait --wait-timeout 180 agent || ASSISTANT="not healthy"
 
 # The front door as the world sees it: the name, the certificate and Caddy, asked from here.

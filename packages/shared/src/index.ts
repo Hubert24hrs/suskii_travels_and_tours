@@ -113,6 +113,7 @@ export {
   leaksInstructions,
   namedTools,
   outcomeClaims,
+  plainAnswerText,
   unsupportedOutcomes,
   type AgentOutcomeClaim,
   type GroundingIssue,

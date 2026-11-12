@@ -64,7 +64,7 @@ describe('routing (ADR-106)', () => {
     const { end } = await h.send('Please track my booking');
     expect(end).toMatchObject({ agent: 'bookings', agents: ['bookings'], outcome: 'answered' });
     expect(h.model.requests.map((entry) => entry.request.role)).toEqual(['specialist']);
-    expect(end.prompts).toEqual(['bookings@3']);
+    expect(end.prompts).toEqual(['bookings@4']);
   });
 
   it('asks the router model for everything else, and offers it only the agents switched on', async () => {
@@ -230,6 +230,25 @@ describe('tools and the guard (ADR-107)', () => {
     tool('payments.status', ['payments']),
     tool('support.handover', ['support'], 'propose'),
   ];
+
+  it('shows plain text when the model writes Markdown, as the clients draw words as they are', async () => {
+    const h = harness(tools, { 'flights.search': () => ok(FLIGHTS) });
+    const { end } = await h.send('Flights from Lagos to Abuja on 1 December', {
+      script: scripted({
+        router: [route('flights')],
+        specialist: [
+          call('flights__search', { from: 'LOS', to: 'ABV', date: '2026-12-01' }),
+          {
+            text: '## Flights\n\n* **XY** leaves at 10:25 for NGN 250,000.00\n* **ZZ** at 16:40 for NGN 310,500',
+          },
+        ],
+      }),
+    });
+    expect(end.outcome).toBe('answered');
+    expect(end.answer?.text).toBe(
+      'Flights\n\n• XY leaves at 10:25 for NGN 250,000.00\n• ZZ at 16:40 for NGN 310,500',
+    );
+  });
 
   it('answers from what a tool returned: money as a person reads it, cards passed through', async () => {
     const h = harness(tools, { 'flights.search': () => ok(FLIGHTS) });

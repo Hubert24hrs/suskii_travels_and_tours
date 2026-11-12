@@ -1,0 +1,238 @@
+{
+  "note": "What catalog.places answers in every eval case that gives no answer of its own (ADR-112): the airports and cities the cases name, from apps/api/prisma/data, with city ids from stableCityId() as in the real catalog. Rebuild it when a case names a new place.",
+  "places": [
+    {
+      "type": "city",
+      "id": "1a797821-40e3-5d4e-98d1-c2497b09110a",
+      "name": "Lagos",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "airports": [
+        {
+          "code": "LOS",
+          "name": "Murtala Muhammed International Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "LOS",
+      "name": "Murtala Muhammed International Airport",
+      "cityName": "Lagos",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "timeZone": "Africa/Lagos"
+    },
+    {
+      "type": "city",
+      "id": "2eb9a0f4-4bfb-5df2-b7ad-36f8e65e54ee",
+      "name": "Abuja",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "airports": [
+        {
+          "code": "ABV",
+          "name": "Nnamdi Azikiwe International Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "ABV",
+      "name": "Nnamdi Azikiwe International Airport",
+      "cityName": "Abuja",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "timeZone": "Africa/Lagos"
+    },
+    {
+      "type": "city",
+      "id": "d4a0572b-9109-5088-b065-e7826d432fba",
+      "name": "Ibadan",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "airports": [
+        {
+          "code": "IBA",
+          "name": "Ibadan Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "IBA",
+      "name": "Ibadan Airport",
+      "cityName": "Ibadan",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "timeZone": "Africa/Lagos"
+    },
+    {
+      "type": "city",
+      "id": "44579e40-4ce4-556f-bfca-adf1408a988f",
+      "name": "Kano",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "airports": [
+        {
+          "code": "KAN",
+          "name": "Mallam Aminu Kano International Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "KAN",
+      "name": "Mallam Aminu Kano International Airport",
+      "cityName": "Kano",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "timeZone": "Africa/Lagos"
+    },
+    {
+      "type": "city",
+      "id": "d1156f9f-9a7c-5bf0-aa64-650bebaa960b",
+      "name": "Port Harcourt",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "airports": [
+        {
+          "code": "PHC",
+          "name": "Port Harcourt International Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "PHC",
+      "name": "Port Harcourt International Airport",
+      "cityName": "Port Harcourt",
+      "countryCode": "NG",
+      "countryName": "Nigeria",
+      "timeZone": "Africa/Lagos"
+    },
+    {
+      "type": "city",
+      "id": "7d65efbe-5ac8-50ca-9003-e9f116407373",
+      "name": "Dubai",
+      "countryCode": "AE",
+      "countryName": "United Arab Emirates",
+      "airports": [
+        {
+          "code": "DXB",
+          "name": "Dubai International Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "DXB",
+      "name": "Dubai International Airport",
+      "cityName": "Dubai",
+      "countryCode": "AE",
+      "countryName": "United Arab Emirates",
+      "timeZone": "Asia/Dubai"
+    },
+    {
+      "type": "city",
+      "id": "1b5f6383-bbd3-5517-af8d-5587f35b955e",
+      "name": "London",
+      "countryCode": "GB",
+      "countryName": "United Kingdom",
+      "airports": [
+        {
+          "code": "LHR",
+          "name": "London Heathrow Airport"
+        },
+        {
+          "code": "LGW",
+          "name": "London Gatwick Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "LHR",
+      "name": "London Heathrow Airport",
+      "cityName": "London",
+      "countryCode": "GB",
+      "countryName": "United Kingdom",
+      "timeZone": "Europe/London"
+    },
+    {
+      "type": "airport",
+      "code": "LGW",
+      "name": "London Gatwick Airport",
+      "cityName": "London",
+      "countryCode": "GB",
+      "countryName": "United Kingdom",
+      "timeZone": "Europe/London"
+    },
+    {
+      "type": "city",
+      "id": "3097e7cf-6937-5a51-9b97-88e1637c8bc0",
+      "name": "Accra",
+      "countryCode": "GH",
+      "countryName": "Ghana",
+      "airports": [
+        {
+          "code": "ACC",
+          "name": "Kotoka International Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "ACC",
+      "name": "Kotoka International Airport",
+      "cityName": "Accra",
+      "countryCode": "GH",
+      "countryName": "Ghana",
+      "timeZone": "Africa/Accra"
+    },
+    {
+      "type": "city",
+      "id": "f08b303c-8e00-572d-b566-62163677cba8",
+      "name": "Nairobi",
+      "countryCode": "KE",
+      "countryName": "Kenya",
+      "airports": [
+        {
+          "code": "NBO",
+          "name": "Jomo Kenyatta International Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "NBO",
+      "name": "Jomo Kenyatta International Airport",
+      "cityName": "Nairobi",
+      "countryCode": "KE",
+      "countryName": "Kenya",
+      "timeZone": "Africa/Nairobi"
+    },
+    {
+      "type": "city",
+      "id": "bc41a3f9-14cb-502b-86a5-851836c22aff",
+      "name": "Zanzibar",
+      "countryCode": "TZ",
+      "countryName": "Tanzania",
+      "airports": [
+        {
+          "code": "ZNZ",
+          "name": "Abeid Amani Karume International Airport"
+        }
+      ]
+    },
+    {
+      "type": "airport",
+      "code": "ZNZ",
+      "name": "Abeid Amani Karume International Airport",
+      "cityName": "Zanzibar",
+      "countryCode": "TZ",
+      "countryName": "Tanzania",
+      "timeZone": "Africa/Dar_es_Salaam"
+    }
+  ]
+}

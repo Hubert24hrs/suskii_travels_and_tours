@@ -1,6 +1,7 @@
 # ADR-109: Ask Suskii: Gemini, one button that moves, bookings prepared for the traveller, and plain copy
 
-- Status: Accepted
+- Status: Accepted; amended by ADR-112 (Gemini through Vertex AI with no key, and Gemini 3.5
+  Flash in place of 2.5 Flash, which Google refused to the owner's new project)
 - Date: 2026-11-12
 - Deciders: the owner (asked for it after trying the test app, with a reference picture),
   Claude Code (implementer)

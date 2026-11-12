@@ -306,3 +306,30 @@ export function asksForSecrets(answer: string): boolean {
   }
   return false;
 }
+
+/**
+ * An answer as the clients draw it (ADR-112): plain text. The website, the app and WhatsApp show
+ * the words as they are, so Markdown would reach a traveller as asterisks and hashes. Emphasis,
+ * headings, code marks and rules go; a list item's star, dash or plus becomes a bullet, so no
+ * dash reaches a traveller either. Figures, links and words are left exactly as written, for
+ * the guard to check.
+ */
+export function plainAnswerText(text: string): string {
+  return text
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(/^\s*([-*_])(\s*\1){2,}\s*$/, '')
+        .replace(/^(\s*)#{1,6}\s+/, '$1')
+        .replace(/^(\s*)[*+-]\s+/, '$1• ')
+        .replace(/\*\*(.+?)\*\*/g, '$1')
+        .replace(/__(.+?)__/g, '$1')
+        .replace(/(^|[\s(•])\*(\S(?:.*?\S)?)\*(?=[\s).,!?:;]|$)/g, '$1$2')
+        .replace(/(^|[\s(•])_(\S(?:.*?\S)?)_(?=[\s).,!?:;]|$)/g, '$1$2')
+        .replace(/`([^`\n]+)`/g, '$1')
+        .trimEnd(),
+    )
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}

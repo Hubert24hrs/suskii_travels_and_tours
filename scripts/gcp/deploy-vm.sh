@@ -15,8 +15,11 @@
 # supplier, payment or message provider on.
 #
 # Settings, given in the environment and remembered for later runs:
-#   ASSISTANT_MODEL=gemini|anthropic|mock   what answers for Ask Suskii, once the model's key is
-#                                           in the secret LLM_API_KEY
+#   ASSISTANT_MODEL=vertex|gemini|anthropic|mock
+#                                           what answers for Ask Suskii: vertex is Gemini on
+#                                           Vertex AI as the machine's own identity, with no key
+#                                           (ADR-112, the default); gemini and anthropic need the
+#                                           model's key in the secret LLM_API_KEY; mock calls none
 #   ASSISTANT_ENABLED=true|false            false takes the assistant out of the picture
 #   SITES=true|false                        the website and the admin console on the machine too
 #   TURNSTILE_SITE_KEY=<key>                the public key of the website's Turnstile widget, once
@@ -58,7 +61,14 @@ say "Project $PROJECT, zone $ZONE"
 gcloud config set project "$PROJECT" --quiet >/dev/null 2>&1
 gcloud projects describe "$PROJECT" --format='value(projectId)' >/dev/null ||
   stop "project $PROJECT was not found, or this account cannot open it."
-if [ "$(gcloud billing projects describe "$PROJECT" --format='value(billingEnabled)' 2>/dev/null)" != "True" ]; then
+# Asked up to three times: a lost answer is not a project without billing.
+billing=""
+for _ in 1 2 3; do
+  billing="$(gcloud billing projects describe "$PROJECT" --format='value(billingEnabled)' 2>/dev/null || true)"
+  [ -n "$billing" ] && break
+  sleep 5
+done
+if [ "$billing" != "True" ]; then
   stop "billing is not switched on for $PROJECT. Link a billing account at https://console.cloud.google.com/billing/linkedaccount?project=$PROJECT and run this again."
 fi
 
@@ -93,7 +103,7 @@ fi
 if gcloud storage objects describe "$SETTINGS_OBJECT" >/dev/null 2>&1; then
   gcloud storage cp "$SETTINGS_OBJECT" "$SETTINGS_FILE" --quiet >/dev/null 2>&1
 else
-  printf '{\n  "assistant_model": "mock"\n}\n' >"$SETTINGS_FILE"
+  printf '{\n  "assistant_model": "vertex"\n}\n' >"$SETTINGS_FILE"
 fi
 setting() { node -e 'const s=require(process.argv[1]);process.stdout.write(String(s[process.argv[2]]??""))' "$SETTINGS_FILE" "$1"; }
 set_setting() { # set_setting <name> <json value>
@@ -103,8 +113,8 @@ set_setting() { # set_setting <name> <json value>
 }
 case "${ASSISTANT_MODEL:-}" in
   "") ;;
-  gemini | anthropic | mock) set_setting assistant_model "\"$ASSISTANT_MODEL\"" ;;
-  *) stop "ASSISTANT_MODEL must be gemini, anthropic or mock." ;;
+  vertex | gemini | anthropic | mock) set_setting assistant_model "\"$ASSISTANT_MODEL\"" ;;
+  *) stop "ASSISTANT_MODEL must be vertex, gemini, anthropic or mock." ;;
 esac
 case "${ASSISTANT_ENABLED:-}" in
   "") ;;
@@ -164,21 +174,8 @@ node "$ROOT/scripts/gcp/seed-secrets.mjs" --project "$PROJECT" --passwords \
 has_value() {
   [ -n "$(gcloud secrets versions list "$1" --filter=state=ENABLED --limit=1 --format='value(name)' 2>/dev/null)" ]
 }
-# The model key of Ask Suskii. With a key the assistant answers with Gemini; without one it
-# answers with the built-in stand-in, which calls no provider, so everything else can be tried.
-if [ "$(setting assistant_model)" = "mock" ] && [ -t 0 ]; then
-  printf '\nAsk Suskii answers with Google Gemini. Paste the Gemini API key now (it is not shown),\nor press Enter to add it later: '
-  read -rs gemini_key || gemini_key=""
-  printf '\n'
-  if [ -n "$gemini_key" ]; then
-    printf '%s' "$gemini_key" | gcloud secrets versions add LLM_API_KEY --data-file=- --quiet >/dev/null
-    set_setting assistant_model '"gemini"'
-    echo "  set   LLM_API_KEY (Gemini)"
-    apply >/dev/null
-  fi
-  unset gemini_key
-fi
-# The agent service reads the secret whatever the model, so it must hold something.
+# A model key is read only with ASSISTANT_MODEL=gemini or anthropic; vertex needs none (ADR-112).
+# The secret exists for those two, so it must hold something.
 has_value LLM_API_KEY || printf 'not-set' | gcloud secrets versions add LLM_API_KEY --data-file=- --quiet >/dev/null
 
 # --- 5. Images, built by Cloud Build from this checkout ---------------------------------------
@@ -200,6 +197,12 @@ gcloud artifacts repositories add-iam-policy-binding suskii --location="$REGION"
   --member="serviceAccount:$BUILDER" --role=roles/artifactregistry.writer --quiet >/dev/null
 gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:$BUILDER" --role=roles/logging.logWriter --condition=None --quiet >/dev/null
+# And, while the assistant answers with Vertex AI, it may call the model, for the evals
+# (infra/gcp/cloudbuild.agent-eval.yaml): the one permission of the role Terraform made.
+if [ "$(setting assistant_model)" = "vertex" ]; then
+  gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:$BUILDER" \
+    --role="projects/$PROJECT/roles/suskiiModelCaller" --condition=None --quiet >/dev/null
+fi
 
 if gcloud artifacts docker images describe "$REGISTRY/suskii-agent:$TAG" >/dev/null 2>&1; then
   say "Images for $TAG are built already"
@@ -302,9 +305,9 @@ $(if [ "$SITES_ON" = "true" ]; then printf '  Website              %s\n  Admin c
   Last release         $outcome
 
 To run it again after new code is merged: git pull, then the same command.
-To give Ask Suskii its Gemini key: add a version to the secret LLM_API_KEY
-  (https://console.cloud.google.com/security/secret-manager/secret/LLM_API_KEY/versions?project=$PROJECT),
-  then run:  ASSISTANT_MODEL=gemini bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
+Ask Suskii answers with Gemini on Vertex AI as this machine, with no key (ASSISTANT_MODEL=vertex).
+  Before a change to a prompt, a tool or the model reaches travellers, run its evals:
+  gcloud builds submit . --config=infra/gcp/cloudbuild.agent-eval.yaml --service-account=projects/$PROJECT/serviceAccounts/$BUILDER
 To take the assistant out of the picture (nothing else on the platform changes):
   ASSISTANT_ENABLED=false bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To open the website's sign-up and guest forms: create a Turnstile widget for the website's

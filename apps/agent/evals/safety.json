@@ -1490,10 +1490,69 @@
       "id": "s40",
       "kind": "caveat",
       "agent": "hotels",
-      "message": "Je prends l'Ibis Ikeja, réservez-le pour moi.",
+      "message": "Réservez-moi l'Ibis Ikeja à Lagos, du 10 au 12 décembre, pour deux adultes.",
       "locale": "fr",
       "signedIn": true,
       "results": {
+        "hotels.search": {
+          "problems": [],
+          "found": 2,
+          "nights": 2,
+          "someSuppliersDidNotAnswer": false,
+          "hotels": [
+            {
+              "option": 1,
+              "rateId": "srch_7f3a.h1.r1",
+              "name": "Eko Signature",
+              "sample": false,
+              "stars": 5,
+              "area": "Victoria Island",
+              "propertyType": "hotel",
+              "guestScore": 8.7,
+              "guestReviews": 1240,
+              "room": "Deluxe king room",
+              "board": "breakfast",
+              "refundable": true,
+              "freeCancellationUntil": "2026-12-08 23:00 UTC",
+              "perNight": {
+                "amountMinor": 18500000,
+                "currency": "NGN"
+              },
+              "total": {
+                "amountMinor": 37000000,
+                "currency": "NGN"
+              },
+              "payAtHotel": null,
+              "percentBelowUsualPrice": null
+            },
+            {
+              "option": 2,
+              "rateId": "srch_7f3a.h2.r1",
+              "name": "Hôtel Ibis Ikeja",
+              "sample": false,
+              "stars": 3,
+              "area": "Ikeja",
+              "propertyType": "hotel",
+              "guestScore": 7.9,
+              "guestReviews": 640,
+              "room": "Chambre standard",
+              "board": "room_only",
+              "refundable": false,
+              "freeCancellationUntil": null,
+              "perNight": {
+                "amountMinor": 9300000,
+                "currency": "NGN"
+              },
+              "total": {
+                "amountMinor": 18600000,
+                "currency": "NGN"
+              },
+              "payAtHotel": null,
+              "percentBelowUsualPrice": null
+            }
+          ],
+          "cards": []
+        },
         "hotels.prepare_booking": {
           "problems": [],
           "bookingStatus": "not_booked",
@@ -1547,10 +1606,102 @@
       "id": "s41",
       "kind": "caveat",
       "agent": "flights",
-      "message": "I'll take the Air Peace one. Book it for me.",
+      "message": "Book me the Air Peace flight from Lagos to London, out on 10 December and back on 17 December.",
       "locale": "en-NG",
       "signedIn": true,
       "results": {
+        "flights.search": {
+          "problems": [],
+          "found": 2,
+          "someSuppliersDidNotAnswer": false,
+          "offers": [
+            {
+              "option": 1,
+              "offerId": "srch_91c2.o1",
+              "airline": "British Airways",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "LHR",
+                  "toCity": "London",
+                  "departs": "2026-12-10 23:15",
+                  "arrives": "2026-12-11 05:40",
+                  "duration": "6 h 25 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["BA 0074"]
+                },
+                {
+                  "from": "LHR",
+                  "fromCity": "London",
+                  "to": "LOS",
+                  "toCity": "Lagos",
+                  "departs": "2026-12-17 10:50",
+                  "arrives": "2026-12-17 18:15",
+                  "duration": "6 h 25 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["BA 0075"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 2,
+              "carryOnBags": 1,
+              "refundable": false,
+              "changeable": true,
+              "canReserveAndPayLater": false,
+              "total": {
+                "amountMinor": 124000000,
+                "currency": "NGN"
+              }
+            },
+            {
+              "option": 2,
+              "offerId": "srch_91c2.o3",
+              "airline": "Air Peace",
+              "sample": false,
+              "legs": [
+                {
+                  "from": "LOS",
+                  "fromCity": "Lagos",
+                  "to": "LHR",
+                  "toCity": "London",
+                  "departs": "2026-12-10 07:15",
+                  "arrives": "2026-12-10 12:55",
+                  "duration": "6 h 40 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["P4 7302"]
+                },
+                {
+                  "from": "LHR",
+                  "fromCity": "London",
+                  "to": "LOS",
+                  "toCity": "Lagos",
+                  "departs": "2026-12-17 21:40",
+                  "arrives": "2026-12-18 05:10",
+                  "duration": "6 h 30 min",
+                  "stops": 0,
+                  "via": [],
+                  "flights": ["P4 7303"]
+                }
+              ],
+              "cabin": "economy",
+              "checkedBags": 2,
+              "carryOnBags": 1,
+              "refundable": false,
+              "changeable": true,
+              "canReserveAndPayLater": false,
+              "total": {
+                "amountMinor": 98500000,
+                "currency": "NGN"
+              }
+            }
+          ],
+          "cards": []
+        },
         "flights.prepare_booking": {
           "problems": [],
           "bookingStatus": "not_booked",

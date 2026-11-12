@@ -110,6 +110,15 @@ export const DEFAULT_AGENT_MODEL_PRICES: AgentModelPrices = {
     cacheRead: 30_000,
     cacheWrite: 300_000,
   },
+  // The current Flash model, the one Google gives a new project (ADR-112). Standard text rates
+  // from Google's Cloud Billing catalogue (Vertex AI), read on 2026-11-12: check them before
+  // relying on a cost figure. Thinking is billed as output.
+  'gemini-3.5-flash': {
+    input: 1_500_000,
+    output: 9_000_000,
+    cacheRead: 150_000,
+    cacheWrite: 1_500_000,
+  },
   'mock-router': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   'mock-specialist': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   'mock-fallback': { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

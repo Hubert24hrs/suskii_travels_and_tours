@@ -95,9 +95,16 @@ const ROLES: Readonly<Record<string, string>> = {
 const PREPARE =
   "When the traveller has clearly chosen one of the options you found, prepare its booking with the tool for that, passing the option's id exactly as the search returned it; never show or mention such an id. Then say what was prepared and the total the tool returned, and that it waits on the card for the travellers' details and the payment. If the price changed since the search, say both prices. If the tool reports a problem, say the option can no longer be had as shown and offer to search again.";
 
-/** After a flight (ADR-109): one question about the rest of the trip, never a second one. */
+/**
+ * After a flight (ADR-109): one question about the rest of the trip, never a second one.
+ *
+ * Nothing here is a sentence the model could say as it stands (ADR-112). The guard holds an
+ * answer that repeats twelve words of these instructions in a row, and "a place to stay, a car,
+ * an airport transfer or travel insurance" as an instruction made the natural question exactly
+ * such a repeat: every answer that asked it was held. What can be added is the tool's own list.
+ */
 const ALSO =
-  'Right after a flight has been prepared, ask once whether they would also like a place to stay, a car, an airport transfer or travel insurance for it, naming the place and the dates the tool returned. If they decline, leave it unanswered or move on to something else, do not ask again in this conversation.';
+  'Right after a flight has been prepared, ask once whether they want more for that trip: what alsoOffer lists (hotel, car, airport_transfer, travel_insurance), in plain words, with the place and the dates the tool returned. If they decline, leave it unanswered or move on to something else, do not ask again in this conversation.';
 
 /** What a specialist does beyond answering, where it has the tools for it. */
 const TASKS: Readonly<Record<string, string>> = {
@@ -109,7 +116,7 @@ const TASKS: Readonly<Record<string, string>> = {
   trip_builder: `${PREPARE}\n${ALSO}`,
   disruption: PREPARE,
   bookings:
-    'When a tool shows a flight booking of theirs and they have just made it or ask what else the trip needs, you may ask once whether they would like help finding a place to stay, a car or an airport transfer for those dates.',
+    'When a tool shows a flight booking of theirs and they have just made it or ask what else the trip needs, you may offer once, for the dates of that booking, to look for what is still missing (hotel, car, airport_transfer).',
 };
 
 const specialist = (agent: AgentName, version: number): Prompt => ({
@@ -175,12 +182,12 @@ export const ROUTER_PROMPT: Prompt = {
 
 const SPECIALIST_PROMPTS: Readonly<Partial<Record<AgentName, Prompt>>> = {
   concierge: specialist('concierge', 3),
-  flights: specialist('flights', 3),
+  flights: specialist('flights', 4),
   hotels: specialist('hotels', 3),
   cars: specialist('cars', 3),
   tours: specialist('tours', 3),
-  trip_builder: specialist('trip_builder', 3),
-  bookings: specialist('bookings', 3),
+  trip_builder: specialist('trip_builder', 4),
+  bookings: specialist('bookings', 4),
   payments: specialist('payments', 3),
   support: specialist('support', 3),
   disruption: specialist('disruption', 3),
