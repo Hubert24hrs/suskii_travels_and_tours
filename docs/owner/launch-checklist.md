@@ -274,11 +274,15 @@ happen, and nothing happens unless the traveller taps to confirm. It is built an
 website and the app show it only once it is switched on (7.5 says what travellers then see).
 What is yours to do before it answers anyone:
 
-1. **The model key.** The same `LLM_API_KEY` as the after-hours assistant (an Anthropic API
-   key), as a repository secret:
-   <https://github.com/Hubert24hrs/suskii_travels_and_tours/settings/secrets/actions>. Read the
-   provider's data retention terms with counsel and choose zero data retention if your
-   agreement offers it. Only you can accept those terms.
+1. **The model key.** Ask Suskii answers with Google's Gemini (ADR-109). Create a key in
+   Google AI Studio (<https://aistudio.google.com/apikey>) on a project with billing switched
+   on, so the paid tier's terms apply, and add it as the repository secret `GEMINI_API_KEY`:
+   <https://github.com/Hubert24hrs/suskii_travels_and_tours/settings/secrets/actions>. Read
+   Google's terms for the Gemini API with counsel, in particular whether prompts may be used to
+   improve its models on your tier. Only you can accept those terms. Google serves the 2.5
+   models only to projects that have used them: if `gemini-2.5-flash` is refused for your
+   project, name the current Flash model in `AGENT_MODEL_ROUTER`, `AGENT_MODEL_SPECIALIST` and
+   `AGENT_MODEL_FALLBACK`, and its price in `AGENT_MODEL_PRICES`.
 2. **Measure it against the real model.** GitHub, Actions, **Agent evals**, Run workflow
    (<https://github.com/Hubert24hrs/suskii_travels_and_tours/actions/workflows/agent-eval.yml>),
    suite `all`. It costs a few cents. It passes when routing reaches 95%, no invented figure,

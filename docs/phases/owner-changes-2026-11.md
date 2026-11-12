@@ -54,7 +54,36 @@ Risks, and how each is met:
 
 ### Part 2: Ask Suskii (ADR-109)
 
-Planned in ADR-109 and built after part 1 is merged.
+Built after part 1, with the owner's two later messages folded in: the button is one button
+that moves (not several), and no customer reads a hyphen, a dash or wording that sounds machine
+written.
+
+Files:
+
+- Agent service: `apps/agent/src/model/gemini-model.ts` (the adapter), `config.ts` and
+  `factory.ts` (the provider and its default models), `prompts/prompts.ts` (version 3 of every
+  customer specialist: preparing a booking, the one question after a flight, the platform
+  guide, no dashes), `evals/cli.ts` (either provider), two new recorded safety cases.
+- API: `src/agent/tools/checkout-tools.ts` (the three prepare tools), `platform-guide.ts` and
+  `platform.guide`, ids on what the search tools return, two notes
+  (`booking_handoff`, `other_services`), Gemini's price, Google as a recipient in the records
+  of processing.
+- Website: `components/assistant/ask-suskii.tsx` with its CSS in `app/globals.css`,
+  `NoAskSuskii` on the pages that never show it.
+- App: `components/assistant/ask-suskii-button.tsx`, `lib/ask-suskii.ts`, the card of a
+  prepared booking opens the app's checkout.
+- Copy: the five catalogs, the console's catalog, `format.dateRange`, the API's emails, texts
+  and PDFs, with tests that keep hyphens and dashes out.
+
+Risks taken and how they are bounded:
+
+- **A model that says "booked".** The tool's status is always `not_booked` and the answer guard
+  refuses the word; a graph test and two recorded safety cases cover it.
+- **A button that passes over a control.** It rests 15 seconds, can be dragged or put away,
+  and is never on a payment or sign-in screen. The website's whole end-to-end suite ran with
+  it moving and nothing was blocked.
+- **A new model nobody has measured.** Recorded evals prove the graph, the guard and the
+  tools; the run against Gemini needs the owner's key.
 
 ## Outcome of part 1
 
