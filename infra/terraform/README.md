@@ -65,6 +65,9 @@ bash scripts/gcp/deploy-vm.sh <project id> [region] [zone]
 - The machine reads its keys from Secret Manager as its own identity and gives each container
   only its own. The assistant's container has a ceiling on memory and processor time and is
   started last: a release stands whether or not it comes up.
+- The website and the admin console run there too (`sites`, on by default), on
+  `web.endpoints.<project>.cloud.goog` and `admin.endpoints.<project>.cloud.goog`. Their
+  images are built for those addresses (`infra/gcp/cloudbuild.sites.yaml`).
 - To look at the machine: `gcloud compute instances get-serial-port-output <instance> --zone
 <zone>`, or SSH from the console's button (Identity-Aware Proxy only).
 

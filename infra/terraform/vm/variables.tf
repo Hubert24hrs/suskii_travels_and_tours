@@ -45,16 +45,28 @@ variable "api_host" {
   default     = ""
 }
 
-variable "hosts" {
-  description = "The website's and the console's names, for links in messages and for CORS. Placeholders until they exist."
-  type = object({
-    web   = string
-    admin = string
-  })
-  default = {
-    web   = "suskii.example"
-    admin = "admin.suskii.example"
-  }
+variable "sites" {
+  description = "Run the website and the admin console on the machine too. Off: the backend alone, and their names are placeholders in links and CORS."
+  type        = bool
+  default     = true
+}
+
+variable "web_host" {
+  description = "The website's own name once the owner has a domain. Empty: web.endpoints.<project>.cloud.goog."
+  type        = string
+  default     = ""
+}
+
+variable "admin_host" {
+  description = "The console's own name once the owner has a domain. Empty: admin.endpoints.<project>.cloud.goog."
+  type        = string
+  default     = ""
+}
+
+variable "turnstile_site_key" {
+  description = "The public key of the website's Turnstile widget, built into the website's image by the deploy script. Empty: the forms it protects stay closed. Its secret goes in the secret TURNSTILE_SECRET_KEY."
+  type        = string
+  default     = ""
 }
 
 variable "assistant_enabled" {

@@ -18,6 +18,9 @@
 #   ASSISTANT_MODEL=gemini|anthropic|mock   what answers for Ask Suskii, once the model's key is
 #                                           in the secret LLM_API_KEY
 #   ASSISTANT_ENABLED=true|false            false takes the assistant out of the picture
+#   SITES=true|false                        the website and the admin console on the machine too
+#   TURNSTILE_SITE_KEY=<key>                the public key of the website's Turnstile widget, once
+#                                           its secret is in the secret TURNSTILE_SECRET_KEY
 # And for one run only:
 #   SUSKII_TAG=<tag>                        release images that are built already
 set -euo pipefail
@@ -105,6 +108,15 @@ case "${ASSISTANT_ENABLED:-}" in
   true | false) set_setting assistant_enabled "$ASSISTANT_ENABLED" ;;
   *) stop "ASSISTANT_ENABLED must be true or false." ;;
 esac
+case "${SITES:-}" in
+  "") ;;
+  true | false) set_setting sites "$SITES" ;;
+  *) stop "SITES must be true or false." ;;
+esac
+if [ -n "${TURNSTILE_SITE_KEY:-}" ]; then
+  [[ "$TURNSTILE_SITE_KEY" =~ ^[A-Za-z0-9_-]+$ ]] || stop "TURNSTILE_SITE_KEY does not look like a Turnstile site key."
+  set_setting turnstile_site_key "\"$TURNSTILE_SITE_KEY\""
+fi
 
 # Cloud Shell hands Terraform the owner's identity by itself. Anywhere else Terraform is given
 # the signed-in account's own short-lived token, fresh for every call, so one sign-in is enough.
@@ -187,10 +199,33 @@ else
     --substitutions="_REGISTRY=$REGISTRY,_TAG=$TAG" --quiet
 fi
 
+# The website and the console are built for the addresses they are served on, which are compiled
+# into their pages: their tag names the commit and those addresses, so a changed address or
+# Turnstile key builds new images instead of reusing the old ones.
+SITES_ON="$(terraform output -raw sites)"
+SITES_TAG=""
+if [ "$SITES_ON" = "true" ]; then
+  WEB_URL="$(terraform output -raw web_url)"
+  ADMIN_URL="$(terraform output -raw admin_url)"
+  SITE_KEY="$(terraform output -raw turnstile_site_key)"
+  SITES_TAG="$TAG-$(printf '%s' "$API_URL|$WEB_URL|$ADMIN_URL|$SITE_KEY" | sha256sum | cut -c1-8)"
+  if gcloud artifacts docker images describe "$REGISTRY/suskii-admin:$SITES_TAG" >/dev/null 2>&1; then
+    say "The website's and the console's images for $SITES_TAG are built already"
+  else
+    say "Building the website and the console for $SITES_TAG (about 10 minutes)"
+    gcloud builds submit "$ROOT" \
+      --config="$ROOT/infra/gcp/cloudbuild.sites.yaml" \
+      --service-account="projects/$PROJECT/serviceAccounts/$BUILDER" \
+      --gcs-source-staging-dir="gs://$BUILD_BUCKET/source" \
+      --substitutions="_REGISTRY=$REGISTRY,_TAG=$TAG,_SITES_TAG=$SITES_TAG,_API_URL=$API_URL,_WEB_URL=$WEB_URL,_ADMIN_URL=$ADMIN_URL,_TURNSTILE_SITE_KEY=$SITE_KEY,_ENVIRONMENT=$ENVIRONMENT" \
+      --quiet
+  fi
+fi
+
 # --- 6. The release: named in the machine's metadata, deployed by the machine ------------------
 # The number makes this release its own, so the same images can be released again and the
 # machine's report of an earlier release is never taken for this one's.
-RELEASE="$TAG $(date -u +%s)"
+RELEASE="$TAG $(date -u +%s)${SITES_TAG:+ $SITES_TAG}"
 say "Releasing $TAG on $INSTANCE"
 gcloud compute instances add-metadata "$INSTANCE" --zone "$ZONE" \
   --metadata "suskii-release=$RELEASE" --quiet >/dev/null
@@ -234,9 +269,11 @@ check() { # check <path> <tries>: the status code, trying every five seconds
 }
 failed=0
 check /health 60 || failed=1
-check /ready 3 || failed=1
-check /v1/status 3 || failed=1
 check /v1/agent/status 3 || failed=1
+# The smoke tests the release pipeline runs: public routes only.
+sites=()
+if [ "$SITES_ON" = "true" ]; then sites=(--web "$WEB_URL" --admin "$ADMIN_URL"); fi
+node "$ROOT/scripts/smoke.mjs" --api "$API_URL" "${sites[@]}" --wait 300 || failed=1
 
 cat <<EOF2
 
@@ -244,6 +281,7 @@ cat <<EOF2
 The backend is on Google Cloud.
 
   API address          $API_URL
+$(if [ "$SITES_ON" = "true" ]; then printf '  Website              %s\n  Admin console        %s\n' "$WEB_URL" "$ADMIN_URL"; fi)
   Project              $PROJECT ($ZONE)
   Machine              $INSTANCE, $(terraform output -raw address)
   Assistant's model    $(setting assistant_model)
@@ -255,6 +293,11 @@ To give Ask Suskii its Gemini key: add a version to the secret LLM_API_KEY
   then run:  ASSISTANT_MODEL=gemini bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
 To take the assistant out of the picture (nothing else on the platform changes):
   ASSISTANT_ENABLED=false bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
+To open the website's sign-up and guest forms: create a Turnstile widget for the website's
+  name, add its secret as a version of the secret TURNSTILE_SECRET_KEY, then run:
+  TURNSTILE_SITE_KEY=<its site key> bash scripts/gcp/deploy-vm.sh $PROJECT $REGION $ZONE
+To make the first admin (after that person has signed up), from the machine's SSH button:
+  sudo /opt/suskii/ops scripts/staff-bootstrap.ts --email THEIR@ADDRESS --yes
 ------------------------------------------------------------------------------------------------
 EOF2
 if [ "$failed" -ne 0 ]; then

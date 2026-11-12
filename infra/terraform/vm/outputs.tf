@@ -7,6 +7,24 @@ output "api_host" {
   value = local.api_host
 }
 
+output "sites" {
+  description = "Whether the website and the console run on the machine."
+  value       = var.sites
+}
+
+output "web_url" {
+  value = "https://${local.web_host}"
+}
+
+output "admin_url" {
+  value = "https://${local.admin_host}"
+}
+
+output "turnstile_site_key" {
+  description = "Public by design: it is in every page that shows the widget."
+  value       = var.turnstile_site_key
+}
+
 output "address" {
   description = "The VM's public address. With a domain of the owner's, the API's DNS record points here."
   value       = google_compute_address.backend.address

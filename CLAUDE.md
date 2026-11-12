@@ -145,8 +145,10 @@ images of the API, the worker and the agent service in containers beside Postgre
 and Caddy (`infra/gcp/vm/`), with keys in Secret Manager, data on a disk of its own and a
 nightly dump in a bucket. The API answers on `api.endpoints.suskii-travels-staging.cloud.goog`.
 It runs on the stand-ins for every provider; the assistant answers with the stand-in model
-until the owner puts a Gemini key in `LLM_API_KEY`. No website or console is deployed. The
-owner's guide is `docs/owner/deploy-backend-on-google-cloud.md`.
+until the owner puts a Gemini key in `LLM_API_KEY`. The website and the admin console run on
+the same machine (`web.` and `admin.endpoints.suskii-travels-staging.cloud.goog`); the forms
+the website protects with Turnstile stay closed until the owner's widget exists. The owner's
+guide is `docs/owner/deploy-backend-on-google-cloud.md`.
 
 Partner supply (outside the numbered phases, ADR-069 to ADR-071): Hotelbeds hotels, cross-supplier
 hotel merging, affiliate partner offers with click and conversion tracking. Built; each partner
@@ -1724,7 +1726,9 @@ Tooling notes for agents:
   gets only its own keys, read from Secret Manager as the machine's identity; never put a
   secret in metadata, in Terraform or in the compose file. The assistant's container keeps
   its ceiling on memory and processor time and is started last, and a release must stand
-  when it does not come up. `/v1/internal/*` stays closed at Caddy.
+  when it does not come up. `/v1/internal/*` stays closed at Caddy. The website's and the
+  console's images are built for the addresses they are served on, so their tag carries a
+  hash of those addresses: never reuse one for another address or Turnstile key.
 - Before a Terraform root is applied for the first time, plan it against the real project
   (`terraform plan` with a local backend override): `validate` cannot see a variable's
   validation that only a real value trips, and that is how the managed shape's ingress bug was
@@ -2108,7 +2112,9 @@ website and the console should follow. Added with the backend on one machine (AD
 Gemini key in the secret `LLM_API_KEY`, then one deploy with `ASSISTANT_MODEL=gemini`; a
 budget alert on `suskii-travels-staging`; whether `fast-delivery-d8d5c`, unlinked from billing
 to make room, should get billing back (a freed place or a higher limit from Google); the
-owner's own domain for the API in place of Google's free name; and when to move to the
-managed shape. Every
+owner's own domain for the API in place of Google's free name; a Turnstile widget for the
+website's name (its site key and secret), without which sign-up and guest checkout on the
+website stay closed; the first admin of the console; and when to move to the managed shape.
+Every
 owner action is listed, step by step, in
 `docs/owner/launch-checklist.md`.

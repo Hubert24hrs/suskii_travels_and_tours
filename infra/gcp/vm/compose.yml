@@ -6,6 +6,9 @@
 # Written to /opt/suskii on the VM from instance metadata and started by deploy.sh, which also
 # writes the env files: compose.env (names, no secret) and one file per container under
 # /run/suskii (memory only). Nothing but Caddy has a published port.
+#
+# The website and the admin console (profile `sites`) run here too when the settings say so:
+# built for this environment's addresses, with no key of their own.
 name: suskii
 
 x-hardened: &hardened
@@ -69,7 +72,7 @@ services:
     <<: *hardened
     image: ${SUSKII_REGISTRY:?}/suskii-api:${SUSKII_TAG:?}
     env_file: [/run/suskii/api.env]
-    environment:
+    environment: &api-env
       NODE_ENV: production
       LOG_LEVEL: info
       API_PORT: '8080'
@@ -157,12 +160,55 @@ services:
     mem_limit: 512m
     cpus: 0.75
 
-  # HTTPS for the API: a certificate from Let's Encrypt for the VM's name, kept on the data disk.
+  # Operator commands on the migrate image with the API's settings, from a login on the
+  # machine: `sudo /opt/suskii/ops scripts/staff-bootstrap.ts --email you@example.com --yes`.
+  ops:
+    image: ${SUSKII_REGISTRY:?}/suskii-api-migrate:${SUSKII_TAG:?}
+    profiles: [ops]
+    entrypoint: ['node_modules/.bin/tsx']
+    env_file: [/run/suskii/api.env]
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: 'no'
+
+  # The website. Pages are rendered here and read the API over the private network; a visitor's
+  # browser calls the API on its public name.
+  web:
+    <<: *hardened
+    image: ${SUSKII_REGISTRY:?}/suskii-web:${SUSKII_SITES_TAG:-none}
+    profiles: [sites]
+    environment:
+      API_INTERNAL_URL: http://api:8080
+    tmpfs:
+      - /tmp
+      - '/app/apps/web/.next/cache:uid=1000,gid=1000'
+    depends_on:
+      api:
+        condition: service_healthy
+    mem_limit: 640m
+
+  # The admin console. It calls the API from the browser only.
+  admin:
+    <<: *hardened
+    image: ${SUSKII_REGISTRY:?}/suskii-admin:${SUSKII_SITES_TAG:-none}
+    profiles: [sites]
+    tmpfs:
+      - /tmp
+      - '/app/apps/admin/.next/cache:uid=1000,gid=1000'
+    mem_limit: 384m
+
+  # HTTPS: a certificate from Let's Encrypt for each name, kept on the data disk.
   caddy:
     image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
     restart: unless-stopped
     environment:
       SUSKII_API_HOST: ${SUSKII_API_HOST:?}
+      SUSKII_WEB_HOST: ${SUSKII_WEB_HOST:?}
+      SUSKII_ADMIN_HOST: ${SUSKII_ADMIN_HOST:?}
     ports: ['80:80', '443:443', '443:443/udp']
     volumes:
       - /opt/suskii/Caddyfile:/etc/caddy/Caddyfile:ro

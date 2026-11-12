@@ -17,6 +17,18 @@ provider "google" {
 locals {
   prefix   = "suskii-${var.environment}"
   api_host = var.api_host != "" ? var.api_host : "api.endpoints.${var.project_id}.cloud.goog"
+  # With the website and the console off, their names are placeholders nothing answers on.
+  web_host = var.web_host != "" ? var.web_host : (
+    var.sites ? "web.endpoints.${var.project_id}.cloud.goog" : "suskii.example"
+  )
+  admin_host = var.admin_host != "" ? var.admin_host : (
+    var.sites ? "admin.endpoints.${var.project_id}.cloud.goog" : "admin.suskii.example"
+  )
+  # Google's free names for the address, one for each name the owner has not given.
+  free_names = merge(
+    var.sites && var.web_host == "" ? { web = local.web_host } : {},
+    var.sites && var.admin_host == "" ? { admin = local.admin_host } : {},
+  )
   registry = "${var.region}-docker.pkg.dev/${var.project_id}/suskii"
   labels   = merge({ app = "suskii", environment = var.environment, managed_by = "terraform" }, var.labels)
 
@@ -134,6 +146,23 @@ resource "google_endpoints_service" "api_host" {
     paths   = {}
     "x-google-endpoints" = [{
       name   = local.api_host
+      target = google_compute_address.backend.address
+    }]
+  })
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_endpoints_service" "site_host" {
+  for_each     = local.free_names
+  project      = var.project_id
+  service_name = each.value
+  openapi_config = yamlencode({
+    swagger = "2.0"
+    info    = { title = "Suskii ${each.key} address", version = "1.0.0" }
+    host    = each.value
+    paths   = {}
+    "x-google-endpoints" = [{
+      name   = each.value
       target = google_compute_address.backend.address
     }]
   })
@@ -374,6 +403,7 @@ resource "google_compute_instance" "backend" {
     startup-script          = file("${path.module}/../../gcp/vm/startup.sh")
     suskii-compose          = file("${path.module}/../../gcp/vm/compose.yml")
     suskii-caddyfile        = file("${path.module}/../../gcp/vm/Caddyfile")
+    suskii-caddyfile-sites  = file("${path.module}/../../gcp/vm/Caddyfile.sites")
     suskii-deploy           = file("${path.module}/../../gcp/vm/deploy.sh")
     suskii-backup           = file("${path.module}/../../gcp/vm/backup.sh")
     suskii-settings = jsonencode({
@@ -381,8 +411,9 @@ resource "google_compute_instance" "backend" {
       environment       = var.environment
       registry          = local.registry
       api_host          = local.api_host
-      web_host          = var.hosts.web
-      admin_host        = var.hosts.admin
+      sites             = var.sites
+      web_host          = local.web_host
+      admin_host        = local.admin_host
       documents_bucket  = google_storage_bucket.documents.name
       backups_bucket    = google_storage_bucket.backups.name
       assistant_enabled = var.assistant_enabled

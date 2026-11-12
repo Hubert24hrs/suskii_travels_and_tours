@@ -3,10 +3,10 @@
 The backend runs on Google Cloud in one of two shapes. You chose the first on 2026-11-12, and
 it is the one that is live. The second is built and waits for a bigger budget.
 
-| Shape               | What runs                                                                | Roughly per month     |
-| ------------------- | ------------------------------------------------------------------------ | --------------------- |
-| **One machine**     | One Compute Engine VM with the API, the worker, Ask Suskii, the database | 35 to 45 US dollars   |
-| **Managed** (later) | Cloud Run, Cloud SQL and Memorystore, each looked after by Google        | 130 to 230 US dollars |
+| Shape               | What runs                                                               | Roughly per month     |
+| ------------------- | ----------------------------------------------------------------------- | --------------------- |
+| **One machine**     | One Compute Engine VM with everything: the API, Ask Suskii, the website | 40 to 45 US dollars   |
+| **Managed** (later) | Cloud Run, Cloud SQL and Memorystore, each looked after by Google       | 130 to 230 US dollars |
 
 Both figures are estimates from Google's list prices, not quotes.
 
@@ -17,6 +17,8 @@ Both figures are estimates from Google's list prices, not quotes.
 - **The API** at `https://api.endpoints.suskii-travels-staging.cloud.goog`, with a certificate
   that renews by itself. The name is Google's free one for the project; your own domain can
   replace it later.
+- **The website** at `https://web.endpoints.suskii-travels-staging.cloud.goog` and **the admin
+  console** at `https://admin.endpoints.suskii-travels-staging.cloud.goog`.
 - **The worker**, which refreshes fares and deals and sends reminders, and **Ask Suskii's own
   service**. Neither is reachable from outside.
 - **PostgreSQL and Redis** on the same machine, with their data on a disk of its own that
@@ -28,13 +30,36 @@ Both figures are estimates from Google's list prices, not quotes.
 It runs on the built-in stand-ins for airlines, hotels, payments, email and texts, so every
 journey works and no real money moves. Each real provider is connected later with its key.
 
-There is no website or admin console on it yet. That has one consequence for the app: a
-booking can be made against this backend but not paid for, because the stand-in payment page
-is a page of the website. Putting the website on the same machine is the next step; it adds
-no machine and almost no cost.
-
 To point the test app at it: Account, Test server, and enter
-`https://api.endpoints.suskii-travels-staging.cloud.goog` as the API address.
+`https://api.endpoints.suskii-travels-staging.cloud.goog` as the API address and
+`https://web.endpoints.suskii-travels-staging.cloud.goog` as the website address.
+
+### Two things the website and the console still need from you
+
+**1. A Turnstile widget, so people can sign up on the website.** The website's sign-up, guest
+checkout and newsletter forms are protected against bots by Cloudflare Turnstile, and they
+stay closed until a widget exists for this website. Signing in, searching and paying work
+without it, and the app is not affected: it proves itself another way.
+
+1. Create a free Cloudflare account and open Turnstile:
+   <https://dash.cloudflare.com/?to=/:account/turnstile>.
+2. Add a widget for the hostname `web.endpoints.suskii-travels-staging.cloud.goog`. Cloudflare
+   shows a **site key** and a **secret key**.
+3. Open
+   <https://console.cloud.google.com/security/secret-manager/secret/TURNSTILE_SECRET_KEY/versions?project=suskii-travels-staging>,
+   press **New version**, paste the secret key and save.
+4. Run the deploy command below with `TURNSTILE_SITE_KEY=the-site-key` in front of it. The
+   site key is public by design.
+
+**2. The first admin of the console.** Sign up in the app with the address that should be the
+admin. Then open the machine's **SSH** button (see "Look at it" below) and run, with that
+address:
+
+```bash
+sudo /opt/suskii/ops scripts/staff-bootstrap.ts --email you@example.com --yes
+```
+
+It prints what to do next. The console asks every admin to set up two step verification.
 
 ### What this shape does not give you
 
@@ -46,7 +71,7 @@ To point the test app at it: Account, Test server, and enter
 It is the right size for testing the app with real people. Before paying customers depend on
 it, move to the managed shape.
 
-The machine has 4 GB of memory and uses about 1.2 GB with everything running. A machine half
+The machine has 4 GB of memory and uses about 1.4 GB with everything running. A machine half
 the size (`e2-small`, 2 GB) would save about 15 US dollars a month and leave little room when
 traffic grows or a deploy runs. Say the word and it is a one minute change.
 

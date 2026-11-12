@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Deploys one release on the backend VM (ADR-111). Started by the watcher when the operator
-# sets `suskii-release` on the instance ("<image tag> <anything, to deploy the same tag again>").
+# sets `suskii-release` on the instance: "<image tag> <a number, so the same tag can be deployed
+# again> [<tag of the website's and the console's images>]".
 #
 # In order: the stack's files from the instance metadata, the keys from Secret Manager into
 # memory-only env files, the images, a dump of the database, the database step, then the new
@@ -11,8 +12,8 @@
 # report of an earlier one is never taken for this one's. No secret is printed.
 set -euo pipefail
 
-RELEASE="${1:?usage: deploy.sh \"<image tag> [nonce]\"}"
-TAG="${RELEASE%% *}"
+RELEASE="${1:?usage: deploy.sh \"<image tag> [number] [sites tag]\"}"
+read -r TAG _ SITES_TAG <<<"$RELEASE"
 MD=http://metadata.google.internal/computeMetadata/v1
 md() { curl -sf -H 'Metadata-Flavor: Google' "$MD/$1"; }
 status() {
@@ -26,13 +27,23 @@ trap 'status "failed $RELEASE at $STEP"' ERR
 STEP=files
 install -d -m 0700 /run/suskii
 md instance/attributes/suskii-compose >/opt/suskii/compose.yml
-md instance/attributes/suskii-caddyfile >/opt/suskii/Caddyfile
 md instance/attributes/suskii-settings >/opt/suskii/settings.json
+setting() { python3 -c 'import json, sys; print(json.load(open("/opt/suskii/settings.json"))[sys.argv[1]])' "$1"; }
+# The website and the console run here when the settings say so and their images are named.
+SITES=false
+if [ "$(setting sites)" = "True" ] && [ -n "${SITES_TAG:-}" ]; then SITES=true; fi
+md instance/attributes/suskii-caddyfile >/opt/suskii/Caddyfile.new
+if [ "$SITES" = true ]; then
+  md instance/attributes/suskii-caddyfile-sites >>/opt/suskii/Caddyfile.new
+fi
+CADDY_CHANGED=false
+cmp -s /opt/suskii/Caddyfile.new /opt/suskii/Caddyfile || CADDY_CHANGED=true
+mv /opt/suskii/Caddyfile.new /opt/suskii/Caddyfile
 status "deploying $RELEASE"
 
 # The keys: read as the VM's own identity, written to files only root can read, in memory.
 STEP=keys
-SUSKII_TAG="$TAG" python3 - <<'PY'
+SUSKII_TAG="$TAG" SUSKII_SITES_TAG="${SITES_TAG:-none}" python3 - <<'PY'
 import base64, json, os, subprocess, urllib.request
 
 MD = "http://metadata.google.internal/computeMetadata/v1"
@@ -113,6 +124,7 @@ write(
     {
         "SUSKII_REGISTRY": settings["registry"],
         "SUSKII_TAG": os.environ["SUSKII_TAG"],
+        "SUSKII_SITES_TAG": os.environ["SUSKII_SITES_TAG"],
         "SUSKII_ENVIRONMENT": settings["environment"],
         "SUSKII_API_HOST": settings["api_host"],
         "SUSKII_WEB_HOST": settings["web_host"],
@@ -134,8 +146,20 @@ PY
 
 compose() { docker compose --env-file /opt/suskii/compose.env -f /opt/suskii/compose.yml "$@"; }
 
+# Operator commands, for a person logged in to the machine: sudo /opt/suskii/ops <script> [...]
+cat >/opt/suskii/ops <<'OPS'
+#!/usr/bin/env bash
+exec docker compose --env-file /opt/suskii/compose.env -f /opt/suskii/compose.yml \
+  --profile ops run --rm ops "$@"
+OPS
+chmod 0755 /opt/suskii/ops
+
 STEP=images
-compose --profile release pull --quiet
+if [ "$SITES" = true ]; then
+  compose --profile release --profile sites pull --quiet
+else
+  compose --profile release pull --quiet
+fi
 
 STEP=data
 compose up -d --wait --wait-timeout 180 postgres redis
@@ -152,12 +176,22 @@ fi
 STEP=database
 compose --profile release run --rm migrate
 
-# The platform. Caddy asks for its certificate on its own, in the background.
+# The platform. Caddy asks for its certificates on its own, in the background, and takes a
+# changed list of names without dropping a connection.
 STEP=platform
 compose up -d --wait --wait-timeout 300 api worker
-compose up -d caddy
 compose exec -T api node -e \
   "fetch('http://127.0.0.1:8080/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+if [ "$SITES" = true ]; then
+  STEP=sites
+  compose --profile sites up -d --wait --wait-timeout 300 web admin
+fi
+STEP=front-door-start
+compose up -d caddy
+if [ "$CADDY_CHANGED" = true ]; then
+  compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile ||
+    compose restart caddy
+fi
 
 # The assistant, last and on its own: the release stands whether or not it comes up.
 STEP=assistant
@@ -167,19 +201,25 @@ compose up -d --wait --wait-timeout 180 agent || ASSISTANT="not healthy"
 # The front door as the world sees it: the name, the certificate and Caddy, asked from here.
 # The first certificate can take a few minutes, so this is reported, never a reason to fail.
 STEP=front-door
-HOST="$(python3 -c 'import json; print(json.load(open("/opt/suskii/settings.json"))["api_host"])')"
-DOOR="not answering yet"
-for _ in $(seq 1 36); do
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$HOST/health" || true)"
-  if [ "$code" = "200" ]; then
-    DOOR="answers"
-    break
-  fi
-  sleep 5
-done
+door() { # door <address>: whether it answers 200 within three minutes
+  for _ in $(seq 1 36); do
+    if [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$1" || true)" = "200" ]; then
+      echo "answers"
+      return
+    fi
+    sleep 5
+  done
+  echo "not answering yet"
+}
+HOST="$(setting api_host)"
+DOOR="$(door "https://$HOST/health")"
+SITES_DOOR=""
+if [ "$SITES" = true ]; then
+  SITES_DOOR="; website: $(door "https://$(setting web_host)/robots.txt"); console: $(door "https://$(setting admin_host)/sign-in")"
+fi
 
 STEP=tidy
 docker image prune -af --filter until=48h >/dev/null 2>&1 || true
 echo "$RELEASE" >/run/suskii/deployed
 MEMORY="$(free -m | awk '/^Mem:/ { print $3 " of " $2 " MB in use" }')"
-status "ok $RELEASE; assistant: $ASSISTANT; https://$HOST: $DOOR; memory: $MEMORY"
+status "ok $RELEASE; assistant: $ASSISTANT; https://$HOST: $DOOR$SITES_DOOR; memory: $MEMORY"
