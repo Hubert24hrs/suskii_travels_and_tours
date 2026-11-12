@@ -317,6 +317,12 @@ resource "google_compute_disk" "data" {
   depends_on = [google_project_service.apis]
 }
 
+# Trivy flags a machine with a public address (GCP-0031). Here it is the design: the one
+# machine is its own front door, because the load balancer that would stand in front of it
+# costs about as much again (ADR-111). What faces the internet is Caddy on ports 80 and 443;
+# SSH is reachable through Identity-Aware Proxy only. The expiry makes the scan fail again, so
+# the move to the managed shape behind a load balancer is looked at by then.
+#trivy:ignore:GCP-0031:exp:2027-04-30
 resource "google_compute_instance" "backend" {
   project                   = var.project_id
   name                      = "${local.prefix}-backend"

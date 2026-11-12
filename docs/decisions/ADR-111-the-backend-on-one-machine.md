@@ -98,7 +98,9 @@ Said plainly, because the owner chose it for its price:
 - **The database is ours to look after.** Backups are a nightly dump (up to a day of loss) and
   whatever is on the data disk. There is no point-in-time recovery and no failover.
 - **No WAF and no load balancer.** Rate limits and bot checks are the API's own. The managed
-  shape behind Cloudflare has both.
+  shape behind Cloudflare has both. The machine has a public address, which the configuration
+  scan reports (Trivy GCP-0031): it is accepted here with an expiry of 2027-04-30, when the
+  scan fails again and the choice is looked at.
 - **Plain connections between containers.** They share one private bridge network on one
   host, so nothing between them leaves the machine; the `*_ALLOW_PLAINTEXT` settings say so
   (ADR-038). It is not encryption.
