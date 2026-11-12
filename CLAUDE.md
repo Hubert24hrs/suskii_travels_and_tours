@@ -1303,6 +1303,9 @@ Tooling notes for agents:
 - Invitations: a random token emailed as `/company/join#invite=…`, stored only as an HMAC
   (`company-invitation`, with the address as `company-invitation-email`), single use, 7 days, and
   accepted only by an account whose verified email is the invited one.
+- A policy's days in advance are counted from today where the trip starts (`tripPolicyFacts`:
+  `todayIn` of a flight's first origin or an in-house product's place; UTC for a stay), never
+  from the server's or the booker's calendar.
 - Booking for the company: `createBooking` with `company: true` calls
   `CompanyPolicyEvaluator.forBooking()` (provided by `BookingsModule`, no module cycle) after
   pricing; findings come from the quote and the priced total, never from the client. Payment and
@@ -1604,6 +1607,9 @@ Tooling notes for agents:
   Build the matrix from the input or put the condition on the steps. `pnpm check:workflows`
   (part of `pnpm test:scripts`, which CI runs) refuses such a file. After adding a manual
   workflow, look at the Actions list once: a run named after the file's path means it did not load.
+- A manual workflow that needs a key should have a way to run without one that calls nothing
+  (the Agent evals' "Replay the recorded answers"): it proves the workflow before the owner
+  spends anything, and it is how a workflow nobody can run yet is kept from rotting.
 - Terraform changes: `terraform fmt`, then `validate` and TFLint run in `infra.yml`; operators
   apply them (`infra/terraform/README.md`). Store and privacy changes update `docs/release/` in
   the same change.
