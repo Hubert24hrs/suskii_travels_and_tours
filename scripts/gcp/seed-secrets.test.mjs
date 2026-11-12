@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createPrivateKey, createPublicKey } from 'node:crypto';
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -74,11 +75,15 @@ test('gives every generated secret a value, and prints names only', () => {
     const { secrets } = gcloud.read();
     assert.deepEqual(Object.keys(secrets).sort(), [...NAMES].sort());
 
-    // A matching Ed25519 pair, as base64 of the PEM (what the API reads).
+    // A matching Ed25519 pair, as base64 of the PEM (what the API reads): the keys are parsed,
+    // and the public half stored is the one the private half derives.
     const pem = (name) => Buffer.from(secrets[name], 'base64').toString();
-    assert.match(pem('JWT_PRIVATE_KEY'), /^-----BEGIN PRIVATE KEY-----/);
-    assert.match(pem('JWT_PUBLIC_KEY'), /^-----BEGIN PUBLIC KEY-----/);
-    assert.match(pem('CARS_TICKET_SIGNING_KEY'), /^-----BEGIN PRIVATE KEY-----/);
+    const signing = createPrivateKey(pem('JWT_PRIVATE_KEY'));
+    const published = createPublicKey(pem('JWT_PUBLIC_KEY'));
+    assert.equal(signing.asymmetricKeyType, 'ed25519');
+    assert.equal(published.asymmetricKeyType, 'ed25519');
+    assert.ok(createPublicKey(signing).equals(published));
+    assert.equal(createPrivateKey(pem('CARS_TICKET_SIGNING_KEY')).asymmetricKeyType, 'ed25519');
     assert.equal(Buffer.from(secrets.FIELD_ENCRYPTION_KEY, 'base64').length, 32);
     // The two tokens between the API and the agent service are different values.
     assert.notEqual(secrets.AGENT_RUN_TOKEN, secrets.AGENT_TOOLS_TOKEN);

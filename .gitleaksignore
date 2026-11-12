@@ -1,0 +1,7 @@
+# Findings gitleaks reports in history that were checked by hand and hold no secret. One line per
+# finding, as gitleaks prints its fingerprint (commit:file:rule:line), with the reason above it.
+# The rules themselves are never loosened here: a new finding still fails the scan.
+
+# A test's two regular expressions for the header line of a PEM file, three lines apart, read
+# as one private key. No key material: the test now parses the keys instead.
+fb9a3de8a73b6cf667a1021ccd41c04f2798baec:scripts/gcp/seed-secrets.test.mjs:private-key:79
